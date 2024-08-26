@@ -78,3 +78,9 @@ They will have playwright and lighthouse tests enabled to run as part of the git
 -   Pages will follow nextjs standard and live in /src/app
 -   Unit testing files will be colocated beside their module. Ie a file that tests /src/lib/random.ts will be located in /src/lib/random.test.ts
 -   Other tests such as playwright or accessibility checks will be in a top-level \`/tests\` directory
+
+#### Deploying applications
+
+ * As a general rule, SafeInsights uses Amazon Web Services (AWS) to host applications
+ * Resources deployed to AWS will use uniform tagging strategy
+    * Our shared Infrastructure as Code (IaC) library has a [addTags](https://github.com/safeinsights/iac/blob/main/lib/tags.ts) helper function to easily tag resources
