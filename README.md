@@ -6,6 +6,7 @@ This repository is a template to start applications from as well as the SafeInsi
 
 -   Fork this repository andp pull from the fork
 -   Update package.json with app name and adjust other fields as needed
+-   Add yourself to the AUTHORS file
 -   From inside the new app's directory, run `./bin/bootstrap-from-app-template` this script will:
     -   sets a git remote named "template" which points to this repo
     -   Replaces this README.md file with an UPDATE ME message
@@ -47,6 +48,7 @@ SafeInsights applications will be:
     -   Staging will be automatically deployed to match the \`main\` branch upon PR merge.
     -   Production will be deployed whenever a release is tagged by an member of code-deployers group
     -   A slack message will be posted to an appropriate channel whenever one of the above deploys occur
+-   Contain an AUTHORS file that is updated by each person who constributes code
 
 ### Applications that have a web user interface, the following packages will be installed:
 
@@ -81,6 +83,6 @@ They will have playwright and lighthouse tests enabled to run as part of the git
 
 #### Deploying applications
 
- * As a general rule, SafeInsights uses Amazon Web Services (AWS) to host applications
- * Resources deployed to AWS will use uniform tagging strategy
-    * Our shared Infrastructure as Code (IaC) library has a [addTags](https://github.com/safeinsights/iac/blob/main/lib/tags.ts) helper function to easily tag resources
+-   As a general rule, SafeInsights uses Amazon Web Services (AWS) to host applications
+-   Resources deployed to AWS will use uniform tagging strategy
+    -   Our shared Infrastructure as Code (IaC) library has a [addTags](https://github.com/safeinsights/iac/blob/main/lib/tags.ts) helper function to easily tag resources
