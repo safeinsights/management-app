@@ -2,6 +2,8 @@
 
 set -e
 
+git remote remove origin
+
 git remote add template git@github.com:safeinsights/app-template.git
 
 echo '# Update ME' > README.md
