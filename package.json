@@ -1,7 +1,8 @@
 {
-    "name": "app-template",
+    "name": "management-app",
     "version": "0.0.1",
-    "description": "App Template",
+    "private": true,
+    "description": "The SafeInsights management app serves as an interface for researchers to submit and members to approve study proposals.",
     "main": "index.js",
     "scripts": {
         "dev": "next dev",
