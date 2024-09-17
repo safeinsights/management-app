@@ -13,6 +13,5 @@ yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
-package-lock.json
 coverage/
 playwright-report/
