@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+docker build -t mgmt-app-worker:latest .
+
+docker tag mgmt-app-worker:latest 533267019973.dkr.ecr.us-east-1.amazonaws.com/mgmt-app-worker:latest
+
+docker push 533267019973.dkr.ecr.us-east-1.amazonaws.com/mgmt-app-worker:latest
