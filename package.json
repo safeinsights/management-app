@@ -36,13 +36,19 @@
         "vitest": "*"
     },
     "dependencies": {
+        "@aws-sdk/client-ecr": "^3.658.0",
+        "@aws-sdk/client-lambda": "^3.658.0",
+        "@aws-sdk/credential-providers": "^3.658.0",
         "@clerk/nextjs": "^5.3.1",
         "@mantine/core": "^7.12",
         "@mantine/form": "^7.12",
         "@mantine/modals": "^7.12",
         "@vanilla-extract/css": "^1.15",
         "@vanilla-extract/next-plugin": "^2.4",
+        "aws-sdk": "^2.1691.0",
+        "child_process": "^1.0.2",
         "clsx": "*",
+        "dayjs": "^1.11.13",
         "next-swagger-doc": "^0.4",
         "open-next": "^3.1.2"
     }
