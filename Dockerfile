@@ -1,56 +1,48 @@
-# mostly following:
-# https://github.com/vercel/next.js/blob/canary/examples/with-docker/Dockerfile
+FROM public.ecr.aws/docker/library/node:20.9.0-slim AS base
 
-FROM node:20 as base
+RUN mkdir /app
+WORKDIR /app
 
 FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 
+# Install dependencies based on the preferred package manager
 COPY package.json package-lock.json* ./
 RUN npm ci
 
-# build the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps ./node_modules ./node_modules
-COPY . .
+FROM base as builder
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
-# the following line disables telemetry during the build.
+COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+
+# declare the sharp path to be /tmp/node_modules/sharp
+ENV NEXT_SHARP_PATH=/tmp/node_modules/sharp
+# install the dependencies and build the app
+# disables nextjs telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npx open-next@latest build
+RUN npm run build
 
-
-# Production image, copy all the files and run next
-FROM base AS runner
+FROM public.ecr.aws/docker/library/node:20.9.0-slim AS runner
+# install aws-lambda-adapter extension
+# https://aws.amazon.com/blogs/compute/working-with-lambda-layers-and-extensions-in-container-images/
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+# expose port 3000 and set env variables
+ENV PORT=3000 NODE_ENV=production
+ENV AWS_LWA_ENABLE_COMPRESSION=true
 WORKDIR /app
 
-ENV NODE_ENV=production
-# Uncomment the following line in case you want to disable telemetry during runtime.
-# ENV NEXT_TELEMETRY_DISABLED=1
+FROM base as release
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+COPY ./bin/lambda-server.sh ./run.sh
 
+# copy static files and images from build
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+RUN ln -s /tmp/cache ./.next/cache
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+EXPOSE 8080
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
-
-EXPOSE 3000
-
-ENV PORT=3000
-
-# server.js is created by next build from the standalone output
-# https://nextjs.org/docs/pages/api-reference/next-config-js/output
-ENV HOSTNAME="0.0.0.0"
-CMD ["node", ".next/standalone/server.js"]
+CMD exec ./run.sh
