@@ -45,4 +45,4 @@ COPY --from=builder /app/.next/static ./.next/static
 RUN ln -s /tmp/cache ./.next/cache
 
 
-CMD exec ./run.sh
+CMD ["./run.sh"]

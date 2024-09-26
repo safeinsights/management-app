@@ -1,14 +1,17 @@
 import { execSync } from 'child_process'
-import { ECRClient, DescribeImagesCommand } from '@aws-sdk/client-ecr'
+import {
+    ECRClient,
+    DescribeImagesCommand,
+    BatchDeleteImageCommand,
+    BatchGetImageCommand,
+    PutImageCommand,
+} from '@aws-sdk/client-ecr'
 import { LambdaClient, UpdateFunctionCodeCommand } from '@aws-sdk/client-lambda'
 import { fromIni } from '@aws-sdk/credential-providers'
 import dayjs from 'dayjs'
 
-// Helper function to execute shell commands
-// eslint-disable-next-line
 const exec = (command: string) => execSync(command, { stdio: 'inherit' })
 
-// Get todays ISO date for tagging
 const getCurrentDate = () => dayjs().format('YYYY-MM-DD')
 
 // Function to build and tag the Docker image
@@ -47,16 +50,53 @@ const updateLambdaFunction = async (lambdaClient: LambdaClient, functionName: st
             ImageUri: imageUri,
         }),
     )
+    console.log('Lambda function updated successfully.')
 }
 
+async function swapLatestTag(ecrClient: ECRClient, repositoryName: string, latestTag: string, imageTag: string) {
+    try {
+        await ecrClient.send(
+            new BatchDeleteImageCommand({
+                repositoryName,
+                imageIds: [{ imageTag: latestTag }],
+            }),
+        )
+    } catch {
+        console.log(`failed to remove "${latestTag}" tag, perhaps it doesn’t yet exist`)
+    }
+
+    const imgs = await ecrClient.send(
+        new BatchGetImageCommand({
+            repositoryName,
+            imageIds: [{ imageTag }],
+        }),
+    )
+
+    const imageManifest = imgs.images?.[0]?.imageManifest
+    if (!imageManifest) {
+        throw new Error('failed to get manifest for just pushed image')
+    }
+    // despite being named PutImageCommand, this really just adds the "latest" tag
+    ecrClient.send(
+        new PutImageCommand({
+            repositoryName,
+            imageManifest,
+            imageTag: latestTag,
+        }),
+    )
+
+    console.log(`tagged ${imageTag} as ${latestTag}`)
+}
 // Main function
-const main = async () => {
+async function main() {
     const profile = process.argv.includes('--profile') ? process.argv[process.argv.indexOf('--profile') + 1] : 'default'
     if (profile == 'default') {
         console.log('Using default profile, you may need to specify --profile')
     }
-    const region = 'us-east-1'
-
+    const region = 'us-east-1' // TODO: pull this from profile?
+    const environment = 'sandbox' // TODO: read from cli args or something
+    const latestTag = `${environment}-latest`
+    const repositoryName = 'mgmt-app-worker'
     const repository = '905418271997.dkr.ecr.us-east-1.amazonaws.com/mgmt-app-worker'
 
     exec(
@@ -71,21 +111,21 @@ const main = async () => {
     const ecrClient = new ECRClient({ region: region, credentials })
     const lambdaClient = new LambdaClient({ region: region, credentials })
 
-    let tag = getCurrentDate()
+    let imageTag = getCurrentDate()
     let suffix = 'a'
 
     // Check if the image tag already exists in ECR and increment if necessary
-    while (await tagExistsOnECR(ecrClient, 'mgmt-app-worker', tag)) {
-        tag = `${getCurrentDate()}-${suffix}`
+    while (await tagExistsOnECR(ecrClient, repositoryName, imageTag)) {
+        imageTag = `${getCurrentDate()}-${suffix}`
         suffix = String.fromCharCode(suffix.charCodeAt(0) + 1) // Increment suffix (a -> b -> c ...)
     }
 
-    buildAndTagDockerImage(repository, tag)
-    pushDockerImageToECR(repository, tag)
+    buildAndTagDockerImage(repository, imageTag)
+    pushDockerImageToECR(repository, imageTag)
 
-    await updateLambdaFunction(lambdaClient, functionName, `${repository}:${tag}`)
+    await updateLambdaFunction(lambdaClient, functionName, `${repository}:${imageTag}`)
 
-    console.log('Lambda function updated successfully.')
+    await swapLatestTag(ecrClient, repositoryName, latestTag, imageTag)
 }
 
 main().catch((error) => {
