@@ -1,3 +1,4 @@
+import React from 'react'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
