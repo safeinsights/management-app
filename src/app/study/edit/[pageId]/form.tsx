@@ -1,4 +1,5 @@
 'use client'
+import React from 'react';
 import { Form as HookForm, useForm } from "react-hook-form";
 import {
   Checkbox,
@@ -7,6 +8,7 @@ import {
   ColorPicker,
   DatePickerInput,
   FileInput,
+  Input,
   JsonInput,
   NativeSelect,
   NumberInput,
@@ -21,7 +23,8 @@ import {
   Textarea,
   TextInput,
 } from "react-hook-form-mantine";
-import { Button, Group, Paper, Container, Stack } from "@mantine/core";
+import { AiOutlineCloseSquare } from "react-icons/ai";
+import { Button, Group, Paper, Container, Stack, CloseButton, Text, Flex, rem } from "@mantine/core";
 
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,162 +86,84 @@ export function Form() {
     },
   });
 
+  const icon = <AiOutlineCloseSquare style={{ width: rem(18), height: rem(18) }}/>;
   return (
     <div className="App">
       <Container size={1000}>
-        <Paper withBorder shadow="md" p={30} mt={30} radius="md">
+        <Paper  bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm ">
+          <Group justify="space-between" gap="xl">
+            <Text ta="left">Study Proposal Form</Text>
+            <CloseButton aria-label="Close form" />
+          </Group>
+        </Paper>
+        <Paper bg="#f5f5f5" shadow="none" p={30} mt={30} radius="sm">
           <HookForm
             control={control}
             onSubmit={(e) => console.log(e.data)}
             onError={(e) => console.log(e)}
           >
-            <Stack>
-              <Checkbox
-                name="checkbox"
-                value="Test"
-                control={control}
-                label="I agree to sell my privacy"
-              />
-              <Chip name="chip" control={control}>
-                Awesome chip
-              </Chip>
-              <Chip.Group name="chipgroupSingle" control={control}>
-                <Chip.Item value="1">1</Chip.Item>
-                <Chip.Item value="2">2</Chip.Item>
-                <Chip.Item value="3">3</Chip.Item>
-              </Chip.Group>
-              <Chip.Group multiple name="chipgroupMultiple" control={control}>
-                <Chip.Item value="react">React</Chip.Item>
-                <Chip.Item value="ng">Angular</Chip.Item>
-                <Chip.Item value="svelte">Svelte</Chip.Item>
-              </Chip.Group>
-              <ColorInput
-                name="colorInput"
-                control={control}
-                placeholder="Pick color"
-                label="Your favorite color"
-              />
-              <ColorPicker name="colorPicker" control={control} />
-              <DatePickerInput
-                label="Pick date"
-                placeholder="Pick date"
-                name="datepicker"
-                control={control}
-              />
-              <FileInput
-                name="fileInput"
-                control={control}
-                placeholder="Pick file"
-                label="Your resume"
-                withAsterisk
-              />
-              <JsonInput
-                name="jsonInput"
-                control={control}
-                label="Your package.json"
-                placeholder="Textarea will autosize to fit the content"
-                validationError="Invalid json"
-                formatOnBlur
-                autosize
-                minRows={4}
-              />
-              <TextInput name="textInput" control={control} label="TextBox" />
-              <NativeSelect
-                name="nativeSelect"
-                control={control}
-                data={["React", "Vue", "Angular", "Svelte"]}
-                label="Select your favorite framework/library"
-                description="This is anonymous"
-                withAsterisk
-              />
-              <NumberInput
-                name="numberInput"
-                control={control}
-                placeholder="Your age"
-                label="Your age"
-                withAsterisk
-              />
-              <PasswordInput
-                name="passwordInput"
-                control={control}
-                placeholder="Password"
-                label="Password"
-                description="Password must include at least one letter, number and special character"
-                withAsterisk
-              />
-              <Group>
-                <PinInput name="pinInput" control={control} />
-              </Group>
-              <Radio.Group
-                name="radio"
-                control={control}
-                label="Select your favorite framework/library"
-                description="This is anonymous"
-                withAsterisk
-              >
-                <Group mt="xs">
-                  <Radio.Item value="react" label="React" />
-                  <Radio.Item value="svelte" label="Svelte" />
-                  <Radio.Item value="ng" label="Angular" />
-                  <Radio.Item value="vue" label="Vue" />
-                </Group>
-              </Radio.Group>
-              <Rating name="rating" control={control} />
-              <SegmentedControl
-                name="segmentedControl"
-                control={control}
-                data={[
-                  { label: "React", value: "react" },
-                  { label: "Angular", value: "ng" },
-                  { label: "Vue", value: "vue" },
-                  { label: "Svelte", value: "svelte" },
-                ]}
-              />
-              <Select
-                name="select"
-                control={control}
-                label="Your favorite framework/library"
-                placeholder="Pick one"
-                data={[
-                  { value: "react", label: "React" },
-                  { value: "ng", label: "Angular" },
-                  { value: "svelte", label: "Svelte" },
-                  { value: "vue", label: "Vue" },
-                ]}
-              />
-              <Slider
-                name="slider"
-                control={control}
-                marks={[
-                  { value: 20, label: "20%" },
-                  { value: 50, label: "50%" },
-                  { value: 80, label: "80%" },
-                ]}
-              />
-              <Switch
-                name="switch"
-                control={control}
-                label="I agree to sell my privacy"
-              />
-              <Textarea
-                name="textarea"
-                control={control}
-                placeholder="Your comment"
-                label="Your comment"
-                withAsterisk
-              />
-              <TextInput
-                name="textInput"
-                control={control}
-                placeholder="Your name"
-                label="Full name"
-                withAsterisk
-              />
+          <Text size="xl" ta="left">STUDY DETAILS</Text>
+            <Group  p={2} gap="md">
+              <Text>Study Name</Text>
+              <Input name="textInput" control={control} aria-label="Study Name" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Principal Investigator</Text>
+              <Input name="textInput" control={control} aria-label="Prinicipal Investigator" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Organization</Text>
+              <Input name="textInput" control={control} aria-label="Organization" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Study Description</Text>
+              <Textarea name="textarea"  control={control} aria-label="Study Description" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>IRB Approval Documentation</Text>
+              <FileInput name="fileInput"  control={control} aria-label="IRB Approval Documentation" leftSection={icon} placeholder="Attach Files (Supported file formats: .pdf, .docx, xxx" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Supporting documents</Text>
+              <FileInput name="fileInput" control={control} aria-label="IRB Approval Documentation"radius="none"/>
+              <Button leftSection={icon} bg="none" c="#000000">Attach File</Button>
+            </Group>
+            <Group p={2} gap="lg">
+              <Button leftSection={icon} bg="none" c="#000000">Add another</Button>
+            </Group>
+          
 
-              <Group mt="md">
-                <Button type="submit">Submit</Button>
-              </Group>
-            </Stack>
+          <Text size="xl" ta="left" mt={50}>REQUESTED DATA DETAILS</Text>
+          <Stack align="stretch">
+            <Group p={2} gap="lg">
+              <Text>Data dictionary folder name</Text>
+              <Input name="textInput" control={control} aria-label="data dictionary folder name" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Data link in Knowledge Base</Text>
+              <Input name="textInput" control= {control} aria-label="Data link in Knowledge Base" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Data Steward</Text>
+              <Input name="textInput" control={control} aria-label="Data Steward" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Specific datasets of interest</Text>
+              <Textarea name="textarea"  control={control} aria-label="Specific datasets of interest" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Data analysis deliverable format</Text>
+              <Textarea name="textarea" control={control} aria-label="Data analysis deliverable format" radius="none"/>
+            </Group>
+            <Group p={2} gap="lg">
+              <Text>Research code container link</Text>
+              <Input name="textInput" control={control} aria-label="Research code container link" radius="none"/>
+            </Group>
+          </Stack>
+          <Group mt={30} justify="flex-end">
+                <Button type="submit" variant="default">Save For Later</Button>
+                <Button type="submit" bg="#636363">Review</Button>
+          </Group>
           </HookForm>
         </Paper>
       </Container>
