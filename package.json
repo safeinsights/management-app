@@ -18,12 +18,12 @@
     "author": "Nathan Stitt",
     "license": "AGPL-3.0-or-later",
     "devDependencies": {
-        "@playwright/test": "^1.46",
+        "@playwright/test": "^1.47",
         "@testing-library/react": "^16.0",
         "@types/react": "18.3",
-        "@vanilla-extract/vite-plugin": "^4.0.13",
-        "@vitejs/plugin-react": "^4.3.1",
-        "@vitest/coverage-v8": "^2.0.5",
+        "@vanilla-extract/vite-plugin": "^4.0.16",
+        "@vitejs/plugin-react": "^4.3.2",
+        "@vitest/coverage-v8": "^2.1.1",
         "dotenv": "*",
         "eslint": "*",
         "eslint-config-next": "*",
@@ -35,11 +35,11 @@
         "vitest": "*"
     },
     "dependencies": {
-        "@clerk/nextjs": "^5.3.1",
-        "@mantine/core": "^7.12",
-        "@mantine/form": "^7.12",
-        "@mantine/modals": "^7.12",
-        "@vanilla-extract/css": "^1.15",
+        "@clerk/nextjs": "^5.6.4",
+        "@mantine/core": "^7.13",
+        "@mantine/form": "^7.13",
+        "@mantine/modals": "^7.13",
+        "@vanilla-extract/css": "^1.16",
         "@vanilla-extract/next-plugin": "^2.4",
         "clsx": "*",
         "next-swagger-doc": "^0.4"
