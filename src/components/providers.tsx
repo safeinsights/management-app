@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs"
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
@@ -15,7 +16,9 @@ type Props = {
 export const Providers: React.FC<Props> = ({ children }) => {
     return (
         <MantineProvider theme={theme}>
-            <ModalsProvider>{children}</ModalsProvider>
+            <ModalsProvider>
+                <ClerkProvider>{children}</ClerkProvider>
+            </ModalsProvider>
         </MantineProvider>
     )
 }

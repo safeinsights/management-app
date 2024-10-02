@@ -36,7 +36,7 @@
         "vitest": "*"
     },
     "dependencies": {
-        "@clerk/nextjs": "^5.3.1",
+        "@clerk/nextjs": "^5.7.1",
         "@mantine/core": "^7.12",
         "@mantine/form": "^7.12",
         "@mantine/modals": "^7.12",
