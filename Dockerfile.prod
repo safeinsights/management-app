@@ -8,8 +8,6 @@ WORKDIR /app
 
 FROM base AS npm
 
-# disables nextjs telemetry during the build.
-
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -19,13 +17,12 @@ COPY . .
 
 COPY --from=npm /app/node_modules ./node_modules
 
+# disables nextjs telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV AWS_LWA_ENABLE_COMPRESSION=true
 
 RUN npm run build
-
-# expose port 3000 and set env variables
 
 WORKDIR /app
 
@@ -33,7 +30,7 @@ FROM base AS release
 
 ENV NODE_ENV=production
 ENV PORT=8080
-EXPOSE 8080
+EXPOSE $PORT
 
 COPY ./bin/lambda-server.sh ./run.sh
 
