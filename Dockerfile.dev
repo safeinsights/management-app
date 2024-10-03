@@ -1,4 +1,4 @@
-FROM node:21-alpine AS base
+FROM node:21-bookworm AS base
 
 WORKDIR /app
 
@@ -7,8 +7,7 @@ COPY package.json package-lock.json ./
 
 RUN npm install
 
-COPY next.config.mjs .
-COPY tsconfig.json .
+COPY .editorconfig next.config.mjs tsconfig.json kysely.config.ts .eslintrc.json .prettierrc.json .
 
 # Next.js collects completely anonymous telemetry data about general usage. Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line to disable telemetry at run time
@@ -22,4 +21,4 @@ ENV NEXT_TELEMETRY_DISABLED 1
 
 # OR for sart Next.js in development, comment above two lines and uncomment below line
 
-CMD npm run dev
+CMD ./bin/docker-dev-init

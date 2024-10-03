@@ -19,6 +19,7 @@ services:
         volumes:
             - node_modules:/app/node_modules
             - ./src:/app/src
+            - ./bin:/app/bin
             - ./public:/app/public
         restart: always
         networks:

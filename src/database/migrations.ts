@@ -1,7 +1,7 @@
 import { FileMigrationProvider, Kysely, Migrator, sql } from 'kysely'
 import path from 'path'
 import { promises as fs } from 'fs'
-import { db } from './index'
+import { db } from '../database'
 
 export async function up(db: Kysely<any>): Promise<void> {
     await db.schema

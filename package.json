@@ -12,6 +12,7 @@
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
         "typecheck": "tsc --noEmit",
+        "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint",
         "test:e2e": "playwright test",
         "test:unit": "vitest",
@@ -31,6 +32,7 @@
         "eslint-config-next": "*",
         "eslint-config-prettier": "*",
         "happy-dom": "*",
+        "kysely-codegen": "^0.16.8",
         "npm-run-all": "*",
         "prettier": "*",
         "tsx": "^4.19.1",
@@ -38,9 +40,6 @@
         "vitest": "*"
     },
     "dependencies": {
-        "@aws-sdk/client-ecr": "^3.658.0",
-        "@aws-sdk/client-lambda": "^3.658.0",
-        "@aws-sdk/credential-providers": "^3.658.0",
         "@clerk/nextjs": "^5.3.1",
         "@mantine/core": "^7.12",
         "@mantine/form": "^7.12",
@@ -53,8 +52,8 @@
         "clsx": "*",
         "dayjs": "^1.11.13",
         "kysely": "^0.27.4",
+        "kysely-ctl": "^0.9.0",
         "next-swagger-doc": "^0.4",
-        "open-next": "^3.1.2",
         "pg": "^8.13.0"
     }
 }

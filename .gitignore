@@ -16,3 +16,13 @@ yarn-error.log*
 coverage/
 playwright-report/
 .open-next/
+<<<<<<< ours
+<<<<<<< Updated upstream
+=======
+.env
+.parcel-cache
+>>>>>>> Stashed changes
+=======
+.env
+.parcel-cache
+>>>>>>> theirs
