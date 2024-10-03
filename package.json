@@ -40,6 +40,8 @@
         "@mantine/core": "^7.12",
         "@mantine/form": "^7.12",
         "@mantine/modals": "^7.12",
+        "@mantine/notifications": "^7.13.2",
+        "@tabler/icons-react": "^3.19.0",
         "@vanilla-extract/css": "^1.15",
         "@vanilla-extract/next-plugin": "^2.4",
         "clsx": "*",
