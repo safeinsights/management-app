@@ -6,5 +6,6 @@ export * from './database/types'
 
 export const db = new Kysely<DB>({
     dialect,
+    log: ['error', ...(process.env.NODE_ENV === 'development' ? ['query', 'info'] : [])],
     plugins: [new CamelCasePlugin()],
 })
