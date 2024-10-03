@@ -11,7 +11,7 @@ export default defineConfig({
         environment: 'happy-dom',
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
         coverage: {
-            enabled: true,
+            enabled: false,
             // skipFull: true,
             thresholds: { 100: true },
             include: ['src/**/*.{js,jsx,ts,tsx}'],

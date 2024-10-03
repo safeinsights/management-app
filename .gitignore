@@ -2,7 +2,6 @@
 .idea
 *.log
 tmp/
-
 .next/
 test-results/
 *.tern-port
@@ -15,3 +14,5 @@ yarn-error.log*
 .eslintcache
 coverage/
 playwright-report/
+.env
+.parcel-cache
