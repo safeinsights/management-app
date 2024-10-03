@@ -1,0 +1,9 @@
+{
+    "target": {
+        "mgmnt-app": {
+            "cache-from": ["type=gha,scope=safeinsights/management-app/mgmnt-app"],
+            "cache-to": ["type=gha,mode=max,scope=safeinsights/management-app/mgmnt-app"],
+            "output": ["type=docker"]
+        }
+    }
+}
