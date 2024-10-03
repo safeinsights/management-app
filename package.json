@@ -9,6 +9,7 @@
         "build": "next build",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
+        "ci": "run-p checks test:e2e test:unit",
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
         "typecheck": "tsc --noEmit",

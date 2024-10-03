@@ -3,12 +3,16 @@ import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
 
 async function getDB() {
-    try {
-        return await db.selectFrom('study').selectAll().execute()
-    } catch (error) {
-        console.warn(error)
-        return 'Error getting studies'
-    }
+    return await db.selectFrom('study').select('name').execute()
+}
+
+const Body: React.FC<{ studies: Awaited<ReturnType<typeof getDB>> }> = ({ studies }) => {
+    return (
+        <div className={pageStyles}>
+            <main className={mainStyles}>Hello World, found {studies.length} records</main>
+            <footer className={footerStyles}>A SafeInsights production</footer>
+        </div>
+    )
 }
 
 export default async function Home() {
@@ -16,10 +20,5 @@ export default async function Home() {
 
     const recs = await getDB()
 
-    return (
-        <div className={pageStyles}>
-            <main className={mainStyles}>Hello World, found {recs.length} studies</main>
-            <footer className={footerStyles}>A SafeInsights production</footer>
-        </div>
-    )
+    return <Body studies={recs} />
 }

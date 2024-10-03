@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -e
+
+TYPES=src/database/types.ts
+
+npx kysely migrate:up
+
+npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
+npx prettier --write $TYPES
+npx eslint --fix $TYPES
