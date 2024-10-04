@@ -35,6 +35,9 @@ EXPOSE $PORT
 COPY ./bin/lambda-server.sh ./run.sh
 
 # copy static files and images from build
+# This relies on the "standalone" nextjs build configuration
+# if you receive errors about the ".next/standalone" directory not existing,
+# check that `output: 'standalone'` is specified in the next.config file
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/.next/standalone ./
