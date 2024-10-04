@@ -1,11 +1,5 @@
-import {
-    SignInButton,
-    SignedIn,
-    SignedOut,
-    UserButton,
-    OrganizationSwitcher,
-} from "@clerk/nextjs";
-import { Group } from "@mantine/core";
+import { SignInButton, SignedIn, SignedOut, UserButton, OrganizationSwitcher } from '@clerk/nextjs'
+import { Group } from '@mantine/core'
 
 export const NavAuthMenu = () => {
     return (
@@ -21,5 +15,5 @@ export const NavAuthMenu = () => {
                 </Group>
             </SignedIn>
         </>
-    );
-};
+    )
+}
