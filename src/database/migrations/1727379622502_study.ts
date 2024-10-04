@@ -1,10 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // await db.schema
-    // .createType('study_status')
-    // .asEnum([''])
-
     await db.schema
         .createTable('study')
         .addColumn('id', 'uuid', (col) => col.primaryKey())
