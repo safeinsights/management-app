@@ -46,12 +46,12 @@ export const Providers: React.FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
 
     return (
-        <ClerkProvider>
-            <QueryClientProvider client={queryClient}>
-                <MantineProvider theme={theme}>
+        <QueryClientProvider client={queryClient}>
+            <MantineProvider theme={theme}>
+                <ClerkProvider>
                     <ModalsProvider>{children}</ModalsProvider>
-                </MantineProvider>
-            </QueryClientProvider>
-        </ClerkProvider>
+                </ClerkProvider>
+            </MantineProvider>
+        </QueryClientProvider>
     )
 }

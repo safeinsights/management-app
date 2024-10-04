@@ -3,7 +3,7 @@ import { render, within } from '@testing-library/react'
 import Layout from './layout'
 
 describe('Main Layout', () => {
-    it('redirects when not signed in', async () => {
+    it('renders hello world', async () => {
         const { getByText } = render(
             <Layout>
                 <main>Hello World</main>
