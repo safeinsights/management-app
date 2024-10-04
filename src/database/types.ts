@@ -10,6 +10,15 @@ export type Generated<T> =
 
 export type Timestamp = ColumnType<Date, Date | string>
 
+export interface Member {
+    createdAt: Generated<Timestamp>
+    email: string
+    identifier: string
+    name: string
+    publicKey: string
+    updatedAt: Generated<Timestamp>
+}
+
 export interface Study {
     approvedAt: Timestamp | null
     approvedByMemberId: string | null
@@ -26,5 +35,6 @@ export interface Study {
 }
 
 export interface DB {
+    member: Member
     study: Study
 }

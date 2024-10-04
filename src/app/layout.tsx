@@ -1,19 +1,21 @@
-import type { Metadata } from "next";
+import type { Metadata } from 'next'
 // import { Inter } from "next/font/google";
-import "./globals.css";
-import "@mantine/core/styles.css";
-import { Providers } from "@/components/providers";
-import { AppLayout } from "@/components/app-layout";
+import './globals.css'
+import '@mantine/core/styles.css'
+import 'mantine-datatable/styles.layer.css'
+
+import { Providers } from './providers'
+import { AppLayout } from '@/components/app-layout'
 
 export const metadata: Metadata = {
     title: 'SafeInsights Management Application',
     description: 'Manages studies, members, and data',
-};
+}
 
 export default function RootLayout({
     children,
 }: Readonly<{
-    children: React.ReactNode;
+    children: React.ReactNode
 }>) {
     return (
         <html lang="en">
@@ -23,6 +25,5 @@ export default function RootLayout({
                 </Providers>
             </body>
         </html>
-    );
+    )
 }
-
