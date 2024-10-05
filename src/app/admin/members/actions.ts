@@ -3,8 +3,6 @@ import { db, Member } from '@/database'
 import * as R from 'remeda'
 import { NewMember } from './schema'
 
-// export type { Member } from '@/database'
-
 type MemberType = Member | NewMember
 
 function isNewRecord(obj: MemberType): obj is NewMember {
