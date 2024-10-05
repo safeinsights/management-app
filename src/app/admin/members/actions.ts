@@ -1,7 +1,8 @@
 'use server'
-import { db, Member } from '@/database'
+import { db } from '@/database'
 import * as R from 'remeda'
-import { NewMember } from './schema'
+
+import { Member, NewMember } from './schema'
 
 type MemberType = Member | NewMember
 
