@@ -18,12 +18,12 @@ export const updateMemberAction = async (prevIdentifier: string, member: Validat
         .updateTable('member')
         .set(member)
         .where('identifier', '=', prevIdentifier)
-        .returningAll()
+        .returningAll('member')
         .execute()
 
     return results
 }
 
 export const fetchMembersAction = async () => {
-    return await db.selectFrom('member').selectAll().execute()
+    return await db.selectFrom('member').selectAll('member').execute()
 }
