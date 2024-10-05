@@ -1,25 +1,7 @@
 'use server'
 import { db } from '@/database'
-import * as R from 'remeda'
 
-import { Member, NewMember } from './schema'
-
-type MemberType = Member | NewMember
-
-function isNewRecord(obj: MemberType): obj is NewMember {
-    return obj != null && obj.createdAt === undefined
-}
-
-export const upsertMemberAction = async (member: NewMember | Member) => {
-    if (isNewRecord(member)) {
-        db.insertInto('member').values(member).execute()
-    } else {
-        db.updateTable('member')
-            .set(R.omit(member, ['createdAt', 'updatedAt']))
-            .where('identifier', '=', member.identifier)
-            .execute()
-    }
-}
+import { ValidatedMember, NewMember } from './schema'
 
 export const insertMemberAction = async (member: NewMember) => {
     const results = await db.insertInto('member').values(member).returningAll().execute()
@@ -31,10 +13,10 @@ export const insertMemberAction = async (member: NewMember) => {
     return results[0]
 }
 
-export const updateMemberAction = async (prevIdentifier: string, member: NewMember) => {
+export const updateMemberAction = async (prevIdentifier: string, member: ValidatedMember) => {
     const results = db
         .updateTable('member')
-        .set(R.omit(member, ['createdAt', 'updatedAt']))
+        .set(member)
         .where('identifier', '=', prevIdentifier)
         .returningAll()
         .execute()
