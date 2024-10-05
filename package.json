@@ -12,6 +12,7 @@
         "ci": "run-p checks test:e2e test:unit",
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
+        "pre:push": "run-s lint:fix checks",
         "typecheck": "tsc --noEmit",
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint",
