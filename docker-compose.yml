@@ -43,8 +43,8 @@ services:
             test: ['CMD-SHELL', 'curl -s http://localhost:3000/']
             interval: 10s
             retries: 5
-            start_period: 30s
-            timeout: 10s
+            start_period: 45s
+            timeout: 30s
 networks:
     mgmnt-app:
 volumes:

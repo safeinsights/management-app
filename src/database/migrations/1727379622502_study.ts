@@ -11,7 +11,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('output_formats', 'text', (col) => col.notNull())
         .addColumn('container_location', 'text', (col) => col.notNull())
         .addColumn('irb_protocols', 'text')
-
         .addColumn('approved_at', 'timestamp')
         .addColumn('approved_by_member_id', 'uuid')
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
