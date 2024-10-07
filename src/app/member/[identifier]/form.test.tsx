@@ -12,7 +12,9 @@ vi.mock('./actions', () => ({
 
 describe('Member Start Page Form', () => {
     it('submits form', async () => {
-        const { getByLabelText, getByRole } = render(<Form />, { wrapper: TestingProviders })
+        const { getByLabelText, getByRole } = render(<Form memberId="1234" memberIdentifier="hello-world" />, {
+            wrapper: TestingProviders,
+        })
         const input = getByLabelText(/study/)
         await userEvent.type(input, '2short')
         expect(onSubmitAction).not.toHaveBeenCalled()

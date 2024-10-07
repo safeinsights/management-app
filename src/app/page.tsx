@@ -3,7 +3,7 @@ import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
 
 async function getDB() {
-    return await db.selectFrom('study').select('name').execute()
+    return await db.selectFrom('study').select('title').execute()
 }
 
 const Body: React.FC<{ studies: Awaited<ReturnType<typeof getDB>> }> = ({ studies }) => {
