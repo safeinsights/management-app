@@ -3,19 +3,27 @@
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { useEffect, useState } from 'react'
-import { fetchMembersAction } from './actions'
+import { fetchMembersAction, deleteMemberAction } from './actions'
 import { type Member, type NewMember, NEW_MEMBER } from './schema'
-import { useQuery } from '@tanstack/react-query'
-import { IconEdit, IconUsers } from '@tabler/icons-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-react'
 import { Button, Flex, Box, Group, ActionIcon } from '@mantine/core'
 import { EditModal } from './edit-form'
+import { SuretyGuard } from '@/components/surety-guard'
 
 export function MembersAdminTable() {
+    const queryClient = useQueryClient()
     const { data } = useQuery({
         queryKey: ['members'],
         initialData: [] as Member[],
         queryFn: () => {
             return fetchMembersAction()
+        },
+    })
+    const { mutate: deleteMember } = useMutation({
+        mutationFn: deleteMemberAction,
+        onSettled: async () => {
+            return await queryClient.invalidateQueries({ queryKey: ['members'] })
         },
     })
 
@@ -62,11 +70,15 @@ export function MembersAdminTable() {
                                 <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => setEditing(member)}>
                                     <IconEdit size={18} />
                                 </ActionIcon>
+                                <SuretyGuard onConfirmed={() => deleteMember(member.identifier)}>
+                                    <IconTrash size={18} />
+                                </SuretyGuard>
                             </Group>
                         ),
                     },
                 ]}
             />
+
             <EditModal editing={editing} onComplete={onEditComplete} />
             <Flex justify={'end'} mt="lg">
                 <Button onClick={() => setEditing(NEW_MEMBER)}>Add new Member</Button>
