@@ -7,7 +7,7 @@ import { IconError404 } from '@tabler/icons-react'
 export default async function MemberHome({ params }: { params: { identifier: string } }) {
     const member = await db
         .selectFrom('member')
-        .select('name')
+        .select(['id', 'identifier', 'name'])
         .where('identifier', '=', params.identifier)
         .executeTakeFirst()
 
@@ -29,7 +29,7 @@ export default async function MemberHome({ params }: { params: { identifier: str
                 <Text>Patience, you must have, for many bugs encounter, you will.</Text>
                 <Text>Questions, ask many, for in the asking, answers revealed, they are.</Text>
 
-                <Form />
+                <Form memberId={member.id} memberIdentifier={member.identifier} />
             </Flex>
         </Flex>
     )

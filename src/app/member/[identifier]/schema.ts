@@ -7,4 +7,4 @@ export const schema = z.object({
         .max(120, { message: 'Title must be less than 120 characters long' }),
 })
 
-export type FormSchemaType = z.infer<typeof schema>
+export type FormValues = z.infer<typeof schema>

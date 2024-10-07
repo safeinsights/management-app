@@ -22,4 +22,4 @@ Object.freeze(NEW_MEMBER)
 
 export type Member = Selectable<DefinedMember>
 
-export type NewMember = Omit<Member, 'createdAt' | 'updatedAt'> & { createdAt?: never; updatedAt?: never }
+export type NewMember = Omit<Member, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: never; updatedAt?: never }
