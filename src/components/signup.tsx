@@ -40,7 +40,7 @@ const EmailVerificationStep = () => {
             // and redirect the user
             if (completeSignUp.status === 'complete') {
                 await setActive({ session: completeSignUp.createdSessionId })
-                router.push('/protected')
+                router.push('/')
             } else {
                 // If the status is not complete, check why. User may need to
                 // complete further steps.
