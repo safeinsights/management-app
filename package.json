@@ -37,6 +37,7 @@
         "eslint-config-prettier": "*",
         "happy-dom": "*",
         "kysely-codegen": "^0.16.8",
+        "next-router-mock": "^0.9.13",
         "npm-run-all": "*",
         "prettier": "*",
         "tsx": "^4.19.1",

@@ -27,6 +27,6 @@ describe('Member Start Page Form', () => {
 
         await userEvent.click(getByRole('button', { name: /begin/i }))
 
-        expect(onSubmitAction).toHaveBeenCalledWith({ title })
+        expect(onSubmitAction).toHaveBeenCalledWith('1234', { title })
     })
 })
