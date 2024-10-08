@@ -10,6 +10,9 @@ import { AppLayout } from '@/components/app-layout'
 export const metadata: Metadata = {
     title: 'SafeInsights Management Application',
     description: 'Manages studies, members, and data',
+    icons: {
+        icon: '/icon.png',
+    },
 }
 
 export default function RootLayout({
