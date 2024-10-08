@@ -18,15 +18,10 @@ describe('Member Start Page Form', () => {
         const input = getByLabelText(/study/)
         await userEvent.type(input, '2short')
         expect(onCreateStudyAction).not.toHaveBeenCalled()
-
         userEvent.clear(input)
-
         const title = 'hello world thing goes'
-
         await userEvent.type(input, title)
-
         await userEvent.click(getByRole('button', { name: /begin/i }))
-
         expect(onCreateStudyAction).toHaveBeenCalledWith('1234', { title })
     })
 })
