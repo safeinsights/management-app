@@ -32,6 +32,7 @@
         "@vitejs/plugin-react": "^4.3.2",
         "@vitest/coverage-v8": "^2.1.1",
         "dotenv": "*",
+        "esbuild": "^0.24.0",
         "eslint": "*",
         "eslint-config-next": "*",
         "eslint-config-prettier": "*",
