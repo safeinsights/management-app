@@ -8,23 +8,36 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
+export type StudyStatus = 'approved' | 'draft' | 'inactive' | 'proposal'
+
 export type Timestamp = ColumnType<Date, Date | string>
+
+export interface Member {
+    createdAt: Generated<Timestamp>
+    email: string
+    id: Generated<string>
+    identifier: string
+    name: string
+    publicKey: string
+    updatedAt: Generated<Timestamp>
+}
 
 export interface Study {
     approvedAt: Timestamp | null
-    approvedByMemberId: string | null
     containerLocation: string
     createdAt: Generated<Timestamp>
-    dataSources: string
-    id: string
+    dataSources: string | null
+    id: Generated<string>
     irbProtocols: string | null
     memberId: string
-    name: string
-    outputFormats: string
+    outputFormats: string | null
     researcherId: string
+    status: Generated<StudyStatus>
+    title: string
     updatedAt: Generated<Timestamp>
 }
 
 export interface DB {
+    member: Member
     study: Study
 }

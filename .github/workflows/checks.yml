@@ -12,8 +12,7 @@ jobs:
             - uses: actions/checkout@v4
             - name: Set up Docker Buildx
               uses: docker/setup-buildx-action@v3
-
-            - name: Cache Docker layers
+            - name: Setup caching for Docker layers
               uses: docker/bake-action@master
               with:
                   push: false
@@ -21,16 +20,18 @@ jobs:
                   files: |-
                       docker-compose.yml
                       .github/workflows/gh-docker-compse-cache.json
-
             - name: Run docker compose
               run: docker compose up postgres mgmnt-app --wait --detach --wait-timeout 60
-            - name: Run Specs
-              run: docker compose exec mgmnt-app npm run ci
               env:
-                  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+                  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
                   CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
                   E2E_CLERK_USER_USERNAME: ${{ secrets.E2E_CLERK_USER_USERNAME }}
                   E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
+            - name: Run Specs
+              run: docker compose exec mgmnt-app npm run ci
+            - name: display docker logs
+              run: docker compose logs
+              if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
               with:
