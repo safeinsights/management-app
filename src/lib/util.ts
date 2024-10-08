@@ -1,5 +1,3 @@
-export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
-
 // https://dense13.com/blog/2009/05/03/converting-string-to-slug-javascript/
 export function slugify(str: string) {
     str = str.replace(/^\s+|\s+$/g, '') // trim

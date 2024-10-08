@@ -34,11 +34,14 @@ export default async function MemberHome({
         <Paper m="xl" shadow="xs" p="xl">
             <Title mb="lg">Pre-Proposal Approved by {study.memberName}</Title>
             <Text>
-                Congratulations! Your pre-proposal has been approved by {study.memberName}. You can now build and push your image
-                to your studies repository. Once reviewed, {study.memberName} will reach out with a final decision.
+                Congratulations! Your pre-proposal has been approved by {study.memberName}. You can now build and push
+                your image to your studies repository. Once reviewed, {study.memberName} will reach out with a final
+                decision.
             </Text>
 
-            <Title my="lg" order={3}>Use the following steps to authenticate and push your code:</Title>
+            <Title my="lg" order={3}>
+                Use the following steps to authenticate and push your code:
+            </Title>
 
             <Text>Authenticate Docker using the AWS CLI:</Text>
 

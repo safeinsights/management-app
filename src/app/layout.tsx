@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-// import { Inter } from "next/font/google";
+
 import './globals.css'
 import '@mantine/core/styles.css'
 import 'mantine-datatable/styles.layer.css'

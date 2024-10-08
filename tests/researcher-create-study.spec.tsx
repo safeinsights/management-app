@@ -1,4 +1,3 @@
-//import { setupClerkTestingToken } from "@clerk/testing/playwright";
 import { test, expect } from '@playwright/test'
 
 test.describe('app', () => {
