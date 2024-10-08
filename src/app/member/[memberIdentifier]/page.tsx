@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form } from './form'
 import { db } from '@/database'
-import { Flex, Text } from '@mantine/core'
+import { Flex, List, ListItem, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/alerts'
 
 export default async function MemberHome({ params }: { params: { memberIdentifier: string } }) {
@@ -23,7 +23,19 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
     return (
         <Flex justify="center">
             <Flex direction="column">
-                <h1>Welecome to {member.name} data enclave</h1>
+                <Title>{member.name} Study Pre-Proposal Submission</Title>
+
+                <List>
+                    <ListItem>
+                        Submit pre-proposal for review
+                    </ListItem>
+                    <ListItem>
+                        Submit pre-proposal for review
+                    </ListItem>
+                    <ListItem>
+                        Submit pre-proposal for review
+                    </ListItem>
+                </List>
 
                 <Text mt="lg">Hmm, a new researcher, you are.</Text>
                 <Text>Curious, your mind is, yes. Study the ways of knowledge, you seek.</Text>
