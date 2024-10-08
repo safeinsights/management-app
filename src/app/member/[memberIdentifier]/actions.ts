@@ -1,12 +1,12 @@
 'use server'
 
 import { DEV_ENV } from '@/lib/util'
-import { ECR, generateRepositoryPath } from '@/server/ecr'
+import { ECR, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
-import { uuidToB64 } from '@/server/uuid'
+import { uuidToB64, uuidv7 } from '@/server/uuid'
 
-export const onSubmitAction = async (memberId: string, study: FormValues) => {
+export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
     schema.parse(study) // throws when malformed
 
     const member = await db
@@ -15,11 +15,13 @@ export const onSubmitAction = async (memberId: string, study: FormValues) => {
         .where('id', '=', memberId)
         .executeTakeFirstOrThrow()
 
-    const repoPath = generateRepositoryPath(member.identifier, study.title)
+    const studyId = uuidv7()
+    const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
 
     let repoUrl = ''
     if (DEV_ENV) {
-        repoUrl = '905418271997.dkr.ecr.us-east-1.amazonaws.com/${repoPath}:latest'
+        const { accountId, region } = await getAWSInfo()
+        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
     } else {
         const ecr = new ECR()
         repoUrl = await ecr.createAnalysisRepository(repoPath, {
@@ -30,6 +32,7 @@ export const onSubmitAction = async (memberId: string, study: FormValues) => {
     const response = await db
         .insertInto('study')
         .values({
+            id: studyId,
             title: study.title,
             memberId,
             researcherId: '00000000-0000-0000-0000-000000000000', // FIXME: get researcherId from clerk session

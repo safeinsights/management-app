@@ -4,7 +4,7 @@ import { Form } from './form'
 import { TestingProviders } from '../../providers'
 import userEvent from '@testing-library/user-event'
 
-import { onSubmitAction } from './actions'
+import { onCreateStudyAction } from './actions'
 
 vi.mock('./actions', () => ({
     onSubmitAction: vi.fn(),
@@ -17,7 +17,7 @@ describe('Member Start Page Form', () => {
         })
         const input = getByLabelText(/study/)
         await userEvent.type(input, '2short')
-        expect(onSubmitAction).not.toHaveBeenCalled()
+        expect(onCreateStudyAction).not.toHaveBeenCalled()
 
         userEvent.clear(input)
 
@@ -27,6 +27,6 @@ describe('Member Start Page Form', () => {
 
         await userEvent.click(getByRole('button', { name: /begin/i }))
 
-        expect(onSubmitAction).toHaveBeenCalledWith('1234', { title })
+        expect(onCreateStudyAction).toHaveBeenCalledWith('1234', { title })
     })
 })
