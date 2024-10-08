@@ -4,8 +4,16 @@ set -e
 
 TYPES=src/database/types.ts
 
-npx kysely migrate:up
+npx kysely migrate:latest
 
 npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
 npx prettier --write $TYPES
 npx eslint --fix $TYPES
+
+if [ -e "$CI" ]; then
+    if git diff --name-only | grep -q 'src/database/types.ts'; then
+        echo "src/database/types.ts has uncommitted changes."
+        git diff 'src/database/types.ts'
+        exit 1
+    fi
+fi
