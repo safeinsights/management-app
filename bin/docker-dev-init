@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# this file is the entrypoint for the Dockerfile.dev
+# and is used for local development
+
+set -e
+
+npm install
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+$SCRIPT_DIR/migrate-dev-db
+
+npm run dev
