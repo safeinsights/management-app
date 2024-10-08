@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { reportError } from '@/components/errors'
 import { ClerkAPIError } from '@clerk/types'
-import Link from 'next/link'
 
 interface SignUpFormValues {
     email: string

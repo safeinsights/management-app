@@ -1,4 +1,4 @@
-import { ClerkProvider } from "@clerk/nextjs"
+import { ClerkProvider } from '@clerk/nextjs'
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
