@@ -1,5 +1,12 @@
+import 'server-only'
+
 import { ECRClient, CreateRepositoryCommand, CreateRepositoryCommandInput, ECRClientConfig } from '@aws-sdk/client-ecr'
 import { fromIni } from '@aws-sdk/credential-providers'
+import { slugify } from '@/lib/util'
+
+export function generateRepositoryPath(memberIdentifier: string, studyTitle: string) {
+    return `si/analysis/${memberIdentifier}/${slugify(studyTitle)}`
+}
 
 export class ECR {
     defaultTags: Record<string, string> = {
@@ -18,7 +25,7 @@ export class ECR {
 
     async createAnalysisRepository(repositoryName: string, tags: Record<string, string> = {}) {
         const input: CreateRepositoryCommandInput = {
-            repositoryName: `si/analysis/${repositoryName}`,
+            repositoryName,
             tags: Object.entries(Object.assign(tags, this.defaultTags)).map(([Key, Value]) => ({ Key, Value })),
         }
         const command = new CreateRepositoryCommand(input)

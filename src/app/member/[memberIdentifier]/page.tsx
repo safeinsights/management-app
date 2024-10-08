@@ -1,21 +1,22 @@
 import React from 'react'
 import { Form } from './form'
 import { db } from '@/database'
-import { Alert, Flex, Text } from '@mantine/core'
-import { IconError404 } from '@tabler/icons-react'
+import { Flex, Text } from '@mantine/core'
+import { AlertNotFound } from '@/components/alerts'
 
-export default async function MemberHome({ params }: { params: { identifier: string } }) {
+export default async function MemberHome({ params }: { params: { memberIdentifier: string } }) {
     const member = await db
         .selectFrom('member')
         .select(['id', 'identifier', 'name'])
-        .where('identifier', '=', params.identifier)
+        .where('identifier', '=', params.memberIdentifier)
         .executeTakeFirst()
 
     if (!member) {
         return (
-            <Alert w="400" m="auto" variant="filled" color="red" icon={<IconError404 />} title="Member not found">
-                Member with identifier {params.identifier} not found
-            </Alert>
+            <AlertNotFound
+                title="Member not found"
+                message={`Member with identifier ${params.memberIdentifier} not found`}
+            />
         )
     }
 
