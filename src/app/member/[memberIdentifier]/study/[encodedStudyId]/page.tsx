@@ -50,9 +50,7 @@ export default async function MemberHome({
             <CopyingInput value={`docker build -t ${tag} .`} />
             <Text>After the build completes, tag your image so you can push the image to this repository:</Text>
 
-            <CopyingInput
-                value={`docker tag ${tag}:latest 905418271997.dkr.ecr.us-east-1.amazonaws.com/mgmt-app-worker:latest`}
-            />
+            <CopyingInput value={`docker tag ${tag}:latest ${study.containerLocation}:latest`} />
 
             <Text>Run the following command to push the image:</Text>
             <CopyingInput value={`docker push 905418271997.dkr.ecr.us-east-1.amazonaws.com/${tag}:latest`} />

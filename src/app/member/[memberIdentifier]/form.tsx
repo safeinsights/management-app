@@ -2,7 +2,7 @@
 import { Form as HookForm, useForm } from 'react-hook-form'
 import { Button, Flex } from '@mantine/core'
 import { useRouter } from 'next/navigation'
-import { onSubmitAction } from './actions'
+import { onCreateStudyAction } from './actions'
 import { useMutation } from '@tanstack/react-query'
 import { TextInput } from 'react-hook-form-mantine'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,7 +19,7 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
     })
 
     const { mutate: createStudy, isPending } = useMutation({
-        mutationFn: async (d: FormValues) => await onSubmitAction(memberId, d),
+        mutationFn: async (d: FormValues) => await onCreateStudyAction(memberId, d),
         onSettled(studyId, error) {
             if (error) {
                 control.setError('title', { message: error?.message || 'An error occurred' })
