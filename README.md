@@ -15,6 +15,7 @@ It’s responsible for:
 Note: For developing locally without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
 Set these two environment variables with your Clerk secrets:
+
 ```shell
 export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
 export CLERK_SECRET_KEY=sk_test_....

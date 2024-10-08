@@ -1,5 +1,5 @@
-import { SignedIn, SignedOut } from "@clerk/nextjs"
-import { LoginOrSignup } from "@/components/login-or-signup"
+import { SignedIn, SignedOut } from '@clerk/nextjs'
+import { LoginOrSignup } from '@/components/login-or-signup'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
