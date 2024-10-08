@@ -1,7 +1,7 @@
 import { Kysely, CamelCasePlugin } from 'kysely'
 import { DB } from './database/types'
 import { dialect } from './database/dialect'
-import { DEV_ENV } from './lib/util'
+import { DEV_ENV } from './server/config'
 
 export const db = new Kysely<DB>({
     dialect,

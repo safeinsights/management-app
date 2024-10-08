@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { onCreateStudyAction } from './actions'
 
 vi.mock('./actions', () => ({
-    onSubmitAction: vi.fn(),
+    onCreateStudyAction: vi.fn(),
 }))
 
 describe('Member Start Page Form', () => {

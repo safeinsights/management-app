@@ -1,6 +1,6 @@
 'use server'
 
-import { DEV_ENV } from '@/lib/util'
+import { DEV_ENV } from '@/server/config'
 import { ECR, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
