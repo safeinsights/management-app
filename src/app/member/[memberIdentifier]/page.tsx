@@ -25,15 +25,19 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
             <Flex direction="column">
                 <Title>{member.name} Study Pre-Proposal Submission</Title>
 
+                <Text>
+                    {member.name} is accepting research proposals for post-hoc analysis. Simply follow the steps below to complete the process:
+                </Text>
+
                 <List>
                     <ListItem>
                         Submit pre-proposal for review
                     </ListItem>
                     <ListItem>
-                        Submit pre-proposal for review
+                        Once approved, submit your code and your research proposal
                     </ListItem>
                     <ListItem>
-                        Submit pre-proposal for review
+                        Contingent on approval, OpenStax will proceed to make aggregate results available to you
                     </ListItem>
                 </List>
 
