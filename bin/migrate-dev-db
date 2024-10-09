@@ -5,6 +5,7 @@ set -e
 TYPES=src/database/types.ts
 
 npx kysely migrate:latest
+npx kysely seed:run
 
 npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
 npx prettier --write $TYPES
