@@ -1,24 +1,18 @@
 import { footerStyles, mainStyles, pageStyles } from './page.css'
-import { db } from '@/database'
-import { unstable_noStore as noStore } from 'next/cache'
+import Link from 'next/link'
+import { Button, Title } from '@mantine/core'
 
-async function getDB() {
-    return await db.selectFrom('study').select('title').execute()
-}
-
-const Body: React.FC<{ studies: Awaited<ReturnType<typeof getDB>> }> = ({ studies }) => {
+export default async function Home() {
     return (
         <div className={pageStyles}>
-            <main className={mainStyles}>Hello World, found {studies.length} records</main>
+            <main className={mainStyles}>
+                <Title>Welcome to the SafeInsights management app.</Title>
+                <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
+                <Link href="/member/openstax/study-request" passHref>
+                    <Button>Proceed to study proposal</Button>
+                </Link>
+            </main>
             <footer className={footerStyles}>A SafeInsights production</footer>
         </div>
     )
-}
-
-export default async function Home() {
-    noStore()
-
-    const recs = await getDB()
-
-    return <Body studies={recs} />
 }
