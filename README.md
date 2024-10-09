@@ -1,6 +1,7 @@
 # SafeInsights Management Application
 
 ### Overview
+
 The management app (also called Basic Management App or BMA) serves as an interface for researchers to submit and members to approve study proposals.
 
 It’s responsible for:
@@ -50,15 +51,14 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-
 ### Useful Links
+
 [https://dev.to/aws-builders/how-to-package-and-deploy-a-lambda-function-as-a-container-image-3d1a] How to package and deploy a Lambda function as a container image
 [https://docs.aws.amazon.com/cdk/v2/guide/serverless_example.html] Tutorial: Create a serverless Hello World application
 
-
 ### Deploying Lambda Functions
 
-The new way to deploy is from the IaC repo, run: 
+The new way to deploy is from the IaC repo, run:
 
 ```bash
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
@@ -66,12 +66,10 @@ The new way to deploy is from the IaC repo, run:
 
 ### Troubleshooting/Notes
 
-
 ### UI Framework (Mantine)
-
 
 ### Running Tests
 
-### Currently Implemented 
-### TODOs
+### Currently Implemented
 
+### TODOs
