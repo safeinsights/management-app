@@ -8,5 +8,5 @@ export default defineConfig({
     },
     seeds: {
         seedFolder: 'src/database/seeds',
-    }
+    },
 })
