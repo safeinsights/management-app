@@ -15,43 +15,43 @@ export type StudyStatus = 'approved' | 'draft' | 'inactive' | 'proposal'
 export type Timestamp = ColumnType<Date, Date | string>
 
 export interface Member {
-    createdAt: Generated<Timestamp>
+    created_at: Generated<Timestamp>
     email: string
     id: Generated<string>
     identifier: string
     name: string
-    publicKey: string
-    updatedAt: Generated<Timestamp>
+    public_key: string
+    updated_at: Generated<Timestamp>
 }
 
 export interface Study {
-    approvedAt: Timestamp | null
-    containerLocation: string
-    createdAt: Generated<Timestamp>
-    dataSources: string | null
+    approved_at: Timestamp | null
+    container_location: string
+    created_at: Generated<Timestamp>
+    data_sources: string | null
     description: string
     id: Generated<string>
-    irbProtocols: string | null
-    memberId: string
-    outputFormats: string | null
-    piName: string
-    researcherId: string
+    irb_protocols: string | null
+    member_id: string
+    output_formats: string | null
+    pi_name: string
+    researcher_id: string
     status: Generated<StudyStatus>
     title: string
-    updatedAt: Generated<Timestamp>
+    updated_at: Generated<Timestamp>
 }
 
 export interface StudyRun {
-    createdAt: Generated<Timestamp>
+    created_at: Generated<Timestamp>
     id: Generated<string>
-    startedAt: Timestamp | null
+    started_at: Timestamp | null
     status: Generated<StudyRunStatus>
-    studyId: string
-    updatedAt: Generated<Timestamp>
+    study_id: string
+    updated_at: Generated<Timestamp>
 }
 
 export interface DB {
     member: Member
     study: Study
-    studyRun: StudyRun
+    study_run: StudyRun
 }
