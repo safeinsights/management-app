@@ -28,20 +28,35 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             title: study.title,
         })
     }
+    const results = await db.transaction().execute(async (trx) => {
+        await trx
+            .insertInto('study')
+            .values({
+                id: studyId,
+                title: study.title,
+                description: study.description,
+                piName: study.piName,
+                memberId,
+                researcherId: '00000000-0000-0000-0000-000000000000', // FIXME: get researcherId from clerk session
+                containerLocation: repoUrl,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-    const response = await db
-        .insertInto('study')
-        .values({
-            id: studyId,
-            title: study.title,
-            memberId,
-            researcherId: '00000000-0000-0000-0000-000000000000', // FIXME: get researcherId from clerk session
-            containerLocation: repoUrl,
-        })
-        .returning('id')
-        .execute()
+        const studyRunId = await trx
+            .insertInto('studyRun')
+            .values({
+                studyId: studyId,
+                status: 'created',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-    if (!response.length) throw new Error('Failed to insert study')
+        return {
+            studyId: uuidToB64(studyId),
+            studyRunId: uuidToB64(studyRunId.id),
+        }
+    })
 
-    return uuidToB64(response[0].id)
+    return results
 }
