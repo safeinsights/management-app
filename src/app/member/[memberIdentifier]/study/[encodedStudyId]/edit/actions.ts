@@ -12,7 +12,7 @@ export const onUpdateStudyAction = async (studyId: string, study: FormValues) =>
     await db
         .updateTable('study')
         .set({
-            ...pick(study, ['description', 'piName', 'outputFormat']),
+            ...pick(study, ['description', 'piName', 'outputMimeType']),
             dataSources: [...(study.eventCapture ? ['eventCapture'] : []), ...(study.highlights ? ['highlights'] : [])],
         })
         .where('id', '=', studyId)

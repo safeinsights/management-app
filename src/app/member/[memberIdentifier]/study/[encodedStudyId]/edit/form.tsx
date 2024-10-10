@@ -65,7 +65,12 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 </Flex>
                 <Flex p={2} gap="lg">
                     <Text className={labelStyle}>Data Format</Text>
-                    <Select className={inputStyle} name="outputFormat" control={control} data={['csv']} />
+                    <Select
+                        className={inputStyle}
+                        name="outputMimeType"
+                        control={control}
+                        data={[{ value: 'text/csv', label: 'CSV' }]}
+                    />
                 </Flex>
             </Stack>
 

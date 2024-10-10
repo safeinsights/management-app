@@ -33,7 +33,7 @@ export interface Study {
     id: Generated<string>
     irbProtocols: string | null
     memberId: string
-    outputFormat: string | null
+    outputMimeType: string | null
     piName: string
     researcherId: string
     status: Generated<StudyStatus>
