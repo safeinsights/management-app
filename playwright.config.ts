@@ -34,7 +34,7 @@ export default defineConfig({
     projects: [
         {
             name: 'global setup',
-            testMatch: /global\.setup\.ts/,
+            testMatch: /playwright\.setup\.ts/,
         },
         {
             name: 'chromium',
