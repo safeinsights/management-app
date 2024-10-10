@@ -16,7 +16,7 @@ export default async function Home() {
                         <Title>Welcome to the SafeInsights management app.</Title>
                         <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
                         <Link href="/member/openstax/study-request" passHref>
-                            <Button>Proceed to study</Button>
+                            <Button>Proceed to study proposal</Button>
                         </Link>
                     </Paper>
                 </main>
