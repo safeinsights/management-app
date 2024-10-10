@@ -7,7 +7,7 @@ const schema = z.object({
     piName: z.string().min(3).max(100),
     highlights: z.preprocess((value) => value === 'on', z.boolean()).nullish(),
     eventCapture: z.preprocess((value) => value === 'on', z.boolean()).nullish(),
-    outputFormat: z.string().nullish(),
+    outputMimeType: z.string().nullish(),
 })
 
 type FormValues = z.infer<typeof schema>
