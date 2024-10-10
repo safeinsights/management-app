@@ -5,6 +5,11 @@ type VisitClerkProtectedPageOptions = { url: string; role: 'researcher'; page: P
 export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtectedPageOptions) => {
     await setupClerkTestingToken({ page })
     await page.goto(url)
+    console.log('LOGIN WITH', {
+        url,
+        identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
+        password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
+    })
     await clerk.signIn({
         page,
         signInParams: {
