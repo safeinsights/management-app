@@ -1,6 +1,6 @@
 'use client'
-import React from 'react';
-import { Form as HookForm, useForm } from "react-hook-form";
+import React from 'react'
+import { Form as HookForm, useForm } from "react-hook-form"
 import {
   Checkbox,
   Chip,
@@ -22,12 +22,12 @@ import {
   Switch,
   Textarea,
   TextInput,
-} from "react-hook-form-mantine";
-import { AiOutlineCloseSquare } from "react-icons/ai";
-import { Button, Group, Paper, Container, Stack, CloseButton, Text, Flex, rem } from "@mantine/core";
+} from "react-hook-form-mantine"
+import { AiOutlineCloseSquare } from "react-icons/ai"
+import { Button, Group, Paper, Container, Stack, CloseButton, Text, Flex, rem } from "@mantine/core"
 
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
 
 const schema = z.object({
   checkbox: z.boolean(),
@@ -53,7 +53,7 @@ const schema = z.object({
   textarea: z.string(),
   textInput: z.string(),
   transferList: z.any(),
-});
+})
 
 type FormSchemaType = z.infer<typeof schema>;
 
@@ -84,9 +84,9 @@ export function Form() {
       textarea: "",
       textInput: "",
     },
-  });
+  })
 
-  const icon = <AiOutlineCloseSquare style={{ width: rem(18), height: rem(18) }}/>;
+  const icon = <AiOutlineCloseSquare style={{ width: rem(18), height: rem(18) }}/>
   return (
     <div className="App">
       <Container size={1000}>
@@ -147,5 +147,5 @@ export function Form() {
       </Container>
 
     </div>
-  );
+  )
 }
