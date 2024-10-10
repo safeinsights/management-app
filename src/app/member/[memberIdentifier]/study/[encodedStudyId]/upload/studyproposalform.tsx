@@ -53,6 +53,9 @@ const schema = z.object({
   textarea: z.string(),
   textInput: z.string(),
   transferList: z.any(),
+  highlights: z.boolean(),
+  eventCapture: z.boolean(),
+  containerUrl: z.string(),
 })
 
 type FormSchemaType = z.infer<typeof schema>;
@@ -100,7 +103,7 @@ export function Form() {
           <Text size="xl" ta="left">STUDY DETAILS</Text>
             <Group  p={2} gap="md">
               <Text>Study Title</Text>
-              <Input name="textInput" control={control} aria-label="Study Title" radius="none">Placeholder-will programatically pull in value from pre-proposal stage</Input>
+              <TextInput name="textInput" control={control} aria-label="Study Title" radius="none" placeholder="Placeholder-will programatically pull in value from pre-proposal stage" />
             </Group>
             <Group p={2} gap="lg">
               <Text>Principal Investigator</Text>
@@ -127,8 +130,8 @@ export function Form() {
             </Group>
             <Group p={2} gap="lg">
               <Text>Datasets of Interest</Text>
-              <Checkbox label="Highhlights and Notes"></Checkbox>
-              <Checkbox label="Event Capture"></Checkbox>
+              <Checkbox name="highlights" control={control} label="Highlights and Notes" />
+              <Checkbox name="eventCapture" control={control} label="Event Capture" />
             </Group>
             <Group p={2} gap="lg">
               <Text>Data Format</Text>
@@ -136,7 +139,7 @@ export function Form() {
             </Group>
             <Group p={2} gap="lg">
               <Text>Container URL</Text>
-              <Input name="textInput" control={control} aria-label="Container URL" radius="none">Placeholder-will pull in value programatically</Input>
+              <TextInput name="containerUrl" control={control} aria-label="Container URL" radius="none" placeholder="Placeholder-will pull in value programatically" />
             </Group>
           </Stack>
           <Group mt={30} justify="flex-end">
