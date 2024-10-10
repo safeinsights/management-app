@@ -4,7 +4,7 @@ import { footerStyles, mainStyles, pageStyles } from './page.css'
 import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
 import { SignedIn} from '@clerk/nextjs'
-import { Button, Group, Paper, Container, Stack, CloseButton, Text, TextInput,Checkbox,PasswordInput,Anchor, Flex, rem } from "@mantine/core";
+import { Button, Group, Paper, Container, Stack, CloseButton, Text, TextInput,Checkbox,PasswordInput,Anchor, Flex, rem } from "@mantine/core"
 
 async function getDB() {
     return await db.selectFrom('study').select('title').execute()
