@@ -29,7 +29,7 @@ export default async function Home() {
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
-                    Hello World, found {studies.length} records
+                    Hello World, found 0 records
                     <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm ">
                         <Title>Welcome to the SafeInsights management app.</Title>
                         <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
