@@ -1,7 +1,7 @@
 import { expect, describe, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Form } from './form'
-import { TestingProviders } from '../../providers'
+import { TestingProviders } from '@/app/providers'
 import userEvent from '@testing-library/user-event'
 
 import { onCreateStudyAction } from './actions'
