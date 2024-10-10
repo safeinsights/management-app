@@ -17,3 +17,5 @@ export function slugify(str: string) {
 
     return str
 }
+
+export type Nullable<T> = { [K in keyof T]: T[K] | null }

@@ -11,7 +11,7 @@ const repoFromLocation = (loc: string) => {
     return u.pathname.slice(1)
 }
 
-export default async function MemberHome({
+export default async function UploadPage({
     params: { memberIdentifier, encodedStudyId },
 }: {
     params: { memberIdentifier: string; encodedStudyId: string }

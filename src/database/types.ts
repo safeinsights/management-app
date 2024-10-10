@@ -28,12 +28,12 @@ export interface Study {
     approvedAt: Timestamp | null
     containerLocation: string
     createdAt: Generated<Timestamp>
-    dataSources: string | null
+    dataSources: Generated<string[]>
     description: string
     id: Generated<string>
     irbProtocols: string | null
     memberId: string
-    outputFormats: string | null
+    outputMimeType: string | null
     piName: string
     researcherId: string
     status: Generated<StudyStatus>
