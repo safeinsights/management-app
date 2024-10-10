@@ -33,12 +33,7 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
         <HookForm control={control} onSubmit={({ data }) => createStudy(data)}>
             <Flex direction="column" gap="sm" mt="md" justify="stretch">
                 <TextInput label="Study Title" required name="title" control={control} />
-                <TextInput
-                    label="Principal Investigator"
-                    name="piName"
-                    required
-                    control={control}
-                />
+                <TextInput label="Principal Investigator" name="piName" required control={control} />
                 <Textarea label="Study Description" name="description" required rows={5} control={control} />
                 <Flex justify={'end'}>
                     <Button type="submit" variant="primary" loading={isPending}>
