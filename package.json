@@ -32,6 +32,7 @@
         "@vitejs/plugin-react": "^4.3.2",
         "@vitest/coverage-v8": "^2.1.1",
         "dotenv": "*",
+        "esbuild": "^0.24.0",
         "eslint": "*",
         "eslint-config-next": "*",
         "eslint-config-prettier": "*",
@@ -47,7 +48,7 @@
     "dependencies": {
         "@aws-sdk/client-ecr": "^3.665.0",
         "@aws-sdk/credential-providers": "^3.665.0",
-        "@clerk/nextjs": "^5.6.4",
+        "@clerk/nextjs": "^5.7.1",
         "@hookform/resolvers": "^3.9.0",
         "@mantine/core": "^7.13",
         "@mantine/form": "^7.13",
