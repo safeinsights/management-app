@@ -7,8 +7,9 @@ test.describe('app', () => {
 
         await page.getByRole('button', { name: /study proposal/ }).click()
 
-        // form has an aria-label which playwright will use over the visible label
-        await page.getByLabel(/study name/i).fill('Test Proposal')
+        await page.getByLabel(/title/i).fill('Test Proposal')
+        await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
+        await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
         await page.getByRole('button', { name: /begin/i }).click()
 
         await expect(page.getByText('Approved')).toBeVisible()
