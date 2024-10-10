@@ -7,8 +7,8 @@ export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtected
     await page.goto(url)
     console.log('LOGIN WITH', {
         url,
-        identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
-        password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
+        id: process.env.E2E_CLERK_RESEARCHER_EMAIL!.slice(0, 6),
+        pwda: process.env.E2E_CLERK_RESEARCHER_PASSWORD!.slice(0, 6),
     })
     await clerk.signIn({
         page,
