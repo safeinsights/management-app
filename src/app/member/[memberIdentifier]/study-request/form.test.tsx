@@ -12,16 +12,34 @@ vi.mock('./actions', () => ({
 
 describe('Member Start Page Form', () => {
     it('submits form', async () => {
-        const { getByLabelText, getByRole } = render(<Form memberId="1234" memberIdentifier="hello-world" />, {
-            wrapper: TestingProviders,
-        })
-        const input = getByLabelText(/study/)
-        await userEvent.type(input, '2short')
+        const { getByLabelText, getByRole, container } = render(
+            <Form memberId="1234" memberIdentifier="hello-world" />,
+            {
+                wrapper: TestingProviders,
+            },
+        )
+        let title = '2srt'
+
+        const submitBtn = getByRole('button', { name: /begin/i })
+        const description = 'this is a description'
+        const piName = 'i am the PI and also like PI'
+        await userEvent.type(getByLabelText(/description/i), description)
+        await userEvent.type(getByLabelText(/investigator/i), piName)
+
+        const titleInput = getByLabelText(/title/i)
+        await userEvent.type(titleInput, title)
+        await userEvent.click(submitBtn)
+
+        expect(container.querySelector('[class$="error"]')).not.toBeNull()
+
         expect(onCreateStudyAction).not.toHaveBeenCalled()
-        userEvent.clear(input)
-        const title = 'hello world thing goes'
-        await userEvent.type(input, title)
-        await userEvent.click(getByRole('button', { name: /begin/i }))
-        expect(onCreateStudyAction).toHaveBeenCalledWith('1234', { title })
+        userEvent.clear(titleInput)
+
+        title = 'a long enough title to pass validation'
+        await userEvent.type(titleInput, title)
+
+        await userEvent.click(submitBtn)
+
+        expect(onCreateStudyAction).toHaveBeenCalledWith('1234', { title, description, piName })
     })
 })
