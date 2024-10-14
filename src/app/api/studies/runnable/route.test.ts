@@ -1,41 +1,13 @@
-import { vi, expect, test, beforeEach } from 'vitest'
+import { expect, test, beforeEach } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestData, readTestSupportFile } from '@/tests/helpers'
-import jwt from 'jsonwebtoken'
+import { insertTestStudyData, mockApiMember } from '@/tests/helpers'
 import { uuidToB64 } from '@/lib/uuid'
-import { headers } from 'next/headers'
+import { type Member } from '@/lib/types'
 
-import { getMemberFromIdentifier } from '@/server/members'
-import { BLANK_UUID, db } from '@/database'
-
-const privateKey = await readTestSupportFile('private_key.pem')
-const publicKey = await readTestSupportFile('public_key.pem')
-
-vi.mock('@/server/members', () => ({ getMemberFromIdentifier: vi.fn() }))
+let member: Member | null = null
 
 beforeEach(async () => {
-    await db
-        .insertInto('member')
-        .values({ identifier: 'testy-mctestface', id: BLANK_UUID, name: 'test', email: 'none@test.com', publicKey })
-        .execute()
-
-    vi.mocked(getMemberFromIdentifier).mockImplementation(async (identifier: string) => ({
-        identifier,
-        id: BLANK_UUID,
-        publicKey,
-        email: '',
-    }))
-
-    headers().set(
-        'Authorization',
-        `Bearer ${jwt.sign(
-            {
-                iss: 'testy-mctestface',
-            },
-            privateKey,
-            { algorithm: 'RS256' },
-        )}`,
-    )
+    member = await mockApiMember({ identifier: 'testy-mctestface' })
 })
 
 test('jwt is verified', async () => {
@@ -45,7 +17,7 @@ test('jwt is verified', async () => {
 })
 
 test('return study runs', async () => {
-    const { runIds } = await insertTestData()
+    const { runIds } = await insertTestStudyData({ memberId: member?.id || '' })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()

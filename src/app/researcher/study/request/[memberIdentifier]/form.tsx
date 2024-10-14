@@ -8,7 +8,7 @@ import { TextInput, Textarea } from 'react-hook-form-mantine'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormValues, schema } from './schema'
 
-export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId, memberIdentifier }) => {
+export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()
 
     const { control } = useForm<FormValues>({
@@ -26,7 +26,7 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
             if (error || !result?.studyId) {
                 control.setError('title', { message: error?.message || 'An error occurred' })
             } else {
-                router.push(`/member/${memberIdentifier}/study/${result.studyId}/upload`)
+                router.push(`/researcher/study/${result.studyId}/upload`)
             }
         },
     })
@@ -39,7 +39,7 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
                 <Textarea label="Study Description" name="description" required rows={5} control={control} />
                 <Flex justify={'end'}>
                     <Button type="submit" variant="primary" loading={isPending}>
-                        Let’s Begin
+                        Proceed
                     </Button>
                 </Flex>
             </Flex>

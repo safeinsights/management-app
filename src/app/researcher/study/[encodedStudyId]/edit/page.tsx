@@ -1,14 +1,11 @@
 import { db } from '@/database'
 import { Form } from './form'
-import { Paper } from '@mantine/core'
+import { Button, Paper } from '@mantine/core'
 import { AlertNotFound } from '@/components/alerts'
-import { b64toUUID } from '@/server/uuid'
+import { b64toUUID } from '@/lib/uuid'
+import Link from 'next/link'
 
-export default async function StudyEditPage({
-    params: { memberIdentifier: _, encodedStudyId },
-}: {
-    params: { memberIdentifier: string; encodedStudyId: string }
-}) {
+export default async function StudyEditPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO: validate that member from clerk session matches memberId from url
 
     const study = await db
@@ -23,6 +20,10 @@ export default async function StudyEditPage({
 
     return (
         <Paper bg="#f5f5f5" shadow="none" p={30} mt={30} radius="sm">
+            <Link href="/researcher/studies" passHref>
+                <Button>Back to all studies</Button>
+            </Link>
+
             <Form
                 studyId={study.id}
                 study={{

@@ -7,6 +7,6 @@ dotenv.config({ path: '.env' })
 export const dialect = new PostgresDialect({
     pool: new Pool({
         connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432',
-        max: 10,
+        max: 10, //process.env.NODE_ENV == 'test' ? 1 : 10,
     }),
 })

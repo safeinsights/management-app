@@ -1,15 +1,9 @@
 'use server'
 
-import { b64toUUID } from '@/server/uuid'
+import { b64toUUID } from '@/lib/uuid'
 import { db } from '@/database'
 
-export const getPendingStudyRunAction = async ({
-    memberIdentifier,
-    encodedStudyId,
-}: {
-    memberIdentifier: string
-    encodedStudyId: string
-}) => {
+export const getPendingStudyRunAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'member.id', 'study.memberId')
@@ -29,6 +23,5 @@ export const getPendingStudyRunAction = async ({
                     .as('pendingRunId'),
         ])
         .where('study.id', '=', b64toUUID(encodedStudyId))
-        .where('member.identifier', '=', memberIdentifier)
         .executeTakeFirst()
 }

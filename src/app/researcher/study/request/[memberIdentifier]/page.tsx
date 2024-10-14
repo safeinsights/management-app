@@ -1,17 +1,12 @@
 import React from 'react'
 import { Form } from './form'
-import { db } from '@/database'
 import { Flex, List, ListItem, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/alerts'
 import { YodaNotice } from './yoda'
+import { getMemberFromIdentifier } from '@/server/members'
 
 export default async function MemberHome({ params }: { params: { memberIdentifier: string } }) {
-    const member = await db
-        .selectFrom('member')
-        .select(['id', 'identifier', 'name'])
-        .where('identifier', '=', params.memberIdentifier)
-        .executeTakeFirst()
-
+    const member = await getMemberFromIdentifier(params.memberIdentifier)
     if (!member) {
         return (
             <AlertNotFound

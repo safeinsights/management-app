@@ -4,16 +4,14 @@ import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import jwt from 'jsonwebtoken'
+import { headers } from 'next/headers'
 
 type VisitClerkProtectedPageOptions = { url: string; role: 'researcher'; page: Page }
 export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtectedPageOptions) => {
     await setupClerkTestingToken({ page })
     await page.goto(url)
-    console.log('LOGIN WITH', {
-        url,
-        id: process.env.E2E_CLERK_RESEARCHER_EMAIL!.slice(0, 6),
-        pwda: process.env.E2E_CLERK_RESEARCHER_PASSWORD!.slice(0, 6),
-    })
+
     await clerk.signIn({
         page,
         signInParams: {
@@ -28,13 +26,12 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
 }
 
-export const insertTestData = async () => {
+export const insertTestStudyData = async (opts: { memberId: string }) => {
     const study = await db
         .insertInto('study')
         .values({
-            id: BLANK_UUID,
+            memberId: opts.memberId,
             containerLocation: 'test-container',
-            memberId: BLANK_UUID,
             title: 'my 1st study',
             description: 'my description',
             researcherId: BLANK_UUID,
@@ -65,7 +62,7 @@ export const insertTestData = async () => {
         .executeTakeFirstOrThrow()
 
     return {
-        memberId: BLANK_UUID,
+        memberId: opts.memberId,
         studyId: study.id,
         runIds: [run1.id, run2.id],
     }
@@ -75,4 +72,32 @@ export async function createTempDir() {
     const ostmpdir = os.tmpdir()
     const tmpdir = path.join(ostmpdir, 'unit-test-')
     return await fs.promises.mkdtemp(tmpdir)
+}
+
+export const mockApiMember = async (opts: { identifier: string } = { identifier: 'testy-mctest-face' }) => {
+    const privateKey = await readTestSupportFile('private_key.pem')
+    const publicKey = await readTestSupportFile('public_key.pem')
+
+    const member = await db
+        .insertInto('member')
+        .values({
+            identifier: opts.identifier,
+            name: 'test',
+            email: 'none@test.com',
+            publicKey,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    headers().set(
+        'Authorization',
+        `Bearer ${jwt.sign(
+            {
+                iss: 'testy-mctestface',
+            },
+            privateKey,
+            { algorithm: 'RS256' },
+        )}`,
+    )
+    return member
 }

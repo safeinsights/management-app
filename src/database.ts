@@ -17,3 +17,5 @@ export const db = new Kysely<DB>({
 })
 
 export const snake_case_db = new Kysely<snake_case_DB>(kyselyOpts)
+
+export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'

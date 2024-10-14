@@ -22,8 +22,7 @@ export const GET = wrapApiMemberAction(async () => {
             'study.outputMimeType',
             sql<string>`concat(study.container_location, ':', uuid_to_b64(study_run.id) )`.as('containerLocation'),
         ])
-        //        .where('study_run.status', '=', 'approved') // FIXME, add back once approval steps are complete
-        .where('study.memberId', '=', member.id)
+        .where('studyRun.status', 'in', ['pending', 'running'])
         .execute()
 
     return Response.json(runs)

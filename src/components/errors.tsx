@@ -28,16 +28,16 @@ export const reportError = (error: any, title = 'An error occured') => {
     })
 }
 
-type ErrorAlertProps = { message: string } & AlertProps
+type ErrorAlertProps = { error: string | Error } & AlertProps
 
 export const ErrorAlert: React.FC<ErrorAlertProps> = ({
     icon = <IconAlertTriangle />,
     title = 'An error occured',
-    message,
+    error,
 }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
-            {message}
+            {error.toString()}
         </Alert>
     )
 }

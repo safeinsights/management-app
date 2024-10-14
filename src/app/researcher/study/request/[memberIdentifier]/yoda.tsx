@@ -7,7 +7,7 @@ import { notifications } from '@mantine/notifications'
 // use a constant object to store the state of the component
 // this prevents re-displaying if they navigate away and back
 const state = {
-    shown: false,
+    shown: true,
 }
 
 export const YodaNotice = () => {
