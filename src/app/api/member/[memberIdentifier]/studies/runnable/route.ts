@@ -20,7 +20,7 @@ export async function GET(_: Request, { params: { memberIdentifier } }: { params
             'study.title',
             'studyRun.status',
             'study.dataSources',
-            'study.outputFormats',
+            'study.outputMimeType',
             sql<string>`concat(study.container_location, ':', uuid_to_b64(study_run.id) )`.as('containerLocation'),
         ])
         //        .where('study_run.status', '=', 'approved') // FIXME, add back once approval steps are complete

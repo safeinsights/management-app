@@ -15,6 +15,8 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
         resolver: zodResolver(schema),
         defaultValues: {
             title: '',
+            description: '',
+            piName: '',
         },
     })
 
