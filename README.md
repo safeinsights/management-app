@@ -49,6 +49,17 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
 
+### Enclave API Routes
+
+-   Api routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
+
+To generate a public private key you can run:
+
+```bash
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:4096
+openssl rsa -pubout -in private_key.pem -out public_key.pem
+```
+
 ### Learn More
 
 To learn more about Next.js, take a look at the following resources:
