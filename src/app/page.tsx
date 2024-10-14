@@ -15,7 +15,7 @@ export default async function Home() {
                     <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm">
                         <Title>Welcome to the SafeInsights management app.</Title>
                         <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
-                        <Link href="/member/openstax/study-request" passHref>
+                        <Link href="/researcher/study/request/openstax" passHref>
                             <Button>Proceed to study proposal</Button>
                         </Link>
                     </Paper>

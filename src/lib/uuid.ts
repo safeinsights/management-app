@@ -1,9 +1,3 @@
-import 'server-only'
-
-import { v7 as uuidv7 } from 'uuid'
-
-export { uuidv7 }
-
 // https://developer.grubhub.com/docs/6B3UztsSoYRxHZ0FwS5cfV/uuid-encoding
 
 export function b64toUUID(str: string) {

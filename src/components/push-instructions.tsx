@@ -1,38 +1,18 @@
-import React from 'react'
-import { Alert, Button, Flex, Paper, Text, Title } from '@mantine/core'
-import { getPendingStudyRunAction } from './actions'
-import Link from 'next/link'
-import { CopyingInput } from '@/components/copying-input'
-import { AlertNotFound } from '@/components/alerts'
-import { uuidToB64 } from '@/server/uuid'
+import { Title, Text } from '@mantine/core'
+import { CopyingInput } from './copying-input'
+import { uuidToB64 } from '@/lib/uuid'
 
 const repoFromLocation = (loc: string) => {
     const u = new URL(`http://${loc}`)
     return u.pathname.slice(1)
 }
 
-export default async function UploadPage({
-    params: { memberIdentifier, encodedStudyId },
-}: {
-    params: { memberIdentifier: string; encodedStudyId: string }
-}) {
-    const study = await getPendingStudyRunAction({ memberIdentifier, encodedStudyId })
-
-    if (!study?.pendingRunId) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    const repo = repoFromLocation(study.containerLocation)
-    const tag = uuidToB64(study.pendingRunId)
+export const PushInstructions = ({ containerLocation, runId }: { containerLocation: string; runId: string }) => {
+    const repo = repoFromLocation(containerLocation)
+    const tag = uuidToB64(runId)
 
     return (
-        <Paper m="xl" shadow="xs" p="xl">
-            <Title mb="lg">Upload your code to {study.memberName}</Title>
-
-            <Alert color="blue" title="Steps have been skipped" mb="lg">
-                Communication with member
-            </Alert>
-
+        <>
             <Title my="lg" order={3}>
                 Use the following steps to authenticate and push your code:
             </Title>
@@ -59,19 +39,10 @@ export default async function UploadPage({
             <CopyingInput value={`docker build -t ${repo} .`} />
             <Text>After the build completes, repo your image so you can push the image to this repository:</Text>
 
-            <CopyingInput value={`docker repo ${repo}:${tag} ${study.containerLocation}:${tag}`} />
+            <CopyingInput value={`docker repo ${repo}:${tag} ${containerLocation}:${tag}`} />
 
             <Text>Run the following command to push the image:</Text>
             <CopyingInput value={`docker push 905418271997.dkr.ecr.us-east-1.amazonaws.com/${repo}:${tag}`} />
-
-            <Title my="lg" order={3}>
-                Once you have pushed your image, proceed to complete and submit your research proposal.
-            </Title>
-            <Flex justify="end" mt="lg">
-                <Link href="edit" passHref>
-                    <Button>Proceed</Button>
-                </Link>
-            </Flex>
-        </Paper>
+        </>
     )
 }

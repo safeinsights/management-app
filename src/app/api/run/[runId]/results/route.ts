@@ -29,16 +29,16 @@ export const POST = wrapApiMemberAction(async (req: Request, { params: { runId }
         const filePath = path.join(tmpDir, file.name)
         await fs.promises.writeFile(filePath, buffer)
 
-        let resultsLocation = filePath
+        let resultsPath = filePath
         if (PROD_ENV) {
-            resultsLocation = await storeS3File(`s3://${process.env.BUCKET_NAME}/${file.name}`, filePath)
+            resultsPath = await storeS3File(`s3://${process.env.BUCKET_NAME}/${file.name}`, filePath)
         }
 
         await db
             .updateTable('studyRun')
             .set({
                 status: 'complete',
-                resultsLocation,
+                resultsPath: resultsPath,
             })
             .where('id', '=', runId)
             .execute()

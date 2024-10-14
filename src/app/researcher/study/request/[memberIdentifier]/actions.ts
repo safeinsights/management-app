@@ -1,10 +1,11 @@
 'use server'
 
-import { DEV_ENV } from '@/server/config'
+import { PROD_ENV } from '@/server/config'
 import { ECR, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
-import { uuidToB64, uuidv7 } from '@/server/uuid'
+import { uuidToB64 } from '@/lib/uuid'
+import { v7 as uuidv7 } from 'uuid'
 
 export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
     schema.parse(study) // throws when malformed
@@ -19,14 +20,14 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
 
     let repoUrl = ''
-    if (DEV_ENV) {
-        const { accountId, region } = await getAWSInfo()
-        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
-    } else {
+    if (PROD_ENV) {
         const ecr = new ECR()
         repoUrl = await ecr.createAnalysisRepository(repoPath, {
             title: study.title,
         })
+    } else {
+        const { accountId, region } = await getAWSInfo()
+        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
     }
     const results = await db.transaction().execute(async (trx) => {
         await trx

@@ -42,8 +42,11 @@ export interface Study {
 }
 
 export interface StudyRun {
+    code_review_path: string | null
+    completed_at: Timestamp | null
     created_at: Generated<Timestamp>
     id: Generated<string>
+    results_path: string | null
     started_at: Timestamp | null
     status: Generated<StudyRunStatus>
     study_id: string

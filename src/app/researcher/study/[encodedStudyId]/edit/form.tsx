@@ -31,7 +31,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
 
             <Flex p={2} gap="md" wrap="wrap">
                 <Text className={labelStyle}>Study Title</Text>
-                <TextInput className={inputStyle} name="title" control={control} readOnly />
+                <TextInput className={inputStyle} name="title" data-testid="study-title" control={control} readOnly />
             </Flex>
 
             <Flex p={2} gap="md" wrap="wrap">
