@@ -3,7 +3,7 @@ import { Alert, Button, Flex, Paper, Title } from '@mantine/core'
 import { getPendingStudyRunAction } from './actions'
 import Link from 'next/link'
 import { PushInstructions } from '@/components/push-instructions'
-import { AlertNotFound } from '@/components/alerts'
+import { AlertNotFound } from '@/components/errors'
 
 export default async function UploadPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO check user permissions

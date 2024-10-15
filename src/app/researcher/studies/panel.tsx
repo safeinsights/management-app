@@ -6,8 +6,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { onFetchStudyRunsAction, onRunCreateAction } from './actions'
 import { IconCodePlus, IconEditCircle } from '@tabler/icons-react'
 import { PushInstructionsModal } from './push-instructions-modal'
-import { ErrorAlert } from '@/components/errors'
-import { AlertNotFound } from '@/components/alerts'
+import { AlertNotFound, ErrorAlert } from '@/components/errors'
 
 export type Study = {
     id: string

@@ -1,7 +1,7 @@
 import React from 'react'
 import { Form } from './form'
 import { Flex, List, ListItem, Title } from '@mantine/core'
-import { AlertNotFound } from '@/components/alerts'
+import { AlertNotFound } from '@/components/errors'
 import { YodaNotice } from './yoda'
 import { getMemberFromIdentifier } from '@/server/members'
 
