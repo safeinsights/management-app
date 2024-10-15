@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { reportError } from './errors'
-import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton, Checkbox } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
-import { useRouter } from 'next/navigation'
+import { useRouter, Link } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import { SignInResource } from '@clerk/types'
 
@@ -93,29 +93,25 @@ export function SignIn() {
 
     return (
         <Stack>
-            <Title order={3}>Login</Title>
+            {/* <Title order={3}>Login</Title> */}
 
             <form onSubmit={onSubmit}>
-                <TextInput
-                    withAsterisk
-                    label="Email"
-                    placeholder="your@email.com"
-                    key={form.key('email')}
-                    {...form.getInputProps('email')}
-                />
-
-                <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    width={400}
-                    key={form.key('password')}
-                    {...form.getInputProps('password')}
-                />
-                <Anchor href="/reset-password">Forgot your password? Reset it here!</Anchor>
-
-                <Group justify="flex-end" mt="md">
-                    <Button type="submit">Login</Button>
-                </Group>
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm ">
+                    <Group justify="space-between" gap="xl">
+                        <Text ta="left">Welcome To SafeInsights</Text>
+                        <CloseButton aria-label="Close form" />
+                    </Group>
+                </Paper>
+                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                    <TextInput key={form.key('email')} {...form.getInputProps('email')} label="Login" placeholder="Email address or phone number" aria-label="Email address or phone number" />
+                    <PasswordInput withAsterisk key={form.key('password')} {...form.getInputProps('password')} mt={10} placeholder="Password" aria-label="Password" />
+                    <Stack align="center" mt={15}>
+                        <Button type="submit">Login</Button>
+                        {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
+                        <Link to="/signup">Sign Up Now</Link>
+                        <Anchor href="/reset-password" target="_blank">Forgot password?</Anchor>
+                    </Stack>
+                </Paper>
             </form>
         </Stack>
     )
