@@ -13,7 +13,7 @@
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
         "pre:push": "run-s lint:fix typecheck",
-        "typecheck": "tsc --noEmit",
+        "typecheck": "cd src && tsc --noEmit",
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint",
         "test:e2e": "playwright test",
