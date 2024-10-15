@@ -1,7 +1,7 @@
 import { db } from '@/database'
 import { Form } from './form'
 import { Button, Paper } from '@mantine/core'
-import { AlertNotFound } from '@/components/alerts'
+import { AlertNotFound } from '@/components/errors'
 import { b64toUUID } from '@/lib/uuid'
 import Link from 'next/link'
 
