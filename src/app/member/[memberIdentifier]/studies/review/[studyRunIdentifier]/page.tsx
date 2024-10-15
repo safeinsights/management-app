@@ -4,8 +4,8 @@ import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
 
 import Link from 'next/link'
-
-import { AlertNotFound } from '@/components/alerts'
+import { Review } from './review'
+import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 
 export default async function UploadPage({
@@ -46,14 +46,7 @@ export default async function UploadPage({
                     <Button color="blue">Back to pending review</Button>
                 </Link>
             </Flex>
-            <AlertNotFound hideIf={!run} title="no run found" message="the run was not found" />
-            {run && (
-                <textarea
-                    readOnly
-                    style={{ width: '100%', height: 400, padding: 30 }}
-                    defaultValue={`code for run ${run?.id} goes here or something...`}
-                />
-            )}
+            <Review memberIdentifier={memberIdentifier} run={run} />
         </Paper>
     )
 }
