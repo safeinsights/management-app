@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { wrapApiMemberAction } from '@/server/wrappers'
 import { requestingMember } from '@/server/context'
 
-export const schema = z.object({
+const schema = z.object({
     status: z.enum(['running', 'rejected', 'complete']),
 })
 
