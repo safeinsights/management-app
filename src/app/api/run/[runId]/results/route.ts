@@ -8,10 +8,6 @@ import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
 import { PROD_ENV, getUploadTmpDirectory } from '@/server/config'
 import { storeS3File } from '@/server/aws'
 
-export const schema = z.object({
-    status: z.enum(['running', 'rejected', 'complete']),
-})
-
 export const POST = wrapApiMemberAction(async (req: Request, { params: { runId } }: { params: { runId: string } }) => {
     const member = requestingMember()
     if (!member) {
