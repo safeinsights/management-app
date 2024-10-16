@@ -24,6 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV AWS_LWA_ENABLE_COMPRESSION=true
 
+# build needs NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 RUN --mount=type=secret,id=envs \
     export $(cat /run/secrets/envs) && \
     npm run build
