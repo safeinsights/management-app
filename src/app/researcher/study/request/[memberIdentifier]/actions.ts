@@ -21,7 +21,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
 
     let repoUrl = ''
-    if (!PROD_ENV) {
+    if (PROD_ENV) {
         const ecr = new ECR()
         repoUrl = await ecr.createAnalysisRepository(repoPath, {
             title: study.title,
