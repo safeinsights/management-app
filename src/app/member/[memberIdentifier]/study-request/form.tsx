@@ -23,13 +23,12 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
         mode: "onChange", 
     })
 
-    const { mutate: createStudy, isPending, } = useMutation({
+    const { mutate: createStudy, isPending } = useMutation({
         mutationFn: async (d: FormValues) => await onCreateStudyAction(memberId, d),
         onSettled(result, error ) {
             if (error || !result?.studyId) {
                 control.setError('title', { message: error?.message || 'An error occurred' })
             } else {
-                useFormState: () => ({ isValid: true })
                 router.push(`/member/${memberIdentifier}/study/${result.studyId}/upload`)
             }
         },
