@@ -44,6 +44,8 @@ jobs:
                   E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
                   E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
                   E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
+            - name: Test build
+              run: docker compose exec mgmnt-app npm run build:docker:ci
             - name: display docker logs
               run: docker compose logs
               if: always()
