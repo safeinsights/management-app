@@ -14,7 +14,7 @@ import fs from 'fs'
 import { createHash } from 'crypto'
 
 export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
-    return `si/analysis/${opts.memberIdentifier}/${uuidToB64(opts.studyId)}/${slugify(opts.studyTitle)}`
+    return `si/analysis/${opts.memberIdentifier}/${uuidToB64(opts.studyId).toLowerCase()}/${slugify(opts.studyTitle)}`
 }
 
 export const getAWSInfo = async () => {

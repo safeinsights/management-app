@@ -5,6 +5,8 @@ import { AlertNotFound } from '@/components/errors'
 import { b64toUUID } from '@/lib/uuid'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function StudyEditPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO: validate that member from clerk session matches memberId from url
 

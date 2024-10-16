@@ -1,3 +1,4 @@
+import 'dotenv/config' // read .env file before other imports, to match nextjs default
 import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/helpers'

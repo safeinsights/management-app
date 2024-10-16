@@ -1,12 +1,14 @@
 import { PostgresDialect } from 'kysely'
 import { Pool } from 'pg'
 
-import * as dotenv from 'dotenv'
-dotenv.config({ path: '.env' })
-
 export const dialect = new PostgresDialect({
     pool: new Pool({
-        connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432',
-        max: 10, //process.env.NODE_ENV == 'test' ? 1 : 10,
+        max: 10,
+        user: process.env.DB_USERNAME,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_DBNAME,
+        host: process.env.DB_HOST,
+        port: Number(process.env.DB_PORT),
+        connectionString: process.env.DB_DBNAME ? undefined : process.env.DATABASE_URL || 'postgresql://localhost:5432',
     }),
 })

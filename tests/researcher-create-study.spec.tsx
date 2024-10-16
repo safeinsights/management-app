@@ -15,7 +15,7 @@ test.describe('app', () => {
         await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
         await page.getByRole('button', { name: /proceed/i }).click()
 
-        await expect(page.getByText('proceed to complete and submit your research proposal')).toBeVisible()
+        await expect(page.getByText('containerize and upload')).toBeVisible()
 
         await page.getByRole('button', { name: /proceed/i }).click()
 
@@ -26,6 +26,7 @@ test.describe('app', () => {
         await page.getByRole('button', { name: /update/i }).click()
 
         await page.getByRole('button', { name: /all studies/i }).click()
+        await page.waitForLoadState('networkidle')
 
         await expect(page.getByText(testTitle).first()).toBeVisible()
     })

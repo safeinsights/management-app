@@ -11,6 +11,7 @@ export const CopyingInput: React.FC<{ value: string }> = ({ value }) => {
         <>
             <Input
                 value={value}
+                styles={{ input: { cursor: 'pointer', backgroundColor: '#eaedff' } }}
                 readOnly
                 rightSectionPointerEvents="all"
                 size="sm"

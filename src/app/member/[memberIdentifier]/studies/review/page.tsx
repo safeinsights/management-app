@@ -7,6 +7,8 @@ import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 
+export const dynamic = 'force-dynamic'
+
 export default async function UploadPage({ params: { memberIdentifier } }: { params: { memberIdentifier: string } }) {
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)

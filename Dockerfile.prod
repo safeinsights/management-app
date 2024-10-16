@@ -6,6 +6,8 @@ COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt
 RUN mkdir /app
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y curl jq && rm -rf /var/lib/apt/lists/*
+
 FROM base AS npm
 
 COPY package.json package-lock.json* ./
@@ -22,7 +24,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV AWS_LWA_ENABLE_COMPRESSION=true
 
-RUN npm run build
+RUN --mount=type=secret,id=envs \
+    export $(cat /run/secrets/envs) && \
+    npm run build
 
 WORKDIR /app
 
@@ -32,7 +36,7 @@ ENV NODE_ENV=production
 ENV PORT=8080
 EXPOSE $PORT
 
-COPY ./bin/lambda-server.sh ./run.sh
+COPY /bin/ /app/bin/
 
 # copy static files and images from build
 # This relies on the "standalone" nextjs build configuration
@@ -45,4 +49,4 @@ COPY --from=builder /app/.next/static ./.next/static
 RUN ln -s /tmp/cache ./.next/cache
 
 
-CMD ["./run.sh"]
+CMD ["./bin/lambda-server"]

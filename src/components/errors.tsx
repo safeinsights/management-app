@@ -61,7 +61,7 @@ export const AlertNotFound: React.FC<{ title: string; message: React.ReactNode; 
     message,
     hideIf,
 }) => {
-    if (!hideIf) return null
+    if (hideIf === true) return null
 
     return (
         <Alert w="400" m="auto" variant="filled" color="red" icon={<IconError404 />} title={title}>
