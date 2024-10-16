@@ -1,0 +1,34 @@
+import { Text } from '@mantine/core'
+import { CopyingInput } from './copying-input'
+import { uuidToB64 } from '@/lib/uuid'
+
+const decodeLocation = (loc: string) => {
+    const u = new URL(`http://${loc}`)
+
+    return { host: u.hostname, repo: u.pathname.slice(1) }
+}
+
+export const PushInstructions = ({ containerLocation, runId }: { containerLocation: string; runId: string }) => {
+    const { host, repo } = decodeLocation(containerLocation)
+    const tag = uuidToB64(runId)
+
+    return (
+        <>
+            <Text>
+                1) Authenticate Docker: <i>Only needed if your authentication is stale</i>
+            </Text>
+            <CopyingInput
+                value={`aws ecr get-login-password --profile <your aws profile> --region us-east-1 | docker login --username AWS --password-stdin ${host}`}
+            />
+
+            <Text>2) Build Docker image:</Text>
+            <CopyingInput value={`docker build -t ${repo}:${tag} .`} />
+
+            <Text>3) Tag Docker image:</Text>
+            <CopyingInput value={`docker tag ${repo}:${tag} ${containerLocation}:${tag}`} />
+
+            <Text>4) Push the image:</Text>
+            <CopyingInput value={`docker push ${host}/${repo}:${tag}`} />
+        </>
+    )
+}
