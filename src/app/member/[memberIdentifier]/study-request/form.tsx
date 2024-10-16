@@ -1,5 +1,5 @@
 'use client'
-import { Form as HookForm, useForm } from 'react-hook-form'
+import { Form as HookForm, useForm, useFormState } from 'react-hook-form'
 import { Button, Flex } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { onCreateStudyAction } from './actions'
@@ -10,7 +10,6 @@ import { FormValues, schema } from './schema'
 
 export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId, memberIdentifier }) => {
     const router = useRouter()
-
     const { control } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
@@ -19,16 +18,22 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
             piName: '',
         },
     })
+    const { isValid } = useFormState({
+        control,
+        mode: "onChange", 
+    })
 
-    const { mutate: createStudy, isPending } = useMutation({
+    const { mutate: createStudy, isPending, } = useMutation({
         mutationFn: async (d: FormValues) => await onCreateStudyAction(memberId, d),
-        onSettled(result, error) {
+        onSettled(result, error ) {
             if (error || !result?.studyId) {
                 control.setError('title', { message: error?.message || 'An error occurred' })
             } else {
+                useFormState: () => ({ isValid: true })
                 router.push(`/member/${memberIdentifier}/study/${result.studyId}/upload`)
             }
         },
+        
     })
 
     return (
@@ -38,11 +43,12 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
                 <TextInput label="Principal Investigator" name="piName" required control={control} />
                 <Textarea label="Study Description" name="description" required rows={5} control={control} />
                 <Flex justify={'end'}>
-                    <Button type="submit" variant="primary" loading={isPending}>
-                        Let’s Begin
+                    <Button type="submit" disabled={!isValid} variant="primary" loading={isPending}>
+                        Submit
                     </Button>
                 </Flex>
             </Flex>
         </HookForm>
     )
+   
 }
