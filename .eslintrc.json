@@ -7,5 +7,6 @@
             { "ignoreRestSiblings": true, "varsIgnorePattern": "_+", "argsIgnorePattern": "^_" }
         ],
         "semi": ["error", "never"]
-    }
+    },
+    "ignorePatterns": [".next/*"]
 }

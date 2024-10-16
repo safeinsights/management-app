@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -e
+
+TAG=$1
+
+if [ -z "$TAG" ]; then
+    echo "Usage: $0 <tag>"
+    exit 1
+fi
+
+docker build \
+    --file Dockerfile.prod \
+    --platform=linux/amd64 \
+    --secret id=envs,src=.env \
+    --progress=plain \
+    -t $TAG \
+    .
