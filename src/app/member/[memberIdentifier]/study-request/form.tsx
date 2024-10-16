@@ -10,29 +10,28 @@ import { FormValues, schema } from './schema'
 
 export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId, memberIdentifier }) => {
     const router = useRouter()
-    const { control } = useForm<FormValues>({
+    const {
+        control,
+        formState: { isValid },
+    } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
             title: '',
             description: '',
             piName: '',
         },
-    })
-    const { isValid } = useFormState({
-        control,
-        mode: "onChange", 
+        mode: 'onChange',
     })
 
     const { mutate: createStudy, isPending } = useMutation({
         mutationFn: async (d: FormValues) => await onCreateStudyAction(memberId, d),
-        onSettled(result, error ) {
+        onSettled(result, error) {
             if (error || !result?.studyId) {
                 control.setError('title', { message: error?.message || 'An error occurred' })
             } else {
                 router.push(`/member/${memberIdentifier}/study/${result.studyId}/upload`)
             }
         },
-        
     })
 
     return (
@@ -49,5 +48,4 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
             </Flex>
         </HookForm>
     )
-   
 }
