@@ -12,7 +12,7 @@ test.describe('app', () => {
         await page.getByLabel(/title/i).fill('Test Proposal')
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
         await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
-        await page.getByRole('button', { name: /begin/i }).click()
+        await page.getByRole('button', { name: /submit/i }).click()
 
         await expect(page.getByText('Approved')).toBeVisible()
     })
