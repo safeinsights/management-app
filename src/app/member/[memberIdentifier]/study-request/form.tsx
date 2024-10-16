@@ -1,5 +1,5 @@
 'use client'
-import { Form as HookForm, useForm } from 'react-hook-form'
+import { Form as HookForm, useForm, useFormState } from 'react-hook-form'
 import { Button, Flex } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { onCreateStudyAction } from './actions'
@@ -10,14 +10,17 @@ import { FormValues, schema } from './schema'
 
 export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId, memberIdentifier }) => {
     const router = useRouter()
-
-    const { control } = useForm<FormValues>({
+    const {
+        control,
+        formState: { isValid },
+    } = useForm<FormValues>({
         resolver: zodResolver(schema),
         defaultValues: {
             title: '',
             description: '',
             piName: '',
         },
+        mode: 'onChange',
     })
 
     const { mutate: createStudy, isPending } = useMutation({
@@ -38,8 +41,8 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
                 <TextInput label="Principal Investigator" name="piName" required control={control} />
                 <Textarea label="Study Description" name="description" required rows={5} control={control} />
                 <Flex justify={'end'}>
-                    <Button type="submit" variant="primary" loading={isPending}>
-                        Let’s Begin
+                    <Button type="submit" disabled={!isValid} variant="primary" loading={isPending}>
+                        Submit
                     </Button>
                 </Flex>
             </Flex>
