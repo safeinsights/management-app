@@ -1,5 +1,5 @@
 import React from 'react'
-import { Alert, Button, Flex, Paper, Title } from '@mantine/core'
+import { Button, Flex, Paper, Text } from '@mantine/core'
 import { getPendingStudyRunAction } from './actions'
 import Link from 'next/link'
 import { PushInstructions } from '@/components/push-instructions'
@@ -15,17 +15,15 @@ export default async function UploadPage({ params: { encodedStudyId } }: { param
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
-            <Title mb="lg">{study.memberName} Study Proposal Step 2)</Title>
+            <Text>{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
 
-            <Alert color="blue" title="Steps have been skipped" mb="lg">
-                Communication with member
-            </Alert>
+            <Text mb="xl">
+                Below is a representation of the steps the Researcher‘s development team may need to containerize and
+                upload their code
+            </Text>
 
             <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
 
-            <Title my="lg" order={3}>
-                Once you have pushed your image, proceed to complete and submit your research proposal.
-            </Title>
             <Flex justify="end" mt="lg">
                 <Link href="edit" passHref>
                     <Button>Proceed</Button>

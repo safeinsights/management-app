@@ -4,7 +4,7 @@ import { type Member } from '@/lib/types'
 import jwt from 'jsonwebtoken'
 import { getMemberFromIdentifier } from './members'
 
-export const memberFromAuthToken = async (): Promise<Member> => {
+export const memberFromAuthToken = async (): Promise<Member | null> => {
     const headers = headersList()
 
     const authHeader = headers.get('Authorization') || ''

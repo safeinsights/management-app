@@ -1,12 +1,12 @@
 export class AccessDeniedError extends Error {}
 
-export type User = null | {
+export type User = {
     id: string
     email: string
     roles: string[]
 }
 
-export type Member = null | {
+export type Member = {
     id: string
     name: string
     identifier: string

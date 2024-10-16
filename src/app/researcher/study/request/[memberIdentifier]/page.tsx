@@ -5,6 +5,8 @@ import { AlertNotFound } from '@/components/errors'
 import { YodaNotice } from './yoda'
 import { getMemberFromIdentifier } from '@/server/members'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MemberHome({ params }: { params: { memberIdentifier: string } }) {
     const member = await getMemberFromIdentifier(params.memberIdentifier)
     if (!member) {
