@@ -93,7 +93,7 @@ export const mockApiMember = async (opts: { identifier: string } = { identifier:
         'Authorization',
         `Bearer ${jwt.sign(
             {
-                iss: 'testy-mctestface',
+                iss: opts.identifier,
             },
             privateKey,
             { algorithm: 'RS256' },
