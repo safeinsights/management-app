@@ -13,4 +13,7 @@ Sentry.init({
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
+
+    // we don't currently use edge but we might in the future. I'm guessing it suports NODE_ENV though?
+    enabled: process.env.NODE_ENV === 'production',
 })
