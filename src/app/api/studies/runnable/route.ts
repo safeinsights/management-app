@@ -25,5 +25,5 @@ export const GET = wrapApiMemberAction(async () => {
         .where('studyRun.status', 'in', ['pending', 'running'])
         .execute()
 
-    return Response.json(runs)
+    return Response.json({ runs })
 })

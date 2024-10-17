@@ -41,7 +41,7 @@ Other useful commands:
 
 -   `docker compose build` will rebuild the docker image, needs to be ran after packages are installed
 -   `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations
--   `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
+-   `docker compose down -v --rmi all` will destroy everything including the database, allowing it to all be installed freshly when re-started
 
 Open [http://localhost:4000](http://localhost:4000) with your browser to see the result.
 
