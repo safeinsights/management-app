@@ -1,10 +1,9 @@
 import React from 'react'
-import { Button, Flex, Paper, Text, Title, Container } from '@mantine/core'
+import { Button, Flex, Text, Title, Container } from '@mantine/core'
 import { getPendingStudyRunAction } from './actions'
 import Link from 'next/link'
 import { PushInstructions } from '@/components/push-instructions'
 import { AlertNotFound } from '@/components/errors'
-import { TestingProviders } from '@/app/providers'
 
 export default async function UploadPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO check user permissions
