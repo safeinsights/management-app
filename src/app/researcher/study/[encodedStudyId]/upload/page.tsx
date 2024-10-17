@@ -1,9 +1,10 @@
 import React from 'react'
-import { Button, Flex, Paper, Text } from '@mantine/core'
+import { Button, Flex, Paper, Text, Title, Container } from '@mantine/core'
 import { getPendingStudyRunAction } from './actions'
 import Link from 'next/link'
 import { PushInstructions } from '@/components/push-instructions'
 import { AlertNotFound } from '@/components/errors'
+import { TestingProviders } from '@/app/providers'
 
 export default async function UploadPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO check user permissions
@@ -14,21 +15,16 @@ export default async function UploadPage({ params: { encodedStudyId } }: { param
     }
 
     return (
-        <Paper m="xl" shadow="xs" p="xl">
-            <Text>{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
-
-            <Text mb="xl">
-                Below is a representation of the steps the Researcher‘s development team may need to containerize and
-                upload their code
-            </Text>
-
-            <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
-
-            <Flex justify="end" mt="lg">
-                <Link href="edit" passHref>
-                    <Button>Proceed</Button>
-                </Link>
-            </Flex>
-        </Paper>
+        <Container w="100%">
+                <Title mb="lg">OpenStax Study Proposal Step 2)</Title>      
+                <Text pt={10} fs="italic">{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
+                <Text mb="xl" mt="lg" fw="bold">For the Pilot, engineers use the following to containerize and upload code:</Text>
+                <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
+                <Flex justify="end" mt="lg">
+                    <Link href="edit" passHref>
+                        <Button>Next</Button>
+                    </Link>
+                </Flex>
+        </Container>
     )
 }

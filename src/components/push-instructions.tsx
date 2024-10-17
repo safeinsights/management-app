@@ -1,4 +1,4 @@
-import { Text } from '@mantine/core'
+import { Text, Stack, Paper } from '@mantine/core'
 import { CopyingInput } from './copying-input'
 import { uuidToB64 } from '@/lib/uuid'
 
@@ -14,21 +14,24 @@ export const PushInstructions = ({ containerLocation, runId }: { containerLocati
 
     return (
         <>
-            <Text>
-                1) Authenticate Docker: <i>Only needed if your authentication is stale</i>
-            </Text>
-            <CopyingInput
-                value={`aws ecr get-login-password --profile <your aws profile> --region us-east-1 | docker login --username AWS --password-stdin ${host}`}
-            />
+            <Paper shadow="xs" p="md">
+                <Stack align="left" mb="lg" mt="lg">
+                    <Text>
+                        1) Authenticate Docker:</Text>
+                    <CopyingInput
+                        value={`aws ecr get-login-password --profile <your aws profile> --region us-east-1 | docker login --username AWS --password-stdin ${host}`}
+                    />
 
-            <Text>2) Build Docker image:</Text>
-            <CopyingInput value={`docker build -t ${repo}:${tag} .`} />
+                    <Text>2) Build Docker image:</Text>
+                    <CopyingInput value={`docker build -t ${repo}:${tag} .`} />
 
-            <Text>3) Tag Docker image:</Text>
-            <CopyingInput value={`docker tag ${repo}:${tag} ${containerLocation}:${tag}`} />
+                    <Text>3) Tag Docker image:</Text>
+                    <CopyingInput value={`docker tag ${repo}:${tag} ${containerLocation}:${tag}`} />
 
-            <Text>4) Push the image:</Text>
-            <CopyingInput value={`docker push ${host}/${repo}:${tag}`} />
+                    <Text>4) Push the image:</Text>
+                    <CopyingInput value={`docker push ${host}/${repo}:${tag}`} />
+                </Stack>
+            </Paper>
         </>
     )
 }
