@@ -16,15 +16,15 @@ export default async function UploadPage({ params: { encodedStudyId } }: { param
 
     return (
         <Container w="100%">
-                <Title mb="lg">OpenStax Study Proposal Step 2)</Title>      
-                <Text pt={10} fs="italic">{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
-                <Text mb="xl" mt="lg" fw="bold">For the Pilot, engineers use the following to containerize and upload code:</Text>
-                <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
-                <Flex justify="end" mt="lg">
-                    <Link href="edit" passHref>
-                        <Button>Next</Button>
-                    </Link>
-                </Flex>
+            <Title mb="lg">OpenStax Study Proposal Step 2)</Title>
+            <Text pt={10} fs="italic">{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
+            <Text mb="xl" mt="lg" fw="bold">For the Pilot, engineers use the following to containerize and upload code:</Text>
+            <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
+            <Flex justify="end" mt="lg">
+                <Link href="edit" passHref>
+                    <Button>Next</Button>
+                </Link>
+            </Flex>
         </Container>
     )
 }
