@@ -38,8 +38,8 @@ test('return study runs', async () => {
     const resp = await apiHandler.GET()
     const json = await resp.json()
 
-    expect(json).toEqual(
-        expect.arrayContaining([
+    expect(json).toEqual({
+        runs: expect.arrayContaining([
             expect.objectContaining({
                 runId: runIds[0],
                 title: 'my 1st study',
@@ -57,5 +57,5 @@ test('return study runs', async () => {
                 containerLocation: `test-container:${uuidToB64(runIds[1])}`,
             }),
         ]),
-    )
+    })
 })
