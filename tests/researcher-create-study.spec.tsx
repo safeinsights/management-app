@@ -17,7 +17,7 @@ test.describe('app', () => {
 
         await expect(page.getByText('containerize and upload')).toBeVisible()
 
-        await page.getByRole('button', { name: /proceed/i }).click()
+        await page.getByRole('button', { name: /next/i }).click()
 
         await expect(page.getByTestId('study-title')).toHaveValue(testTitle)
 
