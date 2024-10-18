@@ -40,8 +40,9 @@ Otherwise you can use Docker compose to run the app and a postgresql database by
 Other useful commands:
 
 -   `docker compose build` will rebuild the docker image, needs to be ran after packages are installed
--   `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations
+-   `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 -   `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
+-   `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
 
 Open [http://localhost:4000](http://localhost:4000) with your browser to see the result.
 
