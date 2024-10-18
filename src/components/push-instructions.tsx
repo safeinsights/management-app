@@ -16,8 +16,7 @@ export const PushInstructions = ({ containerLocation, runId }: { containerLocati
         <>
             <Paper shadow="xs" p="md">
                 <Stack align="left" mb="lg" mt="lg">
-                    <Text>
-                        1) Authenticate Docker:</Text>
+                    <Text>1) Authenticate Docker:</Text>
                     <CopyingInput
                         value={`aws ecr get-login-password --profile <your aws profile> --region us-east-1 | docker login --username AWS --password-stdin ${host}`}
                     />
