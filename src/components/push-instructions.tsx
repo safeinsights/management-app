@@ -22,7 +22,7 @@ export const PushInstructions = ({ containerLocation, runId }: { containerLocati
                     />
 
                     <Text>2) Build Docker image:</Text>
-                    <CopyingInput value={`docker build -t ${repo}:${tag} .`} />
+                    <CopyingInput value={`docker build --platform=linux/amd64 -t ${repo}:${tag} .`} />
 
                     <Text>3) Tag Docker image:</Text>
                     <CopyingInput value={`docker tag ${repo}:${tag} ${containerLocation}:${tag}`} />
