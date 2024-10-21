@@ -97,7 +97,7 @@ export function SignIn({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
 
 
             <form onSubmit={onSubmit}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm ">
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm">
                     <Group justify="space-between" gap="xl">
                         <Text ta="left">Welcome To SafeInsights</Text>
                         <CloseButton aria-label="Close form" />
