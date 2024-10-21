@@ -1,9 +1,9 @@
-import { Anchor, Button, Checkbox, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useSignUp } from '@clerk/nextjs'
+import { useState } from 'react'
+import { reportError } from './errors'
+import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton, Checkbox } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { reportError } from '@/components/errors'
+import { useSignUp } from '@clerk/nextjs'
 import { ClerkAPIError } from '@clerk/types'
 
 interface SignUpFormValues {
@@ -16,7 +16,7 @@ interface EmailVerificationFormValues {
     code: string
 }
 
-const EmailVerificationStep = () => {
+const EmailVerificationStep = ({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) => {
     const { isLoaded, signUp, setActive } = useSignUp()
     const router = useRouter()
 
@@ -30,26 +30,19 @@ const EmailVerificationStep = () => {
         if (!isLoaded) return
 
         try {
-            // Use the code the user provided to attempt verification
             const completeSignUp = await signUp.attemptEmailAddressVerification({
                 code: values.code,
             })
 
-            // If verification was completed, set the session to active
-            // and redirect the user
             if (completeSignUp.status === 'complete') {
                 await setActive({ session: completeSignUp.createdSessionId })
                 router.push('/')
             } else {
-                // If the status is not complete, check why. User may need to
-                // complete further steps.
                 console.error(JSON.stringify(completeSignUp, null, 2))
             }
         } catch (err: any) {
             reportError(err, 'failed to verify email address')
 
-            // TODO Explore clerk docs for how to better handle error messages
-            //  Currently unclear because signUp.attemptVerification method just 422s and doesnt return anything useful
             if (err.errors?.length) {
                 err.errors.forEach((error: ClerkAPIError) => {
                     verifyForm.setFieldError('code', error.longMessage)
@@ -60,20 +53,29 @@ const EmailVerificationStep = () => {
 
     return (
         <Stack>
-            <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
-            <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
-                <TextInput
-                    withAsterisk
-                    label="Code"
-                    key={verifyForm.key('code')}
-                    {...verifyForm.getInputProps('code')}
-                />
-
-                <Group justify="flex-end" mt="md">
-                    <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
-                    <Button type="submit">Submit</Button>
+            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                <Group justify="space-between" gap="xl">
+                    <Text ta="left">Verify Your Email</Text>
+                    <CloseButton aria-label="Close form" />
                 </Group>
-            </form>
+            </Paper>
+            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
+                <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
+                    <TextInput
+                        withAsterisk
+                        label="Code"
+                        placeholder="Enter verification code"
+                        key={verifyForm.key('code')}
+                        {...verifyForm.getInputProps('code')}
+                    />
+
+                    <Stack align="center" mt={15}>
+                        <Button type="submit">Verify</Button>
+                        <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
+                    </Stack>
+                </form>
+            </Paper>
         </Stack>
     )
 }
@@ -98,12 +100,11 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
     })
 
     if (!isLoaded) {
-        // Add logic to handle loading state
         return <Loader />
     }
 
     if (verifying) {
-        return <EmailVerificationStep />
+        return <EmailVerificationStep onSwitchToSignIn={onSwitchToSignIn} />
     }
 
     if (signUp?.status === 'complete') {
@@ -136,39 +137,43 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
 
     return (
         <Stack>
-            <Title order={3}>Signup</Title>
-
-            <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
-                <TextInput
-                    withAsterisk
-                    label="Email"
-                    placeholder="your@email.com"
-                    key={form.key('email')}
-                    {...form.getInputProps('email')}
-                />
-
-                <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    width={400}
-                    key={form.key('password')}
-                    {...form.getInputProps('password')}
-                />
-
-                <Checkbox
-                    mt="md"
-                    label="I agree to the terms of service"
-                    key={form.key('termsOfService')}
-                    {...form.getInputProps('termsOfService', {
-                        type: 'checkbox',
-                    })}
-                />
-
-                <Group justify="space-between" mt="md">
-                    <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
-                    <Button type="submit">Submit</Button>
+            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                <Group justify="space-between" gap="xl">
+                    <Text ta="left">Welcome To SafeInsights</Text>
+                    <CloseButton aria-label="Close form" />
                 </Group>
-            </form>
+            </Paper>
+            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
+                    <TextInput
+                        key={form.key('email')}
+                        {...form.getInputProps('email')}
+                        label="Email"
+                        placeholder="Email address"
+                        aria-label="Email address"
+                    />
+                    <PasswordInput
+                        withAsterisk
+                        key={form.key('password')}
+                        {...form.getInputProps('password')}
+                        mt={10}
+                        placeholder="Password"
+                        aria-label="Password"
+                    />
+                    <Checkbox
+                        mt="md"
+                        label="I agree to the terms of service"
+                        key={form.key('termsOfService')}
+                        {...form.getInputProps('termsOfService', {
+                            type: 'checkbox',
+                        })}
+                    />
+                    <Stack align="center" mt={15}>
+                        <Button type="submit">Sign Up</Button>
+                        <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
+                    </Stack>
+                </form>
+            </Paper>
         </Stack>
     )
 }
