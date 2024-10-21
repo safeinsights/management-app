@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { reportError } from './errors'
-import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton, Checkbox } from '@mantine/core'
+import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
-import { useRouter, Link } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import { SignInResource } from '@clerk/types'
 
-export function SignIn() {
+export function SignIn({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
     const { isLoaded, signIn, setActive } = useSignIn()
     const [needsMFA, setNeedsMFA] = useState<SignInResource | false>(false)
     const router = useRouter()
@@ -95,6 +95,7 @@ export function SignIn() {
         <Stack>
             {/* <Title order={3}>Login</Title> */}
 
+
             <form onSubmit={onSubmit}>
                 <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm ">
                     <Group justify="space-between" gap="xl">
@@ -108,7 +109,7 @@ export function SignIn() {
                     <Stack align="center" mt={15}>
                         <Button type="submit">Login</Button>
                         {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
-                        <Link to="/signup">Sign Up Now</Link>
+                        <Anchor onClick={onSwitchToSignUp}>Don't have an account? Sign Up Now</Anchor>
                         <Anchor href="/reset-password" target="_blank">Forgot password?</Anchor>
                     </Stack>
                 </Paper>

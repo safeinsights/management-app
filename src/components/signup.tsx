@@ -70,6 +70,7 @@ const EmailVerificationStep = () => {
                 />
 
                 <Group justify="flex-end" mt="md">
+                    <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
                     <Button type="submit">Submit</Button>
                 </Group>
             </form>
@@ -77,7 +78,7 @@ const EmailVerificationStep = () => {
     )
 }
 
-export function SignUp() {
+export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
     const { isLoaded, signUp } = useSignUp()
     const [verifying, setVerifying] = useState(false)
     const router = useRouter()
@@ -163,9 +164,8 @@ export function SignUp() {
                     })}
                 />
 
-                <Anchor href="/reset-password">Forgot your password? Reset it here!</Anchor>
-
-                <Group justify="flex-end" mt="md">
+                <Group justify="space-between" mt="md">
+                    <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
                     <Button type="submit">Submit</Button>
                 </Group>
             </form>
