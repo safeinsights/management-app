@@ -22,7 +22,7 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
         <Flex justify="center">
             <YodaNotice />
             <Flex direction="column">
-                <Title>{member.name} OpenStax Study Proposal Step 1)</Title>
+                <Title>{member.name} Proposal Step 1)</Title>
 
                 <List>
                     {/* <ListItem>Submit proposal for review</ListItem> */}
