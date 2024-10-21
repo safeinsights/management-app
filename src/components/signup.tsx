@@ -137,14 +137,14 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
 
     return (
         <Stack>
-            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                <Group justify="space-between" gap="xl">
-                    <Text ta="left">Welcome To SafeInsights</Text>
-                    <CloseButton aria-label="Close form" />
-                </Group>
-            </Paper>
-            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
+            <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                    <Group justify="space-between" gap="xl">
+                        <Text ta="left">Welcome To SafeInsights</Text>
+                        <CloseButton aria-label="Close form" />
+                    </Group>
+                </Paper>
+                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
                     <TextInput
                         key={form.key('email')}
                         {...form.getInputProps('email')}
@@ -172,8 +172,8 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
                         <Button type="submit">Sign Up</Button>
                         <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
                     </Stack>
-                </form>
-            </Paper>
+                </Paper>
+            </form>
         </Stack>
     )
 }
