@@ -2,7 +2,7 @@ import { clerkMiddleware } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
 export default clerkMiddleware((auth, req) => {
-    // Do not allow certain paths when logged in (e.g. password resets, signup)
+    // Do not allow and redirect certain paths when logged in (e.g. password resets, signup)
     if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
         const { userId } = auth()
         if (userId) {
