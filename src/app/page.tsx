@@ -1,8 +1,9 @@
 import { SignedIn, SignedOut } from '@clerk/nextjs'
-import { LoginOrSignup } from '@/components/login-or-signup'
+import { SignIn } from '@/components/signin'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import { db } from '@/database'
 import { unstable_noStore as noStore } from 'next/cache'
+import { Flex } from '@mantine/core'
 
 async function getDB() {
     noStore()
@@ -14,7 +15,9 @@ export default async function Home() {
     return (
         <div className={pageStyles}>
             <SignedOut>
-                <LoginOrSignup />
+                <Flex justify="center" miw="400px">
+                    <SignIn />
+                </Flex>
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
