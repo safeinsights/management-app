@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { reportError } from './errors'
 import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton, Checkbox } from '@mantine/core'
@@ -16,7 +18,7 @@ interface EmailVerificationFormValues {
     code: string
 }
 
-const EmailVerificationStep = ({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) => {
+const EmailVerificationStep = () => {
     const { isLoaded, signUp, setActive } = useSignUp()
     const router = useRouter()
 
@@ -72,7 +74,7 @@ const EmailVerificationStep = ({ onSwitchToSignIn }: { onSwitchToSignIn: () => v
 
                     <Stack align="center" mt={15}>
                         <Button type="submit">Verify</Button>
-                        <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
+                        <Anchor href="/">Already have an account? Sign In</Anchor>
                     </Stack>
                 </form>
             </Paper>
@@ -80,7 +82,7 @@ const EmailVerificationStep = ({ onSwitchToSignIn }: { onSwitchToSignIn: () => v
     )
 }
 
-export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
+export function SignUp() {
     const { isLoaded, signUp } = useSignUp()
     const [verifying, setVerifying] = useState(false)
     const router = useRouter()
@@ -104,7 +106,7 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
     }
 
     if (verifying) {
-        return <EmailVerificationStep onSwitchToSignIn={onSwitchToSignIn} />
+        return <EmailVerificationStep />
     }
 
     if (signUp?.status === 'complete') {
@@ -170,7 +172,7 @@ export function SignUp({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
                     />
                     <Stack align="center" mt={15}>
                         <Button type="submit">Sign Up</Button>
-                        <Anchor onClick={onSwitchToSignIn}>Already have an account? Sign In</Anchor>
+                        <Anchor href="/">Already have an account? Sign In</Anchor>
                     </Stack>
                 </Paper>
             </form>
