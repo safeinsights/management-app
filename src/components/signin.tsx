@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import { SignInResource } from '@clerk/types'
 
-export function SignIn({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
+export function SignIn() {
     const { isLoaded, signIn, setActive } = useSignIn()
     const [needsMFA, setNeedsMFA] = useState<SignInResource | false>(false)
     const router = useRouter()
@@ -109,7 +109,7 @@ export function SignIn({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
                     <Stack align="center" mt={15}>
                         <Button type="submit">Login</Button>
                         {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
-                        <Anchor onClick={onSwitchToSignUp}>Don't have an account? Sign Up Now</Anchor>
+                        <Anchor href="/signup">Don't have an account? Sign Up Now</Anchor>
                         <Anchor href="/reset-password">Forgot password?</Anchor>
                     </Stack>
                 </Paper>
