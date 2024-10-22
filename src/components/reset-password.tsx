@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { reportError } from './errors'
-import { Anchor, Button, Group, Loader, Stack, Text, TextInput, Paper, CloseButton } from '@mantine/core'
-import { isEmail, useForm } from '@mantine/form'
+import { Anchor, Button, Group, Loader, Stack, Text, TextInput, Paper, CloseButton, PasswordInput } from '@mantine/core'
+import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 
@@ -11,12 +11,17 @@ interface ResetPasswordFormValues {
     email: string
 }
 
+interface VerificationFormValues {
+    code: string
+    password: string
+}
+
 export function ResetPassword() {
-    const { isLoaded, signIn } = useSignIn()
-    const [emailSent, setEmailSent] = useState(false)
+    const { isLoaded, signIn, setActive } = useSignIn()
+    const [pendingReset, setPendingReset] = useState<any>(null)
     const router = useRouter()
 
-    const form = useForm<ResetPasswordFormValues>({
+    const emailForm = useForm<ResetPasswordFormValues>({
         initialValues: {
             email: '',
         },
@@ -25,51 +30,109 @@ export function ResetPassword() {
         },
     })
 
+    const verificationForm = useForm<VerificationFormValues>({
+        initialValues: {
+            code: '',
+            password: '',
+        },
+        validate: {
+            code: isNotEmpty('Verification code is required'),
+            password: isNotEmpty('New password is required'),
+        },
+    })
+
     if (!isLoaded) {
         return <Loader />
     }
 
-    const onSubmit = async (values: ResetPasswordFormValues) => {
+    const onSubmitEmail = async (values: ResetPasswordFormValues) => {
         if (!isLoaded) return
 
         try {
-            await signIn.create({
+            const reset = await signIn.create({
                 strategy: 'reset_password_email_code',
                 identifier: values.email,
             })
-            setEmailSent(true)
+            setPendingReset(reset)
         } catch (err: any) {
             reportError(err, 'failed to initiate password reset')
 
             const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
             if (emailError) {
-                form.setFieldError('email', emailError.longMessage)
+                emailForm.setFieldError('email', emailError.longMessage)
             }
         }
     }
 
-    if (emailSent) {
+    const onSubmitVerification = async (values: VerificationFormValues) => {
+        if (!isLoaded || !pendingReset) return
+
+        try {
+            const result = await pendingReset.attemptFirstFactor({
+                strategy: 'reset_password_email_code',
+                code: values.code,
+                password: values.password,
+            })
+
+            if (result.status === 'complete') {
+                await setActive({ session: result.createdSessionId })
+                router.push('/')
+            }
+        } catch (err: any) {
+            reportError(err, 'failed to reset password')
+
+            const codeError = err.errors?.find((error: any) => error.meta?.paramName === 'code')
+            if (codeError) {
+                verificationForm.setFieldError('code', codeError.longMessage)
+            }
+
+            const passwordError = err.errors?.find((error: any) => error.meta?.paramName === 'password')
+            if (passwordError) {
+                verificationForm.setFieldError('password', passwordError.longMessage)
+            }
+        }
+    }
+
+    if (pendingReset) {
         return (
             <Stack>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                    <Group justify="space-between" gap="xl">
-                        <Text ta="left">Check Your Email</Text>
-                        <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
-                    </Group>
-                </Paper>
-                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>We've sent password reset instructions to your email address.</Text>
-                    <Stack align="center" mt={15}>
-                        <Button onClick={() => router.push('/')}>Return to Login</Button>
-                    </Stack>
-                </Paper>
+                <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
+                    <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                        <Group justify="space-between" gap="xl">
+                            <Text ta="left">Reset Your Password</Text>
+                            <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
+                        </Group>
+                    </Paper>
+                    <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                        <Text>Enter the verification code from your email and choose a new password.</Text>
+                        <TextInput
+                            key={verificationForm.key('code')}
+                            {...verificationForm.getInputProps('code')}
+                            label="Verification Code"
+                            placeholder="Enter code from email"
+                            aria-label="Verification code"
+                        />
+                        <PasswordInput
+                            key={verificationForm.key('password')}
+                            {...verificationForm.getInputProps('password')}
+                            label="New Password"
+                            placeholder="Enter new password"
+                            aria-label="New password"
+                            mt={10}
+                        />
+                        <Stack align="center" mt={15}>
+                            <Button type="submit">Reset Password</Button>
+                            <Anchor onClick={() => setPendingReset(null)}>Back to Email Entry</Anchor>
+                        </Stack>
+                    </Paper>
+                </form>
             </Stack>
         )
     }
 
     return (
         <Stack>
-            <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
+            <form onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}>
                 <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
                     <Group justify="space-between" gap="xl">
                         <Text ta="left">Reset Password</Text>
@@ -77,16 +140,16 @@ export function ResetPassword() {
                     </Group>
                 </Paper>
                 <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>Enter your email address and we'll send you instructions to reset your password.</Text>
+                    <Text>Enter your email address and we'll send you a verification code.</Text>
                     <TextInput
-                        key={form.key('email')}
-                        {...form.getInputProps('email')}
+                        key={emailForm.key('email')}
+                        {...emailForm.getInputProps('email')}
                         label="Email"
                         placeholder="Email address"
                         aria-label="Email address"
                     />
                     <Stack align="center" mt={15}>
-                        <Button type="submit">Reset Password</Button>
+                        <Button type="submit">Send Reset Code</Button>
                         <Anchor onClick={() => router.push('/')}>Back to Login</Anchor>
                     </Stack>
                 </Paper>
