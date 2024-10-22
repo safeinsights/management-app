@@ -110,7 +110,7 @@ export function SignIn({ onSwitchToSignUp }: { onSwitchToSignUp: () => void }) {
                         <Button type="submit">Login</Button>
                         {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
                         <Anchor onClick={onSwitchToSignUp}>Don't have an account? Sign Up Now</Anchor>
-                        <Anchor href="/reset-password" target="_blank">Forgot password?</Anchor>
+                        <Anchor href="/reset-password">Forgot password?</Anchor>
                     </Stack>
                 </Paper>
             </form>
