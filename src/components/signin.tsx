@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { reportError } from './errors'
 import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton } from '@mantine/core'
