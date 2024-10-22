@@ -1,6 +1,15 @@
 import { clerkMiddleware } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
-export default clerkMiddleware()
+export default clerkMiddleware((auth, req) => {
+    // Do not allow certain paths when logged in (e.g. password resets)
+    if (req.nextUrl.pathname.startsWith('/reset-password')) {
+        const { userId } = auth()
+        if (userId) {
+            return NextResponse.redirect(new URL('/', req.url))
+        }
+    }
+})
 
 export const config = {
     matcher: [
