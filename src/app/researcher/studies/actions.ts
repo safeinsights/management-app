@@ -14,7 +14,6 @@ export const onRunCreateAction = async (studyId: string) => {
         .insertInto('studyRun')
         .values({
             studyId: studyId,
-            status: 'created',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

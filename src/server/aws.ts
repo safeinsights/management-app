@@ -39,7 +39,7 @@ export const getAWSInfo = async () => {
 
 export class ECR {
     defaultTags: Record<string, string> = {
-        Environemnt: 'sandbox',
+        Environment: 'sandbox',
     }
 
     client: ECRClient

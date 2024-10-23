@@ -1,7 +1,7 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    await db.schema.createType('study_status').asEnum(['draft', 'proposal', 'approved', 'inactive']).execute()
+    await db.schema.createType('study_status').asEnum(['draft', 'in-review', 'approved', 'changes-requested', 'archived']).execute()
 
     await db.schema
         .createTable('study')
@@ -19,7 +19,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('approved_at', 'timestamp')
 
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
-        .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
     db.schema.createIndex('study_member_indx').on('study').column('member_id').execute()

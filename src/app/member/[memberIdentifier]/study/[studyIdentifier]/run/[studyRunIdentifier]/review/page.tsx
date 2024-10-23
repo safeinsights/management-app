@@ -1,18 +1,18 @@
-import React from 'react'
 import { Button, Flex, Paper, Title } from '@mantine/core'
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
 
 import Link from 'next/link'
-import { Review } from './review'
+
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 
-export default async function UploadPage({
+export default async function StudyReviewPage({
     params: { memberIdentifier, studyRunIdentifier },
 }: {
     params: {
         memberIdentifier: string
+        studyIdentifier: string
         studyRunIdentifier: string
     }
 }) {
@@ -24,29 +24,38 @@ export default async function UploadPage({
 
     const run = await db
         .selectFrom('studyRun')
-        .innerJoin('study', (join) => join.on('memberId', '=', member.id).onRef('study.id', '=', 'studyRun.studyId'))
+        .innerJoin('study', 'study.id', 'studyRun.studyId')
         .select([
             'studyRun.id',
-            'studyRun.codeReviewPath',
             'study.title as studyTitle',
-            'studyRun.status',
-            'study.dataSources',
-            'study.outputMimeType',
+            'studyRun.codePath',
+            'studyRun.uploadedAt',
         ])
         .where('studyRun.id', '=', b64toUUID(studyRunIdentifier))
         .executeTakeFirst()
+
+    if (!run) {
+        return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
+    }
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
             <Flex justify="space-between" align="center">
                 <Title mb="lg">
-                    {member.name} Review “{run?.studyTitle}”
+                    {member.name} Review code for “{run.studyTitle}”
                 </Title>
-                <Link href={`/member/${memberIdentifier}/studies/review`}>
-                    <Button color="blue">Back to pending review</Button>
-                </Link>
+                <Flex gap="md" direction="column">
+
+                    <Link href={`/member/${memberIdentifier}/studies/review`}>
+                        <Button color="blue">Back to pending review</Button>
+                    </Link>
+                </Flex>
             </Flex>
-            <Review memberIdentifier={memberIdentifier} run={run} />
+            <textarea
+                readOnly
+                style={{ width: '100%', height: 400, padding: 30 }}
+                defaultValue={`code for run ${run.id} goes here or something...`}
+            />
         </Paper>
     )
 }
