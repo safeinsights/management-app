@@ -50,7 +50,6 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             .insertInto('studyRun')
             .values({
                 studyId: studyId,
-                status: 'created',
             })
             .returning('id')
             .executeTakeFirstOrThrow()
