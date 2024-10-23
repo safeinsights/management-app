@@ -1,9 +1,9 @@
 import { db } from '@/database'
 import { Form } from './form'
-import { Button, Paper } from '@mantine/core'
+import {  Paper } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { b64toUUID } from '@/lib/uuid'
-import Link from 'next/link'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -22,10 +22,6 @@ export default async function StudyEditPage({ params: { encodedStudyId } }: { pa
 
     return (
         <Paper bg="#f5f5f5" shadow="none" p={30} mt={30} radius="sm">
-            <Link href="/researcher/studies" passHref>
-                <Button>Back to all studies</Button>
-            </Link>
-
             <Form
                 studyId={study.id}
                 study={{

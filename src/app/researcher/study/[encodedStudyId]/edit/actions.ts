@@ -13,7 +13,7 @@ export const onUpdateStudyAction = async (studyId: string, study: FormValues) =>
         .updateTable('study')
         .set({
             ...pick(study, ['description', 'piName', 'outputMimeType']),
-            dataSources: [...(study.eventCapture ? ['eventCapture'] : []), ...(study.highlights ? ['highlights'] : [])],
+            dataSources: [...(study.eventCapture ? ['eventCapture'] : []), ...(study.highlights ? ['highlights'] : []), ...(study.containerLocation ? ['containerURL'] : [])], ...(study.irbDocument ? ['IRB Document.pdf'] : []),
         })
         .where('id', '=', studyId)
         .execute()
