@@ -1,9 +1,8 @@
 import { db } from '@/database'
 import { Form } from './form'
-import {  Paper } from '@mantine/core'
+import { Paper } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { b64toUUID } from '@/lib/uuid'
-
 
 export const dynamic = 'force-dynamic'
 
