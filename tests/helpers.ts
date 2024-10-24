@@ -43,11 +43,20 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const run1 = await db
+    const run0 = await db
         .insertInto('studyRun')
         .values({
             studyId: study.id,
             status: 'initiated',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const run1 = await db
+        .insertInto('studyRun')
+        .values({
+            studyId: study.id,
+            status: 'in-progress',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -56,7 +65,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyRun')
         .values({
             studyId: study.id,
-            status: 'initiated',
+            status: 'in-queue',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -64,7 +73,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
     return {
         memberId: opts.memberId,
         studyId: study.id,
-        runIds: [run1.id, run2.id],
+        runIds: [run0.id, run1.id, run2.id],
     }
 }
 
