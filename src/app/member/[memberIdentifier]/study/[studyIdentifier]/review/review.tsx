@@ -42,6 +42,5 @@ export const ReviewControls: React.FC<{ study?: Study; memberIdentifier: string 
                 Approve
             </Button>
         </Flex>
-
     )
 }

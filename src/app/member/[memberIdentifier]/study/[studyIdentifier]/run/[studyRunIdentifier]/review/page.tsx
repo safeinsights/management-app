@@ -1,11 +1,11 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
-import { db } from '@/database'
-import { b64toUUID } from '@/lib/uuid'
 
 import Link from 'next/link'
-
+import { dataForRun } from './actions'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
+import { ReviewControls } from './controls'
+import { Files } from './files'
 
 export default async function StudyReviewPage({
     params: { memberIdentifier, studyRunIdentifier },
@@ -22,39 +22,32 @@ export default async function StudyReviewPage({
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const run = await db
-        .selectFrom('studyRun')
-        .innerJoin('study', 'study.id', 'studyRun.studyId')
-        .select([
-            'studyRun.id',
-            'study.title as studyTitle',
-            'studyRun.codePath',
-            'studyRun.uploadedAt',
-        ])
-        .where('studyRun.id', '=', b64toUUID(studyRunIdentifier))
-        .executeTakeFirst()
+    const { run, manifest } = await dataForRun(studyRunIdentifier)
 
-    if (!run) {
+    if (!run || !manifest) {
         return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
     }
+
+    const initialExpanded = manifest.tree.children?.length == 1 ? manifest.tree.children[0].value : undefined
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
             <Flex justify="space-between" align="center">
-                <Title mb="lg">
-                    {member.name} Review code for “{run.studyTitle}”
+                <Title mb="lg" order={5}>
+                    Review code for code run submitted on {run.createdAt.toLocaleTimeString()}
                 </Title>
                 <Flex gap="md" direction="column">
-
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
                         <Button color="blue">Back to pending review</Button>
                     </Link>
+                    <ReviewControls memberIdentifier={memberIdentifier} run={run} />
                 </Flex>
             </Flex>
-            <textarea
-                readOnly
-                style={{ width: '100%', height: 400, padding: 30 }}
-                defaultValue={`code for run ${run.id} goes here or something...`}
+            <Files
+                data={manifest?.tree.children || []}
+                run={run}
+                manifest={manifest}
+                initialExpanded={initialExpanded}
             />
         </Paper>
     )

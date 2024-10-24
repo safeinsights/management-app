@@ -24,14 +24,7 @@ export default async function StudyReviewPage({
     const study = await db
         .selectFrom('study')
 
-        .select([
-            'id',
-            'title',
-            'description',
-            'status',
-            'dataSources',
-            'outputMimeType',
-        ])
+        .select(['id', 'title', 'description', 'status', 'dataSources', 'outputMimeType'])
         .where('id', '=', b64toUUID(studyIdentifier))
         .executeTakeFirst()
 
@@ -40,8 +33,8 @@ export default async function StudyReviewPage({
     }
 
     return (
-        <Paper m="xl" shadow="xs" p="xl">
-            <Flex justify="space-between" align="center">
+        <Paper shadow="xs" p="sm" m="xs">
+            <Flex justify="space-between" align="center" mb="lg">
                 <Title mb="lg">
                     {member.name} Review “{study.title}”
                 </Title>

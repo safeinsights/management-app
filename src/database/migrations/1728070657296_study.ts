@@ -1,7 +1,10 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    await db.schema.createType('study_status').asEnum(['draft', 'in-review', 'approved', 'changes-requested', 'archived']).execute()
+    await db.schema
+        .createType('study_status')
+        .asEnum(['draft', 'in-review', 'approved', 'changes-requested', 'archived'])
+        .execute()
 
     await db.schema
         .createTable('study')

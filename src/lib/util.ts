@@ -15,7 +15,7 @@ export function slugify(str: string) {
         .replace(/\s+/g, '-') // collapse whitespace and replace by -
         .replace(/-+/g, '-') // collapse dashes
 
-    return str
+    return str.slice(0, 50)
 }
 
 export type Nullable<T> = { [K in keyof T]: T[K] | null }
