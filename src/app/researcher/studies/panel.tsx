@@ -95,7 +95,7 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
     return (
         <Accordion onChange={setActiveId}>
             {studies.map((study) => (
-                <AccordionItem key={study.id} value={study.id}>
+                <AccordionItem key={study.id} value={study.id} my="xl">
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <PushInstructionsModal
@@ -104,7 +104,6 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
                             onComplete={() => setViewingRunId(null)}
                         />
                         <p>{study.description}</p>
-
                         <RunsTable isActive={activeId == study.id} studyId={study.id} onView={setViewingRunId} />
                     </AccordionPanel>
                 </AccordionItem>

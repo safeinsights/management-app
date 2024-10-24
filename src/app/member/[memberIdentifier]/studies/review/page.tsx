@@ -9,15 +9,13 @@ import { getMemberFromIdentifier } from '@/server/members'
 
 export const dynamic = 'force-dynamic'
 
-
-const StudyRuns: React.FC<{ study: { id: string }, memberIdentifier: string }> = async ({ study, memberIdentifier }) => {
+const StudyRuns: React.FC<{ study: { id: string }; memberIdentifier: string }> = async ({
+    study,
+    memberIdentifier,
+}) => {
     const runs = await db
         .selectFrom('studyRun')
-        .select([
-            'id',
-            'uploadedAt',
-            'status',
-        ])
+        .select(['id', 'uploadedAt', 'status'])
 
         .where('studyId', '=', study.id)
         .execute()
@@ -27,37 +25,39 @@ const StudyRuns: React.FC<{ study: { id: string }, memberIdentifier: string }> =
             <Table>
                 <thead>
                     <tr>
-                        <th align="left">
-                            Code Uploaded At
-                        </th>
+                        <th align="left">Code Uploaded At</th>
                         <th align="left" colSpan={2}>
                             Status
                         </th>
-
                     </tr>
                 </thead>
                 <tbody>
-                    {runs.map(run => (
+                    {runs.map((run) => (
                         <tr key={run.id}>
                             <td>{run.uploadedAt?.toLocaleDateString()}</td>
                             <td>{run.status}</td>
                             <td>
-
-                                <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}>
-                                    <Button color="blue">Review code</Button>
-                                </Link>
+                                {run.status != 'initiated' && (
+                                    <Link
+                                        href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
+                                    >
+                                        <Button color="blue">Review code</Button>
+                                    </Link>
+                                )}
                             </td>
                         </tr>
                     ))}
                 </tbody>
-
             </Table>
         </>
     )
 }
 
-
-export default async function StudyReviewPage({ params: { memberIdentifier } }: { params: { memberIdentifier: string } }) {
+export default async function StudyReviewPage({
+    params: { memberIdentifier },
+}: {
+    params: { memberIdentifier: string }
+}) {
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
@@ -66,15 +66,11 @@ export default async function StudyReviewPage({ params: { memberIdentifier } }: 
 
     const studies = await db
         .selectFrom('study')
-        .innerJoin('member', (join) => join.on('member.identifier', '=', memberIdentifier)
-            .onRef('study.memberId', '=', 'member.id'))
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
+        )
 
-        .select([
-            'study.id',
-            'study.createdAt',
-            'study.title',
-            'study.description',
-        ])
+        .select(['study.id', 'study.createdAt', 'study.title', 'study.description'])
         .where('study.status', '=', 'draft')
         .execute()
 
