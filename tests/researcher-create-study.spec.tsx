@@ -23,7 +23,7 @@ test.describe('app', () => {
 
         await page.getByRole('checkbox', { name: /highhlights/i }).check()
 
-        await page.getByRole('button', { name: /update/i }).click()
+        await page.getByRole('button', { name: /submit proposal/i }).click()
 
         await page.getByRole('button', { name: /all studies/i }).click()
         await page.waitForLoadState('networkidle')
