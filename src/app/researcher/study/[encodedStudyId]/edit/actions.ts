@@ -14,7 +14,7 @@ export const onUpdateStudyAction = async (studyId: string, study: FormValues) =>
         ...(study.containerLocation ? ['containerURL'] : []),
         ...(study.irbDocument ? ['IRB Document.pdf'] : []),
     ]
-    
+
     await db
         .updateTable('study')
         .set({
