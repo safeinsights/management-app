@@ -13,11 +13,13 @@ import Link from 'next/link'
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const {
         control,
-        // formState: { isValid },
         getValues,
     } = useForm<FormValues>({
         resolver: zodResolver(schema),
-        defaultValues: study,
+        defaultValues: { ...study,
+            highlights: true,
+            eventCapture: true,
+        },
         mode: 'onChange',
     })
     const [isDisabled, setIsDisabled] = useState(true)
@@ -28,7 +30,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
     const checkFormValid = () => {
         const values = getValues()
         const hasChecked = values.highlights || values.eventCapture
-        setIsFormValid(hasChecked ?? false)
+        setIsFormValid(hasChecked)
     }
 
     return (
@@ -88,13 +90,13 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 <Flex p={2} gap="lg">
                     <Text className={labelStyle}>Datasets of Interest</Text>
                     <Stack>
-                        <Checkbox
+                        <Checkbox 
                             name="highlights"
                             control={control}
                             value="highlights"
                             label="Highhlights and Notes"
                         ></Checkbox>
-                        <Checkbox
+                        <Checkbox 
                             name="eventCapture"
                             control={control}
                             value="event-capture"

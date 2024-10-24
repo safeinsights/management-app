@@ -15,7 +15,7 @@ const schema = z
     })
     .refine((data) => data.highlights || data.eventCapture, {
         message: 'At least one checkbox must be selected',
-        path: ['highlights', 'evntCapture'],
+        path: ['highlights', 'eventCapture'],
     })
 
 type FormValues = z.infer<typeof schema>
