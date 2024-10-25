@@ -2,10 +2,8 @@
 
 set -e
 
-TAG=$1
-
-if [ -z "$TAG" ]; then
-    echo "Usage: $0 <tag>"
+if [ -z "$$DOCKER_TAG" ]; then
+    echo "DOCKER_TAG env must be set"
     exit 1
 fi
 
@@ -14,5 +12,5 @@ docker build \
     --platform=linux/amd64 \
     --secret id=envs,src=.env \
     --progress=plain \
-    -t $TAG \
+    -t $DOCKER_TAG \
     .

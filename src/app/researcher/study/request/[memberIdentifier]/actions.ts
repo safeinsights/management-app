@@ -1,7 +1,7 @@
 'use server'
 
 import { PROD_ENV } from '@/server/config'
-import { ECR, generateRepositoryPath, getAWSInfo } from '@/server/aws'
+import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
@@ -21,9 +21,9 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
 
     let repoUrl = ''
-    if (PROD_ENV) {
-        const ecr = new ECR()
-        repoUrl = await ecr.createAnalysisRepository(repoPath, {
+
+    if (PROD_ENV || process.env['FORCE_CREATE_ECR'] == 't') {
+        repoUrl = await createAnalysisRepository(repoPath, {
             title: study.title,
             studyId,
         })
@@ -50,7 +50,6 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             .insertInto('studyRun')
             .values({
                 studyId: studyId,
-                status: 'created',
             })
             .returning('id')
             .executeTakeFirstOrThrow()

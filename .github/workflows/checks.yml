@@ -37,7 +37,7 @@ jobs:
             - name: Test build
               run: |
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
-                  npm run build:docker:ci
+                  DOCKER_TAG=ci-test npm run build:docker:ci
             - name: display docker logs
               run: docker compose logs
               if: always()

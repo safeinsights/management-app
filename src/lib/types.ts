@@ -13,3 +13,18 @@ export type Member = {
     publicKey: string
     email: string
 }
+
+export type TreeNode = {
+    label: string
+    value: string
+    size: number
+    children?: TreeNode[]
+}
+
+export type CodeManifest = {
+    files: Record<string, number>
+    tree: TreeNode
+    size: number
+}
+
+export type CodeFileMinimalRun = { studyId: string; id: string }
