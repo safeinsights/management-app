@@ -3,7 +3,7 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_status')
-        .asEnum(['draft', 'in-review', 'approved', 'changes-requested', 'archived'])
+        .asEnum(['initiated', 'submitted', 'approved', 'rejected', 'archived'])
         .execute()
 
     await db.schema
@@ -15,7 +15,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('member_id', 'uuid', (col) => col.notNull().references('member.id'))
         .addColumn('pi_name', 'text', (col) => col.notNull())
         .addColumn('container_location', 'text', (col) => col.notNull())
-        .addColumn('status', sql`study_status`, (col) => col.notNull().defaultTo('draft'))
+        .addColumn('status', sql`study_status`, (col) => col.notNull().defaultTo('initiated'))
         .addColumn('data_sources', sql`text[]`, (col) => col.notNull().defaultTo('{}'))
         .addColumn('output_mime_type', 'text')
         .addColumn('irb_protocols', 'text')

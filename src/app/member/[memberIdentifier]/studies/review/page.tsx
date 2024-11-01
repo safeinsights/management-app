@@ -71,7 +71,7 @@ export default async function StudyReviewPage({
         )
 
         .select(['study.id', 'study.createdAt', 'study.title', 'study.description'])
-        .where('study.status', '=', 'draft')
+        .where('study.status', '=', 'initiated')
         .execute()
 
     return (

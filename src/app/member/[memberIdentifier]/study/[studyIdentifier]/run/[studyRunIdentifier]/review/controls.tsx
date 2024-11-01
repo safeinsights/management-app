@@ -36,7 +36,7 @@ export const ReviewControls: React.FC<{ run: CodeFileMinimalRun; memberIdentifie
             <Button color="red" onClick={() => updateStudyRun('code-rejected')} loading={isPending}>
                 Reject
             </Button>
-            <Button color="blue" onClick={() => updateStudyRun('in-queue')} loading={isPending}>
+            <Button color="blue" onClick={() => updateStudyRun('ready')} loading={isPending}>
                 Approve
             </Button>
         </Flex>

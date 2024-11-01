@@ -32,7 +32,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params: { runId }
         await db
             .updateTable('studyRun')
             .set({
-                status: 'results-available',
+                status: 'completed',
                 resultsPath: resultsPath,
             })
             .where('id', '=', runId)

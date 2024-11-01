@@ -51,7 +51,7 @@ test('return study runs', async () => {
             expect.objectContaining({
                 runId: runIds[2],
                 title: 'my 1st study',
-                status: 'in-queue',
+                status: 'ready',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${uuidToB64(runIds[2])}`,

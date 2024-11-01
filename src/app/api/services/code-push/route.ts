@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         .where('id', '=', body.runId)
         .where('status', '=', 'initiated')
         .set({
-            status: 'in-queue',
+            status: 'ready',
             codePath: body.codePath,
             uploadedAt: new Date(),
             fileSize: body.fileSize,

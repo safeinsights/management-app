@@ -35,8 +35,8 @@ export const ReviewControls: React.FC<{ study?: Study; memberIdentifier: string 
 
     return (
         <Flex gap="md">
-            <Button color="red" onClick={() => updateStudy('changes-requested')} loading={isPending}>
-                Request Changes
+            <Button color="red" onClick={() => updateStudy('rejected')} loading={isPending}>
+                Reject
             </Button>
             <Button color="blue" onClick={() => updateStudy('approved')} loading={isPending}>
                 Approve

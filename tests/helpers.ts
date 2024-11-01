@@ -65,7 +65,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyRun')
         .values({
             studyId: study.id,
-            status: 'in-queue',
+            status: 'ready',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

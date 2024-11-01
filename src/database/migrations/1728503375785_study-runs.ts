@@ -5,14 +5,14 @@ export async function up(db: Kysely<any>): Promise<void> {
         .createType('study_run_status')
         .asEnum([
             'initiated',
-            'code-review',
+            'code-submitted',
             'code-rejected',
-            'in-queue',
+            'ready',
             'in-progress',
             'errored',
             'results-review',
             'results-rejected',
-            'results-available',
+            'completed',
         ])
         .execute()
 
