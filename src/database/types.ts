@@ -10,16 +10,16 @@ export type Generated<T> =
 
 export type StudyRunStatus =
     | 'code-rejected'
-    | 'code-review'
+    | 'code-submitted'
+    | 'completed'
     | 'errored'
     | 'in-progress'
-    | 'in-queue'
     | 'initiated'
-    | 'results-available'
+    | 'ready'
     | 'results-rejected'
     | 'results-review'
 
-export type StudyStatus = 'approved' | 'archived' | 'changes-requested' | 'draft' | 'in-review'
+export type StudyStatus = 'approved' | 'archived' | 'initiated' | 'rejected' | 'submitted'
 
 export type Timestamp = ColumnType<Date, Date | string>
 
