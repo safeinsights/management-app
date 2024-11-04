@@ -36,7 +36,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
             description: 'my description',
             researcherId: BLANK_UUID,
             piName: 'test',
-            status: 'approved',
+            status: 'APPROVED',
             dataSources: ['all'],
             outputMimeType: 'text/csv',
         })
@@ -47,7 +47,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyRun')
         .values({
             studyId: study.id,
-            status: 'initiated',
+            status: 'INITIATED',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -56,7 +56,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyRun')
         .values({
             studyId: study.id,
-            status: 'in-progress',
+            status: 'RUNNING',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -65,7 +65,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyRun')
         .values({
             studyId: study.id,
-            status: 'ready',
+            status: 'READY',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

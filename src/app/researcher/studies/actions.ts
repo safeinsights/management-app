@@ -1,10 +1,11 @@
 'use server'
 
 import { db } from '@/database'
+import { StudyRunStatus } from '@/database/types'
 
 export type StudyRun = {
     id: string
-    status: string
+    status: StudyRunStatus
     startedAt: Date | null
     createdAt: Date
 }

@@ -3,7 +3,7 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_status')
-        .asEnum(['initiated', 'submitted', 'approved', 'rejected', 'archived'])
+        .asEnum(['INITIATED', 'SUBMITTED', 'APPROVED', 'REJECTED', 'ARCHIVED'])
         .execute()
 
     await db.schema
@@ -15,7 +15,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('member_id', 'uuid', (col) => col.notNull().references('member.id'))
         .addColumn('pi_name', 'text', (col) => col.notNull())
         .addColumn('container_location', 'text', (col) => col.notNull())
-        .addColumn('status', sql`study_status`, (col) => col.notNull().defaultTo('initiated'))
+        .addColumn('status', sql`study_status`, (col) => col.notNull().defaultTo('INITIATED'))
         .addColumn('data_sources', sql`text[]`, (col) => col.notNull().defaultTo('{}'))
         .addColumn('output_mime_type', 'text')
         .addColumn('irb_protocols', 'text')
@@ -23,6 +23,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
+
+    db.schema.createIndex('study_study_indx').on('study').column('status').execute()
 
     db.schema.createIndex('study_member_indx').on('study').column('member_id').execute()
 }

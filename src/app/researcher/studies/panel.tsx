@@ -6,6 +6,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { onFetchStudyRunsAction, onRunCreateAction } from './actions'
 import { IconCodePlus, IconEditCircle } from '@tabler/icons-react'
 import { PushInstructionsModal } from './push-instructions-modal'
+import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 
 export type Study = {
@@ -18,7 +19,6 @@ export type Study = {
 type RunsTableProps = {
     isActive: boolean
     study: Study
-    //    onView(_: string): void
 }
 
 const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
@@ -72,7 +72,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                 {(runs || []).map((run) => (
                     <Table.Tr key={run.id}>
                         <Table.Td>{run.createdAt.toISOString()}</Table.Td>
-                        <Table.Td>{run.status}</Table.Td>
+                        <Table.Td>{humanizeStatus(run.status)}</Table.Td>
                         <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
                             <ActionIcon title="view instructions" onClick={() => setViewingRunId(run.id)}>
