@@ -97,16 +97,28 @@ export function SignIn() {
         <Stack>
             {/* <Title order={3}>Login</Title> */}
 
-
             <form onSubmit={onSubmit}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm">
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
                     <Group justify="space-between" gap="xl">
                         <Text ta="left">Welcome To SafeInsights</Text>
                     </Group>
                 </Paper>
                 <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <TextInput key={form.key('email')} {...form.getInputProps('email')} label="Login" placeholder="Email address or phone number" aria-label="Email address or phone number" />
-                    <PasswordInput withAsterisk key={form.key('password')} {...form.getInputProps('password')} mt={10} placeholder="Password" aria-label="Password" />
+                    <TextInput
+                        key={form.key('email')}
+                        {...form.getInputProps('email')}
+                        label="Login"
+                        placeholder="Email address or phone number"
+                        aria-label="Email address or phone number"
+                    />
+                    <PasswordInput
+                        withAsterisk
+                        key={form.key('password')}
+                        {...form.getInputProps('password')}
+                        mt={10}
+                        placeholder="Password"
+                        aria-label="Password"
+                    />
                     <Stack align="center" mt={15}>
                         <Button type="submit">Login</Button>
                         {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
