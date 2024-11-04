@@ -13,9 +13,7 @@ import Link from 'next/link'
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const { control, getValues } = useForm<FormValues>({
         resolver: zodResolver(schema),
-        defaultValues: { ...study, 
-            irbDocument:"IRB Document.pdf",
-            highlights: true, eventCapture: true },
+        defaultValues: { ...study, irbDocument: 'IRB Document.pdf', highlights: true, eventCapture: true },
         mode: 'onChange',
     })
     const [isDisabled, setIsDisabled] = useState(true)
@@ -59,25 +57,35 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 </Flex>
 
                 <Flex p={2} gap="md" wrap="wrap">
-                    <Text className={labelStyle} component="span">Study Description
+                    <Text className={labelStyle} component="span">
+                        Study Description
                         <Text component="span" color="red" inherit>
-                             *
+                            *
                         </Text>
                     </Text>
                     <Textarea className={inputStyle} name="description" label="" control={control} />
                 </Flex>
 
                 <Flex p={2} gap="md">
-                    <Text className={labelStyle} component="span">Principal Investigator
+                    <Text className={labelStyle} component="span">
+                        Principal Investigator
                         <Text component="span" color="red" inherit>
-                             *
+                            *
                         </Text>
                     </Text>
                     <TextInput className={inputStyle} name="piName" control={control} />
                 </Flex>
                 <Group p={2} gap="md">
                     <Text className={labelStyle}>IRB Approval Documentation</Text>
-                    <TextInput bg="#ddd" bd="1px solid #ccc" disabled className={inputStyle} name="irbDocument"  control={control} readOnly />
+                    <TextInput
+                        bg="#ddd"
+                        bd="1px solid #ccc"
+                        disabled
+                        className={inputStyle}
+                        name="irbDocument"
+                        control={control}
+                        readOnly
+                    />
                     {/* <Text bd="1px solid #ccc" p="5px" bg="#ddd" className={inputStyle} data-testid="irb-doc">
                         {' '}
                         IRB Document.pdf
@@ -93,9 +101,10 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
             </Text>
             <Stack align="stretch">
                 <Flex p={2} gap="lg">
-                    <Text className={labelStyle} component="span">Datasets of Interest
+                    <Text className={labelStyle} component="span">
+                        Datasets of Interest
                         <Text component="span" color="red" inherit>
-                             *
+                            *
                         </Text>
                     </Text>
                     <Stack>
