@@ -2,7 +2,19 @@
 
 import { useState } from 'react'
 import { reportError } from './errors'
-import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Paper, CloseButton, Checkbox } from '@mantine/core'
+import {
+    Anchor,
+    Button,
+    Group,
+    Loader,
+    PasswordInput,
+    Stack,
+    Text,
+    TextInput,
+    Paper,
+    CloseButton,
+    Checkbox,
+} from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignUp } from '@clerk/nextjs'

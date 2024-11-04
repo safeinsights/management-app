@@ -9,7 +9,6 @@ const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware((auth, req) => {
-
     // Do not allow and redirect certain paths when logged in (e.g. password resets, signup)
     if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
         const { userId } = auth()
