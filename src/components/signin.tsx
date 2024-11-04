@@ -110,7 +110,7 @@ export function SignIn() {
                     <Stack align="center" mt={15}>
                         <Button type="submit">Login</Button>
                         {/* <Checkbox mt={5} label="Remember me" aria-label="Remember me" /> */}
-                        <Anchor href="/signup">Don't have an account? Sign Up Now</Anchor>
+                        <Anchor href="/signup">Don&#39;t have an account? Sign Up Now</Anchor>
                         <Anchor href="/reset-password">Forgot password?</Anchor>
                     </Stack>
                 </Paper>
