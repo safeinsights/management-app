@@ -1,10 +1,11 @@
 'use server'
 
 import { db } from '@/database'
+import { StudyRunStatus } from '@/database/types'
 
 export type StudyRun = {
     id: string
-    status: string
+    status: StudyRunStatus
     startedAt: Date | null
     createdAt: Date
 }
@@ -14,7 +15,6 @@ export const onRunCreateAction = async (studyId: string) => {
         .insertInto('studyRun')
         .values({
             studyId: studyId,
-            status: 'created',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

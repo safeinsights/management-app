@@ -6,6 +6,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { onFetchStudyRunsAction, onRunCreateAction } from './actions'
 import { IconCodePlus, IconEditCircle } from '@tabler/icons-react'
 import { PushInstructionsModal } from './push-instructions-modal'
+import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 
 export type Study = {
@@ -17,31 +18,37 @@ export type Study = {
 
 type RunsTableProps = {
     isActive: boolean
-    studyId: string
-    onView(_: string): void
+    study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ isActive, studyId, onView }) => {
+const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
+    const [viewingRunId, setViewingRunId] = useState<string | null>(null)
 
     const { mutate: insertRun, error: insertError } = useMutation({
-        mutationFn: () => onRunCreateAction(studyId),
+        mutationFn: () => onRunCreateAction(study.id),
         onSuccess: async (runId) => {
-            onView(runId)
-            await queryClient.invalidateQueries({ queryKey: ['runsForStudy', studyId] })
+            setViewingRunId(runId)
+            await queryClient.invalidateQueries({ queryKey: ['runsForStudy', study.id] })
         },
     })
 
     const { data: runs, isPending } = useQuery({
-        queryKey: ['runsForStudy', studyId],
+        queryKey: ['runsForStudy', study.id],
         enabled: isActive,
-        queryFn: () => onFetchStudyRunsAction(studyId),
+        queryFn: () => onFetchStudyRunsAction(study.id),
     })
 
     if (isPending) return <p>Loading...</p>
 
     return (
         <Table>
+            <PushInstructionsModal
+                containerLocation={study.containerLocation}
+                runId={viewingRunId}
+                onComplete={() => setViewingRunId(null)}
+            />
+
             {insertError && (
                 <Table.Caption>
                     <ErrorAlert error={insertError} />
@@ -65,10 +72,10 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, studyId, onView }) => {
                 {(runs || []).map((run) => (
                     <Table.Tr key={run.id}>
                         <Table.Td>{run.createdAt.toISOString()}</Table.Td>
-                        <Table.Td>{run.status}</Table.Td>
+                        <Table.Td>{humanizeStatus(run.status)}</Table.Td>
                         <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
-                            <ActionIcon title="view instructions" onClick={() => onView(run.id)}>
+                            <ActionIcon title="view instructions" onClick={() => setViewingRunId(run.id)}>
                                 <IconEditCircle />
                             </ActionIcon>
                         </Table.Td>
@@ -81,7 +88,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, studyId, onView }) => {
 
 export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
-    const [viewingRunId, setViewingRunId] = useState<string | null>(null)
 
     if (!studies.length) {
         return (
@@ -95,17 +101,11 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
     return (
         <Accordion onChange={setActiveId}>
             {studies.map((study) => (
-                <AccordionItem key={study.id} value={study.id}>
+                <AccordionItem key={study.id} value={study.id} my="xl">
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
-                        <PushInstructionsModal
-                            containerLocation={study.containerLocation}
-                            runId={viewingRunId}
-                            onComplete={() => setViewingRunId(null)}
-                        />
                         <p>{study.description}</p>
-
-                        <RunsTable isActive={activeId == study.id} studyId={study.id} onView={setViewingRunId} />
+                        <RunsTable isActive={activeId == study.id} study={study} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}

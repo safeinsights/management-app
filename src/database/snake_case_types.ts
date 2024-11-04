@@ -8,9 +8,18 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
-export type StudyRunStatus = 'complete' | 'created' | 'pending' | 'rejected' | 'running'
+export type StudyRunStatus =
+    | 'CODE-REJECTED'
+    | 'CODE-SUBMITTED'
+    | 'COMPLETED'
+    | 'ERRORED'
+    | 'INITIATED'
+    | 'READY'
+    | 'RESULTS-REJECTED'
+    | 'RESULTS-REVIEW'
+    | 'RUNNING'
 
-export type StudyStatus = 'approved' | 'draft' | 'inactive' | 'proposal'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
 
 export type Timestamp = ColumnType<Date, Date | string>
 
@@ -38,19 +47,20 @@ export interface Study {
     researcher_id: string
     status: Generated<StudyStatus>
     title: string
-    updated_at: Generated<Timestamp>
 }
 
 export interface StudyRun {
-    code_review_path: string | null
+    code_path: string | null
     completed_at: Timestamp | null
     created_at: Generated<Timestamp>
+    file_count: number | null
+    file_size: number | null
     id: Generated<string>
     results_path: string | null
     started_at: Timestamp | null
     status: Generated<StudyRunStatus>
     study_id: string
-    updated_at: Generated<Timestamp>
+    uploaded_at: Timestamp | null
 }
 
 export interface DB {
