@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { onCreateStudyAction } from './actions'
 import { useMutation } from '@tanstack/react-query'
 import { TextInput, Textarea } from 'react-hook-form-mantine'
+import { customLabel } from './style.css'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { FormValues, schema } from './schema'
 
@@ -36,12 +37,25 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
 
     return (
         <HookForm control={control} onSubmit={({ data }) => createStudy(data)}>
-            <Flex direction="column" gap="sm" mt="md" justify="stretch">
-                <TextInput label="Study Title" required name="title" control={control} />
-                <TextInput label="Principal Investigator" name="piName" required control={control} />
-                <Textarea label="Study Description" name="description" required rows={5} control={control} />
+            <Flex direction="column" gap="xl" mt="md" justify="stretch">
+                <TextInput label="Study Title" required name="title" control={control} className={customLabel} />
+                <TextInput
+                    label="Principal Investigator"
+                    name="piName"
+                    required
+                    control={control}
+                    className={customLabel}
+                />
+                <Textarea
+                    label="Study Description"
+                    name="description"
+                    required
+                    rows={5}
+                    control={control}
+                    className={customLabel}
+                />
                 <Flex justify={'end'}>
-                    <Button type="submit" disabled={!isValid} variant="primary" loading={isPending}>
+                    <Button fz="lg" type="submit" disabled={!isValid} variant="primary" loading={isPending}>
                         Submit
                     </Button>
                 </Flex>
