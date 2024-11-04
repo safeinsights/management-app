@@ -26,7 +26,7 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
 
                 <List>
                     {/* <ListItem>Submit proposal for review</ListItem> */}
-                    <Text mt={20} mb={20} pt={10} fz="lg"fs="italic">
+                    <Text mt={20} mb={20} pt={10} fz="lg" fs="italic">
                         {'{'}For the Pilot, detailed research proposal fields are skipped{'}'}
                     </Text>
                     {/* <ListItem>Once approved, submit your code and refine research proposal</ListItem>
