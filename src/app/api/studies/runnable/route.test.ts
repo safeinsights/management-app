@@ -41,20 +41,27 @@ test('return study runs', async () => {
     expect(json).toEqual({
         runs: expect.arrayContaining([
             expect.objectContaining({
-                runId: runIds[0],
-                title: 'my 1st study',
-                status: 'pending',
-                dataSources: ['all'],
-                outputMimeType: 'text/csv',
-                containerLocation: `test-container:${uuidToB64(runIds[0])}`,
-            }),
-            expect.objectContaining({
                 runId: runIds[1],
                 title: 'my 1st study',
-                status: 'pending',
+                status: 'RUNNING',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${uuidToB64(runIds[1])}`,
+            }),
+            expect.objectContaining({
+                runId: runIds[2],
+                title: 'my 1st study',
+                status: 'READY',
+                dataSources: ['all'],
+                outputMimeType: 'text/csv',
+                containerLocation: `test-container:${uuidToB64(runIds[2])}`,
+            }),
+        ]),
+    })
+    expect(json).not.toEqual({
+        runs: expect.arrayContaining([
+            expect.objectContaining({
+                runId: runIds[0],
             }),
         ]),
     })

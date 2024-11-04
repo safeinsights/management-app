@@ -9,7 +9,7 @@ test('updating status', async () => {
 
     const req = new Request('http://localhost', {
         method: 'PUT',
-        body: JSON.stringify({ status: 'running' }),
+        body: JSON.stringify({ status: 'RUNNING' }),
     })
 
     const resp = await apiHandler.PUT(req, { params: { runId: runIds[0] } })
@@ -17,5 +17,5 @@ test('updating status', async () => {
 
     const sr = await db.selectFrom('studyRun').select('status').where('id', '=', runIds[0]).executeTakeFirstOrThrow()
 
-    expect(sr.status).toBe('running')
+    expect(sr.status).toBe('RUNNING')
 })

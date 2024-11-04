@@ -6,7 +6,7 @@ import { wrapApiMemberAction } from '@/server/wrappers'
 import { requestingMember } from '@/server/context'
 
 const schema = z.object({
-    status: z.enum(['running', 'rejected', 'complete']),
+    status: z.enum(['RESULTS-REJECTED', 'RUNNING', 'ERRORED', 'RESULTS-REVIEW']),
 })
 
 const handler = async (req: Request, { params: { runId } }: { params: { runId: string } }) => {
