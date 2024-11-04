@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 import './globals.css'
 import '@mantine/core/styles.css'
-import 'mantine-datatable/styles.layer.css'
+import 'mantine-datatable/styles.css'
 
 import { Providers } from './providers'
 import { AppLayout } from '@/components/app-layout'

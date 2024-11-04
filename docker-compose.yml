@@ -25,8 +25,13 @@ services:
             - CI=$CI
             - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
             - CLERK_SECRET_KEY=$CLERK_SECRET_KEY
-            - E2E_CLERK_USER_USERNAME=$E2E_CLERK_USER_USERNAME
-            - E2E_CLERK_USER_PASSWORD=$E2E_CLERK_USER_PASSWORD
+            - AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+            - E2E_CLERK_RESEARCHER_EMAIL=$E2E_CLERK_RESEARCHER_EMAIL
+            - E2E_CLERK_RESEARCHER_PASSWORD=$E2E_CLERK_RESEARCHER_PASSWORD
+            - E2E_CLERK_MEMBER_EMAIL=$E2E_CLERK_MEMBER_EMAIL
+            - E2E_CLERK_MEMBER_PASSWORD=$E2E_CLERK_MEMBER_PASSWORD
+            - E2E_CLERK_ADMIN_EMAIL=$E2E_CLERK_ADMIN_EMAIL
+            - E2E_CLERK_ADMIN_PASSWORD=$E2E_CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
         build:
             context: .
@@ -38,9 +43,9 @@ services:
         networks:
             - mgmnt-app
         ports:
-            - 3000:3000
+            - 4000:4000
         healthcheck:
-            test: ['CMD-SHELL', 'curl -s http://localhost:3000/']
+            test: ['CMD-SHELL', 'curl -s http://localhost:4000/']
             interval: 30s
             retries: 5
             start_period: 45s

@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps } from '@mantine/core'
-import { IconAlertTriangle, IconLockAccess } from '@tabler/icons-react'
+import { IconError404, IconAlertTriangle, IconLockAccess } from '@tabler/icons-react'
 
 type ClerkAPIErrorResponse = {
     errors: Array<{
@@ -28,16 +28,16 @@ export const reportError = (error: any, title = 'An error occured') => {
     })
 }
 
-type ErrorAlertProps = { message: string } & AlertProps
+type ErrorAlertProps = { error: string | Error } & AlertProps
 
 export const ErrorAlert: React.FC<ErrorAlertProps> = ({
     icon = <IconAlertTriangle />,
     title = 'An error occured',
-    message,
+    error,
 }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
-            {message}
+            {error.toString()}
         </Alert>
     )
 }
@@ -51,6 +51,20 @@ export const AccessDeniedAlert: React.FC<AccessDeniedAlertProps> = ({
 }) => {
     return (
         <Alert variant="light" color="yellow" title="Access Denied" icon={icon} {...props}>
+            {message}
+        </Alert>
+    )
+}
+
+export const AlertNotFound: React.FC<{ title: string; message: React.ReactNode; hideIf?: boolean }> = ({
+    title,
+    message,
+    hideIf,
+}) => {
+    if (hideIf === true) return null
+
+    return (
+        <Alert w="400" m="auto" variant="filled" color="red" icon={<IconError404 />} title={title}>
             {message}
         </Alert>
     )

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$$DOCKER_TAG" ]; then
+    echo "DOCKER_TAG env must be set"
+    exit 1
+fi
+
+docker build \
+    --file Dockerfile.prod \
+    --platform=linux/amd64 \
+    --secret id=envs,src=.env \
+    --progress=plain \
+    -t $DOCKER_TAG \
+    .
