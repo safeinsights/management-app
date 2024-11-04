@@ -1,17 +1,10 @@
 import { SignedIn, SignedOut } from '@clerk/nextjs'
 import { SignIn } from '@/components/signin'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
-import { db } from '@/database'
-import { unstable_noStore as noStore } from 'next/cache'
-import { Flex } from '@mantine/core'
-
-async function getDB() {
-    noStore()
-    return await db.selectFrom('study').select('title').execute()
-}
+import Link from 'next/link'
+import { Button, Title, Paper, Flex } from '@mantine/core'
 
 export default async function Home() {
-    const studies = await getDB()
     return (
         <div className={pageStyles}>
             <SignedOut>
@@ -21,9 +14,16 @@ export default async function Home() {
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
-                    Hello World, found {studies.length} records
+                    <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm">
+                        <Title>Welcome to the SafeInsights management app.</Title>
+                        <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
+                        <Link href="/researcher/study/request/openstax" passHref>
+                            <Button>Proceed to study proposal</Button>
+                        </Link>
+                    </Paper>
                 </main>
             </SignedIn>
+
             <footer className={footerStyles}>A SafeInsights production</footer>
         </div>
     )

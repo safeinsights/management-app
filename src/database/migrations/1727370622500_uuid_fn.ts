@@ -27,8 +27,46 @@ $$
 language plpgsql
 volatile;
 `.execute(db)
+
+    await sql`
+create or replace function uuid_to_b64(uuid uuid) returns text as $$
+  select translate(
+    encode(
+      decode(
+        replace(
+          uuid::text,
+          '-', ''
+        ),
+        'hex'
+      ),
+      'base64'
+    ),
+    '+/=', '-_'
+  );
+$$ language sql;
+`.execute(db)
+
+    await sql`
+create or replace function b64_to_uuid(encoded_uuid text) returns uuid as $$
+  select regexp_replace(
+    encode(
+      decode(
+        translate(
+          encoded_uuid,
+          '-_', '+/'
+        ) || '==',
+        'base64'
+      ),
+      'hex'
+    ),
+    '(\\.{8})(\\.{4})(\\.{4})(\\.{4})(\\.{12})', '\\1-\\2-\\3-\\4-\\5'
+  )::uuid;
+$$ language sql;
+`.execute(db)
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
     await sql`drop function v7uuid()`.execute(db)
+    await sql`drop function uuid_to_b64()`.execute(db)
+    await sql`drop function b64_to_uuid()`.execute(db)
 }

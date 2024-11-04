@@ -8,7 +8,18 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
-export type StudyStatus = 'approved' | 'draft' | 'inactive' | 'proposal'
+export type StudyRunStatus =
+    | 'CODE-REJECTED'
+    | 'CODE-SUBMITTED'
+    | 'COMPLETED'
+    | 'ERRORED'
+    | 'INITIATED'
+    | 'READY'
+    | 'RESULTS-REJECTED'
+    | 'RESULTS-REVIEW'
+    | 'RUNNING'
+
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
 
 export type Timestamp = ColumnType<Date, Date | string>
 
@@ -26,18 +37,34 @@ export interface Study {
     approvedAt: Timestamp | null
     containerLocation: string
     createdAt: Generated<Timestamp>
-    dataSources: string | null
+    dataSources: Generated<string[]>
+    description: string
     id: Generated<string>
     irbProtocols: string | null
     memberId: string
-    outputFormats: string | null
+    outputMimeType: string | null
+    piName: string
     researcherId: string
     status: Generated<StudyStatus>
     title: string
-    updatedAt: Generated<Timestamp>
+}
+
+export interface StudyRun {
+    codePath: string | null
+    completedAt: Timestamp | null
+    createdAt: Generated<Timestamp>
+    fileCount: number | null
+    fileSize: number | null
+    id: Generated<string>
+    resultsPath: string | null
+    startedAt: Timestamp | null
+    status: Generated<StudyRunStatus>
+    studyId: string
+    uploadedAt: Timestamp | null
 }
 
 export interface DB {
     member: Member
     study: Study
+    studyRun: StudyRun
 }
