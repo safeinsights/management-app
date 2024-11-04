@@ -140,7 +140,7 @@ export function ResetPassword() {
                     </Group>
                 </Paper>
                 <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>Enter your email address and we'll send you a verification code.</Text>
+                    <Text>Enter your email address and we&#39;ll send you a verification code.</Text>
                     <TextInput
                         key={emailForm.key('email')}
                         {...emailForm.getInputProps('email')}
