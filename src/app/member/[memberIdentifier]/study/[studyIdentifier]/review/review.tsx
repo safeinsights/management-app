@@ -35,10 +35,10 @@ export const ReviewControls: React.FC<{ study?: Study; memberIdentifier: string 
 
     return (
         <Flex gap="md">
-            <Button color="red" onClick={() => updateStudy('rejected')} loading={isPending}>
+            <Button color="red" onClick={() => updateStudy('REJECTED')} loading={isPending}>
                 Reject
             </Button>
-            <Button color="blue" onClick={() => updateStudy('approved')} loading={isPending}>
+            <Button color="blue" onClick={() => updateStudy('APPROVED')} loading={isPending}>
                 Approve
             </Button>
         </Flex>

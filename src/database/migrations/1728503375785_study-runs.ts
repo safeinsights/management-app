@@ -4,15 +4,15 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema
         .createType('study_run_status')
         .asEnum([
-            'initiated',
-            'code-submitted',
-            'code-rejected',
-            'ready',
-            'in-progress',
-            'errored',
-            'results-review',
-            'results-rejected',
-            'completed',
+            'INITIATED',
+            'CODE-SUBMITTED',
+            'CODE-REJECTED',
+            'READY',
+            'RUNNING',
+            'ERRORED',
+            'RESULTS-REVIEW',
+            'RESULTS-REJECTED',
+            'COMPLETED',
         ])
         .execute()
 
@@ -20,7 +20,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .createTable('study_run')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
         .addColumn('study_id', 'uuid', (col) => col.notNull().references('study.id'))
-        .addColumn('status', sql`study_run_status`, (col) => col.notNull().defaultTo('initiated'))
+        .addColumn('status', sql`study_run_status`, (col) => col.notNull().defaultTo('INITIATED'))
         .addColumn('started_at', 'timestamp')
         .addColumn('completed_at', 'timestamp')
         .addColumn('uploaded_at', 'timestamp')

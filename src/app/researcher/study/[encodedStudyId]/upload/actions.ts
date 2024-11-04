@@ -16,7 +16,7 @@ export const getPendingStudyRunAction = async ({ encodedStudyId }: { encodedStud
             ({ selectFrom }) =>
                 selectFrom('studyRun')
                     .whereRef('study.id', '=', 'studyRun.studyId')
-                    .where('status', '=', 'initiated')
+                    .where('status', '=', 'INITIATED')
                     .select('id as runId')
                     .orderBy('study.createdAt desc')
                     .limit(1)

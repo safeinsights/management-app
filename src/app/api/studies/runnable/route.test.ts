@@ -43,7 +43,7 @@ test('return study runs', async () => {
             expect.objectContaining({
                 runId: runIds[1],
                 title: 'my 1st study',
-                status: 'in-progress',
+                status: 'RUNNING',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${uuidToB64(runIds[1])}`,
@@ -51,7 +51,7 @@ test('return study runs', async () => {
             expect.objectContaining({
                 runId: runIds[2],
                 title: 'my 1st study',
-                status: 'ready',
+                status: 'READY',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${uuidToB64(runIds[2])}`,

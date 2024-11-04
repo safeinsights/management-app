@@ -22,7 +22,7 @@ export const GET = wrapApiMemberAction(async () => {
             'study.outputMimeType',
             sql<string>`concat(study.container_location, ':', uuid_to_b64(study_run.id) )`.as('containerLocation'),
         ])
-        .where('studyRun.status', 'in', ['ready', 'in-progress'])
+        .where('studyRun.status', 'in', ['READY', 'RUNNING'])
         .execute()
 
     return Response.json({ runs })

@@ -3,6 +3,7 @@ import { Alert, Button, Flex, Paper, Title, Table } from '@mantine/core'
 import { db } from '@/database'
 
 import Link from 'next/link'
+import { humanizeStatus } from '@/lib/status'
 import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
@@ -35,9 +36,9 @@ const StudyRuns: React.FC<{ study: { id: string }; memberIdentifier: string }> =
                     {runs.map((run) => (
                         <tr key={run.id}>
                             <td>{run.uploadedAt?.toLocaleDateString()}</td>
-                            <td>{run.status}</td>
+                            <td>{humanizeStatus(run.status)}</td>
                             <td>
-                                {run.status != 'initiated' && (
+                                {run.status != 'INITIATED' && (
                                     <Link
                                         href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
                                     >
@@ -71,7 +72,7 @@ export default async function StudyReviewPage({
         )
 
         .select(['study.id', 'study.createdAt', 'study.title', 'study.description'])
-        .where('study.status', '=', 'initiated')
+        .where('study.status', '=', 'INITIATED')
         .execute()
 
     return (

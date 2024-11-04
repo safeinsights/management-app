@@ -9,17 +9,17 @@ export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
 export type StudyRunStatus =
-    | 'code-rejected'
-    | 'code-submitted'
-    | 'completed'
-    | 'errored'
-    | 'in-progress'
-    | 'initiated'
-    | 'ready'
-    | 'results-rejected'
-    | 'results-review'
+    | 'CODE-REJECTED'
+    | 'CODE-SUBMITTED'
+    | 'COMPLETED'
+    | 'ERRORED'
+    | 'INITIATED'
+    | 'READY'
+    | 'RESULTS-REJECTED'
+    | 'RESULTS-REVIEW'
+    | 'RUNNING'
 
-export type StudyStatus = 'approved' | 'archived' | 'initiated' | 'rejected' | 'submitted'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
 
 export type Timestamp = ColumnType<Date, Date | string>
 

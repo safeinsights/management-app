@@ -1,3 +1,5 @@
+import type { StudyRunStatus, StudyStatus } from '../database/types'
+
 export class AccessDeniedError extends Error {}
 
 export type User = {
@@ -28,3 +30,5 @@ export type CodeManifest = {
 }
 
 export type CodeFileMinimalRun = { studyId: string; id: string }
+
+export type AllStatus = StudyRunStatus | StudyStatus

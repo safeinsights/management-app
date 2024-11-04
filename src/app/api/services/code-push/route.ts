@@ -17,9 +17,9 @@ export async function POST(req: Request) {
     await db
         .updateTable('studyRun')
         .where('id', '=', body.runId)
-        .where('status', '=', 'initiated')
+        .where('status', '=', 'INITIATED')
         .set({
-            status: 'ready',
+            status: 'READY',
             codePath: body.codePath,
             uploadedAt: new Date(),
             fileSize: body.fileSize,
