@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { reportError } from './errors'
-import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper, CloseButton } from '@mantine/core'
+import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title, Paper } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
@@ -102,7 +102,6 @@ export function SignIn() {
                 <Paper bg="#d3d3d3" shadow="none" p={10} mt={30}  radius="sm">
                     <Group justify="space-between" gap="xl">
                         <Text ta="left">Welcome To SafeInsights</Text>
-                        <CloseButton aria-label="Close form" />
                     </Group>
                 </Paper>
                 <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
