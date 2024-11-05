@@ -4,6 +4,7 @@ import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, PasswordInpu
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
+import type { SignInResource, ClerkAPIError } from '@clerk/types'
 import { reportError } from '../errors'
 
 interface VerificationFormValues {
@@ -12,7 +13,7 @@ interface VerificationFormValues {
 }
 
 interface PendingResetProps {
-    pendingReset: ReturnType<typeof signIn.create>
+    pendingReset: SignInResource
     onBack: () => void
 }
 
