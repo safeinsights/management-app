@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         .where('id', '=', body.runId)
         .where('status', '=', 'INITIATED')
         .set({
-            status: 'READY',
+            status: 'CODE-SUBMITTED',
             codePath: body.codePath,
             uploadedAt: new Date(),
             fileSize: body.fileSize,
