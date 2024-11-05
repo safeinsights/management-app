@@ -11,8 +11,8 @@ export function SignIn() {
     const router = useRouter()
 
     interface SignInFormValues {
-        email: string;
-        password: string;
+        email: string
+        password: string
     }
 
     const form = useForm<SignInFormValues>({
@@ -43,7 +43,7 @@ export function SignIn() {
                 await setActive({ session: attempt.createdSessionId })
                 router.push('/')
             }
-        } catch (err) {
+        } catch (err: any) {
             reportError(err, 'failed signin')
 
             const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
@@ -52,7 +52,6 @@ export function SignIn() {
             }
         }
     })
-
 
     return (
         <Stack>
