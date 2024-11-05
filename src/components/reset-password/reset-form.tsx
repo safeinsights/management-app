@@ -4,6 +4,7 @@ import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, Anchor } fro
 import { isEmail, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
+import type { SignInResource, ClerkAPIError } from '@clerk/types'
 import { reportError } from '../errors'
 
 interface ResetFormValues {
@@ -11,7 +12,7 @@ interface ResetFormValues {
 }
 
 interface ResetFormProps {
-    onComplete: (reset: ReturnType<typeof signIn.create>) => void
+    onComplete: (reset: SignInResource) => void
 }
 
 export function ResetForm({ onComplete }: ResetFormProps) {

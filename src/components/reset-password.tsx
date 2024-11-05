@@ -3,12 +3,13 @@
 import { useState } from 'react'
 import { Loader } from '@mantine/core'
 import { useSignIn } from '@clerk/nextjs'
+import type { SignInResource } from '@clerk/types'
 import { PendingReset } from './reset-password/pending-reset'
 import { ResetForm } from './reset-password/reset-form'
 
 export function ResetPassword() {
     const { isLoaded, signIn } = useSignIn()
-    const [pendingReset, setPendingReset] = useState<ReturnType<typeof signIn.create> | null>(null)
+    const [pendingReset, setPendingReset] = useState<SignInResource | null>(null)
 
     if (!isLoaded) {
         return <Loader />
