@@ -1,14 +1,16 @@
 import { SignedIn, SignedOut } from '@clerk/nextjs'
-import { LoginOrSignup } from '@/components/login-or-signup'
+import { SignIn } from '@/components/signin'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import Link from 'next/link'
-import { Button, Title, Paper } from '@mantine/core'
+import { Button, Title, Paper, Flex } from '@mantine/core'
 
 export default async function Home() {
     return (
         <div className={pageStyles}>
             <SignedOut>
-                <LoginOrSignup />
+                <Flex justify="center" miw="400px">
+                    <SignIn />
+                </Flex>
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>

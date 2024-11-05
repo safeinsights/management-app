@@ -1,6 +1,7 @@
 'use server'
 import 'server-only'
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 const isMemberRoute = createRouteMatcher(['/fix-me/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
 
@@ -8,6 +9,14 @@ const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware((auth, req) => {
+    // Do not allow and redirect certain paths when logged in (e.g. password resets, signup)
+    if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
+        const { userId } = auth()
+        if (userId) {
+            return NextResponse.redirect(new URL('/', req.url))
+        }
+    }
+
     if (isMemberRoute(req))
         auth().protect((has) => {
             return (
