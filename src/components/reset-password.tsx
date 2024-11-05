@@ -100,7 +100,7 @@ export function ResetPassword() {
                     <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
                         <Group justify="space-between" gap="xl">
                             <Text ta="left">Reset Your Password</Text>
-                            <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
+                            <CloseButton aria-label="Close password reset form" onClick={() => router.push('/')} />
                         </Group>
                     </Paper>
                     <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
