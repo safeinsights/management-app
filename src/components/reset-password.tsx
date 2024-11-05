@@ -18,7 +18,7 @@ interface VerificationFormValues {
 
 export function ResetPassword() {
     const { isLoaded, signIn, setActive } = useSignIn()
-    const [pendingReset, setPendingReset] = useState<any>(null)
+    const [pendingReset, setPendingReset] = useState<ReturnType<typeof signIn.create> | null>(null)
     const router = useRouter()
 
     const emailForm = useForm<ResetPasswordFormValues>({
@@ -54,10 +54,10 @@ export function ResetPassword() {
                 identifier: values.email,
             })
             setPendingReset(reset)
-        } catch (err: any) {
+        } catch (err) {
             reportError(err, 'failed to initiate password reset')
 
-            const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
+            const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
             if (emailError) {
                 emailForm.setFieldError('email', emailError.longMessage)
             }
@@ -78,15 +78,15 @@ export function ResetPassword() {
                 await setActive({ session: result.createdSessionId })
                 router.push('/')
             }
-        } catch (err: any) {
+        } catch (err) {
             reportError(err, 'failed to reset password')
 
-            const codeError = err.errors?.find((error: any) => error.meta?.paramName === 'code')
+            const codeError = err.errors?.find((error) => error.meta?.paramName === 'code')
             if (codeError) {
                 verificationForm.setFieldError('code', codeError.longMessage)
             }
 
-            const passwordError = err.errors?.find((error: any) => error.meta?.paramName === 'password')
+            const passwordError = err.errors?.find((error) => error.meta?.paramName === 'password')
             if (passwordError) {
                 verificationForm.setFieldError('password', passwordError.longMessage)
             }
