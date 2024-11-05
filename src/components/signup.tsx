@@ -44,19 +44,26 @@ const EmailVerificationStep = () => {
         if (!isLoaded) return
 
         try {
+            // Use the code the user provided to attempt verification
             const completeSignUp = await signUp.attemptEmailAddressVerification({
                 code: values.code,
             })
 
+            // If verification was completed, set the session to active
+            // and redirect the user
             if (completeSignUp.status === 'complete') {
                 await setActive({ session: completeSignUp.createdSessionId })
                 router.push('/')
             } else {
+                // If the status is not complete, check why. User may need to
+                // complete further steps.
                 console.error(JSON.stringify(completeSignUp, null, 2))
             }
         } catch (err: any) {
             reportError(err, 'failed to verify email address')
 
+            // TODO Explore clerk docs for how to better handle error messages
+            //  Currently unclear because signUp.attemptVerification method just 422s and doesnt return anything useful
             if (err.errors?.length) {
                 err.errors.forEach((error: ClerkAPIError) => {
                     verifyForm.setFieldError('code', error.longMessage)
@@ -114,6 +121,7 @@ export function SignUp() {
     })
 
     if (!isLoaded) {
+        // Add logic to handle loading state
         return <Loader />
     }
 
