@@ -1,9 +1,23 @@
-import { Anchor, Button, Checkbox, Group, Loader, PasswordInput, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useSignUp } from '@clerk/nextjs'
+'use client'
+
+import { useState } from 'react'
+import { reportError } from './errors'
+import {
+    Anchor,
+    Button,
+    Group,
+    Loader,
+    PasswordInput,
+    Stack,
+    Text,
+    TextInput,
+    Paper,
+    CloseButton,
+    Checkbox,
+} from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { reportError } from '@/components/errors'
+import { useSignUp } from '@clerk/nextjs'
 import { ClerkAPIError } from '@clerk/types'
 
 interface SignUpFormValues {
@@ -60,19 +74,29 @@ const EmailVerificationStep = () => {
 
     return (
         <Stack>
-            <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
-            <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
-                <TextInput
-                    withAsterisk
-                    label="Code"
-                    key={verifyForm.key('code')}
-                    {...verifyForm.getInputProps('code')}
-                />
-
-                <Group justify="flex-end" mt="md">
-                    <Button type="submit">Submit</Button>
+            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                <Group justify="space-between" gap="xl">
+                    <Text ta="left">Verify Your Email</Text>
+                    <CloseButton aria-label="Close signup form" />
                 </Group>
-            </form>
+            </Paper>
+            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
+                <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
+                    <TextInput
+                        withAsterisk
+                        label="Code"
+                        placeholder="Enter verification code"
+                        key={verifyForm.key('code')}
+                        {...verifyForm.getInputProps('code')}
+                    />
+
+                    <Stack align="center" mt={15}>
+                        <Button type="submit">Verify</Button>
+                        <Anchor href="/">Already have an account? Sign In</Anchor>
+                    </Stack>
+                </form>
+            </Paper>
         </Stack>
     )
 }
@@ -135,39 +159,42 @@ export function SignUp() {
 
     return (
         <Stack>
-            <Title order={3}>Signup</Title>
-
             <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
-                <TextInput
-                    withAsterisk
-                    label="Email"
-                    placeholder="your@email.com"
-                    key={form.key('email')}
-                    {...form.getInputProps('email')}
-                />
-
-                <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    width={400}
-                    key={form.key('password')}
-                    {...form.getInputProps('password')}
-                />
-
-                <Checkbox
-                    mt="md"
-                    label="I agree to the terms of service"
-                    key={form.key('termsOfService')}
-                    {...form.getInputProps('termsOfService', {
-                        type: 'checkbox',
-                    })}
-                />
-
-                <Anchor href="/reset-password">Forgot your password? Reset it here!</Anchor>
-
-                <Group justify="flex-end" mt="md">
-                    <Button type="submit">Submit</Button>
-                </Group>
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                    <Group justify="space-between" gap="xl">
+                        <Text ta="left">Sign up to SafeInsights</Text>
+                        <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
+                    </Group>
+                </Paper>
+                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                    <TextInput
+                        key={form.key('email')}
+                        {...form.getInputProps('email')}
+                        label="Email"
+                        placeholder="Email address"
+                        aria-label="Email"
+                    />
+                    <PasswordInput
+                        withAsterisk
+                        key={form.key('password')}
+                        {...form.getInputProps('password')}
+                        mt={10}
+                        placeholder="Password"
+                        aria-label="Password"
+                    />
+                    <Checkbox
+                        mt="md"
+                        label="I agree to the terms of service"
+                        key={form.key('termsOfService')}
+                        {...form.getInputProps('termsOfService', {
+                            type: 'checkbox',
+                        })}
+                    />
+                    <Stack align="center" mt={15}>
+                        <Button type="submit">Sign Up</Button>
+                        <Anchor href="/">Already have an account? Sign In</Anchor>
+                    </Stack>
+                </Paper>
             </form>
         </Stack>
     )
