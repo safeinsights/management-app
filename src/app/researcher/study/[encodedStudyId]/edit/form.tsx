@@ -13,7 +13,7 @@ import Link from 'next/link'
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const { control, getValues } = useForm<FormValues>({
         resolver: zodResolver(schema),
-        defaultValues: { ...study, highlights: true, eventCapture: true },
+        defaultValues: { ...study, irbDocument: 'IRB Document.pdf', highlights: true, eventCapture: true },
         mode: 'onChange',
     })
     const [isDisabled, setIsDisabled] = useState(true)
@@ -35,7 +35,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
             onError={(e) => console.warn(e)}
         >
             <Stack>
-                <Text size="xl" ta="left" mb={30}>
+                <Text size="xl" fz="30px" ta="left" mb={30}>
                     OpenStax Study Proposal Step 3)
                 </Text>
                 <Text size="xl" ta="left">
@@ -57,32 +57,52 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 </Flex>
 
                 <Flex p={2} gap="md" wrap="wrap">
-                    <Text className={labelStyle}>Study Description</Text>
+                    <Text className={labelStyle} component="span">
+                        Study Description
+                        <Text component="span" color="red" inherit>
+                            *
+                        </Text>
+                    </Text>
                     <Textarea className={inputStyle} name="description" label="" control={control} />
                 </Flex>
 
                 <Flex p={2} gap="md">
-                    <Text className={labelStyle}>Principal Investigator</Text>
+                    <Text className={labelStyle} component="span">
+                        Principal Investigator
+                        <Text component="span" color="red" inherit>
+                            *
+                        </Text>
+                    </Text>
                     <TextInput className={inputStyle} name="piName" control={control} />
                 </Flex>
                 <Group p={2} gap="md">
                     <Text className={labelStyle}>IRB Approval Documentation</Text>
-                    <Text bd="1px solid #ccc" p="5px" bg="#ddd" className={inputStyle} data-testid="irb-doc">
-                        {' '}
-                        IRB Document.pdf
-                    </Text>
-                    <Text fs="italic" c="dimmed" w="10%">
+                    <TextInput
+                        bg="#ddd"
+                        bd="1px solid #ccc"
+                        disabled
+                        className={inputStyle}
+                        name="irbDocument"
+                        control={control}
+                        readOnly
+                    />
+                    <Text fs="italic" c="dimmed" w="20%">
                         {'For the pilot, we are skipping the IRB step'}
                     </Text>
                 </Group>
             </Stack>
 
-            <Text size="xl" ta="left" mt={50}>
+            <Text size="xl" ta="left" mt={50} mb={10}>
                 REQUESTED DATA DETAILS
             </Text>
             <Stack align="stretch">
                 <Flex p={2} gap="lg">
-                    <Text className={labelStyle}>Datasets of Interest</Text>
+                    <Text className={labelStyle} component="span">
+                        Datasets of Interest
+                        <Text component="span" color="red" inherit>
+                            *
+                        </Text>
+                    </Text>
                     <Stack>
                         <Checkbox
                             name="highlights"
@@ -113,7 +133,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 </Flex>
             </Stack>
 
-            <Group gap="xl" p={2} justify="flex-end">
+            <Group gap="xl" p={2} mt={40} justify="flex-end">
                 <Link href="/researcher/studies" passHref>
                     <Button disabled={isDisabled || !isFormValid}>Back to all studies</Button>
                 </Link>

@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { Form } from './form'
-import { Paper } from '@mantine/core'
+import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { b64toUUID } from '@/lib/uuid'
 
@@ -20,15 +20,17 @@ export default async function StudyEditPage({ params: { encodedStudyId } }: { pa
     }
 
     return (
-        <Paper bg="#f5f5f5" shadow="none" p={30} mt={30} radius="sm">
-            <Form
-                studyId={study.id}
-                study={{
-                    ...study,
-                    highlights: study.dataSources?.includes('highlights'),
-                    eventCapture: study.dataSources?.includes('eventCapture'),
-                }}
-            />
-        </Paper>
+        <Container w="80%">
+            <Paper shadow="xs" p="xl">
+                <Form
+                    studyId={study.id}
+                    study={{
+                        ...study,
+                        highlights: study.dataSources?.includes('highlights'),
+                        eventCapture: study.dataSources?.includes('eventCapture'),
+                    }}
+                />
+            </Paper>
+        </Container>
     )
 }
