@@ -29,10 +29,6 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
                     <Text mt={20} mb={20} pt={10} fz="lg" fs="italic">
                         {'{'}For the Pilot, detailed research proposal fields are skipped{'}'}
                     </Text>
-                    {/* <ListItem>Once approved, submit your code and refine research proposal</ListItem>
-                        <ListItem>
-                            Contingent on approval, OpenStax will proceed to make aggregate results available to you
-                        </ListItem> */}
                 </List>
 
                 <Form memberId={member.id} memberIdentifier={member.identifier} />

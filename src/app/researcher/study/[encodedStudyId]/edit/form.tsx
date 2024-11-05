@@ -86,10 +86,6 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                         control={control}
                         readOnly
                     />
-                    {/* <Text bd="1px solid #ccc" p="5px" bg="#ddd" className={inputStyle} data-testid="irb-doc">
-                        {' '}
-                        IRB Document.pdf
-                    </Text> */}
                     <Text fs="italic" c="dimmed" w="20%">
                         {'For the pilot, we are skipping the IRB step'}
                     </Text>
