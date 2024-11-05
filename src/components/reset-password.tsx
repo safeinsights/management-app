@@ -8,7 +8,7 @@ import { PendingReset } from './reset-password/pending-reset'
 import { ResetForm } from './reset-password/reset-form'
 
 export function ResetPassword() {
-    const { isLoaded, signIn } = useSignIn()
+    const { isLoaded } = useSignIn()
     const [pendingReset, setPendingReset] = useState<SignInResource | null>(null)
 
     if (!isLoaded) {
