@@ -70,7 +70,7 @@ const EmailVerificationStep = () => {
             <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
                 <Group justify="space-between" gap="xl">
                     <Text ta="left">Verify Your Email</Text>
-                    <CloseButton aria-label="Close form" />
+                    <CloseButton aria-label="Close signup form" />
                 </Group>
             </Paper>
             <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
@@ -164,7 +164,7 @@ export function SignUp() {
                         {...form.getInputProps('email')}
                         label="Email"
                         placeholder="Email address"
-                        aria-label="Email address"
+                        aria-label="Email"
                     />
                     <PasswordInput
                         withAsterisk

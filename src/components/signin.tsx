@@ -67,8 +67,8 @@ export function SignIn() {
                         key={form.key('email')}
                         {...form.getInputProps('email')}
                         label="Login"
-                        placeholder="Email address or phone number"
-                        aria-label="Email address or phone number"
+                        placeholder="Email address"
+                        aria-label="Email"
                     />
                     <PasswordInput
                         withAsterisk
