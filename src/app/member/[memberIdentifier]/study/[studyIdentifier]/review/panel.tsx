@@ -9,7 +9,7 @@ import {  ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-import { RunsTable } from '@/app/researcher/studies/panel'
+import { RunsTable } from './runs-table'
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
@@ -34,86 +34,85 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
     })
 
     if (error) return <ErrorAlert error={error} />
-
+    console.log(study.dataSources)
     return (
-        <>
         <Container>
             <Accordion onChange={setActiveSection}>
-                    <Accordion.Item value="study">
-                        <Accordion.Control bg="#ccc">Study {study.title}</Accordion.Control>
-                        <Accordion.Panel>
-                            <Stack>
-                                <Flex p={2} gap="md" wrap="wrap">
-                                    <Text className={labelStyle}>Study Title</Text>
-                                    <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
-                                        disabled
-                                        className={inputStyle}
-                                        name="title"
-                                        data-testid="study-title"
-                                        value={study.title}
-                                        readOnly
-                                    />
-                                </Flex>
-                                <Flex p={2} gap="md" wrap="wrap">
-                                    <Text className={labelStyle}>Study Description</Text>
-                                    <Textarea bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="description" label="" value={study.description} disabled={true} />
-                                </Flex>
+                <Accordion.Item value="study">
+                    <Accordion.Control bg="#ccc">Study {study.title}</Accordion.Control>
+                    <Accordion.Panel>
+                        <Stack>
+                            <Flex p={2} gap="md" wrap="wrap">
+                                <Text className={labelStyle}>Study Title</Text>
+                                <TextInput
+                                    bg="#ddd"
+                                    bd="1px solid #ccc"
+                                    disabled
+                                    className={inputStyle}
+                                    name="title"
+                                    data-testid="study-title"
+                                    value={study.title}
+                                    readOnly
+                                />
+                            </Flex>
+                            <Flex p={2} gap="md" wrap="wrap">
+                                <Text className={labelStyle}>Study Description</Text>
+                                <Textarea bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="description" label="" value={study.description} disabled={true} />
+                            </Flex>
 
-                                <Flex p={2} gap="md">
-                                    <Text className={labelStyle}>Principal Investigator</Text>
-                                    <TextInput bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="piName" value={study.piName} disabled />
-                                </Flex>
-                                <Group p={2} gap="md">
-                                    <Text className={labelStyle}>IRB Approval Documentation</Text>
-                                    <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
-                                        className={inputStyle}
-                                        name="irbDocument"
-                                        value={'IRB Document.pdf'}
+                            <Flex p={2} gap="md">
+                                <Text className={labelStyle}>Principal Investigator</Text>
+                                <TextInput bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="piName" value={study.piName} disabled />
+                            </Flex>
+                            <Group p={2} gap="md">
+                                <Text className={labelStyle}>IRB Approval Documentation</Text>
+                                <TextInput
+                                    bg="#ddd"
+                                    bd="1px solid #ccc"
+                                    className={inputStyle}
+                                    name="irbDocument"
+                                    value={'IRB Document.pdf'}
+                                    disabled={true}
+                                    readOnly
+                                />
+                                <Text fs="italic" c="dimmed" w="30%">
+                                    {'For the pilot, we are skipping the IRB step'}
+                                </Text>
+                            </Group>
+                        </Stack>
+
+                        <Stack align="stretch">
+                            <Flex p={2} gap="lg">
+                                <Text className={labelStyle}>Datasets of Interest</Text>
+                                <Stack>
+                                    <Checkbox
+                                        name="highlights"
+                                        label="Highhlights and Notes"
+                                        checked={study.dataSources?.includes('highlights')}
                                         disabled={true}
-                                        readOnly
-                                    />
-                                    <Text fs="italic" c="dimmed" w="30%">
-                                        {'For the pilot, we are skipping the IRB step'}
-                                    </Text>
-                                </Group>
-                            </Stack>
+                                    ></Checkbox>
+                                    <Checkbox
+                                        name="eventCapture"
+                                        label="Event Capture"
+                                        checked={study.dataSources?.includes('eventCapture')}
+                                        disabled={true}
+                                    ></Checkbox>
+                                </Stack>
+                            </Flex>
+                        </Stack>
+                    </Accordion.Panel>
+                </Accordion.Item>
 
-                            <Stack align="stretch">
-                                <Flex p={2} gap="lg">
-                                    <Text className={labelStyle}>Datasets of Interest</Text>
-                                    <Stack>
-                                        <Checkbox
-                                            name="highlights"
-                                            label="Highhlights and Notes"
-                                            checked={study.dataSources?.includes('highlights')}
-                                            disabled={true}
-                                        ></Checkbox>
-                                        <Checkbox
-                                            name="eventCapture"
-                                            label="Event Capture"
-                                            checked={study.dataSources?.includes('eventCapture')}
-                                            disabled={true}
-                                        ></Checkbox>
-                                    </Stack>
-                                </Flex>
-                            </Stack>
-                        </Accordion.Panel>
-                    </Accordion.Item>
+                <Accordion.Item value="runs">
 
-                    <Accordion.Item value="runs">
+                    <Accordion.Control bg="#ccc">Study Runs</Accordion.Control>
+                    <Accordion.Panel>
+                        <Stack>
+                            <RunsTable isActive={activeSection == "runs"} study={study} memberIdentifier={memberIdentifier} />
+                        </Stack>
 
-                        <Accordion.Control bg="#ccc">Study Runs</Accordion.Control>
-                        <Accordion.Panel>
-                            <Stack>
-                                <RunsTable isActive={activeSection == "runs"} study={study} />
-                            </Stack>
-
-                        </Accordion.Panel>
-                    </Accordion.Item>
+                    </Accordion.Panel>
+                </Accordion.Item>
 
             </Accordion>
             <Group gap="xl" p={2} mt={30} justify="flex-end">
@@ -125,7 +124,5 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                 </Button>
             </Group>
         </Container>
-        </>   
-
     )
 }
