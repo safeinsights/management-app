@@ -1,39 +1,32 @@
 'use client'
 
-import React, { useState } from 'react'
-
-import { Form as HookForm, useForm } from 'react-hook-form'
-import { Checkbox, Textarea, TextInput } from 'react-hook-form-mantine'
 import { inputStyle, labelStyle } from './style.css'
-import { Button, Flex, Group, Stack, Text } from '@mantine/core'
+import { Checkbox, Textarea, TextInput, Button, Flex, Group, Stack, Text } from '@mantine/core'
+import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { FormValues, schema, zodResolver } from './schema'
 import Link from 'next/link'
+import { useMutation } from '@tanstack/react-query'
 
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
-    const { control, getValues } = useForm<FormValues>({
-        resolver: zodResolver(schema),
-        defaultValues: { ...study, irbDocument: 'IRB Document.pdf', highlights: true, eventCapture: true },
-        mode: 'onChange',
+    const { mutate: updateStudy, isPending } = useMutation({
+        mutationFn: async (data: FormValues) => await onUpdateStudyAction(studyId, data)
     })
-    const [isDisabled, setIsDisabled] = useState(true)
-    const [isFormValid, setIsFormValid] = useState(true)
-    const enableButton = () => {
-        setIsDisabled(false)
-    }
-    const checkFormValid = () => {
-        const values = getValues()
-        const hasChecked = values.highlights || values.eventCapture
-        setIsFormValid(hasChecked ?? false)
-    }
+
+    const form = useForm<FormValues>({
+        mode: 'uncontrolled',
+        validate: zodResolver(schema),
+        validateInputOnBlur: true,
+        initialValues: {
+            highlights: true,
+            eventCapture: true,
+            irbDocument: 'IRB Document.pdf',
+            ...study,
+        },
+    })
 
     return (
-        <HookForm
-            control={control}
-            onChange={checkFormValid}
-            onSubmit={async ({ data }) => await onUpdateStudyAction(studyId, data)}
-            onError={(e) => console.warn(e)}
-        >
+        <form onSubmit={form.onSubmit((values) => updateStudy(values))}>
             <Stack>
                 <Text size="xl" fz="30px" ta="left" mb={30}>
                     OpenStax Study Proposal Step 3)
@@ -49,9 +42,9 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                         bd="1px solid #ccc"
                         disabled
                         className={inputStyle}
-                        name="title"
                         data-testid="study-title"
-                        control={control}
+                        key={form.key('title')}
+                        {...form.getInputProps('title')}
                         readOnly
                     />
                 </Flex>
@@ -59,21 +52,21 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 <Flex p={2} gap="md" wrap="wrap">
                     <Text className={labelStyle} component="span">
                         Study Description
-                        <Text component="span" color="red" inherit>
+                        <Text component="span" c="red" inherit>
                             *
                         </Text>
                     </Text>
-                    <Textarea className={inputStyle} name="description" label="" control={control} />
+                    <Textarea className={inputStyle} name="description" label="" key={form.key('description')} {...form.getInputProps('description')} />
                 </Flex>
 
                 <Flex p={2} gap="md">
                     <Text className={labelStyle} component="span">
                         Principal Investigator
-                        <Text component="span" color="red" inherit>
+                        <Text component="span" c="red" inherit>
                             *
                         </Text>
                     </Text>
-                    <TextInput className={inputStyle} name="piName" control={control} />
+                    <TextInput className={inputStyle} name="piName" key={form.key('piName')} {...form.getInputProps('piName')} />
                 </Flex>
                 <Group p={2} gap="md">
                     <Text className={labelStyle}>IRB Approval Documentation</Text>
@@ -83,7 +76,8 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                         disabled
                         className={inputStyle}
                         name="irbDocument"
-                        control={control}
+                        key={form.key('irbDocument')}
+                        {...form.getInputProps('irbDocument')}
                         readOnly
                     />
                     <Text fs="italic" c="dimmed" w="20%">
@@ -99,22 +93,21 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 <Flex p={2} gap="lg">
                     <Text className={labelStyle} component="span">
                         Datasets of Interest
-                        <Text component="span" color="red" inherit>
-                            *
-                        </Text>
+                        <Text component="span" c="red" inherit>*</Text>
                     </Text>
                     <Stack>
                         <Checkbox
                             name="highlights"
-                            control={control}
-                            value="highlights"
                             label="Highhlights and Notes"
+                            key={form.key('highlights')}
+                            {...form.getInputProps('highlights', { type: 'checkbox' })}
                         ></Checkbox>
                         <Checkbox
                             name="eventCapture"
-                            control={control}
-                            value="event-capture"
                             label="Event Capture"
+                            key={form.key('eventCapture')}
+                            {...form.getInputProps('eventCapture', { type: 'checkbox' })}
+                            error={form.errors['dataSources']}
                         ></Checkbox>
                     </Stack>
                 </Flex>
@@ -126,8 +119,8 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                         disabled
                         className={inputStyle}
                         name="containerLocation"
+                        {...form.getInputProps('containerLocation')}
                         data-testid="container-location"
-                        control={control}
                         readOnly
                     />
                 </Flex>
@@ -135,12 +128,12 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
 
             <Group gap="xl" p={2} mt={40} justify="flex-end">
                 <Link href="/researcher/studies" passHref>
-                    <Button disabled={isDisabled || !isFormValid}>Back to all studies</Button>
+                    <Button disabled={!form.isValid || isPending}>Back to all studies</Button>
                 </Link>
-                <Button disabled={!isFormValid} onClick={enableButton} type="submit" variant="default">
+                <Button disabled={!form.isValid || isPending}  type="submit" variant="default">
                     Submit Proposal
                 </Button>
             </Group>
-        </HookForm>
+        </form>
     )
 }
