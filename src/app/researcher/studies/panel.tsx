@@ -86,6 +86,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     )
 }
 
+export { RunsTable }
 export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
 
