@@ -1,35 +1,42 @@
-'use client'
+import { Breadcrumbs, Anchor, Text } from '@mantine/core'
+import Link from 'next/link'
 
-import { Breadcrumbs, Anchor } from '@mantine/core'
-import { Link } from 'next/link'
-import { Study } from './study'
-
-export const MemberBreadcrumbs: React.FC<{ study?: Study; memberIdentifier: string }> = ({
-    memberIdentifier,
-    study,
-}) => {
-    const memberBreadcrumbs = [
-        { title: 'All Studies', href: (memberIdentifier: string) => `/member/${memberIdentifier}/studies/review` },
-        {
-            title: study.title,
-            href: (studyIdentifier: string) => `/member/${memberIdentifier}/study/${studyIdentifier}/review`,
-        },
-    ].map((item, index) => (
-        <Anchor
-            component={Link}
-            href={typeof item.href === 'function' ? item.href(memberIdentifier) : item.href}
-            key={index}
-            sx={{ textDecoration: 'underline' }}
-        >
-            {item.title}
-        </Anchor>
-    ))
-
+export const PageBreadcrumbs: React.FC<{
+    crumbs: Array<[string, string?]>
+}> = ({ crumbs }) => {
     return (
         <Breadcrumbs mb={40} separator=">" separatorMargin="md">
-            {memberBreadcrumbs}
+            {crumbs.map(([title, href], index) => (
+                href ? (
+                    <Anchor component={Link} href={href} key={index} sx={{ textDecoration: 'underline' }}>
+                        {title}
+                    </Anchor>
+                ) : (
+                    <Text key={index}>{title}</Text>
+                )))}
         </Breadcrumbs>
     )
 }
 
-export default MemberBreadcrumbs
+
+export const MemberBreadcrumbs: React.FC<{
+    crumbs: {
+        memberIdentifier: string
+        studyTitle?: string
+        studyIdentifier?: string
+        current?: string
+    }
+}> = ({ crumbs: { memberIdentifier, studyIdentifier, studyTitle, current } }) => {
+    const crumbs: Array<[string, string?]> = [
+        ['All Studies', `/member/${memberIdentifier}/studies/review`],
+    ]
+    if (studyTitle && studyIdentifier) {
+        crumbs.push([studyTitle, `/member/${memberIdentifier}/studies/${studyIdentifier}/review`])
+    }
+    if (current) {
+        crumbs.push([current])
+    }
+    return (
+        <PageBreadcrumbs crumbs={crumbs} />
+    )
+}
