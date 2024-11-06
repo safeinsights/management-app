@@ -1,37 +1,42 @@
-'use server'
-import 'server-only'
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher, auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
-const isMemberRoute = createRouteMatcher(['/fix-me/member(.*)'])
-const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
 
-// Clerk middleware reference
-// https://clerk.com/docs/references/nextjs/clerk-middleware
+const isMemberRoute = createRouteMatcher(['/member/(.*)'])
+const isResearcherRoute = createRouteMatcher(['/researcher/(.*)'])
 
-export default clerkMiddleware((auth, req) => {
-    // Do not allow and redirect certain paths when logged in (e.g. password resets, signup)
+const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+
+export default clerkMiddleware(async (auth, req) => {
+    const { userId, organizations } = auth
+    
+    // Redirect logged-in users away from auth pages
     if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
-        const { userId } = auth()
         if (userId) {
             return NextResponse.redirect(new URL('/', req.url))
         }
+        return
     }
 
-    if (isMemberRoute(req))
-        auth().protect((has) => {
-            return (
-                // TODO check for membership identifier in url and check group
-                has({ permission: 'org:sys_memberships' }) || has({ permission: 'org:sys_domains_manage' })
-            )
-        })
+    // Check if user is a member of SafeInsights org with si_member role
+    const isSiMember = organizations?.some(
+        org => org.id === SAFEINSIGHTS_ORG_ID && org.membership?.role === 'si_member'
+    )
 
-    if (isResearcherRoute(req))
-        auth().protect((has) => {
-            return (
-                // TODO setup groups and perms, check them here
-                has({ permission: 'org:researcher' })
-            )
-        })
+    // Member route access control
+    if (isMemberRoute(req)) {
+        if (!isSiMember) {
+            return new NextResponse(null, { status: 403 })
+        }
+        return
+    }
+
+    // Researcher route access control
+    if (isResearcherRoute(req)) {
+        if (isSiMember) {
+            return new NextResponse(null, { status: 403 })
+        }
+        return
+    }
 })
 
 export const config = {
