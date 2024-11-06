@@ -5,10 +5,12 @@ import { StudyStatus } from '@/database/types'
 import { uuidToB64 } from '@/lib/uuid'
 import { revalidatePath } from 'next/cache'
 
+const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
+
 export const updateStudyStatusAction = async (studyId: string, status: StudyStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
 
-    if (!['approved', 'rejected'].includes(status)) {
+    if (!AllowedStatusChanges.includes(status)) {
         throw new Error('Invalid status')
     }
 
