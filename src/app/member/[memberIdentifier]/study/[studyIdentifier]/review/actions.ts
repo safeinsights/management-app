@@ -16,3 +16,11 @@ export const updateStudyStatusAction = async (studyId: string, status: StudyStat
 
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(studyId)}`)
 }
+
+export const getStudyAction = async (studyId: string) => {
+    return await db
+        .selectFrom('study')
+        .select(['id', 'title', 'description', 'status', 'dataSources', 'outputMimeType', 'piName', 'containerLocation'])
+        .where('id', '=', studyId)
+        .executeTakeFirst()
+}
