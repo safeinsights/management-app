@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export { zodResolver } from 'mantine-form-zod-resolver'
+
 export const schema = z.object({
     title: z
         .string()
@@ -8,5 +10,7 @@ export const schema = z.object({
     description: z.string().min(1, { message: 'Description name must be present' }),
     piName: z.string().min(1, { message: 'Principal Investigator name must be present' }),
 })
+
+
 
 export type FormValues = z.infer<typeof schema>
