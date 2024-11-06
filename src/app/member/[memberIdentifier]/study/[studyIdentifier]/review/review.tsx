@@ -9,7 +9,7 @@ import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-import { RunsTable } from '@/app/researcher/studies/panel'
+import { RunsTable } from '@/app/researcher/studies/runs-table'
 
 
 
