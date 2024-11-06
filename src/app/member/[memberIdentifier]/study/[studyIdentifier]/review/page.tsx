@@ -2,10 +2,11 @@ import { Button, Flex, Paper, Title, Container, Text, Stack, Group } from '@mant
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
 import Link from 'next/link'
-import { ReviewControls } from './review'
+import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
+import { getStudyAction } from './actions'
 
 export default async function StudyReviewPage({
     params: { memberIdentifier, studyIdentifier },
@@ -21,12 +22,7 @@ export default async function StudyReviewPage({
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const study = await db
-        .selectFrom('study')
-
-        .select(['id', 'title', 'description', 'status', 'dataSources', 'outputMimeType', 'piName'])
-        .where('id', '=', b64toUUID(studyIdentifier))
-        .executeTakeFirst()
+    const study = await getStudyAction(b64toUUID(studyIdentifier))
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
@@ -54,7 +50,7 @@ export default async function StudyReviewPage({
                         {'{'}Communication between member and researcher will be skipped for this pilot{'}'}
                     </Text>
                 </Stack>
-                <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                <StudyPanel study={study} memberIdentifier={memberIdentifier} />
 
             </Paper>
         </Container>
