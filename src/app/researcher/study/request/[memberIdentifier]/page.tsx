@@ -25,7 +25,6 @@ export default async function MemberHome({ params }: { params: { memberIdentifie
                 <Title>{member.name} Proposal Step 1)</Title>
 
                 <List>
-                    {/* <ListItem>Submit proposal for review</ListItem> */}
                     <Text mt={20} mb={20} pt={10} fz="lg" fs="italic">
                         {'{'}For the Pilot, detailed research proposal fields are skipped{'}'}
                     </Text>

@@ -1,11 +1,11 @@
-import { Button, Flex, Paper, Title } from '@mantine/core'
+import { Button, Flex, Paper, Title, Container, Text, Stack, Group } from '@mantine/core'
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
-
 import Link from 'next/link'
 import { ReviewControls } from './review'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
+import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 
 export default async function StudyReviewPage({
     params: { memberIdentifier, studyIdentifier },
@@ -24,7 +24,7 @@ export default async function StudyReviewPage({
     const study = await db
         .selectFrom('study')
 
-        .select(['id', 'title', 'description', 'status', 'dataSources', 'outputMimeType'])
+        .select(['id', 'title', 'description', 'status', 'dataSources', 'outputMimeType', 'piName'])
         .where('id', '=', b64toUUID(studyIdentifier))
         .executeTakeFirst()
 
@@ -33,19 +33,30 @@ export default async function StudyReviewPage({
     }
 
     return (
-        <Paper shadow="xs" p="sm" m="xs">
-            <Flex justify="space-between" align="center" mb="lg">
-                <Title mb="lg">
-                    {member.name} Review “{study.title}”
-                </Title>
-                <Flex gap="md" direction="column">
-                    <ReviewControls study={study} memberIdentifier={memberIdentifier} />
-                    <Link href={`/member/${memberIdentifier}/studies/review`}>
-                        <Button color="blue">Back to pending review</Button>
-                    </Link>
-                </Flex>
-            </Flex>
-            <p>{study.description}</p>
-        </Paper>
+        <Container w="90%">
+            <Paper shadow="xs" p="sm" m="xs">
+            <MemberBreadcrumbs study={study} memberIdentifier={memberIdentifier}/>
+                <Stack>
+                    <Group gap="xl">
+                        <Title>
+                            {study.title} | {study.piName}
+                        </Title>
+                        {/* <Flex justify="space-between" align="center" mb="lg">
+                            <Flex gap="md" direction="column">
+                                <Link href={`/member/${memberIdentifier}/studies/review`}>
+                                    <Button color="blue">Back to pending review</Button>
+                                </Link>
+                            </Flex>
+                        </Flex> */}
+                    </Group>
+
+                    <Text c="#7F7D7D" mb={30} pt={10} fz="lg" fs="italic">
+                        {'{'}Communication between member and researcher will be skipped for this pilot{'}'}
+                    </Text>
+                </Stack>
+                <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+
+            </Paper>
+        </Container>
     )
 }
