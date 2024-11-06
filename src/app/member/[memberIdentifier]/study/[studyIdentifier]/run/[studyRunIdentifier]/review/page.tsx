@@ -6,9 +6,10 @@ import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { ReviewControls } from './controls'
 import { Files } from './files'
+import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 
 export default async function StudyReviewPage({
-    params: { memberIdentifier, studyRunIdentifier },
+    params: { memberIdentifier, studyRunIdentifier, studyIdentifier },
 }: {
     params: {
         memberIdentifier: string
@@ -32,6 +33,9 @@ export default async function StudyReviewPage({
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
+            <MemberBreadcrumbs crumbs={{
+                memberIdentifier, studyIdentifier, studyTitle: run.studyTitle, current: 'Review code'
+            }} />
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
                     Review code for code run submitted on {run.createdAt.toLocaleTimeString()}
