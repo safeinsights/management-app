@@ -1,7 +1,6 @@
-import { Button, Flex, Paper, Title, Container, Text, Stack, Group } from '@mantine/core'
+import { Paper, Center, Title, Text, Stack, Group } from '@mantine/core'
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
-import Link from 'next/link'
 import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
@@ -29,9 +28,9 @@ export default async function StudyReviewPage({
     }
 
     return (
-        <Container w="90%">
-            <Paper shadow="xs" p="sm" m="xs">
-            <MemberBreadcrumbs study={study} memberIdentifier={memberIdentifier}/>
+        <Center>
+            <Paper w="30%" shadow="xs" p="sm" m="xs">
+                <MemberBreadcrumbs study={study} memberIdentifier={memberIdentifier} />
                 <Stack>
                     <Group gap="xl">
                         <Title>
@@ -51,8 +50,7 @@ export default async function StudyReviewPage({
                     </Text>
                 </Stack>
                 <StudyPanel study={study} memberIdentifier={memberIdentifier} />
-
             </Paper>
-        </Container>
+        </Center>
     )
 }
