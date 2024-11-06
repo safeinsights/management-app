@@ -5,14 +5,13 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Accordion, Container, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
 import { labelStyle, inputStyle } from './style.css'
-import {  ErrorAlert } from '@/components/errors'
+import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { RunsTable } from './runs-table'
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
-
 
 export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {
     const router = useRouter()
@@ -34,14 +33,14 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
     })
 
     if (error) return <ErrorAlert error={error} />
-    console.log(study.dataSources)
+
     return (
-        <Container>
+        <>
             <Accordion onChange={setActiveSection}>
                 <Accordion.Item value="study">
-                    <Accordion.Control bg="#ccc">Study {study.title}</Accordion.Control>
+                    <Accordion.Control bg="#ccc">Researcher Study Proposal</Accordion.Control>
                     <Accordion.Panel>
-                        <Stack>
+                        <Stack mt={30}>
                             <Flex p={2} gap="md" wrap="wrap">
                                 <Text className={labelStyle}>Study Title</Text>
                                 <TextInput
@@ -57,12 +56,27 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                             </Flex>
                             <Flex p={2} gap="md" wrap="wrap">
                                 <Text className={labelStyle}>Study Description</Text>
-                                <Textarea bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="description" label="" value={study.description} disabled={true} />
+                                <Textarea
+                                    bg="#ddd"
+                                    bd="1px solid #ccc"
+                                    className={inputStyle}
+                                    name="description"
+                                    label=""
+                                    value={study.description}
+                                    disabled={true}
+                                />
                             </Flex>
 
                             <Flex p={2} gap="md">
                                 <Text className={labelStyle}>Principal Investigator</Text>
-                                <TextInput bg="#ddd" bd="1px solid #ccc" className={inputStyle} name="piName" value={study.piName} disabled />
+                                <TextInput
+                                    bg="#ddd"
+                                    bd="1px solid #ccc"
+                                    className={inputStyle}
+                                    name="piName"
+                                    value={study.piName}
+                                    disabled
+                                />
                             </Flex>
                             <Group p={2} gap="md">
                                 <Text className={labelStyle}>IRB Approval Documentation</Text>
@@ -81,7 +95,7 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                             </Group>
                         </Stack>
 
-                        <Stack align="stretch">
+                        <Stack align="stretch" mb={30}>
                             <Flex p={2} gap="lg">
                                 <Text className={labelStyle}>Datasets of Interest</Text>
                                 <Stack>
@@ -104,16 +118,17 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                 </Accordion.Item>
 
                 <Accordion.Item value="runs">
-
-                    <Accordion.Control bg="#ccc">Study Runs</Accordion.Control>
+                    <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <RunsTable isActive={activeSection == "runs"} study={study} memberIdentifier={memberIdentifier} />
+                            <RunsTable
+                                isActive={activeSection == 'runs'}
+                                study={study}
+                                memberIdentifier={memberIdentifier}
+                            />
                         </Stack>
-
                     </Accordion.Panel>
                 </Accordion.Item>
-
             </Accordion>
             <Group gap="xl" p={2} mt={30} justify="flex-end">
                 {/* <Button color="red" onClick={() => updateStudy('REJECTED')} loading={isPending}>
@@ -123,6 +138,6 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                     Approve Code & Study Proposal
                 </Button>
             </Group>
-        </Container>
+        </>
     )
 }

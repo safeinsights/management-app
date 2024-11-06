@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { Table, Accordion, AccordionControl, AccordionPanel, AccordionItem, Flex, ActionIcon, Button } from '@mantine/core'
+import {
+    Table,
+    Accordion,
+    AccordionControl,
+    AccordionPanel,
+    AccordionItem,
+    Flex,
+    ActionIcon,
+    Button,
+} from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
@@ -23,8 +32,7 @@ type RunsTableProps = {
 }
 
 const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study }) => {
-
-
+    const runCount: number = 1
     const { data: runs, isPending } = useQuery({
         queryKey: ['runsForStudy', study.id],
         enabled: isActive,
@@ -34,28 +42,28 @@ const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study
     if (isPending) return <p>Loading...</p>
 
     return (
-        <Table>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th>Requested</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th colSpan={2}>
-                        <Flex justify="space-between">
-                            <span>Completed</span>
-
-                        </Flex>
-                    </Table.Th>
-                </Table.Tr>
-            </Table.Thead>
+        <Table verticalSpacing="md">
             <Table.Tbody>
-                {(runs || []).map((run) => (
+                {(runs || []).map((run, runCount: number) => (
                     <Table.Tr key={run.id}>
-                        <Table.Td>{run.createdAt.toISOString()}</Table.Td>
-                        <Table.Td>{humanizeStatus(run.status)}</Table.Td>
+                        <Table.Td>{runCount + 1})</Table.Td>
+                        <Table.Td>
+                            Code Run Submitted On: {'{'}
+                            {run.createdAt.toISOString()}
+                            {'}'}
+                        </Table.Td>
+                        <Table.Td>|</Table.Td>
+                        <Table.Td>
+                            Status: {'{'}
+                            {humanizeStatus(run.status)}
+                            {'}'}
+                        </Table.Td>
                         <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
-                            <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}>
-                                <Button>view code</Button>
+                            <Link
+                                href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
+                            >
+                                <Button>View Code</Button>
                             </Link>
                         </Table.Td>
                     </Table.Tr>

@@ -85,7 +85,7 @@ export default async function StudyReviewPage({
                     </Alert>
                 ) : (
                     studies.map((study) => (
-                        <Paper key={study.id} p="lg" shadow="xs">
+                        <Paper key={study.id} p="lg" shadow="lg">
                             <Flex justify="space-between">
                                 <Title order={3}>{study.title}</Title>
                                 <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/review`}>

@@ -7,4 +7,3 @@ export const labelStyle = style({
 export const inputStyle = style({
     width: '20rem',
 })
-
