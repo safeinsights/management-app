@@ -30,7 +30,7 @@ export default async function StudyReviewPage({
     return (
         <Center>
             <Paper w="30%" shadow="xs" p="sm" m="xs">
-                <MemberBreadcrumbs study={study} memberIdentifier={memberIdentifier} />
+                <MemberBreadcrumbs crumbs={{ memberIdentifier, current: study.title }} />
                 <Stack>
                     <Group gap="xl">
                         <Title>
