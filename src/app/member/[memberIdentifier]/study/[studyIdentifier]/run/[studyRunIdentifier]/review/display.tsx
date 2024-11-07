@@ -1,8 +1,8 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { fetchFile } from './actions'
-import type { CodeFileMinimalRun, CodeManifest } from '@/lib/types'
+import { fetchFileAction } from './actions'
+import type { MinimalRunInfo, CodeManifest } from '@/lib/types'
 import { useEffect, useState } from 'react'
 import { Flex, Title, LoadingOverlay } from '@mantine/core'
 import hljs from 'highlight.js'
@@ -15,22 +15,14 @@ function guessLanguage(filePath: string) {
     return filePath.substring(lastDotPosition + 1) || ''
 }
 
-export function DisplayFile({
-    run,
-    path,
-    manifest,
-}: {
-    run: CodeFileMinimalRun
-    path?: string
-    manifest: CodeManifest
-}) {
+export function DisplayFile({ run, path, manifest }: { run: MinimalRunInfo; path?: string; manifest: CodeManifest }) {
     const [displaying, setDisplaying] = useState('')
     const [html, setHtml] = useState('')
 
     const { data: sourceCode, isLoading } = useQuery({
         queryKey: ['code-file', displaying],
         enabled: !!displaying,
-        queryFn: () => fetchFile(run, displaying),
+        queryFn: () => fetchFileAction(run, displaying),
     })
 
     useEffect(() => {

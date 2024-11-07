@@ -6,6 +6,7 @@ import { FormValues, schema } from './schema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
+import { onStudyRunCreateAction } from '@/app/researcher/studies/actions'
 
 export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
     schema.parse(study) // throws when malformed
@@ -46,18 +47,11 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const studyRunId = await trx
-            .insertInto('studyRun')
-            .values({
-                studyId: studyId,
-                status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        const studyRunId = await onStudyRunCreateAction(studyId)
 
         return {
             studyId: uuidToB64(studyId),
-            studyRunId: uuidToB64(studyRunId.id),
+            studyRunId: uuidToB64(studyRunId),
         }
     })
 

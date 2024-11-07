@@ -15,7 +15,7 @@ const schema = z
     })
     .refine(
         (data) => {
-            return data.highlights || data.eventCapture
+            return Boolean(data.highlights || data.eventCapture)
         },
         {
             message: 'At least one checkbox must be selected',
