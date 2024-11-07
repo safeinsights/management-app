@@ -1,6 +1,6 @@
 'use client'
 
-import { SignedIn, SignedOut, useOrganizationList, useUser } from '@clerk/nextjs'
+import { SignedIn, SignedOut, useUser } from '@clerk/nextjs'
 import { SignIn } from '@/components/signin'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import Link from 'next/link'
@@ -10,17 +10,21 @@ export default function Home() {
     const { user } = useUser()
 
     const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+
     const isOrgMember = user?.organizationMemberships?.some(
         membership => membership.organization.id === SAFEINSIGHTS_ORG_ID
     )
-    
     const isSiMember = user?.organizationMemberships?.some(
         membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:si_member'
     )
-    
+    const isAdmin = user?.organizationMemberships?.some(
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:admin'
+    )
+
     console.log('Current user:', user)
     console.log(`Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
     console.log(`Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
+    console.log(`Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
     return (
         <div className={pageStyles}>
             <SignedOut>
