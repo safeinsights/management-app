@@ -15,7 +15,7 @@ export default function Home() {
     )
     
     const isSiMember = user?.organizationMemberships?.some(
-        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'si_member'
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:si_member'
     )
     
     console.log('Current user:', user)
