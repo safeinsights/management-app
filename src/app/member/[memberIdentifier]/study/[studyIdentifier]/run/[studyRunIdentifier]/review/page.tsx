@@ -43,8 +43,10 @@ export default async function StudyReviewPage({
             />
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
-                    Review code for code run submitted on {run.createdAt.toLocaleTimeString()}
+                    Review code for code run submitted
+                    on {run.createdAt.toLocaleString()} - {Object.keys(manifest.files).length} files, {manifest.size / 1048576}MB
                 </Title>
+
                 <Flex gap="md" direction="column">
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
                         <Button color="blue">Back to pending review</Button>
