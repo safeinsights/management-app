@@ -9,7 +9,7 @@ export default async function ListStudiesPage() {
 
     const studies = await db
         .selectFrom('study')
-        .select(['id', 'title', 'containerLocation', 'description'])
+        .select(['study.id', 'title', 'containerLocation', 'description'])
         .orderBy('createdAt', 'desc')
         .execute()
 
