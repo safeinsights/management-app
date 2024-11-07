@@ -1,30 +1,25 @@
 'use client'
 
-import { SignedIn, SignedOut, useUser } from '@clerk/nextjs'
+import { SignedIn, SignedOut, useUser, OrganizationSwitcher } from '@clerk/nextjs'
 import { SignIn } from '@/components/signin'
+import { useOrganization } from '@clerk/nextjs'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
 import Link from 'next/link'
 import { Button, Title, Paper, Flex } from '@mantine/core'
 
 export default function Home() {
     const { user } = useUser()
-
+    const { organization } = useOrganization()
+    
     const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+    
+    const isOrgMember = organization?.id === SAFEINSIGHTS_ORG_ID
+    const isSiMember = isOrgMember && organization?.membership?.role === 'org:si_member'
+    const isAdmin = isOrgMember && organization?.membership?.role === 'org:admin'
 
-    const isOrgMember = user?.organizationMemberships?.some(
-        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID
-    )
-    const isSiMember = user?.organizationMemberships?.some(
-        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:si_member'
-    )
-    const isAdmin = user?.organizationMemberships?.some(
-        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:admin'
-    )
-
-    console.log('Current user:', user)
-    console.log(`Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
-    console.log(`Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
-    console.log(`Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
+    console.log('Current organization:', organization)
+    console.log(`Active in SafeInsights org: ${isOrgMember ? 'yes' : 'no'}`)
+    console.log(`Current role: ${organization?.membership?.role}`)
     return (
         <div className={pageStyles}>
             <SignedOut>
@@ -34,6 +29,12 @@ export default function Home() {
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
+                    <OrganizationSwitcher 
+                        afterCreateOrganizationUrl="/"
+                        afterLeaveOrganizationUrl="/"
+                        afterSelectOrganizationUrl="/"
+                        hidePersonal={true}
+                    />
                     <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm">
                         <Title>Welcome to the SafeInsights management app.</Title>
                         <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
