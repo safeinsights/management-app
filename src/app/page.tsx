@@ -14,13 +14,9 @@ export default function Home() {
         membership => membership.organization.id === SAFEINSIGHTS_ORG_ID
     )
     
-    const isResearcher = user?.organizationMemberships?.some(
-        membership => membership.role === 'researcher'
-    )
-    
     console.log('Current user:', user)
     console.log(`Current User is member of org SafeInsights: ${isSiMember ? 'yes' : 'no'}`)
-    console.log(`Current User is a Researcher: ${isResearcher ? 'yes' : 'no'}`)
+    console.log(`Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
     return (
         <div className={pageStyles}>
             <SignedOut>
