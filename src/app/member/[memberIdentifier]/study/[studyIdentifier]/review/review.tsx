@@ -22,7 +22,6 @@ type Study = {
 
 export const ReviewControls: React.FC<{ study?: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {
     const router = useRouter()
-    const [activeId, setActiveId] = useState<string | null>(null)
 
     const backPath = `/member/${memberIdentifier}/studies/review`
 
