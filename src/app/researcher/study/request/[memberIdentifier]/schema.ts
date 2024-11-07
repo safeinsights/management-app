@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export { zodResolver } from 'mantine-form-zod-resolver'
+
 export const schema = z.object({
     title: z
         .string()

@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { Container } from '@mantine/core'
-import { Panel } from './panel'
+import { Panel } from './runs-table'
 
 export const dynamic = 'force-dynamic'
 
