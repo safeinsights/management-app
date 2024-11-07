@@ -10,12 +10,16 @@ export default function Home() {
     const { user } = useUser()
 
     const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
-    const isSiMember = user?.organizationMemberships?.some(
+    const isOrgMember = user?.organizationMemberships?.some(
         membership => membership.organization.id === SAFEINSIGHTS_ORG_ID
     )
     
+    const isSiMember = user?.organizationMemberships?.some(
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'si_member'
+    )
+    
     console.log('Current user:', user)
-    console.log(`Current User is member of org SafeInsights: ${isSiMember ? 'yes' : 'no'}`)
+    console.log(`Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
     console.log(`Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
     return (
         <div className={pageStyles}>
