@@ -1,48 +1,55 @@
-import { clerkMiddleware, createRouteMatcher, auth } from '@clerk/nextjs/server'
+'use server'
+import 'server-only'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+const isMemberRoute = createRouteMatcher(['/fix-me/member(.*)'])
+const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
 
-const isMemberRoute = createRouteMatcher(['/member/(.*)'])
-const isResearcherRoute = createRouteMatcher(['/researcher/(.*)'])
+// Clerk middleware reference
+// https://clerk.com/docs/references/nextjs/clerk-middleware
 
-const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+export default clerkMiddleware((auth, req) => {
+    const { userId, user } = auth()
 
-export default clerkMiddleware(async (auth, req) => {
-    const { userId, organizations } = auth
-    
-    // Redirect logged-in users away from auth pages
+    const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+
+    const isOrgMember = user?.organizationMemberships?.some(
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID
+    )
+    const isSiMember = user?.organizationMemberships?.some(
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:si_member'
+    )
+    const isAdmin = user?.organizationMemberships?.some(
+        membership => membership.organization.id === SAFEINSIGHTS_ORG_ID && membership.role === 'org:admin'
+    )
+
+    console.log('[Middleware] Current user:', user)
+    console.log(`[Middleware] Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
+    console.log(`[Middleware] Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
+    console.log(`[Middleware] Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
+
+    // Do not allow and redirect certain paths when logged in (e.g. password resets, signup)
     if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
         if (userId) {
             return NextResponse.redirect(new URL('/', req.url))
         }
-        return
     }
 
-    // For researcher routes, ensure they're not using SafeInsights org
-    if (isResearcherRoute(req)) {
-        return NextResponse.next()
-    }
+    if (isMemberRoute(req))
+        auth().protect((has) => {
+            return (
+                // TODO check for membership identifier in url and check group
+                has({ permission: 'org:sys_memberships' }) || has({ permission: 'org:sys_domains_manage' })
+            )
+        })
 
-    // For member routes, require SafeInsights membership
-    if (isMemberRoute(req)) {
-        if (!userId) {
-            return NextResponse.redirect(new URL('/sign-in', req.url))
-        }
-        
-        const isSiMember = organizations?.some(
-            org => org.id === SAFEINSIGHTS_ORG_ID && org.membership?.role === 'si_member'
-        )
-        
-        // Debug logging
-        console.log('Organizations:', organizations)
-        console.log('Is SafeInsights member:', isSiMember)
-        console.log('User ID:', userId)
-        
-        if (!isSiMember) {
-            return new NextResponse(null, { status: 403 })
-        }
-    }
-
-    return NextResponse.next()
+    if (isResearcherRoute(req))
+        auth().protect((has) => {
+            return (
+                // TODO setup groups and perms, check them here
+                has({ permission: 'org:researcher' })
+            )
+        })
 })
 
 export const config = {
