@@ -33,9 +33,14 @@ export default async function StudyReviewPage({
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
-            <MemberBreadcrumbs crumbs={{
-                memberIdentifier, studyIdentifier, studyTitle: run.studyTitle, current: 'Review code'
-            }} />
+            <MemberBreadcrumbs
+                crumbs={{
+                    memberIdentifier,
+                    studyIdentifier,
+                    studyTitle: run.studyTitle,
+                    current: 'Review code',
+                }}
+            />
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
                     Review code for code run submitted on {run.createdAt.toLocaleTimeString()}
