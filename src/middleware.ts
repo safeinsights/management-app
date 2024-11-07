@@ -10,14 +10,21 @@ const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
     try {
-        const { userId, orgRole, orgId } = await auth()
+        const { userId, orgId, orgRole, sessionClaims } = await auth()
 
-        // Check organization memberships
-        const isOrgMember = (orgId === SAFEINSIGHTS_ORG_ID)
-        const isSiMember = (orgRole === 'org:si_member')
-        const isAdmin = (orgRole === 'org:admin')
+        // Require organization selection and prevent personal account usage
+        if (userId && (!orgId || sessionClaims?.org_personal)) {
+            if (!req.nextUrl.pathname.startsWith('/org-selection')) {
+                return NextResponse.redirect(new URL('/org-selection', req.url))
+            }
+        }
+        
+        const isOrgMember = orgId === SAFEINSIGHTS_ORG_ID
+        const isSiMember = isOrgMember && orgRole === 'org:si_member'
+        const isAdmin = isOrgMember && orgRole === 'org:admin'
 
-        // console.log('Current user:', user)
+        console.log('[Middleware] Active Organization:', orgId)
+        console.log('[Middleware] Current Role:', orgRole)
         console.log(`[Middleware] Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
         console.log(`[Middleware] Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
         console.log(`[Middleware] Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
