@@ -54,7 +54,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study
                                 <Link
                                     href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
                                 >
-                                    <Button>view code</Button>
+                                    <Button>View Code</Button>
                                 </Link>
                             )}
                         </Table.Td>
