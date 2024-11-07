@@ -1,6 +1,6 @@
 'use server'
 
-import { PROD_ENV } from '@/server/config'
+import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
@@ -22,7 +22,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
 
     let repoUrl = ''
 
-    if (PROD_ENV || process.env['FORCE_CREATE_ECR'] == 't') {
+    if (USING_CONTAINER_REGISTRY) {
         repoUrl = await createAnalysisRepository(repoPath, {
             title: study.title,
             studyId,
@@ -50,6 +50,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             .insertInto('studyRun')
             .values({
                 studyId: studyId,
+                status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
             })
             .returning('id')
             .executeTakeFirstOrThrow()

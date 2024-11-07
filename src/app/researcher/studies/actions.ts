@@ -1,5 +1,6 @@
 'use server'
 
+import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { db } from '@/database'
 import { StudyRunStatus } from '@/database/types'
 
@@ -15,6 +16,7 @@ export const onRunCreateAction = async (studyId: string) => {
         .insertInto('studyRun')
         .values({
             studyId: studyId,
+            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
         })
         .returning('id')
         .executeTakeFirstOrThrow()
