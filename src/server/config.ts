@@ -7,3 +7,7 @@ export const PROD_ENV = process.env.NODE_ENV === 'production'
 export const getUploadTmpDirectory = () => {
     return process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 }
+
+export const FORCE_ECR_CREATION = process.env.FORCE_CREATE_ECR === 't'
+
+export const USING_CONTAINER_REGISTRY = FORCE_ECR_CREATION || PROD_ENV

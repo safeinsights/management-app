@@ -1,11 +1,12 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeFileMinimalRun } from '@/lib/types'
+import { CodeFileMinimalRun, CodeManifest } from '@/lib/types'
 import { b64toUUID, uuidToB64 } from '@/lib/uuid'
 import { fetchCodeFile, fetchCodeManifest } from '@/server/aws'
 import { StudyRunStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
+import { USING_CONTAINER_REGISTRY } from '@/server/config'
 
 export const updateStudyRunStatusAction = async (run: CodeFileMinimalRun, status: StudyRunStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
@@ -22,14 +23,17 @@ export const dataForRun = async (studyRunIdentifier: string) => {
         .where('studyRun.id', '=', b64toUUID(studyRunIdentifier))
         .executeTakeFirst()
 
-    if (run) {
-        const manifest = await fetchCodeManifest(run)
-        return { run, manifest }
+    let manifest: CodeManifest = {
+        files: {},
+        size: 0,
+        tree: { label: '', value: '', size: 0, children: [] },
     }
 
-    return {
-        run,
+    if (run && USING_CONTAINER_REGISTRY) {
+        manifest = await fetchCodeManifest(run)
     }
+
+    return { run, manifest }
 }
 
 export const fetchFile = async (run: CodeFileMinimalRun, path: string) => {
