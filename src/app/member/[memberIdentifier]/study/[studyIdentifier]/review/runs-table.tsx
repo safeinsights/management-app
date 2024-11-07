@@ -61,9 +61,12 @@ const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study
                         <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
                             {run.status != 'INITIATED' && (
-                                <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}>
+                                <Link
+                                    href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
+                                >
                                     <Button>view code</Button>
-                                </Link>)}
+                                </Link>
+                            )}
                         </Table.Td>
                     </Table.Tr>
                 ))}
@@ -92,7 +95,7 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <p>{study.description}</p>
-                        <RunsTable isActive={activeId == study.id} study={study} />
+                        <RunsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id}/>
                     </AccordionPanel>
                 </AccordionItem>
             ))}
