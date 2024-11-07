@@ -17,26 +17,32 @@ export default clerkMiddleware(async (auth, req) => {
         return
     }
 
-    // Check if user is a member of SafeInsights org with si_member role
-    const isSiMember = organizations?.some(
-        org => org.id === SAFEINSIGHTS_ORG_ID && org.membership?.role === 'si_member'
-    )
+    // For researcher routes, ensure they're not using SafeInsights org
+    if (isResearcherRoute(req)) {
+        return NextResponse.next()
+    }
 
-    // Member route access control
+    // For member routes, require SafeInsights membership
     if (isMemberRoute(req)) {
+        if (!userId) {
+            return NextResponse.redirect(new URL('/sign-in', req.url))
+        }
+        
+        const isSiMember = organizations?.some(
+            org => org.id === SAFEINSIGHTS_ORG_ID && org.membership?.role === 'si_member'
+        )
+        
+        // Debug logging
+        console.log('Organizations:', organizations)
+        console.log('Is SafeInsights member:', isSiMember)
+        console.log('User ID:', userId)
+        
         if (!isSiMember) {
             return new NextResponse(null, { status: 403 })
         }
-        return
     }
 
-    // Researcher route access control
-    if (isResearcherRoute(req)) {
-        if (isSiMember) {
-            return new NextResponse(null, { status: 403 })
-        }
-        return
-    }
+    return NextResponse.next()
 })
 
 export const config = {
