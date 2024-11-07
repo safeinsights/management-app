@@ -25,8 +25,7 @@ export const getStudyAction = async (studyId: string) => {
         .executeTakeFirst()
 }
 
-
-export const onFetchStudyRunsAction = async (studyId: string) =>  {
+export const onFetchStudyRunsAction = async (studyId: string) => {
     const runs = await db
         .selectFrom('studyRun')
         .select(['id', 'status', 'startedAt', 'createdAt'])

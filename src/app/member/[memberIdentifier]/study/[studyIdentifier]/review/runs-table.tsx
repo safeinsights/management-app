@@ -1,16 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import {
-    Table,
-    Accordion,
-    AccordionControl,
-    AccordionPanel,
-    AccordionItem,
-    Flex,
-    ActionIcon,
-    Button,
-} from '@mantine/core'
+import { Table, Accordion, AccordionControl, AccordionPanel, AccordionItem, Button } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
@@ -32,7 +23,6 @@ type RunsTableProps = {
 }
 
 const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study }) => {
-    const runCount: number = 1
     const { data: runs, isPending } = useQuery({
         queryKey: ['runsForStudy', study.id],
         enabled: isActive,
@@ -95,7 +85,7 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <p>{study.description}</p>
-                        <RunsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id}/>
+                        <RunsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}

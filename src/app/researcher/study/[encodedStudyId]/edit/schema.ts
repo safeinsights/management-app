@@ -13,12 +13,15 @@ const schema = z
         irbDocument: z.string().nullish(),
         containerLocation: z.string().min(3).max(250),
     })
-    .refine((data) => {
-        return data.highlights || data.eventCapture
-    }, {
-        message: 'At least one checkbox must be selected',
-        path: ['dataSources'],
-    })
+    .refine(
+        (data) => {
+            return data.highlights || data.eventCapture
+        },
+        {
+            message: 'At least one checkbox must be selected',
+            path: ['dataSources'],
+        },
+    )
 
 type FormValues = z.infer<typeof schema>
 

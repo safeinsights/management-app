@@ -1,5 +1,4 @@
 import { Paper, Center, Title, Text, Stack, Group } from '@mantine/core'
-import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
 import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
@@ -29,7 +28,7 @@ export default async function StudyReviewPage({
 
     return (
         <Center>
-            <Paper w="30%" shadow="xs" p="sm" m="xs">
+            <Paper w="50%" shadow="xs" p="sm" m="xs">
                 <MemberBreadcrumbs crumbs={{ memberIdentifier, current: study.title }} />
                 <Stack>
                     <Group gap="xl">

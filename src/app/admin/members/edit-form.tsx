@@ -1,7 +1,7 @@
 'use client'
 
 import { useForm } from '@mantine/form'
-import { Button, Modal, TextInput, Textarea  } from '@mantine/core'
+import { Button, Modal, TextInput, Textarea } from '@mantine/core'
 import { insertMemberAction, updateMemberAction } from './actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver, schema, ValidatedMember, NewMember, Member } from './schema'
@@ -40,7 +40,10 @@ export const EditMemberForm: React.FC<{ member: Member | NewMember; onComplete: 
                 required
             />
 
-            <TextInput label="Name" placeholder="Enter your name" name="name"
+            <TextInput
+                label="Name"
+                placeholder="Enter your name"
+                name="name"
                 key={form.key('name')}
                 {...form.getInputProps('name')}
                 required

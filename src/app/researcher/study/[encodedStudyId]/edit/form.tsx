@@ -10,7 +10,7 @@ import { useMutation } from '@tanstack/react-query'
 
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const { mutate: updateStudy, isPending } = useMutation({
-        mutationFn: async (data: FormValues) => await onUpdateStudyAction(studyId, data)
+        mutationFn: async (data: FormValues) => await onUpdateStudyAction(studyId, data),
     })
 
     const form = useForm<FormValues>({
@@ -56,7 +56,13 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                             *
                         </Text>
                     </Text>
-                    <Textarea className={inputStyle} name="description" label="" key={form.key('description')} {...form.getInputProps('description')} />
+                    <Textarea
+                        className={inputStyle}
+                        name="description"
+                        label=""
+                        key={form.key('description')}
+                        {...form.getInputProps('description')}
+                    />
                 </Flex>
 
                 <Flex p={2} gap="md">
@@ -66,7 +72,12 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                             *
                         </Text>
                     </Text>
-                    <TextInput className={inputStyle} name="piName" key={form.key('piName')} {...form.getInputProps('piName')} />
+                    <TextInput
+                        className={inputStyle}
+                        name="piName"
+                        key={form.key('piName')}
+                        {...form.getInputProps('piName')}
+                    />
                 </Flex>
                 <Group p={2} gap="md">
                     <Text className={labelStyle}>IRB Approval Documentation</Text>
@@ -93,7 +104,9 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 <Flex p={2} gap="lg">
                     <Text className={labelStyle} component="span">
                         Datasets of Interest
-                        <Text component="span" c="red" inherit>*</Text>
+                        <Text component="span" c="red" inherit>
+                            *
+                        </Text>
                     </Text>
                     <Stack>
                         <Checkbox
@@ -130,7 +143,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                 <Link href="/researcher/studies" passHref>
                     <Button disabled={!form.isValid || isPending}>Back to all studies</Button>
                 </Link>
-                <Button disabled={!form.isValid || isPending}  type="submit" variant="default">
+                <Button disabled={!form.isValid || isPending} type="submit" variant="default">
                     Submit Proposal
                 </Button>
             </Group>
