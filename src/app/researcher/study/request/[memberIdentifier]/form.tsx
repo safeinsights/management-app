@@ -20,7 +20,6 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
         },
     })
 
-
     const { mutate: createStudy, isPending } = useMutation({
         mutationFn: async (d: FormValues) => await onCreateStudyAction(memberId, d),
         onSettled(result, error) {
@@ -38,7 +37,9 @@ export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({
         <form onSubmit={form.onSubmit((values) => createStudy(values))}>
             <Flex direction="column" gap="xl" mt="md" justify="stretch">
                 <TextInput
-                    label="Study Title" required name="title"
+                    label="Study Title"
+                    required
+                    name="title"
                     key={form.key('title')}
                     {...form.getInputProps('title')}
                     className={customLabel}

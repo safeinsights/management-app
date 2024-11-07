@@ -3,13 +3,11 @@
 import React from 'react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Accordion, Container, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
-import { labelStyle, inputStyle } from './style.css'
+import { Button, Group, Flex } from '@mantine/core'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-import { RunsTable } from '@/app/researcher/studies/runs-table'
 
 type Study = {
     id: string

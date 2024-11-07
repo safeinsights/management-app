@@ -3,7 +3,7 @@
 import React from 'react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Accordion, Container, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
+import { Button, Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
 import { labelStyle, inputStyle } from './style.css'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'

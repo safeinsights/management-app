@@ -11,6 +11,4 @@ export const schema = z.object({
     piName: z.string().min(1, { message: 'Principal Investigator name must be present' }),
 })
 
-
-
 export type FormValues = z.infer<typeof schema>
