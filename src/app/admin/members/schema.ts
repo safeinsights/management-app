@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { Selectable } from 'kysely'
-
 import { Member as DefinedMember } from '@/database/types'
+
+export { zodResolver } from 'mantine-form-zod-resolver'
 
 export const schema = z.object({
     identifier: z.string().regex(/^[a-z][a-z\-]*[a-z]$/, { message: 'Invalid identifier, all lowercase, only dashes' }),
