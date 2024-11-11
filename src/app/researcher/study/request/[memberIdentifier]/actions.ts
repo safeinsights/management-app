@@ -32,7 +32,8 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
         const { accountId, region } = await getAWSInfo()
         repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
     }
-    await db.insertInto('study')
+    await db
+        .insertInto('study')
         .values({
             id: studyId,
             title: study.title,
