@@ -1,5 +1,5 @@
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts'
-import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient, CreateRepositoryCommand } from '@aws-sdk/client-ecr'
