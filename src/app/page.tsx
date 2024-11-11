@@ -19,7 +19,7 @@ export default function Home() {
 
     console.log('Current organization:', organization)
     console.log(`Active in openstax org: ${isOrgMember ? 'yes' : 'no'}`)
-    console.log(`Current role: ${organization?.membership?.role}`)
+    console.log(`Is si_member: ${isSiMember ? 'yes' : 'no'}`)
     return (
         <div className={pageStyles}>
             <SignedOut>

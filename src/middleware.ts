@@ -1,8 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 
-const isMemberRoute = createRouteMatcher(['/fix-me/member(.*)'])
-const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
+const isMemberRoute = createRouteMatcher(['/member(.*)'])
+const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_ID = 'org_2ohzjhfpKp4QqubW86FfXzzDm2I'
 
 // Clerk middleware reference
@@ -18,7 +18,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
                 return NextResponse.redirect(new URL('/org-selection', req.url))
             }
         }
-        
+
         const isOrgMember = orgId === OPENSTAX_ORG_ID
         const isSiMember = isOrgMember && orgRole === 'org:si_member'
         const isAdmin = isOrgMember && orgRole === 'org:admin'
@@ -37,18 +37,28 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
             }
         }
 
-        // // Handle route protection
-        // if (isMemberRoute(req)) {
-        //     if (!userId || !isOrgMember) {
-        //         return NextResponse.redirect(new URL('/sign-in', req.url))
-        //     }
-        // }
+        // Handle post-login redirects for members and researchers
+        if (userId && isOrgMember && req.nextUrl.pathname === '/') {
+            if (isSiMember) {
+                return NextResponse.redirect(new URL('/member/openstax/studies/review', req.url))
+            } else {
+                return NextResponse.redirect(new URL('/researcher/study/request/openstax', req.url))
+            }
+        }
 
-        // if (isResearcherRoute(req)) {
-        //     if (!userId || !isAdmin) {
-        //         return NextResponse.redirect(new URL('/sign-in', req.url))
-        //     }
-        // }
+        // Handle member route protection
+        if (isMemberRoute(req)) {
+            if (!isSiMember && !isAdmin) {
+                return new NextResponse(null, { status: 403 })
+            }
+        }
+
+        // Handle researcher route protection
+        if (isResearcherRoute(req)) {
+            if (isSiMember) {
+                return new NextResponse(null, { status: 403 })
+            }
+        }
 
     } catch (error) {
         console.error('Middleware error:', error)
