@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const isMemberRoute = createRouteMatcher(['/fix-me/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/fix-me/researcher(.*)'])
-const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+const OPENSTAX_ORG_ID = 'org_2ohzjhfpKp4QqubW86FfXzzDm2I'
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
@@ -19,13 +19,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
             }
         }
         
-        const isOrgMember = orgId === SAFEINSIGHTS_ORG_ID
+        const isOrgMember = orgId === OPENSTAX_ORG_ID
         const isSiMember = isOrgMember && orgRole === 'org:si_member'
         const isAdmin = isOrgMember && orgRole === 'org:admin'
 
         console.log('[Middleware] Active Organization:', orgId)
         console.log('[Middleware] Current Role:', orgRole)
-        console.log(`[Middleware] Current User is member of org SafeInsights: ${isOrgMember ? 'yes' : 'no'}`)
+        console.log(`[Middleware] Current User is member of org openstax: ${isOrgMember ? 'yes' : 'no'}`)
         console.log(`[Middleware] Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
         console.log(`[Middleware] Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
 
