@@ -2,15 +2,8 @@
 
 import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
 import { db } from '@/database'
-//import { StudyRunStatus } from '@/database/types'
 import { sleep } from '@/lib/util'
 import { attachSimulatedResultsToStudyRun } from '@/server/results'
-// export type StudyRun = {
-//     id: string
-//     status: StudyRunStatus
-//     startedAt: Date | null
-//     createdAt: Date
-// }
 
 export const onStudyRunCreateAction = async (studyId: string) => {
     const studyRun = await db

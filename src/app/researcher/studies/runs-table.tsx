@@ -10,7 +10,6 @@ import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import Link from 'next/link'
 import { resultsDownloadURL } from '@/lib/paths'
-import { MinimalRunResultsInfo } from '@/lib/types'
 
 export type Study = {
     id: string
