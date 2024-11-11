@@ -12,5 +12,5 @@ export const USING_CONTAINER_REGISTRY = ALWAYS_CREATE_ECR || PROD_ENV
 
 export const USING_S3_STORAGE = process.env.USE_S3_STORAGE === 't' || PROD_ENV
 
-// TODO: when enclave is deployed, change default to be false when ENV is not present
-export const SIMULATE_RESULTS_UPLOAD = process.env.SIMULATE_RESULTS_UPLOAD !== 'f' || !PROD_ENV
+export const SIMULATE_RESULTS_UPLOAD =
+    process.env.SIMULATE_RESULTS_UPLOAD === 't' || (process.env.SIMULATE_RESULTS_UPLOAD != 'f' && DEV_ENV)
