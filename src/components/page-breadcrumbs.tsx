@@ -29,7 +29,7 @@ export const MemberBreadcrumbs: React.FC<{
 }> = ({ crumbs: { memberIdentifier, studyIdentifier, studyTitle, current } }) => {
     const crumbs: Array<[string, string?]> = [['All Studies', `/member/${memberIdentifier}/studies/review`]]
     if (studyTitle && studyIdentifier) {
-        crumbs.push([studyTitle, `/member/${memberIdentifier}/studies/${studyIdentifier}/review`])
+        crumbs.push([studyTitle, `/member/${memberIdentifier}/study/${studyIdentifier}/review`])
     }
     if (current) {
         crumbs.push([current])

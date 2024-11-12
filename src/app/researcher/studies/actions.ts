@@ -1,31 +1,43 @@
 'use server'
 
+import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
 import { db } from '@/database'
-import { StudyRunStatus } from '@/database/types'
+import { sleep } from '@/lib/util'
+import { attachSimulatedResultsToStudyRun } from '@/server/results'
 
-export type StudyRun = {
-    id: string
-    status: StudyRunStatus
-    startedAt: Date | null
-    createdAt: Date
-}
-
-export const onRunCreateAction = async (studyId: string) => {
-    const studyRunId = await db
+export const onStudyRunCreateAction = async (studyId: string) => {
+    const studyRun = await db
         .insertInto('studyRun')
         .values({
             studyId: studyId,
+            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
         })
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    return studyRunId.id
+    if (SIMULATE_RESULTS_UPLOAD) {
+        const study = await db
+            .selectFrom('study')
+            .innerJoin('member', 'study.memberId', 'member.id')
+            .select(['member.identifier as memberIdentifier'])
+            .where('study.id', '=', studyId)
+            .executeTakeFirstOrThrow()
+        sleep({ 3: 'seconds' }).then(() => {
+            attachSimulatedResultsToStudyRun({
+                studyId,
+                studyRunId: studyRun.id,
+                memberIdentifier: study.memberIdentifier,
+            })
+        })
+    }
+
+    return studyRun.id
 }
 
-export const onFetchStudyRunsAction = async (studyId: string): Promise<StudyRun[]> => {
+export const onFetchStudyRunsAction = async (studyId: string) => {
     const runs = await db
         .selectFrom('studyRun')
-        .select(['id', 'status', 'startedAt', 'createdAt'])
+        .select(['id', 'status', 'resultsPath', 'startedAt', 'uploadedAt', 'createdAt', 'completedAt'])
         .where('studyId', '=', studyId)
         .orderBy('startedAt', 'desc')
         .orderBy('createdAt', 'desc')

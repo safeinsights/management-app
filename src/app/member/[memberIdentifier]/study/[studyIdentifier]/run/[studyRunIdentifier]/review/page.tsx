@@ -1,12 +1,13 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
 
 import Link from 'next/link'
-import { dataForRun } from './actions'
+import { dataForRunAction } from './actions'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { ReviewControls } from './controls'
 import { Files } from './files'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
+import { MinimalRunInfo } from '@/lib/types'
 
 export default async function StudyReviewPage({
     params: { memberIdentifier, studyRunIdentifier, studyIdentifier },
@@ -23,11 +24,11 @@ export default async function StudyReviewPage({
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const { run, manifest } = await dataForRun(studyRunIdentifier)
-
+    const { run, manifest } = await dataForRunAction(studyRunIdentifier)
     if (!run || !manifest) {
         return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
     }
+    const runInfo: MinimalRunInfo = { studyRunId: run.id, memberIdentifier, studyId: run.studyId }
 
     const initialExpanded = manifest.tree.children?.length == 1 ? manifest.tree.children[0].value : undefined
 
@@ -43,18 +44,20 @@ export default async function StudyReviewPage({
             />
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
-                    Review code for code run submitted on {run.createdAt.toLocaleTimeString()}
+                    Review code for code run submitted on {run.createdAt.toLocaleString()} -{' '}
+                    {Object.keys(manifest.files).length} files, {manifest.size / 1048576}MB
                 </Title>
+
                 <Flex gap="md" direction="column">
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
                         <Button color="blue">Back to pending review</Button>
                     </Link>
-                    <ReviewControls memberIdentifier={memberIdentifier} run={run} />
+                    <ReviewControls memberIdentifier={memberIdentifier} run={runInfo} />
                 </Flex>
             </Flex>
             <Files
                 data={manifest?.tree.children || []}
-                run={run}
+                run={runInfo}
                 manifest={manifest}
                 initialExpanded={initialExpanded}
             />
