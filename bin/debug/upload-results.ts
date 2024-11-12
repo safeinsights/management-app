@@ -14,20 +14,19 @@ class FileSender extends DebugRequest {
     async perform() {
         const { origin, file: filePath, runId } = this.program.opts()
         const file = new File([fs.readFileSync(filePath)], path.basename(filePath), { type: 'text/plain' })
-        const form = new FormData();
+        const form = new FormData()
         form.append('file', file)
         const response = await fetch(`${origin}/api/run/${runId}/results`, {
             method: 'POST',
-            headers: { 'Authorization': this.authorization },
-            body: form
+            headers: { Authorization: this.authorization },
+            body: form,
         })
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`)
         }
         return {}
     }
 }
-
 
 const sender = new FileSender()
 sender.perform()

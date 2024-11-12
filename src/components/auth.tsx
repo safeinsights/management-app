@@ -1,4 +1,4 @@
-import { useAuth as clerkUseAuth } from "@clerk/nextjs";
+import { useAuth as clerkUseAuth } from '@clerk/nextjs'
 
 export const useAuthInfo = () => {
     const { isLoaded, userId, orgSlug } = clerkUseAuth()
@@ -14,4 +14,4 @@ export const useAuthInfo = () => {
         isResearcher,
         role: isAdmin ? 'admin' : isMember ? 'member' : 'researcher',
     }
-};
+}
