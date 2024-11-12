@@ -16,12 +16,10 @@ import { Flex } from '@mantine/core'
 
 import { CssIcon, NpmIcon, TypeScriptCircleIcon } from '@mantinex/dev-icons'
 
-import type { CodeFileMinimalRun, CodeManifest, TreeNode } from '@/lib/types'
+import type { MinimalRunInfo, CodeManifest, TreeNode } from '@/lib/types'
 import { DisplayFile } from './display'
 import { expandIconStyle, leftPanelStyles, treeStyles } from './styles.css'
 import { ReactNode } from 'react'
-//import { data, dataCode } from './data';
-//import classes from './Demo.module.css';
 
 interface FileIconProps {
     name: string
@@ -70,7 +68,7 @@ export function Files({
 }: {
     initialExpanded?: string
     data: TreeNode[]
-    run: CodeFileMinimalRun
+    run: MinimalRunInfo
     manifest: CodeManifest
 }) {
     const tree = useTree({

@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation'
 import { ErrorAlert } from '@/components/errors'
 import { updateStudyRunStatusAction } from './actions'
 import type { StudyRunStatus } from '@/database/types'
-import { CodeFileMinimalRun } from '@/lib/types'
+import { MinimalRunInfo } from '@/lib/types'
 
-export const ReviewControls: React.FC<{ run: CodeFileMinimalRun; memberIdentifier: string }> = ({
+export const ReviewControls: React.FC<{ run: MinimalRunInfo; memberIdentifier: string }> = ({
     memberIdentifier,
     run,
 }) => {
