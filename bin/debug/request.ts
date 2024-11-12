@@ -1,7 +1,6 @@
 import { Command } from 'commander'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
-import fetch from 'node-fetch'
 
 export class DebugRequest {
     program = new Command()
