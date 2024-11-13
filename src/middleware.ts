@@ -2,6 +2,34 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import logger from '@/lib/logger'
 
+/**
+ * Example Clerk auth() response structure:
+ * ```typescript
+ * {
+ *   sessionClaims: {
+ *     azp: "http://localhost:4000",
+ *     exp: 1730995945,
+ *     iat: 1730995885,
+ *     iss: "https://example.clerk.accounts.dev",
+ *     nbf: 1730995875,
+ *     org_id: "org_xxxxxxxxxxxxxxxxxxxx",
+ *     org_permissions: [],
+ *     org_role: "org:admin",
+ *     org_slug: "example-org",
+ *     sid: "sess_xxxxxxxxxxxxxxxxxxxx",
+ *     sub: "user_xxxxxxxxxxxxxxxxxxxx"
+ *   },
+ *   sessionId: "sess_xxxxxxxxxxxxxxxxxxxx",
+ *   userId: "user_xxxxxxxxxxxxxxxxxxxx",
+ *   orgId: "org_xxxxxxxxxxxxxxxxxxxx",
+ *   orgRole: "org:admin",
+ *   orgSlug: "example-org",
+ *   orgPermissions: [],
+ *   __experimental_factorVerificationAge: null
+ * }
+ * ```
+ */
+
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_ID = 'org_2ohzjhfpKp4QqubW86FfXzzDm2I'
@@ -12,7 +40,7 @@ const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
     try {
-        const { userId, orgId, orgRole, sessionClaims } = await auth()
+        const { userId, orgId, orgRole } = await auth()
 
 
         // Check if user belongs to SafeInsights organization (admin - highest priority)
