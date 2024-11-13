@@ -56,7 +56,7 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
         const userRoles = {
             isAdmin: orgId === SAFEINSIGHTS_ORG_ID,
             isOpenStaxMember: orgId === OPENSTAX_ORG_ID,
-            get isSafeInsightsMember() {
+            get isMember() {
                 return this.isOpenStaxMember && !this.isAdmin
             },
             get isResearcher() {
@@ -79,12 +79,12 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
 
         // Route protection
         const routeProtection = {
-            member: isMemberRoute(req) && !userRoles.isSafeInsightsMember && !userRoles.isAdmin,
+            member: isMemberRoute(req) && !userRoles.isMember && !userRoles.isAdmin,
             researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin,
         }
 
         if (routeProtection.member) {
-            logger.warn('Access denied: Member route requires SI member or admin access')
+            logger.warn('Access denied: Member route requires member or admin access')
             return new NextResponse(null, { status: 403 })
         }
 
