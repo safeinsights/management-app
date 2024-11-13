@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
-import { studyRowStyle, studyTitleStyle } from './styles.css'
+import { studyRowStyle, studyStatusStyle, studyTitleStyle } from './styles.css'
+import { humanizeStatus } from '@/lib/status'
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage({
@@ -25,8 +26,8 @@ export default async function StudyReviewPage({
         .innerJoin('member', (join) =>
             join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
         )
-
-        .select(['study.id', 'piName', 'title'])
+        .orderBy('study.createdAt', 'asc')
+        .select(['study.id', 'piName', 'status', 'title'])
         .execute()
 
     return (
@@ -42,8 +43,8 @@ export default async function StudyReviewPage({
                         {studies.map((study) => (
                             <li key={study.id} className={studyRowStyle}>
                                 <p className={studyTitleStyle}>{study.title}</p>
-
                                 <p>{study.piName}</p>
+                                <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
                                 <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/review`}>
                                     <Anchor>Proceed to review ≫</Anchor>
                                 </Link>
