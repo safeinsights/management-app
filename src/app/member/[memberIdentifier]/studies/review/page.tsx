@@ -34,7 +34,7 @@ export default async function StudyReviewPage({
             <Title mb="lg">{member.name} Review Submitted Studies</Title>
             <Flex direction="column" gap="lg">
                 {studies.length === 0 ? (
-                    <Alert color="gray" title="No pending studies">
+                    <Alert color="gray" title="No studies">
                         There are no studies to review at this time
                     </Alert>
                 ) : (
