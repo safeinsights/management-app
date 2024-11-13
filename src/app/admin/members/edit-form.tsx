@@ -1,20 +1,18 @@
 'use client'
 
-import { Form as HookForm, useForm } from 'react-hook-form'
-import { Button, Modal } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { Button, Modal, TextInput, Textarea } from '@mantine/core'
 import { insertMemberAction, updateMemberAction } from './actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { TextInput, Textarea } from 'react-hook-form-mantine'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { schema, ValidatedMember, NewMember, Member } from './schema'
+import { zodResolver, schema, ValidatedMember, NewMember, Member } from './schema'
 
 export const EditMemberForm: React.FC<{ member: Member | NewMember; onComplete: () => void }> = ({
     member,
     onComplete,
 }) => {
-    const { control } = useForm<ValidatedMember>({
-        resolver: zodResolver(schema),
-        defaultValues: member,
+    const form = useForm<ValidatedMember>({
+        validate: zodResolver(schema),
+        initialValues: member,
     })
 
     const queryClient = useQueryClient()
@@ -31,24 +29,33 @@ export const EditMemberForm: React.FC<{ member: Member | NewMember; onComplete: 
     })
 
     return (
-        <HookForm control={control} onSubmit={({ data }) => upsertMember(data)}>
+        <form onSubmit={form.onSubmit((values) => upsertMember(values))}>
             <TextInput
                 label="Identifier"
                 placeholder="Enter identifier"
                 data-autofocus
                 name="identifier"
-                control={control}
+                key={form.key('identifier')}
+                {...form.getInputProps('identifier')}
                 required
             />
 
-            <TextInput label="Name" placeholder="Enter your name" name="name" control={control} required />
+            <TextInput
+                label="Name"
+                placeholder="Enter your name"
+                name="name"
+                key={form.key('name')}
+                {...form.getInputProps('name')}
+                required
+            />
 
             <TextInput
                 label="Email"
                 placeholder="Enter your email"
                 description="Used for study notifications"
                 name="email"
-                control={control}
+                key={form.key('email')}
+                {...form.getInputProps('email')}
                 required
             />
 
@@ -58,14 +65,15 @@ export const EditMemberForm: React.FC<{ member: Member | NewMember; onComplete: 
                 description="Validates server authentication JWT"
                 placeholder="Enter your public key"
                 name="publicKey"
-                control={control}
+                key={form.key('publicKey')}
+                {...form.getInputProps('publicKey')}
                 required
             />
 
             <Button type="submit" fullWidth mt="md" loading={isPending}>
                 Submit
             </Button>
-        </HookForm>
+        </form>
     )
 }
 

@@ -1,21 +1,33 @@
-// https://dense13.com/blog/2009/05/03/converting-string-to-slug-javascript/
-export function slugify(str: string) {
-    str = str.replace(/^\s+|\s+$/g, '') // trim
-    str = str.toLowerCase()
-
-    // remove accents, swap ñ for n, etc
-    var from = 'àáäâèéëêìíïîòóöôùúüûñç·/_,:;'
-    var to = 'aaaaeeeeiiiioooouuuunc------'
-    for (var i = 0, l = from.length; i < l; i++) {
-        str = str.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i))
-    }
-
-    str = str
-        .replace(/[^a-z0-9 -]/g, '') // remove invalid chars
-        .replace(/\s+/g, '-') // collapse whitespace and replace by -
-        .replace(/-+/g, '-') // collapse dashes
-
-    return str.slice(0, 50)
-}
+import * as Sentry from '@sentry/nextjs'
 
 export type Nullable<T> = { [K in keyof T]: T[K] | null }
+
+type TimeOpts = { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
+
+export async function sleep(opts: TimeOpts): Promise<void> {
+    let ms = 0
+    for (const [key, unit] of Object.entries(opts)) {
+        const duration = parseInt(key, 10)
+        if (unit === 'seconds') {
+            ms += duration * 1000
+        } else if (unit === 'minutes') {
+            ms += duration * 60 * 1000
+        }
+    }
+    return new Promise<void>((resolve, reject) => {
+        try {
+            setTimeout(resolve, ms)
+        } catch (error) {
+            Sentry.captureException(error)
+            reject(error)
+        }
+    })
+}
+
+export function sanitizeFileName(fileName: string) {
+    return fileName
+        .substring(0, 512) // max path + filename length
+        .replace(/^\/+/, '') // leading slashes
+        .replace(/\.\./g, '') // no directory traversal with ..
+        .replace(/[^\x00-\x7F]/g, '') // non-ascii
+}

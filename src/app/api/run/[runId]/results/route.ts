@@ -1,11 +1,8 @@
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
 import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
-import { PROD_ENV, getUploadTmpDirectory } from '@/server/config'
-import { storeS3File } from '@/server/aws'
+import { attachResultsToStudyRun } from '@/server/results'
 
 export const POST = wrapApiMemberAction(async (req: Request, { params: { runId } }: { params: { runId: string } }) => {
     const member = requestingMember()
@@ -15,28 +12,33 @@ export const POST = wrapApiMemberAction(async (req: Request, { params: { runId }
 
     try {
         const formData = await req.formData()
+        const contents = formData.get('file') as File
 
-        const file = formData.get('file') as File
-        const arrayBuffer = await file.arrayBuffer()
-        const buffer = new Uint8Array(arrayBuffer)
-
-        const tmpDir = getUploadTmpDirectory()
-        const filePath = path.join(tmpDir, file.name)
-        await fs.promises.writeFile(filePath, buffer)
-
-        let resultsPath = filePath
-        if (PROD_ENV) {
-            resultsPath = await storeS3File(`s3://${process.env.BUCKET_NAME}/${file.name}`, filePath)
+        if (!contents) {
+            return NextResponse.json({ status: 'fail', error: 'no "file" entry in post data' }, { status: 500 })
         }
 
-        await db
-            .updateTable('studyRun')
-            .set({
-                status: 'COMPLETED',
-                resultsPath: resultsPath,
-            })
-            .where('id', '=', runId)
-            .execute()
+        // join is a security check to ensure the run is owned by the member
+        const run = await db
+            .selectFrom('studyRun')
+            .innerJoin('study', (join) =>
+                join.onRef('study.id', '=', 'studyRun.studyId').on('study.memberId', '=', member.id),
+            )
+            .select(['studyRun.id as studyRunId', 'studyId'])
+            .where('studyRun.id', '=', runId)
+            .executeTakeFirst()
+
+        if (!run) {
+            return NextResponse.json({ status: 'fail', error: 'run not found' }, { status: 404 })
+        }
+
+        await attachResultsToStudyRun(
+            {
+                ...run,
+                memberIdentifier: member.identifier,
+            },
+            contents,
+        )
 
         return NextResponse.json({ status: 'success' }, { status: 200 })
     } catch (e) {

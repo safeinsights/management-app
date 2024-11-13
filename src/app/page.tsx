@@ -4,8 +4,8 @@ import { SignedIn, SignedOut, useUser } from '@clerk/nextjs'
 import { SignIn } from '@/components/signin'
 import { useOrganization } from '@clerk/nextjs'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
-import Link from 'next/link'
-import { Button, Title, Paper, Flex } from '@mantine/core'
+import { Title, Flex } from '@mantine/core'
+import { UserNav } from './user-nav'
 
 export default function Home() {
     const { user } = useUser()
@@ -29,13 +29,8 @@ export default function Home() {
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
-                    <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm">
-                        <Title>Welcome to the SafeInsights management app.</Title>
-                        <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>
-                        <Link href="/researcher/study/request/openstax" passHref>
-                            <Button>Proceed to study proposal</Button>
-                        </Link>
-                    </Paper>
+                    <Title>Welcome to the SafeInsights management app.</Title>
+                    <UserNav />
                 </main>
             </SignedIn>
 
