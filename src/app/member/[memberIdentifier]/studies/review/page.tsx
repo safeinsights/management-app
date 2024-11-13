@@ -1,58 +1,13 @@
 import React from 'react'
-import { Alert, Button, Flex, Paper, Title, Table } from '@mantine/core'
+import { Alert, Button, Flex, Paper, Title, Table, Anchor } from '@mantine/core'
 import { db } from '@/database'
 
 import Link from 'next/link'
-import { humanizeStatus } from '@/lib/status'
 import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
-
+import { studyRowStyle, studyTitleStyle } from './styles.css'
 export const dynamic = 'force-dynamic'
-
-const StudyRuns: React.FC<{ study: { id: string }; memberIdentifier: string }> = async ({
-    study,
-    memberIdentifier,
-}) => {
-    const runs = await db
-        .selectFrom('studyRun')
-        .select(['id', 'uploadedAt', 'status'])
-
-        .where('studyId', '=', study.id)
-        .execute()
-
-    return (
-        <>
-            <Table>
-                <thead>
-                    <tr>
-                        <th align="left">Code Uploaded At</th>
-                        <th align="left" colSpan={2}>
-                            Status
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {runs.map((run) => (
-                        <tr key={run.id}>
-                            <td>{run.uploadedAt?.toLocaleDateString()}</td>
-                            <td>{humanizeStatus(run.status)}</td>
-                            <td>
-                                {run.status != 'INITIATED' && (
-                                    <Link
-                                        href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
-                                    >
-                                        <Button color="blue">Review code</Button>
-                                    </Link>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </Table>
-        </>
-    )
-}
 
 export default async function StudyReviewPage({
     params: { memberIdentifier },
@@ -71,30 +26,30 @@ export default async function StudyReviewPage({
             join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
         )
 
-        .select(['study.id', 'study.createdAt', 'study.title', 'study.description'])
-        .where('study.status', '=', 'INITIATED')
+        .select(['study.id', 'piName', 'title'])
         .execute()
 
     return (
         <Paper m="xl" shadow="xs" p="xl">
-            <Title mb="lg">{member.name} Review Pending Studies</Title>
+            <Title mb="lg">{member.name} Review Submitted Studies</Title>
             <Flex direction="column" gap="lg">
                 {studies.length === 0 ? (
                     <Alert color="gray" title="No pending studies">
-                        There are no pending studies to review at this time
+                        There are no studies to review at this time
                     </Alert>
                 ) : (
-                    studies.map((study) => (
-                        <Paper key={study.id} p="lg" shadow="lg">
-                            <Flex justify="space-between">
-                                <Title order={3}>{study.title}</Title>
+                    <ul>
+                        {studies.map((study) => (
+                            <li key={study.id} className={studyRowStyle}>
+                                <p className={studyTitleStyle}>{study.title}</p>
+
+                                <p>{study.piName}</p>
                                 <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/review`}>
-                                    <Button color="blue">Review study</Button>
+                                    <Anchor>Proceed to review ≫</Anchor>
                                 </Link>
-                            </Flex>
-                            <StudyRuns study={study} memberIdentifier={memberIdentifier} />
-                        </Paper>
-                    ))
+                            </li>
+                        ))}
+                    </ul>
                 )}
             </Flex>
         </Paper>
