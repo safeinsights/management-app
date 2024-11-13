@@ -27,6 +27,7 @@ export default async function StudyReviewPage({
         )
         .orderBy('study.createdAt', 'desc')
         .select(['study.id', 'piName', 'status', 'title'])
+        .where('study.status', '!=', 'INITIATED')
         .execute()
 
     return (
@@ -35,7 +36,7 @@ export default async function StudyReviewPage({
             <Flex direction="column" gap="lg">
                 {studies.length === 0 ? (
                     <Alert color="gray" title="No studies">
-                        There are no studies to review at this time
+                        There are no studies to view at this time
                     </Alert>
                 ) : (
                     <ul>
