@@ -13,24 +13,28 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     try {
         const { userId, orgId, orgRole, sessionClaims } = await auth()
 
+        // TODO: Probably remove
         // Require organization selection and prevent personal account usage
-        if (userId && (!orgId || sessionClaims?.org_personal)) {
-            if (!req.nextUrl.pathname.startsWith('/org-selection')) {
-                return NextResponse.redirect(new URL('/org-selection', req.url))
-            }
-        }
+        // if (userId && (!orgId || sessionClaims?.org_personal)) {
+        //     if (!req.nextUrl.pathname.startsWith('/org-selection')) {
+        //         return NextResponse.redirect(new URL('/org-selection', req.url))
+        //     }
+        // }
 
         // Check if user belongs to SafeInsights organization (admin - highest priority)
         const isAdmin = orgId === SAFEINSIGHTS_ORG_ID
         // Check if user belongs to OpenStax organization (if not admin)
         const isOrgMember = !isAdmin && orgId === OPENSTAX_ORG_ID
         // Check if user is a SafeInsights member (any OpenStax org member, if not admin)
-        const isSiMember = isOrgMember
+        const isMember = isOrgMember
+        // Define researcher status (users not admin and not in OpenStax)
+        const isResearcher = !isAdmin && !isOrgMember
 
         console.log('[Middleware] Active Organization:', orgId)
         console.log('[Middleware] Current Role:', orgRole)
         console.log(`[Middleware] Current User is admin: ${isAdmin ? 'yes' : 'no'}`)
-        console.log(`[Middleware] Current User is si_member: ${isSiMember ? 'yes' : 'no'}`)
+        console.log(`[Middleware] Current User is si_member: ${isMember ? 'yes' : 'no'}`)
+        console.log(`[Middleware] Current User is si_researcher: ${isResearcher ? 'yes' : 'no'}`)
 
         // Handle authentication redirects
         if (req.nextUrl.pathname.startsWith('/reset-password') || 
@@ -50,13 +54,10 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         //     }
         // }
 
-        // Define researcher status (users not admin and not in OpenStax)
-        const isResearcher = !isAdmin && !isOrgMember
-
         // Handle member route protection
         if (isMemberRoute(req)) {
             // Only SI members and admins can access member routes
-            if (!isSiMember && !isAdmin) {
+            if (!isMember && !isAdmin) {
                 console.log('[Middleware] Access denied: Member route requires SI member or admin access')
                 return new NextResponse(null, { status: 403 })
             }
