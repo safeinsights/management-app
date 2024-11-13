@@ -52,7 +52,6 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
             return NextResponse.next()
         }
 
-
         // Define user roles
         const userRoles = {
             isAdmin: orgId === SAFEINSIGHTS_ORG_ID,
@@ -62,28 +61,26 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
             },
             get isResearcher() {
                 return !this.isAdmin && !this.isOpenStaxMember
-            }
+            },
         }
 
         logger.info('Middleware:', {
             organization: orgId,
             role: orgRole,
-            ...userRoles
+            ...userRoles,
         })
 
         // Handle authentication redirects
-        if (req.nextUrl.pathname.startsWith('/reset-password') || 
-            req.nextUrl.pathname.startsWith('/signup')) {
+        if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
             if (userId) {
                 return NextResponse.redirect(new URL('/', req.url))
             }
         }
 
-
         // Route protection
         const routeProtection = {
             member: isMemberRoute(req) && !userRoles.isSafeInsightsMember && !userRoles.isAdmin,
-            researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin
+            researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin,
         }
 
         if (routeProtection.member) {
@@ -95,7 +92,6 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
             logger.warn('Access denied: Researcher route requires researcher or admin access')
             return new NextResponse(null, { status: 403 })
         }
-
     } catch (error) {
         logger.error('Middleware error:', error)
     }
@@ -110,6 +106,6 @@ export const config = {
         // Always run for routes below
         '/(dl|member|researcher)(.*)',
         '/',
-        '/(reset-password|signup)'
+        '/(reset-password|signup)',
     ],
 }
