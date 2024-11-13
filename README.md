@@ -85,6 +85,14 @@ The new way to deploy is from the IaC repo, run:
 
 ### Troubleshooting/Notes
 
+There are a few CLI applications to debug the API end endpoints:
+
+-   npx tsx bin/debug/fetch-runnable.ts -u https://pilot.safeinsights.org/ -m openstax -k <path to private key>
+-   npx tsx bin/debug/set-status.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -s <status: RUNNING | ERRORED> -r <uuid of run>
+-   npx tsx bin/debug/upload-results.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -r <uuid of run> -f <path to file to upload as results>
+
+**Currently** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behaviour: it's likely we'll not allow it in later versions.
+
 ### UI Framework (Mantine)
 
 ### Running Tests
