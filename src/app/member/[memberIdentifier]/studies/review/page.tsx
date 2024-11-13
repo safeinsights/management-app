@@ -25,7 +25,7 @@ export default async function StudyReviewPage({
         .innerJoin('member', (join) =>
             join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
         )
-        .orderBy('study.createdAt', 'asc')
+        .orderBy('study.createdAt', 'desc')
         .select(['study.id', 'piName', 'status', 'title'])
         .execute()
 
