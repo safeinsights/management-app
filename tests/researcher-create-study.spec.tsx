@@ -8,7 +8,7 @@ test.describe('app', () => {
         const testTitle = 'A E2E Test Study'
         await expect(page).toHaveTitle(/SafeInsights/)
 
-        await page.getByRole('button', { name: /study proposal/i }).click()
+        await page.getByRole('button', { name: /propose/i }).click()
 
         await page.getByLabel(/title/i).fill(testTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')

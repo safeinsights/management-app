@@ -5,7 +5,7 @@ export const pageStyles = style({
     gridTemplateRows: '1fr 20px',
     alignItems: 'center',
     justifyItems: 'center',
-    minHeight: '100svh',
+    minHeight: '100dvh',
     padding: 80,
     gap: 64,
     fontSynthesis: 'none',
@@ -13,8 +13,10 @@ export const pageStyles = style({
 
 export const mainStyles = style({
     display: 'flex',
+    minHeight: '100%',
     flexDirection: 'column',
     fontSize: 20,
+    backgroundColor: 'white',
     fontWeight: 'bold',
     gap: 32,
 })
