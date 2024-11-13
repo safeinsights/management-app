@@ -1,7 +1,6 @@
 import React from 'react'
-import { Alert, Button, Flex, Paper, Title, Table, Anchor } from '@mantine/core'
+import { Alert, Flex, Paper, Title, Anchor } from '@mantine/core'
 import { db } from '@/database'
-
 import Link from 'next/link'
 import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
