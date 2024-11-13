@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_ID = 'org_2ohzjhfpKp4QqubW86FfXzzDm2I'
+const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
@@ -19,15 +20,17 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
             }
         }
 
-        const isOrgMember = orgId === OPENSTAX_ORG_ID
-        const isSiMember = isOrgMember && orgRole === 'org:si_member'
-        const isAdmin = isOrgMember && orgRole === 'org:admin'
+        // Check if user belongs to SafeInsights organization (admin - highest priority)
+        const isAdmin = orgId === SAFEINSIGHTS_ORG_ID
+        // Check if user belongs to OpenStax organization (if not admin)
+        const isOrgMember = !isAdmin && orgId === OPENSTAX_ORG_ID
+        // Check if user is a SafeInsights member (any OpenStax org member, if not admin)
+        const isSiMember = isOrgMember
 
         console.log('[Middleware] Active Organization:', orgId)
         console.log('[Middleware] Current Role:', orgRole)
-        console.log(`[Middleware] Current User is member of org openstax: ${isOrgMember ? 'yes' : 'no'}`)
-        console.log(`[Middleware] Current User is a SafeInsights member (si_member): ${isSiMember ? 'yes' : 'no'}`)
-        console.log(`[Middleware] Current User is a SafeInsights admin (admin): ${isAdmin ? 'yes' : 'no'}`)
+        console.log(`[Middleware] Current User is admin: ${isAdmin ? 'yes' : 'no'}`)
+        console.log(`[Middleware] Current User is si_member: ${isSiMember ? 'yes' : 'no'}`)
 
         // Handle authentication redirects
         if (req.nextUrl.pathname.startsWith('/reset-password') || 
@@ -37,25 +40,33 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
             }
         }
 
+        // TODO: Activate it for future usage if needed
         // Handle post-login redirects for members and researchers
-        if (userId && isOrgMember && req.nextUrl.pathname === '/') {
-            if (isSiMember) {
-                return NextResponse.redirect(new URL('/member/openstax/studies/review', req.url))
-            } else {
-                return NextResponse.redirect(new URL('/researcher/study/request/openstax', req.url))
-            }
-        }
+        // if (userId && isOrgMember && req.nextUrl.pathname === '/') {
+        //     if (isMember) {
+        //         return NextResponse.redirect(new URL('/member/openstax/studies/review', req.url))
+        //     } else {
+        //         return NextResponse.redirect(new URL('/researcher/study/request/openstax', req.url))
+        //     }
+        // }
+
+        // Define researcher status (users not admin and not in OpenStax)
+        const isResearcher = !isAdmin && !isOrgMember
 
         // Handle member route protection
         if (isMemberRoute(req)) {
+            // Only SI members and admins can access member routes
             if (!isSiMember && !isAdmin) {
+                console.log('[Middleware] Access denied: Member route requires SI member or admin access')
                 return new NextResponse(null, { status: 403 })
             }
         }
 
         // Handle researcher route protection
         if (isResearcherRoute(req)) {
-            if (isSiMember) {
+            // Only researchers and admins can access researcher routes
+            if (!isResearcher && !isAdmin) {
+                console.log('[Middleware] Access denied: Researcher route requires researcher or admin access')
                 return new NextResponse(null, { status: 403 })
             }
         }
