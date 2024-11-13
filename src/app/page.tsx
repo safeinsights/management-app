@@ -1,6 +1,6 @@
 'use client'
 
-import { SignedIn, SignedOut, useUser, OrganizationSwitcher } from '@clerk/nextjs'
+import { SignedIn, SignedOut, useUser } from '@clerk/nextjs'
 import { SignIn } from '@/components/signin'
 import { useOrganization } from '@clerk/nextjs'
 import { footerStyles, mainStyles, pageStyles } from './page.css'
@@ -29,12 +29,6 @@ export default function Home() {
             </SignedOut>
             <SignedIn>
                 <main className={mainStyles}>
-                    <OrganizationSwitcher 
-                        afterCreateOrganizationUrl="/"
-                        afterLeaveOrganizationUrl="/"
-                        afterSelectOrganizationUrl="/"
-                        hidePersonal={true}
-                    />
                     <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} mb={-30} radius="sm">
                         <Title>Welcome to the SafeInsights management app.</Title>
                         <Title order={4}>You likely want to visit the OpenStax study proposal page.</Title>

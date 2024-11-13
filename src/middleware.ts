@@ -13,13 +13,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     try {
         const { userId, orgId, orgRole, sessionClaims } = await auth()
 
-        // TODO: Probably remove
-        // Require organization selection and prevent personal account usage
-        // if (userId && (!orgId || sessionClaims?.org_personal)) {
-        //     if (!req.nextUrl.pathname.startsWith('/org-selection')) {
-        //         return NextResponse.redirect(new URL('/org-selection', req.url))
-        //     }
-        // }
 
         // Check if user belongs to SafeInsights organization (admin - highest priority)
         const isAdmin = orgId === SAFEINSIGHTS_ORG_ID
