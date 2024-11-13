@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
+import logger from '@/lib/logger'
 
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
@@ -23,11 +24,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         // Define researcher status (users not admin and not in OpenStax)
         const isResearcher = !isAdmin && !isOrgMember
 
-        console.log('[Middleware] Active Organization:', orgId)
-        console.log('[Middleware] Current Role:', orgRole)
-        console.log(`[Middleware] Current User is admin: ${isAdmin ? 'yes' : 'no'}`)
-        console.log(`[Middleware] Current User is si_member: ${isMember ? 'yes' : 'no'}`)
-        console.log(`[Middleware] Current User is si_researcher: ${isResearcher ? 'yes' : 'no'}`)
+        logger.info('Middleware:', {
+            organization: orgId,
+            role: orgRole,
+            isAdmin,
+            isMember,
+            isResearcher,
+        })
 
         // Handle authentication redirects
         if (req.nextUrl.pathname.startsWith('/reset-password') || 
@@ -51,7 +54,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         if (isMemberRoute(req)) {
             // Only SI members and admins can access member routes
             if (!isMember && !isAdmin) {
-                console.log('[Middleware] Access denied: Member route requires SI member or admin access')
+                logger.warn('Access denied: Member route requires SI member or admin access')
                 return new NextResponse(null, { status: 403 })
             }
         }
@@ -60,13 +63,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         if (isResearcherRoute(req)) {
             // Only researchers and admins can access researcher routes
             if (!isResearcher && !isAdmin) {
-                console.log('[Middleware] Access denied: Researcher route requires researcher or admin access')
+                logger.warn('Access denied: Researcher route requires researcher or admin access')
                 return new NextResponse(null, { status: 403 })
             }
         }
 
     } catch (error) {
-        console.error('Middleware error:', error)
+        logger.error('Middleware error:', error)
     }
 
     return NextResponse.next()
