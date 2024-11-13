@@ -2,7 +2,7 @@ import { Button, Flex, Paper, Title } from '@mantine/core'
 
 import Link from 'next/link'
 import { dataForRunAction } from './actions'
-import { AlertNotFound } from '@/components/errors'
+import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { ReviewControls } from './controls'
 import { Files } from './files'
@@ -42,12 +42,17 @@ export default async function StudyReviewPage({
                     current: 'Review code',
                 }}
             />
+            {manifest.size == 0 && (
+                <ErrorAlert
+                    title="No files found"
+                    error="We failed to extract any files for this code run.  This is almost certainly an error, approve with caution"
+                />
+            )}
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
                     Review code for code run submitted on {run.createdAt.toLocaleString()} -{' '}
                     {Object.keys(manifest.files).length} files, {manifest.size / 1048576}MB
                 </Title>
-
                 <Flex gap="md" direction="column">
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
                         <Button color="blue">Back to pending review</Button>

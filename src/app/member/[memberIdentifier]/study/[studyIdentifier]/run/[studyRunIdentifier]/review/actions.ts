@@ -37,7 +37,11 @@ export const dataForRunAction = async (studyRunIdentifier: string) => {
     }
 
     if (run && USING_CONTAINER_REGISTRY) {
-        manifest = await fetchCodeManifest({ ...run, studyRunId: run.id })
+        try {
+            manifest = await fetchCodeManifest({ ...run, studyRunId: run.id })
+        } catch (e) {
+            console.error('Failed to fetch code manifest', e) // eslint-disable-line no-console
+        }
     }
 
     return { run, manifest }
