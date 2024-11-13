@@ -1,38 +1,53 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeFileMinimalRun } from '@/lib/types'
+import { MinimalRunInfo, CodeManifest } from '@/lib/types'
 import { b64toUUID, uuidToB64 } from '@/lib/uuid'
 import { fetchCodeFile, fetchCodeManifest } from '@/server/aws'
 import { StudyRunStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
+import { USING_CONTAINER_REGISTRY } from '@/server/config'
 
-export const updateStudyRunStatusAction = async (run: CodeFileMinimalRun, status: StudyRunStatus) => {
+export const updateStudyRunStatusAction = async (info: MinimalRunInfo, status: StudyRunStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    await db.updateTable('studyRun').set({ status }).where('id', '=', run.id).executeTakeFirstOrThrow()
+    await db.updateTable('studyRun').set({ status }).where('id', '=', info.studyRunId).executeTakeFirstOrThrow()
 
-    revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(run.studyId)}/run/${uuidToB64(run.id)}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(info.studyId)}/run/${uuidToB64(info.studyRunId)}`)
 }
 
-export const dataForRun = async (studyRunIdentifier: string) => {
+export const dataForRunAction = async (studyRunIdentifier: string) => {
     const run = await db
         .selectFrom('studyRun')
         .innerJoin('study', 'study.id', 'studyRun.studyId')
-        .select(['studyRun.id', 'studyRun.studyId', 'studyRun.createdAt', 'study.title as studyTitle'])
+        .innerJoin('member', 'study.memberId', 'member.id')
+        .select([
+            'studyRun.id',
+            'studyRun.studyId',
+            'studyRun.createdAt',
+            'study.title as studyTitle',
+            'member.identifier as memberIdentifier',
+        ])
         .where('studyRun.id', '=', b64toUUID(studyRunIdentifier))
         .executeTakeFirst()
 
-    if (run) {
-        const manifest = await fetchCodeManifest(run)
-        return { run, manifest }
+    let manifest: CodeManifest = {
+        files: {},
+        size: 0,
+        tree: { label: '', value: '', size: 0, children: [] },
     }
 
-    return {
-        run,
+    if (run && USING_CONTAINER_REGISTRY) {
+        try {
+            manifest = await fetchCodeManifest({ ...run, studyRunId: run.id })
+        } catch (e) {
+            console.error('Failed to fetch code manifest', e) // eslint-disable-line no-console
+        }
     }
+
+    return { run, manifest }
 }
 
-export const fetchFile = async (run: CodeFileMinimalRun, path: string) => {
+export const fetchFileAction = async (run: MinimalRunInfo, path: string) => {
     const file = await fetchCodeFile(run, path)
     return file
 }

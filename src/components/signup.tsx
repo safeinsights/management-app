@@ -74,15 +74,14 @@ const EmailVerificationStep = () => {
 
     return (
         <Stack>
-            <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                <Group justify="space-between" gap="xl">
-                    <Text ta="left">Verify Your Email</Text>
-                    <CloseButton aria-label="Close signup form" />
-                </Group>
-            </Paper>
-            <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
-                <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
+            <form onSubmit={verifyForm.onSubmit((values) => handleVerify(values))}>
+                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                    <Group justify="space-between" gap="xl">
+                        <Text ta="left">Verify Your Email</Text>
+                    </Group>
+                </Paper>
+                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                    <Text>We have emailed you a code, please enter that code here to finish signing up, thanks!</Text>
                     <TextInput
                         withAsterisk
                         label="Code"
@@ -90,13 +89,12 @@ const EmailVerificationStep = () => {
                         key={verifyForm.key('code')}
                         {...verifyForm.getInputProps('code')}
                     />
-
                     <Stack align="center" mt={15}>
                         <Button type="submit">Verify</Button>
                         <Anchor href="/">Already have an account? Sign In</Anchor>
                     </Stack>
-                </form>
-            </Paper>
+                </Paper>
+            </form>
         </Stack>
     )
 }

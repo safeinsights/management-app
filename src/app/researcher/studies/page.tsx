@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { Container } from '@mantine/core'
-import { Panel } from './panel'
+import { Panel } from './runs-table'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +9,7 @@ export default async function ListStudiesPage() {
 
     const studies = await db
         .selectFrom('study')
-        .select(['id', 'title', 'containerLocation', 'description'])
+        .select(['study.id', 'title', 'containerLocation', 'description'])
         .orderBy('createdAt', 'desc')
         .execute()
 

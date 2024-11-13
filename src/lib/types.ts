@@ -29,6 +29,7 @@ export type CodeManifest = {
     size: number
 }
 
-export type CodeFileMinimalRun = { studyId: string; id: string }
+export type MinimalRunInfo = { memberIdentifier: string; studyId: string; studyRunId: string }
+export type MinimalRunResultsInfo = { resultsPath: string } & MinimalRunInfo
 
 export type AllStatus = StudyRunStatus | StudyStatus
