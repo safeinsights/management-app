@@ -1,4 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher, AuthObject } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import logger from '@/lib/logger'
 
@@ -38,26 +38,37 @@ const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
-export default clerkMiddleware(async (auth, req: NextRequest) => {
+export default clerkMiddleware(async (auth: AuthObject, req: NextRequest) => {
     try {
         const { userId, orgId, orgRole } = await auth()
 
+        if (!userId) {
+            // Block unauthenticated access to protected routes
+            if (isMemberRoute(req) || isResearcherRoute(req)) {
+                logger.warn('Access denied: Authentication required')
+                return new NextResponse(null, { status: 403 })
+            }
+            // For non-protected routes, let Clerk handle the redirect
+            return NextResponse.next()
+        }
 
-        // Check if user belongs to SafeInsights organization (admin - highest priority)
-        const isAdmin = orgId === SAFEINSIGHTS_ORG_ID
-        // Check if user belongs to OpenStax organization (if not admin)
-        const isOrgMember = !isAdmin && orgId === OPENSTAX_ORG_ID
-        // Check if user is a SafeInsights member (any OpenStax org member, if not admin)
-        const isMember = isOrgMember
-        // Define researcher status (users not admin and not in OpenStax)
-        const isResearcher = !isAdmin && !isOrgMember
+
+        // Define user roles
+        const userRoles = {
+            isAdmin: orgId === SAFEINSIGHTS_ORG_ID,
+            isOpenStaxMember: orgId === OPENSTAX_ORG_ID,
+            get isSafeInsightsMember() {
+                return this.isOpenStaxMember && !this.isAdmin
+            },
+            get isResearcher() {
+                return !this.isAdmin && !this.isOpenStaxMember
+            }
+        }
 
         logger.info('Middleware:', {
             organization: orgId,
             role: orgRole,
-            isAdmin,
-            isMember,
-            isResearcher,
+            ...userRoles
         })
 
         // Handle authentication redirects
@@ -68,32 +79,21 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
             }
         }
 
-        // TODO: Activate it for future usage if needed
-        // Handle post-login redirects for members and researchers
-        // if (userId && isOrgMember && req.nextUrl.pathname === '/') {
-        //     if (isMember) {
-        //         return NextResponse.redirect(new URL('/member/openstax/studies/review', req.url))
-        //     } else {
-        //         return NextResponse.redirect(new URL('/researcher/study/request/openstax', req.url))
-        //     }
-        // }
 
-        // Handle member route protection
-        if (isMemberRoute(req)) {
-            // Only SI members and admins can access member routes
-            if (!isMember && !isAdmin) {
-                logger.warn('Access denied: Member route requires SI member or admin access')
-                return new NextResponse(null, { status: 403 })
-            }
+        // Route protection
+        const routeProtection = {
+            member: isMemberRoute(req) && !userRoles.isSafeInsightsMember && !userRoles.isAdmin,
+            researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin
         }
 
-        // Handle researcher route protection
-        if (isResearcherRoute(req)) {
-            // Only researchers and admins can access researcher routes
-            if (!isResearcher && !isAdmin) {
-                logger.warn('Access denied: Researcher route requires researcher or admin access')
-                return new NextResponse(null, { status: 403 })
-            }
+        if (routeProtection.member) {
+            logger.warn('Access denied: Member route requires SI member or admin access')
+            return new NextResponse(null, { status: 403 })
+        }
+
+        if (routeProtection.researcher) {
+            logger.warn('Access denied: Researcher route requires researcher or admin access')
+            return new NextResponse(null, { status: 403 })
         }
 
     } catch (error) {
