@@ -1,4 +1,4 @@
-import { Paper, Center, Text} from '@mantine/core'
+import { Paper, Center, Text } from '@mantine/core'
 
 export default async function StudyReviewPage() {
     // TODO check user permissions
