@@ -73,6 +73,7 @@
         "@types/uuid": "^10.0.0",
         "@vanilla-extract/css": "^1.16",
         "@vanilla-extract/next-plugin": "^2.4",
+        "aws-iam-policy-types": "^1.0.1",
         "aws-sdk": "^2.1691.0",
         "child_process": "^1.0.2",
         "clsx": "^2.1.1",
