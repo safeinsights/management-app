@@ -18,7 +18,7 @@ export default async function StudyReviewPage() {
     return (
         <>
             <Paper m="xl" shadow="xs" p="xl">
-                <Container width="100%">
+                <Container>
                     <Group justify="space-between">
                         <Title>My Research Proposals</Title>
                         <Flex justify="flex-end">
@@ -40,7 +40,7 @@ export default async function StudyReviewPage() {
                                     <p className={studyTitleStyle}>{study.title}</p>
                                     <p>{study.piName}</p>
                                     <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
-                                    <Link href="/researcher/study/review">
+                                    <Link href="/researcher/studies/review">
                                         <Anchor>Proceed to review ≫</Anchor>
                                     </Link>
                                 </li>
