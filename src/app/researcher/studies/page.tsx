@@ -6,13 +6,7 @@ import { humanizeStatus } from '@/lib/status'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StudyReviewPage({
-    params: { studyIdentifier },
-}: {
-    params: {
-        studyIdentifier: string
-    }
-}) {
+export default async function StudyReviewPage() {
     // TODO check user permissions
 
     const studies = await db
