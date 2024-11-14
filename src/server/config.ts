@@ -14,3 +14,10 @@ export const USING_S3_STORAGE = process.env.USE_S3_STORAGE === 't' || PROD_ENV
 
 export const SIMULATE_RESULTS_UPLOAD =
     process.env.SIMULATE_RESULTS_UPLOAD === 't' || (process.env.SIMULATE_RESULTS_UPLOAD != 'f' && DEV_ENV)
+
+export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
+    '337909745635', //prod
+    '536697261124', // staging
+    '084375557107', // dev
+    '354918363956', // sandbox
+]
