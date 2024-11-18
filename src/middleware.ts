@@ -35,15 +35,15 @@ const middlewareDebug = debug('app:middleware')
 
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
-const OPENSTAX_ORG_ID = 'org_2ohzjhfpKp4QqubW86FfXzzDm2I'
-const SAFEINSIGHTS_ORG_ID = 'org_2oUWxfZ5UDD2tZVwRmMF8BpD2rD'
+const OPENSTAX_ORG_SLUG = 'openstax'
+const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware(async (auth: any, req: NextRequest) => {
     try {
-        const { userId, orgId, orgRole } = await auth()
+        const { userId, orgId, orgRole, orgSlug } = await auth()
 
         if (!userId) {
             // Block unauthenticated access to protected routes
@@ -58,8 +58,8 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
 
         // Define user roles
         const userRoles = {
-            isAdmin: orgId === SAFEINSIGHTS_ORG_ID,
-            isOpenStaxMember: orgId === OPENSTAX_ORG_ID,
+            isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
+            isOpenStaxMember: orgSlug === OPENSTAX_ORG_SLUG,
             get isMember() {
                 return this.isOpenStaxMember && !this.isAdmin
             },
