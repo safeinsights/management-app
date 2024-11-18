@@ -21,7 +21,7 @@ export const PageBreadcrumbs: React.FC<{
 
 export const MemberBreadcrumbs: React.FC<{
     crumbs: {
-        memberIdentifier: string
+        memberIdentifier?: string
         studyTitle?: string
         studyIdentifier?: string
         current?: string
@@ -30,6 +30,24 @@ export const MemberBreadcrumbs: React.FC<{
     const crumbs: Array<[string, string?]> = [['All Studies', `/member/${memberIdentifier}/studies/review`]]
     if (studyTitle && studyIdentifier) {
         crumbs.push([studyTitle, `/member/${memberIdentifier}/study/${studyIdentifier}/review`])
+    }
+    if (current) {
+        crumbs.push([current])
+    }
+    return <PageBreadcrumbs crumbs={crumbs} />
+}
+
+export const ResearcherBreadcrumbs: React.FC<{
+    crumbs: {
+        memberIdentifier?: string
+        studyTitle?: string
+        studyIdentifier: string
+        current?: string
+    }
+}> = ({ crumbs: { memberIdentifier, studyIdentifier, studyTitle, current } }) => {
+    const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/studies`]]
+    if (studyTitle && studyIdentifier) {
+        crumbs.push([studyTitle, `/researcher//studies/review`])
     }
     if (current) {
         crumbs.push([current])

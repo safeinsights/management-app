@@ -40,7 +40,7 @@ export default async function StudyReviewPage() {
                                     <p className={studyTitleStyle}>{study.title}</p>
                                     <p>{study.piName}</p>
                                     <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
-                                    <Link href="/researcher/studies/review">
+                                    <Link href={`/researcher/studies/`}>
                                         <Anchor>Proceed to review ≫</Anchor>
                                     </Link>
                                 </li>
