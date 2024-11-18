@@ -1,6 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import logger from '@/lib/logger'
+import debug from 'debug'
+
+const middlewareDebug = debug('app:middleware')
 
 /**
  * Example Clerk auth() response structure:
@@ -46,6 +49,7 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
             // Block unauthenticated access to protected routes
             if (isMemberRoute(req) || isResearcherRoute(req)) {
                 logger.warn('Access denied: Authentication required')
+                middlewareDebug('Blocking unauthenticated access to protected route')
                 return new NextResponse(null, { status: 403 })
             }
             // For non-protected routes, let Clerk handle the redirect
@@ -64,7 +68,7 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
             },
         }
 
-        logger.info('Middleware:', {
+        middlewareDebug('Auth check: %o', {
             organization: orgId,
             role: orgRole,
             ...userRoles,
@@ -85,11 +89,13 @@ export default clerkMiddleware(async (auth: any, req: NextRequest) => {
 
         if (routeProtection.member) {
             logger.warn('Access denied: Member route requires member or admin access')
+            middlewareDebug('Blocking unauthorized member route access: %o', { userId, orgId, userRoles })
             return new NextResponse(null, { status: 403 })
         }
 
         if (routeProtection.researcher) {
             logger.warn('Access denied: Researcher route requires researcher or admin access')
+            middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
             return new NextResponse(null, { status: 403 })
         }
     } catch (error) {
