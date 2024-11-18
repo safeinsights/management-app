@@ -9,7 +9,7 @@ import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-import { RunsTable } from '../../../studies/runs-table'
+// import { RunsTable } from './runs-table'
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
@@ -17,7 +17,7 @@ export const StudyPanel: React.FC<{ study: Study; studyIdentifier: string }> = (
     const router = useRouter()
     const [activeSection, setActiveSection] = useState<string | null>(null)
 
-    const backPath = `/researcher//studies/review`
+    const backPath = `/researcher/studies/review`
 
     const {
         mutate: updateStudy,
@@ -117,7 +117,9 @@ export const StudyPanel: React.FC<{ study: Study; studyIdentifier: string }> = (
                     </Accordion.Panel>
                 </Accordion.Item>
 
-                <Accordion.Item value="runs">
+                {/* Researcher Code Review Panel will be addressed by OTTER-51 */}
+
+                {/* <Accordion.Item value="runs">
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
@@ -128,16 +130,8 @@ export const StudyPanel: React.FC<{ study: Study; studyIdentifier: string }> = (
                             />
                         </Stack>
                     </Accordion.Panel>
-                </Accordion.Item>
+                </Accordion.Item> */}
             </Accordion>
-            <Group gap="xl" p={2} mt={30} justify="flex-end">
-                {/* <Button color="red" onClick={() => updateStudy('REJECTED')} loading={isPending}>
-                    Reject
-                </Button> */}
-                <Button color="blue" onClick={() => updateStudy('APPROVED')} loading={isPending}>
-                    Approve Code & Study Proposal
-                </Button>
-            </Group>
         </>
     )
 }

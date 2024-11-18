@@ -22,7 +22,7 @@ type RunsTableProps = {
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({  isActive, study }) => {
+const RunsTable: React.FC<RunsTableProps> = ({ studyIdentifier, isActive, study }) => {
     const { data: runs, isPending } = useQuery({
         queryKey: ['runsForStudy', study.id],
         enabled: isActive,
@@ -51,9 +51,7 @@ const RunsTable: React.FC<RunsTableProps> = ({  isActive, study }) => {
                         <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
                             {run.status != 'INITIATED' && (
-                                <Link
-                                    href={`/researcher/study/${study.id}/${uuidToB64(run.id)}/review`}
-                                >
+                                <Link href={`/researcher/study/${studyIdentifier}/${uuidToB64(run.id)}/review`}>
                                     <Button>View Code</Button>
                                 </Link>
                             )}
