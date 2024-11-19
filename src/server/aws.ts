@@ -10,7 +10,7 @@ import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
-import { EcrPolicy } from './aws-ecr-policy'
+import { getECRPolicy } from './aws-ecr-policy'
 
 const DEFAULT_TAGS: Record<string, string> = {
     Environment: 'sandbox',
@@ -66,6 +66,7 @@ export const getAWSInfo = async () => {
 
 export async function createAnalysisRepository(repositoryName: string, tags: Record<string, string> = {}) {
     const ecrClient = getECRClient()
+    const { accountId } = await getAWSInfo()
     const resp = await ecrClient.send(
         new CreateRepositoryCommand({
             repositoryName,
@@ -75,11 +76,12 @@ export async function createAnalysisRepository(repositoryName: string, tags: Rec
     if (!resp?.repository?.repositoryUri) {
         throw new Error('Failed to create repository')
     }
+
     await ecrClient.send(
         new SetRepositoryPolicyCommand({
             repositoryName,
             registryId: resp.repository.registryId,
-            policyText: JSON.stringify(EcrPolicy),
+            policyText: JSON.stringify(getECRPolicy(accountId)),
         }),
     )
     return resp.repository.repositoryUri
