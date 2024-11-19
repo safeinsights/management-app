@@ -29,7 +29,7 @@ export type Study = {
     title: string
     containerLocation: string
     description: string
-    pendingRunId: string
+    pendingRunId?: string
 }
 
 type RunsTableProps = {
@@ -117,7 +117,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                 <Button
                     onClick={() => insertRun()}
                     title="Create a new code run"
-                    leftSection={<IconPlus size={14} justify="center" />}
+                    leftSection={<IconPlus size={14} />}
                 >
                     New Code Run
                 </Button>
