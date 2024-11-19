@@ -114,11 +114,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                 </Table.Tbody>
             </Table>
             <Center mt="xl">
-                <Button
-                    onClick={() => insertRun()}
-                    title="Create a new code run"
-                    leftSection={<IconPlus size={14} />}
-                >
+                <Button onClick={() => insertRun()} title="Create a new code run" leftSection={<IconPlus size={14} />}>
                     New Code Run
                 </Button>
             </Center>
