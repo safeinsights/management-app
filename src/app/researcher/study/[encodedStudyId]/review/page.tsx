@@ -1,4 +1,4 @@
-import { Paper, Center, Title, Stack, Group, Button } from '@mantine/core'
+import { Paper, Center, Title, Stack, Group } from '@mantine/core'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { StudyPanel } from './panel'
@@ -29,13 +29,6 @@ export default async function StudyReviewPage({
                 <Stack>
                     <Group gap="xl" mb="xl">
                         <Title>{study.title}</Title>
-                        {/* <Flex justify="space-between" align="center" mb="lg">
-                            <Flex gap="md" direction="column">
-                                <Link href={`/member/${memberIdentifier}/studies/review`}>
-                                    <Button color="blue">Back to pending review</Button>
-                                </Link>
-                            </Flex>
-                        </Flex> */}
                     </Group>
                 </Stack>
                 <StudyPanel study={study} studyIdentifier={studyIdentifier} encodedStudyId={study.id} />

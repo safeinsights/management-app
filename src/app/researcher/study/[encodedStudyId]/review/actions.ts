@@ -2,7 +2,7 @@
 
 import { db } from '@/database'
 import { StudyStatus } from '@/database/types'
-import { uuidToB64, b64toUUID } from '@/lib/uuid'
+import { uuidToB64 } from '@/lib/uuid'
 import { revalidatePath } from 'next/cache'
 import { attachSimulatedResultsToStudyRun } from '@/server/results'
 import { sleep } from '@/lib/util'
