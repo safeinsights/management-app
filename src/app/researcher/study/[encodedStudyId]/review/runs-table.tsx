@@ -112,7 +112,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                                         </>
                                     )}
                                     {run.status == 'COMPLETED' && (
-                                        <Link href={`/researcher/study/run/${encodedStudyId}/review`}>
+                                        <Link href={`/dl/results/${uuidToB64(run.id)}`}>
                                             <Button>View Results</Button>
                                         </Link>
                                     )}
