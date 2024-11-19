@@ -3,7 +3,7 @@
 import React from 'react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
+import { Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
 import { labelStyle, inputStyle } from './style.css'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
@@ -22,11 +22,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
 
     const backPath = `/researcher/studies/review`
 
-    const {
-        mutate: updateStudy,
-        isPending,
-        error,
-    } = useMutation({
+    const { error } = useMutation({
         mutationFn: (status: StudyStatus) => updateStudyStatusAction(study?.id || '', status),
         onSettled(error) {
             if (!error) {

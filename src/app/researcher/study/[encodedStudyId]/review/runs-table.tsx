@@ -21,7 +21,6 @@ import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
-import { PushInstructions } from '@/components/push-instructions'
 import { getLatestStudyRunAction, onStudyRunCreateAction } from './actions'
 
 export type Study = {
@@ -33,7 +32,6 @@ export type Study = {
 }
 
 type RunsTableProps = {
-    // studyIdentifier: string
     encodedStudyId: string
     isActive: boolean
     study: Study
@@ -41,9 +39,9 @@ type RunsTableProps = {
 
 const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }) => {
     const queryClient = useQueryClient()
-    const [viewingRunId, setViewingRunId] = useState<string | null>(null)
+    const [__, setViewingRunId] = useState<string | null>(null)
 
-    const { mutate: insertRun, error: insertError } = useMutation({
+    const { mutate: insertRun } = useMutation({
         mutationFn: () => onStudyRunCreateAction(study.id),
         onSuccess: async (runId) => {
             setViewingRunId(runId)
@@ -57,7 +55,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
     encodedStudyId = uuidToB64(study.id)
-    const [run, setRun] = useState<{
+    const [_, setRun] = useState<{
         id: string
         title: string
         containerLocation: string
