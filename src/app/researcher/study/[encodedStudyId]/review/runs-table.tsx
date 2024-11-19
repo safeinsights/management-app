@@ -9,11 +9,11 @@ import {
     AccordionItem,
     Button,
     Modal,
-    Text,
     Group,
     Center,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+import { PushInstructions } from '@/components/push-instructions'
 import { IconPlus } from '@tabler/icons-react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -99,21 +99,24 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                             </Table.Td>
                             <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
-                                {run.status != 'INITIATED' && (
-                                    <>
-                                        <Group>
+                                <Group>
+                                    {run.status == 'INITIATED' && (
+                                        <>
                                             <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
-                                                <Text>Instructions will go here!</Text>
-                                                {/* <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} /> */}
+                                                <PushInstructions
+                                                    containerLocation={study.containerLocation}
+                                                    runId={run.id}
+                                                />
                                             </Modal>
                                             <Button onClick={open}>View Instructions</Button>
-
-                                            <Link href={`/researcher/study/run/${encodedStudyId}/review`}>
-                                                <Button>View Results</Button>
-                                            </Link>
-                                        </Group>
-                                    </>
-                                )}
+                                        </>
+                                    )}
+                                    {run.status == 'COMPLETED' && (
+                                        <Link href={`/researcher/study/run/${encodedStudyId}/review`}>
+                                            <Button>View Results</Button>
+                                        </Link>
+                                    )}
+                                </Group>
                             </Table.Td>
                         </Table.Tr>
                     ))}
