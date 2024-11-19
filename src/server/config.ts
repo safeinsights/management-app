@@ -21,4 +21,3 @@ export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
     '084375557107', // dev
     '354918363956', // sandbox
 ]
-

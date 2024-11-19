@@ -9,13 +9,16 @@ export const getECRPolicy = (awsAccountId: string): AwsIAMPolicy => ({
                 Action.BatchCheckLayerAvailability,
                 Action.BatchGetImage,
                 Action.DescribeImages,
+                Action.GetDownloadUrlForLayer,
                 Action.GetAuthorizationToken,
                 Action.ListTagsForResource,
                 Action.GetDownloadUrlForLayer,
             ],
             Principal: {
                 Service: ['ecs-tasks.amazonaws.com', 'lambda.amazonaws.com'],
-                AWS: ENCLAVE_AWS_ACCOUNT_NUMBERS.map((acct) => `arn:aws:iam::${acct}:root`).concat(`arn:aws:iam::${awsAccountId}:root`),
+                AWS: ENCLAVE_AWS_ACCOUNT_NUMBERS.map((acct) => `arn:aws:iam::${acct}:root`).concat(
+                    `arn:aws:iam::${awsAccountId}:root`,
+                ),
             },
             Effect: 'Allow',
             Sid: 'AllowEnclaveECSTaskToPullImages',
@@ -25,6 +28,7 @@ export const getECRPolicy = (awsAccountId: string): AwsIAMPolicy => ({
                 Action.BatchCheckLayerAvailability,
                 Action.BatchGetImage,
                 Action.DescribeImages,
+                Action.GetDownloadUrlForLayer,
                 Action.GetAuthorizationToken,
                 Action.ListTagsForResource,
 
