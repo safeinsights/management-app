@@ -16,6 +16,7 @@ export const EcrPolicy: AwsIAMPolicy = {
                 Action.DescribeImages,
                 Action.GetAuthorizationToken,
                 Action.ListTagsForResource,
+                Action.GetDownloadUrlForLayer,
             ],
             Principal: {
                 Service: ['ecs-tasks.amazonaws.com'],
