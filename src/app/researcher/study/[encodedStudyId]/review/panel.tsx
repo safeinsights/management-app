@@ -9,11 +9,14 @@ import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-// import { RunsTable } from './runs-table'
+import { RunsTable } from './runs-table'
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const StudyPanel: React.FC<{ study: Study; studyIdentifier: string }> = ({ studyIdentifier, study }) => {
+export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
+    studyIdentifier,
+    study,
+}) => {
     const router = useRouter()
     const [activeSection, setActiveSection] = useState<string | null>(null)
 
@@ -119,18 +122,18 @@ export const StudyPanel: React.FC<{ study: Study; studyIdentifier: string }> = (
 
                 {/* Researcher Code Review Panel will be addressed by OTTER-51 */}
 
-                {/* <Accordion.Item value="runs">
+                <Accordion.Item value="runs">
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
                             <RunsTable
                                 isActive={activeSection == 'runs'}
                                 study={study}
-                                studyIdentifier={studyIdentifier}
+                                encodedStudyId={studyIdentifier}
                             />
                         </Stack>
                     </Accordion.Panel>
-                </Accordion.Item> */}
+                </Accordion.Item>
             </Accordion>
         </>
     )

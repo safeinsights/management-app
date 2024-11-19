@@ -1,70 +1,133 @@
 'use client'
 
-import { useState } from 'react'
-import { Table, Accordion, AccordionControl, AccordionPanel, AccordionItem, Button } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import {
+    Table,
+    Accordion,
+    AccordionControl,
+    AccordionPanel,
+    AccordionItem,
+    Button,
+    Modal,
+    Text,
+    Group,
+    Center,
+} from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { IconPlus } from '@tabler/icons-react'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import Link from 'next/link'
 import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
-import Link from 'next/link'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
+import { PushInstructions } from '@/components/push-instructions'
+import { getLatestStudyRunAction, onStudyRunCreateAction } from './actions'
 
 export type Study = {
     id: string
     title: string
     containerLocation: string
     description: string
+    pendingRunId: string
 }
 
 type RunsTableProps = {
-    studyIdentifier: string
+    // studyIdentifier: string
+    encodedStudyId: string
     isActive: boolean
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ studyIdentifier, isActive, study }) => {
+const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }) => {
+    const queryClient = useQueryClient()
+    const [viewingRunId, setViewingRunId] = useState<string | null>(null)
+
+    const { mutate: insertRun, error: insertError } = useMutation({
+        mutationFn: () => onStudyRunCreateAction(study.id),
+        onSuccess: async (runId) => {
+            setViewingRunId(runId)
+            await queryClient.invalidateQueries({ queryKey: ['runsForStudy', study.id] })
+        },
+    })
+
     const { data: runs, isPending } = useQuery({
         queryKey: ['runsForStudy', study.id],
         enabled: isActive,
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
+    encodedStudyId = uuidToB64(study.id)
+    const [run, setRun] = useState(null)
+
+    useEffect(() => {
+        const fetchRun = async () => {
+            if (encodedStudyId) {
+                const latestRun = await getLatestStudyRunAction({ encodedStudyId })
+                setRun(latestRun)
+            }
+        }
+        fetchRun()
+    }, [encodedStudyId])
+
+    const [opened, { open, close }] = useDisclosure(false)
 
     if (isPending) return <p>Loading...</p>
 
     return (
-        <Table verticalSpacing="md">
-            <Table.Tbody>
-                {(runs || []).map((run, runCount: number) => (
-                    <Table.Tr key={run.id}>
-                        <Table.Td>{runCount + 1})</Table.Td>
-                        <Table.Td>
-                            Code Run Submitted On: {'{'}
-                            {run.createdAt.toISOString()}
-                            {'}'}
-                        </Table.Td>
-                        <Table.Td>|</Table.Td>
-                        <Table.Td>
-                            Status: {'{'}
-                            {humanizeStatus(run.status)}
-                            {'}'}
-                        </Table.Td>
-                        <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
-                        <Table.Td align="right">
-                            {run.status != 'INITIATED' && (
-                                <Link href={`/researcher/study/${studyIdentifier}/${uuidToB64(run.id)}/review`}>
-                                    <Button>View Code</Button>
-                                </Link>
-                            )}
-                        </Table.Td>
-                    </Table.Tr>
-                ))}
-            </Table.Tbody>
-        </Table>
+        <>
+            <Table verticalSpacing="md">
+                <Table.Tbody>
+                    {(runs || []).map((run, runCount: number) => (
+                        <Table.Tr key={run.id}>
+                            <Table.Td>{runCount + 1})</Table.Td>
+                            <Table.Td>
+                                Code Run Submitted On: {'{'}
+                                {run.createdAt.toISOString()}
+                                {'}'}
+                            </Table.Td>
+                            <Table.Td>|</Table.Td>
+                            <Table.Td>
+                                Status: {'{'}
+                                {humanizeStatus(run.status)}
+                                {'}'}
+                            </Table.Td>
+                            <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
+                            <Table.Td align="right">
+                                {run.status != 'INITIATED' && (
+                                    <>
+                                        <Group>
+                                            <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
+                                                <Text>Instructions will go here!</Text>
+                                                {/* <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} /> */}
+                                            </Modal>
+                                            <Button onClick={open}>View Instructions</Button>
+
+                                            <Link href={`/researcher/study/run/${encodedStudyId}/review`}>
+                                                <Button>View Results</Button>
+                                            </Link>
+                                        </Group>
+                                    </>
+                                )}
+                            </Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
+            <Center mt="xl">
+                <Button
+                    onClick={() => insertRun()}
+                    title="Create a new code run"
+                    leftSection={<IconPlus size={14} justify="center" />}
+                >
+                    New Code Run
+                </Button>
+            </Center>
+        </>
     )
 }
 
 export { RunsTable }
-export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
+export const Panel: React.FC<{ studies: Study[]; encodedStudyId: string }> = ({ studies, encodedStudyId }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
 
     if (!studies.length) {
@@ -83,7 +146,7 @@ export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <p>{study.description}</p>
-                        <RunsTable isActive={activeId == study.id} study={study} studyIdentifier={study.id} />
+                        <RunsTable isActive={activeId == study.id} study={study} encodedStudyId={encodedStudyId} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}
