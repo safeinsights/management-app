@@ -5,7 +5,6 @@ import { db } from '@/database'
 import { sleep } from '@/lib/util'
 import { attachSimulatedResultsToStudyRun } from '@/server/results'
 
-
 export const onStudyRunCreateAction = async (studyId: string) => {
     const studyRun = await db
         .insertInto('studyRun')
