@@ -57,13 +57,21 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
     encodedStudyId = uuidToB64(study.id)
-    const [run, setRun] = useState(null)
+    const [run, setRun] = useState<{
+        id: string
+        title: string
+        containerLocation: string
+        memberName: string
+        pendingRunId: string | null
+    } | null>(null)
 
     useEffect(() => {
         const fetchRun = async () => {
             if (encodedStudyId) {
                 const latestRun = await getLatestStudyRunAction({ encodedStudyId })
-                setRun(latestRun)
+                if (latestRun) {
+                    setRun(latestRun)
+                }
             }
         }
         fetchRun()
