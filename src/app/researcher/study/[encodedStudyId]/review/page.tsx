@@ -1,4 +1,4 @@
-import { Paper, Center, Title, Stack, Group } from '@mantine/core'
+import { Paper, Center, Title, Stack, Group, Button } from '@mantine/core'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { StudyPanel } from './panel'
@@ -24,7 +24,7 @@ export default async function StudyReviewPage({
 
     return (
         <Center>
-            <Paper w="50%" shadow="xs" p="sm" m="xs">
+            <Paper w="70%" shadow="xs" p="sm" m="xs">
                 <ResearcherBreadcrumbs crumbs={{ encodedStudyId, current: study.title }} />
                 <Stack>
                     <Group gap="xl" mb="xl">
@@ -38,7 +38,7 @@ export default async function StudyReviewPage({
                         </Flex> */}
                     </Group>
                 </Stack>
-                <StudyPanel study={study} studyIdentifier={studyIdentifier} />
+                <StudyPanel study={study} studyIdentifier={studyIdentifier} encodedStudyId={study.id} />
             </Paper>
         </Center>
     )
