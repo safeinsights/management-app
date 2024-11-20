@@ -41,7 +41,7 @@ export const getECRPolicy = (awsAccountId: string): AwsIAMPolicy => ({
                 AWS: `arn:aws:iam::${awsAccountId}:root`,
             },
             Effect: 'Allow',
-            Sid: 'AllowEnclaveECSTaskToPullImages',
+            Sid: 'AllowUsersToUploadPullImages',
         },
     ],
 })
