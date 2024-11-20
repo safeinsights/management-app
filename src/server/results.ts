@@ -46,13 +46,21 @@ export async function attachSimulatedResultsToStudyRun(info: MinimalRunInfo) {
     await attachResultsToStudyRun(info, file)
 }
 
-export async function urlOrPathToResultsFile(info: MinimalRunResultsInfo) {
+export async function storageForResultsFile(info: MinimalRunResultsInfo) {
     if (USING_S3_STORAGE) {
-        return { url: await urlForResults(info) }
+        return { s3: true }
     } else {
-        const filePath = path.join(getUploadTmpDirectory(), pathForStudyRun(info), 'results', info.resultsPath)
-        return {
-            content: await fs.promises.readFile(filePath, 'utf-8'),
-        }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyRun(info), 'results', info.resultsPath) }
     }
+}
+
+export async function urlOrPathToResultsFile(info: MinimalRunResultsInfo) {
+    const storage = await storageForResultsFile(info)
+    if (storage.s3) {
+        return { url: await urlForResults(info) }
+    }
+    if (storage.file) {
+        return { content: await fs.promises.readFile(storage.file, 'utf-8') }
+    }
+    throw new Error(`unknown storage type for results file ${JSON.stringify(storage)}`)
 }

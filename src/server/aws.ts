@@ -150,3 +150,10 @@ export async function urlForResults(info: MinimalRunResultsInfo) {
     })
     return url
 }
+
+export async function fetchStudyRunResults(info: MinimalRunResultsInfo) {
+    const path = pathForStudyRunResults(info)
+    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
+    if (!result.Body) throw new Error(`no file recieved from s3 for run result ${info.studyRunId}`)
+    return result.Body
+}

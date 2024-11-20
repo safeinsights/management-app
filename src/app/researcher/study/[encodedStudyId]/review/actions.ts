@@ -1,12 +1,15 @@
 'use server'
 
+import { promises as fs } from 'fs'
 import { db } from '@/database'
 import { StudyStatus } from '@/database/types'
 import { uuidToB64 } from '@/lib/uuid'
 import { revalidatePath } from 'next/cache'
-import { attachSimulatedResultsToStudyRun } from '@/server/results'
+import { attachSimulatedResultsToStudyRun, storageForResultsFile } from '@/server/results'
 import { sleep } from '@/lib/util'
 import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
+import { queryRunResult } from '@/server/queries'
+import { fetchStudyRunResults } from '@/server/aws'
 
 const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
 
@@ -42,27 +45,6 @@ export const onFetchStudyRunsAction = async (studyId: string) => {
     return runs
 }
 
-export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
-    return await db
-        .selectFrom('study')
-        .innerJoin('member', 'member.id', 'study.memberId')
-        .select([
-            'study.id',
-            'study.title',
-            'study.containerLocation',
-            'member.name as memberName',
-            ({ selectFrom }) =>
-                selectFrom('studyRun')
-                    .whereRef('study.id', '=', 'studyRun.studyId')
-                    .select('id as runId')
-                    .orderBy('study.createdAt desc')
-                    .limit(1)
-                    .as('pendingRunId'),
-        ])
-        .where('study.id', '=', uuidToB64(encodedStudyId))
-        .executeTakeFirst()
-}
-
 export const onStudyRunCreateAction = async (studyId: string) => {
     const studyRun = await db
         .insertInto('studyRun')
@@ -90,4 +72,24 @@ export const onStudyRunCreateAction = async (studyId: string) => {
     }
 
     return studyRun.id
+}
+
+export const fetchRunResultsAction = async (runId: string) => {
+    const run = await queryRunResult(runId)
+    if (!run) {
+        throw new Error(`Run ${runId} not found or does not have results`)
+    }
+    const storage = await storageForResultsFile(run)
+    let csv = ''
+    if (storage.s3) {
+        const body = await fetchStudyRunResults(run)
+        // TODO: handle other types of results that are not string/CSV
+        csv = await body.transformToString('utf-8')
+    }
+
+    if (storage.file) {
+        csv = await fs.readFile(storage.file, 'utf-8')
+    }
+
+    return csv
 }
