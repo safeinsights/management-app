@@ -77,13 +77,18 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                             <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
-                                    {run.status == 'INITIATED' && (
                                         <>
                                             <Modal
+                                                size={800}
+                                               
                                                 opened={!!openedRunId}
+                                               
                                                 onClose={() => setOpened(false)}
+                                               
                                                 title="AWS Instructions"
+                                               
                                                 centered
+                                            
                                             >
                                                 <PushInstructions
                                                     containerLocation={study.containerLocation}
