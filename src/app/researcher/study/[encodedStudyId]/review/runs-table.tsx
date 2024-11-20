@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
     Table,
     Accordion,
@@ -16,12 +16,11 @@ import { useDisclosure } from '@mantine/hooks'
 import { PushInstructions } from '@/components/push-instructions'
 import { IconPlus } from '@tabler/icons-react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import Link from 'next/link'
-import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
-import { getLatestStudyRunAction, onStudyRunCreateAction } from './actions'
+import { onStudyRunCreateAction } from './actions'
+import { PreviewCSVResultsBtn } from './results'
 
 export type Study = {
     id: string
@@ -37,7 +36,7 @@ type RunsTableProps = {
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }) => {
+const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
     const [__, setViewingRunId] = useState<string | null>(null)
 
@@ -54,26 +53,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
         enabled: isActive,
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
-    encodedStudyId = uuidToB64(study.id)
-    const [_, setRun] = useState<{
-        id: string
-        title: string
-        containerLocation: string
-        memberName: string
-        pendingRunId: string | null
-    } | null>(null)
-
-    useEffect(() => {
-        const fetchRun = async () => {
-            if (encodedStudyId) {
-                const latestRun = await getLatestStudyRunAction({ encodedStudyId })
-                if (latestRun) {
-                    setRun(latestRun)
-                }
-            }
-        }
-        fetchRun()
-    }, [encodedStudyId])
 
     const [opened, { open, close }] = useDisclosure(false)
 
@@ -111,11 +90,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                                             <Button onClick={open}>View Instructions</Button>
                                         </>
                                     )}
-                                    {run.status == 'COMPLETED' && (
-                                        <Link href={`/dl/results/${uuidToB64(run.id)}`}>
-                                            <Button>View Results</Button>
-                                        </Link>
-                                    )}
+                                    {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} />}
                                 </Group>
                             </Table.Td>
                         </Table.Tr>

@@ -1,8 +1,8 @@
 import { b64toUUID } from '@/lib/uuid'
 import { NextResponse } from 'next/server'
-import { db } from '@/database'
 import { urlOrPathToResultsFile } from '@/server/results'
 import { MinimalRunResultsInfo } from '@/lib/types'
+import { queryRunResult } from '@/server/queries'
 
 export const GET = async (
     _: Request,
@@ -15,26 +15,13 @@ export const GET = async (
     const runId = b64toUUID(runIdentifier)
 
     // TODO: check if the run is owned by the researcher
-    const run = await db
-        .selectFrom('studyRun')
-        .innerJoin('study', 'study.id', 'studyRun.studyId')
-        .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['studyRun.id as studyRunId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
-        .where('studyRun.id', '=', runId)
-        .where('studyRun.status', '=', 'COMPLETED')
-        .where('studyRun.resultsPath', 'is not', null)
-        .executeTakeFirst()
+    const run = await queryRunResult(runId)
 
     if (!run) {
         return NextResponse.json({ error: 'run not found', runId }, { status: 404 })
     }
 
-    if (!run.resultsPath) {
-        return NextResponse.json({ error: 'Results not available yet' }, { status: 404 })
-    }
-
     const location = await urlOrPathToResultsFile(run as MinimalRunResultsInfo)
-
     if (location.content) {
         return new NextResponse(location.content)
     } else if (location.url) {
