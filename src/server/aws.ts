@@ -6,17 +6,19 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { strToAscii, slugify } from '@/lib/string'
 import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
+import { strToAscii, slugify } from '@/lib/string'
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
+export type { PresignedPost }
+
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
-    return Object.entries({ ...tags, Environment, Application: 'Mangement App' }).map(([Key, Value]) => ({
+    return Object.entries({ ...tags, Environment, Application: 'ManagementApp' }).map(([Key, Value]) => ({
         Key,
         Value: strToAscii(Value).slice(0, 256),
     }))
