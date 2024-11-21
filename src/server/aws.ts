@@ -8,14 +8,15 @@ import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
+
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
-
 export type { PresignedPost }
+
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -158,14 +159,14 @@ export async function urlForResults(info: MinimalRunResultsInfo) {
 
 export async function urlForStudyRunCodeUpload(info: MinimalRunInfo) {
     const bucket = s3BucketName()
+
     const prefix = pathForStudyRunCode(info)
-    const psPost = await createPresignedPost(getS3Client(), {
+    return await createPresignedPost(getS3Client(), {
         Bucket: bucket,
         Conditions: [['starts-with', '$key', prefix]],
         Expires: 3600, // seconds, == one hour
         Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
     })
-    return psPost
 }
 
 export async function fetchStudyRunResults(info: MinimalRunResultsInfo) {

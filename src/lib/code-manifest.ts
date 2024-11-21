@@ -5,10 +5,12 @@ import type { FileWithPath } from '@mantine/dropzone'
 export class CodeReviewManifest {
     files: FileWithPath[] = []
 
+
     constructor(
         public runId: string, // eslint-disable-line no-unused-vars
         public language: SupportedLanguages, // eslint-disable-line no-unused-vars
     ) {}
+
 
     get asTreeNode(): TreeNode {
         const root: TreeNode = {

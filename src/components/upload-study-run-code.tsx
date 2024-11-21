@@ -1,4 +1,5 @@
 'use client'
+
 import { useCallback, useState } from 'react'
 import { Group, Text, Paper, Flex, rem } from '@mantine/core'
 import { IconUpload, IconPhoto, IconX, IconSourceCode } from '@tabler/icons-react'
@@ -131,4 +132,5 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
             </Group>
         </Dropzone>
     )
+
 }

@@ -1,6 +1,6 @@
 'use server'
 
-import { b64toUUID } from '@/lib/uuid'
+import { b64toUUID, uuidToB64 } from '@/lib/uuid'
 import { db } from '@/database'
 import { MinimalRunInfo } from '@/lib/types'
 import { urlForStudyRunCodeUpload, type PresignedPost } from '@/server/aws'
@@ -29,12 +29,12 @@ export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudy
 }
 
 export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): Promise<PresignedPost> {
-    if (USING_S3_STORAGE) {
+    if (!USING_S3_STORAGE) {
         return urlForStudyRunCodeUpload(info)
     } else {
         return {
-            url: `/api/dev/upload-code/${info.studyRunId}`,
-            fields: {},
+            url: `/api/dev/upload-code/${uuidToB64(info.studyRunId)}`,
+            fields: { }
         }
     }
 }
