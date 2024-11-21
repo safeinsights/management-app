@@ -12,7 +12,7 @@ import {
     Group,
     Center,
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+
 import { PushInstructions } from '@/components/push-instructions'
 import { IconPlus } from '@tabler/icons-react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
@@ -38,12 +38,12 @@ type RunsTableProps = {
 
 const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
-    const [__, setViewingRunId] = useState<string | null>(null)
+    const [openedRunId, setOpened] = useState<string | false>(false)
 
     const { mutate: insertRun } = useMutation({
         mutationFn: () => onStudyRunCreateAction(study.id),
         onSuccess: async (runId) => {
-            setViewingRunId(runId)
+            setOpened(runId)
             await queryClient.invalidateQueries({ queryKey: ['runsForStudy', study.id] })
         },
     })
@@ -54,7 +54,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
 
-    const [opened, { open, close }] = useDisclosure(false)
 
     if (isPending) return <p>Loading...</p>
 
@@ -81,13 +80,13 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                 <Group>
                                     {run.status == 'INITIATED' && (
                                         <>
-                                            <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
+                                            <Modal opened={!!openedRunId} onClose={() => setOpened(false)} title="AWS Instructions" centered>
                                                 <PushInstructions
                                                     containerLocation={study.containerLocation}
                                                     runId={run.id}
                                                 />
                                             </Modal>
-                                            <Button onClick={open}>View Instructions</Button>
+                                            <Button onClick={() => setOpened(run.id)}>View Instructions</Button>
                                         </>
                                     )}
                                     {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} study={study} />}
