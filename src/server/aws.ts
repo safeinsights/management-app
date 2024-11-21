@@ -19,7 +19,7 @@ export type { PresignedPost }
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
-    return Object.entries({ ...tags, Environment, Application: 'Mangement App' }).map(([Key, Value]) => ({
+    return Object.entries({ ...tags, Environment, Application: 'ManagementApp' }).map(([Key, Value]) => ({
         Key,
         Value: strToAscii(Value).slice(0, 256),
     }))
