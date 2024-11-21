@@ -21,7 +21,7 @@ test.describe('app', () => {
 
         await expect(page.getByTestId('study-title')).toHaveValue(testTitle)
 
-        await page.getByRole('checkbox', { name: /highhlights/i }).check()
+        await page.getByRole('checkbox', { name: /highlights/i }).check()
 
         await page.getByRole('button', { name: /submit proposal/i }).click()
 
