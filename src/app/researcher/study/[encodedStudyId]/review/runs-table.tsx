@@ -54,7 +54,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
 
-
     if (isPending) return <p>Loading...</p>
 
     return (
@@ -80,7 +79,12 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                 <Group>
                                     {run.status == 'INITIATED' && (
                                         <>
-                                            <Modal opened={!!openedRunId} onClose={() => setOpened(false)} title="AWS Instructions" centered>
+                                            <Modal
+                                                opened={!!openedRunId}
+                                                onClose={() => setOpened(false)}
+                                                title="AWS Instructions"
+                                                centered
+                                            >
                                                 <PushInstructions
                                                     containerLocation={study.containerLocation}
                                                     runId={run.id}
