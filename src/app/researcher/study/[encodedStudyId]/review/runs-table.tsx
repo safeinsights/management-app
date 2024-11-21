@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
     Table,
     Accordion,
@@ -9,20 +9,18 @@ import {
     AccordionItem,
     Button,
     Modal,
-    Text,
     Group,
     Center,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+import { PushInstructions } from '@/components/push-instructions'
 import { IconPlus } from '@tabler/icons-react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import Link from 'next/link'
-import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
-import { PushInstructions } from '@/components/push-instructions'
-import { getLatestStudyRunAction, onStudyRunCreateAction } from './actions'
+import { onStudyRunCreateAction } from './actions'
+import { PreviewCSVResultsBtn } from './results'
 
 export type Study = {
     id: string
@@ -33,17 +31,16 @@ export type Study = {
 }
 
 type RunsTableProps = {
-    // studyIdentifier: string
     encodedStudyId: string
     isActive: boolean
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }) => {
+const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
-    const [viewingRunId, setViewingRunId] = useState<string | null>(null)
+    const [__, setViewingRunId] = useState<string | null>(null)
 
-    const { mutate: insertRun, error: insertError } = useMutation({
+    const { mutate: insertRun } = useMutation({
         mutationFn: () => onStudyRunCreateAction(study.id),
         onSuccess: async (runId) => {
             setViewingRunId(runId)
@@ -56,26 +53,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
         enabled: isActive,
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
-    encodedStudyId = uuidToB64(study.id)
-    const [run, setRun] = useState<{
-        id: string
-        title: string
-        containerLocation: string
-        memberName: string
-        pendingRunId: string | null
-    } | null>(null)
-
-    useEffect(() => {
-        const fetchRun = async () => {
-            if (encodedStudyId) {
-                const latestRun = await getLatestStudyRunAction({ encodedStudyId })
-                if (latestRun) {
-                    setRun(latestRun)
-                }
-            }
-        }
-        fetchRun()
-    }, [encodedStudyId])
 
     const [opened, { open, close }] = useDisclosure(false)
 
@@ -101,21 +78,20 @@ const RunsTable: React.FC<RunsTableProps> = ({ encodedStudyId, isActive, study }
                             </Table.Td>
                             <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
-                                {run.status != 'INITIATED' && (
-                                    <>
-                                        <Group>
+                                <Group>
+                                    {run.status == 'INITIATED' && (
+                                        <>
                                             <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
-                                                <Text>Instructions will go here!</Text>
-                                                {/* <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} /> */}
+                                                <PushInstructions
+                                                    containerLocation={study.containerLocation}
+                                                    runId={run.id}
+                                                />
                                             </Modal>
                                             <Button onClick={open}>View Instructions</Button>
-
-                                            <Link href={`/researcher/study/run/${encodedStudyId}/review`}>
-                                                <Button>View Results</Button>
-                                            </Link>
-                                        </Group>
-                                    </>
-                                )}
+                                        </>
+                                    )}
+                                    {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} />}
+                                </Group>
                             </Table.Td>
                         </Table.Tr>
                     ))}
