@@ -41,9 +41,9 @@ export default async function StudyReviewPage() {
                                     <p className={studyTitleStyle}>{study.title}</p>
                                     <p>{study.piName}</p>
                                     <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
-                                    <Link href={`/researcher/study/${b64toUUID(study.id)}/review`}>
-                                        <Anchor>Proceed to review ≫</Anchor>
-                                    </Link>
+                                    <Anchor component={Link} href={`/researcher/study/${b64toUUID(study.id)}/review`}>
+                                        Proceed to review ≫
+                                    </Anchor>
                                 </li>
                             ))}
                         </ul>
