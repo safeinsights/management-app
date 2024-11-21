@@ -8,7 +8,6 @@ import { revalidatePath } from 'next/cache'
 import { attachSimulatedResultsToStudyRun, storageForResultsFile } from '@/server/results'
 import { sleep } from '@/lib/util'
 import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
-import { queryRunResult } from '@/server/queries'
 import { fetchStudyRunResults } from '@/server/aws'
 
 const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
