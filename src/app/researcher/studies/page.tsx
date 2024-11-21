@@ -1,7 +1,7 @@
 import { db } from '@/database'
 import { Container, Flex, Button, Paper, Title, Group, Alert, Anchor } from '@mantine/core'
 import Link from '../../../../node_modules/next/link'
-import { b64toUUID } from '@/lib/uuid'
+import { uuidToB64 } from '@/lib/uuid'
 import { studyRowStyle, studyStatusStyle, studyTitleStyle } from './styles.css'
 import { humanizeStatus } from '@/lib/status'
 
@@ -41,7 +41,7 @@ export default async function StudyReviewPage() {
                                     <p className={studyTitleStyle}>{study.title}</p>
                                     <p>{study.piName}</p>
                                     <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
-                                    <Anchor component={Link} href={`/researcher/study/${b64toUUID(study.id)}/review`}>
+                                    <Anchor component={Link} href={`/researcher/study/${uuidToB64(study.id)}/review`}>
                                         Proceed to review ≫
                                     </Anchor>
                                 </li>

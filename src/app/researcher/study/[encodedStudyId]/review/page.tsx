@@ -1,6 +1,6 @@
 import { Paper, Center, Title, Stack, Group } from '@mantine/core'
 import { db } from '@/database'
-import { uuidToB64 } from '@/lib/uuid'
+import { b64toUUID } from '@/lib/uuid'
 import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -15,7 +15,7 @@ export default async function StudyReviewPage({
     const study = await db
         .selectFrom('study')
         .selectAll()
-        .where('id', '=', uuidToB64(encodedStudyId))
+        .where('id', '=', b64toUUID(encodedStudyId))
         .executeTakeFirst()
 
     if (!study) {
