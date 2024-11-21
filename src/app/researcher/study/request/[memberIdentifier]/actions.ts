@@ -7,6 +7,7 @@ import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
 import { onStudyRunCreateAction } from '@/app/researcher/studies/actions'
+import { strToAscii } from '@/lib/string'
 
 export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
     schema.parse(study) // throws when malformed
@@ -25,7 +26,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
 
     if (USING_CONTAINER_REGISTRY) {
         repoUrl = await createAnalysisRepository(repoPath, {
-            title: study.title,
+            title: strToAscii(study.title),
             studyId,
         })
     } else {
