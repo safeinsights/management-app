@@ -83,10 +83,10 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
 
                 <div>
                     <Text size="xl" inline>
-                        Drag a single R file here or click to select one.
+                        Drag a R file here or click to select one.
                     </Text>
                     <Text size="sm" c="dimmed" inline mt={7}>
-                        Attach as many files as you like
+                        Only a single file is currently supported, we may allow multiple files in the future.
                     </Text>
                 </div>
             </Group>
