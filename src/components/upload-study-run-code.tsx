@@ -1,8 +1,8 @@
 'use client'
 
-import { Group, Text, rem } from '@mantine/core';
-import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react';
-import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone';
+import { Group, Text, rem } from '@mantine/core'
+import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react'
+import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalRunInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 
@@ -20,17 +20,18 @@ type UploadStudyRunCodeProps = Partial<DropzoneProps> & {
 
 async function uploadFile(file: FileWithPath, upload: PreSignedPost) {
     const body = new FormData()
-    body.append('file', file)
+    console.log(upload.fields)
     for (const [key, value] of Object.entries(upload.fields)) {
         body.append(key, value)
     }
+    body.append('file', file)
 
     const response = await fetch(upload.url, {
         method: 'POST',
         body,
-    });
+    })
     if (!response.ok) {
-        throw new Error('Failed to upload file to S3');
+        throw new Error('Failed to upload file to S3')
     }
 }
 
@@ -43,11 +44,11 @@ async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSi
 
     for (const file of files) {
         manifest.files.push(file)
-        await uploadFile(file, post);
+        await uploadFile(file, post)
     }
     //    console.log(manifest.asJSON)
 
-    const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' });
+    const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     await uploadFile(file, post)
     //await uploadFile(files[0], getSignedUrl);
 }
@@ -83,13 +84,13 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
 
                 <div>
                     <Text size="xl" inline>
-                        Drag a R file here or click to select one.
+                        Drag files here or click to select a file or directory.
                     </Text>
                     <Text size="sm" c="dimmed" inline mt={7}>
-                        Only a single file is currently supported, we may allow multiple files in the future.
+                        If more than one file is uploaded, one of them <b>MUST be named <i>main.r</i></b>
                     </Text>
                 </div>
             </Group>
         </Dropzone>
-    );
+    )
 }
