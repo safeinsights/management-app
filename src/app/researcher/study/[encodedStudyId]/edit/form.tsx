@@ -111,7 +111,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
                     <Stack>
                         <Checkbox
                             name="highlights"
-                            label="Highhlights and Notes"
+                            label="Highlights and Notes"
                             key={form.key('highlights')}
                             {...form.getInputProps('highlights', { type: 'checkbox' })}
                         ></Checkbox>

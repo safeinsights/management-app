@@ -100,7 +100,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                                 <Stack>
                                     <Checkbox
                                         name="highlights"
-                                        label="Highhlights and Notes"
+                                        label="Highlights and Notes"
                                         checked={study.dataSources?.includes('highlights')}
                                         disabled={true}
                                     ></Checkbox>
