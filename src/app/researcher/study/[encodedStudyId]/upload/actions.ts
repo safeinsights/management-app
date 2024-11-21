@@ -29,14 +29,12 @@ export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudy
 }
 
 export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): Promise<PresignedPost> {
-    if (!USING_S3_STORAGE) {
+    if (USING_S3_STORAGE) {
         return urlForStudyRunCodeUpload(info)
     } else {
         return {
-            url: `/api/dev/upload-code/${uuidToB64(info.studyRunId)}`,
-            fields: {
-
-            }
+            url: `/api/dev/upload-code/${info.studyRunId}`,
+            fields: { }
         }
     }
 }

@@ -1,6 +1,6 @@
-import { TreeNode, CodeManifest } from './types';
+import { TreeNode, CodeManifest } from './types'
 
-import type { FileWithPath } from '@mantine/dropzone';
+import type { FileWithPath } from '@mantine/dropzone'
 
 export class CodeReviewManifest {
     files: FileWithPath[] = []
@@ -61,21 +61,21 @@ export class CodeReviewManifest {
 
 
 export function buildCodeManifest(files: FileWithPath[]): CodeManifest {
-    const filesRecord: Record<string, number> = {};
-    let totalSize = 0;
+    const filesRecord: Record<string, number> = {}
+    let totalSize = 0
 
     const tree: TreeNode = {
         label: '',
         value: '',
         size: 0,
         children: [],
-    };
+    }
 
     const addFileToTree = (pathParts: string[], size: number, parent: TreeNode) => {
-        const [current, ...rest] = pathParts;
+        const [current, ...rest] = pathParts
 
         // Find or create the current node
-        let currentNode = parent.children?.find((node) => node.label === current);
+        let currentNode = parent.children?.find((node) => node.label === current)
 
         if (!currentNode) {
             currentNode = {
@@ -83,39 +83,39 @@ export function buildCodeManifest(files: FileWithPath[]): CodeManifest {
                 value:  parent.value ? `${parent.value}/${current}` : current,
                 size: 0,
                 children: [],
-            };
+            }
 
-            parent.children?.push(currentNode);
+            parent.children?.push(currentNode)
         }
 
         // If there are more parts, recurse; otherwise, set size for the file node
         if (rest.length > 0) {
-            addFileToTree(rest, size, currentNode);
+            addFileToTree(rest, size, currentNode)
         } else {
-            currentNode.size = size;
+            currentNode.size = size
         }
 
         // Update the parent size
-        parent.size += size;
-    };
+        parent.size += size
+    }
 
     for (const file of files) {
-        const { name, size } = file;
+        const { name, size } = file
 
         // Update the files record
-        filesRecord[name] = size;
+        filesRecord[name] = size
 
         // Update total size
-        totalSize += size;
+        totalSize += size
 
         // Split the file path into parts and add it to the tree
-        const pathParts = name.split('/'); // Adjust based on how paths are represented
-        addFileToTree(pathParts, size, tree);
+        const pathParts = name.split('/') // Adjust based on how paths are represented
+        addFileToTree(pathParts, size, tree)
     }
 
     return {
         files: filesRecord,
         tree,
         size: totalSize,
-    };
+    }
 }
