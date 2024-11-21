@@ -11,7 +11,7 @@ import { DataTable } from 'mantine-datatable'
 import { fetchRunResultsAction } from './actions'
 import { ErrorAlert } from '@/components/errors'
 import { IconDownload } from '@tabler/icons-react'
-import { slugify } from '@/lib/paths'
+import { slugify } from '@/lib/string'
 
 type RunResultsProps = {
     run: { id: string }

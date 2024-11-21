@@ -21,3 +21,10 @@ export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
     '084375557107', // dev
     '354918363956', // sandbox
 ]
+
+export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
+    '533267019973': 'Production',
+    '867344442985': 'Staging',
+    '905418271997': 'Sandbox',
+    '872515273917': 'Development',
+}

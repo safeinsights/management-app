@@ -4,20 +4,25 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
-import { TEST_ENV } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
-import { slugify, pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
+import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
+import { strToAscii, slugify } from '@/lib/string'
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
+
 export type { PresignedPost }
 
-const DEFAULT_TAGS: Record<string, string> = {
-    Environment: 'sandbox',
-    Target: 'si:analysis',
+export function objectToAWSTags(tags: Record<string, string>) {
+    const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
+    return Object.entries({ ...tags, Environment, Application: 'ManagementApp' }).map(([Key, Value]) => ({
+        Key,
+        Value: strToAscii(Value).slice(0, 256),
+    }))
 }
 
 let _ecrClient: ECRClient | null = null
@@ -73,7 +78,7 @@ export async function createAnalysisRepository(repositoryName: string, tags: Rec
     const resp = await ecrClient.send(
         new CreateRepositoryCommand({
             repositoryName,
-            tags: Object.entries(Object.assign(tags, DEFAULT_TAGS)).map(([Key, Value]) => ({ Key, Value })),
+            tags: objectToAWSTags({ ...tags, Target: 'si:analysis' }),
         }),
     )
     if (!resp?.repository?.repositoryUri) {
@@ -108,10 +113,7 @@ export const storeResultsFile = async (info: MinimalRunResultsInfo, body: Readab
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
         client: getS3Client(),
-        tags: [
-            { Key: 'studyId', Value: info.studyId },
-            { Key: 'runId', Value: info.studyRunId },
-        ],
+        tags: objectToAWSTags({ studyId: info.studyId, runId: info.studyRunId }),
         params: {
             Bucket: s3BucketName(),
             ChecksumSHA256: hash,
