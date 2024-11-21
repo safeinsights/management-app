@@ -2,8 +2,9 @@ import React from 'react'
 import { Button, Flex, Text, Title, Container } from '@mantine/core'
 import { getLatestStudyRunAction } from './actions'
 import Link from 'next/link'
-import { PushInstructions } from '@/components/push-instructions'
+import { UploadStudyRunCode } from '@/components/upload-study-run-code'
 import { AlertNotFound } from '@/components/errors'
+import { getUploadUrlForStudyRunCodeAction } from './actions'
 
 export default async function UploadPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
     // TODO check user permissions
@@ -15,7 +16,7 @@ export default async function UploadPage({ params: { encodedStudyId } }: { param
 
     return (
         <Container w="100%">
-            <Title mb="lg">OpenStax Study Proposal Step 2)</Title>
+            <Title mb="lg">{study.memberName} Study Proposal Step 2)</Title>
             <Text
                 pt={10}
                 fs="italic"
@@ -23,7 +24,7 @@ export default async function UploadPage({ params: { encodedStudyId } }: { param
             <Text mb="xl" mt="lg" fw="bold">
                 For the Pilot, engineers use the following to containerize and upload code:
             </Text>
-            <PushInstructions containerLocation={study.containerLocation} runId={study.pendingRunId} />
+            <UploadStudyRunCode run={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyRunId: study.pendingRunId }} getSignedURL={getUploadUrlForStudyRunCodeAction} />
             <Flex justify="end" mt="lg">
                 <Link href="edit" passHref>
                     <Button>Next</Button>
