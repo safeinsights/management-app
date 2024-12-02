@@ -94,7 +94,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                             </Modal>
                                             <Button onClick={open}>View Instructions</Button>
                                         </>
-                                    )}
                                     {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} />}
                                 </Group>
                             </Table.Td>
