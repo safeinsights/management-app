@@ -76,7 +76,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                 {humanizeStatus(run.status)}
                                 {'}'}
                             </Table.Td>
-                            ∏ <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
+                            <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
                                     <>
