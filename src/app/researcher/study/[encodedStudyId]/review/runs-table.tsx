@@ -97,6 +97,17 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                             </Modal>
                                             <Button onClick={() => setOpened(run.id)}>View Instructions</Button>
                                         </>
+                                    {run.status == 'INITIATED' && (
+                                        <>
+                                            <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
+                                                <PushInstructions
+                                                    containerLocation={study.containerLocation}
+                                                    runId={run.id}
+                                                />
+                                            </Modal>
+                                            <Button onClick={open}>View Instructions</Button>
+                                        </>
+                                    )}
                                     {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} />}
                                 </Group>
                             </Table.Td>
