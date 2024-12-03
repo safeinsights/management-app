@@ -79,21 +79,17 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                             <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
-                                    <>
-                                        <Modal
-                                            size={800}
-                                            opened={opened}
-                                            onClose={close}
-                                            title="AWS Instructions"
-                                            centered
-                                        >
-                                            <PushInstructions
-                                                containerLocation={study.containerLocation}
-                                                runId={run.id}
-                                            />
-                                        </Modal>
-                                        <Button onClick={open}>View Instructions</Button>
-                                    </>
+                                    {run.status == 'INITIATED' && (
+                                        <>
+                                            <Modal opened={opened} onClose={close} title="AWS Instructions" centered>
+                                                <PushInstructions
+                                                    containerLocation={study.containerLocation}
+                                                    runId={run.id}
+                                                />
+                                            </Modal>
+                                            <Button onClick={open}>View Instructions</Button>
+                                        </>
+                                    )}
                                     {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} />}
                                 </Group>
                             </Table.Td>
