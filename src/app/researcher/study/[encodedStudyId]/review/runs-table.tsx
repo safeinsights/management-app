@@ -77,7 +77,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                             <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
-                                {run.status == 'INITIATED' && (
+                                    {run.status == 'INITIATED' && (
                                         <>
                                             <Modal
                                                 opened={!!openedRunId}
