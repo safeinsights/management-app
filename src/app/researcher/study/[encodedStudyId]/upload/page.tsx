@@ -28,7 +28,10 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
             <Text mb="xl" mt="lg" fw="bold">
                 For the Pilot, engineers use the following to containerize and upload code:
             </Text>
-            <UploadStudyRunCode run={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyRunId: study.pendingRunId }} getSignedURL={getUploadUrlForStudyRunCodeAction} />
+            <UploadStudyRunCode
+                run={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyRunId: study.pendingRunId }}
+                getSignedURL={getUploadUrlForStudyRunCodeAction}
+            />
             <Flex justify="end" mt="lg">
                 <Link href="edit" passHref>
                     <Button>Next</Button>

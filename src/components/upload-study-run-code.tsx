@@ -5,13 +5,14 @@ import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalRunInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
+import { notifications } from '@mantine/notifications'
 
 type PreSignedPost = {
     url: string
     fields: Record<string, string>
 }
-//import { getUploadUrlForStudyRunCodeAction } from '../app/'
-type SignedUrlFunc = (run: MinimalRunInfo) => Promise<PreSignedPost>
+
+type SignedUrlFunc = (_run: MinimalRunInfo) => Promise<PreSignedPost>
 
 type UploadStudyRunCodeProps = Partial<DropzoneProps> & {
     run: MinimalRunInfo
@@ -20,7 +21,6 @@ type UploadStudyRunCodeProps = Partial<DropzoneProps> & {
 
 async function uploadFile(file: FileWithPath, upload: PreSignedPost) {
     const body = new FormData()
-    console.log(upload.fields)
     for (const [key, value] of Object.entries(upload.fields)) {
         body.append(key, value)
     }
@@ -36,29 +36,35 @@ async function uploadFile(file: FileWithPath, upload: PreSignedPost) {
 }
 
 async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSignedUrl: SignedUrlFunc) {
-    const manifest = new CodeReviewManifest()
+    const manifest = new CodeReviewManifest(run.studyRunId, 'r')
 
     const post = await getSignedUrl(run)
-
-    console.log('url', post)
 
     for (const file of files) {
         manifest.files.push(file)
         await uploadFile(file, post)
     }
-    //    console.log(manifest.asJSON)
-
+    // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     await uploadFile(file, post)
-    //await uploadFile(files[0], getSignedUrl);
 }
 
 export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStudyRunCodeProps) {
-
-  return (
-    <Dropzone
+    return (
+        <Dropzone
             onDrop={(files) => uploadFilesToS3(files, run, getSignedURL)}
-            onReject={(files) => console.log('rejected files', files)}
+            onReject={(rejections) =>
+                notifications.show({
+                    color: 'red',
+                    title: 'rejected files',
+                    message: rejections
+                        .map(
+                            (rej) =>
+                                `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
+                        )
+                        .join('\n'),
+                })
+            }
             {...dzProps}
             multiple={false}
         >
@@ -87,7 +93,7 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
                         Drag files here or click to select a file or directory.
                     </Text>
                     <Text size="sm" c="dimmed" inline mt={7}>
-                        If more than one file is uploaded, one of them <b>MUST be named <i>main.r</i></b>
+                        If more than one file is uploaded, one of them <b>MUST</b> be named <b>main.r</b>
                     </Text>
                 </div>
             </Group>

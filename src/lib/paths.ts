@@ -4,8 +4,7 @@ import { uuidToB64 } from './uuid'
 export const pathForStudyRun = (parts: MinimalRunInfo) =>
     `analysis/${parts.memberIdentifier}/${parts.studyId}/${parts.studyRunId}`
 
-export const pathForStudyRunCode = (parts: MinimalRunInfo) =>
-    `${pathForStudyRun(parts)}/code`
+export const pathForStudyRunCode = (parts: MinimalRunInfo) => `${pathForStudyRun(parts)}/code`
 
 export const pathForStudyRunResults = (parts: MinimalRunResultsInfo) =>
     `${pathForStudyRun(parts)}/results/${parts.resultsPath}`
