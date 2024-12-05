@@ -1,7 +1,7 @@
 'use client'
-
-import { Group, Text, rem } from '@mantine/core'
-import { IconUpload, IconPhoto, IconX } from '@tabler/icons-react'
+import { useCallback, useState } from 'react'
+import { Group, Text, Paper, Flex, rem } from '@mantine/core'
+import { IconUpload, IconPhoto, IconX, IconSourceCode } from '@tabler/icons-react'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalRunInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -31,28 +31,59 @@ async function uploadFile(file: FileWithPath, upload: PreSignedPost) {
         body,
     })
     if (!response.ok) {
-        throw new Error('Failed to upload file to S3')
+        notifications.show({
+            color: 'red',
+            title: 'failed to upload file',
+            message: await response.text(),
+        })
     }
+    return response.ok
 }
 
 async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSignedUrl: SignedUrlFunc) {
     const manifest = new CodeReviewManifest(run.studyRunId, 'r')
 
     const post = await getSignedUrl(run)
-
+    let allSuccess = true
     for (const file of files) {
         manifest.files.push(file)
-        await uploadFile(file, post)
+        if (!(await uploadFile(file, post))) allSuccess = false
     }
     // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    await uploadFile(file, post)
+    if (!(await uploadFile(file, post))) allSuccess = false
+    return allSuccess
 }
 
 export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStudyRunCodeProps) {
+    const [uploadState, setUploading] = useState<false | 'uploading' | 'complete'>(false)
+
+    const onDrop = useCallback(
+        async (files: FileWithPath[]) => {
+            setUploading('uploading')
+            const success = await uploadFilesToS3(files, run, getSignedURL)
+            if (success) setUploading('complete')
+        },
+        [setUploading],
+    )
+
+    if (uploadState == 'complete') {
+        return (
+            <Paper shadow="none" mt={30} radius="sm" withBorder p="xl">
+                <Flex gap="lg">
+                    <IconSourceCode size={70} />
+                    <Flex direction={'column'} justify="space-around">
+                        <h4>Uploaded files</h4>
+                        <p>All files were uploaded successfully</p>
+                    </Flex>
+                </Flex>
+            </Paper>
+        )
+    }
+
     return (
         <Dropzone
-            onDrop={(files) => uploadFilesToS3(files, run, getSignedURL)}
+            onDrop={onDrop}
             onReject={(rejections) =>
                 notifications.show({
                     color: 'red',
@@ -66,6 +97,7 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
                 })
             }
             {...dzProps}
+            loading={uploadState === 'uploading'}
             multiple={false}
         >
             <Group justify="center" gap="xl" mih={220} style={{ pointerEvents: 'none' }}>
