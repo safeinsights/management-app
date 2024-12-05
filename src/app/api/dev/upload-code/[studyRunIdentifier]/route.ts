@@ -8,7 +8,10 @@ import fs from 'fs'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 
-export async function POST(req: Request, { params: { studyRunIdentifier } }: { params: { studyRunIdentifier: string } }) {
+export async function POST(
+    req: Request,
+    { params: { studyRunIdentifier } }: { params: { studyRunIdentifier: string } },
+) {
     if (PROD_ENV) {
         return NextResponse.json({ error: 'This route is only available in development' }, { status: 403 })
     }

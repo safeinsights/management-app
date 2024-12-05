@@ -23,8 +23,20 @@ export type TreeNode = {
     children?: TreeNode[]
 }
 
+// only R for now
+export type SupportedLanguages = 'r'
+export type CodeManifestFileInfo = {
+    size: number
+    contentType: string
+}
+
+// this is the manifest that's generated when a user uploads code
+// it's used to display the code in the UI for review
+// and stored alongside the code in s3
 export type CodeManifest = {
-    files: Record<string, number>
+    runId: string
+    language: SupportedLanguages
+    files: Record<string, CodeManifestFileInfo> // path -> size
     tree: TreeNode
     size: number
 }

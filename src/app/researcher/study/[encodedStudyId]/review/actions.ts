@@ -7,6 +7,7 @@ import { uuidToB64 } from '@/lib/uuid'
 import { revalidatePath } from 'next/cache'
 import { attachSimulatedResultsToStudyRun, storageForResultsFile } from '@/server/results'
 import { sleep } from '@/lib/util'
+import { queryRunResult } from '@/server/queries'
 import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
 import { fetchStudyRunResults } from '@/server/aws'
 
