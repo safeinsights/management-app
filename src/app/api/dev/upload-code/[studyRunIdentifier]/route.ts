@@ -38,7 +38,6 @@ export async function POST(req: Request, { params: { studyRunIdentifier } }: { p
         .updateTable('studyRun')
         .set({
             status: 'CODE-SUBMITTED',
-            codePath: file.name,
         })
         .where('id', '=', info.studyRunId)
         .executeTakeFirstOrThrow()
