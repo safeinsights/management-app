@@ -27,7 +27,6 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .addColumn('file_size', 'integer')
         .addColumn('file_count', 'integer')
-        .addColumn('code_path', 'text')
         .addColumn('results_path', 'text')
         .execute()
 
