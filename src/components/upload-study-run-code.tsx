@@ -65,7 +65,7 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
             const success = await uploadFilesToS3(files, run, getSignedURL)
             if (success) setUploading('complete')
         },
-        [setUploading],
+        [setUploading, getSignedURL, run],
     )
 
     if (uploadState == 'complete') {
