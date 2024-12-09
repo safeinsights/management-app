@@ -6,7 +6,6 @@ import { NextResponse } from 'next/server'
 
 const schema = z.object({
     runId: z.string().uuid(),
-    codePath: z.string(),
     fileSize: z.number(),
     fileCount: z.number(),
 })
@@ -20,7 +19,6 @@ export async function POST(req: Request) {
         .where('status', '=', 'INITIATED')
         .set({
             status: 'CODE-SUBMITTED',
-            codePath: body.codePath,
             uploadedAt: new Date(),
             fileSize: body.fileSize,
             fileCount: body.fileCount,

@@ -157,15 +157,12 @@ export async function urlForResults(info: MinimalRunResultsInfo) {
 export async function urlForStudyRunCodeUpload(info: MinimalRunInfo) {
     const bucket = s3BucketName()
     const prefix = pathForStudyRunCode(info)
-    const psPost = await createPresignedPost(
-        getS3Client(),
-        {
-            Bucket: bucket,
-            Conditions: [ [ "starts-with", "$key", prefix ] ],
-            Expires: 3600, // seconds, == one hour
-            Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
-        }
-    )
+    const psPost = await createPresignedPost(getS3Client(), {
+        Bucket: bucket,
+        Conditions: [['starts-with', '$key', prefix]],
+        Expires: 3600, // seconds, == one hour
+        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
     return psPost
 }
 
