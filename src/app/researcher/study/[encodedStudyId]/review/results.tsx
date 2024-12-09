@@ -11,9 +11,11 @@ import { DataTable } from 'mantine-datatable'
 import { fetchRunResultsAction } from './actions'
 import { ErrorAlert } from '@/components/errors'
 import { IconDownload } from '@tabler/icons-react'
+import { slugify } from '@/lib/string'
 
 type RunResultsProps = {
     run: { id: string }
+    study: { title: string }
 }
 
 const ViewCSV: FC<RunResultsProps> = ({ run }) => {
@@ -48,7 +50,7 @@ const ViewCSV: FC<RunResultsProps> = ({ run }) => {
 
     return (
         <DataTable
-            height={'calc(100vh - 200px)'}
+            height={'calc(100vh - 250px)'}
             idAccessor={'INDEX_KEY_FOR_RENDERING'}
             withTableBorder={false}
             withColumnBorders={false}
@@ -58,7 +60,7 @@ const ViewCSV: FC<RunResultsProps> = ({ run }) => {
     )
 }
 
-export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run }) => {
+export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run, study }) => {
     const [opened, { open, close }] = useDisclosure(false)
 
     return (
@@ -68,7 +70,7 @@ export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run }) => {
                 onClose={close}
                 size="100%"
                 title={
-                    <Link href={`/dl/results/${uuidToB64(run.id)}`}>
+                    <Link href={`/dl/results/${uuidToB64(run.id)}/${slugify(study.title)}.csv`}>
                         <Button rightSection={<IconDownload size={14} />}>Download Results</Button>
                     </Link>
                 }
@@ -79,7 +81,7 @@ export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run }) => {
                 }}
                 centered
             >
-                <ViewCSV run={run} />
+                <ViewCSV run={run} study={study} />
             </Modal>
 
             <Button variant="outline" onClick={open}>
