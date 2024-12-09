@@ -1,13 +1,12 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
 
 import Link from 'next/link'
-import { dataForRunAction } from './actions'
+import { dataForRunAction } from './dataForRunAction'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { ReviewControls } from './controls'
 import { Files } from './files'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
-import { MinimalRunInfo } from '@/lib/types'
 
 export default async function StudyReviewPage({
     params: { memberIdentifier, studyRunIdentifier, studyIdentifier },
@@ -24,11 +23,11 @@ export default async function StudyReviewPage({
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const { run, manifest } = await dataForRunAction(studyRunIdentifier)
-    if (!run || !manifest) {
+    const { runInfo, manifest } = await dataForRunAction(studyRunIdentifier)
+    if (!runInfo || !manifest) {
         return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
     }
-    const runInfo: MinimalRunInfo = { studyRunId: run.id, memberIdentifier, studyId: run.studyId }
+    //    const runInfo: MinimalRunInfo = { studyRunId: run.id, memberIdentifier, studyId: run.studyId }
 
     const initialExpanded = manifest.tree.children?.length == 1 ? manifest.tree.children[0].value : undefined
 
@@ -38,7 +37,7 @@ export default async function StudyReviewPage({
                 crumbs={{
                     memberIdentifier,
                     studyIdentifier,
-                    studyTitle: run.studyTitle,
+                    studyTitle: runInfo.studyTitle,
                     current: 'Review code',
                 }}
             />
@@ -50,8 +49,8 @@ export default async function StudyReviewPage({
             )}
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
-                    Review code for code run submitted on {run.createdAt.toLocaleString()} -{' '}
-                    {Object.keys(manifest.files).length} files, {manifest.size / 1048576}MB
+                    Review code for code run submitted on {runInfo.createdAt.toLocaleString()} -{' '}
+                    {Object.keys(manifest.files).length} files, {Math.round((manifest.size / 1048576) * 100) / 100}MB
                 </Title>
                 <Flex gap="md" direction="column">
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
@@ -62,7 +61,7 @@ export default async function StudyReviewPage({
             </Flex>
             <Files
                 data={manifest?.tree.children || []}
-                run={runInfo}
+                runInfo={runInfo}
                 manifest={manifest}
                 initialExpanded={initialExpanded}
             />
