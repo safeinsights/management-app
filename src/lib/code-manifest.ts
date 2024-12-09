@@ -1,9 +1,14 @@
-import { TreeNode, CodeManifest } from './types'
+import type { TreeNode, CodeManifest, SupportedLanguages, CodeManifestFileInfo } from './types'
 
 import type { FileWithPath } from '@mantine/dropzone'
 
 export class CodeReviewManifest {
     files: FileWithPath[] = []
+
+    constructor(
+        public runId: string, // eslint-disable-line no-unused-vars
+        public language: SupportedLanguages, // eslint-disable-line no-unused-vars
+    ) {}
 
     get asTreeNode(): TreeNode {
         const root: TreeNode = {
@@ -13,8 +18,8 @@ export class CodeReviewManifest {
             children: [],
         }
 
-        for (const { path, size } of this.files) {
-            const parts = path.replace(/^\.?\//, '').split('/')
+        for (const { path, name, size } of this.files) {
+            const parts = (path || name).replace(/^\.?\//, '').split('/')
             let currentNode = root
             let value = ''
             for (let i = 0; i < parts.length; i++) {
@@ -42,80 +47,23 @@ export class CodeReviewManifest {
     get asJSON() {
         return JSON.stringify(
             {
+                language: this.language,
+                runId: this.runId,
+                size: this.files.reduce((acc, f) => acc + f.size, 0),
                 tree: this.asTreeNode,
                 files: this.files.reduce(
                     (acc, file) => {
-                        acc[file.path.replace(/^\.?\//, '')] = file.size
+                        acc[(file.path || file.name).replace(/^\.?\//, '')] = {
+                            size: file.size,
+                            contentType: file.type || 'application/octet-stream',
+                        }
                         return acc
                     },
-                    {} as { [key: string]: number },
+                    {} as { [key: string]: CodeManifestFileInfo },
                 ),
-                size: this.files.reduce((acc, f) => acc + f.size, 0),
-            },
+            } satisfies CodeManifest,
             null,
             4,
         )
-    }
-}
-
-
-
-export function buildCodeManifest(files: FileWithPath[]): CodeManifest {
-    const filesRecord: Record<string, number> = {}
-    let totalSize = 0
-
-    const tree: TreeNode = {
-        label: '',
-        value: '',
-        size: 0,
-        children: [],
-    }
-
-    const addFileToTree = (pathParts: string[], size: number, parent: TreeNode) => {
-        const [current, ...rest] = pathParts
-
-        // Find or create the current node
-        let currentNode = parent.children?.find((node) => node.label === current)
-
-        if (!currentNode) {
-            currentNode = {
-                label: current,
-                value:  parent.value ? `${parent.value}/${current}` : current,
-                size: 0,
-                children: [],
-            }
-
-            parent.children?.push(currentNode)
-        }
-
-        // If there are more parts, recurse; otherwise, set size for the file node
-        if (rest.length > 0) {
-            addFileToTree(rest, size, currentNode)
-        } else {
-            currentNode.size = size
-        }
-
-        // Update the parent size
-        parent.size += size
-    }
-
-    for (const file of files) {
-        const { name, size } = file
-
-        // Update the files record
-        filesRecord[name] = size
-
-        // Update total size
-        totalSize += size
-
-        // Split the file path into parts and add it to the tree
-        const pathParts = name.split('/') // Adjust based on how paths are represented
-        addFileToTree(pathParts, size, tree)
-    }
-
-    return {
-        files: filesRecord,
-        tree,
-        size: totalSize,
     }
 }

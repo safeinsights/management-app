@@ -1,6 +1,6 @@
 'use server'
 
-import { b64toUUID, uuidToB64 } from '@/lib/uuid'
+import { b64toUUID } from '@/lib/uuid'
 import { db } from '@/database'
 import { MinimalRunInfo } from '@/lib/types'
 import { urlForStudyRunCodeUpload, type PresignedPost } from '@/server/aws'
@@ -34,7 +34,7 @@ export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): P
     } else {
         return {
             url: `/api/dev/upload-code/${info.studyRunId}`,
-            fields: { }
+            fields: {},
         }
     }
 }

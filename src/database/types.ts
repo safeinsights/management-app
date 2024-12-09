@@ -21,7 +21,7 @@ export type StudyRunStatus =
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
 
-export type Timestamp = ColumnType<Date, Date | string>
+export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
 export interface Member {
     createdAt: Generated<Timestamp>
@@ -50,7 +50,6 @@ export interface Study {
 }
 
 export interface StudyRun {
-    codePath: string | null
     completedAt: Timestamp | null
     createdAt: Generated<Timestamp>
     fileCount: number | null
