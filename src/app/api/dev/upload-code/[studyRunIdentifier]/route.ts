@@ -1,10 +1,8 @@
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { PROD_ENV } from '@/server/config'
-import { getUploadTmpDirectory } from '@/server/config'
-import { pathForStudyRunCode } from '@/lib/paths'
-import path from 'path'
-import fs from 'fs'
+
+import { devStoreCodeFile } from '@/server/dev/code-files'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 
@@ -30,12 +28,10 @@ export async function POST(
 
     const formData = await req.formData()
     const file = formData.get('file') as File
-
-    const dir = path.join(getUploadTmpDirectory(), pathForStudyRunCode(info), path.dirname(file.name))
-    fs.mkdirSync(dir, { recursive: true })
-    const filePath = path.join(dir, path.basename(file.name))
-    const buffer = await file.arrayBuffer()
-    await fs.promises.writeFile(filePath, Buffer.from(buffer))
+    if (!file) {
+        return NextResponse.json({ status: 'fail', error: 'file not found' }, { status: 400 })
+    }
+    await devStoreCodeFile(info, file)
 
     await db
         .updateTable('studyRun')
