@@ -19,7 +19,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params: { runId }
         }
 
         // join is a security check to ensure the run is owned by the member
-        const run = await db
+        const info = await db
             .selectFrom('studyRun')
             .innerJoin('study', (join) =>
                 join.onRef('study.id', '=', 'studyRun.studyId').on('study.memberId', '=', member.id),
@@ -28,13 +28,13 @@ export const POST = wrapApiMemberAction(async (req: Request, { params: { runId }
             .where('studyRun.id', '=', runId)
             .executeTakeFirst()
 
-        if (!run) {
+        if (!info) {
             return NextResponse.json({ status: 'fail', error: 'run not found' }, { status: 404 })
         }
 
         await attachResultsToStudyRun(
             {
-                ...run,
+                ...info,
                 memberIdentifier: member.identifier,
             },
             contents,
