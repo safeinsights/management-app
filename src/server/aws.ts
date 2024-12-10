@@ -8,7 +8,6 @@ import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-providers'
 import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
-
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
@@ -17,7 +16,6 @@ import { getECRPolicy } from './aws-ecr-policy'
 
 export type { PresignedPost }
 
-
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
     return Object.entries({ ...tags, Environment, Application: 'ManagementApp' }).map(([Key, Value]) => ({
@@ -25,6 +23,8 @@ export function objectToAWSTags(tags: Record<string, string>) {
         Value: strToAscii(Value).slice(0, 256),
     }))
 }
+
+export type { PresignedPost }
 
 let _ecrClient: ECRClient | null = null
 export const getECRClient = () =>
