@@ -14,8 +14,6 @@ import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
-export type { PresignedPost }
-
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
     return Object.entries({ ...tags, Environment, Application: 'ManagementApp' }).map(([Key, Value]) => ({

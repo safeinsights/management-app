@@ -34,7 +34,7 @@ export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): P
     } else {
         return {
             url: `/api/dev/upload-code/${uuidToB64(info.studyRunId)}`,
-            fields: { }
+            fields: {},
         }
     }
 }

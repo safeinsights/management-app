@@ -132,5 +132,4 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
             </Group>
         </Dropzone>
     )
-
 }
