@@ -1,7 +1,7 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
 
 import Link from 'next/link'
-import { dataForRunAction } from './dataForRunAction'
+import { dataForRunAction } from './actions'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/members'
 import { ReviewControls } from './controls'
@@ -27,7 +27,6 @@ export default async function StudyReviewPage({
     if (!runInfo || !manifest) {
         return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
     }
-    //    const runInfo: MinimalRunInfo = { studyRunId: run.id, memberIdentifier, studyId: run.studyId }
 
     const initialExpanded = manifest.tree.children?.length == 1 ? manifest.tree.children[0].value : undefined
 
