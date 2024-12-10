@@ -7,8 +7,11 @@ if [ -z "$$DOCKER_TAG" ]; then
     exit 1
 fi
 
+# provenence is disabled because without it docker generates a "multi-platform index" that is incompatible with lambda
+# https://github.com/docker/buildx/issues/1509#issuecomment-1378538197
 docker build \
     --file Dockerfile.prod \
+    --provenance=false \
     --platform=linux/amd64 \
     --secret id=envs,src=.env \
     --progress=plain \
