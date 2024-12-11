@@ -80,6 +80,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
                                     {run.status == 'INITIATED' && (
                                         <>
                                             <Modal
+                                                size={800}
                                                 opened={!!openedRunId}
                                                 onClose={() => setOpened(false)}
                                                 title="AWS Instructions"
