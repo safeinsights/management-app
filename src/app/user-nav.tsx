@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button, Title } from '@mantine/core'
 
 import { useAuthInfo } from '@/components/auth'
+import { ButtonNav } from '@/components/button'
 
 export const UserNav = () => {
     const auth = useAuthInfo()
@@ -14,9 +15,9 @@ export const UserNav = () => {
                 You appear to be a {auth.role} and likely want to{' '}
                 {auth.isResearcher && (
                     <>
-                        <Link href="/researcher/studies" passHref>
-                            <Button>View Studies</Button>
-                        </Link>
+                        <ButtonNav href="/researcher/studies">
+                            View Studies
+                        </ButtonNav>
                         <span> OR </span>
                         <Link href="/researcher/study/request/openstax" passHref>
                             <Button>Propose a Study</Button>
