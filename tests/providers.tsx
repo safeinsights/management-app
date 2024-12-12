@@ -23,7 +23,6 @@ export const TestingProviders: React.FC<{ children: React.ReactNode }> = ({ chil
     )
 }
 
-
 export const TestingProvidersWrapper = {
     wrapper: TestingProviders,
 }
