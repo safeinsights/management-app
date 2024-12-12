@@ -42,17 +42,6 @@ function getQueryClient() {
     }
 }
 
-export const TestingProviders: React.FC<Props> = ({ children }) => {
-    const queryClient = getQueryClient()
-    return (
-        <MantineProvider theme={theme}>
-            <QueryClientProvider client={queryClient}>
-                <ModalsProvider>{children}</ModalsProvider>
-            </QueryClientProvider>
-        </MantineProvider>
-    )
-}
-
 export const Providers: React.FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
 
