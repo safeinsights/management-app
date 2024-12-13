@@ -2,7 +2,6 @@
 .idea
 *.log
 tmp/
-.env.local
 
 .next/
 test-results/
@@ -14,7 +13,11 @@ yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
+package-lock.json
 coverage/
 playwright-report/
 .env
-.parcel-cache
+
+## Panda
+styled-system
+styled-system-studio
