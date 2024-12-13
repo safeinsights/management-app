@@ -65,7 +65,7 @@ $$ language sql;
 `.execute(db)
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
     await sql`drop function v7uuid()`.execute(db)
     await sql`drop function uuid_to_b64()`.execute(db)
     await sql`drop function b64_to_uuid()`.execute(db)

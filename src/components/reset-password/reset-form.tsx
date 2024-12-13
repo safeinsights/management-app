@@ -38,8 +38,9 @@ export function ResetForm({ onComplete }: ResetFormProps) {
             })
             onComplete(reset)
         } catch (err: any) {
+            // eslint-disable-line @typescript-eslint/no-explicit-any
             reportError(err, 'failed to initiate password reset')
-
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
             if (emailError) {
                 emailForm.setFieldError('email', emailError.longMessage)

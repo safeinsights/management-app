@@ -4,10 +4,12 @@ import { NextResponse } from 'next/server'
 
 export * from './context'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WrappedFunc = (..._: any[]) => Promise<any>
 
 export function wrapApiMemberAction<F extends WrappedFunc>(func: F): F {
     const wrappedFunction = async (...args: any[]): Promise<any> => {
+        // eslint-disable-line @typescript-eslint/no-explicit-any
         // if we're called nested inside the stack from an earlier call
         // we don't bother creating a new context
 

@@ -47,13 +47,15 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                 router.push('/')
             }
         } catch (err: any) {
+            // eslint-disable-line @typescript-eslint/no-explicit-any
             reportError(err, 'failed to reset password')
-
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const codeError = err.errors?.find((error: any) => error.meta?.paramName === 'code')
             if (codeError) {
                 verificationForm.setFieldError('code', codeError.longMessage)
             }
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const passwordError = err.errors?.find((error: any) => error.meta?.paramName === 'password')
             if (passwordError) {
                 verificationForm.setFieldError('password', passwordError.longMessage)

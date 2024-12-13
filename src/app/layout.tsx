@@ -8,7 +8,6 @@ import 'mantine-datatable/styles.layer.css'
 import { Providers } from './providers'
 import { AppLayout } from '@/components/app-layout'
 
-
 export const metadata: Metadata = {
     title: 'SafeInsights Management Application',
     description: 'Manages studies, members, and data',

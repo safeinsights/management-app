@@ -44,8 +44,10 @@ export function SignIn() {
                 router.push('/')
             }
         } catch (err: any) {
+            // eslint-disable-line @typescript-eslint/no-explicit-any
             reportError(err, 'failed signin')
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
             if (emailError) {
                 form.setFieldError('email', emailError.longMessage)
