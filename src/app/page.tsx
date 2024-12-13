@@ -5,6 +5,12 @@ import { Title, Flex } from '@mantine/core'
 import { UserNav } from './user-nav'
 
 export default async function Home() {
+=======
+import { Title } from '@mantine/core'
+import { pageStyles, mainStyles, footerStyles } from '@/styles/common'
+
+export default function Home() {
+>>>>>>> template/update-all-the-things
     return (
         <div className={pageStyles}>
             <SignedOut>

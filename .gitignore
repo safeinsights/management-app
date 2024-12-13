@@ -1,8 +1,8 @@
+.env*
 .DS_Store
 .idea
 *.log
 tmp/
-
 .next/
 test-results/
 *.tern-port
@@ -16,8 +16,4 @@ yarn-error.log*
 package-lock.json
 coverage/
 playwright-report/
-.env
-
-## Panda
-styled-system
-styled-system-studio
+src/styles/generated
