@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { reportError } from './errors'
+import { reportError, isClerkApiError } from './errors'
 import {
     Anchor,
     Button,
@@ -59,13 +59,12 @@ const EmailVerificationStep = () => {
                 // complete further steps.
                 console.error(JSON.stringify(completeSignUp, null, 2))
             }
-        } catch (err: any) {
-             
+        } catch (err: unknown) {
             reportError(err, 'failed to verify email address')
 
             // TODO Explore clerk docs for how to better handle error messages
             //  Currently unclear because signUp.attemptVerification method just 422s and doesnt return anything useful
-            if (err.errors?.length) {
+            if (isClerkApiError(err)) {
                 err.errors.forEach((error: ClerkAPIError) => {
                     verifyForm.setFieldError('code', error.longMessage)
                 })
@@ -146,13 +145,13 @@ export function SignUp() {
             })
 
             setVerifying(true)
-        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-             
+        } catch (err: unknown) {
             reportError(err, 'failed to create signup')
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
-            if (emailError) {
-                form.setFieldError('email', emailError.longMessage)
+            if (isClerkApiError(err)) {
+                const emailError = err.errors.find((error) => error.meta?.paramName === 'email_address')
+                if (emailError) {
+                    form.setFieldError('email', emailError.longMessage)
+                }
             }
         }
     }

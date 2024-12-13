@@ -4,20 +4,28 @@ import { IconError404, IconAlertTriangle, IconLockAccess } from '@tabler/icons-r
 
 type ClerkAPIErrorResponse = {
     errors: Array<{
+        meta?: {
+            paramName: string
+        }
         code: string
         message: string
-        long_message: string
+        longMessage: string
     }>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function isClerkApiError(error: any): error is ClerkAPIErrorResponse {
-    return typeof error == 'object' && Array.isArray(error.errors) && error.errors?.[0].code
+export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
+    return (
+        error != null &&
+        typeof error === 'object' &&
+        'errors' in error &&
+        Array.isArray(error.errors) &&
+        error.errors?.[0].code
+    )
 }
 
-export const reportError = (error: object, title = 'An error occured') => {
+export const reportError = (error: unknown, title = 'An error occured') => {
     const message = isClerkApiError(error)
-        ? error.errors.map((e: Record<string, string>) => `${e.message}: ${e.longMessage}`).join('\n')
+        ? error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
         : JSON.stringify(error, null, 2)
 
     console.error('Error:', message)
