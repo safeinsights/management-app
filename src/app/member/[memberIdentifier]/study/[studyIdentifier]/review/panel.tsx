@@ -19,7 +19,6 @@ export const inputStyle = css({
     width: '20rem',
 })
 
-
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {

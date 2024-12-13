@@ -1,6 +1,5 @@
 import { css } from '@/styles'
 
-
 export const studyRowStyle = css({
     padding: '1rem',
     border: '2px solid black',

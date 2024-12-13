@@ -46,7 +46,7 @@ export default async function StudyReviewPage({
                                 <p>{study.piName}</p>
                                 <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
                                 <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/review`}>
-                                    <Anchor component='span'>Proceed to review ≫</Anchor>
+                                    <Anchor component="span">Proceed to review ≫</Anchor>
                                 </Link>
                             </li>
                         ))}

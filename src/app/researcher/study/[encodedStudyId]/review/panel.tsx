@@ -21,7 +21,6 @@ export const inputStyle = css({
     width: '20rem',
 })
 
-
 export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
     studyIdentifier,
     study,
