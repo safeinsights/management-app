@@ -4,14 +4,23 @@ import React from 'react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
-import { labelStyle, inputStyle } from './style.css'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
+import { css } from '@/styles'
 import { RunsTable } from './runs-table'
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
+
+export const labelStyle = css({
+    width: '10rem',
+})
+
+export const inputStyle = css({
+    width: '20rem',
+})
+
 
 export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
     studyIdentifier,
