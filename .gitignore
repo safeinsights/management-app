@@ -16,5 +16,4 @@ yarn-error.log*
 package-lock.json
 coverage/
 playwright-report/
-styled-system
-styled-system-studio
+src/styles/generated
