@@ -60,7 +60,7 @@ const EmailVerificationStep = () => {
                 console.error(JSON.stringify(completeSignUp, null, 2))
             }
         } catch (err: any) {
-            // eslint-disable-line @typescript-eslint/no-explicit-any
+             
             reportError(err, 'failed to verify email address')
 
             // TODO Explore clerk docs for how to better handle error messages
@@ -146,8 +146,8 @@ export function SignUp() {
             })
 
             setVerifying(true)
-        } catch (err: any) {
-            // eslint-disable-line @typescript-eslint/no-explicit-any
+        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+             
             reportError(err, 'failed to create signup')
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')

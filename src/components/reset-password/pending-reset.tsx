@@ -46,8 +46,8 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                 await setActive({ session: result.createdSessionId })
                 router.push('/')
             }
-        } catch (err: any) {
-            // eslint-disable-line @typescript-eslint/no-explicit-any
+        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+             
             reportError(err, 'failed to reset password')
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const codeError = err.errors?.find((error: any) => error.meta?.paramName === 'code')

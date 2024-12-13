@@ -43,8 +43,8 @@ export function SignIn() {
                 await setActive({ session: attempt.createdSessionId })
                 router.push('/')
             }
-        } catch (err: any) {
-            // eslint-disable-line @typescript-eslint/no-explicit-any
+        } catch (err: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+             
             reportError(err, 'failed signin')
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
