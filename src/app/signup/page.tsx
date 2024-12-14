@@ -1,5 +1,5 @@
 import { SignUp } from '@/components/signup'
-import { pageStyles } from '../page.css'
+import { pageStyles } from '@/styles/common'
 
 export default function SignUpPage() {
     return (

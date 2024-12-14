@@ -1,11 +1,11 @@
 // https://developer.grubhub.com/docs/6B3UztsSoYRxHZ0FwS5cfV/uuid-encoding
 
 export function b64toUUID(str: string) {
-    let urlUnsafe = str.replace(/-/g, '+').replace(/_/g, '/')
-    let arr = atob(urlUnsafe)
+    const urlUnsafe = str.replace(/-/g, '+').replace(/_/g, '/')
+    const arr = atob(urlUnsafe)
         .split('')
         .map((c) => {
-            let char = c.charCodeAt(0)
+            const char = c.charCodeAt(0)
             return ('0' + char.toString(16)).substr(-2, 2)
         })
     arr.splice(4, 0, '-')

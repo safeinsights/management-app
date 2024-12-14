@@ -4,14 +4,10 @@ import { urlOrPathToResultsFile } from '@/server/results'
 import { MinimalRunResultsInfo } from '@/lib/types'
 import { queryRunResult } from '@/server/queries'
 
-export const GET = async (
-    _: Request,
-    {
-        params: {
-            slug: [runIdentifier],
-        },
-    }: { params: { slug: [string, string] } },
-) => {
+export const GET = async (_: Request, { params }: { params: Promise<{ slug: [string, string] }> }) => {
+    const {
+        slug: [runIdentifier],
+    } = await params
     const runId = b64toUUID(runIdentifier)
 
     // TODO: check if the run is owned by the researcher

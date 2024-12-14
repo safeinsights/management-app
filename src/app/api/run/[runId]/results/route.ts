@@ -4,9 +4,10 @@ import { NextResponse } from 'next/server'
 import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
 import { attachResultsToStudyRun } from '@/server/results'
 
-export const POST = wrapApiMemberAction(async (req: Request, { params: { runId } }: { params: { runId: string } }) => {
+export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ runId: string }> }) => {
     const member = requestingMember()
-    if (!member) {
+    const { runId } = await params
+    if (!runId || !member) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 

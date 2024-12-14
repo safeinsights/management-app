@@ -5,7 +5,11 @@ import Link from 'next/link'
 import { PushInstructions } from '@/components/push-instructions'
 import { AlertNotFound } from '@/components/errors'
 
-export default async function UploadPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
+export default async function UploadPage(props: { params: Promise<{ encodedStudyId: string }> }) {
+    const params = await props.params
+
+    const { encodedStudyId } = params
+
     // TODO check user permissions
     const study = await getLatestStudyRunAction({ encodedStudyId })
 

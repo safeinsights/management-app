@@ -1,5 +1,5 @@
 import { ResetPassword } from '@/components/reset-password'
-import { pageStyles } from '../page.css'
+import { pageStyles } from '@/styles/common'
 
 export default function ResetPasswordPage() {
     return (

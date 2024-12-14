@@ -1,12 +1,20 @@
 'use client'
 
-import { inputStyle, labelStyle } from './style.css'
 import { Checkbox, Textarea, TextInput, Button, Flex, Group, Stack, Text } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { FormValues, schema, zodResolver } from './schema'
 import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
+import { css } from '@/styles'
+
+export const labelStyle = css({
+    width: '10rem',
+})
+
+export const inputStyle = css({
+    width: '20rem',
+})
 
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const { mutate: updateStudy, isPending } = useMutation({

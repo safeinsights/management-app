@@ -1,6 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
-export async function up(db: Kysely<any>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_run_status')
         .asEnum([
@@ -35,6 +35,6 @@ export async function up(db: Kysely<any>): Promise<void> {
     db.schema.createIndex('study_run_status_indx').on('study_run').column('status').execute()
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('study_run').execute()
 }

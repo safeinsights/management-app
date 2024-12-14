@@ -21,7 +21,7 @@ export type StudyRunStatus =
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
 
-export type Timestamp = ColumnType<Date, Date | string>
+export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
 export interface Member {
     created_at: Generated<Timestamp>

@@ -5,7 +5,7 @@ import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { reportError } from '../errors'
+import { isClerkApiError, reportError } from '../errors'
 
 interface VerificationFormValues {
     code: string
@@ -46,17 +46,18 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                 await setActive({ session: result.createdSessionId })
                 router.push('/')
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             reportError(err, 'failed to reset password')
+            if (isClerkApiError(err)) {
+                const codeError = err.errors?.find((error) => error.meta?.paramName === 'code')
+                if (codeError) {
+                    verificationForm.setFieldError('code', codeError.longMessage)
+                }
 
-            const codeError = err.errors?.find((error: any) => error.meta?.paramName === 'code')
-            if (codeError) {
-                verificationForm.setFieldError('code', codeError.longMessage)
-            }
-
-            const passwordError = err.errors?.find((error: any) => error.meta?.paramName === 'password')
-            if (passwordError) {
-                verificationForm.setFieldError('password', passwordError.longMessage)
+                const passwordError = err.errors?.find((error) => error.meta?.paramName === 'password')
+                if (passwordError) {
+                    verificationForm.setFieldError('password', passwordError.longMessage)
+                }
             }
         }
     }

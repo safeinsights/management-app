@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-set -e
+# this script lacks 'set -e' on purpose to allow for manual intervention
+# we want to proceed even if the main remote may not exist and template may have already been setup
+
+git remote remove main
 
 git remote remove origin
 

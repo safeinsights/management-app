@@ -9,15 +9,17 @@ import { Files } from './files'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { MinimalRunInfo } from '@/lib/types'
 
-export default async function StudyReviewPage({
-    params: { memberIdentifier, studyRunIdentifier, studyIdentifier },
-}: {
-    params: {
+export default async function StudyReviewPage(props: {
+    params: Promise<{
         memberIdentifier: string
         studyIdentifier: string
         studyRunIdentifier: string
-    }
+    }>
 }) {
+    const params = await props.params
+
+    const { memberIdentifier, studyRunIdentifier, studyIdentifier } = params
+
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {

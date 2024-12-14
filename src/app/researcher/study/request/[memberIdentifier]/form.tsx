@@ -4,8 +4,13 @@ import { TextInput, Textarea, Button, Flex } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { onCreateStudyAction } from './actions'
 import { useMutation } from '@tanstack/react-query'
-import { customLabel } from './style.css'
+import { css } from '@/styles'
 import { zodResolver, FormValues, schema } from './schema'
+
+export const customLabel = css({
+    fontSize: '18px',
+    marginBottom: '10px',
+})
 
 export const Form: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()

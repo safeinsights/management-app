@@ -6,7 +6,11 @@ import { b64toUUID } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StudyEditPage({ params: { encodedStudyId } }: { params: { encodedStudyId: string } }) {
+export default async function StudyEditPage(props: { params: Promise<{ encodedStudyId: string }> }) {
+    const params = await props.params
+
+    const { encodedStudyId } = params
+
     // TODO: validate that member from clerk session matches memberId from url
 
     const study = await db

@@ -98,7 +98,7 @@ export const mockApiMember = async (opts: { identifier: string } = { identifier:
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    headers().set(
+    ;(await headers()).set(
         'Authorization',
         `Bearer ${jwt.sign(
             {

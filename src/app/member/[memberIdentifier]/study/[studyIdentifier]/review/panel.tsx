@@ -4,12 +4,20 @@ import React from 'react'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
-import { labelStyle, inputStyle } from './style.css'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { type getStudyAction, updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { RunsTable } from './runs-table'
+import { css } from '@/styles'
+
+export const labelStyle = css({
+    width: '10rem',
+})
+
+export const inputStyle = css({
+    width: '20rem',
+})
 
 type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 

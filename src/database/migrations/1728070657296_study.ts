@@ -29,6 +29,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     db.schema.createIndex('study_member_indx').on('study').column('member_id').execute()
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('study').execute()
 }

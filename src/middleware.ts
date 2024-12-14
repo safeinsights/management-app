@@ -1,5 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import logger from '@/lib/logger'
 import debug from 'debug'
 
@@ -41,7 +41,7 @@ const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
-export default clerkMiddleware(async (auth: any, req: NextRequest) => {
+export default clerkMiddleware(async (auth, req) => {
     try {
         const { userId, orgId, orgRole, orgSlug } = await auth()
 

@@ -5,11 +5,13 @@ import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
-export default async function StudyReviewPage({
-    params: { studyIdentifier, encodedStudyId },
-}: {
-    params: { studyIdentifier: string; encodedStudyId: string }
+export default async function StudyReviewPage(props: {
+    params: Promise<{ studyIdentifier: string; encodedStudyId: string }>
 }) {
+    const params = await props.params
+
+    const { studyIdentifier, encodedStudyId } = params
+
     // TODO check user permissions
 
     const study = await db

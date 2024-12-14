@@ -2,9 +2,20 @@
 
 set -e
 
-git fetch template
+REMOTE_NAME="template"
+REMOTE_URL="git@github.com:safeinsights/app-template.git"
 
-git checkout template/main bin/apply-updates-from-template
+# Check if the remote exists
+if git remote get-url $REMOTE_NAME &>/dev/null; then
+    echo "Remote '$REMOTE_NAME' already exists."
+else
+    echo "Remote '$REMOTE_NAME' does not exist. Adding remote..."
+    git remote add $REMOTE_NAME $REMOTE_URL
+fi
+
+git fetch $REMOTE_NAME
+
+git checkout $REMOTE_NAME/main bin/apply-updates-from-template
 
 ./bin/apply-updates-from-template
 

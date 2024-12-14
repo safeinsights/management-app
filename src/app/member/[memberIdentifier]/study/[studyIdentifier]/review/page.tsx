@@ -6,14 +6,16 @@ import { getMemberFromIdentifier } from '@/server/members'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from './actions'
 
-export default async function StudyReviewPage({
-    params: { memberIdentifier, studyIdentifier },
-}: {
-    params: {
+export default async function StudyReviewPage(props: {
+    params: Promise<{
         memberIdentifier: string
         studyIdentifier: string
-    }
+    }>
 }) {
+    const params = await props.params
+
+    const { memberIdentifier, studyIdentifier } = params
+
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {

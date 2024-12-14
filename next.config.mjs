@@ -1,14 +1,11 @@
 import { withSentryConfig } from '@sentry/nextjs'
-import { createVanillaExtractPlugin } from '@vanilla-extract/next-plugin'
-
-const withVanillaExtract = createVanillaExtractPlugin()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'standalone',
 }
 
-export default withSentryConfig(withVanillaExtract(nextConfig), {
+export default withSentryConfig(nextConfig, {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options
 

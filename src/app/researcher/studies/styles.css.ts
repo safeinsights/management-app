@@ -1,6 +1,6 @@
-import { style } from '@vanilla-extract/css'
+import { css } from '@/styles'
 
-export const studyRowStyle = style({
+export const studyRowStyle = css({
     padding: '1rem',
     border: '2px solid black',
     borderBottom: 'none',
@@ -8,14 +8,12 @@ export const studyRowStyle = style({
     display: 'grid',
     gridTemplateColumns: '1fr 1fr 80px 200px',
     gap: '1rem',
-    selectors: {
-        '&:last-child': {
-            borderBottom: '2px solid black',
-        },
+    _last: {
+        borderBottom: '2px solid black',
     },
 })
 
-export const studyStatusStyle = style({
+export const studyStatusStyle = css({
     fontSize: '80%',
     fontFamily: 'monospace',
     display: 'flex',
@@ -25,10 +23,10 @@ export const studyStatusStyle = style({
     borderLeft: '1px solid #ccc', // Right border on the first cell
 })
 
-export const studyTitleStyle = style({
+export const studyTitleStyle = css({
     borderRight: '1px solid #ccc', // Right border on the first cell
 })
 
-export const studyLinkStyle = style({
+export const studyLinkStyle = css({
     paddingLeft: '20px',
 })
