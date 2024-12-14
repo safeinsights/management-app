@@ -13,25 +13,13 @@ export const UserNav = () => {
                 You appear to be a {auth.role} and likely want to{' '}
                 {auth.isResearcher && (
                     <>
-                        <ButtonNav href="/researcher/studies">
-                            View Studies
-                        </ButtonNav>
+                        <ButtonNav href="/researcher/studies">View Studies</ButtonNav>
                         <span> OR </span>
-                        <ButtonNav href="/researcher/study/request/openstax">
-                            Propose a Study
-                        </ButtonNav>
+                        <ButtonNav href="/researcher/study/request/openstax">Propose a Study</ButtonNav>
                     </>
                 )}
-                {auth.isMember && (
-                    <ButtonNav href="/member/openstax/studies/review">
-                        Review Studies
-                    </ButtonNav>
-                )}
-                {auth.isAdmin && (
-                    <ButtonNav href="/admin/members">
-                        Administer Members
-                    </ButtonNav>
-                )}
+                {auth.isMember && <ButtonNav href="/member/openstax/studies/review">Review Studies</ButtonNav>}
+                {auth.isAdmin && <ButtonNav href="/admin/members">Administer Members</ButtonNav>}
             </Title>
         </div>
     )
