@@ -19,6 +19,13 @@ phases:
       - echo Doing nothing...
       - echo Doing more nothing...
       - echo Done.
+
 artifacts:
   files:
     - '**/*'
+
+reports:
+  build-status-report:
+    files:
+      - '**/*'
+    file-format: JUNITXML
