@@ -1,31 +1,32 @@
 version: 0.2
 
 env:
-  variables:
-    REGION: us-east-1
-    ACCOUNT_ID: 533267019973
-    ECR_REPO_NAME: mgmt-app/r/sample-cicd-container
+    variables:
+        REGION: us-east-1
+        ACCOUNT_ID: 533267019973
+        ECR_REPO_NAME: mgmt-app/r/sample-cicd-container
 
 phases:
-  pre_build:
-    commands:
-      - echo Logging in to Amazon ECR...
-      - echo Login is still required
-      - aws ecr get-login-password --region $REGION  | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
-      - echo GITHUB_TAG is $GITHUB_TAG
+    pre_build:
+        commands:
+            - npm install
+        #   - echo Logging in to Amazon ECR...
+        #   - echo Login is still required
+        #   - aws ecr get-login-password --region $REGION  | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
+        #   - echo GITHUB_TAG is $GITHUB_TAG
 
-  build:
-    commands:
-      - echo Doing nothing...
-      - echo Doing more nothing...
-      - echo Done.
+    build:
+        commands:
+            - echo Linting...
+            - npm run lint
+            - echo Done.
 
 artifacts:
-  files:
-    - '**/*'
+    files:
+        - '**/*'
 
 reports:
-  build-status-report:
-    files:
-      - '**/*'
-    file-format: JUNITXML
+    build-status-report:
+        files:
+            - '**/*'
+        file-format: JUNITXML
