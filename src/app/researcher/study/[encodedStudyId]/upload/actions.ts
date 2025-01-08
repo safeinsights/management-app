@@ -2,6 +2,9 @@
 
 import { b64toUUID } from '@/lib/uuid'
 import { db } from '@/database'
+import { MinimalRunInfo } from '@/lib/types'
+import { urlForStudyRunCodeUpload, type PresignedPost } from '@/server/aws'
+import { USING_S3_STORAGE } from '@/server/config'
 
 export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
     return await db
@@ -11,6 +14,7 @@ export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudy
             'study.id',
             'study.title',
             'study.containerLocation',
+            'member.identifier as memberIdentifier',
             'member.name as memberName',
             ({ selectFrom }) =>
                 selectFrom('studyRun')
@@ -22,4 +26,15 @@ export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudy
         ])
         .where('study.id', '=', b64toUUID(encodedStudyId))
         .executeTakeFirst()
+}
+
+export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): Promise<PresignedPost> {
+    if (USING_S3_STORAGE) {
+        return urlForStudyRunCodeUpload(info)
+    } else {
+        return {
+            url: `/api/dev/upload-code/${info.studyRunId}`,
+            fields: {},
+        }
+    }
 }

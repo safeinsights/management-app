@@ -1,7 +1,7 @@
 import { expect, describe, it, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Form } from './form'
-import { TestingProviders } from '@/app/providers'
+import { TestingProvidersWrapper } from '@/tests/providers'
 import userEvent from '@testing-library/user-event'
 
 import { onCreateStudyAction } from './actions'
@@ -14,9 +14,7 @@ describe('Member Start Page Form', () => {
     it('submits form', async () => {
         const { getByLabelText, getByRole, container } = render(
             <Form memberId="1234" memberIdentifier="hello-world" />,
-            {
-                wrapper: TestingProviders,
-            },
+            TestingProvidersWrapper,
         )
         let title = '2srt'
 

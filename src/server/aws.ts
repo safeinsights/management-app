@@ -1,17 +1,20 @@
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts'
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
+import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
-import { pathForStudyRun, pathForStudyRunResults } from '@/lib/paths'
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
+
+export type { PresignedPost }
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -150,6 +153,18 @@ export async function urlForResults(info: MinimalRunResultsInfo) {
         expiresIn: 3600,
     })
     return url
+}
+
+export async function urlForStudyRunCodeUpload(info: MinimalRunInfo) {
+    const bucket = s3BucketName()
+    const prefix = pathForStudyRunCode(info)
+    const psPost = await createPresignedPost(getS3Client(), {
+        Bucket: bucket,
+        Conditions: [['starts-with', '$key', prefix]],
+        Expires: 3600, // seconds, == one hour
+        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+    return psPost
 }
 
 export async function fetchStudyRunResults(info: MinimalRunResultsInfo) {

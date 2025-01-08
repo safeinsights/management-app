@@ -31,11 +31,13 @@
         "@aws-sdk/client-s3": "^3.722.0",
         "@aws-sdk/credential-provider-ini": "^3.721.0",
         "@aws-sdk/lib-storage": "^3.722.0",
+        "@aws-sdk/s3-presigned-post": "^3.697.0",
         "@aws-sdk/s3-request-presigner": "^3.722.0",
         "@clerk/nextjs": "^6.9.6",
         "@faker-js/faker": "^9.3.0",
         "@hookform/resolvers": "^3.9.1",
         "@mantine/core": "^7.15",
+        "@mantine/dropzone": "^7.14.1",
         "@mantine/form": "^7.15",
         "@mantine/modals": "^7.15",
         "@mantine/notifications": "^7.15.2",
@@ -100,6 +102,5 @@
         "typescript-eslint": "^8.19.1",
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "*"
-    },
-    "overrides": {}
+    }
 }

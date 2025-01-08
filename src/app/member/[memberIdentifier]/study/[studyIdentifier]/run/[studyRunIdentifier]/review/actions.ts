@@ -16,6 +16,7 @@ export const updateStudyRunStatusAction = async (info: MinimalRunInfo, status: S
 }
 
 export const dataForRunAction = async (studyRunIdentifier: string) => {
+    const runId = b64toUUID(studyRunIdentifier)
     const run = await db
         .selectFrom('studyRun')
         .innerJoin('study', 'study.id', 'studyRun.studyId')
@@ -27,10 +28,12 @@ export const dataForRunAction = async (studyRunIdentifier: string) => {
             'study.title as studyTitle',
             'member.identifier as memberIdentifier',
         ])
-        .where('studyRun.id', '=', b64toUUID(studyRunIdentifier))
+        .where('studyRun.id', '=', runId)
         .executeTakeFirst()
 
     let manifest: CodeManifest = {
+        runId,
+        language: 'r',
         files: {},
         size: 0,
         tree: { label: '', value: '', size: 0, children: [] },

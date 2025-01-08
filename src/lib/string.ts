@@ -1,5 +1,5 @@
 export function strToAscii(str: string) {
-    return str.replace(/[^\x00-\x7F]/g, '')
+    return str.replace(/[^a-zA-Z0-9]/g, '')
 }
 
 // https://dense13.com/blog/2009/05/03/converting-string-to-slug-javascript/
