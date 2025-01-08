@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y curl jq && rm -rf /var/lib/apt/lists/*
 
 FROM base AS npm
 
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json panda.config.ts ./
 RUN npm ci
 
 FROM base AS builder

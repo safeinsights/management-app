@@ -5,7 +5,7 @@ import { isEmail, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { reportError } from '../errors'
+import { isClerkApiError, reportError } from '../errors'
 
 interface ResetFormValues {
     email: string
@@ -37,12 +37,13 @@ export function ResetForm({ onComplete }: ResetFormProps) {
                 identifier: values.email,
             })
             onComplete(reset)
-        } catch (err: any) {
+        } catch (err: unknown) {
             reportError(err, 'failed to initiate password reset')
-
-            const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
-            if (emailError) {
-                emailForm.setFieldError('email', emailError.longMessage)
+            if (isClerkApiError(err)) {
+                const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
+                if (emailError) {
+                    emailForm.setFieldError('email', emailError.longMessage)
+                }
             }
         }
     }

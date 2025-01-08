@@ -1,9 +1,8 @@
+.env*
 .DS_Store
 .idea
 *.log
 tmp/
-.env.local
-
 .next/
 test-results/
 *.tern-port
@@ -14,7 +13,7 @@ yarn-error.log*
 *.tsbuildinfo
 .npm
 .eslintcache
+package-lock.json
 coverage/
 playwright-report/
-.env
-.parcel-cache
+src/styles/generated

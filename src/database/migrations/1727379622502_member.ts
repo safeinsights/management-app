@@ -1,6 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
-export async function up(db: Kysely<any>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('member')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
@@ -15,6 +15,6 @@ export async function up(db: Kysely<any>): Promise<void> {
     db.schema.createIndex('member_identifier_indx').on('member').column('identifier').unique().execute()
 }
 
-export async function down(db: Kysely<any>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('member').execute()
 }

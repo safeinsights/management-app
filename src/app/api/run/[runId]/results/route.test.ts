@@ -22,7 +22,7 @@ test('handling upload', async () => {
 
     const { runIds, studyId } = await insertTestStudyData({ memberId: member.id })
 
-    const resp = await apiHandler.POST(req, { params: { runId: runIds[0] } })
+    const resp = await apiHandler.POST(req, { params: Promise.resolve({ runId: runIds[0] }) })
 
     expect(resp.ok).toBe(true)
 

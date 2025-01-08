@@ -1,17 +1,17 @@
-import { style } from '@vanilla-extract/css'
+import { css } from '@/styles'
 
-export const leftPanelStyles = style({
+export const leftPanelStyles = css({
     position: 'relative',
     borderRight: '1px solid #ddd',
 })
 
-export const treeStyles = style({
+export const treeStyles = css({
     height: 'calc(100vh - 300px)',
     overflowY: 'auto',
-    width: 300,
+    width: '300px',
 })
 
-export const codeViewStyles = style({
+export const codeViewStyles = css({
     position: 'relative',
     fontSize: '80%',
     maxHeight: 'calc(100vh - 300px)',
@@ -20,14 +20,14 @@ export const codeViewStyles = style({
     flex: 1,
 })
 
-export const expandIconStyle = style({
+export const expandIconStyle = css({
     position: 'absolute',
-    right: 10,
-    top: 10,
+    right: '10px',
+    top: '10px',
 })
 
-export const filePathHeading = style({
-    marginBottom: 5,
-    paddingBottom: 5,
+export const filePathHeading = css({
+    marginBottom: '5px',
+    paddingBottom: '5px',
     borderBottom: '1px solid #ddd',
 })
