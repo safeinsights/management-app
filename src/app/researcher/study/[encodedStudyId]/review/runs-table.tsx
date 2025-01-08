@@ -54,7 +54,6 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
         queryFn: () => onFetchStudyRunsAction(study.id),
     })
 
-
     if (isPending) return <p>Loading...</p>
 
     return (

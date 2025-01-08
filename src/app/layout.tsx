@@ -5,7 +5,6 @@ import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 
-
 import { Providers } from './providers'
 import { AppLayout } from '@/components/app-layout'
 
