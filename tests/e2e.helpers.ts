@@ -3,13 +3,14 @@ import { BLANK_UUID, db } from '@/database'
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
-import os from 'os'
-import jwt from 'jsonwebtoken'
-import { headers } from 'next/headers.js'
+
+export * from './common.helpers'
+export { fs, path }
 
 // since we're extending test from here, we might as well export some other often-used items
 export { expect, type Page } from '@playwright/test'
 
+export const USE_COVERAGE = process.argv.includes('--coverage')
 import { addCoverageReport } from 'monocart-reporter'
 
 export type CollectV8CodeCoverageOptions = {
@@ -103,10 +104,6 @@ export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtected
     })
 }
 
-export const readTestSupportFile = (file: string) => {
-    return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
-}
-
 export const insertTestStudyData = async (opts: { memberId: string }) => {
     const study = await db
         .insertInto('study')
@@ -156,38 +153,4 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         studyId: study.id,
         runIds: [run0.id, run1.id, run2.id],
     }
-}
-
-export async function createTempDir() {
-    const ostmpdir = os.tmpdir()
-    const tmpdir = path.join(ostmpdir, 'unit-test-')
-    return await fs.promises.mkdtemp(tmpdir)
-}
-
-export const mockApiMember = async (opts: { identifier: string } = { identifier: 'testy-mctest-face' }) => {
-    const privateKey = await readTestSupportFile('private_key.pem')
-    const publicKey = await readTestSupportFile('public_key.pem')
-
-    const member = await db
-        .insertInto('member')
-        .values({
-            identifier: opts.identifier,
-            name: 'test',
-            email: 'none@test.com',
-            publicKey,
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
-
-    ;(await headers()).set(
-        'Authorization',
-        `Bearer ${jwt.sign(
-            {
-                iss: opts.identifier,
-            },
-            privateKey,
-            { algorithm: 'RS256' },
-        )}`,
-    )
-    return member
 }

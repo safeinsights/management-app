@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember } from '@/tests/helpers'
+import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
 import fs from 'fs'
 import path from 'path'
 import { db } from '@/database'

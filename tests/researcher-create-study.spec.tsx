@@ -1,4 +1,4 @@
-import { visitClerkProtectedPage, test, expect } from './helpers'
+import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 
 test.describe('app', () => {
     test('researcher creates a study', async ({ page }) => {

@@ -1,7 +1,7 @@
 import 'dotenv/config' // read .env file before other imports, to match nextjs default
 import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
-import { createTempDir } from '@/tests/helpers'
+import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
 
 const Headers = new Map()
@@ -9,7 +9,7 @@ const Headers = new Map()
 beforeAll(async () => {
     vi.mock('next/router', () => require('next-router-mock'))
     vi.mock('next/navigation', () => require('next-router-mock'))
-    vi.mock('next/headers', async () => ({ headers: () => Headers }))
+    vi.mock('next/headers', async () => ({ headers: async () => Headers }))
     testTransaction.start()
 })
 
