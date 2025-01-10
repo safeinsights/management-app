@@ -1,8 +1,8 @@
 import { PostgresDialect } from 'kysely'
-import { Pool } from 'pg'
+import PG from 'pg'
 
 export const dialect = new PostgresDialect({
-    pool: new Pool({
+    pool: new PG.Pool({
         max: 10,
         user: process.env.DB_USERNAME,
         password: process.env.DB_PASSWORD,

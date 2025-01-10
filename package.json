@@ -6,6 +6,7 @@
     "license": "AGPL-3.0-or-later",
     "author": "Nathan Stitt",
     "main": "index.js",
+    "type": "module",
     "scripts": {
         "build:docker:production": "./bin/prod-docker-build",
         "build:docker:ci": "./bin/prod-docker-build ci-only-do-not-push",
