@@ -2,7 +2,7 @@ import { CoverageReport, type CoverageReportOptions } from 'monocart-coverage-re
 import { testsCoverageSourceFilter } from './coverage.mjs'
 
 const coverageOptions: CoverageReportOptions = {
-    name: 'Merged Coverage Report',
+    name: 'Coverage Report',
     inputDir: ['./tmp/code-coverage/unit/raw', './tmp/code-coverage/e2e/raw'],
     outputDir: './tmp/code-coverage/merged',
     sourceFilter: testsCoverageSourceFilter,

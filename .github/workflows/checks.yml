@@ -1,13 +1,15 @@
 name: Checks
 on:
     push:
-        branches: [main, master]
+        branches: [main]
     pull_request:
-        branches: [main, master]
+
 jobs:
     all:
         timeout-minutes: 15
         runs-on: ubuntu-latest
+        permissions:
+            pull-requests: write
         steps:
             - uses: actions/checkout@v4
             - name: Set up Docker Buildx
@@ -34,8 +36,14 @@ jobs:
                   E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
             - name: Run Specs
               run: docker compose exec mgmnt-app npm run ci
-            - name: Add code coverage summary
-              run: cat tmp/code-coverage/merged/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+            - name: Add code coverage to actions summary
+              run: |
+                  cat tmp/code-coverage/merged/coverage-summary.md >> $GITHUB_STEP_SUMMARY
+                  cat tmp/code-coverage/merged/coverage-details.md >> $GITHUB_STEP_SUMMARY
+            - name: Add comment to PR
+              uses: mshick/add-pr-comment@v2
+              with:
+                  message-path: tmp/code-coverage/merged/coverage-summary.md
             - name: Test build
               run: |
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
