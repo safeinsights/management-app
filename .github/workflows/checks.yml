@@ -34,6 +34,8 @@ jobs:
                   E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
             - name: Run Specs
               run: docker compose exec mgmnt-app npm run ci
+            - name: Add code coverage summary
+              run: cat tmp/code-coverage/merged/coverage-summary.md >> $GITHUB_STEP_SUMMARY
             - name: Test build
               run: |
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env

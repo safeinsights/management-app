@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test'
-import { visitClerkProtectedPage } from './helpers'
+import { visitClerkProtectedPage, test, expect } from './helpers'
 
 test.describe('app', () => {
     test('researcher creates a study', async ({ page }) => {

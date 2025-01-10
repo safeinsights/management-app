@@ -15,7 +15,7 @@
         "build": "next build",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
-        "ci": "run-p checks test:e2e test:unit",
+        "ci": "run-p checks test:e2e test:unit && npm run test:coverage",
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
         "pre:push": "run-s lint:fix typecheck",
@@ -25,6 +25,7 @@
         "test:e2e": "playwright test",
         "test:unit": "vitest",
         "test": "run-p -c test:*",
+        "test:coverage": "tsx tests/merged-coverage.ts",
         "pre:commit": "npx lint-staged"
     },
     "dependencies": {
@@ -95,6 +96,7 @@
         "husky": "^9.1.7",
         "kysely-codegen": "^0.17.0",
         "lint-staged": "^15.3.0",
+        "monocart-reporter": "^2.9.13",
         "next-router-mock": "^0.9.13",
         "npm-run-all": "*",
         "pg-transactional-tests": "^1.2.0",
@@ -102,6 +104,7 @@
         "tsx": "^4.19.2",
         "typescript-eslint": "^8.19.1",
         "vite-tsconfig-paths": "^5.1.4",
-        "vitest": "*"
+        "vitest": "*",
+        "vitest-monocart-coverage": "^2.1.3"
     }
 }
