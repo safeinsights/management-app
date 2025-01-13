@@ -63,9 +63,9 @@ test.describe('app', () => {
         // await page.setInputFiles('input[type="file"]', invalidFileType)
         // await expect(page.getByText('File type must be .zip')).toBeVisible()
 
-        // Test file size limit
-        const largeFile = 'tests/fixtures/temp/large-file.zip'
-        await page.setInputFiles('input[type="file"]', largeFile)
-        await expect(page.getByText('File size cannot exceed')).toBeVisible()
+        // Test file size limit (Commenting out for now, we will likely test this on the flya as to not bog down the repo)
+        // const largeFile = 'tests/fixtures/temp/large-file.zip'
+        // await page.setInputFiles('input[type="file"]', largeFile)
+        // await expect(page.getByText('File size cannot exceed')).toBeVisible()
     })
 })

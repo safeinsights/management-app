@@ -17,3 +17,4 @@ package-lock.json
 coverage/
 playwright-report/
 src/styles/generated
+./tests/fixtures/temp/large-file
