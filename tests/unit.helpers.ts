@@ -1,30 +1,13 @@
-import { type Page } from '@playwright/test'
 import { BLANK_UUID, db } from '@/database'
-import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import jwt from 'jsonwebtoken'
-import { headers } from 'next/headers'
+import { headers } from 'next/headers.js'
+import { readTestSupportFile } from './common.helpers'
 
-type VisitClerkProtectedPageOptions = { url: string; role: 'researcher'; page: Page }
-export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtectedPageOptions) => {
-    await setupClerkTestingToken({ page })
-    await page.goto(url)
-
-    await clerk.signIn({
-        page,
-        signInParams: {
-            strategy: 'password',
-            identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
-            password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
-        },
-    })
-}
-
-export const readTestSupportFile = (file: string) => {
-    return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
-}
+export * from './common.helpers'
+export { fs, path }
 
 export const insertTestStudyData = async (opts: { memberId: string }) => {
     const study = await db

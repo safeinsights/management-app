@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember, readTestSupportFile } from '@/tests/helpers'
+import { insertTestStudyData, mockApiMember, readTestSupportFile } from '@/tests/unit.helpers'
 import { uuidToB64 } from '@/lib/uuid'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
