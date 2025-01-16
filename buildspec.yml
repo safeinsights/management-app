@@ -8,8 +8,8 @@ env:
 
 phases:
     install:
-    runtime-versions:
-      nodejs: 22
+        runtime-versions:
+            nodejs: 22
 
     pre_build:
         commands:
