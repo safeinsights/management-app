@@ -10,6 +10,8 @@ phases:
     install:
         runtime-versions:
             nodejs: 22
+        commands:
+            - npm install -g npm
 
     pre_build:
         commands:
