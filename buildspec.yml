@@ -7,9 +7,14 @@ env:
         ECR_REPO_NAME: mgmt-app/r/sample-cicd-container
 
 phases:
+    install:
+    runtime-versions:
+      nodejs: 22
+
     pre_build:
         commands:
-            - npm install -g npm
+            - node --version
+            - npm --version
             - npm install
 
     build:
