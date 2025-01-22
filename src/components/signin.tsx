@@ -1,6 +1,6 @@
 'use client'
 
-import { reportError } from './errors'
+import { isClerkApiError, reportError } from './errors'
 import { Anchor, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Paper } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -43,12 +43,13 @@ export function SignIn() {
                 await setActive({ session: attempt.createdSessionId })
                 router.push('/')
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             reportError(err, 'failed signin')
-
-            const emailError = err.errors?.find((error: any) => error.meta?.paramName === 'email_address')
-            if (emailError) {
-                form.setFieldError('email', emailError.longMessage)
+            if (isClerkApiError(err)) {
+                const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
+                if (emailError) {
+                    form.setFieldError('email', emailError.longMessage)
+                }
             }
         }
     })

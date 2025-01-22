@@ -9,9 +9,12 @@ const schema = z.object({
     status: z.enum(['RESULTS-REJECTED', 'RUNNING', 'ERRORED', 'RESULTS-REVIEW']),
 })
 
-const handler = async (req: Request, { params: { runId } }: { params: { runId: string } }) => {
+const handler = async (req: Request, { params }: { params: Promise<{ runId: string }> }) => {
     const member = requestingMember()
-
+    const { runId } = await params
+    if (!runId || !member) {
+        return new NextResponse('Unauthorized', { status: 401 })
+    }
     const wasFound = db
         .selectFrom('studyRun')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyRun.studyId').on('memberId', '=', member.id))

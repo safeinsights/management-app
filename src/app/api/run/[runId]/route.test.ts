@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember } from '@/tests/helpers'
+import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
 import { db } from '@/database'
 
 test('updating status', async () => {
@@ -12,7 +12,7 @@ test('updating status', async () => {
         body: JSON.stringify({ status: 'RUNNING' }),
     })
 
-    const resp = await apiHandler.PUT(req, { params: { runId: runIds[0] } })
+    const resp = await apiHandler.PUT(req, { params: Promise.resolve({ runId: runIds[0] }) })
     expect(resp.ok).toBe(true)
 
     const sr = await db.selectFrom('studyRun').select('status').where('id', '=', runIds[0]).executeTakeFirstOrThrow()

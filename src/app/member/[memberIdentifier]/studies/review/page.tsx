@@ -9,11 +9,11 @@ import { studyRowStyle, studyStatusStyle, studyTitleStyle } from './styles.css'
 import { humanizeStatus } from '@/lib/status'
 export const dynamic = 'force-dynamic'
 
-export default async function StudyReviewPage({
-    params: { memberIdentifier },
-}: {
-    params: { memberIdentifier: string }
-}) {
+export default async function StudyReviewPage(props: { params: Promise<{ memberIdentifier: string }> }) {
+    const params = await props.params
+
+    const { memberIdentifier } = params
+
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
@@ -46,7 +46,7 @@ export default async function StudyReviewPage({
                                 <p>{study.piName}</p>
                                 <p className={studyStatusStyle}>{humanizeStatus(study.status)}</p>
                                 <Link href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/review`}>
-                                    <Anchor>Proceed to review ≫</Anchor>
+                                    <Anchor component="span">Proceed to review ≫</Anchor>
                                 </Link>
                             </li>
                         ))}

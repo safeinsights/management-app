@@ -3,7 +3,7 @@ FROM node:22-bookworm AS base
 WORKDIR /app
 
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json panda.config.ts ./
 
 RUN npm install
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember } from '@/tests/helpers'
+import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
 import fs from 'fs'
 import path from 'path'
 import { db } from '@/database'
@@ -22,7 +22,7 @@ test('handling upload', async () => {
 
     const { runIds, studyId } = await insertTestStudyData({ memberId: member.id })
 
-    const resp = await apiHandler.POST(req, { params: { runId: runIds[0] } })
+    const resp = await apiHandler.POST(req, { params: Promise.resolve({ runId: runIds[0] }) })
 
     expect(resp.ok).toBe(true)
 

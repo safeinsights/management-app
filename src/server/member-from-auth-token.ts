@@ -1,13 +1,11 @@
-import { headers as headersList } from 'next/headers'
+import { headers } from 'next/headers'
 
 import { type Member } from '@/lib/types'
 import jwt from 'jsonwebtoken'
 import { getMemberFromIdentifier } from './members'
 
 export const memberFromAuthToken = async (): Promise<Member | null> => {
-    const headers = headersList()
-
-    const authHeader = headers.get('Authorization') || ''
+    const authHeader = (await headers()).get('Authorization') || ''
 
     // Check if the Authorization header is present and well-formed
     if (!authHeader.startsWith('Bearer ')) {
@@ -36,7 +34,7 @@ export const memberFromAuthToken = async (): Promise<Member | null> => {
         }
 
         return member
-    } catch (error) {
+    } catch {
         return null
     }
 }

@@ -7,7 +7,8 @@ import { getMemberFromIdentifier } from '@/server/members'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MemberHome({ params }: { params: { memberIdentifier: string } }) {
+export default async function MemberHome(props: { params: Promise<{ memberIdentifier: string }> }) {
+    const params = await props.params
     const member = await getMemberFromIdentifier(params.memberIdentifier)
     if (!member) {
         return (
