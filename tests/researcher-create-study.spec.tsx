@@ -1,7 +1,6 @@
 import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 
 test.describe('app', () => {
-
     const testTitle = 'A E2E Test Study'
 
     test.beforeEach('researcher creates a study', async ({ page }) => {
@@ -19,10 +18,7 @@ test.describe('app', () => {
         await expect(page.getByText('containerize and upload')).toBeVisible()
     })
 
-
     test('validate file upload', async ({ page }) => {
-
-
         //TODO: Test that will validate the upload without a main.r file
         //Test upload without main.r file
         // const missingMainFile = 'tests/fixtures/temp/study-no-main.zip'
@@ -35,7 +31,6 @@ test.describe('app', () => {
 
         // Wait for upload success message
         await expect(page.getByText('All files were uploaded successfully')).toBeVisible()
-
 
         // // Verify main.r was detected
         // await expect(page.getByText('main.r detected')).toBeVisible()
@@ -51,9 +46,7 @@ test.describe('app', () => {
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
     })
 
-
     test.afterEach('researcher creates a study', async ({ page }) => {
-
         await page.getByRole('button', { name: /next/i }).click()
 
         await expect(page.getByTestId('study-title')).toHaveValue(testTitle)
@@ -66,6 +59,5 @@ test.describe('app', () => {
         await page.waitForLoadState('networkidle')
 
         await expect(page.getByText(testTitle).first()).toBeVisible()
-
     })
 })
