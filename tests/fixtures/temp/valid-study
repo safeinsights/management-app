@@ -1,0 +1,40 @@
+{
+  "id": "study_123",
+  "name": "Cognitive Performance in Remote Work Environments",
+  "description": "A comprehensive study examining cognitive performance and productivity of remote workers across different home office setups",
+  "createdAt": "2025-01-13T09:57:15-06:00",
+  "researcherId": "researcher_456",
+  "status": "draft",
+  "protocol": {
+    "title": "Remote Work Cognitive Performance Assessment",
+    "version": "1.0",
+    "objectives": [
+      "Measure cognitive performance in different home office configurations",
+      "Analyze productivity metrics for remote workers"
+    ],
+    "inclusionCriteria": [
+      "Full-time remote workers",
+      "Ages 25-55",
+      "Minimum 1 year of remote work experience"
+    ],
+    "exclusionCriteria": [
+      "Individuals with pre-existing cognitive disorders",
+      "Part-time or hybrid workers"
+    ]
+  },
+  "metadata": {
+    "estimatedParticipants": 250,
+    "estimatedDuration": "3 months",
+    "ethicsApproval": {
+      "status": "pending",
+      "approvalBody": "University IRB"
+    }
+  },
+  "contacts": {
+    "principalInvestigator": {
+      "name": "Dr. Emily Rodriguez",
+      "email": "e.rodriguez@researchinstitute.org",
+      "institution": "Advanced Workplace Research Center"
+    }
+  }
+}
