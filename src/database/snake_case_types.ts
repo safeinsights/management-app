@@ -50,6 +50,7 @@ export interface Study {
 }
 
 export interface StudyRun {
+    code_path: string | null
     completed_at: Timestamp | null
     created_at: Generated<Timestamp>
     file_count: number | null
