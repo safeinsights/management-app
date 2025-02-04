@@ -33,13 +33,13 @@ Other useful commands:
 
 For developing locally without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
-Otherwise you can use Docker compose to run the app and a postgresql database by using:
+Otherwise, you can use Docker compose to run the app and a postgresql database by using:
 
 `docker compose up`
 
 Other useful commands:
 
-- `docker compose build` will rebuild the docker image, needs to be ran after packages are installed
+- `docker compose build` will rebuild the docker image, needs to be run after packages are installed
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
@@ -52,7 +52,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ### Enclave API Routes
 
-- Api routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
+- Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
 
 To generate a public private key you can run:
 
@@ -91,7 +91,7 @@ There are a few CLI applications to debug the API end endpoints:
 - npx tsx bin/debug/set-status.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -s <status: RUNNING | ERRORED> -r <uuid of run>
 - npx tsx bin/debug/upload-results.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -r <uuid of run> -f <path to file to upload as results>
 
-**Currently** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behaviour: it's likely we'll not allow it in later versions.
+**Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behaviour: it's likely we'll not allow it in later versions.
 
 ### Testing with Playwright
 
