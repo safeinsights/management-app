@@ -50,6 +50,7 @@ export interface Study {
 }
 
 export interface StudyRun {
+    codePath: string | null
     completedAt: Timestamp | null
     createdAt: Generated<Timestamp>
     fileCount: number | null
