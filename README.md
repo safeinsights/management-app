@@ -31,7 +31,7 @@ Other useful commands:
 
 ### Getting Started - Local Setup
 
-For developing locally without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
+For local development without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
 Otherwise you can use Docker compose to run the app and a postgresql database by using:
 
@@ -52,7 +52,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ### Enclave API Routes
 
-- API routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
+- Api routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
 
 To generate a public private key you can run:
 
@@ -77,7 +77,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ### Suggested Way of Deploying Lambda Functions (for future)
 
-The new way to deploy is from the IaC repository, run:
+The new way to deploy is from the IaC repo, run:
 
 ```bash
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
