@@ -77,7 +77,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ### Suggested Way of Deploying Lambda Functions (for future)
 
-The new way to deploy is from the IaC repo, run:
+The new way to deploy is from the IaC repoository, run:
 
 ```bash
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
