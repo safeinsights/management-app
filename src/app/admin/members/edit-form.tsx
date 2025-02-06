@@ -5,8 +5,9 @@ import { Button, Modal, TextInput, Textarea } from '@mantine/core'
 import { insertMemberAction, updateMemberAction } from './actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver, schema, ValidatedMember, NewMember, Member } from './schema'
+import { FC } from 'react'
 
-export const EditMemberForm: React.FC<{ member: Member | NewMember; onComplete: () => void }> = ({
+export const EditMemberForm: FC<{ member: Member | NewMember; onComplete: () => void }> = ({
     member,
     onComplete,
 }) => {
@@ -82,7 +83,7 @@ export const EditModal: React.FC<{ editing: Member | NewMember | null; onComplet
     onComplete,
 }) => {
     return (
-        <Modal opened={!!editing} onClose={onComplete} title={editing ? 'Edit Member' : 'Add new Member'}>
+        <Modal opened={!!editing} onClose={onComplete} title={editing ? 'Edit Member' : 'Add new Member'} closeOnClickOutside={false}>
             {editing && <EditMemberForm member={editing} onComplete={onComplete} />}
         </Modal>
     )

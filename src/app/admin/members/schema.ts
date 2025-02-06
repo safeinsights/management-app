@@ -19,7 +19,6 @@ export const NEW_MEMBER: NewMember = {
     email: '',
     publicKey: '',
 }
-Object.freeze(NEW_MEMBER)
 
 export type Member = Selectable<DefinedMember>
 
