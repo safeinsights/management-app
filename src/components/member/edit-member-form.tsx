@@ -4,10 +4,13 @@ import { useForm } from '@mantine/form'
 import { Button, Textarea, TextInput } from '@mantine/core'
 import { upsertMemberAction } from '@/server/actions/member-actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Member, memberSchema, ValidatedMember, zodResolver } from '@/schema/member'
+import { Member, memberSchema, NewMember, ValidatedMember, zodResolver } from '@/schema/member'
 import { FC } from 'react'
 
-export const EditMemberForm: FC<{ member: Member; onCompleteAction?: () => void }> = ({ member, onCompleteAction }) => {
+export const EditMemberForm: FC<{ member: Member | NewMember; onCompleteAction?: () => void }> = ({
+    member,
+    onCompleteAction,
+}) => {
     const form = useForm<ValidatedMember>({
         validate: zodResolver(memberSchema),
         initialValues: member,
@@ -18,7 +21,6 @@ export const EditMemberForm: FC<{ member: Member; onCompleteAction?: () => void 
     const { isPending, mutate: upsertMember } = useMutation({
         mutationFn: async (data: ValidatedMember) => {
             return await upsertMemberAction(data)
-            // return await (member.createdAt ? updateMemberAction(member.identifier, data) : insertMemberAction(data))
         },
         onSettled: async () => {
             const result = await queryClient.invalidateQueries({ queryKey: ['members'] })
@@ -35,7 +37,7 @@ export const EditMemberForm: FC<{ member: Member; onCompleteAction?: () => void 
                 data-autofocus
                 name="identifier"
                 key={form.key('identifier')}
-                disabled={!!member.id}
+                disabled={'id' in member && !!member.id}
                 {...form.getInputProps('identifier')}
                 required
             />

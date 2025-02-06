@@ -21,8 +21,6 @@ export function MembersAdminTable() {
         },
     })
 
-    console.log('data: ', data);
-
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
         columnAccessor: 'name',
         direction: 'desc',
@@ -55,9 +53,7 @@ export function MembersAdminTable() {
                         width: 80,
                         textAlign: 'center',
                         title: <Box mr={6}>Edit</Box>,
-                        render: (member) => (
-                            <MemberRow member={member} />
-                        ),
+                        render: (member) => <MemberRow member={member} />,
                     },
                 ]}
             />

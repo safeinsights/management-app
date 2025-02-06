@@ -32,10 +32,5 @@ export const deleteMemberAction = async (identifier: string) => {
 }
 
 export const getMemberFromIdentifier = async (identifier: string): Promise<Member | undefined> => {
-    return await db
-        .selectFrom('member')
-        .selectAll()
-        .where('identifier', '=', identifier)
-        .executeTakeFirst()
+    return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
 }
-

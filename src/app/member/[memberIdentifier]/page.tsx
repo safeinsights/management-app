@@ -11,7 +11,6 @@ export default async function ManageMemberPage(props: { params: Promise<{ member
 
     const { memberIdentifier } = params
 
-    // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
         // TODO Redirect here with a mantine notification? generic 404 page?
@@ -22,7 +21,7 @@ export default async function ManageMemberPage(props: { params: Promise<{ member
         <Paper m="xl" shadow="xs" p="xl">
             <Title mb="lg">Manage {member.name} details</Title>
             <Flex direction="column" gap="lg">
-                <EditMemberForm member={member}  />
+                <EditMemberForm member={member} />
             </Flex>
         </Paper>
     )
