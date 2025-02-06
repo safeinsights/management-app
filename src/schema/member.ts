@@ -4,14 +4,14 @@ import { Member as DefinedMember } from '@/database/types'
 
 export { zodResolver } from 'mantine-form-zod-resolver'
 
-export const schema = z.object({
+export const memberSchema = z.object({
     identifier: z.string().regex(/^[a-z][a-z\-]*[a-z]$/, { message: 'Invalid identifier, all lowercase, only dashes' }),
     name: z.string().min(1, { message: 'Name must be provided' }),
     email: z.string().email({ message: 'Invalid email address' }),
     publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
 })
 
-export type ValidatedMember = z.infer<typeof schema>
+export type ValidatedMember = z.infer<typeof memberSchema>
 
 export const NEW_MEMBER: NewMember = {
     identifier: '',

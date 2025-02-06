@@ -2,17 +2,17 @@
 
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
-import { useEffect, useState } from 'react'
-import { fetchMembersAction, deleteMemberAction } from './actions'
-import { type Member, type NewMember, NEW_MEMBER } from './schema'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { FC, useEffect, useState } from 'react'
+import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member-actions'
+import { type Member, NEW_MEMBER } from '@/schema/member'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-react'
-import { Button, Flex, Box, Group, ActionIcon } from '@mantine/core'
-import { EditModal } from './edit-form'
+import { ActionIcon, Box, Button, Flex, Group, Modal } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
+import { useDisclosure } from '@mantine/hooks'
+import { EditMemberForm } from '@/components/member/edit-member-form'
 
 export function MembersAdminTable() {
-    const queryClient = useQueryClient()
     const { data } = useQuery({
         queryKey: ['members'],
         initialData: [] as Member[],
@@ -20,14 +20,8 @@ export function MembersAdminTable() {
             return fetchMembersAction()
         },
     })
-    const { mutate: deleteMember } = useMutation({
-        mutationFn: deleteMemberAction,
-        onSettled: async () => {
-            return await queryClient.invalidateQueries({ queryKey: ['members'] })
-        },
-    })
 
-    const [editing, setEditing] = useState<Member | NewMember | null>(null)
+    console.log('data: ', data);
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
         columnAccessor: 'name',
@@ -40,10 +34,6 @@ export function MembersAdminTable() {
         const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Member))
         setMembers(sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers)
     }, [sortStatus, data])
-
-    const onEditComplete = () => {
-        setEditing(null)
-    }
 
     return (
         <Flex direction={'column'}>
@@ -66,23 +56,52 @@ export function MembersAdminTable() {
                         textAlign: 'center',
                         title: <Box mr={6}>Edit</Box>,
                         render: (member) => (
-                            <Group gap={4} justify="center" wrap="nowrap">
-                                <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => setEditing(member)}>
-                                    <IconEdit size={18} />
-                                </ActionIcon>
-                                <SuretyGuard onConfirmed={() => deleteMember(member.identifier)}>
-                                    <IconTrash size={18} />
-                                </SuretyGuard>
-                            </Group>
+                            <MemberRow member={member} />
                         ),
                     },
                 ]}
             />
 
-            <EditModal editing={editing} onComplete={onEditComplete} />
-            <Flex justify={'end'} mt="lg">
-                <Button onClick={() => setEditing(NEW_MEMBER)}>Add new Member</Button>
-            </Flex>
+            <AddMember />
         </Flex>
+    )
+}
+
+const AddMember: FC = () => {
+    const [opened, { open, close }] = useDisclosure(false)
+
+    return (
+        <Flex justify={'end'} mt="lg">
+            <Modal opened={opened} onClose={close} title={`Add Member`} closeOnClickOutside={false}>
+                <EditMemberForm member={NEW_MEMBER} onCompleteAction={close} />
+            </Modal>
+            <Button onClick={open}>Add new Member</Button>
+        </Flex>
+    )
+}
+
+const MemberRow: FC<{ member: Member }> = ({ member }) => {
+    const queryClient = useQueryClient()
+    const [opened, { open, close }] = useDisclosure(false)
+
+    const { mutate: deleteMember } = useMutation({
+        mutationFn: deleteMemberAction,
+        onSettled: async () => {
+            return await queryClient.invalidateQueries({ queryKey: ['members'] })
+        },
+    })
+
+    return (
+        <Group gap={4} justify="center" wrap="nowrap">
+            <Modal opened={opened} onClose={close} title={`Edit ${member.name}`} closeOnClickOutside={false}>
+                <EditMemberForm member={member} onCompleteAction={close} />
+            </Modal>
+            <ActionIcon size="sm" variant="subtle" color="blue" onClick={open}>
+                <IconEdit size={18} />
+            </ActionIcon>
+            <SuretyGuard onConfirmed={() => deleteMember(member.identifier)}>
+                <IconTrash size={18} />
+            </SuretyGuard>
+        </Group>
     )
 }

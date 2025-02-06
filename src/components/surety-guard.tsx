@@ -1,6 +1,7 @@
 import { Button, Popover, ActionIcon, Text, Flex } from '@mantine/core'
 import { IconTrash } from '@tabler/icons-react'
 
+// TODO Mantine does provide a confirm modal https://mantine.dev/x/modals/#confirm-modal
 export const SuretyGuard: React.FC<{ children?: React.ReactNode; message?: string; onConfirmed: () => void }> = ({
     message,
     children,

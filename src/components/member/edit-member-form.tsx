@@ -1,18 +1,15 @@
 'use client'
 
 import { useForm } from '@mantine/form'
-import { Button, Modal, TextInput, Textarea } from '@mantine/core'
-import { insertMemberAction, updateMemberAction } from './actions'
+import { Button, Textarea, TextInput } from '@mantine/core'
+import { upsertMemberAction } from '@/server/actions/member-actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { zodResolver, schema, ValidatedMember, NewMember, Member } from './schema'
+import { Member, memberSchema, ValidatedMember, zodResolver } from '@/schema/member'
 import { FC } from 'react'
 
-export const EditMemberForm: FC<{ member: Member | NewMember; onComplete: () => void }> = ({
-    member,
-    onComplete,
-}) => {
+export const EditMemberForm: FC<{ member: Member; onCompleteAction?: () => void }> = ({ member, onCompleteAction }) => {
     const form = useForm<ValidatedMember>({
-        validate: zodResolver(schema),
+        validate: zodResolver(memberSchema),
         initialValues: member,
     })
 
@@ -20,11 +17,12 @@ export const EditMemberForm: FC<{ member: Member | NewMember; onComplete: () => 
 
     const { isPending, mutate: upsertMember } = useMutation({
         mutationFn: async (data: ValidatedMember) => {
-            return await (member.createdAt ? updateMemberAction(member.identifier, data) : insertMemberAction(data))
+            return await upsertMemberAction(data)
+            // return await (member.createdAt ? updateMemberAction(member.identifier, data) : insertMemberAction(data))
         },
         onSettled: async () => {
             const result = await queryClient.invalidateQueries({ queryKey: ['members'] })
-            onComplete()
+            onCompleteAction?.()
             return result
         },
     })
@@ -37,6 +35,7 @@ export const EditMemberForm: FC<{ member: Member | NewMember; onComplete: () => 
                 data-autofocus
                 name="identifier"
                 key={form.key('identifier')}
+                disabled={!!member.id}
                 {...form.getInputProps('identifier')}
                 required
             />
@@ -75,16 +74,5 @@ export const EditMemberForm: FC<{ member: Member | NewMember; onComplete: () => 
                 Submit
             </Button>
         </form>
-    )
-}
-
-export const EditModal: React.FC<{ editing: Member | NewMember | null; onComplete: () => void }> = ({
-    editing,
-    onComplete,
-}) => {
-    return (
-        <Modal opened={!!editing} onClose={onComplete} title={editing ? 'Edit Member' : 'Add new Member'} closeOnClickOutside={false}>
-            {editing && <EditMemberForm member={editing} onComplete={onComplete} />}
-        </Modal>
     )
 }
