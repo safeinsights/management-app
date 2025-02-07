@@ -64,14 +64,15 @@ describe('ManageMemberPage', () => {
 
         const { container } = renderWithProviders(await ManageMemberPage(props))
 
-        // Check if form inputs are populated with member data
-        const inputs = container.querySelectorAll('input')
-        const inputValues = Array.from(inputs).map((input: HTMLInputElement) => input.value)
+        const identifier = container.querySelector('input[name="identifier"]') as HTMLInputElement
+        const name = container.querySelector('input[name="name"]') as HTMLInputElement
+        const email = container.querySelector('input[name="email"]') as HTMLInputElement
+        const publicKey = container.querySelector('textarea[name="publicKey"]') as HTMLInputElement
 
-        expect(inputValues).toContain(mockMember.identifier)
-        expect(inputValues).toContain(mockMember.name)
-        expect(inputValues).toContain(mockMember.email)
-        expect(inputValues).toContain(mockMember.publicKey)
+        expect(identifier.value).toBe(mockMember.identifier)
+        expect(name.value).toBe(mockMember.name)
+        expect(email.value).toBe(mockMember.email)
+        expect(publicKey.value).toBe(mockMember.publicKey)
     })
 
     it('calls getMemberFromIdentifier with correct identifier', async () => {

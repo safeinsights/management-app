@@ -28,7 +28,7 @@ type Props = {
     children: React.ReactNode
 }
 
-function getQueryClient() {
+export function getQueryClient() {
     if (isServer) {
         // Server: always make a new query client
         return makeQueryClient()
