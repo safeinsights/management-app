@@ -26,7 +26,6 @@ import { useSignUp } from '@clerk/nextjs'
 import { ClerkAPIError } from '@clerk/types'
 
 interface SignUpFormValues {
-    email: string
     password: string
     confirmPassword: string
     firstName: string
@@ -154,15 +153,12 @@ export function SignUp() {
         initialValues: {
             firstName: '',
             lastName: '',
-            email: '',
             password: '',
             confirmPassword: '',
-            title: '',
             termsOfService: false,
         },
 
         validate: {
-            email: isEmail('Invalid email'),
             firstName: (value) => {
                 if (!value) return 'First name is required'
                 if (value.length < 2) return 'First name must be at least 2 characters'
@@ -204,7 +200,6 @@ export function SignUp() {
 
         try {
             await signUp.create({
-                emailAddress: values.email,
                 password: values.password,
                 firstName: values.firstName,
                 lastName: values.lastName,
@@ -241,26 +236,6 @@ export function SignUp() {
                         </Group>
                     </Paper>
                     <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                        <NativeSelect
-                            mt={20}
-                            key={form.key('title')}
-                            {...form.getInputProps('title')}
-                            label="Title"
-                            data={[
-                                '',
-                                'Dr.',
-                                'Prof.',
-                                'Rev.',
-                                'Hon.',
-                                'Mr.',
-                                'Mrs.',
-                                'Ms.',
-                                'Sir',
-                                'Dame',
-                                'Lord',
-                                'Lady',
-                            ]}
-                        />
                         <TextInput
                             mt={20}
                             key={form.key('firstName')}
@@ -278,16 +253,6 @@ export function SignUp() {
                             placeholder="Last Name"
                             aria-label="Last Name"
                             withAsterisk
-                        />
-                        <TextInput
-                            mt={20}
-                            //TODO: Pull in email from signup link
-                            // key={form.key('email')}
-                            // {...form.getInputProps('email')}
-                            label="Email"
-                            placeholder="Email address will be autopopulated from signup link"
-                            aria-label="Email"
-                            disabled
                         />
                         <Popover
                             opened={popoverOpened}
