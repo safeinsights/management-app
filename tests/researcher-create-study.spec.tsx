@@ -1,10 +1,10 @@
-import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
+import { visitClerkProtectedPage, test, expect, Role } from './e2e.helpers'
 
 test.describe('app', () => {
     const testTitle = 'A E2E Test Study'
 
     test.beforeEach('researcher creates a study', async ({ page }) => {
-        await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
+        await visitClerkProtectedPage({ page, role: Role.Researcher, url: '/' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
 
