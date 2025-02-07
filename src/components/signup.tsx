@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { reportError, isClerkApiError } from './errors'
+import { IconX, IconCheck } from '@tabler/icons-react'
 import {
     Anchor,
     Button,
@@ -14,6 +15,10 @@ import {
     Paper,
     CloseButton,
     Checkbox,
+    Container,
+    NativeSelect,
+    Progress,
+    Popover,
 } from '@mantine/core'
 import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -23,6 +28,10 @@ import { ClerkAPIError } from '@clerk/types'
 interface SignUpFormValues {
     email: string
     password: string
+    confirmPassword: string
+    firstName: string
+    lastName: string
+    title: string
     termsOfService: boolean
 }
 
@@ -100,20 +109,69 @@ const EmailVerificationStep = () => {
 }
 
 export function SignUp() {
+    //Password Validation/Confirmation
+    function PasswordRequirement({ meets, label }: { meets: boolean; label: string }) {
+        return (
+            <Text c={meets ? 'teal' : 'red'} style={{ display: 'flex', alignItems: 'center' }} mt={7} size="sm">
+                {meets ? <IconCheck size={14} /> : <IconX size={14} />}
+                <span style={{ marginLeft: 10 }}>{label}</span>
+            </Text>
+        )
+    }
+    function getStrength(password: string) {
+        let multiplier = password.length > 5 ? 0 : 1
+
+        requirements.forEach((requirement) => {
+            if (!requirement.re.test(password)) {
+                multiplier += 1
+            }
+        })
+
+        return Math.max(100 - (100 / (requirements.length + 1)) * multiplier, 10)
+    }
+
+    const requirements = [
+        { re: /[0-9]/, label: 'Includes number' },
+        { re: /[a-z]/, label: 'Includes lowercase letter' },
+        { re: /[A-Z]/, label: 'Includes uppercase letter' },
+        { re: /[$&+,:;=?@#|'<>.^*()%!-]/, label: 'Includes special character' },
+    ]
+
+    const [popoverOpened, setPopoverOpened] = useState(false)
+    const [value, setValue] = useState('')
+    const checks = requirements.map((requirement, index) => (
+        <PasswordRequirement key={index} label={requirement.label} meets={requirement.re.test(value)} />
+    ))
+
+    const strength = getStrength(value)
+    const color = strength === 100 ? 'teal' : strength > 50 ? 'yellow' : 'red'
+
     const { isLoaded, signUp } = useSignUp()
     const [verifying, setVerifying] = useState(false)
     const router = useRouter()
 
     const form = useForm<SignUpFormValues>({
         initialValues: {
+            firstName: '',
+            lastName: '',
             email: '',
             password: '',
+            confirmPassword: '',
+            title: '',
             termsOfService: false,
         },
 
         validate: {
             email: isEmail('Invalid email'),
-            password: isNotEmpty('Required'),
+            firstName: isNotEmpty('First name is required'),
+            lastName: isNotEmpty('Last Name is required'),
+            password: isNotEmpty('Password is required'),
+            confirmPassword: (value, allValues) => {
+                if (value !== allValues.password) {
+                    return 'Passwords do not match'
+                }
+                return null
+            },
             termsOfService: isNotEmpty('You must accept terms of use'),
         },
     })
@@ -138,6 +196,12 @@ export function SignUp() {
             await signUp.create({
                 emailAddress: values.email,
                 password: values.password,
+                firstName: values.firstName,
+                lastName: values.lastName,
+                /* TODO:a custom 'Title' field will need to be enabled in clerk
+                customAttributes: {
+                    title: values.title,
+                },*/
             })
 
             await signUp.prepareEmailAddressVerification({
@@ -157,44 +221,117 @@ export function SignUp() {
     }
 
     return (
-        <Stack>
-            <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                    <Group justify="space-between" gap="xl">
-                        <Text ta="left">Sign up to SafeInsights</Text>
-                        <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
-                    </Group>
-                </Paper>
-                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <TextInput
-                        key={form.key('email')}
-                        {...form.getInputProps('email')}
-                        label="Email"
-                        placeholder="Email address"
-                        aria-label="Email"
-                    />
-                    <PasswordInput
-                        withAsterisk
-                        key={form.key('password')}
-                        {...form.getInputProps('password')}
-                        mt={10}
-                        placeholder="Password"
-                        aria-label="Password"
-                    />
-                    <Checkbox
-                        mt="md"
-                        label="I agree to the terms of service"
-                        key={form.key('termsOfService')}
-                        {...form.getInputProps('termsOfService', {
-                            type: 'checkbox',
-                        })}
-                    />
-                    <Stack align="center" mt={15}>
-                        <Button type="submit">Sign Up</Button>
-                        <Anchor href="/">Already have an account? Sign In</Anchor>
-                    </Stack>
-                </Paper>
-            </form>
-        </Stack>
+        <Container w="80%">
+            <Stack>
+                <form onSubmit={form.onSubmit((values) => onSubmit(values))}>
+                    <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
+                        <Group justify="space-between" gap="xl">
+                            <Text ta="left">Sign up to SafeInsights</Text>
+                            <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
+                        </Group>
+                    </Paper>
+                    <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
+                        <NativeSelect
+                            mt={20}
+                            key={form.key('title')}
+                            {...form.getInputProps('title')}
+                            label="Title"
+                            data={[
+                                '',
+                                'Dr.',
+                                'Prof.',
+                                'Rev.',
+                                'Hon.',
+                                'Mr.',
+                                'Mrs.',
+                                'Ms.',
+                                'Sir',
+                                'Dame',
+                                'Lord',
+                                'Lady',
+                            ]}
+                        />
+                        <TextInput
+                            mt={20}
+                            key={form.key('firstName')}
+                            {...form.getInputProps('firstName')}
+                            label="First Name"
+                            placeholder="First name"
+                            aria-label="First Name"
+                            withAsterisk
+                        />
+                        <TextInput
+                            mt={20}
+                            key={form.key('lastName')}
+                            {...form.getInputProps('lastName')}
+                            label="Last Name"
+                            placeholder="Last Name"
+                            aria-label="Last Name"
+                            withAsterisk
+                        />
+                        <TextInput
+                            mt={20}
+                            //TODO: Pull in email from signup link
+                            // key={form.key('email')}
+                            // {...form.getInputProps('email')}
+                            label="Email"
+                            placeholder="Email address will be autopopulated from signup link"
+                            aria-label="Email"
+                            disabled
+                        />
+                        <Popover
+                            opened={popoverOpened}
+                            position="bottom"
+                            width="target"
+                            transitionProps={{ transition: 'pop' }}
+                        >
+                            <Popover.Target>
+                                <div
+                                    onFocusCapture={() => setPopoverOpened(true)}
+                                    onBlurCapture={() => setPopoverOpened(false)}
+                                >
+                                    <PasswordInput
+                                        mt={20}
+                                        withAsterisk
+                                        key={form.key('password')}
+                                        {...form.getInputProps('password')}
+                                        label="Password"
+                                        placeholder="Password"
+                                        aria-label="Password"
+                                        value={value}
+                                        onChange={(event) => setValue(event.currentTarget.value)}
+                                    />
+                                </div>
+                            </Popover.Target>
+                            <Popover.Dropdown>
+                                <Progress color={color} value={strength} size={5} mb="xs" />
+                                <PasswordRequirement label="Includes at least 8 characters" meets={value.length > 8} />
+                                {checks}
+                            </Popover.Dropdown>
+                        </Popover>
+                        <PasswordInput
+                            label="Confirm Password"
+                            placeholder="Confirm Password"
+                            withAsterisk
+                            key={form.key('confirmPassword')}
+                            {...form.getInputProps('confirmPassword')}
+                            mt="md"
+                        />
+                        <Checkbox
+                            mt={20}
+                            label="I agree to the terms of service"
+                            key={form.key('termsOfService')}
+                            {...form.getInputProps('termsOfService', {
+                                type: 'checkbox',
+                            })}
+                        />
+                        <Stack align="center" mt={15}>
+                            <Button type="submit">Sign Up</Button>
+                            <Anchor href="/">Already have an account? Sign In</Anchor>
+                        </Stack>
+                    </Paper>
+                </form>
+            </Stack>
+        </Container>
     )
 }
