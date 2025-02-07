@@ -163,8 +163,18 @@ export function SignUp() {
 
         validate: {
             email: isEmail('Invalid email'),
-            firstName: isNotEmpty('First name is required'),
-            lastName: isNotEmpty('Last Name is required'),
+            firstName: (value) => {
+                if (!value) return 'First name is required';
+                if (value.length < 2) return 'First name must be at least 2 characters';
+                if (value.length > 100) return 'First name must be at most 100 characters';
+                return null;
+              },
+              lastName: (value) => {
+                if (!value) return 'Last name is required';
+                if (value.length < 2) return 'Last name must be at least 2 characters';
+                if (value.length > 100) return 'Last name must be at most 100 characters';
+                return null;
+              },
             password: isNotEmpty('Password is required'),
             confirmPassword: (value, allValues) => {
                 if (value !== allValues.password) {
