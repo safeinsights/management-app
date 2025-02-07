@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { FC, useState } from 'react'
 import {
     Table,
     Accordion,
@@ -21,14 +21,7 @@ import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { onStudyRunCreateAction } from './actions'
 import { PreviewCSVResultsBtn } from './results'
-
-export type Study = {
-    id: string
-    title: string
-    containerLocation: string
-    description: string
-    pendingRunId?: string
-}
+import { Study } from '@/schema/study'
 
 type RunsTableProps = {
     encodedStudyId: string
@@ -36,7 +29,7 @@ type RunsTableProps = {
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
+export const RunsTable: FC<RunsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
     const [openedRunId, setOpened] = useState<string | false>(false)
 
@@ -110,8 +103,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ isActive, study }) => {
     )
 }
 
-export { RunsTable }
-export const Panel: React.FC<{ studies: Study[]; encodedStudyId: string }> = ({ studies, encodedStudyId }) => {
+export const Panel: FC<{ studies: Study[]; encodedStudyId: string }> = ({ studies, encodedStudyId }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
 
     if (!studies.length) {

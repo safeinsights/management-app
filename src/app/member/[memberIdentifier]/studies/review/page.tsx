@@ -1,12 +1,13 @@
 import React from 'react'
-import { Alert, Flex, Paper, Title, Anchor } from '@mantine/core'
-import { db } from '@/database'
+import { Alert, Anchor, Flex, Paper, Title } from '@mantine/core'
 import Link from 'next/link'
 import { uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { studyRowStyle, studyStatusStyle, studyTitleStyle } from './styles.css'
 import { humanizeStatus } from '@/lib/status'
+import { fetchStudiesForMember } from '@/server/actions/study-actions'
+
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ memberIdentifier: string }> }) {
@@ -20,15 +21,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ memberI
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const studies = await db
-        .selectFrom('study')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
-        )
-        .orderBy('study.createdAt', 'desc')
-        .select(['study.id', 'piName', 'status', 'title'])
-        .where('study.status', '!=', 'INITIATED')
-        .execute()
+    const studies = await fetchStudiesForMember(memberIdentifier)
 
     return (
         <Paper m="xl" shadow="xs" p="xl">

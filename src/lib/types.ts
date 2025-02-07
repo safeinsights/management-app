@@ -1,4 +1,4 @@
-import type { StudyRunStatus, StudyStatus } from '../database/types'
+import type { StudyRunStatus, StudyStatus } from '@/database/types'
 
 export class AccessDeniedError extends Error {}
 
