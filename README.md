@@ -66,7 +66,7 @@ openssl rsa -pubout -in private_key.pem -out public_key.pem
 To learn more about NextJS, take a look at the following resources:
 
 - [NextJS Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Learn NextJS](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
