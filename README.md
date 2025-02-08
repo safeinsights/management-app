@@ -52,7 +52,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ### Enclave API Routes
 
-- API routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
+- API routes are protected by an authorization header containing a JWT Bearer which is signed with a RSA private key held be the member. The public key is stored in the members record which is accessed at the admin page at /admin/members
 
 To generate a public private key you can run:
 
