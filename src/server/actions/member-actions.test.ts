@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { db } from '@/database'
 import { Member } from '@/schema/member'
-import { upsertMemberAction, fetchMembersAction, deleteMemberAction, getMemberFromIdentifier } from './member-actions'
+import { deleteMemberAction, fetchMembersAction, getMemberFromIdentifier, upsertMemberAction } from './member-actions'
 
 // Mock the database
 vi.mock('@/database', () => ({
