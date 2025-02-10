@@ -15,14 +15,22 @@ function guessLanguage(filePath: string) {
     return filePath.substring(lastDotPosition + 1) || ''
 }
 
-export function DisplayFile({ run, path, manifest }: { run: MinimalRunInfo; path?: string; manifest: CodeManifest }) {
+export function DisplayFile({
+    runInfo,
+    path,
+    manifest,
+}: {
+    runInfo: MinimalRunInfo
+    path?: string
+    manifest: CodeManifest
+}) {
     const [displaying, setDisplaying] = useState('')
     const [html, setHtml] = useState('')
 
     const { data: sourceCode, isLoading } = useQuery({
         queryKey: ['code-file', displaying],
         enabled: !!displaying,
-        queryFn: () => fetchFileAction(run, displaying),
+        queryFn: () => fetchFileAction(runInfo, displaying),
     })
 
     useEffect(() => {

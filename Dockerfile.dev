@@ -16,12 +16,12 @@ RUN npx playwright install-deps
 # Uncomment the following line to disable telemetry at run time
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# for deploting the build version
+# for deploying the build version
 
 # RUN bun next build
 # and
 # CMD bun next start
 
-# OR for sart Next.js in development, comment above two lines and uncomment below line
+# OR starting Next.js in development, comment above two lines and uncomment below line
 
 CMD ["./bin/docker-dev-init"]
