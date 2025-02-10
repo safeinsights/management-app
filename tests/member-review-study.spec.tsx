@@ -28,7 +28,7 @@ test.describe('BMA member review', () => {
         await expect(page).toHaveTitle(/SafeInsights/)
     })
 
-    test('member reviews a study', async ({ page }) => {
+    test('member reviews a study main code file', async ({ page }) => {
         await visitClerkProtectedPage({ page, role: Role.Member, url: '/' })
         await page.getByRole('button', { name: /review studies/i }).click()
         await page.locator('li').filter({ hasText: studyTitle }).getByRole('link').click()
