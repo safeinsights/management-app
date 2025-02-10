@@ -23,7 +23,7 @@ export type CollectV8CodeCoverageOptions = {
 
 export const enum Role {
     Member = 'MEMBER',
-    Researcher = 'RESEARCHER'
+    Researcher = 'RESEARCHER',
 }
 
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {

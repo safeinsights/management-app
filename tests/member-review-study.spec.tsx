@@ -1,7 +1,7 @@
 import { visitClerkProtectedPage, test, expect, Role } from './e2e.helpers'
 
 test.describe('BMA member review', () => {
-    const studyTitle = `E2E Member review - ${ [...Array(6)].map(() => Math.floor(Math.random() * 16).toString(16)).join('') }`
+    const studyTitle = `E2E Member review - ${[...Array(6)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`
     const investigator = 'Principal Investigator'
     const studyDescription = 'A more complete study description'
     const mainR = 'tests/fixtures/temp/main.r'
