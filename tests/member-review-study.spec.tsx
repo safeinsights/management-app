@@ -4,7 +4,7 @@ test.describe('BMA member review', () => {
     const studyTitle = `E2E Member review - ${[...Array(6)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`
     const investigator = 'Principal Investigator'
     const studyDescription = 'A more complete study description'
-    const mainR = 'tests/fixtures/temp/main.r'
+    const mainR = 'tests/assets/main.r'
     const codeLine = 'print("Hello, Tester")'
 
     test.beforeEach(async ({ page }) => {
