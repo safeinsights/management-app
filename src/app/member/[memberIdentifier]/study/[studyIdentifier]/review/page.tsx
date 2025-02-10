@@ -4,7 +4,7 @@ import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getStudyAction } from './actions'
+import { getStudyAction } from '@/server/actions/study-actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{

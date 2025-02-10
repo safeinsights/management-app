@@ -1,7 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
 
-export type Nullable<T> = { [K in keyof T]: T[K] | null }
-
 type TimeOpts = { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
 
 export async function sleep(opts: TimeOpts): Promise<void> {

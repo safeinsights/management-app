@@ -11,3 +11,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
         .where('study.status', '!=', 'INITIATED')
         .execute()
 }
+
+export const getStudyAction = async (studyId: string) => {
+    return await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+}
