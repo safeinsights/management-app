@@ -38,12 +38,16 @@ const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_SLUG = 'openstax'
 const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 
+const ANON_ROUTES: Array<string> = ['/reset-password', '/signup']
+
+const MFA_ROUTE = '/account/mfa'
+
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware(async (auth, req) => {
     try {
-        const { userId, orgId, orgRole, orgSlug } = await auth()
+        const { userId, orgId, orgRole, orgSlug, sessionClaims } = await auth()
 
         if (!userId) {
             // Block unauthenticated access to protected routes
@@ -60,6 +64,7 @@ export default clerkMiddleware(async (auth, req) => {
         const userRoles = {
             isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
             isOpenStaxMember: orgSlug === OPENSTAX_ORG_SLUG,
+            hasMFA: !!sessionClaims?.hasMFA,
             get isMember() {
                 return this.isOpenStaxMember && !this.isAdmin
             },
@@ -75,10 +80,15 @@ export default clerkMiddleware(async (auth, req) => {
         })
 
         // Handle authentication redirects
-        if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
+        if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             if (userId) {
                 return NextResponse.redirect(new URL('/', req.url))
             }
+        }
+
+        // if they don't have MFA and are not currently adding it, force them to do so
+        if (!userRoles.hasMFA && !req.nextUrl.pathname.startsWith(MFA_ROUTE)) {
+            return NextResponse.redirect(new URL('/account/mfa', req.url))
         }
 
         // Route protection
