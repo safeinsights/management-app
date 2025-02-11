@@ -75,7 +75,7 @@ To learn more about NextJS, take a look at the following resources:
 
 ### Suggested Way of Deploying Lambda Functions (for future)
 
-The new way to deploy is from the IaC repo, run:
+The new way to deploy is from the IaC repository, run:
 
 ```bash
 ./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
