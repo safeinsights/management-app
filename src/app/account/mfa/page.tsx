@@ -1,9 +1,9 @@
 'use client'
 
 import * as React from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useClerk, useUser } from '@clerk/nextjs'
 import Link from 'next/link'
-import { Button, Title } from '@mantine/core'
+import { Button, Flex, Title } from '@mantine/core'
 import { BackupCodeResource } from '@clerk/types'
 import { reportError } from '@/components/errors'
 
@@ -11,20 +11,12 @@ const HasMFA = () => {
     return (
         <div>
             <p>
-                You have successfully enabled TOTP on your account
+                You have successfully enabled MFA on your account
                 <Link href="/">
                     <Button>Return to homepage</Button>
                 </Link>
             </p>
         </div>
-    )
-}
-
-const EnableTotp = () => {
-    return (
-        <Link href="/account/mfa/add">
-            <Button>Add MFA Code</Button>
-        </Link>
     )
 }
 
@@ -71,6 +63,7 @@ export function GenerateBackupCodes() {
 }
 
 export default function ManageMFA() {
+    const { openUserProfile } = useClerk()
     const { isLoaded, user } = useUser()
     const [showNewCodes, setShowNewCodes] = React.useState(false)
 
@@ -87,7 +80,23 @@ export default function ManageMFA() {
             <Title>MFA is required</Title>
 
             <Title order={4}>In order to use SafeInsights, your account must have MFA enabled</Title>
-            <EnableTotp />
+
+            <Flex gap="md">
+                <Link href="/account/mfa/app">
+                    <Button>Add MFA vai Authenticator App</Button>
+                </Link>
+
+                {user.phoneNumbers.length ? (
+                    <Link href="/account/mfa/sms">
+                        <Button>Add MFA using SMS</Button>
+                    </Link>
+                ) : (
+                    <Flex>
+                        <p>You could use SMS MFA if you have a phone number entered on your account.</p>
+                        <Button onClick={() => openUserProfile()}>Open user profile to add a new phone number</Button>
+                    </Flex>
+                )}
+            </Flex>
 
             {/* Manage backup codes */}
             {user.backupCodeEnabled && user.twoFactorEnabled && (

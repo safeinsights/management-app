@@ -26,7 +26,7 @@ function AddTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateActi
                 setTOTP(totp)
             })
             .catch((err) => reportError(err, 'Error generating MFA'))
-    }, [])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <>
