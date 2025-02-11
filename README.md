@@ -73,14 +73,6 @@ To learn more about NextJS, take a look at the following resources:
 [https://dev.to/aws-builders/how-to-package-and-deploy-a-lambda-function-as-a-container-image-3d1a] How to package and deploy a Lambda function as a container image
 [https://docs.aws.amazon.com/cdk/v2/guide/serverless_example.html] Tutorial: Create a serverless Hello World application
 
-### Suggested Way of Deploying Lambda Functions (for future)
-
-The new way to deploy is from the IaC repository, run:
-
-```bash
-./bin/deploy-lambda -p <AWS CLI profile> -c <management app dir> -a managementApp
-```
-
 ### Troubleshooting/Notes
 
 There are a few CLI applications to debug the API end endpoints:
