@@ -6,30 +6,33 @@ const reporters: ReporterDescription[] = []
 if (process.argv.includes('--ui')) {
     reporters.push(['list'])
 } else {
-    reporters.push([
-        'monocart-reporter',
-        {
-            outputFile: path.resolve('./tmp/test-results/e2e/coverage.html'),
-            coverage: {
-                outputDir: path.resolve('./tmp/code-coverage/e2e'),
-                entryFilter: (entry: { url: string; source: string }) => {
-                    return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
-                },
-                sourceFilter: testsCoverageSourceFilter,
-                reports: [
-                    'raw',
-                    'v8',
-                    'console-summary',
-                    [
-                        'lcovonly',
-                        {
-                            file: 'lcov/code-coverage.lcov.info',
-                        },
+    reporters.push(
+        [
+            'monocart-reporter',
+            {
+                outputFile: path.resolve('./tmp/test-results/e2e/coverage.html'),
+                coverage: {
+                    outputDir: path.resolve('./tmp/code-coverage/e2e'),
+                    entryFilter: (entry: { url: string; source: string }) => {
+                        return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
+                    },
+                    sourceFilter: testsCoverageSourceFilter,
+                    reports: [
+                        'raw',
+                        'v8',
+                        'console-summary',
+                        [
+                            'lcovonly',
+                            {
+                                file: 'lcov/code-coverage.lcov.info',
+                            },
+                        ],
                     ],
-                ],
+                },
             },
-        },
-    ])
+        ],
+        ['list'],
+    )
 }
 
 export default defineConfig({

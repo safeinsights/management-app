@@ -4,6 +4,7 @@ import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
 
+export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
 export { fs, path }
 
@@ -100,7 +101,10 @@ const clerkLoaded = async (page: Page) => {
 type ClerkSignInParams = {
     password: string
     identifier: string
+    mfa: string
 }
+
+export const CLERK_MFA_CODE = '424242'
 
 const clerkSignInHelper = async (params: ClerkSignInParams) => {
     const w = window
@@ -121,7 +125,7 @@ const clerkSignInHelper = async (params: ClerkSignInParams) => {
     await signIn.prepareSecondFactor({ strategy: 'phone_code' })
     const result = await signIn.attemptSecondFactor({
         strategy: 'phone_code',
-        code: '424242',
+        code: params.mfa,
     })
 
     if (result.status === 'complete') {
@@ -130,13 +134,16 @@ const clerkSignInHelper = async (params: ClerkSignInParams) => {
         reportError(`Unknown signIn status: ${result.status}`)
     }
 }
-type TestingRole = 'researcher' | 'member'
-const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
+
+export type TestingRole = 'researcher' | 'member'
+export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     researcher: {
+        mfa: CLERK_MFA_CODE,
         identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
         password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
     },
     member: {
+        mfa: CLERK_MFA_CODE,
         identifier: process.env.E2E_CLERK_MEMBER_EMAIL!,
         password: process.env.E2E_CLERK_MEMBER_PASSWORD!,
     },
