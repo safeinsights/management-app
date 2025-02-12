@@ -4,6 +4,8 @@ import { Title, Flex } from '@mantine/core'
 import { UserNav } from './user-nav'
 import { pageStyles, mainStyles, footerStyles } from '@/styles/common'
 
+// TODO Remove this root page?,
+//  or route users based on their roles to correct pages?
 export default function Home() {
     return (
         <div className={pageStyles}>

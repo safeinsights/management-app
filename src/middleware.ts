@@ -81,6 +81,12 @@ export default clerkMiddleware(async (auth, req) => {
             }
         }
 
+        // TODO Redirect users to different URIs based on their role? ie:
+        //  member -> /member
+        //  researcher -> /researcher
+        //  admin -> /admin
+        //  or should this happen somewhere else
+
         // Route protection
         const routeProtection = {
             member: isMemberRoute(req) && !userRoles.isMember && !userRoles.isAdmin,

@@ -1,12 +1,22 @@
 'use client'
 
 import Link from 'next/link'
-import { Button, Title } from '@mantine/core'
+import { Button, LoadingOverlay, Title } from '@mantine/core'
 
 import { useAuthInfo } from '@/components/auth'
+import { redirect } from 'next/navigation'
 
 export const UserNav = () => {
     const auth = useAuthInfo()
+
+    console.log(auth)
+    if (!auth.isLoaded) {
+        return <LoadingOverlay />
+    }
+
+    if (auth.isMember) {
+        redirect(`/member/${auth.orgSlug}/dashboard`)
+    }
 
     return (
         <div>
