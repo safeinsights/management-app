@@ -68,11 +68,6 @@ const ManageAvailablePhoneNumbers = () => {
 
     if (!user) return null
 
-    // Check if any phone numbers aren't reserved for MFA
-    const availableForMfaPhones = user.phoneNumbers
-        .filter((ph) => ph.verification.status === 'verified')
-        .filter((ph) => !ph.reservedForSecondFactor)
-
     // Reserve a phone number for MFA
     const reservePhoneForMfa = async (phone: PhoneNumberResource) => {
         // Set the phone number as reserved for MFA
@@ -81,7 +76,10 @@ const ManageAvailablePhoneNumbers = () => {
         await user.reload()
     }
 
-    if (availableForMfaPhones.length === 0) {
+    // phone numbers are valid for MFA but aren't used for it
+    const availableForMfaPhones = user.phoneNumbers.filter(phone => phone.verification.status === 'verified' && !phone.reservedForSecondFactor)
+
+    if (availableForMfaPhones.length) {
         return <p>There are currently no verified phone numbers available to be reserved for MFA.</p>
     }
 
