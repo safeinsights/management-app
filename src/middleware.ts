@@ -38,9 +38,9 @@ const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_SLUG = 'openstax'
 const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 
-const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
-
 const MFA_ROUTE = '/account/mfa'
+
+const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware

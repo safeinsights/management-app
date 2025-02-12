@@ -153,7 +153,13 @@ type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Pa
 
 export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
     await setupClerkTestingToken({ page })
-    await page.goto(url)
+    await page.goto('/account/signin')
+
+    await clerkLoaded(page)
+    await page.evaluate(() => {
+        window.Clerk.session?.end()
+    })
+    await page.goto('/account/signin')
     await clerkLoaded(page)
     await page.evaluate(clerkSignInHelper, TestingUsers[role])
 

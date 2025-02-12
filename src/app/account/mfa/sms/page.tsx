@@ -77,7 +77,9 @@ const ManageAvailablePhoneNumbers = () => {
     }
 
     // phone numbers are valid for MFA but aren't used for it
-    const availableForMfaPhones = user.phoneNumbers.filter(phone => phone.verification.status === 'verified' && !phone.reservedForSecondFactor)
+    const availableForMfaPhones = user.phoneNumbers.filter(
+        (phone) => phone.verification.status === 'verified' && !phone.reservedForSecondFactor,
+    )
 
     if (availableForMfaPhones.length) {
         return <p>There are currently no verified phone numbers available to be reserved for MFA.</p>

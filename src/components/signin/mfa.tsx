@@ -46,7 +46,9 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
                     {...form.getInputProps('code')}
                 />
                 <Flex justify="space-between" mt="md">
-                    <Button onClick={onReset}>ReEnter Email/Password</Button>
+                    <Button variant="light" onClick={onReset}>
+                        ReEnter Email/Password
+                    </Button>
                     <Button type="submit">Login</Button>
                 </Flex>
             </form>

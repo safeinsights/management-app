@@ -1,4 +1,4 @@
-import { SignIn } from '@/components/signin'
+import { SignIn } from '@/components/signin/index'
 import { pageStyles } from '@/styles/common'
 import { Container } from '@/styles/generated/jsx'
 

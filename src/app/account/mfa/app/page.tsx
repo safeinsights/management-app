@@ -2,13 +2,14 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import Link from 'next/link'
 import * as React from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { GenerateBackupCodes } from '../page'
+import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
-import { Button, TextInput, Title, Flex } from '@mantine/core'
+import { Button, TextInput, Text, Flex, Container } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
+import { Panel } from '@/components/panel'
+import { ButtonLink } from '@/components/links'
 
 type AddTotpSteps = 'add' | 'verify' | 'backupcodes' | 'success'
 
@@ -29,11 +30,7 @@ function AddTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateActi
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <>
-            <Title order={1} mb="xl">
-                Add MFA
-            </Title>
-
+        <Panel title="Add MFA">
             <Flex gap="md" mb="lg" align={'flex-end'}>
                 {totp && displayFormat === 'qr' && (
                     <>
@@ -57,7 +54,7 @@ function AddTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateActi
             </Flex>
             <p>Once you have set up your authentication app, verify your code</p>
             <Button onClick={() => setStep('verify')}>Verify</Button>
-        </>
+        </Panel>
     )
 }
 
@@ -84,8 +81,7 @@ function VerifyTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateA
     }
 
     return (
-        <Flex direction="column" gap="lg" maw={400}>
-            <Title>Verify MFA code</Title>
+        <Panel gap="lg" maw={400} title="Verify MFA code">
             <form onSubmit={form.onSubmit(verifyTotp)}>
                 <TextInput
                     mb="lg"
@@ -97,39 +93,35 @@ function VerifyTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateA
                     {...form.getInputProps('code')}
                 />
                 <Flex gap="lg" justify={'center'}>
+                    <Button variant="light" onClick={() => setStep('add')}>
+                        Retry
+                    </Button>
                     <Button type="submit">Verify code</Button>
-                    <Button onClick={() => setStep('add')}>Reset</Button>
                 </Flex>
             </form>
-        </Flex>
+        </Panel>
     )
 }
 
 function BackupCodeScreen({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     return (
-        <>
-            <h1>Verification was a success!</h1>
-            <div>
-                <p>
-                    Save this list of backup codes somewhere safe in case you need to access your account in an
-                    emergency
-                </p>
-                <GenerateBackupCodes />
-                <Button onClick={() => setStep('success')}>Finish</Button>
-            </div>
-        </>
+        <Panel title="Verification was a success!">
+            <Text>
+                Save this list of backup codes somewhere safe in case you need to access your account in an emergency
+            </Text>
+            <GenerateBackupCodes />
+            <Button onClick={() => setStep('success')}>Finish</Button>
+        </Panel>
     )
 }
 
 function SuccessScreen() {
     return (
-        <>
-            <h1>Success!</h1>
-            <p>You have successfully added TOTP MFA via an authentication application.</p>
-            <Link href="/">
-                <Button>Return to homepage</Button>
-            </Link>
-        </>
+        <Panel title="Success!">
+            <Text>You have successfully added TOTP MFA with an authentication application.</Text>
+
+            <ButtonLink href="/">Return to homepage</ButtonLink>
+        </Panel>
     )
 }
 
@@ -144,11 +136,11 @@ export default function AddMFaScreen() {
     }
 
     return (
-        <>
+        <Container>
             {step === 'add' && <AddTotpScreen setStep={setStep} />}
             {step === 'verify' && <VerifyTotpScreen setStep={setStep} />}
             {step === 'backupcodes' && <BackupCodeScreen setStep={setStep} />}
             {step === 'success' && <SuccessScreen />}
-        </>
+        </Container>
     )
 }

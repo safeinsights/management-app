@@ -2,63 +2,21 @@
 
 import * as React from 'react'
 import { useClerk, useUser } from '@clerk/nextjs'
-import Link from 'next/link'
-import { Button, Flex, Title } from '@mantine/core'
-import { BackupCodeResource } from '@clerk/types'
-import { reportError } from '@/components/errors'
+import { Link } from '@/components/links'
+import { Container, Button, Flex, Text, Title } from '@mantine/core'
+import { GenerateBackupCodes } from './backup-codes'
+import { Panel } from '@/components/panel'
 
 const HasMFA = () => {
     return (
-        <div>
-            <p>
-                You have successfully enabled MFA on your account
-                <Link href="/">
-                    <Button>Return to homepage</Button>
+        <Container>
+            <Panel title="MFA is enabled">
+                <Text>You have successfully enabled MFA on your account</Text>
+                <Link href="/" display="inline-block" mt="md">
+                    Return to homepage
                 </Link>
-            </p>
-        </div>
-    )
-}
-
-// Generate and display backup codes
-function GenerateBackupCodes() {
-    const { user } = useUser()
-    const [backupCodes, setBackupCodes] = React.useState<BackupCodeResource | undefined>(undefined)
-
-    const [loading, setLoading] = React.useState(false)
-
-    React.useEffect(() => {
-        if (backupCodes) {
-            return
-        }
-
-        setLoading(true)
-        void user
-            ?.createBackupCode()
-            .then((backupCode: BackupCodeResource) => {
-                setBackupCodes(backupCode)
-                setLoading(false)
-            })
-            .catch((err) => {
-                reportError(err, 'Failed to generate backup codes')
-                setLoading(false)
-            })
-    }, [backupCodes, user])
-
-    if (loading) {
-        return <p>Loading...</p>
-    }
-
-    if (!backupCodes) {
-        return <p>There was a problem generating backup codes</p>
-    }
-
-    return (
-        <ol>
-            {backupCodes.codes.map((code, index) => (
-                <li key={index}>{code}</li>
-            ))}
-        </ol>
+            </Panel>
+        </Container>
     )
 }
 
@@ -73,45 +31,45 @@ export default function ManageMFA() {
         return <p>You must be logged in to access this page</p>
     }
 
-    if (user.totpEnabled) return <HasMFA />
+    if (user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')) return <HasMFA />
 
     return (
-        <>
-            <Title>MFA is required</Title>
+        <Container>
+            <Panel title="MFA is required">
+                <Title order={4}>In order to use SafeInsights, your account must have MFA enabled</Title>
 
-            <Title order={4}>In order to use SafeInsights, your account must have MFA enabled</Title>
-
-            <Flex gap="md">
-                <Link href="/account/mfa/app">
-                    <Button>Add MFA vai Authenticator App</Button>
-                </Link>
-
-                {user.phoneNumbers.length ? (
-                    <Link href="/account/mfa/sms">
-                        <Button>Add MFA using SMS</Button>
+                <Flex gap="md">
+                    <Link href="/account/mfa/app">
+                        <Button>Add MFA with an authenticator app</Button>
                     </Link>
-                ) : (
-                    <Flex>
-                        <p>You could use SMS MFA if you have a phone number entered on your account.</p>
-                        <Button onClick={() => openUserProfile()}>Open user profile to add a new phone number</Button>
-                    </Flex>
-                )}
-            </Flex>
 
-            {/* Manage backup codes */}
-            {user.backupCodeEnabled && user.twoFactorEnabled && (
-                <div>
-                    <p>
+                    {user.phoneNumbers.length ? (
+                        <Link href="/account/mfa/sms">
+                            <Button>Add MFA using SMS</Button>
+                        </Link>
+                    ) : (
+                        <Flex>
+                            <p>You could use SMS MFA if you have a phone number entered on your account.</p>
+                            <Button onClick={() => openUserProfile()}>
+                                Open user profile to add a new phone number
+                            </Button>
+                        </Flex>
+                    )}
+                </Flex>
+
+                {/* Manage backup codes */}
+                {user.backupCodeEnabled && user.twoFactorEnabled && (
+                    <Text my="md">
                         Generate new backup codes? - <Button onClick={() => setShowNewCodes(true)}>Generate</Button>
-                    </p>
-                </div>
-            )}
-            {showNewCodes && (
-                <>
-                    <GenerateBackupCodes />
-                    <Button onClick={() => setShowNewCodes(false)}>Done</Button>
-                </>
-            )}
-        </>
+                    </Text>
+                )}
+                {showNewCodes && (
+                    <>
+                        <GenerateBackupCodes />
+                        <Button onClick={() => setShowNewCodes(false)}>Done</Button>
+                    </>
+                )}
+            </Panel>
+        </Container>
     )
 }

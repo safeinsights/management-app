@@ -10,7 +10,11 @@ export const SigninComplete = () => {
 
     return (
         <Panel title={user.totpEnabled ? 'Signin Success' : 'Your account lacks MFA protection'}>
-            {user.totpEnabled ? (
+            {user.twoFactorEnabled ? (
+                <Title order={4}>
+                    You have successfully signed in. Visit the <Link href="/">homepage</Link> to get started.
+                </Title>
+            ) : (
                 <Flex direction="column">
                     <Title order={3}>Your account lacks MFA protection</Title>
                     <Text>In order to use SafeInsights, you must have MFA enabled on your account</Text>
@@ -18,10 +22,6 @@ export const SigninComplete = () => {
                         Please Visit our <Link href="/account/mfa">MFA page</Link> in order to enable it.
                     </Text>
                 </Flex>
-            ) : (
-                <Title order={4}>
-                    You have successfully signed in. Visit the <Link href="/">homepage</Link> to get started.
-                </Title>
             )}
         </Panel>
     )
