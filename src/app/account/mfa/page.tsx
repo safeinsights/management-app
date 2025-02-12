@@ -21,7 +21,7 @@ const HasMFA = () => {
 }
 
 // Generate and display backup codes
-export function GenerateBackupCodes() {
+function GenerateBackupCodes() {
     const { user } = useUser()
     const [backupCodes, setBackupCodes] = React.useState<BackupCodeResource | undefined>(undefined)
 
