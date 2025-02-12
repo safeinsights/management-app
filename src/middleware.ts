@@ -46,12 +46,10 @@ const MFA_ROUTE = '/account/mfa'
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware(async (auth, req) => {
-
     const { userId, orgId, orgRole, orgSlug, sessionClaims } = await auth()
 
     if (!userId) {
-        console.log('n o user', req.nextUrl.pathname)
-        if (ANON_ROUTES.find(r => req.nextUrl.pathname.startsWith(r))) {
+        if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
         return NextResponse.redirect(new URL('/account/signin', req.url))
@@ -77,13 +75,8 @@ export default clerkMiddleware(async (auth, req) => {
         ...userRoles,
     })
 
-    // if (!userId && !ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
-    //     return NextResponse.redirect(new URL('/account/signin', req.url))
-    // }
-
     // if they don't have MFA and are not currently adding it, force them to do so
     if (!userRoles.hasMFA && !req.nextUrl.pathname.startsWith(MFA_ROUTE)) {
-
     }
 
     // Route protection
@@ -106,7 +99,6 @@ export default clerkMiddleware(async (auth, req) => {
 
     return NextResponse.next()
 })
-
 
 export const config = {
     matcher: [
