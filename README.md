@@ -23,8 +23,6 @@ export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
 export CLERK_SECRET_KEY=sk_test_....
 ```
 
-And then you can use Docker compose to run the app and a postgresql database by running:
-
 `docker compose up`
 
 Other useful commands:
