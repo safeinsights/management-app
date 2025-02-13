@@ -107,6 +107,5 @@
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "*",
         "vitest-monocart-coverage": "^3.0.0"
-    },
-    "overrides": {}
+    }
 }
