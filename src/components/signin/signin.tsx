@@ -75,10 +75,12 @@ export const SignInForm: React.FC<{
                     placeholder="Password"
                     aria-label="Password"
                 />
-                <Flex align="center" mt={15}>
+                <Flex align="center" mt={15} gap="md">
                     <Button type="submit">Login</Button>
-                    <Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>
-                    <Link href="/account/reset-password">Forgot password?</Link>
+                    <Flex direction="column">
+                        <Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>
+                        <Link href="/account/reset-password">Forgot password?</Link>
+                    </Flex>
                 </Flex>
             </Panel>
         </form>
