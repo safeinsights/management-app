@@ -4,7 +4,7 @@ import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { FC, useEffect, useState } from 'react'
 import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member-actions'
-import { type Member, NEW_MEMBER } from '@/schema/member'
+import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-react'
 import { ActionIcon, Box, Button, Flex, Group, Modal } from '@mantine/core'
@@ -69,7 +69,7 @@ const AddMember: FC = () => {
     return (
         <Flex justify={'end'} mt="lg">
             <Modal opened={opened} onClose={close} title={`Add Member`} closeOnClickOutside={false}>
-                <EditMemberForm member={NEW_MEMBER} onCompleteAction={close} />
+                <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
             <Button onClick={open}>Add new Member</Button>
         </Flex>
