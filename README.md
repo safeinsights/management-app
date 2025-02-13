@@ -24,10 +24,6 @@ export CLERK_SECRET_KEY=sk_test_....
 ```
 
 
-### Getting Started - Local Setup
-
-For local development without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
-
 Otherwise you can use Docker compose to run the app and a postgresql database by using:
 
 `docker compose up`
