@@ -16,14 +16,11 @@ It’s responsible for:
 
 Note: For developing locally without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
-Set these two environment variables with your Clerk secrets:
+Copy the .env.sample file to .env replacing the XXX strings with values obtained from your one of your teammates.
 
-```shell
-export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
-export CLERK_SECRET_KEY=sk_test_....
-```
+When testing you can either use the accounts from the .env file or you can signup for a Clerk account using either a authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the test phone numbers mean that no SMS is sent and `424242` can be used to authenticate.
 
-And then you can use Docker compose to run the app and a postgresql database by using:
+You can use Docker compose to run the app and a postgresql database by using:
 
 `docker compose up`
 
@@ -91,7 +88,7 @@ There are a few CLI applications to debug the API end endpoints:
 - npx tsx bin/debug/set-status.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -s <status: RUNNING | ERRORED> -r <uuid of run>
 - npx tsx bin/debug/upload-results.ts -o https://pilot.safeinsights.org -m openstax -k <path to private key> -r <uuid of run> -f <path to file to upload as results>
 
-**Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behaviour: it's likely we'll not allow it in later versions.
+**Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
 ### Testing with Playwright
 
@@ -100,7 +97,7 @@ To run playwright tests locally, you'll need to install playwright:
 - `npm install`
 - `npx playwright install`
 
-And then run playwright: `npx playwright test --ui`
+And then run playwright: `npx playwright test --ui` to view status, or run `npx playwright test --headed` to interact with browser as it runs.
 
 If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `npx playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
