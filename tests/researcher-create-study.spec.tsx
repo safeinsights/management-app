@@ -4,7 +4,7 @@ test.describe('app', () => {
     const testTitle = 'A E2E Test Study'
 
     test.beforeEach('researcher creates a study', async ({ page }) => {
-        await visitClerkProtectedPage({ page, url: '/', role: 'researcher' })
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
 
@@ -21,12 +21,12 @@ test.describe('app', () => {
     test('validate file upload', async ({ page }) => {
         //TODO: Test that will validate the upload without a main.r file
         //Test upload without main.r file
-        // const missingMainFile = 'tests/fixtures/temp/study-no-main.zip'
+        // const missingMainFile = 'tests/assets/study-no-main.zip'
         // await page.setInputFiles('input[type="file"]', missingMainFile)
         // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
 
         // Test valid file upload with main.r
-        const validStudyZip = 'tests/fixtures/temp/valid-study.zip'
+        const validStudyZip = 'tests/assets/valid-study.zip'
         await page.setInputFiles('input[type="file"]', validStudyZip)
 
         // Wait for upload success message
@@ -41,7 +41,7 @@ test.describe('app', () => {
         // await expect(page.getByText('File type must be .zip')).toBeVisible()
 
         // Test file size limit (Commenting out for now, we will likely test this on the flya as to not bog down the repo)
-        // const largeFile = 'tests/fixtures/temp/large-file.zip'
+        // const largeFile = 'tests/assets/large-file.zip'
         // await page.setInputFiles('input[type="file"]', largeFile)
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
     })

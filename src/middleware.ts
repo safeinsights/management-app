@@ -38,74 +38,69 @@ const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_SLUG = 'openstax'
 const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 
+const MFA_ROUTE = '/account/mfa'
+
+const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
+
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware(async (auth, req) => {
-    try {
-        const { userId, orgId, orgRole, orgSlug } = await auth()
+    const { userId, orgId, orgRole, orgSlug, sessionClaims } = await auth()
 
-        if (!userId) {
-            // Block unauthenticated access to protected routes
-            if (isMemberRoute(req) || isResearcherRoute(req)) {
-                logger.warn('Access denied: Authentication required')
-                middlewareDebug('Blocking unauthenticated access to protected route')
-                return new NextResponse(null, { status: 403 })
-            }
-            // For non-protected routes, let Clerk handle the redirect
+    if (!userId) {
+        if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
+        return NextResponse.redirect(new URL('/account/signin', req.url))
+    }
 
-        // Define user roles
-        const userRoles = {
-            isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
-            isOpenStaxMember: orgSlug === OPENSTAX_ORG_SLUG,
-            get isMember() {
-                return this.isOpenStaxMember && !this.isAdmin
-            },
-            get isResearcher() {
-                return !this.isAdmin && !this.isOpenStaxMember
-            },
-        }
+    // Define user roles
+    const userRoles = {
+        isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
+        isOpenStaxMember: orgSlug === OPENSTAX_ORG_SLUG,
+        hasMFA: !!sessionClaims?.hasMFA,
+        get isMember() {
+            return this.isOpenStaxMember && !this.isAdmin
+        },
+        get isResearcher() {
+            return !this.isAdmin && !this.isOpenStaxMember
+        },
+    }
 
-        middlewareDebug('Auth check: %o', {
-            organization: orgId,
-            role: orgRole,
-            ...userRoles,
-        })
+    middlewareDebug('Auth check: %o', {
+        organization: orgId,
+        role: orgRole,
+        userId,
+        ...userRoles,
+    })
 
-        // Handle authentication redirects
-        if (req.nextUrl.pathname.startsWith('/reset-password') || req.nextUrl.pathname.startsWith('/signup')) {
-            if (userId) {
-                return NextResponse.redirect(new URL('/', req.url))
-            }
-        }
+    // if they don't have MFA and are not currently adding it, force them to do so
+    if (!userRoles.hasMFA && !req.nextUrl.pathname.startsWith(MFA_ROUTE)) {
+    }
 
-        // TODO Redirect users to different URIs based on their role? ie:
-        //  member -> /member
-        //  researcher -> /researcher
-        //  admin -> /admin
-        //  or should this happen somewhere else
+    // TODO Redirect users to different URIs based on their role? ie:
+    //  member -> /member
+    //  researcher -> /researcher
+    //  admin -> /admin
+    //  or should this happen somewhere else
 
-        // Route protection
-        const routeProtection = {
-            member: isMemberRoute(req) && !userRoles.isMember && !userRoles.isAdmin,
-            researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin,
-        }
+    // Route protection
+    const routeProtection = {
+        member: isMemberRoute(req) && !userRoles.isMember && !userRoles.isAdmin,
+        researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin,
+    }
 
-        if (routeProtection.member) {
-            logger.warn('Access denied: Member route requires member or admin access')
-            middlewareDebug('Blocking unauthorized member route access: %o', { userId, orgId, userRoles })
-            return new NextResponse(null, { status: 403 })
-        }
+    if (routeProtection.member) {
+        logger.warn('Access denied: Member route requires member or admin access')
+        middlewareDebug('Blocking unauthorized member route access: %o', { userId, orgId, userRoles })
+        return new NextResponse(null, { status: 403 })
+    }
 
-        if (routeProtection.researcher) {
-            logger.warn('Access denied: Researcher route requires researcher or admin access')
-            middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
-            return new NextResponse(null, { status: 403 })
-        }
-    } catch (error) {
-        logger.error('Middleware error:', error)
+    if (routeProtection.researcher) {
+        logger.warn('Access denied: Researcher route requires researcher or admin access')
+        middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
+        return new NextResponse(null, { status: 403 })
     }
 
     return NextResponse.next()
@@ -117,7 +112,5 @@ export const config = {
         '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
         // Always run for routes below
         '/(dl|member|researcher)(.*)',
-        '/',
-        '/(reset-password|signup)',
     ],
 }

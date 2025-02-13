@@ -23,17 +23,16 @@ export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse 
     )
 }
 
-export const reportError = (error: unknown, title = 'An error occured') => {
-    const message = isClerkApiError(error)
+export const errorToString = (error: unknown) =>
+    isClerkApiError(error)
         ? error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
         : JSON.stringify(error, null, 2)
 
-    console.error('Error:', message)
-
+export const reportError = (error: unknown, title = 'An error occured') => {
     notifications.show({
         color: 'red',
         title,
-        message,
+        message: errorToString(error),
     })
 }
 

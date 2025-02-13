@@ -13,11 +13,13 @@ export const memberSchema = z.object({
 
 export type ValidatedMember = z.infer<typeof memberSchema>
 
-export const NEW_MEMBER: NewMember = {
-    identifier: '',
-    name: '',
-    email: '',
-    publicKey: '',
+export const getNewMember = (): NewMember => {
+    return {
+        identifier: '',
+        name: '',
+        email: '',
+        publicKey: '',
+    }
 }
 
 export type Member = Selectable<DefinedMember>

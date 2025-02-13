@@ -3,11 +3,11 @@ import { testsCoverageSourceFilter } from './coverage.mjs'
 
 const coverageOptions: CoverageReportOptions = {
     name: 'Coverage Report',
-    inputDir: ['./tmp/code-coverage/unit/raw', './tmp/code-coverage/e2e/raw'],
-    outputDir: './tmp/code-coverage/merged',
+    inputDir: ['./tests/coverage/code-coverage/unit/raw', './tests/coverage/code-coverage/e2e/raw'],
+    outputDir: './tests/coverage/code-coverage/merged',
     sourceFilter: testsCoverageSourceFilter,
     clean: true,
-    reports: ['markdown-summary', 'markdown-details', 'console-details', 'html'],
+    reports: ['markdown-summary', 'markdown-details', 'console-details', 'json-summary', 'html'],
 }
 
 await new CoverageReport(coverageOptions).generate()

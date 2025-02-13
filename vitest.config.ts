@@ -10,18 +10,18 @@ export default defineConfig({
     plugins: [react(), tsconfigPaths()],
     test: {
         mockReset: true,
-        reporters: IS_CI ? ['basic', 'github-actions'] : ['verbose'],
+        reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',
         setupFiles: ['tests/vitest.setup.ts'],
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
         coverage: {
             enabled: IS_CI,
-            reportsDirectory: 'tmp/code-coverage/unit',
+            reportsDirectory: 'tests/coverage/code-coverage/unit',
             clean: true,
             coverageReportOptions: {
                 reports: ['raw', 'console-details', 'v8', 'html'],
                 lcov: true,
-                outputDir: 'tmp/code-coverage/unit',
+                outputDir: 'tests/coverage/code-coverage/unit',
                 clean: true,
                 sourceFilter: testsCoverageSourceFilter,
             },

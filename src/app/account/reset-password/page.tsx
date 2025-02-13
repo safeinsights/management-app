@@ -1,10 +1,13 @@
 import { ResetPassword } from '@/components/reset-password'
 import { pageStyles } from '@/styles/common'
+import { Container } from '@/styles/generated/jsx'
 
 export default function ResetPasswordPage() {
     return (
         <div className={pageStyles}>
-            <ResetPassword />
+            <Container>
+                <ResetPassword />
+            </Container>
         </div>
     )
 }
