@@ -1,17 +1,15 @@
 import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
-import { BLANK_UUID, db } from '@/database'
-import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
+import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
+import { addCoverageReport } from 'monocart-reporter'
 
+export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
 export { fs, path }
 
 // since we're extending test from here, we might as well export some other often-used items
 export { expect, type Page } from '@playwright/test'
-
-export const USE_COVERAGE = process.argv.includes('--coverage')
-import { addCoverageReport } from 'monocart-reporter'
 
 export type CollectV8CodeCoverageOptions = {
     browserType: BrowserType
@@ -19,11 +17,6 @@ export type CollectV8CodeCoverageOptions = {
     use: () => Promise<void>
     enableJsCoverage: boolean
     enableCssCoverage: boolean
-}
-
-export const enum Role {
-    Member = 'MEMBER',
-    Researcher = 'RESEARCHER',
 }
 
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
@@ -41,7 +34,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
         return
     }
     const page = options.page
-    let startCoveragePromises: Promise<void>[] = []
+    const startCoveragePromises: Promise<void>[] = []
     if (options.enableJsCoverage) {
         const startJsCoveragePromise = page.coverage.startJSCoverage({
             resetOnNavigation: false,
@@ -56,7 +49,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
     await Promise.all(startCoveragePromises)
     await options.use()
-    let stopCoveragePromises: Promise<any>[] = []
+    const stopCoveragePromises: Promise<unknown>[] = []
     if (options.enableJsCoverage) {
         const stopJsCoveragePromise = page.coverage.stopJSCoverage()
         stopCoveragePromises.push(stopJsCoveragePromise)
@@ -94,68 +87,80 @@ export const test = baseTest.extend<AppFixtures>({
     ],
 })
 
-type VisitClerkProtectedPageOptions = { url: string; role: Role; page: Page }
-export const visitClerkProtectedPage = async ({ page, role, url }: VisitClerkProtectedPageOptions) => {
-    await setupClerkTestingToken({ page })
-    await page.goto(url)
-
-    await clerk.signIn({
-        page,
-        signInParams: {
-            strategy: 'password',
-            identifier: process.env[`E2E_CLERK_${role}_EMAIL`]!,
-            password: process.env[`E2E_CLERK_${role}_PASSWORD`]!,
-        },
-    })
+const clerkLoaded = async (page: Page) => {
+    await page.waitForFunction(() => window.Clerk !== undefined)
+    await page.waitForFunction(() => window.Clerk.loaded)
 }
 
-export const insertTestStudyData = async (opts: { memberId: string }) => {
-    const study = await db
-        .insertInto('study')
-        .values({
-            memberId: opts.memberId,
-            containerLocation: 'test-container',
-            title: 'my 1st study',
-            description: 'my description',
-            researcherId: BLANK_UUID,
-            piName: 'test',
-            status: 'APPROVED',
-            dataSources: ['all'],
-            outputMimeType: 'text/csv',
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+// This function is serialized and executed in the browser context
+// concept: https://github.com/clerk/javascript/blob/main/packages/testing/src/common/helpers-utils.ts#L6
+type ClerkSignInParams = {
+    password: string
+    identifier: string
+    mfa: string
+}
 
-    const run0 = await db
-        .insertInto('studyRun')
-        .values({
-            studyId: study.id,
-            status: 'INITIATED',
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+export const CLERK_MFA_CODE = '424242'
 
-    const run1 = await db
-        .insertInto('studyRun')
-        .values({
-            studyId: study.id,
-            status: 'RUNNING',
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+const clerkSignInHelper = async (params: ClerkSignInParams) => {
+    const w = window
+    if (!w.Clerk.client) {
+        return
+    }
 
-    const run2 = await db
-        .insertInto('studyRun')
-        .values({
-            studyId: study.id,
-            status: 'READY',
-        })
-        .returning('id')
-        .executeTakeFirstOrThrow()
+    const signIn = await w.Clerk.client.signIn.create({ identifier: params.identifier, password: params.password })
 
-    return {
-        memberId: opts.memberId,
-        studyId: study.id,
-        runIds: [run0.id, run1.id, run2.id],
+    if (
+        signIn.status !== 'needs_second_factor' ||
+        !signIn.supportedSecondFactors?.find((sf) => sf.strategy == 'phone_code')
+    ) {
+        throw new Error(
+            `testing login's status: ${signIn.status} didn't support phone code? ${JSON.stringify(signIn.supportedSecondFactors)}`,
+        )
+    }
+    await signIn.prepareSecondFactor({ strategy: 'phone_code' })
+    const result = await signIn.attemptSecondFactor({
+        strategy: 'phone_code',
+        code: params.mfa,
+    })
+
+    if (result.status === 'complete') {
+        await w.Clerk.setActive({ session: result.createdSessionId })
+    } else {
+        reportError(`Unknown signIn status: ${result.status}`)
+    }
+}
+
+export type TestingRole = 'researcher' | 'member'
+export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
+    researcher: {
+        mfa: CLERK_MFA_CODE,
+        identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
+        password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
+    },
+    member: {
+        mfa: CLERK_MFA_CODE,
+        identifier: process.env.E2E_CLERK_MEMBER_EMAIL!,
+        password: process.env.E2E_CLERK_MEMBER_PASSWORD!,
+    },
+}
+
+type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
+
+export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
+    await setupClerkTestingToken({ page })
+    await page.goto('/account/signin')
+
+    await clerkLoaded(page)
+    await page.evaluate(() => {
+        window.Clerk.session?.end()
+    })
+    await page.goto('/account/signin')
+    await clerkLoaded(page)
+    await page.evaluate(clerkSignInHelper, TestingUsers[role])
+
+    //  the earlier page.goto likely navigated to signin
+    if (page.url() != url) {
+        await page.goto(url)
     }
 }
