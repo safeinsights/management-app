@@ -16,12 +16,12 @@ export default defineConfig({
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
         coverage: {
             enabled: IS_CI,
-            reportsDirectory: 'tmp/code-coverage/unit',
+            reportsDirectory: 'tests/coverage/code-coverage/unit',
             clean: true,
             coverageReportOptions: {
                 reports: ['raw', 'console-details', 'v8', 'html'],
                 lcov: true,
-                outputDir: 'tmp/code-coverage/unit',
+                outputDir: 'tests/coverage/code-coverage/unit',
                 clean: true,
                 sourceFilter: testsCoverageSourceFilter,
             },

@@ -10,9 +10,9 @@ if (process.argv.includes('--ui')) {
         [
             'monocart-reporter',
             {
-                outputFile: path.resolve('./tmp/test-results/e2e/coverage.html'),
+                outputFile: path.resolve('./tests/coverage/test-results/e2e/coverage.html'),
                 coverage: {
-                    outputDir: path.resolve('./tmp/code-coverage/e2e'),
+                    outputDir: path.resolve('./tests/coverage/code-coverage/e2e'),
                     entryFilter: (entry: { url: string; source: string }) => {
                         return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
                     },
