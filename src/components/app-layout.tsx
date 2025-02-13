@@ -7,16 +7,19 @@ import {
     Group,
     NavLink,
     ScrollArea,
+    Text,
 } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { IconHome, IconSettings } from '@tabler/icons-react'
+import { IconHome } from '@tabler/icons-react'
 import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
+import { Gear } from '@phosphor-icons/react/dist/ssr'
+import { ReactNode } from 'react'
 
 type Props = {
-    children: React.ReactNode
+    children: ReactNode
 }
 
 export function AppLayout({ children }: Props) {
@@ -57,13 +60,15 @@ export function AppLayout({ children }: Props) {
                         // href="/settings"
                         c="white"
                         label="Settings"
-                        leftSection={<IconSettings size={16} stroke={1.5} />}
+                        leftSection={<Gear size={16} />}
                     />
                 </AppShellSection>
             </AppShellNavbar>
             <AppShellMain>{children}</AppShellMain>
             <AppShellFooter p="md" bg="gray">
-                © 2025 - SafeInsights
+                <Group justify="center">
+                    <Text>© 2025 - SafeInsights</Text>
+                </Group>
             </AppShellFooter>
         </AppShell>
     )

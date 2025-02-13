@@ -1,3 +1,5 @@
+'use server'
+
 import { db } from '@/database'
 
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
