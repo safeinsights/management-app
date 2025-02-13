@@ -1,11 +1,12 @@
-import { SignInButton, SignedIn, SignedOut, UserButton, OrganizationSwitcher } from '@clerk/nextjs'
+import { SignedIn, SignedOut, UserButton, OrganizationSwitcher } from '@clerk/nextjs'
 import { Group } from '@mantine/core'
+import { SigninLink } from './signin-link'
 
 export const NavAuthMenu = () => {
     return (
         <>
             <SignedOut>
-                <SignInButton />
+                <SigninLink />
             </SignedOut>
 
             <SignedIn>
