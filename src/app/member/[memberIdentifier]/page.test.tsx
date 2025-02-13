@@ -3,8 +3,6 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { Member } from '@/schema/member'
 import ManageMemberPage from '@/app/member/[memberIdentifier]/page'
-import { render } from '@testing-library/react'
-import { TestingProvidersWrapper } from '@/tests/providers'
 
 // Mock the server action
 vi.mock('@/server/actions/member-actions', () => ({
