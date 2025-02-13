@@ -1,5 +1,4 @@
 import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
-import { BLANK_UUID, db } from '@/database'
 import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
@@ -36,7 +35,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
         return
     }
     const page = options.page
-    let startCoveragePromises: Promise<void>[] = []
+    const startCoveragePromises: Promise<void>[] = []
     if (options.enableJsCoverage) {
         const startJsCoveragePromise = page.coverage.startJSCoverage({
             resetOnNavigation: false,
@@ -51,7 +50,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
     await Promise.all(startCoveragePromises)
     await options.use()
-    let stopCoveragePromises: Promise<any>[] = []
+    const stopCoveragePromises: Promise<any>[] = []
     if (options.enableJsCoverage) {
         const stopJsCoveragePromise = page.coverage.stopJSCoverage()
         stopCoveragePromises.push(stopJsCoveragePromise)
