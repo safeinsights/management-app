@@ -9,7 +9,6 @@ import { redirect } from 'next/navigation'
 export const UserNav = () => {
     const auth = useAuthInfo()
 
-    console.log(auth)
     if (!auth.isLoaded) {
         return <LoadingOverlay />
     }

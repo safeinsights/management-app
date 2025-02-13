@@ -5,7 +5,7 @@ import { LoadingOverlay, Stack, Title } from '@mantine/core'
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
 
-export const MemberDashboard: FC<{ member: Member }> = ({ member }) => {
+export const MemberDashboard: FC<{ member: Member }> = ({}) => {
     const { isLoaded, user } = useUser()
 
     if (!isLoaded) {

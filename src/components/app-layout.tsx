@@ -63,7 +63,7 @@ export function AppLayout({ children }: Props) {
             </AppShellNavbar>
             <AppShellMain>{children}</AppShellMain>
             <AppShellFooter p="md" bg="gray">
-                Footer
+                © 2025 - SafeInsights
             </AppShellFooter>
         </AppShell>
     )
