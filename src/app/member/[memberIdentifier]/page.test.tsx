@@ -29,8 +29,6 @@ describe('ManageMemberPage', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        const { container } = render(<ManageMemberPage params={props.params} />, TestingProvidersWrapper)
-
         const { container } = renderWithProviders(await ManageMemberPage(props))
 
         // Check title is rendered with member name
