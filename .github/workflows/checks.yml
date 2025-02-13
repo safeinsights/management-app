@@ -45,6 +45,7 @@ jobs:
               if: always()
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
+                  base-summary-filename: base-summary.json
                   coverage-filename: tmp/code-coverage/merged/coverage-summary.json
             - name: Test build
               run: |
