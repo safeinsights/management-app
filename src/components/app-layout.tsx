@@ -12,7 +12,7 @@ import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { IconHome } from '@tabler/icons-react'
+import { IconHome, IconSettings } from '@tabler/icons-react'
 import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
 
 type Props = {
@@ -50,13 +50,15 @@ export function AppLayout({ children }: Props) {
                             <UserButton />
                         </Group>
                     </SignedIn>
-                    {/*<NavLink*/}
-                    {/*    component="button"*/}
-                    {/*    // onClick={() => signOut()}*/}
-                    {/*    c="white"*/}
-                    {/*    label="Logout"*/}
-                    {/*    leftSection={<IconSettings size={16} stroke={1.5} />}*/}
-                    {/*/>*/}
+                    {/* TODO open the user settings in a modal? page? flesh out */}
+                    <NavLink
+                        component="button"
+                        // onClick={}
+                        // href="/settings"
+                        c="white"
+                        label="Settings"
+                        leftSection={<IconSettings size={16} stroke={1.5} />}
+                    />
                 </AppShellSection>
             </AppShellNavbar>
             <AppShellMain>{children}</AppShellMain>
