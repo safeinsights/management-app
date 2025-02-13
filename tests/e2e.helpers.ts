@@ -20,6 +20,11 @@ export type CollectV8CodeCoverageOptions = {
     enableCssCoverage: boolean
 }
 
+export const enum Role {
+    Member = 'MEMBER',
+    Researcher = 'RESEARCHER',
+}
+
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
     return browserType.name() === 'chromium'
 }
@@ -88,8 +93,8 @@ export const test = baseTest.extend<AppFixtures>({
     ],
 })
 
-type VisitClerkProtectedPageOptions = { url: string; role: 'researcher'; page: Page }
-export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtectedPageOptions) => {
+type VisitClerkProtectedPageOptions = { url: string; role: Role; page: Page }
+export const visitClerkProtectedPage = async ({ page, role, url }: VisitClerkProtectedPageOptions) => {
     await setupClerkTestingToken({ page })
     await page.goto(url)
 
@@ -97,8 +102,8 @@ export const visitClerkProtectedPage = async ({ page, url }: VisitClerkProtected
         page,
         signInParams: {
             strategy: 'password',
-            identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
-            password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
+            identifier: process.env[`E2E_CLERK_${role}_EMAIL`]!,
+            password: process.env[`E2E_CLERK_${role}_PASSWORD`]!,
         },
     })
 }

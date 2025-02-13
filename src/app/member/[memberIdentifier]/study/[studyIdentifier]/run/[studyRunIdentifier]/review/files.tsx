@@ -62,13 +62,13 @@ function Leaf({ node, expanded, hasChildren, elementProps }: RenderTreeNodePaylo
 
 export function Files({
     data,
-    run,
+    runInfo,
     manifest,
     initialExpanded,
 }: {
     initialExpanded?: string
     data: TreeNode[]
-    run: MinimalRunInfo
+    runInfo: MinimalRunInfo
     manifest: CodeManifest
 }) {
     const tree = useTree({
@@ -90,7 +90,7 @@ export function Files({
                     renderNode={(payload) => <Leaf {...payload} />}
                 />
             </Flex>
-            <DisplayFile path={tree.selectedState[0]} run={run} manifest={manifest} />
+            <DisplayFile path={tree.selectedState[0]} runInfo={runInfo} manifest={manifest} />
         </Flex>
     )
 }
