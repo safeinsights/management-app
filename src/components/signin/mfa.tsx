@@ -40,7 +40,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
             <form onSubmit={onMFASubmit}>
                 <TextInput
                     withAsterisk
-                    label="Code"
+                    label="MFA Code"
                     placeholder="123456"
                     key={form.key('code')}
                     {...form.getInputProps('code')}
