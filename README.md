@@ -23,8 +23,6 @@ export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
 export CLERK_SECRET_KEY=sk_test_....
 ```
 
-`docker compose up`
-
 Other useful commands:
 
 - `docker compose build` will rebuild the docker image, needs to be ran after packages are installed
