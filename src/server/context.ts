@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { AccessDeniedError, Member, User } from '@/lib/types'
+import { AccessDeniedError, User } from '@/lib/types'
+import { Member } from '@/schema/member'
 
 export type ActionContext = {
     member?: Member | null

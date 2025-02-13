@@ -33,15 +33,3 @@ export const onStudyRunCreateAction = async (studyId: string) => {
 
     return studyRun.id
 }
-
-export const onFetchStudyRunsAction = async (studyId: string) => {
-    const runs = await db
-        .selectFrom('studyRun')
-        .select(['id', 'status', 'resultsPath', 'startedAt', 'uploadedAt', 'createdAt', 'completedAt'])
-        .where('studyId', '=', studyId)
-        .orderBy('startedAt', 'desc')
-        .orderBy('createdAt', 'desc')
-        .execute()
-
-    return runs
-}

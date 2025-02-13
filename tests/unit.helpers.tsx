@@ -5,9 +5,35 @@ import os from 'os'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
 import { readTestSupportFile } from './common.helpers'
+import { render } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { theme } from '@/theme'
+import { ReactElement } from 'react'
+
+const createTestQueryClient = () =>
+    new QueryClient({
+        defaultOptions: {
+            queries: {
+                retry: false,
+            },
+        },
+    })
+
+export function renderWithProviders(ui: ReactElement) {
+    const testQueryClient = createTestQueryClient()
+
+    return render(
+        <QueryClientProvider client={testQueryClient}>
+            <MantineProvider theme={theme}>
+                <ModalsProvider>{ui}</ModalsProvider>
+            </MantineProvider>
+        </QueryClientProvider>,
+    )
+}
 
 export * from './common.helpers'
-export { fs, path }
 
 export const insertTestStudyData = async (opts: { memberId: string }) => {
     const study = await db

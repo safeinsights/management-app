@@ -2,9 +2,9 @@ import { Paper, Center, Title, Text, Stack, Group } from '@mantine/core'
 import { b64toUUID } from '@/lib/uuid'
 import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/members'
+import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getStudyAction } from './actions'
+import { getStudyAction } from '@/server/actions/study-actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{

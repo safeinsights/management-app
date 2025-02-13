@@ -1,8 +1,8 @@
 import { headers } from 'next/headers'
 
-import { type Member } from '@/lib/types'
 import jwt from 'jsonwebtoken'
-import { getMemberFromIdentifier } from './members'
+import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { Member } from '@/schema/member'
 
 export const memberFromAuthToken = async (): Promise<Member | null> => {
     const authHeader = (await headers()).get('Authorization') || ''

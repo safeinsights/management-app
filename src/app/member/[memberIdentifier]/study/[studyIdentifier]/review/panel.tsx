@@ -1,15 +1,15 @@
 'use client'
 
-import React from 'react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
+import { Accordion, Button, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { type getStudyAction, updateStudyStatusAction } from './actions'
+import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { RunsTable } from './runs-table'
 import { css } from '@/styles'
+import { Study } from '@/schema/study'
 
 export const labelStyle = css({
     width: '10rem',
@@ -18,8 +18,6 @@ export const labelStyle = css({
 export const inputStyle = css({
     width: '20rem',
 })
-
-type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {
     const router = useRouter()

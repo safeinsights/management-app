@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
+import { cleanup } from '@testing-library/react'
 
 const Headers = new Map()
 
@@ -26,6 +27,7 @@ afterEach(async () => {
     await testTransaction.rollback()
     await fs.promises.rm(tmpDir, { recursive: true })
     delete process.env.UPLOAD_TMP_DIRECTORY
+    cleanup()
 })
 
 afterAll(async () => {

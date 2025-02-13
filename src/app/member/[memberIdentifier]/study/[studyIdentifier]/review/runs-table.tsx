@@ -1,20 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { Table, Accordion, AccordionControl, AccordionPanel, AccordionItem, Button } from '@mantine/core'
+import { FC, useState } from 'react'
+import { Accordion, AccordionControl, AccordionItem, AccordionPanel, Button, Table } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
 import { onFetchStudyRunsAction } from './actions'
 import Link from 'next/link'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
-
-export type Study = {
-    id: string
-    title: string
-    containerLocation: string
-    description: string
-}
+import { Study } from '@/schema/study'
 
 type RunsTableProps = {
     memberIdentifier: string
@@ -22,7 +16,7 @@ type RunsTableProps = {
     study: Study
 }
 
-const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study }) => {
+export const RunsTable: FC<RunsTableProps> = ({ memberIdentifier, isActive, study }) => {
     const { data: runs, isPending } = useQuery({
         queryKey: ['runsForStudy', study.id],
         enabled: isActive,
@@ -65,8 +59,7 @@ const RunsTable: React.FC<RunsTableProps> = ({ memberIdentifier, isActive, study
     )
 }
 
-export { RunsTable }
-export const Panel: React.FC<{ studies: Study[] }> = ({ studies }) => {
+export const Panel: FC<{ studies: Study[] }> = ({ studies }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
 
     if (!studies.length) {

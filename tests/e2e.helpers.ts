@@ -1,5 +1,5 @@
 import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
-import { setupClerkTestingToken } from '@clerk/testing/playwright'
+import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
 import { addCoverageReport } from 'monocart-reporter'
@@ -49,6 +49,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     }
     await Promise.all(startCoveragePromises)
     await options.use()
+
     const stopCoveragePromises: Promise<unknown>[] = []
     if (options.enableJsCoverage) {
         const stopJsCoveragePromise = page.coverage.stopJSCoverage()

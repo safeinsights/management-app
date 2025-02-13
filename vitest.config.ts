@@ -10,7 +10,7 @@ export default defineConfig({
     plugins: [react(), tsconfigPaths()],
     test: {
         mockReset: true,
-        reporters: [IS_CI ? 'github-actions' : 'verbose'],
+        reporters: IS_CI ? ['github-actions'] : ['verbose'],
         environment: 'happy-dom',
         setupFiles: ['tests/vitest.setup.ts'],
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],

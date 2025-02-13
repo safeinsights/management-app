@@ -1,7 +1,8 @@
 import { Button, Popover, ActionIcon, Text, Flex } from '@mantine/core'
 import { IconTrash } from '@tabler/icons-react'
+import { FC } from 'react'
 
-export const SuretyGuard: React.FC<{ children?: React.ReactNode; message?: string; onConfirmed: () => void }> = ({
+export const SuretyGuard: FC<{ children?: React.ReactNode; message?: string; onConfirmed: () => void }> = ({
     message,
     children,
     onConfirmed,

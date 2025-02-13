@@ -1,17 +1,15 @@
 'use client'
 
-import React from 'react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Group, Accordion, Stack, Text, Flex, TextInput, Textarea, Checkbox } from '@mantine/core'
+import { Accordion, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { type getStudyAction, updateStudyStatusAction } from './actions'
+import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { css } from '@/styles'
 import { RunsTable } from './runs-table'
-
-type Study = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
+import { Study } from '@/schema/study'
 
 export const labelStyle = css({
     width: '10rem',

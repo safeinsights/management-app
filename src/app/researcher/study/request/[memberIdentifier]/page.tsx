@@ -3,7 +3,7 @@ import { Form } from './form'
 import { Flex, List, Title, Text } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { YodaNotice } from './yoda'
-import { getMemberFromIdentifier } from '@/server/members'
+import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 
 export const dynamic = 'force-dynamic'
 

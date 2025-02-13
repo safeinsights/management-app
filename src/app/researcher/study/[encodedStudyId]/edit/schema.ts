@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { zodResolver } from 'mantine-form-zod-resolver'
 
+// TODO Move to @/schema/study.ts
+
 const schema = z
     .object({
         title: z.string().min(3).max(100),
