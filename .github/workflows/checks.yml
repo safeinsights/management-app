@@ -41,7 +41,7 @@ jobs:
                   cat tmp/code-coverage/merged/coverage-summary.md >> $GITHUB_STEP_SUMMARY
                   cat tmp/code-coverage/merged/coverage-details.md >> $GITHUB_STEP_SUMMARY
             - name: Coverage Diff
-              uses: bultkrantz/coverage-diff-action@v5
+              uses: bultkrantz/coverage-diff-action@v5.0.1
               if: always()
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
