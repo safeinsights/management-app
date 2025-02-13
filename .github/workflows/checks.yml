@@ -42,11 +42,10 @@ jobs:
                   cat tests/coverage/code-coverage/merged/coverage-details.md >> $GITHUB_STEP_SUMMARY
             - name: Coverage Diff
               uses: bultkrantz/coverage-diff-action@v5.0.1
-              if: always()
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   base-summary-filename: base-summary.json
-                  coverage-filename: tests/coverage/code-coverage/merged/coverage-summary.json
+                  coverage-filename: ./tests/coverage/code-coverage/merged/coverage-summary.json
             - name: Test build
               run: |
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
