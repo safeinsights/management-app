@@ -11,9 +11,6 @@ export { fs, path }
 // since we're extending test from here, we might as well export some other often-used items
 export { expect, type Page } from '@playwright/test'
 
-export const USE_COVERAGE = process.argv.includes('--coverage')
-//import { useSignIn } from '@clerk/nextjs'
-
 export type CollectV8CodeCoverageOptions = {
     browserType: BrowserType
     page: Page
