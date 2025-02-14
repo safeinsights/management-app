@@ -23,8 +23,6 @@ export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
 export CLERK_SECRET_KEY=sk_test_....
 ```
 
-Other useful commands:
-
 - `docker compose build` will rebuild the docker image, needs to be ran after packages are installed
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
