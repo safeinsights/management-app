@@ -67,7 +67,10 @@ function VerifyTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateA
             code: '',
         },
         validate: {
-            code: (c: string) => (String(Number(c)).length != 6 ? 'Code must be six digits' : null),
+            code: (c: string) => {
+                // Verify exactly 6 digits (0-9), nothing else
+                return /^\d{6}$/.test(c) ? null : 'Code must be six digits'
+            },
         },
     })
 
