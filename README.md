@@ -67,19 +67,18 @@ There are a few CLI applications to debug the API end endpoints:
 
 **Currently** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behaviour: it's likely we'll not allow it in later versions.
 
-
 ### Testing with Playwright
 
 To run playwright tests locally, you'll need to install playwright:
+
 - `npm install`
 - `npx playwright install`
 
 And then run playwright: `npx playwright test --ui`
 
-If there are failures, a trace file will be stored under the `./test-results` directory.  For instance to view a failure with the researcher creating a study, you can run: `npx playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
+If there are failures, a trace file will be stored under the `./test-results` directory. For instance to view a failure with the researcher creating a study, you can run: `npx playwright show-trace ./test-results/researcher-create-study-app-researcher-creates-a-study-chromium/trace.zip`
 
-If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run.  You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
-
+If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
 
 ### UI Framework (Mantine)
 

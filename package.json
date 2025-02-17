@@ -8,6 +8,7 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
+        "build:lambda": "./bin/build-lambda",
         "build:docker:production": "./bin/prod-docker-build",
         "build:docker:ci": "./bin/prod-docker-build ci-only-do-not-push",
         "dev": "next dev --turbopack -p 4000",

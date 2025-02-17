@@ -1,8 +1,23 @@
 import { withSentryConfig } from '@sentry/nextjs'
+import type { NextConfig } from 'next'
+import { getConfigValue } from './src/server/config'
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-    output: 'standalone',
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
+
+const nextConfig: NextConfig = async (phase: string) => {
+    const isDev = phase === PHASE_DEVELOPMENT_SERVER
+
+    process.env['NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'] = await getConfigValue('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY')
+    process.env['CLERK_SECRET_KEY'] = await getConfigValue('CLERK_SECRET_KEY')
+
+    /**
+     * @type {import('next').NextConfig}
+     */
+    const nextConfig: NextConfig = {
+        assetPrefix: isDev ? undefined : '/assets/',
+        output: 'standalone',
+    }
+    return nextConfig
 }
 
 export default withSentryConfig(nextConfig, {
