@@ -1,18 +1,11 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
-import { getConfigValue } from './src/server/config'
 
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 
 const nextConfig: NextConfig = async (phase: string) => {
     const isDev = phase === PHASE_DEVELOPMENT_SERVER
 
-    process.env['NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'] = await getConfigValue('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY')
-    process.env['CLERK_SECRET_KEY'] = await getConfigValue('CLERK_SECRET_KEY')
-    console.log(process.env)
-    /**
-     * @type {import('next').NextConfig}
-     */
     const nextConfig: NextConfig = {
         assetPrefix: isDev ? undefined : '/assets/',
         output: 'standalone',
@@ -20,10 +13,11 @@ const nextConfig: NextConfig = async (phase: string) => {
     return nextConfig
 }
 
-export default withSentryConfig(nextConfig, {
+const configWithSentry = withSentryConfig(nextConfig, {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options
 
+    //authToken: await getConfigValue('SENTRY_AUTH_TOKEN'),
     org: 'openstax',
     project: 'management-app',
 
@@ -59,3 +53,5 @@ export default withSentryConfig(nextConfig, {
     // https://vercel.com/docs/cron-jobs
     automaticVercelMonitors: true,
 })
+
+export default configWithSentry

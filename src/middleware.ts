@@ -41,6 +41,7 @@ const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
+
 export default clerkMiddleware(async (auth, req) => {
     try {
         const { userId, orgId, orgRole, orgSlug } = await auth()
