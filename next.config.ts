@@ -9,7 +9,7 @@ const nextConfig: NextConfig = async (phase: string) => {
 
     process.env['NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY'] = await getConfigValue('NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY')
     process.env['CLERK_SECRET_KEY'] = await getConfigValue('CLERK_SECRET_KEY')
-
+    console.log(process.env)
     /**
      * @type {import('next').NextConfig}
      */
