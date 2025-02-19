@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useState } from 'react'
 import { Flex, Group, Paper, rem, Text } from '@mantine/core'
-import { Code, Image, Upload, X } from '@phosphor-icons/react/dist/ssr'
+import { Code, ImageSquare, Upload, X } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalRunInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -49,6 +49,7 @@ async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSi
         manifest.files.push(file)
         if (!(await uploadFile(file, post))) allSuccess = false
     }
+    // TODO Re: This note, couldn't we just sort the files and place manifest.json last?
     // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     if (!(await uploadFile(file, post))) allSuccess = false
@@ -108,7 +109,7 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
                     <X style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-red-6)' }} />
                 </Dropzone.Reject>
                 <Dropzone.Idle>
-                    <Image style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-dimmed)' }} />
+                    <ImageSquare style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-dimmed)' }} />
                 </Dropzone.Idle>
 
                 <div>
