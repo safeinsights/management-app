@@ -71,7 +71,7 @@ export async function databaseURL(): Promise<string> {
 
     const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN')
 
-    return `postgres://${db.username}:${db.password}@${db.host}/${db.dbClusterIdentifier}`
+    return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }
 
 export type SSOCookieConfig = {
