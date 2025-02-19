@@ -36,6 +36,8 @@ export function renderWithProviders(ui: ReactElement) {
 export * from './common.helpers'
 
 export const insertTestStudyData = async (opts: { memberId: string }) => {
+    const researcher = await db.selectFrom('user').select('id').where('is_researcher', '=', true).executeTakeFirstOrThrow()
+
     const study = await db
         .insertInto('study')
         .values({
@@ -43,7 +45,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
             containerLocation: 'test-container',
             title: 'my 1st study',
             description: 'my description',
-            researcherId: BLANK_UUID,
+            researcherId: researcher.id,
             piName: 'test',
             status: 'APPROVED',
             dataSources: ['all'],
@@ -56,6 +58,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyJob')
         .values({
             studyId: study.id,
+            resultFormat: 'SI_V1_ENCRYPT',
             status: 'INITIATED',
         })
         .returning('id')
@@ -65,6 +68,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyJob')
         .values({
             studyId: study.id,
+            resultFormat: 'SI_V1_ENCRYPT',
             status: 'RUNNING',
         })
         .returning('id')
@@ -74,6 +78,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .insertInto('studyJob')
         .values({
             studyId: study.id,
+            resultFormat: 'SI_V1_ENCRYPT',
             status: 'READY',
         })
         .returning('id')

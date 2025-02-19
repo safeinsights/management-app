@@ -8,6 +8,8 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
+export type ResultFormat = 'SI_V1_ENCRYPT'
+
 export type StudyJobStatus =
     | 'CODE-APPROVED'
     | 'CODE-REJECTED'
@@ -64,9 +66,8 @@ export interface Study {
 export interface StudyJob {
     completed_at: Timestamp | null
     created_at: Generated<Timestamp>
-    file_count: number | null
-    file_size: number | null
     id: Generated<string>
+    result_format: ResultFormat
     results_path: string | null
     started_at: Timestamp | null
     status: Generated<StudyJobStatus>
