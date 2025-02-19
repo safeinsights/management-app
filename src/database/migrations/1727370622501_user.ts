@@ -23,22 +23,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 
     db.schema.createIndex('user_clerk_id_indx').on('user').column('clerk_id').unique().execute()
-
-    await db.schema
-        .createTable('member_user')
-        .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
-        .addColumn('user_id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).references('user.id'))
-        .addColumn('member_id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).references('member.id'))
-        .addColumn('is_reviewer', 'boolean', (col) => col.notNull())
-        .addColumn('joined_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
-        .addColumn('is_admin', 'boolean', (col) => col.notNull())
-        .execute()
-
-    db.schema.createIndex('user_member_mbrid_indx').on('user_member').column('member_id').execute()
-
-    db.schema.createIndex('user_member_usrid_indx').on('user_member').column('user_id').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-    await db.schema.dropTable('member').execute()
+    await db.schema.dropTable('user').execute()
 }

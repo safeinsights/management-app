@@ -11,7 +11,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
         .addColumn('title', 'text', (col) => col.notNull())
         .addColumn('description', 'text', (col) => col.notNull())
-        .addColumn('researcher_id', 'uuid', (col) => col.notNull())
+        .addColumn('researcher_id', 'uuid', (col) => col.notNull().references('user.id'))
         .addColumn('member_id', 'uuid', (col) => col.notNull().references('member.id'))
         .addColumn('pi_name', 'text', (col) => col.notNull())
         .addColumn('container_location', 'text', (col) => col.notNull())
