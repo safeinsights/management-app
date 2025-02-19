@@ -1,14 +1,14 @@
-import { visitClerkProtectedPage, clerk, test, TestingUsers, CLERK_MFA_CODE } from './e2e.helpers'
+import { visitClerkProtectedPage, test, CLERK_MFA_CODE } from './e2e.helpers'
 
 test.describe('MFA authentication', async () => {
     test('adds using app', async ({ page }) => {
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/account/mfa?TESTING_FORCE_NO_MFA=1' })
 
         await page.getByRole('button', { name: 'authenticator' }).click()
 
         await page.getByRole('button', { name: 'verify' }).click()
 
-        await page.getByLabel('code').fill('123456')
+        await page.getByLabel('code').fill(CLERK_MFA_CODE)
 
         await page.getByRole('button', { name: 'verify' }).click()
 
@@ -18,7 +18,7 @@ test.describe('MFA authentication', async () => {
     })
 
     test('adds using sms', async ({ page }) => {
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/account/mfa?TESTING_FORCE_NO_MFA=1' })
         await page.getByRole('button', { name: 'sms' }).click()
 
         await page.getByRole('button', { name: 'user profile' }).click()

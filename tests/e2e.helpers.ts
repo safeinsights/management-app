@@ -132,17 +132,17 @@ const clerkSignInHelper = async (params: ClerkSignInParams) => {
     }
 }
 
-export type TestingRole = 'researcher' | 'member'
+export type TestingRole = 'researcher' | 'reviewer'
 export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     researcher: {
         mfa: CLERK_MFA_CODE,
         identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
         password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
     },
-    member: {
+    reviewer: {
         mfa: CLERK_MFA_CODE,
-        identifier: process.env.E2E_CLERK_MEMBER_EMAIL!,
-        password: process.env.E2E_CLERK_MEMBER_PASSWORD!,
+        identifier: process.env.E2E_CLERK_REVIEWER_EMAIL!,
+        password: process.env.E2E_CLERK_REVIEWER_PASSWORD!,
     },
 }
 

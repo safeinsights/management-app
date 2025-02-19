@@ -2,12 +2,12 @@ import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 
 test.describe('BMA member review', () => {
     const studyTitle = `E2E Member review - ${[...Array(6)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`
-    const investigator = 'Principal Investigator'
+    const investigator = 'Member Reviewer'
     const studyDescription = 'A more complete study description'
     const mainR = 'tests/assets/main.r'
     const codeLine = 'print("Hello, Tester")'
 
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach('a researcher submits a study with a main.r', async ({ page }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
         await expect(page).toHaveTitle(/SafeInsights/)
         await page.getByRole('button', { name: /propose/i }).click()
@@ -28,8 +28,8 @@ test.describe('BMA member review', () => {
         await expect(page).toHaveTitle(/SafeInsights/)
     })
 
-    test('member reviews a study main code file', async ({ page }) => {
-        await visitClerkProtectedPage({ page, role: 'member', url: '/' })
+    test('member reviews a study main.r code file', async ({ page }) => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/' })
         await page.getByRole('button', { name: /review studies/i }).click()
         await page.locator('li').filter({ hasText: studyTitle }).getByRole('link').click()
         await page.getByRole('button', { name: /researcher code/i }).click()
