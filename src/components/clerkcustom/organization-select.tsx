@@ -24,7 +24,7 @@ export const OrganizationSelect = ({
         }
     }
 
-    if (!organizations.length) {
+    if (!organizations || !organizations.length) {
         return <Text>No organizations available</Text>
     }
 

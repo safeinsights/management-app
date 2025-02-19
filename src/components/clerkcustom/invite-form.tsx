@@ -2,8 +2,13 @@
 
 import { TextInput, PasswordInput, Select, Button } from '@mantine/core'
 import React from 'react'
+import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 
-export default function InviteForm() {
+type InviteFormProps = {
+    organizations: { id: string; name: string }[]
+}
+
+export default function InviteForm({ organizations }: InviteFormProps) {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         // TODO: Implement invite user logic
@@ -11,6 +16,13 @@ export default function InviteForm() {
 
     return (
         <form onSubmit={handleSubmit}>
+            <OrganizationSelect
+                organizations={organizations}
+                onOrganizationSelect={(selectedOrgId) => {
+                    // Optionally: store selectedOrgId in state to use during submission
+                    console.log('Selected organization:', selectedOrgId)
+                }}
+            />
             <TextInput label="First Name" placeholder="Enter first name" required mb="sm" />
             <TextInput label="Last Name" placeholder="Enter last name" required mb="sm" />
             <Select
