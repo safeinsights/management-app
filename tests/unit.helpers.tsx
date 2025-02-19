@@ -36,7 +36,11 @@ export function renderWithProviders(ui: ReactElement) {
 export * from './common.helpers'
 
 export const insertTestStudyData = async (opts: { memberId: string }) => {
-    const researcher = await db.selectFrom('user').select('id').where('is_researcher', '=', true).executeTakeFirstOrThrow()
+    const researcher = await db
+        .selectFrom('user')
+        .select('id')
+        .where('isResearcher', '=', true)
+        .executeTakeFirstOrThrow()
 
     const study = await db
         .insertInto('study')

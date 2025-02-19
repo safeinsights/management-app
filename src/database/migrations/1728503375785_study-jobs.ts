@@ -1,7 +1,6 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-
     await db.schema
         .createType('study_job_status')
         .asEnum([
@@ -20,13 +19,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         ])
         .execute()
 
-    await db.schema
-        .createType('result_format')
-        .asEnum([
-            'SI_V1_ENCRYPT'
-        ])
-        .execute()
-
+    await db.schema.createType('result_format').asEnum(['SI_V1_ENCRYPT']).execute()
 
     await db.schema
         .createTable('study_job')
@@ -38,7 +31,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('completed_at', 'timestamp')
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .addColumn('results_path', 'text')
-        .addColumn('result_format', sql`result_format`, (col) => col.notNull())
+        .addColumn('result_format', sql`result_format`)
         .execute()
 
     db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()

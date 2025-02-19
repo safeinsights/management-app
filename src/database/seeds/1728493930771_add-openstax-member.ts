@@ -25,7 +25,6 @@ export async function seed(db: Kysely<any>): Promise<void> {
         .insertInto('user')
         .values({
             name: 'Test Researcher User',
-            email: 'contact@safeinsights.org',
             clerk_id: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
             is_researcher: true,
         })
@@ -36,6 +35,4 @@ export async function seed(db: Kysely<any>): Promise<void> {
             })),
         )
         .execute()
-
-
 }

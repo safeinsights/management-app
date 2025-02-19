@@ -8,9 +8,12 @@ import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
 import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
+import { siUser } from '@/server/queries'
 
 export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
     schema.parse(study) // throws when malformed
+
+    const user = await siUser()
 
     const member = await db
         .selectFrom('member')
@@ -41,7 +44,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             description: study.description,
             piName: study.piName,
             memberId,
-            researcherId: '00000000-0000-0000-0000-000000000000', // FIXME: get researcherId from clerk session
+            researcherId: user.id,
             containerLocation: repoUrl,
         })
         .returning('id')
