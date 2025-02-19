@@ -46,6 +46,15 @@ export interface Member {
     updatedAt: Generated<Timestamp>
 }
 
+export interface MemberUser {
+    id: Generated<string>
+    isAdmin: boolean
+    isReviewer: boolean
+    joinedAt: Generated<Timestamp>
+    memberId: string
+    userId: string
+}
+
 export interface MemberUserPublicKey {
     createdAt: Generated<Timestamp>
     fingerprint: string
@@ -73,15 +82,26 @@ export interface Study {
 
 export interface StudyJob {
     id: Generated<string>
-    resultFormat: ResultFormat
+    resultFormat: ResultFormat | null
     resultsPath: string | null
     studyId: string
+}
+
+export interface User {
+    clerkId: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    isResearcher: Generated<boolean>
+    name: string
+    updatedAt: Generated<Timestamp>
 }
 
 export interface DB {
     jobStatusChange: JobStatusChange
     member: Member
+    memberUser: MemberUser
     memberUserPublicKey: MemberUserPublicKey
     study: Study
     studyJob: StudyJob
+    user: User
 }
