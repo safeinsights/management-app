@@ -7,16 +7,16 @@ class FileSender extends DebugRequest {
         super()
         this.program
             .option('-f, --file <path to file>', 'file to send as results')
-            .option('-r, --runId <runId>', 'runId to set status for')
+            .option('-j, --jobId <jobId>', 'jobId to set status for')
         this.parse()
     }
 
     async perform() {
-        const { origin, file: filePath, runId } = this.program.opts()
+        const { origin, file: filePath, jobId } = this.program.opts()
         const file = new File([fs.readFileSync(filePath)], path.basename(filePath), { type: 'text/plain' })
         const form = new FormData()
         form.append('file', file)
-        const response = await fetch(`${origin}/api/run/${runId}/results`, {
+        const response = await fetch(`${origin}/api/job/${jobId}/results`, {
             method: 'POST',
             headers: { Authorization: this.authorization },
             body: form,

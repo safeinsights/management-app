@@ -9,21 +9,21 @@ export const GET = wrapApiMemberAction(async () => {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const runs = await db
-        .selectFrom('studyRun')
-        .innerJoin('study', (join) => join.on('memberId', '=', member.id).onRef('study.id', '=', 'studyRun.studyId'))
+    const jobs = await db
+        .selectFrom('studyJob')
+        .innerJoin('study', (join) => join.on('memberId', '=', member.id).onRef('study.id', '=', 'studyJob.studyId'))
         .select([
-            'studyRun.id as runId',
+            'studyJob.id as jobId',
             'studyId',
-            'studyRun.createdAt as requestedAt',
+            'studyJob.createdAt as requestedAt',
             'study.title',
-            'studyRun.status',
+            'studyJob.status',
             'study.dataSources',
             'study.outputMimeType',
-            sql<string>`concat(study.container_location, ':', uuid_to_b64(study_run.id) )`.as('containerLocation'),
+            sql<string>`concat(study.container_location, ':', uuid_to_b64(study_job.id) )`.as('containerLocation'),
         ])
-        .where('studyRun.status', 'in', ['READY', 'RUNNING'])
+        .where('studyJob.status', 'in', ['READY', 'RUNNING'])
         .execute()
 
-    return Response.json({ runs })
+    return Response.json({ jobs })
 })

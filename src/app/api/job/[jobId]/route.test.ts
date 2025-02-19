@@ -5,17 +5,17 @@ import { db } from '@/database'
 
 test('updating status', async () => {
     const member = await mockApiMember({ identifier: 'testy-mctestface' })
-    const { runIds } = await insertTestStudyData({ memberId: member.id })
+    const { jobIds } = await insertTestStudyData({ memberId: member.id })
 
     const req = new Request('http://localhost', {
         method: 'PUT',
         body: JSON.stringify({ status: 'RUNNING' }),
     })
 
-    const resp = await apiHandler.PUT(req, { params: Promise.resolve({ runId: runIds[0] }) })
+    const resp = await apiHandler.PUT(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
     expect(resp.ok).toBe(true)
 
-    const sr = await db.selectFrom('studyRun').select('status').where('id', '=', runIds[0]).executeTakeFirstOrThrow()
+    const sr = await db.selectFrom('studyJob').select('status').where('id', '=', jobIds[0]).executeTakeFirstOrThrow()
 
     expect(sr.status).toBe('RUNNING')
 })

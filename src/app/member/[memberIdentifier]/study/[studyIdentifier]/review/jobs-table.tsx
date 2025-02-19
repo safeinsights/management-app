@@ -4,23 +4,23 @@ import { FC, useState } from 'react'
 import { Accordion, AccordionControl, AccordionItem, AccordionPanel, Button, Table } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
-import { onFetchStudyRunsAction } from './actions'
+import { onFetchStudyJobsAction } from './actions'
 import Link from 'next/link'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { Study } from '@/schema/study'
 
-type RunsTableProps = {
+type JobsTableProps = {
     memberIdentifier: string
     isActive: boolean
     study: Study
 }
 
-export const RunsTable: FC<RunsTableProps> = ({ memberIdentifier, isActive, study }) => {
-    const { data: runs, isPending } = useQuery({
-        queryKey: ['runsForStudy', study.id],
+export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, study }) => {
+    const { data: jobs, isPending } = useQuery({
+        queryKey: ['jobsForStudy', study.id],
         enabled: isActive,
-        queryFn: () => onFetchStudyRunsAction(study.id),
+        queryFn: () => onFetchStudyJobsAction(study.id),
     })
 
     if (isPending) return <p>Loading...</p>
@@ -28,25 +28,25 @@ export const RunsTable: FC<RunsTableProps> = ({ memberIdentifier, isActive, stud
     return (
         <Table verticalSpacing="md">
             <Table.Tbody>
-                {(runs || []).map((run, runCount: number) => (
-                    <Table.Tr key={run.id}>
-                        <Table.Td>{runCount + 1})</Table.Td>
+                {(jobs || []).map((job, jobCount: number) => (
+                    <Table.Tr key={job.id}>
+                        <Table.Td>{jobCount + 1})</Table.Td>
                         <Table.Td>
-                            Code Run Submitted On: {'{'}
-                            {run.createdAt.toISOString()}
+                            Code Job Submitted On: {'{'}
+                            {job.createdAt.toISOString()}
                             {'}'}
                         </Table.Td>
                         <Table.Td>|</Table.Td>
                         <Table.Td>
                             Status: {'{'}
-                            {humanizeStatus(run.status)}
+                            {humanizeStatus(job.status)}
                             {'}'}
                         </Table.Td>
-                        <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
+                        <Table.Td>{job.startedAt?.toISOString() || ''}</Table.Td>
                         <Table.Td align="right">
-                            {run.status != 'INITIATED' && (
+                            {job.status != 'INITIATED' && (
                                 <Link
-                                    href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/run/${uuidToB64(run.id)}/review`}
+                                    href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/job/${uuidToB64(job.id)}/review`}
                                 >
                                     <Button>View Code</Button>
                                 </Link>
@@ -78,7 +78,7 @@ export const Panel: FC<{ studies: Study[] }> = ({ studies }) => {
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <p>{study.description}</p>
-                        <RunsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id} />
+                        <JobsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}

@@ -7,7 +7,7 @@ import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
-import { RunsTable } from './runs-table'
+import { JobsTable } from './jobs-table'
 import { css } from '@/styles'
 import { Study } from '@/schema/study'
 
@@ -123,12 +123,12 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
                     </Accordion.Panel>
                 </Accordion.Item>
 
-                <Accordion.Item value="runs">
+                <Accordion.Item value="jobs">
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <RunsTable
-                                isActive={activeSection == 'runs'}
+                            <JobsTable
+                                isActive={activeSection == 'jobs'}
                                 study={study}
                                 memberIdentifier={memberIdentifier}
                             />

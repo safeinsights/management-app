@@ -1,4 +1,4 @@
-import type { StudyRunStatus, StudyStatus } from '@/database/types'
+import type { StudyJobStatus, StudyStatus } from '@/database/types'
 
 export class AccessDeniedError extends Error {}
 
@@ -26,14 +26,14 @@ export type CodeManifestFileInfo = {
 // it's used to display the code in the UI for review
 // and stored alongside the code in s3
 export type CodeManifest = {
-    runId: string
+    jobId: string
     language: SupportedLanguages
     files: Record<string, CodeManifestFileInfo> // path -> size
     tree: TreeNode
     size: number
 }
 
-export type MinimalRunInfo = { memberIdentifier: string; studyId: string; studyRunId: string }
-export type MinimalRunResultsInfo = { resultsPath: string } & MinimalRunInfo
+export type MinimalJobInfo = { memberIdentifier: string; studyId: string; studyJobId: string }
+export type MinimalJobResultsInfo = { resultsPath: string } & MinimalJobInfo
 
-export type AllStatus = StudyRunStatus | StudyStatus
+export type AllStatus = StudyJobStatus | StudyStatus

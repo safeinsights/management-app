@@ -1,13 +1,13 @@
-import type { MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
+import type { MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
 import { uuidToB64 } from './uuid'
 
-export const pathForStudyRun = (parts: MinimalRunInfo) =>
-    `analysis/${parts.memberIdentifier}/${parts.studyId}/${parts.studyRunId}`
+export const pathForStudyJob = (parts: MinimalJobInfo) =>
+    `analysis/${parts.memberIdentifier}/${parts.studyId}/${parts.studyJobId}`
 
-export const pathForStudyRunCode = (parts: MinimalRunInfo) => `${pathForStudyRun(parts)}/code`
+export const pathForStudyJobCode = (parts: MinimalJobInfo) => `${pathForStudyJob(parts)}/code`
 
-export const pathForStudyRunResults = (parts: MinimalRunResultsInfo) =>
-    `${pathForStudyRun(parts)}/results/${parts.resultsPath}`
+export const pathForStudyJobResults = (parts: MinimalJobResultsInfo) =>
+    `${pathForStudyJob(parts)}/results/${parts.resultsPath}`
 
-export const resultsDownloadURL = (run: { id: string; resultsPath: string }) =>
-    `/dl/results/${uuidToB64(run.id)}/${run.resultsPath}`
+export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
+    `/dl/results/${uuidToB64(job.id)}/${job.resultsPath}`

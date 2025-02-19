@@ -6,7 +6,7 @@ import { FormValues, schema } from './schema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
-import { onStudyRunCreateAction } from '@/app/researcher/studies/actions'
+import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
 
 export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
@@ -47,10 +47,10 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const studyRunId = await onStudyRunCreateAction(studyId)
+    const studyJobId = await onStudyJobCreateAction(studyId)
 
     return {
         studyId: uuidToB64(studyId),
-        studyRunId: uuidToB64(studyRunId),
+        studyJobId: uuidToB64(studyJobId),
     }
 }

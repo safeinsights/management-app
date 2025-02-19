@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
 const schema = z.object({
-    runId: z.string().uuid(),
+    jobId: z.string().uuid(),
     fileSize: z.number(),
     fileCount: z.number(),
 })
@@ -14,8 +14,8 @@ export async function POST(req: Request) {
     const body = schema.parse(await req.json())
 
     await db
-        .updateTable('studyRun')
-        .where('id', '=', body.runId)
+        .updateTable('studyJob')
+        .where('id', '=', body.jobId)
         .where('status', '=', 'INITIATED')
         .set({
             status: 'CODE-SUBMITTED',

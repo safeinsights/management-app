@@ -1,13 +1,13 @@
 import { db } from '@/database'
-import { MinimalRunResultsInfo } from '@/lib/types'
+import { MinimalJobResultsInfo } from '@/lib/types'
 
-export const queryRunResult = async (runId: string) =>
+export const queryJobResult = async (jobId: string) =>
     (await db
-        .selectFrom('studyRun')
-        .innerJoin('study', 'study.id', 'studyRun.studyId')
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['studyRun.id as studyRunId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
-        .where('studyRun.id', '=', runId)
-        .where('studyRun.status', '=', 'COMPLETED')
-        .where('studyRun.resultsPath', 'is not', null)
-        .executeTakeFirst()) as MinimalRunResultsInfo | undefined
+        .select(['studyJob.id as studyJobId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
+        .where('studyJob.id', '=', jobId)
+        .where('studyJob.status', '=', 'RUN-COMPLETE')
+        .where('studyJob.resultsPath', 'is not', null)
+        .executeTakeFirst()) as MinimalJobResultsInfo | undefined

@@ -3,7 +3,7 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_status')
-        .asEnum(['INITIATED', 'SUBMITTED', 'APPROVED', 'REJECTED', 'ARCHIVED'])
+        .asEnum(['INITIATED', 'PENDING-REVIEW', 'APPROVED', 'REJECTED', 'ARCHIVED'])
         .execute()
 
     await db.schema

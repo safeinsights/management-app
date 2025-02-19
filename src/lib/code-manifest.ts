@@ -6,8 +6,8 @@ export class CodeReviewManifest {
     files: FileWithPath[] = []
 
     constructor(
-        public runId: string, // eslint-disable-line no-unused-vars
-        public language: SupportedLanguages, // eslint-disable-line no-unused-vars
+        public jobId: string,
+        public language: SupportedLanguages,
     ) {}
 
     get asTreeNode(): TreeNode {
@@ -48,7 +48,7 @@ export class CodeReviewManifest {
         return JSON.stringify(
             {
                 language: this.language,
-                runId: this.runId,
+                jobId: this.jobId,
                 size: this.files.reduce((acc, f) => acc + f.size, 0),
                 tree: this.asTreeNode,
                 files: this.files.reduce(

@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { fetchFileAction } from './actions'
-import type { MinimalRunInfo, CodeManifest } from '@/lib/types'
+import type { MinimalJobInfo, CodeManifest } from '@/lib/types'
 import { useEffect, useState } from 'react'
 import { Flex, Title, LoadingOverlay } from '@mantine/core'
 import hljs from 'highlight.js'
@@ -16,11 +16,11 @@ function guessLanguage(filePath: string) {
 }
 
 export function DisplayFile({
-    runInfo,
+    jobInfo,
     path,
     manifest,
 }: {
-    runInfo: MinimalRunInfo
+    jobInfo: MinimalJobInfo
     path?: string
     manifest: CodeManifest
 }) {
@@ -30,7 +30,7 @@ export function DisplayFile({
     const { data: sourceCode, isLoading } = useQuery({
         queryKey: ['code-file', displaying],
         enabled: !!displaying,
-        queryFn: () => fetchFileAction(runInfo, displaying),
+        queryFn: () => fetchFileAction(jobInfo, displaying),
     })
 
     useEffect(() => {

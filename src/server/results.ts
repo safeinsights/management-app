@@ -1,19 +1,19 @@
 import { db } from '@/database'
-import { MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
+import { MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
 import { storeResultsFile, urlForResults } from './aws'
-import { pathForStudyRun } from '@/lib/paths'
+import { pathForStudyJob } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 import path from 'path'
 import fs from 'fs'
 import { sanitizeFileName } from '@/lib/util'
 import { faker } from '@faker-js/faker'
 
-export async function attachResultsToStudyRun(info: MinimalRunInfo, file: File) {
+export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) {
     const fileName = sanitizeFileName(file.name)
     if (USING_S3_STORAGE) {
         await storeResultsFile({ ...info, resultsPath: fileName }, file.stream())
     } else {
-        const dir = path.join(getUploadTmpDirectory(), pathForStudyRun(info), 'results', path.dirname(fileName))
+        const dir = path.join(getUploadTmpDirectory(), pathForStudyJob(info), 'results', path.dirname(fileName))
         fs.mkdirSync(dir, { recursive: true })
         const filePath = path.join(dir, path.basename(fileName))
         const buffer = await file.arrayBuffer()
@@ -21,17 +21,17 @@ export async function attachResultsToStudyRun(info: MinimalRunInfo, file: File) 
     }
 
     await db
-        .updateTable('studyRun')
+        .updateTable('studyJob')
         .set({
-            status: 'COMPLETED',
+            status: 'RUN-COMPLETE',
             resultsPath: file.name,
             completedAt: new Date(),
         })
-        .where('id', '=', info.studyRunId)
+        .where('id', '=', info.studyJobId)
         .execute()
 }
 
-export async function attachSimulatedResultsToStudyRun(info: MinimalRunInfo) {
+export async function attachSimulatedResultsToStudyJob(info: MinimalJobInfo) {
     const rows = Array.from({ length: faker.number.int({ min: 5, max: 25 }) }, () => [
         faker.person.fullName(),
         faker.internet.email(),
@@ -43,18 +43,18 @@ export async function attachSimulatedResultsToStudyRun(info: MinimalRunInfo) {
     // probably should use a real csv lib for this, but it's testing only so ¯\_(ツ)_/¯
     const csv = `Name,Email,Address,City,Country,Phone Number\n${rows.map((r) => r.join(',')).join('\n')}`
     const file = new File([csv], 'results.csv', { type: 'application/csv' })
-    await attachResultsToStudyRun(info, file)
+    await attachResultsToStudyJob(info, file)
 }
 
-export async function storageForResultsFile(info: MinimalRunResultsInfo) {
+export async function storageForResultsFile(info: MinimalJobResultsInfo) {
     if (USING_S3_STORAGE) {
         return { s3: true }
     } else {
-        return { file: path.join(getUploadTmpDirectory(), pathForStudyRun(info), 'results', info.resultsPath) }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), 'results', info.resultsPath) }
     }
 }
 
-export async function urlOrPathToResultsFile(info: MinimalRunResultsInfo) {
+export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo) {
     const storage = await storageForResultsFile(info)
     if (storage.s3) {
         return { url: await urlForResults(info) }

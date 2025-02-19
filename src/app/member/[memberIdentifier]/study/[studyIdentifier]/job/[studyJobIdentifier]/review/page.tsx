@@ -1,6 +1,6 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
 import Link from 'next/link'
-import { dataForRunAction } from './actions'
+import { dataForJobAction } from './actions'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { ReviewControls } from './controls'
@@ -11,12 +11,12 @@ export default async function StudyReviewPage(props: {
     params: Promise<{
         memberIdentifier: string
         studyIdentifier: string
-        studyRunIdentifier: string
+        studyJobIdentifier: string
     }>
 }) {
     const params = await props.params
 
-    const { memberIdentifier, studyRunIdentifier, studyIdentifier } = params
+    const { memberIdentifier, studyJobIdentifier, studyIdentifier } = params
 
     // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
@@ -24,9 +24,9 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const { runInfo, manifest } = await dataForRunAction(studyRunIdentifier)
-    if (!runInfo || !manifest) {
-        return <AlertNotFound title="StudyRun was not found" message="no such study run exists" />
+    const { jobInfo, manifest } = await dataForJobAction(studyJobIdentifier)
+    if (!jobInfo || !manifest) {
+        return <AlertNotFound title="StudyJob was not found" message="no such study job exists" />
     }
 
     const initialExpanded = manifest.tree.children?.length == 1 ? manifest.tree.children[0].value : undefined
@@ -37,31 +37,31 @@ export default async function StudyReviewPage(props: {
                 crumbs={{
                     memberIdentifier,
                     studyIdentifier,
-                    studyTitle: runInfo.studyTitle,
+                    studyTitle: jobInfo.studyTitle,
                     current: 'Review code',
                 }}
             />
             {manifest.size == 0 && (
                 <ErrorAlert
                     title="No files found"
-                    error="We failed to extract any files for this code run.  This is almost certainly an error, approve with caution"
+                    error="We failed to extract any files for this code job.  This is almost certainly an error, approve with caution"
                 />
             )}
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
-                    Review code for code run submitted on {runInfo.createdAt.toLocaleString()} -{' '}
+                    Review code for code job submitted on {jobInfo.createdAt.toLocaleString()} -{' '}
                     {Object.keys(manifest.files).length} files, {Math.round((manifest.size / 1048576) * 100) / 100}MB
                 </Title>
                 <Flex gap="md" direction="column">
                     <Link href={`/member/${memberIdentifier}/studies/review`}>
                         <Button color="blue">Back to pending review</Button>
                     </Link>
-                    <ReviewControls memberIdentifier={memberIdentifier} run={runInfo} />
+                    <ReviewControls memberIdentifier={memberIdentifier} job={jobInfo} />
                 </Flex>
             </Flex>
             <Files
                 data={manifest?.tree.children || []}
-                runInfo={runInfo}
+                jobInfo={jobInfo}
                 manifest={manifest}
                 initialExpanded={initialExpanded}
             />

@@ -6,20 +6,22 @@ import { wrapApiMemberAction } from '@/server/wrappers'
 import { requestingMember } from '@/server/context'
 
 const schema = z.object({
-    status: z.enum(['RESULTS-REJECTED', 'RUNNING', 'ERRORED', 'RESULTS-REVIEW']),
+    // it's tempting to try to type this, but doesn't seem to work.
+    // not really needed though because the where clause below will error if an invalid status is present in the list below
+    status: z.enum(['RUNNING', 'ERRORED', 'RESULTS-REJECTED', 'RESULTS-APPROVED']),
 })
 
-const handler = async (req: Request, { params }: { params: Promise<{ runId: string }> }) => {
+const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const member = requestingMember()
-    const { runId } = await params
-    if (!runId || !member) {
+    const { jobId } = await params
+    if (!jobId || !member) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
     const wasFound = db
-        .selectFrom('studyRun')
-        .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyRun.studyId').on('memberId', '=', member.id))
-        .where('studyRun.id', '=', runId)
-        .select('studyRun.id')
+        .selectFrom('studyJob')
+        .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('memberId', '=', member.id))
+        .where('studyJob.id', '=', jobId)
+        .select('studyJob.id')
         .executeTakeFirst()
 
     if (!wasFound) {
@@ -30,11 +32,11 @@ const handler = async (req: Request, { params }: { params: Promise<{ runId: stri
     const update = schema.parse(json)
 
     await db
-        .updateTable('studyRun')
+        .updateTable('studyJob')
         .set({
             status: update.status,
         })
-        .where('id', '=', runId)
+        .where('id', '=', jobId)
         .execute()
 
     return new NextResponse('ok', { status: 200 })

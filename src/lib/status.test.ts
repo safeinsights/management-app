@@ -6,12 +6,12 @@ describe('humanizeStatus', () => {
         const testCases = [
             ['CODE-REJECTED', 'Code Rejected'],
             ['CODE-SUBMITTED', 'Code Submitted'],
-            ['COMPLETED', 'Completed'],
+            ['RUN-COMPLETE', 'Run Complete'],
             ['ERRORED', 'Errored'],
             ['INITIATED', 'Initiated'],
             ['READY', 'Ready'],
             ['RESULTS-REJECTED', 'Results Rejected'],
-            ['RESULTS-REVIEW', 'Results Review'],
+            ['RESULTS-APPROVED', 'Results Approved'],
             ['RUNNING', 'Running'],
         ] as const
 

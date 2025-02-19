@@ -32,38 +32,38 @@ test('jwt with expired token is rejected', async () => {
     expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
 })
 
-test('return study runs', async () => {
+test('return study jobs', async () => {
     const member = await mockApiMember({ identifier: 'testy-mctestface' })
 
-    const { runIds } = await insertTestStudyData({ memberId: member?.id || '' })
+    const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()
 
     expect(json).toEqual({
-        runs: expect.arrayContaining([
+        jobs: expect.arrayContaining([
             expect.objectContaining({
-                runId: runIds[1],
+                jobId: jobIds[1],
                 title: 'my 1st study',
                 status: 'RUNNING',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
-                containerLocation: `test-container:${uuidToB64(runIds[1])}`,
+                containerLocation: `test-container:${uuidToB64(jobIds[1])}`,
             }),
             expect.objectContaining({
-                runId: runIds[2],
+                jobId: jobIds[2],
                 title: 'my 1st study',
                 status: 'READY',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
-                containerLocation: `test-container:${uuidToB64(runIds[2])}`,
+                containerLocation: `test-container:${uuidToB64(jobIds[2])}`,
             }),
         ]),
     })
     expect(json).not.toEqual({
-        runs: expect.arrayContaining([
+        jobs: expect.arrayContaining([
             expect.objectContaining({
-                runId: runIds[0],
+                jobId: jobIds[0],
             }),
         ]),
     })
