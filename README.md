@@ -18,11 +18,6 @@ Note: For developing locally without docker compose, you will need to install po
 
 Set these two environment variables with your Clerk secrets:
 
-```shell
-export NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_....
-export CLERK_SECRET_KEY=sk_test_....
-```
-
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
