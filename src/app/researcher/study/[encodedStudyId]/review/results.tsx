@@ -10,7 +10,7 @@ import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
 import { fetchRunResultsAction } from './actions'
 import { ErrorAlert } from '@/components/errors'
-import { IconDownload } from '@tabler/icons-react'
+import { Download } from '@phosphor-icons/react/dist/ssr'
 import { slugify } from '@/lib/string'
 
 type RunResultsProps = {
@@ -71,7 +71,7 @@ export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run, study }) => {
                 size="100%"
                 title={
                     <Link href={`/dl/results/${uuidToB64(run.id)}/${slugify(study.title)}.csv`}>
-                        <Button rightSection={<IconDownload size={14} />}>Download Results</Button>
+                        <Button rightSection={<Download />}>Download Results</Button>
                     </Link>
                 }
                 scrollAreaComponent={ScrollArea.Autosize}

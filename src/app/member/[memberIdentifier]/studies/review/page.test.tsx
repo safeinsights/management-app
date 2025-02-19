@@ -5,7 +5,6 @@ import * as studyActions from '@/server/actions/study-actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import StudyReviewPage from './page'
 import { Member } from '@/schema/member'
-import { Study } from '@/schema/study'
 
 const mockMember: Member = {
     id: '1',
@@ -19,27 +18,51 @@ const mockMember: Member = {
 
 const mockStudies = [
     {
-        id: 'study-12345',
-        memberId: 'member-67890',
-        piName: 'Dr. Jane Smith',
-        status: 'APPROVED',
-        title: 'Sleep Deprivation and Cognitive Decline',
+        approvedAt: null,
+        containerLocation: 'Location1',
+        createdAt: new Date(),
+        dataSources: [],
+        description: 'Description for Study 1',
+        id: 'study-1',
+        irbProtocols: null,
+        memberId: 'member-1',
+        outputMimeType: null,
+        piName: 'PI Name 1',
+        researcherId: 'researcher-1',
+        status: 'INITIATED' as const,
+        title: 'Study Title 1',
     },
     {
-        id: 'study-67890',
-        memberId: 'member-12345',
-        piName: 'Dr. John Doe',
-        status: 'PENDING',
-        title: 'Genetic Markers and Heart Disease',
+        approvedAt: null,
+        containerLocation: 'Location2',
+        createdAt: new Date(),
+        dataSources: [],
+        description: 'Description for Study 2',
+        id: 'study-2',
+        irbProtocols: null,
+        memberId: 'member-2',
+        outputMimeType: null,
+        piName: 'PI Name 2',
+        researcherId: 'researcher-2',
+        status: 'APPROVED' as const,
+        title: 'Study Title 2',
     },
     {
-        id: 'study-24680',
-        memberId: 'member-54321',
-        piName: 'Dr. Alice Johnson',
-        status: 'REJECTED',
-        title: 'Meditation and Brain Activity',
+        approvedAt: null,
+        containerLocation: 'Location3',
+        createdAt: new Date(),
+        dataSources: [],
+        description: 'Description for Study 3',
+        id: 'study-3',
+        irbProtocols: null,
+        memberId: 'member-3',
+        outputMimeType: null,
+        piName: 'PI Name 3',
+        researcherId: 'researcher-3',
+        status: 'SUBMITTED' as const,
+        title: 'Study Title 3',
     },
-] as Study[]
+]
 
 vi.mock('@/server/actions/member-actions', () => ({
     getMemberFromIdentifier: vi.fn(),

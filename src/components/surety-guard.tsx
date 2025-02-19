@@ -1,5 +1,5 @@
-import { Button, Popover, ActionIcon, Text, Flex } from '@mantine/core'
-import { IconTrash } from '@tabler/icons-react'
+import { ActionIcon, Button, Flex, Popover, Text } from '@mantine/core'
+import { Trash } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 
 export const SuretyGuard: FC<{ children?: React.ReactNode; message?: string; onConfirmed: () => void }> = ({
@@ -11,7 +11,7 @@ export const SuretyGuard: FC<{ children?: React.ReactNode; message?: string; onC
         <Popover width={300} trapFocus withArrow shadow="md">
             <Popover.Target>
                 <ActionIcon size="sm" variant="subtle" color="red">
-                    {children || <IconTrash size={18} />}
+                    {children || <Trash />}
                 </ActionIcon>
             </Popover.Target>
             <Popover.Dropdown>

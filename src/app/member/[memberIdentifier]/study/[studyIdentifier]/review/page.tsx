@@ -37,13 +37,6 @@ export default async function StudyReviewPage(props: {
                         <Title>
                             {study.title} | {study.piName}
                         </Title>
-                        {/* <Flex justify="space-between" align="center" mb="lg">
-                            <Flex gap="md" direction="column">
-                                <Link href={`/member/${memberIdentifier}/studies/review`}>
-                                    <Button color="blue">Back to pending review</Button>
-                                </Link>
-                            </Flex>
-                        </Flex> */}
                     </Group>
 
                     <Text c="#7F7D7D" mb={30} pt={10} fz="lg" fs="italic">
