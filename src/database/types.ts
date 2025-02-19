@@ -33,6 +33,15 @@ export interface Member {
     updatedAt: Generated<Timestamp>
 }
 
+export interface MemberUserPublicKey {
+    createdAt: Generated<Timestamp>
+    fingerprint: string
+    id: Generated<string>
+    updatedAt: Generated<Timestamp>
+    userId: string
+    value: string
+}
+
 export interface Study {
     approvedAt: Timestamp | null
     containerLocation: string
@@ -64,6 +73,7 @@ export interface StudyRun {
 
 export interface DB {
     member: Member
+    memberUserPublicKey: MemberUserPublicKey
     study: Study
     studyRun: StudyRun
 }
