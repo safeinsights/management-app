@@ -3,6 +3,7 @@
 set -e
 
 TYPES=src/database/types.ts
+# TODO do we need snake_types anymore?
 SNAKE_TYPES=src/database/snake_case_types.ts
 
 npx kysely migrate:latest
