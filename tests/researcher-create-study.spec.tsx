@@ -24,7 +24,6 @@ test.describe('app', () => {
         // const missingMainFile = 'tests/assets/study-no-main.zip'
         // await page.setInputFiles('input[type="file"]', missingMainFile)
         // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
-        await page.pause()
         // Test valid file upload with main.r
         const validStudyZip = 'tests/assets/valid-study.zip'
         await page.setInputFiles('input[type="file"]', validStudyZip)

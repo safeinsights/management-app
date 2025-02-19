@@ -7,12 +7,12 @@ if (process.argv.includes('--ui')) {
     reporters.push(['list'])
 } else {
     reporters.push(
+        [process.env.CI ? 'github' : 'list'],
         [
             'monocart-reporter',
             {
-                outputFile: path.resolve('./tests/coverage/test-results/e2e/coverage.html'),
+                outputFile: './test-results/e2e/index.html',
                 coverage: {
-                    outputDir: path.resolve('./tests/coverage/code-coverage/e2e'),
                     entryFilter: (entry: { url: string; source: string }) => {
                         return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
                     },
@@ -31,7 +31,6 @@ if (process.argv.includes('--ui')) {
                 },
             },
         ],
-        ['list'],
     )
 }
 
