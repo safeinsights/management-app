@@ -1,12 +1,11 @@
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
+
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
 export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
 
 export const PROD_ENV = process.env.NODE_ENV === 'production'
 
-import { SecretsManager } from 'aws-sdk'
-
-const secretsManager = new SecretsManager()
 
 export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 
@@ -33,15 +32,17 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '872515273917': 'Development',
 }
 
-async function fetchSecret<T extends Record<string, unknown>>(key: string): Promise<T> {
-    if (!key) throw new Error('missing DB_SECRET_ARN env var')
+async function fetchSecret<T extends Record<string, unknown>>(SecretId: string): Promise<T> {
+    if (!SecretId) throw new Error('missing SECRET_ARN env var')
     try {
-        const data = await secretsManager.getSecretValue({ SecretId: process.env['DB_SECRET_ARN']! }).promise()
+        const client = new SecretsManagerClient()
+        const data = await client.send(new GetSecretValueCommand({ SecretId }))
+
         if (data.SecretString) {
             return JSON.parse(data.SecretString)
         }
     } catch {
-        throw new Error(`failed to fetch ${key} from AWS secrets`)
+        throw new Error(`failed to fetch ${SecretId} from AWS secrets`)
     }
     return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
