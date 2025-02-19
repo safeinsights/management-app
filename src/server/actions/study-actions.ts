@@ -8,9 +8,22 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
         .innerJoin('member', (join) =>
             join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
         )
+        .select([
+            'study.id',
+            'study.approvedAt',
+            'study.containerLocation',
+            'study.createdAt',
+            'study.dataSources',
+            'study.description',
+            'study.irbProtocols',
+            'study.memberId',
+            'study.outputMimeType',
+            'study.piName',
+            'study.researcherId',
+            'study.status',
+            'study.title',
+        ])
         .orderBy('study.createdAt', 'desc')
-        .selectAll()
-        // .select(['study.id', 'piName', 'status', 'title'])
         .where('study.status', '!=', 'INITIATED')
         .execute()
 }

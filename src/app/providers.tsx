@@ -18,7 +18,6 @@ function makeQueryClient() {
                 // With SSR, we usually want to set some default staleTime
                 // above 0 to avoid re-fetching immediately on the client
                 staleTime: 60 * 1000,
-                refetchOnWindowFocus: false,
                 // Every 15 minutes - open to input on this
                 refetchInterval: 15 * 1000 * 60,
             },
