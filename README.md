@@ -106,7 +106,9 @@ If there are failures, a trace file will be stored under the `./test-results` di
 
 If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
 
-### UI Framework (Mantine)
+### Docs to frameworks, libraries, tools, etc
+- [phosphor icons](https://phosphoricons.com/)
+- [mantine](https://mantine.dev)
 
 ### Running Tests
 

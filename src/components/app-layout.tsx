@@ -13,9 +13,8 @@ import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { IconHome } from '@tabler/icons-react'
 import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
-import { Gear } from '@phosphor-icons/react/dist/ssr'
+import { Gear, House } from '@phosphor-icons/react/dist/ssr'
 import { ReactNode } from 'react'
 
 type Props = {
@@ -34,12 +33,7 @@ export function AppLayout({ children }: Props) {
                     </Link>
                 </AppShellSection>
                 <AppShellSection grow my="md" component={ScrollArea}>
-                    <NavLink
-                        href="/member/openstax/dashboard"
-                        c="white"
-                        label="Dashboard"
-                        leftSection={<IconHome size={16} stroke={1.5} />}
-                    />
+                    <NavLink href="/member/openstax/dashboard" c="white" label="Dashboard" leftSection={<House />} />
                 </AppShellSection>
                 <AppShellSection>
                     {/* TODO Flesh out styles for this stuff with UX */}
@@ -60,7 +54,7 @@ export function AppLayout({ children }: Props) {
                         // href="/settings"
                         c="white"
                         label="Settings"
-                        leftSection={<Gear size={16} />}
+                        leftSection={<Gear />}
                     />
                 </AppShellSection>
             </AppShellNavbar>

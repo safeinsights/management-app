@@ -1,21 +1,20 @@
 'use client'
 
 import {
-    IconBrandJavascript,
-    IconFolder,
-    IconFolderOpen,
-    IconListTree,
-    IconCircleLetterRFilled,
-    IconDiamond,
-    IconFileText,
-    IconBrandPython,
-    IconMarkdown,
-} from '@tabler/icons-react'
+    FileJs,
+    Folder,
+    FolderOpen,
+    FileCss,
+    TreeStructure,
+    FileTsx,
+    File,
+    Diamond,
+    FileText,
+    FileMd,
+    FilePy,
+} from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Group, RenderTreeNodePayload, Tree, useTree } from '@mantine/core'
 import { Flex } from '@mantine/core'
-
-import { CssIcon, NpmIcon, TypeScriptCircleIcon } from '@mantinex/dev-icons'
-
 import type { MinimalRunInfo, CodeManifest, TreeNode } from '@/lib/types'
 import { DisplayFile } from './display'
 import { expandIconStyle, leftPanelStyles, treeStyles } from './styles.css'
@@ -28,23 +27,23 @@ interface FileIconProps {
 }
 
 const Icons: [RegExp, ReactNode][] = [
-    [/\.(ts|tsx|tsconfig(\.json)?)$/, <TypeScriptCircleIcon key="ts" size={14} />],
-    [/\.(css|scss|sass)$/, <CssIcon size={14} key="css" />],
-    [/\.(js|jsx)$/, <IconBrandJavascript size={14} key="js" />],
-    [/\.r$/i, <IconCircleLetterRFilled size={14} key="j" />],
-    [/package\.json$/, <NpmIcon size={14} key="npm" />],
-    [/\.rb$/i, <IconDiamond color="red" size={14} key="ruby" />],
-    [/\.txt$/i, <IconFileText size={14} key="txt" />],
-    [/\.md$/i, <IconMarkdown size={14} key="md" />],
-    [/\.py$/i, <IconBrandPython size={14} key="py" />],
+    [/\.(ts|tsx|tsconfig(\.json)?)$/, <FileTsx key="ts" />],
+    [/\.(css|scss|sass)$/, <FileCss key="css" />],
+    [/\.(js|jsx)$/, <FileJs key="js" />],
+    [/\.r$/i, <File key="j" />],
+    [/package\.json$/, <File key="npm" />],
+    [/\.rb$/i, <Diamond color="red" key="ruby" />],
+    [/\.txt$/i, <FileText key="txt" />],
+    [/\.md$/i, <FileMd key="md" />],
+    [/\.py$/i, <FilePy key="py" />],
 ]
 
 function FileIcon({ name, isFolder, expanded }: FileIconProps) {
     if (isFolder) {
         return expanded ? (
-            <IconFolderOpen color="var(--mantine-color-yellow-9)" size={14} stroke={2.5} />
+            <FolderOpen color="var(--mantine-color-yellow-9)" size={14} />
         ) : (
-            <IconFolder color="var(--mantine-color-yellow-9)" size={14} stroke={2.5} />
+            <Folder color="var(--mantine-color-yellow-9)" size={14} />
         )
     }
 
@@ -79,7 +78,7 @@ export function Files({
         <Flex gap="md">
             <Flex className={leftPanelStyles} direction="column" px="sm">
                 <ActionIcon className={expandIconStyle} title="Expand All" onClick={() => tree.expandAllNodes()}>
-                    <IconListTree />
+                    <TreeStructure />
                 </ActionIcon>
                 <Tree
                     className={treeStyles}
