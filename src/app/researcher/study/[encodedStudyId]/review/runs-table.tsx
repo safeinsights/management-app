@@ -2,24 +2,22 @@
 
 import { FC, useState } from 'react'
 import {
-    Table,
     Accordion,
     AccordionControl,
-    AccordionPanel,
     AccordionItem,
+    AccordionPanel,
     Button,
-    Modal,
-    Group,
     Center,
+    Group,
+    Modal,
+    Table,
 } from '@mantine/core'
-
 import { PushInstructions } from '@/components/push-instructions'
-import { IconPlus } from '@tabler/icons-react'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { onFetchStudyRunsAction } from './actions'
+import { Plus } from '@phosphor-icons/react/dist/ssr'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { onFetchStudyRunsAction, onStudyRunCreateAction } from './actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
-import { onStudyRunCreateAction } from './actions'
 import { PreviewCSVResultsBtn } from './results'
 import { Study } from '@/schema/study'
 
@@ -95,7 +93,7 @@ export const RunsTable: FC<RunsTableProps> = ({ isActive, study }) => {
                 </Table.Tbody>
             </Table>
             <Center mt="xl">
-                <Button onClick={() => insertRun()} title="Create a new code run" leftSection={<IconPlus size={14} />}>
+                <Button onClick={() => insertRun()} title="Create a new code run" leftSection={<Plus />}>
                     New Code Run
                 </Button>
             </Center>

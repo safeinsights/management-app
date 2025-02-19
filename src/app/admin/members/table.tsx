@@ -6,7 +6,7 @@ import { FC, useEffect, useState } from 'react'
 import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member-actions'
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { IconEdit, IconTrash, IconUsers } from '@tabler/icons-react'
+import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Box, Button, Flex, Group, Modal } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
@@ -40,7 +40,7 @@ export function MembersAdminTable() {
                 withColumnBorders
                 idAccessor="identifier"
                 noRecordsText="No members yet, add some using button below"
-                noRecordsIcon={<IconUsers />}
+                noRecordsIcon={<Users />}
                 records={members}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
@@ -93,10 +93,10 @@ const MemberRow: FC<{ member: Member }> = ({ member }) => {
                 <EditMemberForm member={member} onCompleteAction={close} />
             </Modal>
             <ActionIcon size="sm" variant="subtle" color="blue" onClick={open}>
-                <IconEdit size={18} />
+                <Pencil />
             </ActionIcon>
             <SuretyGuard onConfirmed={() => deleteMember(member.identifier)}>
-                <IconTrash size={18} />
+                <Trash />
             </SuretyGuard>
         </Group>
     )

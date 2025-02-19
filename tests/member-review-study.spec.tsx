@@ -1,4 +1,5 @@
 import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
+import { clerk } from '@clerk/testing/playwright'
 
 test.describe('BMA member review', () => {
     const studyTitle = `E2E Member review - ${[...Array(6)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}`
@@ -22,9 +23,12 @@ test.describe('BMA member review', () => {
         await page.getByRole('button', { name: /submit proposal/i }).click()
         await page.getByRole('button', { name: /back to all studies/i }).click()
         await expect(page.getByRole('list')).toContainText(studyTitle)
-        await page.getByLabel(/open user button/i).click()
-        await page.getByRole('menuitem', { name: /sign out/i }).click()
-        await page.getByRole('banner').getByRole('link').click()
+
+        await clerk.signOut({ page })
+
+        // await page.getByLabel(/open user button/i).click()
+        // await page.getByRole('menuitem', { name: /sign out/i }).click()
+        // await page.getByText('Dashboard').click()
         await expect(page).toHaveTitle(/SafeInsights/)
     })
 

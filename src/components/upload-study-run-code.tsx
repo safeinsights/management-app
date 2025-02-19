@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useState } from 'react'
-import { Group, Text, Paper, Flex, rem } from '@mantine/core'
-import { IconUpload, IconPhoto, IconX, IconSourceCode } from '@tabler/icons-react'
+import { Flex, Group, Paper, rem, Text } from '@mantine/core'
+import { Code, ImageSquare, Upload, X } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalRunInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -49,6 +49,7 @@ async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSi
         manifest.files.push(file)
         if (!(await uploadFile(file, post))) allSuccess = false
     }
+    // TODO Re: This note, couldn't we just sort the files and place manifest.json last?
     // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     if (!(await uploadFile(file, post))) allSuccess = false
@@ -71,7 +72,7 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
         return (
             <Paper shadow="none" mt={30} radius="sm" withBorder p="xl">
                 <Flex gap="lg">
-                    <IconSourceCode size={70} />
+                    <Code size={70} />
                     <Flex direction={'column'} justify="space-around">
                         <h4>Uploaded files</h4>
                         <p>All files were uploaded successfully</p>
@@ -102,22 +103,13 @@ export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStud
         >
             <Group justify="center" gap="xl" mih={220} style={{ pointerEvents: 'none' }}>
                 <Dropzone.Accept>
-                    <IconUpload
-                        style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-blue-6)' }}
-                        stroke={1.5}
-                    />
+                    <Upload style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-blue-6)' }} />
                 </Dropzone.Accept>
                 <Dropzone.Reject>
-                    <IconX
-                        style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-red-6)' }}
-                        stroke={1.5}
-                    />
+                    <X style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-red-6)' }} />
                 </Dropzone.Reject>
                 <Dropzone.Idle>
-                    <IconPhoto
-                        style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-dimmed)' }}
-                        stroke={1.5}
-                    />
+                    <ImageSquare style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-dimmed)' }} />
                 </Dropzone.Idle>
 
                 <div>

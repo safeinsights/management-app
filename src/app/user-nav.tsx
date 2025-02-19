@@ -1,12 +1,15 @@
 'use client'
 
 import Link from 'next/link'
-import { Button, Title } from '@mantine/core'
-
+import { Button, LoadingOverlay, Title } from '@mantine/core'
 import { useAuthInfo } from '@/components/auth'
 
 export const UserNav = () => {
     const auth = useAuthInfo()
+
+    if (!auth.isLoaded) {
+        return <LoadingOverlay />
+    }
 
     return (
         <div>
@@ -18,13 +21,13 @@ export const UserNav = () => {
                             <Button>View Studies</Button>
                         </Link>
                         <span> OR </span>
-                        <Link href="/researcher/study/request/openstax" passHref>
+                        <Link href={`/researcher/study/request/${auth.orgSlug}`} passHref>
                             <Button>Propose a Study</Button>
                         </Link>
                     </>
                 )}
                 {auth.isMember && (
-                    <Link href="/member/openstax/studies/review" passHref>
+                    <Link href={`/member/${auth.orgSlug}/studies/review`} passHref>
                         <Button>Review Studies</Button>
                     </Link>
                 )}
