@@ -4,6 +4,7 @@ import {
     AppShellMain,
     AppShellNavbar,
     AppShellSection,
+    Divider,
     Group,
     NavLink,
     ScrollArea,
@@ -14,7 +15,7 @@ import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
-import { Gear, House } from '@phosphor-icons/react/dist/ssr'
+import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { ReactNode } from 'react'
 
 type Props = {
@@ -34,19 +35,6 @@ export function AppLayout({ children }: Props) {
                 </AppShellSection>
                 <AppShellSection grow my="md" component={ScrollArea}>
                     <NavLink href="/member/openstax/dashboard" c="white" label="Dashboard" leftSection={<House />} />
-                </AppShellSection>
-                <AppShellSection>
-                    {/* TODO Flesh out styles for this stuff with UX */}
-                    <SignedOut>
-                        <SignInButton />
-                    </SignedOut>
-
-                    <SignedIn>
-                        <Group>
-                            <OrganizationSwitcher />
-                            <UserButton />
-                        </Group>
-                    </SignedIn>
                     {/* TODO open the user settings in a modal? page? flesh out */}
                     <NavLink
                         component="button"
@@ -56,6 +44,22 @@ export function AppLayout({ children }: Props) {
                         label="Settings"
                         leftSection={<Gear />}
                     />
+                    <Divider />
+                    {/* TODO implement logout logic */}
+                    <NavLink href="/#" c="white" label="Logout" leftSection={<SignOut />} />
+                </AppShellSection>
+                {/* TODO Flesh out styles for this clerk provided component stuff with UX */}
+                <AppShellSection>
+                    <SignedOut>
+                        <SignInButton />
+                    </SignedOut>
+
+                    <SignedIn>
+                        <Group>
+                            <OrganizationSwitcher />
+                            <UserButton data-testid="clerk-user-account" />
+                        </Group>
+                    </SignedIn>
                 </AppShellSection>
             </AppShellNavbar>
             <AppShellMain>{children}</AppShellMain>
