@@ -36,9 +36,6 @@ jobs:
                   E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
             - name: Run Specs
               run: docker compose exec mgmnt-app npm run ci
-              env:
-                  E2E_CLERK_REVIEWER_EMAIL: ${{ secrets.E2E_CLERK_MEMBER_EMAIL }}
-                  E2E_CLERK_REVIEWER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
             - name: Add code coverage to actions summary
               run: |
                   cat tests/coverage/code-coverage/merged/coverage-summary.md >> $GITHUB_STEP_SUMMARY
