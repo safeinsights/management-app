@@ -5,8 +5,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('member_user')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
-        .addColumn('user_id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).references('user.id'))
-        .addColumn('member_id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).references('member.id'))
+        .addColumn('user_id', 'uuid', (col) => col.notNull().references('user.id'))
+        .addColumn('member_id', 'uuid', (col) => col.notNull().references('member.id'))
         .addColumn('is_reviewer', 'boolean', (col) => col.notNull())
         .addColumn('joined_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .addColumn('is_admin', 'boolean', (col) => col.notNull())
