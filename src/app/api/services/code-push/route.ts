@@ -12,12 +12,10 @@ export async function POST(req: Request) {
     const body = schema.parse(await req.json())
 
     await db
-        .updateTable('studyJob')
-        .where('id', '=', body.jobId)
-        .where('status', '=', 'INITIATED')
-        .set({
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: body.jobId,
             status: 'CODE-SUBMITTED',
-            uploadedAt: new Date(),
         })
         .execute()
 

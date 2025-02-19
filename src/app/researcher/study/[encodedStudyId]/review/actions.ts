@@ -25,26 +25,21 @@ export const updateStudyStatusAction = async (studyId: string, status: StudyStat
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(studyId)}`)
 }
 
-export const onFetchStudyJobsAction = async (studyId: string) => {
-    const jobs = await db
-        .selectFrom('studyJob')
-        .select(['id', 'status', 'startedAt', 'createdAt'])
-        .where('studyId', '=', studyId)
-        .orderBy('startedAt', 'desc')
-        .orderBy('createdAt', 'desc')
-        .execute()
-
-    return jobs
-}
-
 export const onStudyJobCreateAction = async (studyId: string) => {
     const studyJob = await db
         .insertInto('studyJob')
         .values({
             studyId: studyId,
-            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
         })
         .returning('id')
+        .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: studyJob.id,
+            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
+        })
         .executeTakeFirstOrThrow()
 
     if (SIMULATE_RESULTS_UPLOAD) {

@@ -15,7 +15,11 @@ test('updating status', async () => {
     const resp = await apiHandler.PUT(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
     expect(resp.ok).toBe(true)
 
-    const sr = await db.selectFrom('studyJob').select('status').where('id', '=', jobIds[0]).executeTakeFirstOrThrow()
+    const sr = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('jobStatusChange.studyJobId', '=', jobIds[0])
+        .executeTakeFirstOrThrow()
 
     expect(sr.status).toBe('RUNNING')
 })

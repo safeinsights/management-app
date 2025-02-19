@@ -14,7 +14,7 @@ import { devReadCodeFile } from '@/server/dev/code-files'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    await db.updateTable('studyJob').set({ status }).where('id', '=', info.studyJobId).executeTakeFirstOrThrow()
+    db.insertInto('jobStatusChange').values({ status, studyJobId: info.studyJobId }).executeTakeFirstOrThrow()
 
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(info.studyId)}/job/${uuidToB64(info.studyJobId)}`)
 }
@@ -36,7 +36,7 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
         .select([
             'studyJob.id as studyJobId',
             'studyJob.studyId',
-            'studyJob.createdAt',
+            //'studyJob.createdAt',
             'study.title as studyTitle',
             'member.identifier as memberIdentifier',
         ])

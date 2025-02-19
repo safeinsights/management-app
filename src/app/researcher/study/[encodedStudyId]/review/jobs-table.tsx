@@ -12,10 +12,12 @@ import {
     Modal,
     Table,
 } from '@mantine/core'
+import { last } from 'remeda'
 import { PushInstructions } from '@/components/push-instructions'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { onFetchStudyJobsAction, onStudyJobCreateAction } from './actions'
+import { onStudyJobCreateAction } from './actions'
+import { onFetchStudyJobsAction } from '@/server/actions/study-actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { PreviewCSVResultsBtn } from './results'
@@ -56,19 +58,19 @@ export const JobsTable: FC<JobsTableProps> = ({ isActive, study }) => {
                             <Table.Td>{jobCount + 1})</Table.Td>
                             <Table.Td>
                                 Code Job Submitted On: {'{'}
-                                {job.createdAt.toISOString()}
+                                {last(job.statuses)?.createdAt.toISOString()}
                                 {'}'}
                             </Table.Td>
                             <Table.Td>|</Table.Td>
                             <Table.Td>
                                 Status: {'{'}
-                                {humanizeStatus(job.status)}
+                                {humanizeStatus(last(job.statuses)?.status)}
                                 {'}'}
                             </Table.Td>
-                            <Table.Td>{job.startedAt?.toISOString() || ''}</Table.Td>
+                            <Table.Td>{job.statuses[0].createdAt.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
-                                    {job.status == 'INITIATED' && (
+                                    {last(job.statuses)?.status == 'INITIATED' && (
                                         <>
                                             <Modal
                                                 size={800}
@@ -85,7 +87,9 @@ export const JobsTable: FC<JobsTableProps> = ({ isActive, study }) => {
                                             <Button onClick={() => setOpened(job.id)}>View Instructions</Button>
                                         </>
                                     )}
-                                    {job.status == 'RUN-COMPLETE' && <PreviewCSVResultsBtn job={job} study={study} />}
+                                    {last(job.statuses)?.status == 'RUN-COMPLETE' && (
+                                        <PreviewCSVResultsBtn job={job} study={study} />
+                                    )}
                                 </Group>
                             </Table.Td>
                         </Table.Tr>

@@ -63,30 +63,31 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .values({
             studyId: study.id,
             resultFormat: 'SI_V1_ENCRYPT',
-            status: 'INITIATED',
+            //status: 'INITIATED',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ status: 'INITIATED', studyJobId: job0.id }).execute()
 
     const job1 = await db
         .insertInto('studyJob')
         .values({
             studyId: study.id,
             resultFormat: 'SI_V1_ENCRYPT',
-            status: 'RUNNING',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ status: 'RUNNING', studyJobId: job1.id }).execute()
 
     const job2 = await db
         .insertInto('studyJob')
         .values({
             studyId: study.id,
             resultFormat: 'SI_V1_ENCRYPT',
-            status: 'READY',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db.insertInto('jobStatusChange').values({ status: 'READY', studyJobId: job2.id }).execute()
 
     return {
         memberId: opts.memberId,

@@ -23,11 +23,17 @@ export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) 
     await db
         .updateTable('studyJob')
         .set({
-            status: 'RUN-COMPLETE',
             resultsPath: file.name,
-            completedAt: new Date(),
         })
         .where('id', '=', info.studyJobId)
+        .execute()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            status: 'RUN-COMPLETE',
+            studyJobId: info.studyJobId,
+        })
         .execute()
 }
 

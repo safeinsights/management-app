@@ -36,11 +36,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
     await fs.promises.writeFile(filePath, Buffer.from(buffer))
 
     await db
-        .updateTable('studyJob')
-        .set({
-            status: 'CODE-SUBMITTED',
-        })
-        .where('id', '=', info.studyJobId)
+        .insertInto('jobStatusChange')
+        .values({ status: 'CODE-SUBMITTED', studyJobId: info.studyJobId })
         .executeTakeFirstOrThrow()
 
     return new NextResponse('ok', { status: 200 })

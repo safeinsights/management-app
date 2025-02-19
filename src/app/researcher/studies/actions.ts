@@ -10,10 +10,17 @@ export const onStudyJobCreateAction = async (studyId: string) => {
         .insertInto('studyJob')
         .values({
             studyId: studyId,
-            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
+            studyJobId: studyJob.id,
+        })
+        .execute()
 
     if (SIMULATE_RESULTS_UPLOAD) {
         const study = await db

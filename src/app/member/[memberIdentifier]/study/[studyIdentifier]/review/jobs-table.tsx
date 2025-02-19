@@ -4,7 +4,8 @@ import { FC, useState } from 'react'
 import { Accordion, AccordionControl, AccordionItem, AccordionPanel, Button, Table } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
-import { onFetchStudyJobsAction } from './actions'
+import { last } from 'remeda'
+import { onFetchStudyJobsAction } from '@/server/actions/study-actions'
 import Link from 'next/link'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
@@ -33,18 +34,20 @@ export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, stud
                         <Table.Td>{jobCount + 1})</Table.Td>
                         <Table.Td>
                             Code Job Submitted On: {'{'}
-                            {job.createdAt.toISOString()}
+                            {job.statuses.find((st) => st.status == 'CODE-SUBMITTED')?.createdAt.toISOString() || ''}
                             {'}'}
                         </Table.Td>
                         <Table.Td>|</Table.Td>
                         <Table.Td>
                             Status: {'{'}
-                            {humanizeStatus(job.status)}
+                            {humanizeStatus(last(job.statuses)?.status)}
                             {'}'}
                         </Table.Td>
-                        <Table.Td>{job.startedAt?.toISOString() || ''}</Table.Td>
+                        <Table.Td>
+                            {job.statuses.find((st) => st.status == 'RUNNING')?.createdAt.toISOString() || ''}
+                        </Table.Td>
                         <Table.Td align="right">
-                            {job.status != 'INITIATED' && (
+                            {last(job.statuses)?.status == 'INITIATED' && (
                                 <Link
                                     href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/job/${uuidToB64(job.id)}/review`}
                                 >

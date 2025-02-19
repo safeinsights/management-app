@@ -28,6 +28,14 @@ export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIE
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
+export interface JobStatusChange {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    message: string | null
+    status: Generated<StudyJobStatus>
+    studyJobId: string
+}
+
 export interface Member {
     createdAt: Generated<Timestamp>
     email: string
@@ -64,18 +72,14 @@ export interface Study {
 }
 
 export interface StudyJob {
-    completedAt: Timestamp | null
-    createdAt: Generated<Timestamp>
     id: Generated<string>
     resultFormat: ResultFormat
     resultsPath: string | null
-    startedAt: Timestamp | null
-    status: Generated<StudyJobStatus>
     studyId: string
-    uploadedAt: Timestamp | null
 }
 
 export interface DB {
+    jobStatusChange: JobStatusChange
     member: Member
     memberUserPublicKey: MemberUserPublicKey
     study: Study
