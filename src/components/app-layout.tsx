@@ -1,3 +1,5 @@
+'use client'
+
 import {
     AppShell,
     AppShellFooter,
@@ -14,7 +16,7 @@ import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/nextjs'
+import { OrganizationSwitcher, SignedIn, SignedOut, SignInButton, useClerk, UserButton } from '@clerk/nextjs'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { ReactNode } from 'react'
 
@@ -23,6 +25,7 @@ type Props = {
 }
 
 export function AppLayout({ children }: Props) {
+    const { signOut } = useClerk()
     return (
         <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'sm' }} padding="md">
             <Notifications />
@@ -45,8 +48,13 @@ export function AppLayout({ children }: Props) {
                         leftSection={<Gear />}
                     />
                     <Divider />
-                    {/* TODO implement logout logic */}
-                    <NavLink href="/#" c="white" label="Logout" leftSection={<SignOut />} />
+                    <NavLink
+                        component="button"
+                        onClick={() => signOut()}
+                        c="white"
+                        label="Logout"
+                        leftSection={<SignOut />}
+                    />
                 </AppShellSection>
                 {/* TODO Flesh out styles for this clerk provided component stuff with UX */}
                 <AppShellSection>
