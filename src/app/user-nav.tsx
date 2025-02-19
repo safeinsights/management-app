@@ -21,7 +21,7 @@ export const UserNav = () => {
                             <Button>View Studies</Button>
                         </Link>
                         <span> OR </span>
-                        <Link href={`/researcher/study/request/${auth.orgSlug}`} passHref>
+                        <Link href={`/researcher/study/request/openstax`} passHref>
                             <Button>Propose a Study</Button>
                         </Link>
                     </>
