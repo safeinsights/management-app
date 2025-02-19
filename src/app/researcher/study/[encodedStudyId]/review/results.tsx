@@ -70,7 +70,6 @@ export const PreviewCSVResultsBtn: FC<JobResultsProps> = ({ job, study }) => {
                 onClose={close}
                 size="100%"
                 title={
-
                     <Link href={`/dl/results/${uuidToB64(job.id)}/${slugify(study.title)}.csv`}>
                         <Button rightSection={<Download />}>Download Results</Button>
                     </Link>

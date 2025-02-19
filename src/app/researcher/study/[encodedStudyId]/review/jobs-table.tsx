@@ -93,7 +93,6 @@ export const JobsTable: FC<JobsTableProps> = ({ isActive, study }) => {
                 </Table.Tbody>
             </Table>
             <Center mt="xl">
-
                 <Button onClick={() => insertJob()} title="Create a new code run" leftSection={<Plus />}>
                     New Code Run
                 </Button>
