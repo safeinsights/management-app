@@ -18,8 +18,6 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
         },
     })
 
-    console.log(studies)
-
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
             <Table.Td>{study.title}</Table.Td>
@@ -46,7 +44,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
                         <Table.Th>Study Name</Table.Th>
                         <Table.Th>Submitted On</Table.Th>
                         <Table.Th>Researcher</Table.Th>
-                        {/*TODO Reviewd by above*/}
+                        {/*TODO Reviewed by above*/}
                         {/*<Table.Th>Reviewed By</Table.Th>*/}
                         <Table.Th>Status</Table.Th>
                         <Table.Th>Details</Table.Th>
