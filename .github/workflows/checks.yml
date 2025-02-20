@@ -42,7 +42,7 @@ jobs:
                   cach: 'npm'
             - name: Get installed Playwright version
               shell: bash
-              run: echo "PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies.\"@playwright/test\"' || 'latest')" >> $GITHUB_ENV
+              run: echo PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies."@playwright/test"' || 'latest') >> $GITHUB_ENV
 
             - name: Cache playwright binaries
               uses: actions/cache@v3
