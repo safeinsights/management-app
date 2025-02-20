@@ -49,6 +49,7 @@ export default async function StudyReviewPage(props: {
             )}
             <Flex justify="space-between" align="center">
                 <Title mb="lg" order={5}>
+                    Review code for code run submitted on {jobInfo.createdAt.toLocaleString()} -{' '}
                     {Object.keys(manifest.files).length} files, {Math.round((manifest.size / 1048576) * 100) / 100}MB
                 </Title>
                 <Flex gap="md" direction="column">

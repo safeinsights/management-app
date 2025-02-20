@@ -17,8 +17,9 @@ test('updating status', async () => {
 
     const sr = await db
         .selectFrom('jobStatusChange')
-        .select('status')
+        .select(['status'])
         .where('jobStatusChange.studyJobId', '=', jobIds[0])
+        .orderBy('jobStatusChange.id', 'desc')
         .executeTakeFirstOrThrow()
 
     expect(sr.status).toBe('RUNNING')

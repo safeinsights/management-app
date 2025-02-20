@@ -36,7 +36,7 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
         .select([
             'studyJob.id as studyJobId',
             'studyJob.studyId',
-            //'studyJob.createdAt',
+            'studyJob.createdAt',
             'study.title as studyTitle',
             'member.identifier as memberIdentifier',
         ])

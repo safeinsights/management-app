@@ -63,7 +63,6 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .values({
             studyId: study.id,
             resultFormat: 'SI_V1_ENCRYPT',
-            //status: 'INITIATED',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

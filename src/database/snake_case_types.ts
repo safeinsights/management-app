@@ -81,6 +81,7 @@ export interface Study {
 }
 
 export interface StudyJob {
+    created_at: Generated<Timestamp>
     id: Generated<string>
     result_format: ResultFormat | null
     results_path: string | null

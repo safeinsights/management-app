@@ -27,6 +27,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('study_id', 'uuid', (col) => col.notNull().references('study.id'))
         .addColumn('results_path', 'text')
         .addColumn('result_format', sql`result_format`)
+        .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
     db.schema.createIndex('study_job_study_indx').on('study_job').column('study_id').execute()
@@ -34,7 +35,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('job_status_change')
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
-        .addColumn('study_job_id', 'uuid', (col) => col.notNull().references('study.id'))
+        .addColumn('study_job_id', 'uuid', (col) => col.notNull().references('study_job.id'))
         .addColumn('status', sql`study_job_status`, (col) => col.notNull().defaultTo('INITIATED'))
         .addColumn('message', 'text')
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
