@@ -91,9 +91,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
             }
             await collectV8CodeCoverageAsync(options)
         },
-        {
-            scope: 'test',
-        },
+        { auto: true },
     ],
     studyFeatures: [
         async ({}, use, workerInfo) => {

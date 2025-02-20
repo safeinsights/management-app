@@ -39,7 +39,7 @@ jobs:
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
-                  cach: 'npm'
+                  cache: 'npm'
             - name: Get installed Playwright version
               shell: bash
               run: echo PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies."@playwright/test"' || 'latest') >> $GITHUB_ENV

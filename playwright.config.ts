@@ -14,7 +14,7 @@ if (process.argv.includes('--ui')) {
                 outputFile: './test-results/e2e/index.html',
                 coverage: {
                     entryFilter: (entry: { url: string; source: string }) => {
-                        return entry.url?.match(/\/chunks\/src/) && !entry.source?.match(/TURBOPACK_CHUNK_LISTS/)
+                        return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
                     },
                     sourceFilter: testsCoverageSourceFilter,
                     reports: [
@@ -56,6 +56,8 @@ export default defineConfig({
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
+
+    outputDir: 'test-results/e2e',
 
     /* Configure projects for major browsers */
     projects: [
