@@ -1,6 +1,7 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
+    // prettier-ignore
     await db.schema
         .createType('study_job_status')
         .asEnum([
