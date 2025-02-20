@@ -22,8 +22,8 @@ jobs:
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         permissions:
             pull-requests: write
-            contents: read
-            pages: read
+            contents: write
+            pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
