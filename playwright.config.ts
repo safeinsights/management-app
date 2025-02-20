@@ -7,7 +7,7 @@ if (process.argv.includes('--ui')) {
     reporters.push(['list'])
 } else {
     reporters.push(
-        [process.env.CI ? 'github' : 'list'],
+        ['list'],
         [
             'monocart-reporter',
             {
@@ -33,6 +33,8 @@ if (process.argv.includes('--ui')) {
         ],
     )
 }
+
+if (process.env.CI) reporters.push(['github'])
 
 export default defineConfig({
     testDir: './tests',
