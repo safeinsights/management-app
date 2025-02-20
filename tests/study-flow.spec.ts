@@ -1,32 +1,34 @@
 import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 
-test.describe('app', () => {
-    const testTitle = 'A E2E Test Study'
+// re-use the same worker between the tests inside the describe block
+// this ensures they run in order and will share the study title
+test.describe.configure({ mode: 'serial' })
 
-    test.beforeEach('researcher creates a study', async ({ page }) => {
+test.describe('Studies', () => {
+    const codeLine = 'print("Hello, Tester")'
+
+    test('researcher creates a study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
 
         await page.getByRole('button', { name: /propose/i }).click()
 
-        await page.getByLabel(/title/i).fill(testTitle)
+        await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
         await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
         await page.getByRole('button', { name: /submit/i }).click()
 
         await expect(page.getByText('Drag files here')).toBeVisible()
-    })
 
-    test('validate file upload', async ({ page }) => {
         //TODO: Test that will validate the upload without a main.r file
         //Test upload without main.r file
         // const missingMainFile = 'tests/assets/study-no-main.zip'
         // await page.setInputFiles('input[type="file"]', missingMainFile)
         // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
         // Test valid file upload with main.r
-        const validStudyZip = 'tests/assets/valid-study.zip'
-        await page.setInputFiles('input[type="file"]', validStudyZip)
+        const mainR = 'tests/assets/main.r'
+        await page.setInputFiles('input[type="file"]', mainR)
 
         // Wait for upload success message
         await expect(page.getByText('All files were uploaded successfully')).toBeVisible()
@@ -43,12 +45,10 @@ test.describe('app', () => {
         // const largeFile = 'tests/assets/large-file.zip'
         // await page.setInputFiles('input[type="file"]', largeFile)
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
-    })
 
-    test.afterEach('researcher creates a study', async ({ page }) => {
         await page.getByRole('button', { name: /next/i }).click()
 
-        await expect(page.getByTestId('study-title')).toHaveValue(testTitle)
+        await expect(page.getByTestId('study-title')).toHaveValue(studyFeatures.studyTitle)
 
         await page.getByRole('checkbox', { name: /highlights/i }).check()
 
@@ -57,6 +57,17 @@ test.describe('app', () => {
         await page.getByRole('button', { name: /all studies/i }).click()
         await page.waitForLoadState('networkidle')
 
-        await expect(page.getByText(testTitle).first()).toBeVisible()
+        await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
+    })
+
+    test('member reviews the study', async ({ page, studyFeatures }) => {
+        await visitClerkProtectedPage({ page, role: 'member', url: '/' })
+        await page.getByRole('button', { name: /review studies/i }).click()
+        await page.locator('li').filter({ hasText: studyFeatures.studyTitle }).getByRole('link').click()
+        await page.getByRole('button', { name: /researcher code/i }).click()
+        await page.getByRole('button', { name: /view code/i }).click()
+        await page.getByText(/main.r/i).click()
+
+        await expect(page.getByRole('code')).toContainText(codeLine)
     })
 })
