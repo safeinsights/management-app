@@ -8,7 +8,7 @@ import { revalidatePath } from 'next/cache'
 import { attachSimulatedResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { sleep } from '@/lib/util'
 import { queryJobResult } from '@/server/queries'
-import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
+import { SIMULATE_RESULTS_UPLOAD } from '@/server/config'
 import { fetchStudyJobResults } from '@/server/aws'
 
 const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
@@ -38,7 +38,7 @@ export const onStudyJobCreateAction = async (studyId: string) => {
         .insertInto('jobStatusChange')
         .values({
             studyJobId: studyJob.id,
-            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
+            status: 'INITIATED',
         })
         .executeTakeFirstOrThrow()
 

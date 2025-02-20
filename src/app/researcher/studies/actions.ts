@@ -1,6 +1,6 @@
 'use server'
 
-import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
+import { SIMULATE_RESULTS_UPLOAD } from '@/server/config'
 import { db } from '@/database'
 import { sleep } from '@/lib/util'
 import { attachSimulatedResultsToStudyJob } from '@/server/results'
@@ -17,7 +17,7 @@ export const onStudyJobCreateAction = async (studyId: string) => {
     await db
         .insertInto('jobStatusChange')
         .values({
-            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
+            status: 'INITIATED', // act as if code submitted when not using container registry
             studyJobId: studyJob.id,
         })
         .execute()

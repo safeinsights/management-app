@@ -16,7 +16,7 @@ test.describe('BMA member review', () => {
         await page.getByLabel(/investigator/i).fill(investigator)
         await page.getByLabel(/description/i).fill(studyDescription)
         await page.getByRole('button', { name: /submit/i }).click()
-        await expect(page.getByText(/containerize and upload/i)).toBeVisible()
+        await expect(page.getByText(/drag files/i)).toBeVisible()
         await page.setInputFiles('input[type="file"]', mainR)
         await page.getByRole('button', { name: /next/i }).click()
         await page.getByLabel(/highlights and notes/i).check()

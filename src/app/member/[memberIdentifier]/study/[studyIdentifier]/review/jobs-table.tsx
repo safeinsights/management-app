@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { Study } from '@/schema/study'
+import { formatDate } from '@/lib/date'
 
 type JobsTableProps = {
     memberIdentifier: string
@@ -34,7 +35,7 @@ export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, stud
                         <Table.Td>{jobCount + 1})</Table.Td>
                         <Table.Td>
                             Code Job Submitted On: {'{'}
-                            {job.statuses.find((st) => st.status == 'CODE-SUBMITTED')?.createdAt.toISOString() || ''}
+                            {formatDate(job.statuses.find((st) => st.status == 'CODE-SUBMITTED')?.createdAt)}
                             {'}'}
                         </Table.Td>
                         <Table.Td>|</Table.Td>
@@ -43,11 +44,9 @@ export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, stud
                             {humanizeStatus(last(job.statuses)?.status)}
                             {'}'}
                         </Table.Td>
-                        <Table.Td>
-                            {job.statuses.find((st) => st.status == 'RUNNING')?.createdAt.toISOString() || ''}
-                        </Table.Td>
+                        <Table.Td>{formatDate(job.statuses.find((st) => st.status == 'RUNNING')?.createdAt)}</Table.Td>
                         <Table.Td align="right">
-                            {last(job.statuses)?.status == 'INITIATED' && (
+                            {last(job.statuses)?.status == 'CODE-SUBMITTED' && (
                                 <Link
                                     href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/job/${uuidToB64(job.id)}/review`}
                                 >

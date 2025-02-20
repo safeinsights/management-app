@@ -42,7 +42,7 @@ export const onFetchStudyJobsAction = async (studyId: string) => {
                 eb
                     .selectFrom('jobStatusChange')
                     .select(['status', 'message', 'createdAt'])
-                    .whereRef('jobStatusChange.id', '=', 'studyJob.id')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                     .orderBy('createdAt'),
             ).as('statuses'),
         ])
