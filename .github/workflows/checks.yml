@@ -40,7 +40,7 @@ jobs:
               shell: bash
               working-directory: ${{ inputs.WORKSPACE_ROOT }}
               id: playwright-version
-              run: echo "PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.dependencies.playwright' || 'latest')" >> $GITHUB_ENV
+              run: echo "PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies.\"@playwright/test\"' || 'latest')" >> $GITHUB_ENV
 
             - name: Cache playwright binaries
               uses: actions/cache@v3
@@ -57,13 +57,19 @@ jobs:
               if: steps.playwright-cache.outputs.cache-hit != 'true'
               run: npx playwright install --with-deps
 
-
             - name: provision db
               run: npm run db:migrate
+
             - name: start NextJS server
               run: npm run dev &
+
             - name: run specs
-              run: npm run ci
+              run: |
+                  npm run checks
+                  npm run test:unit
+                  npm run test:e2e
+                  npm run test:coverage
+
             - name: Add code coverage to actions summary
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY

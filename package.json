@@ -16,7 +16,6 @@
         "db:migrate": "./bin/migrate-dev-db",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
-        "ci": "run-p checks test:e2e test:unit && npm run test:coverage",
         "lint": "next lint && prettier --check .",
         "lint:fix": "next lint --fix && prettier --write .",
         "pre:push": "run-s lint:fix typecheck",
