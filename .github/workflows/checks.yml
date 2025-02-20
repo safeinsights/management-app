@@ -35,20 +35,22 @@ jobs:
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
         steps:
             - uses: actions/checkout@v4
-            - uses: bahmutov/npm-install@v1
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cach: 'npm'
             - name: Get installed Playwright version
               shell: bash
-              working-directory: ${{ inputs.WORKSPACE_ROOT }}
-              id: playwright-version
               run: echo "PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies.\"@playwright/test\"' || 'latest')" >> $GITHUB_ENV
 
             - name: Cache playwright binaries
               uses: actions/cache@v3
               id: playwright-cache
               with:
-                path: |
-                  ~/.cache/ms-playwright
-                key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+                  path: |
+                      ~/.cache/ms-playwright
+                  key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
 
             - name: npm install
               run: npm ci
