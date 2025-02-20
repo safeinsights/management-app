@@ -3,20 +3,14 @@
 set -e
 
 TYPES=src/database/types.ts
-# TODO do we need snake_types anymore?
-SNAKE_TYPES=src/database/snake_case_types.ts
 
 npx kysely migrate:latest
 npx kysely seed:run
 
-npx kysely-codegen --dialect postgres --out-file $SNAKE_TYPES
 npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
 
-
 npx prettier --write $TYPES
-npx prettier --write $SNAKE_TYPES
 npx eslint --fix $TYPES
-npx eslint --fix $SNAKE_TYPES
 
 if [ -e "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then
