@@ -66,7 +66,10 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         })
         .returning('id')
         .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ status: 'INITIATED', studyJobId: job0.id }).execute()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'INITIATED', studyJobId: job0.id, userId: researcher.id })
+        .execute()
 
     const job1 = await db
         .insertInto('studyJob')
@@ -76,7 +79,10 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         })
         .returning('id')
         .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ status: 'RUNNING', studyJobId: job1.id }).execute()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'RUNNING', studyJobId: job1.id, userId: researcher.id })
+        .execute()
 
     const job2 = await db
         .insertInto('studyJob')
@@ -86,7 +92,10 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         })
         .returning('id')
         .executeTakeFirstOrThrow()
-    await db.insertInto('jobStatusChange').values({ status: 'READY', studyJobId: job2.id }).execute()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'READY', studyJobId: job2.id, userId: researcher.id })
+        .execute()
 
     return {
         memberId: opts.memberId,

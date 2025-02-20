@@ -37,6 +37,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
         .addColumn('study_job_id', 'uuid', (col) => col.notNull().references('study_job.id'))
         .addColumn('status', sql`study_job_status`, (col) => col.notNull().defaultTo('INITIATED'))
+        .addColumn('user_id', 'uuid', (col) => col.references('user.id'))
         .addColumn('message', 'text')
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()

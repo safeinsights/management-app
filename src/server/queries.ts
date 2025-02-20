@@ -1,6 +1,7 @@
 import { db } from '@/database'
-import { currentUser as currentClerkUser } from '@clerk/nextjs/server'
+import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { MinimalJobResultsInfo } from '@/lib/types'
+import { wasCalledFromAPI } from './context'
 
 export const queryJobResult = async (jobId: string) =>
     (await db
@@ -17,9 +18,19 @@ export const queryJobResult = async (jobId: string) =>
         .where('studyJob.resultsPath', 'is not', null)
         .executeTakeFirst()) as MinimalJobResultsInfo | undefined
 
-export const siUser = async () => {
-    const clerkUser = await currentClerkUser()
-    if (!clerkUser || clerkUser.banned) throw new Error('Not Signed In')
+type SiUser = ClerkUser & {
+    id: string
+    isRsearcher: boolean
+}
+
+export async function siUser(throwIfNotFound?: true): Promise<SiUser>
+export async function siUser(throwIfNotFound?: false): Promise<SiUser | null>
+export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
+    const clerkUser = wasCalledFromAPI() ? null : await currentClerkUser()
+    if (!clerkUser || clerkUser.banned) {
+        if (throwIfNotFound) throw new Error('User not logged in')
+        return null
+    }
 
     let user = await db
         .selectFrom('user')
@@ -43,5 +54,5 @@ export const siUser = async () => {
         ...clerkUser,
         id: user.id,
         isRsearcher: user.isResearcher,
-    }
+    } as SiUser
 }

@@ -34,6 +34,7 @@ export interface JobStatusChange {
     message: string | null
     status: Generated<StudyJobStatus>
     studyJobId: string
+    userId: string | null
 }
 
 export interface Member {

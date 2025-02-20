@@ -5,6 +5,7 @@ import { getUploadTmpDirectory } from '@/server/config'
 import { pathForStudyJobCode } from '@/lib/paths'
 import path from 'path'
 import fs from 'fs'
+import { siUser } from '@/server/queries'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 
@@ -18,7 +19,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'member.id', 'study.memberId')
-        .select(['studyJob.id as studyJobId', 'studyId', 'member.identifier as memberIdentifier'])
+        .select(['studyJob.id as studyJobId', 'studyId', 'member.identifier as memberIdentifier', 'study.researcherId'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -35,9 +36,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ jobId: 
     const buffer = await file.arrayBuffer()
     await fs.promises.writeFile(filePath, Buffer.from(buffer))
 
+    const user = await siUser(false)
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'CODE-SUBMITTED', studyJobId: info.studyJobId })
+        .values({ status: 'CODE-SUBMITTED', studyJobId: info.studyJobId, userId: user?.id || info.researcherId })
         .executeTakeFirstOrThrow()
 
     return new NextResponse('ok', { status: 200 })

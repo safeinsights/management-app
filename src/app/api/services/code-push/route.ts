@@ -11,10 +11,18 @@ const schema = z.object({
 export async function POST(req: Request) {
     const body = schema.parse(await req.json())
 
+    const job = await db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .where('studyJob.id', '=', body.jobId)
+        .select(['studyJob.id as jobId', 'study.researcherId'])
+        .executeTakeFirstOrThrow()
+
     await db
         .insertInto('jobStatusChange')
         .values({
-            studyJobId: body.jobId,
+            userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
+            studyJobId: job.jobId,
             status: 'CODE-SUBMITTED',
         })
         .execute()

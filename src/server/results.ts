@@ -7,9 +7,11 @@ import path from 'path'
 import fs from 'fs'
 import { sanitizeFileName } from '@/lib/util'
 import { faker } from '@faker-js/faker'
+import { siUser } from './queries'
 
 export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) {
     const fileName = sanitizeFileName(file.name)
+
     if (USING_S3_STORAGE) {
         await storeResultsFile({ ...info, resultsPath: fileName }, file.stream())
     } else {
@@ -28,9 +30,12 @@ export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) 
         .where('id', '=', info.studyJobId)
         .execute()
 
+    const user = await siUser(false)
+
     await db
         .insertInto('jobStatusChange')
         .values({
+            userId: user?.id,
             status: 'RUN-COMPLETE',
             studyJobId: info.studyJobId,
         })

@@ -11,10 +11,17 @@ import { b64toUUID } from '@/lib/uuid'
 import { fetchCodeManifest } from '@/server/aws'
 import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
+import { siUser } from '@/server/queries'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    db.insertInto('jobStatusChange').values({ status, studyJobId: info.studyJobId }).executeTakeFirstOrThrow()
+    db.insertInto('jobStatusChange')
+        .values({
+            userId: (await siUser()).id,
+            status,
+            studyJobId: info.studyJobId,
+        })
+        .executeTakeFirstOrThrow()
 
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(info.studyId)}/job/${uuidToB64(info.studyJobId)}`)
 }
