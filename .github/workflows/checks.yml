@@ -1,41 +1,53 @@
 name: Checks
 on:
     push:
-        branches: [main]
+
     pull_request:
+        types:
+            - closed
 
 jobs:
     all:
         timeout-minutes: 15
         runs-on: ubuntu-latest
+        services:
+            db:
+                image: postgres:15
+                ports:
+                    - 5432:5432
+                env:
+                    POSTGRES_USER: si
+                    POSTGRES_DB: si_test
+                    POSTGRES_PASSWORD: si
+                options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         permissions:
             pull-requests: write
+        env:
+            DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
+            NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+            CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+            E2E_CLERK_RESEARCHER_EMAIL: ${{ secrets.E2E_CLERK_RESEARCHER_EMAIL }}
+            E2E_CLERK_RESEARCHER_PASSWORD: ${{ secrets.E2E_CLERK_RESEARCHER_PASSWORD }}
+            AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+            E2E_CLERK_MEMBER_EMAIL: ${{ secrets.E2E_CLERK_MEMBER_EMAIL }}
+            E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
+            E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
+            E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
         steps:
             - uses: actions/checkout@v4
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
-            - name: Setup caching for Docker layers
-              uses: docker/bake-action@master
-              with:
-                  push: false
-                  load: true
-                  files: |-
-                      docker-compose.yml
-                      .github/workflows/gh-docker-compse-cache.json
-            - name: Run docker compose
-              run: docker compose up postgres mgmnt-app --wait --detach --wait-timeout 60
-              env:
-                  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-                  CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-                  E2E_CLERK_RESEARCHER_EMAIL: ${{ secrets.E2E_CLERK_RESEARCHER_EMAIL }}
-                  E2E_CLERK_RESEARCHER_PASSWORD: ${{ secrets.E2E_CLERK_RESEARCHER_PASSWORD }}
-                  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-                  E2E_CLERK_MEMBER_EMAIL: ${{ secrets.E2E_CLERK_MEMBER_EMAIL }}
-                  E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
-                  E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
-                  E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
-            - name: Run Specs
-              run: docker compose exec mgmnt-app npm run ci
+            - uses: bahmutov/npm-install@v1
+            - name: npm install
+              run: npm ci
+            - name: install playwright
+              run: |
+                  npx playwright install
+                  npx playwright install-deps
+            - name: provision db
+              run: npm run db:migrate
+            - name: start NextJS server
+              run: npm run dev &
+            - name: run specs
+              run: npm run ci
             - name: Add code coverage to actions summary
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
@@ -49,10 +61,7 @@ jobs:
             - name: Test build
               run: |
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
-                  DOCKER_TAG=ci-test npm run build:docker:ci
-            - name: display docker logs
-              run: docker compose logs
-              if: always()
+                  npm run build
             - uses: actions/upload-artifact@v4
               if: failure()
               with:

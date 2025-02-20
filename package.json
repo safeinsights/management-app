@@ -13,6 +13,7 @@
         "dev": "next dev --turbopack -p 4000",
         "prepare": "panda codegen",
         "build": "next build",
+        "db:migrate": "./bin/migrate-dev-db",
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
         "ci": "run-p checks test:e2e test:unit && npm run test:coverage",
