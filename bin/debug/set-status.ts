@@ -1,12 +1,12 @@
 import { DebugRequest } from './request'
 
 const req = new DebugRequest()
-req.program.option('-s, --status <status>', 'status to set').option('-r, --runId <runId>', 'runId to set status for')
+req.program.option('-s, --status <status>', 'status to set').option('-r, --jobId <jobId>', 'jobId to set status for')
 req.parse()
 
-const { status, runId } = req.program.opts()
+const { status, jobId } = req.program.opts()
 
-req.path = `run/${runId}`
+req.path = `job/${jobId}`
 req.method = 'PUT'
 req.body = { status }
 

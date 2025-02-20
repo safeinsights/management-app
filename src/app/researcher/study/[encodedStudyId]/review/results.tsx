@@ -8,26 +8,26 @@ import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
-import { fetchRunResultsAction } from './actions'
+import { fetchJobResultsAction } from './actions'
 import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { slugify } from '@/lib/string'
 
-type RunResultsProps = {
-    run: { id: string }
+type JobResultsProps = {
+    job: { id: string }
     study: { title: string }
 }
 
-const ViewCSV: FC<RunResultsProps> = ({ run }) => {
+const ViewCSV: FC<JobResultsProps> = ({ job }) => {
     const {
         data: csv,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: ['run-results', run.id],
+        queryKey: ['job-results', job.id],
         queryFn: async () => {
-            const csv = await fetchRunResultsAction(run.id)
+            const csv = await fetchJobResultsAction(job.id)
             return Papa.parse<Record<string, string | number>>(csv, {
                 header: true,
                 complete: (results) => {
@@ -60,7 +60,7 @@ const ViewCSV: FC<RunResultsProps> = ({ run }) => {
     )
 }
 
-export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run, study }) => {
+export const PreviewCSVResultsBtn: FC<JobResultsProps> = ({ job, study }) => {
     const [opened, { open, close }] = useDisclosure(false)
 
     return (
@@ -70,7 +70,7 @@ export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run, study }) => {
                 onClose={close}
                 size="100%"
                 title={
-                    <Link href={`/dl/results/${uuidToB64(run.id)}/${slugify(study.title)}.csv`}>
+                    <Link href={`/dl/results/${uuidToB64(job.id)}/${slugify(study.title)}.csv`}>
                         <Button rightSection={<Download />}>Download Results</Button>
                     </Link>
                 }
@@ -81,7 +81,7 @@ export const PreviewCSVResultsBtn: FC<RunResultsProps> = ({ run, study }) => {
                 }}
                 centered
             >
-                <ViewCSV run={run} study={study} />
+                <ViewCSV job={job} study={study} />
             </Modal>
 
             <Button variant="outline" onClick={open}>

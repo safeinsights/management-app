@@ -3,7 +3,7 @@ import { useCallback, useState } from 'react'
 import { Flex, Group, Paper, rem, Text } from '@mantine/core'
 import { Code, ImageSquare, Upload, X } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
-import type { MinimalRunInfo } from '@/lib/types'
+import type { MinimalJobInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { notifications } from '@mantine/notifications'
 
@@ -12,10 +12,10 @@ type PreSignedPost = {
     fields: Record<string, string>
 }
 
-type SignedUrlFunc = (_run: MinimalRunInfo) => Promise<PreSignedPost>
+type SignedUrlFunc = (_job: MinimalJobInfo) => Promise<PreSignedPost>
 
-type UploadStudyRunCodeProps = Partial<DropzoneProps> & {
-    run: MinimalRunInfo
+type UploadStudyJobCodeProps = Partial<DropzoneProps> & {
+    job: MinimalJobInfo
     getSignedURL: SignedUrlFunc
 }
 
@@ -40,10 +40,10 @@ async function uploadFile(file: FileWithPath, upload: PreSignedPost) {
     return response.ok
 }
 
-async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSignedUrl: SignedUrlFunc) {
-    const manifest = new CodeReviewManifest(run.studyRunId, 'r')
+async function uploadFilesToS3(files: FileWithPath[], job: MinimalJobInfo, getSignedUrl: SignedUrlFunc) {
+    const manifest = new CodeReviewManifest(job.studyJobId, 'r')
 
-    const post = await getSignedUrl(run)
+    const post = await getSignedUrl(job)
     let allSuccess = true
     for (const file of files) {
         manifest.files.push(file)
@@ -56,16 +56,16 @@ async function uploadFilesToS3(files: FileWithPath[], run: MinimalRunInfo, getSi
     return allSuccess
 }
 
-export function UploadStudyRunCode({ run, getSignedURL, ...dzProps }: UploadStudyRunCodeProps) {
+export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStudyJobCodeProps) {
     const [uploadState, setUploading] = useState<false | 'uploading' | 'complete'>(false)
 
     const onDrop = useCallback(
         async (files: FileWithPath[]) => {
             setUploading('uploading')
-            const success = await uploadFilesToS3(files, run, getSignedURL)
+            const success = await uploadFilesToS3(files, job, getSignedURL)
             if (success) setUploading('complete')
         },
-        [setUploading, getSignedURL, run],
+        [setUploading, getSignedURL, job],
     )
 
     if (uploadState == 'complete') {

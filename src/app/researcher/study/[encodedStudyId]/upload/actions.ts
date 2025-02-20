@@ -2,11 +2,11 @@
 
 import { b64toUUID } from '@/lib/uuid'
 import { db } from '@/database'
-import { MinimalRunInfo } from '@/lib/types'
-import { urlForStudyRunCodeUpload, type PresignedPost } from '@/server/aws'
+import { MinimalJobInfo } from '@/lib/types'
+import { urlForStudyJobCodeUpload, type PresignedPost } from '@/server/aws'
 import { USING_S3_STORAGE } from '@/server/config'
 
-export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
+export const getLatestStudyJobAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'member.id', 'study.memberId')
@@ -17,23 +17,23 @@ export const getLatestStudyRunAction = async ({ encodedStudyId }: { encodedStudy
             'member.identifier as memberIdentifier',
             'member.name as memberName',
             ({ selectFrom }) =>
-                selectFrom('studyRun')
-                    .whereRef('study.id', '=', 'studyRun.studyId')
-                    .select('id as runId')
+                selectFrom('studyJob')
+                    .whereRef('study.id', '=', 'studyJob.studyId')
+                    .select('id as jobId')
                     .orderBy('study.createdAt desc')
                     .limit(1)
-                    .as('pendingRunId'),
+                    .as('pendingJobId'),
         ])
         .where('study.id', '=', b64toUUID(encodedStudyId))
         .executeTakeFirst()
 }
 
-export async function getUploadUrlForStudyRunCodeAction(info: MinimalRunInfo): Promise<PresignedPost> {
+export async function getUploadUrlForStudyJobCodeAction(info: MinimalJobInfo): Promise<PresignedPost> {
     if (USING_S3_STORAGE) {
-        return urlForStudyRunCodeUpload(info)
+        return urlForStudyJobCodeUpload(info)
     } else {
         return {
-            url: `/api/dev/upload-code/${info.studyRunId}`,
+            url: `/api/dev/upload-code/${info.studyJobId}`,
             fields: {},
         }
     }

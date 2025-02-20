@@ -59,7 +59,7 @@ const mockStudies = [
         outputMimeType: null,
         piName: 'PI Name 3',
         researcherId: 'researcher-3',
-        status: 'SUBMITTED' as const,
+        status: 'PENDING-REVIEW' as const,
         title: 'Study Title 3',
     },
 ]

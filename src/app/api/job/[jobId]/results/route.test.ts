@@ -4,7 +4,7 @@ import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
 import fs from 'fs'
 import path from 'path'
 import { db } from '@/database'
-import { pathForStudyRun } from '@/lib/paths'
+import { pathForStudyJob } from '@/lib/paths'
 import { getUploadTmpDirectory } from '@/server/config'
 
 test('handling upload', async () => {
@@ -20,18 +20,18 @@ test('handling upload', async () => {
         body: formData,
     })
 
-    const { runIds, studyId } = await insertTestStudyData({ memberId: member.id })
+    const { jobIds, studyId } = await insertTestStudyData({ memberId: member.id })
 
-    const resp = await apiHandler.POST(req, { params: Promise.resolve({ runId: runIds[0] }) })
+    const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
 
     expect(resp.ok).toBe(true)
 
     const filePath = path.join(
         getUploadTmpDirectory(),
-        pathForStudyRun({
+        pathForStudyJob({
             memberIdentifier: member.identifier,
             studyId,
-            studyRunId: runIds[0],
+            studyJobId: jobIds[0],
         }),
         'results',
         'testfile.txt',
@@ -40,9 +40,9 @@ test('handling upload', async () => {
     expect(fs.existsSync(filePath)).toBe(true)
 
     const sr = await db
-        .selectFrom('studyRun')
+        .selectFrom('studyJob')
         .select('resultsPath')
-        .where('id', '=', runIds[0])
+        .where('id', '=', jobIds[0])
         .executeTakeFirstOrThrow()
 
     expect(sr.resultsPath).toBe('testfile.txt')

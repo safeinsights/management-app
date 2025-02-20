@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { css } from '@/styles'
-import { RunsTable } from './runs-table'
+import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
 
 export const labelStyle = css({
@@ -124,12 +124,12 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
 
                 {/* Researcher Code Review Panel will be addressed by OTTER-51 */}
 
-                <Accordion.Item value="runs">
+                <Accordion.Item value="jobs">
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <RunsTable
-                                isActive={activeSection == 'runs'}
+                            <JobsTable
+                                isActive={activeSection == 'jobs'}
                                 study={study}
                                 encodedStudyId={studyIdentifier}
                             />

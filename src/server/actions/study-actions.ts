@@ -1,6 +1,7 @@
 'use server'
 
 import { db } from '@/database'
+import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
@@ -30,4 +31,23 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
 
 export const getStudyAction = async (studyId: string) => {
     return await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+}
+
+export const onFetchStudyJobsAction = async (studyId: string) => {
+    const jobs = await db
+        .selectFrom('studyJob')
+        .select((eb) => [
+            'studyJob.id',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['status', 'message', 'createdAt'])
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                    .orderBy('createdAt'),
+            ).as('statuses'),
+        ])
+        .where('studyId', '=', studyId)
+        .execute()
+
+    return jobs
 }

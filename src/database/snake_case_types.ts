@@ -8,20 +8,34 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
-export type StudyRunStatus =
+export type ResultFormat = 'SI_V1_ENCRYPT'
+
+export type StudyJobStatus =
+    | 'CODE-APPROVED'
     | 'CODE-REJECTED'
     | 'CODE-SUBMITTED'
-    | 'COMPLETED'
-    | 'ERRORED'
     | 'INITIATED'
-    | 'READY'
+    | 'JOB-ERRORED'
+    | 'JOB-PACKAGING'
+    | 'JOB-PROVISIONING'
+    | 'JOB-READY'
+    | 'JOB-RUNNING'
+    | 'RESULTS-APPROVED'
     | 'RESULTS-REJECTED'
-    | 'RESULTS-REVIEW'
-    | 'RUNNING'
+    | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
+
+export interface JobStatusChange {
+    created_at: Generated<Timestamp>
+    id: Generated<string>
+    message: string | null
+    status: Generated<StudyJobStatus>
+    study_job_id: string
+    user_id: string | null
+}
 
 export interface Member {
     created_at: Generated<Timestamp>
@@ -31,6 +45,15 @@ export interface Member {
     name: string
     public_key: string
     updated_at: Generated<Timestamp>
+}
+
+export interface MemberUser {
+    id: Generated<string>
+    is_admin: boolean
+    is_reviewer: boolean
+    joined_at: Generated<Timestamp>
+    member_id: string
+    user_id: string
 }
 
 export interface MemberUserPublicKey {
@@ -58,22 +81,29 @@ export interface Study {
     title: string
 }
 
-export interface StudyRun {
-    completed_at: Timestamp | null
+export interface StudyJob {
     created_at: Generated<Timestamp>
-    file_count: number | null
-    file_size: number | null
     id: Generated<string>
+    result_format: ResultFormat | null
     results_path: string | null
-    started_at: Timestamp | null
-    status: Generated<StudyRunStatus>
     study_id: string
-    uploaded_at: Timestamp | null
+}
+
+export interface User {
+    clerk_id: string
+    created_at: Generated<Timestamp>
+    id: Generated<string>
+    is_researcher: Generated<boolean>
+    name: string
+    updated_at: Generated<Timestamp>
 }
 
 export interface DB {
+    job_status_change: JobStatusChange
     member: Member
+    member_user: MemberUser
     member_user_public_key: MemberUserPublicKey
     study: Study
-    study_run: StudyRun
+    study_job: StudyJob
+    user: User
 }
