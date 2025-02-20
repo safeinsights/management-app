@@ -36,12 +36,28 @@ jobs:
         steps:
             - uses: actions/checkout@v4
             - uses: bahmutov/npm-install@v1
+            - name: Get installed Playwright version
+              shell: bash
+              working-directory: ${{ inputs.WORKSPACE_ROOT }}
+              id: playwright-version
+              run: echo "PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.dependencies.playwright' || 'latest')" >> $GITHUB_ENV
+
+            - name: Cache playwright binaries
+              uses: actions/cache@v3
+              id: playwright-cache
+              with:
+                path: |
+                  ~/.cache/ms-playwright
+                key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+
             - name: npm install
               run: npm ci
-            - name: install playwright
-              run: |
-                  npx playwright install
-                  npx playwright install-deps
+
+            - shell: bash
+              if: steps.playwright-cache.outputs.cache-hit != 'true'
+              run: npx playwright install --with-deps
+
+
             - name: provision db
               run: npm run db:migrate
             - name: start NextJS server
