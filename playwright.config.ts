@@ -7,12 +7,12 @@ if (process.argv.includes('--ui')) {
     reporters.push(['list'])
 } else {
     reporters.push(
+        ['list'],
         [
             'monocart-reporter',
             {
-                outputFile: path.resolve('./tests/coverage/test-results/e2e/coverage.html'),
+                outputFile: './test-results/e2e/index.html',
                 coverage: {
-                    outputDir: path.resolve('./tests/coverage/code-coverage/e2e'),
                     entryFilter: (entry: { url: string; source: string }) => {
                         return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
                     },
@@ -31,9 +31,10 @@ if (process.argv.includes('--ui')) {
                 },
             },
         ],
-        ['list'],
     )
 }
+
+if (process.env.CI) reporters.push(['github'])
 
 export default defineConfig({
     testDir: './tests',
@@ -55,6 +56,8 @@ export default defineConfig({
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
+
+    outputDir: 'test-results/e2e',
 
     /* Configure projects for major browsers */
     projects: [

@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
-import { attachResultsToStudyRun } from '@/server/results'
+import { attachResultsToStudyJob } from '@/server/results'
 
-export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ runId: string }> }) => {
+export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const member = requestingMember()
-    const { runId } = await params
-    if (!runId || !member) {
+    const { jobId } = await params
+    if (!jobId || !member) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
@@ -19,21 +19,21 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             return NextResponse.json({ status: 'fail', error: 'no "file" entry in post data' }, { status: 500 })
         }
 
-        // join is a security check to ensure the run is owned by the member
+        // join is a security check to ensure the job is owned by the member
         const info = await db
-            .selectFrom('studyRun')
+            .selectFrom('studyJob')
             .innerJoin('study', (join) =>
-                join.onRef('study.id', '=', 'studyRun.studyId').on('study.memberId', '=', member.id),
+                join.onRef('study.id', '=', 'studyJob.studyId').on('study.memberId', '=', member.id),
             )
-            .select(['studyRun.id as studyRunId', 'studyId'])
-            .where('studyRun.id', '=', runId)
+            .select(['studyJob.id as studyJobId', 'studyId'])
+            .where('studyJob.id', '=', jobId)
             .executeTakeFirst()
 
         if (!info) {
-            return NextResponse.json({ status: 'fail', error: 'run not found' }, { status: 404 })
+            return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
         }
 
-        await attachResultsToStudyRun(
+        await attachResultsToStudyJob(
             {
                 ...info,
                 memberIdentifier: member.identifier,

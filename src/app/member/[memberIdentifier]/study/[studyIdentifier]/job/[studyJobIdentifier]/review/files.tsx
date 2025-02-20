@@ -15,7 +15,7 @@ import {
 } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Group, RenderTreeNodePayload, Tree, useTree } from '@mantine/core'
 import { Flex } from '@mantine/core'
-import type { MinimalRunInfo, CodeManifest, TreeNode } from '@/lib/types'
+import type { MinimalJobInfo, CodeManifest, TreeNode } from '@/lib/types'
 import { DisplayFile } from './display'
 import { expandIconStyle, leftPanelStyles, treeStyles } from './styles.css'
 import { ReactNode } from 'react'
@@ -61,13 +61,13 @@ function Leaf({ node, expanded, hasChildren, elementProps }: RenderTreeNodePaylo
 
 export function Files({
     data,
-    runInfo,
+    jobInfo,
     manifest,
     initialExpanded,
 }: {
     initialExpanded?: string
     data: TreeNode[]
-    runInfo: MinimalRunInfo
+    jobInfo: MinimalJobInfo
     manifest: CodeManifest
 }) {
     const tree = useTree({
@@ -89,7 +89,7 @@ export function Files({
                     renderNode={(payload) => <Leaf {...payload} />}
                 />
             </Flex>
-            <DisplayFile path={tree.selectedState[0]} runInfo={runInfo} manifest={manifest} />
+            <DisplayFile path={tree.selectedState[0]} jobInfo={jobInfo} manifest={manifest} />
         </Flex>
     )
 }

@@ -1,19 +1,26 @@
 'use server'
 
-import { SIMULATE_RESULTS_UPLOAD, USING_CONTAINER_REGISTRY } from '@/server/config'
+import { SIMULATE_RESULTS_UPLOAD } from '@/server/config'
 import { db } from '@/database'
 import { sleep } from '@/lib/util'
-import { attachSimulatedResultsToStudyRun } from '@/server/results'
+import { attachSimulatedResultsToStudyJob } from '@/server/results'
 
-export const onStudyRunCreateAction = async (studyId: string) => {
-    const studyRun = await db
-        .insertInto('studyRun')
+export const onStudyJobCreateAction = async (studyId: string) => {
+    const studyJob = await db
+        .insertInto('studyJob')
         .values({
             studyId: studyId,
-            status: USING_CONTAINER_REGISTRY ? 'INITIATED' : 'CODE-SUBMITTED', // act as if code submitted when not using container registry
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            status: 'INITIATED', // act as if code submitted when not using container registry
+            studyJobId: studyJob.id,
+        })
+        .execute()
 
     if (SIMULATE_RESULTS_UPLOAD) {
         const study = await db
@@ -23,13 +30,13 @@ export const onStudyRunCreateAction = async (studyId: string) => {
             .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow()
         sleep({ 3: 'seconds' }).then(() => {
-            attachSimulatedResultsToStudyRun({
+            attachSimulatedResultsToStudyJob({
                 studyId,
-                studyRunId: studyRun.id,
+                studyJobId: studyJob.id,
                 memberIdentifier: study.memberIdentifier,
             })
         })
     }
 
-    return studyRun.id
+    return studyJob.id
 }

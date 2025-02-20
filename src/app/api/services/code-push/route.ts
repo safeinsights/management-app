@@ -5,23 +5,25 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
 const schema = z.object({
-    runId: z.string().uuid(),
-    fileSize: z.number(),
-    fileCount: z.number(),
+    jobId: z.string().uuid(),
 })
 
 export async function POST(req: Request) {
     const body = schema.parse(await req.json())
 
+    const job = await db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .where('studyJob.id', '=', body.jobId)
+        .select(['studyJob.id as jobId', 'study.researcherId'])
+        .executeTakeFirstOrThrow()
+
     await db
-        .updateTable('studyRun')
-        .where('id', '=', body.runId)
-        .where('status', '=', 'INITIATED')
-        .set({
+        .insertInto('jobStatusChange')
+        .values({
+            userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
+            studyJobId: job.jobId,
             status: 'CODE-SUBMITTED',
-            uploadedAt: new Date(),
-            fileSize: body.fileSize,
-            fileCount: body.fileCount,
         })
         .execute()
 

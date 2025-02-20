@@ -18,13 +18,3 @@ export const updateStudyStatusAction = async (studyId: string, status: StudyStat
 
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(studyId)}`)
 }
-
-export const onFetchStudyRunsAction = async (studyId: string) => {
-    return await db
-        .selectFrom('studyRun')
-        .select(['id', 'status', 'startedAt', 'createdAt'])
-        .where('studyId', '=', studyId)
-        .orderBy('startedAt', 'desc')
-        .orderBy('createdAt', 'desc')
-        .execute()
-}

@@ -8,20 +8,34 @@ import type { ColumnType } from 'kysely'
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
-export type StudyRunStatus =
+export type ResultFormat = 'SI_V1_ENCRYPT'
+
+export type StudyJobStatus =
+    | 'CODE-APPROVED'
     | 'CODE-REJECTED'
     | 'CODE-SUBMITTED'
-    | 'COMPLETED'
-    | 'ERRORED'
     | 'INITIATED'
-    | 'READY'
+    | 'JOB-ERRORED'
+    | 'JOB-PACKAGING'
+    | 'JOB-PROVISIONING'
+    | 'JOB-READY'
+    | 'JOB-RUNNING'
+    | 'RESULTS-APPROVED'
     | 'RESULTS-REJECTED'
-    | 'RESULTS-REVIEW'
-    | 'RUNNING'
+    | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'REJECTED' | 'SUBMITTED'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
+
+export interface JobStatusChange {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    message: string | null
+    status: Generated<StudyJobStatus>
+    studyJobId: string
+    userId: string | null
+}
 
 export interface Member {
     createdAt: Generated<Timestamp>
@@ -31,6 +45,24 @@ export interface Member {
     name: string
     publicKey: string
     updatedAt: Generated<Timestamp>
+}
+
+export interface MemberUser {
+    id: Generated<string>
+    isAdmin: boolean
+    isReviewer: boolean
+    joinedAt: Generated<Timestamp>
+    memberId: string
+    userId: string
+}
+
+export interface MemberUserPublicKey {
+    createdAt: Generated<Timestamp>
+    fingerprint: string
+    id: Generated<string>
+    updatedAt: Generated<Timestamp>
+    userId: string
+    value: string
 }
 
 export interface Study {
@@ -49,21 +81,29 @@ export interface Study {
     title: string
 }
 
-export interface StudyRun {
-    completedAt: Timestamp | null
+export interface StudyJob {
     createdAt: Generated<Timestamp>
-    fileCount: number | null
-    fileSize: number | null
     id: Generated<string>
+    resultFormat: ResultFormat | null
     resultsPath: string | null
-    startedAt: Timestamp | null
-    status: Generated<StudyRunStatus>
     studyId: string
-    uploadedAt: Timestamp | null
+}
+
+export interface User {
+    clerkId: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    isResearcher: Generated<boolean>
+    name: string
+    updatedAt: Generated<Timestamp>
 }
 
 export interface DB {
+    jobStatusChange: JobStatusChange
     member: Member
+    memberUser: MemberUser
+    memberUserPublicKey: MemberUserPublicKey
     study: Study
-    studyRun: StudyRun
+    studyJob: StudyJob
+    user: User
 }

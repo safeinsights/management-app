@@ -8,9 +8,9 @@ const decodeLocation = (loc: string) => {
     return { host: u.hostname, repo: u.pathname.slice(1) }
 }
 
-export const PushInstructions = ({ containerLocation, runId }: { containerLocation: string; runId: string }) => {
+export const PushInstructions = ({ containerLocation, jobId }: { containerLocation: string; jobId: string }) => {
     const { host, repo } = decodeLocation(containerLocation)
-    const tag = uuidToB64(runId)
+    const tag = uuidToB64(jobId)
 
     return (
         <>

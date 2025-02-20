@@ -12,37 +12,39 @@ import {
     Modal,
     Table,
 } from '@mantine/core'
+import { last } from 'remeda'
 import { PushInstructions } from '@/components/push-instructions'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { onFetchStudyRunsAction, onStudyRunCreateAction } from './actions'
+import { onStudyJobCreateAction } from './actions'
+import { onFetchStudyJobsAction } from '@/server/actions/study-actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { PreviewCSVResultsBtn } from './results'
 import { Study } from '@/schema/study'
 
-type RunsTableProps = {
+type JobsTableProps = {
     encodedStudyId: string
     isActive: boolean
     study: Study
 }
 
-export const RunsTable: FC<RunsTableProps> = ({ isActive, study }) => {
+export const JobsTable: FC<JobsTableProps> = ({ isActive, study }) => {
     const queryClient = useQueryClient()
-    const [openedRunId, setOpened] = useState<string | false>(false)
+    const [openedJobId, setOpened] = useState<string | false>(false)
 
-    const { mutate: insertRun } = useMutation({
-        mutationFn: () => onStudyRunCreateAction(study.id),
-        onSuccess: async (runId) => {
-            setOpened(runId)
-            await queryClient.invalidateQueries({ queryKey: ['runsForStudy', study.id] })
+    const { mutate: insertJob } = useMutation({
+        mutationFn: () => onStudyJobCreateAction(study.id),
+        onSuccess: async (jobId) => {
+            setOpened(jobId)
+            await queryClient.invalidateQueries({ queryKey: ['jobsForStudy', study.id] })
         },
     })
 
-    const { data: runs, isPending } = useQuery({
-        queryKey: ['runsForStudy', study.id],
+    const { data: jobs, isPending } = useQuery({
+        queryKey: ['jobsForStudy', study.id],
         enabled: isActive,
-        queryFn: () => onFetchStudyRunsAction(study.id),
+        queryFn: () => onFetchStudyJobsAction(study.id),
     })
 
     if (isPending) return <p>Loading...</p>
@@ -51,41 +53,43 @@ export const RunsTable: FC<RunsTableProps> = ({ isActive, study }) => {
         <>
             <Table verticalSpacing="md">
                 <Table.Tbody>
-                    {(runs || []).map((run, runCount: number) => (
-                        <Table.Tr key={run.id}>
-                            <Table.Td>{runCount + 1})</Table.Td>
+                    {(jobs || []).map((job, jobCount: number) => (
+                        <Table.Tr key={job.id}>
+                            <Table.Td>{jobCount + 1})</Table.Td>
                             <Table.Td>
-                                Code Run Submitted On: {'{'}
-                                {run.createdAt.toISOString()}
+                                Code Job Submitted On: {'{'}
+                                {last(job.statuses)?.createdAt.toISOString()}
                                 {'}'}
                             </Table.Td>
                             <Table.Td>|</Table.Td>
                             <Table.Td>
                                 Status: {'{'}
-                                {humanizeStatus(run.status)}
+                                {humanizeStatus(last(job.statuses)?.status)}
                                 {'}'}
                             </Table.Td>
-                            <Table.Td>{run.startedAt?.toISOString() || ''}</Table.Td>
+                            <Table.Td>{job.statuses[0].createdAt.toISOString() || ''}</Table.Td>
                             <Table.Td align="right">
                                 <Group>
-                                    {run.status == 'INITIATED' && (
+                                    {last(job.statuses)?.status == 'INITIATED' && (
                                         <>
                                             <Modal
                                                 size={800}
-                                                opened={!!openedRunId}
+                                                opened={!!openedJobId}
                                                 onClose={() => setOpened(false)}
                                                 title="AWS Instructions"
                                                 centered
                                             >
                                                 <PushInstructions
                                                     containerLocation={study.containerLocation}
-                                                    runId={run.id}
+                                                    jobId={job.id}
                                                 />
                                             </Modal>
-                                            <Button onClick={() => setOpened(run.id)}>View Instructions</Button>
+                                            <Button onClick={() => setOpened(job.id)}>View Instructions</Button>
                                         </>
                                     )}
-                                    {run.status == 'COMPLETED' && <PreviewCSVResultsBtn run={run} study={study} />}
+                                    {last(job.statuses)?.status == 'RUN-COMPLETE' && (
+                                        <PreviewCSVResultsBtn job={job} study={study} />
+                                    )}
                                 </Group>
                             </Table.Td>
                         </Table.Tr>
@@ -93,7 +97,7 @@ export const RunsTable: FC<RunsTableProps> = ({ isActive, study }) => {
                 </Table.Tbody>
             </Table>
             <Center mt="xl">
-                <Button onClick={() => insertRun()} title="Create a new code run" leftSection={<Plus />}>
+                <Button onClick={() => insertJob()} title="Create a new code run" leftSection={<Plus />}>
                     New Code Run
                 </Button>
             </Center>
@@ -120,7 +124,7 @@ export const Panel: FC<{ studies: Study[]; encodedStudyId: string }> = ({ studie
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
                         <p>{study.description}</p>
-                        <RunsTable isActive={activeId == study.id} study={study} encodedStudyId={encodedStudyId} />
+                        <JobsTable isActive={activeId == study.id} study={study} encodedStudyId={encodedStudyId} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}
