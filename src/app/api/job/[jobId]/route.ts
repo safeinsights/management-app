@@ -9,7 +9,8 @@ const schema = z.object({
     message: z.string().optional(),
     // it's tempting to try to type this, but doesn't seem to work.
     // not really needed though because the where clause below will error if an invalid status is present in the list below
-    status: z.enum(['RUNNING', 'ERRORED', 'RESULTS-REJECTED', 'RESULTS-APPROVED']),
+    // TODO: consider removing the RESULTS status since we're reviwing in the BMA now
+    status: z.enum(['JOB-PROVISIONING', 'JOB-RUNNING', 'JOB-ERRORED', 'RESULTS-REJECTED', 'RESULTS-APPROVED']),
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {

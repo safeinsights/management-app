@@ -4,18 +4,18 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createType('study_job_status')
         .asEnum([
-            'INITIATED',
-            'CODE-SUBMITTED',
-            'CODE-REJECTED',
-            'CODE-APPROVED',
-            'PACKAGING',
-            'PROVISIONING',
-            'READY',
-            'RUNNING',
-            'ERRORED',
-            'RUN-COMPLETE',
-            'RESULTS-APPROVED',
-            'RESULTS-REJECTED',
+            'INITIATED',        // initial state when a study draft is created
+            'CODE-SUBMITTED',   // code is present and awaiting review and approval by Member
+            'CODE-REJECTED',    // Member has rejected the initial code
+            'CODE-APPROVED',    // Code has been approved by Member,
+            'JOB-PACKAGING',    // BMA is packageing code for the Setup App to pick up.
+            'JOB-READY',        // Code is ready and waiting to be picked up by the Setup App
+            'JOB-PROVISIONING', // Setup App has picked up the packaged code and is preparing to run it against the enclave data
+            'JOB-RUNNING',      // Code is running inside the enclave.
+            'JOB-ERRORED',      // code had an error while running inside enclave
+            'RUN-COMPLETE',     // run is complete, results are available for review
+            'RESULTS-APPROVED', // results are approved, can be downloaded by researcher
+            'RESULTS-REJECTED', // results were rejected, cannot be shared with researcher
         ])
         .execute()
 

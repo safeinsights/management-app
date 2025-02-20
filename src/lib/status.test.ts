@@ -7,12 +7,12 @@ describe('humanizeStatus', () => {
             ['CODE-REJECTED', 'Code Rejected'],
             ['CODE-SUBMITTED', 'Code Submitted'],
             ['RUN-COMPLETE', 'Run Complete'],
-            ['ERRORED', 'Errored'],
+            ['JOB-ERRORED', 'Job Errored'],
             ['INITIATED', 'Initiated'],
-            ['READY', 'Ready'],
+            ['JOB-READY', 'Job Ready'],
             ['RESULTS-REJECTED', 'Results Rejected'],
             ['RESULTS-APPROVED', 'Results Approved'],
-            ['RUNNING', 'Running'],
+            ['JOB-RUNNING', 'Job Running'],
         ] as const
 
         testCases.forEach(([input, expected]) => {

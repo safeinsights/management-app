@@ -81,7 +81,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .executeTakeFirstOrThrow()
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'RUNNING', studyJobId: job1.id, userId: researcher.id })
+        .values({ status: 'JOB-RUNNING', studyJobId: job1.id, userId: researcher.id })
         .execute()
 
     const job2 = await db
@@ -94,7 +94,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .executeTakeFirstOrThrow()
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'READY', studyJobId: job2.id, userId: researcher.id })
+        .values({ status: 'JOB-READY', studyJobId: job2.id, userId: researcher.id })
         .execute()
 
     return {

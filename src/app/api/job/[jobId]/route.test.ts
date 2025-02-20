@@ -9,7 +9,7 @@ test('updating status', async () => {
 
     const req = new Request('http://localhost', {
         method: 'PUT',
-        body: JSON.stringify({ status: 'RUNNING' }),
+        body: JSON.stringify({ status: 'JOB-RUNNING' }),
     })
 
     const resp = await apiHandler.PUT(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
@@ -22,5 +22,5 @@ test('updating status', async () => {
         .orderBy('jobStatusChange.id', 'desc')
         .executeTakeFirstOrThrow()
 
-    expect(sr.status).toBe('RUNNING')
+    expect(sr.status).toBe('JOB-RUNNING')
 })

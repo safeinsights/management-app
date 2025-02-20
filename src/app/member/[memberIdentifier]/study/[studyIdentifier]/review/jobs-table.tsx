@@ -44,7 +44,7 @@ export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, stud
                             {humanizeStatus(last(job.statuses)?.status)}
                             {'}'}
                         </Table.Td>
-                        <Table.Td>{formatDate(job.statuses.find((st) => st.status == 'RUNNING')?.createdAt)}</Table.Td>
+                        <Table.Td>{formatDate(job.statuses.find((st) => st.status == 'JOB-RUNNING')?.createdAt)}</Table.Td>
                         <Table.Td align="right">
                             {last(job.statuses)?.status == 'CODE-SUBMITTED' && (
                                 <Link

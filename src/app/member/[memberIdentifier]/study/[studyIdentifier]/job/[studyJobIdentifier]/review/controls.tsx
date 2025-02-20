@@ -36,7 +36,7 @@ export const ReviewControls: React.FC<{ job: MinimalJobInfo; memberIdentifier: s
             <Button color="red" onClick={() => updateStudyJob('CODE-REJECTED')} loading={isPending}>
                 Reject
             </Button>
-            <Button color="blue" onClick={() => updateStudyJob('READY')} loading={isPending}>
+            <Button color="blue" onClick={() => updateStudyJob('JOB-READY')} loading={isPending}>
                 Approve
             </Button>
         </Flex>
