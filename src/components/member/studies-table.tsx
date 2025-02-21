@@ -44,7 +44,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             <Table layout="fixed" striped highlightOnHover withRowBorders>
                 {!rows.length && (
                     <Table.Caption>
-                        <Text>You have no studies to review. {studies.length}</Text>
+                        <Text>You have no studies to review.</Text>
                     </Table.Caption>
                 )}
 
