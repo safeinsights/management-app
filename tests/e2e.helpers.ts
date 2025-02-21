@@ -117,7 +117,7 @@ type ClerkSignInParams = {
 
 export const CLERK_MFA_CODE = '424242'
 
-const clerkSignInHelper = async (params: ClerkSignInParams) => {
+export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     const w = window
     if (!w.Clerk.client) {
         return
