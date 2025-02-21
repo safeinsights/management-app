@@ -26,7 +26,7 @@ setup('authenticate as member', async ({ page }) => {
     await setupClerkTestingToken({ page })
     await page.goto('/account/signin')
     await clerk.loaded({ page })
-    await page.evaluate(clerkSignInHelper, TestingUsers['researcher'])
+    await page.evaluate(clerkSignInHelper, TestingUsers['member'])
 
     await page.goto('/')
 
