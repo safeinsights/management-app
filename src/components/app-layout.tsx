@@ -1,30 +1,19 @@
 'use client'
 
-import {
-    AppShell,
-    AppShellFooter,
-    AppShellMain,
-    AppShellNavbar,
-    AppShellSection,
-    Button,
-    Divider,
-    Group,
-    Text,
-} from '@mantine/core'
+import { AppShell, AppShellFooter, AppShellMain, AppShellNavbar, AppShellSection, Group, Text } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { OrganizationSwitcher, useAuth, useClerk } from '@clerk/nextjs'
-import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
+import { OrganizationSwitcher, useAuth } from '@clerk/nextjs'
 import { ReactNode } from 'react'
+import { NavbarItems } from '@/components/navbar/navbar-items'
 
 type Props = {
     children: ReactNode
 }
 
 export function AppLayout({ children }: Props) {
-    const { signOut, openUserProfile } = useClerk()
     const { isSignedIn } = useAuth()
 
     if (!isSignedIn) {
@@ -38,30 +27,11 @@ export function AppLayout({ children }: Props) {
             <AppShellNavbar p="md" bg="dark">
                 <AppShellSection>
                     <Link href="/">
-                        {/* TODO Update logo eventually with correct image for better contrast against dark background */}
                         <SafeInsightsLogo />
                     </Link>
                 </AppShellSection>
                 <AppShellSection grow my="md">
-                    <Button
-                        variant="transparent"
-                        component={Link}
-                        href="/member/openstax/dashboard"
-                        c="white"
-                        leftSection={<House />}
-                    >
-                        Dashboard
-                    </Button>
-
-                    <Button variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
-                        Settings
-                    </Button>
-
-                    <Divider />
-
-                    <Button variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
-                        Logout
-                    </Button>
+                    <NavbarItems />
                 </AppShellSection>
             </AppShellNavbar>
             <AppShellMain>{children}</AppShellMain>
