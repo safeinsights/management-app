@@ -36,6 +36,7 @@ export const MemberDashboard: FC<{ member: Member }> = ({ member }) => {
                     <Text span>Review and approve a study. </Text>
                     <Tooltip
                         multiline
+                        withArrow
                         w={350}
                         label="You’ll receive an email when a study is submitted for review. Each study includes two parts: the proposal and the code. As a reviewer, you’ll check if both align with the data provided by your organization and decide whether to approve or reject them. Once both the proposal and code are approved, the researcher’s container will be exposed to the data, and outputted results shared with you for a final review before they are shared with the Researcher"
                     >

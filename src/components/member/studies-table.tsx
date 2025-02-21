@@ -24,9 +24,8 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             <Table.Td>
                 <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </Table.Td>
-            {/*TODO pull out researcher data from query?*/}
-            <Table.Td>{study.researcherId}</Table.Td>
-            {/*TODO Reviewed by*/}
+            <Table.Td>{study.researcherName}</Table.Td>
+            {/* TODO Reviewed by doesn't exist yet */}
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
             <Table.Td>{humanizeStatus(study.status)}</Table.Td>
             <Table.Td>
@@ -40,7 +39,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     return (
         <Stack gap="lg">
             <Title order={4}>Review Studies</Title>
-            <Table layout="auto">
+            <Table layout="fixed">
                 <Table.Caption>{!rows.length && <Text>You have no studies to review.</Text>}</Table.Caption>
 
                 <Table.Thead>
@@ -48,7 +47,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
                         <Table.Th>Study Name</Table.Th>
                         <Table.Th>Submitted On</Table.Th>
                         <Table.Th>Researcher</Table.Th>
-                        {/*TODO Reviewed by*/}
+                        {/* TODO Reviewed by */}
                         {/*<Table.Th>Reviewed By</Table.Th>*/}
                         <Table.Th>Status</Table.Th>
                         <Table.Th>Details</Table.Th>

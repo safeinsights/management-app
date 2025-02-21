@@ -9,6 +9,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
         .innerJoin('member', (join) =>
             join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
         )
+        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
         .select([
             'study.id',
             'study.approvedAt',
@@ -23,6 +24,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'study.researcherId',
             'study.status',
             'study.title',
+            'user.name as researcherName',
         ])
         .orderBy('study.createdAt', 'desc')
         .where('study.status', '!=', 'INITIATED')
@@ -34,7 +36,7 @@ export const getStudyAction = async (studyId: string) => {
 }
 
 export const onFetchStudyJobsAction = async (studyId: string) => {
-    const jobs = await db
+    return await db
         .selectFrom('studyJob')
         .select((eb) => [
             'studyJob.id',
@@ -48,6 +50,4 @@ export const onFetchStudyJobsAction = async (studyId: string) => {
         ])
         .where('studyId', '=', studyId)
         .execute()
-
-    return jobs
 }
