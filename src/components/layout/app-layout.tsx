@@ -7,7 +7,7 @@ import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import { OrganizationSwitcher, useAuth } from '@clerk/nextjs'
 import { ReactNode } from 'react'
-import { NavbarItems } from '@/components/navbar/navbar-items'
+import { NavbarItems } from '@/components/layout/navbar-items'
 
 type Props = {
     children: ReactNode
@@ -16,6 +16,7 @@ type Props = {
 export function AppLayout({ children }: Props) {
     const { isSignedIn } = useAuth()
 
+    // If user isn't signed in, don't render the whole layout
     if (!isSignedIn) {
         return <div>{children}</div>
     }

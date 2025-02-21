@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import * as memberActions from '@/server/actions/member-actions'
 import * as studyActions from '@/server/actions/study-actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import StudyReviewPage from './page'
+import MemberDashboardPage from './page'
 import { Member } from '@/schema/member'
 
 const mockMember: Member = {
@@ -81,7 +81,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        renderWithProviders(await StudyReviewPage(props))
+        renderWithProviders(await MemberDashboardPage(props))
 
         await waitFor(() => {
             expect(screen.getByText(/Member was not found/i)).toBeDefined()
@@ -96,7 +96,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        renderWithProviders(await StudyReviewPage(props))
+        renderWithProviders(await MemberDashboardPage(props))
         expect(screen.getByText('There are no studies to view at this time')).toBeDefined()
     })
 
@@ -108,7 +108,7 @@ describe('StudyReviewPage', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        renderWithProviders(await StudyReviewPage(props))
+        renderWithProviders(await MemberDashboardPage(props))
         expect(screen.getAllByText('Proceed to review ≫')).toHaveLength(3)
     })
 })
