@@ -66,12 +66,14 @@ jobs:
             - name: start NextJS server
               run: npm run dev &
 
-            - name: run specs
-              run: |
-                  npm run checks
-                  npm run test:unit
-                  npm run test:e2e
-                  npm run test:coverage
+            - name: npm run checks
+              run: npm run checks
+            - name: npm run test:unit
+              run: npm run test:unit
+            - name: npm run test:e2e
+              run: npm run test:e2e
+            - name: npm run test:coverage
+              run: npm run test:coverage
 
             - name: Add code coverage to actions summary
               run: |
