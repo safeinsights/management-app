@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# https://github.com/getsentry/sentry-javascript/issues/15100
+# workaround for build spewing thousands of lines of:
+# <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (135kiB) impacts deserialization performance ...
+npm run build 2>&1 | stdbuf -oL grep -v 'PackFileCacheStrategy'
+
+cp bin/prod.run.sh .next/standalone/run.sh
+
+pushd .next/standalone/
+
+zip -q -r ../../lambda-server-package.zip .
+
+popd
