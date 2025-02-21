@@ -11,6 +11,7 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
+import { ClerkProvider } from '@clerk/nextjs'
 
 const createTestQueryClient = () =>
     new QueryClient({
@@ -27,7 +28,9 @@ export function renderWithProviders(ui: ReactElement) {
     return render(
         <QueryClientProvider client={testQueryClient}>
             <MantineProvider theme={theme}>
-                <ModalsProvider>{ui}</ModalsProvider>
+                <ClerkProvider>
+                    <ModalsProvider>{ui}</ModalsProvider>
+                </ClerkProvider>
             </MantineProvider>
         </QueryClientProvider>,
     )
