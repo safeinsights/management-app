@@ -1,10 +1,9 @@
 name: Checks
 on:
     push:
-
-    pull_request:
-        types:
-            - closed
+        branches:
+            - main
+    pull_request: {}
 
 jobs:
     all:
