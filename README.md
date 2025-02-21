@@ -20,7 +20,7 @@ Copy the .env.sample file to .env replacing the XXX strings with values obtained
 
 When testing you can either use the accounts from the .env file or you can sign-up for a Clerk account using either a authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info mean that no SMS or email is sent and `424242` can be used to authenticate.
 
-You can use Docker compose to run the app and a postgresql database by using:
+You can use Docker compose to run the app and a Postgresql database by using:
 
 `docker compose up`
 
