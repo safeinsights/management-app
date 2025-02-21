@@ -12,7 +12,6 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
 
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
-        // TODO Redirect here with a mantine notification? generic 404 page?
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 

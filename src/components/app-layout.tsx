@@ -21,6 +21,7 @@ import '@mantine/notifications/styles.css'
 import { OrganizationSwitcher, useAuth, useClerk } from '@clerk/nextjs'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { ReactNode } from 'react'
+import { useAuthInfo } from '@/components/auth'
 
 type Props = {
     children: ReactNode
@@ -29,6 +30,7 @@ type Props = {
 export function AppLayout({ children }: Props) {
     const { signOut, openUserProfile } = useClerk()
     const { isSignedIn } = useAuth()
+    const authInfo = useAuthInfo()
 
     if (!isSignedIn) {
         return <div>{children}</div>

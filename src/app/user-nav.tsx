@@ -27,7 +27,7 @@ export const UserNav = () => {
                     </>
                 )}
                 {auth.isMember && (
-                    <Link href={`/member/${auth.orgSlug}/studies/review`} passHref>
+                    <Link href={`/member/${auth.orgSlug}/dashboard`} passHref>
                         <Button>Review Studies</Button>
                     </Link>
                 )}

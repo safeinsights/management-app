@@ -2,12 +2,13 @@
 
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { Stack, Table, Title, Text, Anchor, Center } from '@mantine/core'
+import { Anchor, Stack, Table, Text, Title } from '@mantine/core'
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
+import { uuidToB64 } from '@/lib/uuid'
 
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const { data: studies } = useQuery({
@@ -29,7 +30,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
             <Table.Td>{humanizeStatus(study.status)}</Table.Td>
             <Table.Td>
-                <Anchor component={Link} href={`/studies/${study.id}`}>
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${uuidToB64(study.id)}/review`}>
                     View
                 </Anchor>
             </Table.Td>
@@ -39,7 +40,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     return (
         <Stack gap="lg">
             <Title order={4}>Review Studies</Title>
-            <Table layout="fixed">
+            <Table layout="fixed" striped highlightOnHover withRowBorders>
                 <Table.Caption>{!rows.length && <Text>You have no studies to review.</Text>}</Table.Caption>
 
                 <Table.Thead>

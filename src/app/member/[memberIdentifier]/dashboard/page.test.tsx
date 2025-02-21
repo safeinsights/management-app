@@ -31,6 +31,7 @@ const mockStudies = [
         researcherId: 'researcher-1',
         status: 'INITIATED' as const,
         title: 'Study Title 1',
+        researcherName: 'Person A',
     },
     {
         approvedAt: null,
@@ -46,6 +47,7 @@ const mockStudies = [
         researcherId: 'researcher-2',
         status: 'APPROVED' as const,
         title: 'Study Title 2',
+        researcherName: 'Person B',
     },
     {
         approvedAt: null,
@@ -61,6 +63,7 @@ const mockStudies = [
         researcherId: 'researcher-3',
         status: 'PENDING-REVIEW' as const,
         title: 'Study Title 3',
+        researcherName: 'Person C',
     },
 ]
 

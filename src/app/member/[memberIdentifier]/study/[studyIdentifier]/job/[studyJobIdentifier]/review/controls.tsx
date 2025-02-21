@@ -15,7 +15,7 @@ export const ReviewControls: React.FC<{ job: MinimalJobInfo; memberIdentifier: s
 }) => {
     const router = useRouter()
 
-    const backPath = `/member/${memberIdentifier}/studies/review`
+    const backPath = `/member/${memberIdentifier}/dashboard`
 
     const {
         mutate: updateStudyJob,
