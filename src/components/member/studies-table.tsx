@@ -11,9 +11,9 @@ import Link from 'next/link'
 import { uuidToB64 } from '@/lib/uuid'
 
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
-    const { data: studies } = useQuery({
+    const { data: studies = [] } = useQuery({
         queryKey: ['studiesForMember', member.identifier],
-        initialData: [],
+        placeholderData: [],
         queryFn: () => {
             return fetchStudiesForMember(member.identifier)
         },
