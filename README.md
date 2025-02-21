@@ -28,7 +28,7 @@ Other useful commands:
 
 ### Getting Started - Local Setup
 
-For developing locally without docker compose, you will need to install postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
+For developing locally without docker compose, you will need to install Postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
 Otherwise, you can use Docker compose to run the app and a Postgresql database by using:
 
