@@ -60,6 +60,7 @@ test.describe('Studies', () => {
         await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
     })
 
+    test.use({ storageState: 'tests/.auth/member.json' })
     test('member reviews the study', async ({ page, studyFeatures }) => {
         test.use({ storageState: 'tests/.auth/member.json' })
 
