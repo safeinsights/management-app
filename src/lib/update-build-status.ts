@@ -34,7 +34,6 @@ export class BuildStatusUpdater {
             const buildStatusComment = comments.find((comment) => comment.body?.startsWith(COMMENT_HEADING))
 
             if (buildStatusComment) {
-                // Update the existing comment
                 await this.octokit.issues.updateComment({
                     owner: this.owner,
                     repo: this.repo,
@@ -42,7 +41,6 @@ export class BuildStatusUpdater {
                     body: comment,
                 })
             } else {
-                // Create a new comment on the PR
                 await this.octokit.issues.createComment({
                     owner: this.owner,
                     repo: this.repo,

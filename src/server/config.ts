@@ -40,7 +40,8 @@ async function fetchSecret<T extends Record<string, unknown>>(SecretId: string):
         if (data.SecretString) {
             return JSON.parse(data.SecretString)
         }
-    } catch {
+    } catch (e) {
+        console.warn(e)
         throw new Error(`failed to fetch ${SecretId} from AWS secrets`)
     }
     return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
