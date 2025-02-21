@@ -40,8 +40,13 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     return (
         <Stack gap="lg">
             <Title order={4}>Review Studies</Title>
+
             <Table layout="fixed" striped highlightOnHover withRowBorders>
-                <Table.Caption>{!rows.length && <Text>You have no studies to review.</Text>}</Table.Caption>
+                {!rows.length && (
+                    <Table.Caption>
+                        <Text>You have no studies to review. {studies.length}</Text>
+                    </Table.Caption>
+                )}
 
                 <Table.Thead>
                     <Table.Tr>

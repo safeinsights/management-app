@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Form } from './form'
 import userEvent from '@testing-library/user-event'
-
 import { onCreateStudyAction } from './actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
 
