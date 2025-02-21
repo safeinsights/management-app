@@ -62,6 +62,7 @@ test.describe('Studies', () => {
 
     test.use({ storageState: 'tests/.auth/member.json' })
     test('member reviews the study', async ({ page, studyFeatures }) => {
+        await page.goto('/')
         await page.getByRole('button', { name: /review studies/i }).click()
         await page.locator('tr').filter({ hasText: studyFeatures.studyTitle }).getByText('view').click()
         await page.getByRole('button', { name: /researcher code/i }).click()
