@@ -1,14 +1,21 @@
 import { withSentryConfig } from '@sentry/nextjs'
+import type { NextConfig } from 'next'
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-    output: 'standalone',
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
+
+const nextConfig: NextConfig = async (phase: string) => {
+    const isDev = phase === PHASE_DEVELOPMENT_SERVER
+
+    const nextConfig: NextConfig = {
+        assetPrefix: isDev ? undefined : '/assets/',
+        output: 'standalone',
+    }
+    return nextConfig
 }
 
-export default withSentryConfig(nextConfig, {
+const configWithSentry = withSentryConfig(nextConfig, {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options
-
     org: 'openstax',
     project: 'management-app',
 
@@ -33,20 +40,9 @@ export default withSentryConfig(nextConfig, {
     // tunnelRoute: "/monitoring",
 
     // Hides source maps from generated client bundles
-    hideSourceMaps: true,
 
     // Automatically tree-shake Sentry logger statements to reduce bundle size
     disableLogger: true,
-
-    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
-    // https://vercel.com/docs/cron-jobs
-    automaticVercelMonitors: true,
-
-    experimental: {
-        turbo: {
-            // ...
-        },
-    },
 })
+
+export default configWithSentry
