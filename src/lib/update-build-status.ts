@@ -3,9 +3,8 @@ import minimist from 'minimist'
 import { fileURLToPath } from 'url'
 
 type BuildNDeployStatus = {
-    pass: boolean
+    success: boolean
     error: string
-    deployURL?: string
 }
 
 const COMMENT_HEADING = '### BUILD STATUS'
@@ -22,8 +21,9 @@ export class BuildStatusUpdater {
     }
 
     public async update(st: BuildNDeployStatus): Promise<void> {
-        const url = st.deployURL ? `[Preview Link](${st.deployURL})` : ''
-        const comment = `${COMMENT_HEADING} ${st.pass ? '✅' : '❌'}\n\n${url}\n\n${st.error}`
+        const url = st.success ? `[Preview Link](https://pr${this.prNumber}.dev.safeinsights.org/)` : ''
+
+        const comment = `${COMMENT_HEADING} ${st.success ? '✅' : '❌'}\n\n${url}\n\n${st.error || ''}`
         try {
             const { data: comments } = await this.octokit.issues.listComments({
                 owner: this.owner,
@@ -57,7 +57,7 @@ export class BuildStatusUpdater {
 const __filename = fileURLToPath(import.meta.url)
 if (process.argv[1] === __filename) {
     const args = minimist(process.argv.slice(2))
-    const { token, prNum, success, error, url } = args
+    const { token, prNum, success, error } = args
 
     if (!token || !prNum) {
         console.error('Usage: node <script> --token <token> --prNum <buildStatus>')
@@ -67,9 +67,8 @@ if (process.argv[1] === __filename) {
     const manager = new BuildStatusUpdater(token, prNum)
     manager
         .update({
-            pass: success != null || !error,
+            success: success != null || !error,
             error,
-            deployURL: url,
         })
         .catch((error) => {
             console.error('Operation failed:', error)

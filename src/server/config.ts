@@ -31,18 +31,19 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '872515273917': 'Development',
 }
 
-async function fetchSecret<T extends Record<string, unknown>>(SecretId: string): Promise<T> {
-    if (!SecretId) throw new Error('missing SECRET_ARN env var')
+async function fetchSecret<T extends Record<string, unknown>>(envKey: string): Promise<T> {
+    const arn = process.env[envKey]
+    if (!arn) throw new Error(`missing ARN ${envKey} in env`)
     try {
         const client = new SecretsManagerClient()
-        const data = await client.send(new GetSecretValueCommand({ SecretId }))
+        const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
 
         if (data.SecretString) {
             return JSON.parse(data.SecretString)
         }
     } catch (e) {
         console.warn(e)
-        throw new Error(`failed to fetch ${SecretId} from AWS secrets`)
+        throw new Error(`failed to fetch ${arn} from AWS secrets`)
     }
     return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
