@@ -53,7 +53,7 @@ export default async function StudyReviewPage(props: {
                     {Object.keys(manifest.files).length} files, {Math.round((manifest.size / 1048576) * 100) / 100}MB
                 </Title>
                 <Flex gap="md" direction="column">
-                    <Link href={`/member/${memberIdentifier}/studies/review`}>
+                    <Link href={`/member/${memberIdentifier}/dashboard`}>
                         <Button color="blue">Back to pending review</Button>
                     </Link>
                     <ReviewControls memberIdentifier={memberIdentifier} job={jobInfo} />

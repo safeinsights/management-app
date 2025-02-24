@@ -63,7 +63,7 @@ test.describe('Studies', () => {
     test('member reviews the study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/' })
         await page.getByRole('button', { name: /review studies/i }).click()
-        await page.locator('li').filter({ hasText: studyFeatures.studyTitle }).getByRole('link').click()
+        await page.locator('tr').filter({ hasText: studyFeatures.studyTitle }).getByText('View').click()
         await page.getByRole('button', { name: /researcher code/i }).click()
         await page.getByRole('button', { name: /view code/i }).click()
         await page.getByText(/main.r/i).click()

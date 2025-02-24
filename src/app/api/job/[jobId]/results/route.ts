@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
+import { requestingMember, wrapApiMemberAction } from '@/server/wrappers'
 import { attachResultsToStudyJob } from '@/server/results'
 
 export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {

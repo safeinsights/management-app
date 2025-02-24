@@ -11,7 +11,7 @@ export async function seed(db: Kysely<any>): Promise<void> {
             public_key: 'BAD KEY, UPDATE ME',
         })
         .onConflict((oc) =>
-            oc.column('id').doUpdateSet((eb) => ({
+            oc.column('identifier').doUpdateSet((eb) => ({
                 identifier: eb.ref('excluded.identifier'),
                 name: eb.ref('excluded.name'),
             })),

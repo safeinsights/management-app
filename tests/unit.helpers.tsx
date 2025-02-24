@@ -1,4 +1,4 @@
-import { BLANK_UUID, db } from '@/database'
+import { db } from '@/database'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'

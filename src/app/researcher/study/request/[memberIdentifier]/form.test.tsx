@@ -1,10 +1,8 @@
-import { expect, describe, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
 import { Form } from './form'
-import { TestingProvidersWrapper } from '@/tests/providers'
 import userEvent from '@testing-library/user-event'
-
 import { onCreateStudyAction } from './actions'
+import { renderWithProviders } from '@/tests/unit.helpers'
 
 vi.mock('./actions', () => ({
     onCreateStudyAction: vi.fn(),
@@ -12,9 +10,8 @@ vi.mock('./actions', () => ({
 
 describe('Member Start Page Form', () => {
     it('submits form', async () => {
-        const { getByLabelText, getByRole, container } = render(
+        const { getByLabelText, getByRole, container } = renderWithProviders(
             <Form memberId="1234" memberIdentifier="hello-world" />,
-            TestingProvidersWrapper,
         )
         let title = '2srt'
 
@@ -31,7 +28,7 @@ describe('Member Start Page Form', () => {
         expect(container.querySelector('[class$="error"]')).not.toBeNull()
 
         expect(onCreateStudyAction).not.toHaveBeenCalled()
-        userEvent.clear(titleInput)
+        await userEvent.clear(titleInput)
 
         title = 'a long enough title to pass validation'
         await userEvent.type(titleInput, title)

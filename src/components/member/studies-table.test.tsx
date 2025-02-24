@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import * as memberActions from '@/server/actions/member-actions'
-import * as studyActions from '@/server/actions/study-actions'
+import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import StudyReviewPage from './page'
 import { Member } from '@/schema/member'
+import { useUser } from '@clerk/nextjs'
+import { UserResource } from '@clerk/types'
+import { StudiesTable } from '@/components/member/studies-table'
 
 const mockMember: Member = {
     id: '1',
@@ -31,6 +32,7 @@ const mockStudies = [
         researcherId: 'researcher-1',
         status: 'INITIATED' as const,
         title: 'Study Title 1',
+        researcherName: 'Person A',
     },
     {
         approvedAt: null,
@@ -46,6 +48,7 @@ const mockStudies = [
         researcherId: 'researcher-2',
         status: 'APPROVED' as const,
         title: 'Study Title 2',
+        researcherName: 'Person B',
     },
     {
         approvedAt: null,
@@ -61,51 +64,48 @@ const mockStudies = [
         researcherId: 'researcher-3',
         status: 'PENDING-REVIEW' as const,
         title: 'Study Title 3',
+        researcherName: 'Person C',
     },
 ]
-
-vi.mock('@/server/actions/member-actions', () => ({
-    getMemberFromIdentifier: vi.fn(),
-}))
 
 vi.mock('@/server/actions/study-actions', () => ({
     fetchStudiesForMember: vi.fn(),
 }))
 
-describe('StudyReviewPage', () => {
-    it('renders an error when the member is not found', async () => {
-        const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
-        }
+vi.mock('@clerk/nextjs', () => ({
+    useUser: vi.fn(),
+}))
 
-        renderWithProviders(await StudyReviewPage(props))
-
-        await waitFor(() => {
-            expect(screen.getByText(/Member was not found/i)).toBeDefined()
-        })
-    })
-
+describe('Member Dashboard', () => {
     it('renders empty state when no studies', async () => {
-        vi.mocked(memberActions.getMemberFromIdentifier).mockResolvedValue(mockMember)
-        vi.mocked(studyActions.fetchStudiesForMember).mockResolvedValue([])
+        vi.mocked(fetchStudiesForMember).mockResolvedValue([])
+        vi.mocked(useUser).mockResolvedValue({
+            isLoaded: true,
+            isSignedIn: true,
+            user: {
+                firstName: 'Chris',
+            } as UserResource,
+        })
 
-        const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
-        }
-
-        renderWithProviders(await StudyReviewPage(props))
-        expect(screen.getByText('There are no studies to view at this time')).toBeDefined()
+        renderWithProviders(<StudiesTable member={mockMember} />)
+        expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        vi.mocked(memberActions.getMemberFromIdentifier).mockResolvedValue(mockMember)
-        vi.mocked(studyActions.fetchStudiesForMember).mockResolvedValue(mockStudies)
+        vi.mocked(useUser).mockResolvedValue({
+            isLoaded: true,
+            isSignedIn: true,
+            user: {
+                firstName: 'Chris',
+            } as UserResource,
+        })
 
-        const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
-        }
+        vi.mocked(fetchStudiesForMember).mockResolvedValue(mockStudies)
 
-        renderWithProviders(await StudyReviewPage(props))
-        expect(screen.getAllByText('Proceed to review ≫')).toHaveLength(3)
+        renderWithProviders(<StudiesTable member={mockMember} />)
+
+        await waitFor(() => {
+            expect(screen.getByText(/Study Title 1/i)).toBeDefined()
+        })
     })
 })

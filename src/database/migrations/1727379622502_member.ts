@@ -12,7 +12,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('member_identifier_indx').on('member').column('identifier').unique().execute()
+    await db.schema.createIndex('member_identifier_indx').on('member').column('identifier').unique().execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

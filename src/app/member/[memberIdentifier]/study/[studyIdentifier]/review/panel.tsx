@@ -23,7 +23,7 @@ export const StudyPanel: React.FC<{ study: Study; memberIdentifier: string }> = 
     const router = useRouter()
     const [activeSection, setActiveSection] = useState<string | null>(null)
 
-    const backPath = `/member/${memberIdentifier}/studies/review`
+    const backPath = `/member/${memberIdentifier}/dashboard`
 
     const {
         mutate: updateStudy,

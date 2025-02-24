@@ -2,17 +2,18 @@
 
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { Stack, Table, Title, Text } from '@mantine/core'
+import { Anchor, Stack, Table, Text, Title } from '@mantine/core'
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
+import { uuidToB64 } from '@/lib/uuid'
 
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
-    const { data: studies } = useQuery({
+    const { data: studies = [] } = useQuery({
         queryKey: ['studiesForMember', member.identifier],
-        initialData: [],
+        placeholderData: [],
         queryFn: () => {
             return fetchStudiesForMember(member.identifier)
         },
@@ -22,29 +23,37 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
         <Table.Tr key={study.id}>
             <Table.Td>{study.title}</Table.Td>
             <Table.Td>
-                <Text>{dayjs(study.createdAt).format('MM/DD/YYYY')}</Text>
+                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </Table.Td>
-            {/*TODO pull out researcher date from query?*/}
-            <Table.Td>{study.researcherId}</Table.Td>
-            {/*TODO Reviewed by?*/}
+            <Table.Td>{study.researcherName}</Table.Td>
+            {/* TODO Reviewed by doesn't exist yet */}
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
             <Table.Td>{humanizeStatus(study.status)}</Table.Td>
             <Table.Td>
-                <Link href={`/studies/${study.id}`}>View</Link>
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${uuidToB64(study.id)}/review`}>
+                    View
+                </Anchor>
             </Table.Td>
         </Table.Tr>
     ))
 
     return (
-        <Stack px="lg" gap="lg">
+        <Stack gap="lg">
             <Title order={4}>Review Studies</Title>
-            <Table>
+
+            <Table layout="fixed" striped highlightOnHover withRowBorders>
+                {!rows.length && (
+                    <Table.Caption>
+                        <Text>You have no studies to review.</Text>
+                    </Table.Caption>
+                )}
+
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th>Study Name</Table.Th>
                         <Table.Th>Submitted On</Table.Th>
                         <Table.Th>Researcher</Table.Th>
-                        {/*TODO Reviewed by above*/}
+                        {/* TODO Reviewed by */}
                         {/*<Table.Th>Reviewed By</Table.Th>*/}
                         <Table.Th>Status</Table.Th>
                         <Table.Th>Details</Table.Th>
