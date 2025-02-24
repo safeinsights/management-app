@@ -60,9 +60,8 @@ test.describe('Studies', () => {
         await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
     })
 
-    test.use({ storageState: 'tests/.auth/member.json' })
     test('member reviews the study', async ({ page, studyFeatures }) => {
-        await page.goto('/')
+        await visitClerkProtectedPage({ page, role: 'member', url: '/' })
         await page.getByRole('button', { name: /review studies/i }).click()
         await page.locator('tr').filter({ hasText: studyFeatures.studyTitle }).getByText('View').click()
         await page.getByRole('button', { name: /researcher code/i }).click()
