@@ -7,14 +7,6 @@ vi.mock('@/server/actions/member-actions', () => ({
     getMemberFromIdentifier: vi.fn(),
 }))
 
-vi.mock('@/server/actions/study-actions', () => ({
-    fetchStudiesForMember: vi.fn(),
-}))
-
-vi.mock('@clerk/nextjs', () => ({
-    useUser: vi.fn(),
-}))
-
 describe('Member Dashboard', () => {
     it('renders an error when the member is not found', async () => {
         const props = {

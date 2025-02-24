@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-// import * as studyActions from '@/server/actions/study-actions'
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { Member } from '@/schema/member'

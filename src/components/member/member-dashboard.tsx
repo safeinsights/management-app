@@ -11,7 +11,7 @@ export const MemberDashboard: FC<{ member: Member }> = ({ member }) => {
     const { user } = useUser()
 
     return (
-        <Stack px="lg" py="xl" gap="lg">
+        <Stack px="lg">
             <Title>Hi {user?.firstName}!</Title>
             <Text>Welcome to SafeInsights</Text>
             <Text>
