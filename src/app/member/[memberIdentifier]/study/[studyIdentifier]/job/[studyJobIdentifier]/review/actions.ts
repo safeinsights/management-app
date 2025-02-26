@@ -15,7 +15,8 @@ import { siUser } from '@/server/queries'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    db.insertInto('jobStatusChange')
+    await db
+        .insertInto('jobStatusChange')
         .values({
             userId: (await siUser()).id,
             status,

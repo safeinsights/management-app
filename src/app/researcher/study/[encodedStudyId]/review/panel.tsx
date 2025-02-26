@@ -5,11 +5,11 @@ import { useMutation } from '@tanstack/react-query'
 import { Accordion, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { css } from '@/styles'
 import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
+import { updateStudyStatusAction } from '@/server/actions/study-actions'
 
 export const labelStyle = css({
     width: '10rem',

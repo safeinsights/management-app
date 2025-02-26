@@ -1,10 +1,13 @@
-import { Paper, Center, Title, Text, Stack, Group } from '@mantine/core'
-import { b64toUUID } from '@/lib/uuid'
-import { StudyPanel } from './panel'
+import { Box, Container, Divider, Flex, Grid, GridCol, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
+import { b64toUUID, uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study-actions'
+import React from 'react'
+import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
+import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
+import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -16,7 +19,6 @@ export default async function StudyReviewPage(props: {
 
     const { memberIdentifier, studyIdentifier } = params
 
-    // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
@@ -27,24 +29,57 @@ export default async function StudyReviewPage(props: {
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
+    // console.log(study)
 
     return (
-        <Center>
-            <Paper w="50%" shadow="xs" p="sm" m="xs">
-                <MemberBreadcrumbs crumbs={{ memberIdentifier, current: study.title }} />
-                <Stack>
-                    <Group gap="xl">
-                        <Title>
-                            {study.title} | {study.piName}
-                        </Title>
-                    </Group>
+        <Stack px="xl" gap="xl">
+            <Stack>
+                <MemberBreadcrumbs
+                    crumbs={{
+                        memberIdentifier,
+                        current: study.title,
+                    }}
+                />
+                <Title>Study details</Title>
+            </Stack>
 
-                    <Text c="#7F7D7D" mb={30} pt={10} fz="lg" fs="italic">
-                        {'{'}Communication between member and researcher will be skipped for this pilot{'}'}
-                    </Text>
-                </Stack>
-                <StudyPanel study={study} memberIdentifier={memberIdentifier} />
-            </Paper>
-        </Center>
+            <Stack>
+                <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                <Divider />
+                <Grid>
+                    <GridCol span={3}>
+                        <Stack>
+                            <Text fw="bold">Study Name</Text>
+                            <Text fw="bold">Principal investigator</Text>
+                            <Text fw="bold">Researcher</Text>
+                            <Text fw="bold">Study Description</Text>
+                            <Text fw="bold">IRB</Text>
+                            <Text fw="bold">Agreement(s)</Text>
+                            <Text fw="bold">Study Code</Text>
+                        </Stack>
+                    </GridCol>
+                    <GridCol span={9}>
+                        <Stack>
+                            <Text>{study.title}</Text>
+                            <Text>{study.piName}</Text>
+                            <Text>{study.researcherName}</Text>
+                            <Text>{study.description}</Text>
+                            <Text>{study.irbProtocols} some link</Text>
+                            <Text>TODO agreements</Text>
+                            <StudyJobFiles jobId={study.jobs[0].id} />
+                        </Stack>
+                    </GridCol>
+                </Grid>
+            </Stack>
+
+            <Stack gap="lg">
+                <Title order={4}>Study Result</Title>
+                <Divider />
+                <TextInput
+                    label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
+                    placeholder="Enter private key"
+                />
+            </Stack>
+        </Stack>
     )
 }
