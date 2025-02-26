@@ -1,0 +1,35 @@
+version: 0.2
+
+env:
+    variables:
+        REGION: us-east-1
+        ACCOUNT_ID: 533267019973
+        ECR_REPO_NAME: mgmt-app/r/sample-cicd-container
+
+phases:
+    install:
+        runtime-versions:
+            nodejs: 22
+        commands:
+            - npm install -g npm
+
+    pre_build:
+        commands:
+            - node --version
+            - npm --version
+            - npm install
+
+    build:
+        commands:
+            - npm run lint
+            - echo Done.
+
+artifacts:
+    files:
+        - '**/*'
+
+reports:
+    build-status-report:
+        files:
+            - '**/*'
+        file-format: JUNITXML
