@@ -40,6 +40,16 @@ export const getStudyAction = async (studyId: string) => {
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
         .selectAll()
         .select('user.name as researcherName')
+        .select((eb) => [
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJob')
+                    .selectAll()
+                    // .select(['id', 'resultFormat', 'resultsPath', 'createdAt'])
+                    .whereRef('studyJob.studyId', '=', 'study.id')
+                    .orderBy('createdAt'),
+            ).as('jobs'),
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
@@ -47,8 +57,8 @@ export const getStudyAction = async (studyId: string) => {
 export const onFetchStudyJobsAction = async (studyId: string) => {
     return await db
         .selectFrom('studyJob')
+        .select('studyJob.id')
         .select((eb) => [
-            'studyJob.id',
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
