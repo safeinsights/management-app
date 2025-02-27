@@ -25,7 +25,7 @@ export function AppLayout({ children }: Props) {
         <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'sm' }} padding="md">
             <Notifications />
 
-            <AppShellNavbar p="md" bg="dark">
+            <AppShellNavbar p="md" bg="#080527">
                 <AppShellSection>
                     <Link href="/">
                         <SafeInsightsLogo />
@@ -35,10 +35,11 @@ export function AppLayout({ children }: Props) {
                     <NavbarItems />
                 </AppShellSection>
             </AppShellNavbar>
-            <AppShellMain>{children}</AppShellMain>
-            <AppShellFooter p="md" bg="gray">
-                <Group justify="center">
+            <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
+            <AppShellFooter p="md" bg="#353068">
+                <Group justify="center" c="white">
                     <Text>© 2025 - SafeInsights</Text>
+                    {/* TODO Temporary for dev mode only? admins? */}
                     <OrganizationSwitcher />
                 </Group>
             </AppShellFooter>

@@ -22,7 +22,7 @@ export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
 
     const fileChips = fileNames.map((fileName) => {
         return (
-            <Pill style={{ cursor: 'pointer' }} key={fileName} onClick={() => console.log('Download me!')}>
+            <Pill style={{ cursor: 'pointer' }} key={fileName} onClick={() => {}}>
                 <Group>
                     {fileName}
                     <Download />
@@ -31,5 +31,5 @@ export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
         )
     })
 
-    return <Text>{fileChips}</Text>
+    return <Group>{fileChips}</Group>
 }

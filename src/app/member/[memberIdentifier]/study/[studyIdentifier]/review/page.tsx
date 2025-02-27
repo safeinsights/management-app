@@ -1,4 +1,19 @@
-import { Box, Container, Divider, Flex, Grid, GridCol, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
+import {
+    Box,
+    Button,
+    Container,
+    Divider,
+    Flex,
+    Grid,
+    GridCol,
+    Group,
+    Paper,
+    Stack,
+    Text,
+    Textarea,
+    TextInput,
+    Title,
+} from '@mantine/core'
 import { b64toUUID, uuidToB64 } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
@@ -33,53 +48,62 @@ export default async function StudyReviewPage(props: {
 
     return (
         <Stack px="xl" gap="xl">
-            <Stack>
+            <Stack mt="xl" gap="lg">
                 <MemberBreadcrumbs
                     crumbs={{
                         memberIdentifier,
                         current: study.title,
                     }}
                 />
-                <Title>Study details</Title>
+                <Divider />
             </Stack>
 
-            <Stack>
-                <ReviewControls study={study} memberIdentifier={memberIdentifier} />
-                <Divider />
-                <Grid>
-                    <GridCol span={3}>
-                        <Stack>
-                            <Text fw="bold">Study Name</Text>
-                            <Text fw="bold">Principal investigator</Text>
-                            <Text fw="bold">Researcher</Text>
-                            <Text fw="bold">Study Description</Text>
-                            <Text fw="bold">IRB</Text>
-                            <Text fw="bold">Agreement(s)</Text>
-                            <Text fw="bold">Study Code</Text>
-                        </Stack>
-                    </GridCol>
-                    <GridCol span={9}>
-                        <Stack>
-                            <Text>{study.title}</Text>
-                            <Text>{study.piName}</Text>
-                            <Text>{study.researcherName}</Text>
-                            <Text>{study.description}</Text>
-                            <Text>{study.irbProtocols} some link</Text>
-                            <Text>TODO agreements</Text>
-                            <StudyJobFiles jobId={study.jobs[0].id} />
-                        </Stack>
-                    </GridCol>
-                </Grid>
-            </Stack>
+            <Title>Study details</Title>
 
-            <Stack gap="lg">
-                <Title order={4}>Study Result</Title>
-                <Divider />
-                <TextInput
-                    label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                    placeholder="Enter private key"
-                />
-            </Stack>
+            <Paper bg="white" p="xl">
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={4}>Study Proposal</Title>
+                        <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                    </Group>
+                    <Divider />
+                    <Grid>
+                        <GridCol span={3}>
+                            <Stack>
+                                <Text fw="bold">Study Name</Text>
+                                <Text fw="bold">Principal investigator</Text>
+                                <Text fw="bold">Researcher</Text>
+                                <Text fw="bold">Study Description</Text>
+                                <Text fw="bold">IRB</Text>
+                                <Text fw="bold">Agreement(s)</Text>
+                                <Text fw="bold">Study Code</Text>
+                            </Stack>
+                        </GridCol>
+                        <GridCol span={9}>
+                            <Stack>
+                                <Text>{study.title}</Text>
+                                <Text>{study.piName}</Text>
+                                <Text>{study.researcherName}</Text>
+                                <Text>{study.description}</Text>
+                                <Text>{study.irbProtocols} some link</Text>
+                                <Text>TODO agreements</Text>
+                                <StudyJobFiles jobId={study.jobs[0].id} />
+                            </Stack>
+                        </GridCol>
+                    </Grid>
+                </Stack>
+            </Paper>
+
+            <Paper bg="white" p="xl">
+                <Stack>
+                    <Title order={4}>Study Result</Title>
+                    <Divider />
+                    <TextInput
+                        label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
+                        placeholder="Enter private key"
+                    />
+                </Stack>
+            </Paper>
         </Stack>
     )
 }
