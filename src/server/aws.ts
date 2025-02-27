@@ -18,7 +18,7 @@ export type { PresignedPost }
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
-    return Object.entries({ ...tags, Environment, Application: 'Mangement App' }).map(([Key, Value]) => ({
+    return Object.entries({ ...tags, Environment, Application: 'Management App' }).map(([Key, Value]) => ({
         Key,
         Value: strToAscii(Value).slice(0, 256),
     }))
@@ -130,7 +130,7 @@ export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
             Key: `${pathForStudyJob(info)}/code/${path}`,
         }),
     )
-    if (!resp.Body) throw new Error('no body recieved from s3')
+    if (!resp.Body) throw new Error('no body received from s3')
 
     const stream = resp.Body as Readable
     const chunks: Buffer[] = []
@@ -170,6 +170,6 @@ export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
 export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
     const path = pathForStudyJobResults(info)
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
-    if (!result.Body) throw new Error(`no file recieved from s3 for job result ${info.studyJobId}`)
+    if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
     return result.Body
 }

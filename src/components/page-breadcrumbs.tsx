@@ -5,7 +5,7 @@ export const PageBreadcrumbs: React.FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
     return (
-        <Breadcrumbs mb={40} separator=">" separatorMargin="md">
+        <Breadcrumbs separator=">">
             {crumbs.map(([title, href], index) =>
                 href ? (
                     <Anchor component={Link} href={href} key={index}>
@@ -27,7 +27,7 @@ export const MemberBreadcrumbs: React.FC<{
         current?: string
     }
 }> = ({ crumbs: { memberIdentifier, studyIdentifier, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['All Studies', `/member/${memberIdentifier}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/member/${memberIdentifier}/dashboard`]]
     if (studyTitle && studyIdentifier) {
         crumbs.push([studyTitle, `/member/${memberIdentifier}/study/${studyIdentifier}/review`])
     }
