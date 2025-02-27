@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Text, Title } from '@mantine/core'
+import { Button, Group, Text } from '@mantine/core'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'

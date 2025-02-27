@@ -23,6 +23,7 @@ import React from 'react'
 import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
 import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
+import { useClerk } from '@clerk/nextjs'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
