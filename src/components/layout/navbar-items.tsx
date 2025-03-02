@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider } from '@mantine/core'
+import { Button, Divider, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { useClerk } from '@clerk/nextjs'
@@ -20,17 +20,24 @@ export const NavbarItems: FC = () => {
 
     return (
         <>
-            <Button variant="transparent" component={Link} href={dashboardURL()} c="white" leftSection={<House />}>
+            <Button
+                size="md"
+                variant="transparent"
+                component={Link}
+                href={dashboardURL()}
+                c="white"
+                leftSection={<House />}
+            >
                 Dashboard
             </Button>
 
-            <Button variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
+            <Button size="md" variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
                 Settings
             </Button>
 
-            <Divider />
+            <Divider color="#D4D1F3" />
 
-            <Button variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
+            <Button size="md" variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
                 Logout
             </Button>
         </>
