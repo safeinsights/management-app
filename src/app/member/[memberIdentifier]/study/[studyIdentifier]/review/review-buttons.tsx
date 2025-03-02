@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import { updateStudyStatusAction } from '@/server/actions/study-actions'
 import { Study } from '@/schema/study'
+import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 
 export const ReviewControls: FC<{ study: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {
     const router = useRouter()
@@ -29,11 +30,21 @@ export const ReviewControls: FC<{ study: Study; memberIdentifier: string }> = ({
 
     // TODO Do we want to support approved/rejected at timestamps?
     if (study.status === 'APPROVED') {
-        return <Text>Approved</Text>
+        return (
+            <Group c="#12B886" gap="0">
+                <CheckCircle weight="fill" />
+                <Text>Approved</Text>
+            </Group>
+        )
     }
 
     if (study.status === 'REJECTED') {
-        return <Text>Rejected</Text>
+        return (
+            <Group c="#FA5252" gap="0">
+                <CheckCircle weight="fill" />
+                <Text>Rejected</Text>
+            </Group>
+        )
     }
 
     if (!study) return <AlertNotFound title="No study found" message="The study was not found" />
@@ -41,10 +52,10 @@ export const ReviewControls: FC<{ study: Study; memberIdentifier: string }> = ({
 
     return (
         <Group>
-            <Button onClick={() => updateStudy('REJECTED')} loading={isPending} variant="outline">
+            <Button color="#291BC4" onClick={() => updateStudy('REJECTED')} loading={isPending} variant="outline">
                 Reject
             </Button>
-            <Button onClick={() => updateStudy('APPROVED')} loading={isPending}>
+            <Button color="#291BC4" onClick={() => updateStudy('APPROVED')} loading={isPending}>
                 Approve
             </Button>
         </Group>

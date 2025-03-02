@@ -1,29 +1,12 @@
-import {
-    Box,
-    Button,
-    Container,
-    Divider,
-    Flex,
-    Grid,
-    GridCol,
-    Group,
-    Paper,
-    Stack,
-    Text,
-    Textarea,
-    TextInput,
-    Title,
-} from '@mantine/core'
-import { b64toUUID, uuidToB64 } from '@/lib/uuid'
+import { Divider, Grid, GridCol, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { b64toUUID } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study-actions'
 import React from 'react'
 import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
-import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
-import { useClerk } from '@clerk/nextjs'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
