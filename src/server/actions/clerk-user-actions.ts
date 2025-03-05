@@ -7,7 +7,7 @@ export async function createUserAction({
   lastName,
   email,
   password,
-  organizationId, // This parameter is kept for compatibility but ignored
+  organizationId, // Keeping parameter for compatibility but it will be ignored
 }: {
   firstName: string
   lastName: string
@@ -16,7 +16,16 @@ export async function createUserAction({
   organizationId: string
 }) {
   try {
+    // Basic validation before attempting to create the user
+    if (!firstName || !lastName || !email || !password) {
+      throw new Error('Missing required user information')
+    }
+
+    console.log('Creating user with:', { firstName, lastName, email, passwordLength: password.length })
+    
     const client = await clerkClient()
+    
+    // Create the user without associating with organization
     const user = await client.users.createUser({
       firstName,
       lastName,
@@ -24,9 +33,20 @@ export async function createUserAction({
       password,
     })
     
+    console.log('User created successfully with ID:', user.id)
     return user
-  } catch (error) {
+  } catch (error: any) {
+    // Log the detailed error information
     console.error('Failed to create user:', error)
-    throw new Error('User creation failed')
+    
+    // Extract more specific error information if available
+    const errorMessage = error.errors 
+      ? JSON.stringify(error.errors) 
+      : error.message || 'Unknown error during user creation'
+    
+    console.error('Error details:', errorMessage)
+    
+    // Re-throw with more context
+    throw new Error(`User creation failed: ${errorMessage}`)
   }
 }
