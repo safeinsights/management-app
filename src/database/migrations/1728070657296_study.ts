@@ -20,13 +20,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('output_mime_type', 'text')
         .addColumn('irb_protocols', 'text')
         .addColumn('approved_at', 'timestamp')
-
+        .addColumn('rejected_at', 'timestamp')
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema.createIndex('study_study_indx').on('study').column('status').execute()
-
-    db.schema.createIndex('study_member_indx').on('study').column('member_id').execute()
+    await db.schema.createIndex('study_study_indx').on('study').column('status').execute()
+    await db.schema.createIndex('study_member_indx').on('study').column('member_id').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

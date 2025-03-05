@@ -76,6 +76,7 @@ export interface Study {
     memberId: string
     outputMimeType: string | null
     piName: string
+    rejectedAt: Timestamp | null
     researcherId: string
     status: Generated<StudyStatus>
     title: string

@@ -20,17 +20,24 @@ export const NavbarItems: FC = () => {
 
     return (
         <>
-            <Button variant="transparent" component={Link} href={dashboardURL()} c="white" leftSection={<House />}>
+            <Button
+                size="md"
+                variant="transparent"
+                component={Link}
+                href={dashboardURL()}
+                c="white"
+                leftSection={<House />}
+            >
                 Dashboard
             </Button>
 
-            <Button variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
+            <Button size="md" variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
                 Settings
             </Button>
 
-            <Divider />
+            <Divider color="#D4D1F3" />
 
-            <Button variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
+            <Button size="md" variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
                 Logout
             </Button>
         </>

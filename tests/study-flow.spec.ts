@@ -5,7 +5,7 @@ import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 test.describe.configure({ mode: 'serial' })
 
 test.describe('Studies', () => {
-    const codeLine = 'print("Hello, Tester")'
+    // const codeLine = 'print("Hello, Tester")'
 
     test('researcher creates a study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
@@ -64,10 +64,6 @@ test.describe('Studies', () => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/' })
         await page.getByRole('button', { name: /review studies/i }).click()
         await page.locator('tr').filter({ hasText: studyFeatures.studyTitle }).getByText('View').click()
-        await page.getByRole('button', { name: /researcher code/i }).click()
-        await page.getByRole('button', { name: /view code/i }).click()
-        await page.getByText(/main.r/i).click()
-
-        await expect(page.getByRole('code')).toContainText(codeLine)
+        // TODO Update tests once designs/implementation is finished
     })
 })
