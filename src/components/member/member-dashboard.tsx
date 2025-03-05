@@ -6,11 +6,13 @@ import React, { FC } from 'react'
 import { Member } from '@/schema/member'
 import { StudiesTable } from '@/components/member/studies-table'
 
+export const dynamic = 'force-dynamic'
+
 export const MemberDashboard: FC<{ member: Member }> = ({ member }) => {
     const { user } = useUser()
 
     return (
-        <Stack px="lg">
+        <Stack px="lg" bg="#F1F3F5">
             <Title>Hi {user?.firstName}!</Title>
             <Text>Welcome to SafeInsights</Text>
             <Text>
