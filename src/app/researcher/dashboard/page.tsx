@@ -1,4 +1,4 @@
-import * as React from 'react';
+import * as React from 'react'
 import { ResearcherDashboard } from '@/components/researcher/researcher-dashboard'
 
 export const dynamic = 'force-dynamic'
