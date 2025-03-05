@@ -41,7 +41,7 @@ export const ResearcherBreadcrumbs: React.FC<{
     crumbs: {
         memberIdentifier?: string
         studyTitle?: string
-        encodedStudyId: string
+        encodedStudyId?: string
         current?: string
     }
 }> = ({ crumbs: { encodedStudyId, studyTitle, current } }) => {
