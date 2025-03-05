@@ -173,6 +173,8 @@ export function UploadStudyJobCode({
         )
     }, [])
 
+    const [ setFiles] = useState<File[]>([])
+
     return (
         <>
             <Paper p="xl">
