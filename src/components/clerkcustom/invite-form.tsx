@@ -33,17 +33,25 @@ export default function InviteForm({ organizations }: InviteFormProps) {
         const organizationId = selectedOrg || ''
 
         try {
-            await createUserAction({
+            const result = await createUserAction({
                 firstName,
                 lastName,
                 email,
                 password,
                 organizationId,
             })
-            // Reset form after successful submission
-            e.currentTarget.reset()
-            setSelectedOrg(null)
-            setSuccess(true)
+            
+            if (result.success) {
+                // Manually reset form fields instead of using form.reset()
+                const form = e.currentTarget;
+                const inputs = form.querySelectorAll('input, select');
+                inputs.forEach((input: HTMLInputElement | HTMLSelectElement) => {
+                    input.value = '';
+                });
+                
+                setSelectedOrg(null);
+                setSuccess(true);
+            }
         } catch (error: any) {
             setError(error.message || 'User creation failed')
             console.error('User creation failed:', error)

@@ -31,10 +31,11 @@ export async function createUserAction({
       lastName,
       emailAddress: [email],
       password,
+      phoneNumber: ['+12345550100'],
     })
     
     console.log('User created successfully with ID:', user.id)
-    return user
+    return { success: true, message: 'User created successfully' }
   } catch (error: any) {
     // Log the detailed error information
     console.error('Failed to create user:', error)
