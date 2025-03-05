@@ -15,6 +15,13 @@ export default function InviteForm({ organizations }: InviteFormProps) {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [formValues, setFormValues] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        password: '',
+        role: ''
+    })
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -29,6 +36,15 @@ export default function InviteForm({ organizations }: InviteFormProps) {
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
 
+        // Update form values state
+        setFormValues({
+            firstName,
+            lastName,
+            email,
+            password,
+            role: formData.get('role')?.toString() ?? ''
+        })
+
         // Use a default or empty string if no organization is selected
         const organizationId = selectedOrg || ''
 
@@ -42,13 +58,14 @@ export default function InviteForm({ organizations }: InviteFormProps) {
             })
             
             if (result.success) {
-                // Manually reset form fields instead of using form.reset()
-                const form = e.currentTarget;
-                const inputs = form.querySelectorAll('input, select');
-                inputs.forEach((input: HTMLInputElement | HTMLSelectElement) => {
-                    input.value = '';
+                // Reset form state
+                setFormValues({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    password: '',
+                    role: ''
                 });
-                
                 setSelectedOrg(null);
                 setSuccess(true);
             }
@@ -84,6 +101,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 required
                 mb="sm"
                 name="firstName"
+                value={formValues.firstName}
+                onChange={(e) => setFormValues({...formValues, firstName: e.target.value})}
             />
             <TextInput
                 label="Last Name"
@@ -91,6 +110,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 required
                 mb="sm"
                 name="lastName"
+                value={formValues.lastName}
+                onChange={(e) => setFormValues({...formValues, lastName: e.target.value})}
             />
             <Select
                 label="Role"
@@ -102,6 +123,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 required
                 mb="sm"
                 name="role"
+                value={formValues.role}
+                onChange={(value) => setFormValues({...formValues, role: value || ''})}
             />
             <TextInput
                 label="Email Address"
@@ -110,6 +133,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 required
                 mb="sm"
                 name="email"
+                value={formValues.email}
+                onChange={(e) => setFormValues({...formValues, email: e.target.value})}
             />
             <PasswordInput
                 label="Password"
@@ -117,6 +142,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 required
                 mb="sm"
                 name="password"
+                value={formValues.password}
+                onChange={(e) => setFormValues({...formValues, password: e.target.value})}
             />
             <Button type="submit" mt="md" fullWidth loading={loading}>
                 Invite
