@@ -14,6 +14,7 @@ It’s responsible for:
 
 # Development
 
+Test change
 Note: For developing locally without docker compose, you will need to install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it.
 
 Copy the .env.sample file to .env replacing the XXX strings with values obtained from your one of your teammates.
