@@ -1,15 +1,15 @@
 'use client'
 
 import React, { FC } from 'react'
-import { useField, useForm } from '@mantine/form'
-import { Box, Button, Divider, Group, Paper, Stack, TextInput, Title } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { StudyJob } from '@/schema/study'
 import { fetchJobResultsAction } from '@/app/researcher/study/[encodedStudyId]/review/actions'
 import { notifications } from '@mantine/notifications'
 
 export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
-    const { data: results } = useQuery({
+    const { data: results, isLoading } = useQuery({
         queryKey: ['resultsForStudyJob', latestJob.id],
         queryFn: () => {
             return fetchJobResultsAction(latestJob.id)
@@ -24,6 +24,8 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
         },
     })
 
+    if (isLoading) return null
+
     const handleError = (errors: typeof form.errors) => {
         if (errors.name) {
             notifications.show({ message: 'Please fill name field', color: 'red' })
@@ -37,8 +39,10 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
             <Stack>
                 <Title order={4}>Study Results</Title>
                 <Divider />
+                {/* TODO Just temporary until we figure out what to do with results */}
+                <Text>{results?.length}</Text>
                 <Stack>
-                    <form onSubmit={form.onSubmit(console.log, handleError)}>
+                    <form onSubmit={form.onSubmit(() => {}, handleError)}>
                         <Group>
                             <TextInput
                                 {...form.getInputProps('privateKey')}

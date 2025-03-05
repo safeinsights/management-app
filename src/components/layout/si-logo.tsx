@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-export const SafeInsightsLogo = (props: React.SVGProps<SVGSVGElement>) => (
+export const SafeInsightsLogo = () => (
     <svg
         width="164"
         height="36"

@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 
 export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
-    const { data, isPending } = useQuery({
+    const { data } = useQuery({
         queryKey: ['studyJobFiles', jobId],
         queryFn: () => dataForJobAction(uuidToB64(jobId)),
     })
