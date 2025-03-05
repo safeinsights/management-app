@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider, Stack } from '@mantine/core'
+import { Button, Divider } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { useClerk } from '@clerk/nextjs'

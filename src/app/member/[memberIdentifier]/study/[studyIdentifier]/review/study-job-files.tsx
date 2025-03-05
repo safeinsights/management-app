@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Group, Pill, Text } from '@mantine/core'
+import { Badge, Group, Text } from '@mantine/core'
 import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { uuidToB64 } from '@/lib/uuid'
 import { useQuery } from '@tanstack/react-query'
@@ -22,12 +22,18 @@ export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
 
     const fileChips = fileNames.map((fileName) => {
         return (
-            <Pill style={{ cursor: 'pointer' }} key={fileName} onClick={() => {}}>
-                <Group>
-                    {fileName}
-                    <Download />
-                </Group>
-            </Pill>
+            <Badge
+                color="#D4D1F3"
+                c="black"
+                component="a"
+                href="TODO Download"
+                target="_blank"
+                rightSection={<Download />}
+                style={{ cursor: 'pointer' }}
+                key={fileName}
+            >
+                {fileName}
+            </Badge>
         )
     })
 

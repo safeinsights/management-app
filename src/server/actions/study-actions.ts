@@ -80,7 +80,26 @@ export const updateStudyStatusAction = async (studyId: string, status: StudyStat
         throw new Error('Invalid status')
     }
 
-    await db.updateTable('study').set({ status }).where('id', '=', studyId).executeTakeFirstOrThrow()
+    // Start a transaction to ensure atomicity
+    await db.transaction().execute(async (trx) => {
+        // Update the status of the study
+        await trx.updateTable('study').set({ status }).where('id', '=', studyId).executeTakeFirstOrThrow()
+
+        // Update the appropriate timestamp field based on the new status
+        if (status === 'APPROVED') {
+            await trx
+                .updateTable('study')
+                .set({ approvedAt: new Date() })
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+        } else if (status === 'REJECTED') {
+            await trx
+                .updateTable('study')
+                .set({ rejectedAt: new Date() })
+                .where('id', '=', studyId)
+                .executeTakeFirstOrThrow()
+        }
+    })
 
     revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(studyId)}`)
 }

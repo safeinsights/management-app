@@ -1,4 +1,4 @@
-import { Divider, Grid, GridCol, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { b64toUUID } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
@@ -7,6 +7,8 @@ import { getStudyAction } from '@/server/actions/study-actions'
 import React from 'react'
 import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
+import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
+import { first } from 'remeda'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -28,7 +30,8 @@ export default async function StudyReviewPage(props: {
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
-    // console.log(study)
+
+    const latestJob = first(study.jobs)
 
     return (
         <Stack px="xl" gap="xl">
@@ -77,17 +80,7 @@ export default async function StudyReviewPage(props: {
                     </Grid>
                 </Stack>
             </Paper>
-
-            <Paper bg="white" p="xl">
-                <Stack>
-                    <Title order={4}>Study Result</Title>
-                    <Divider />
-                    <TextInput
-                        label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                        placeholder="Enter private key"
-                    />
-                </Stack>
-            </Paper>
+            {latestJob && <StudyResults latestJob={latestJob} />}
         </Stack>
     )
 }
