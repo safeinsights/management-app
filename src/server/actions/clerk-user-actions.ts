@@ -7,7 +7,7 @@ export async function createUserAction({
   lastName,
   email,
   password,
-  organizationId,
+  organizationId, // This parameter is kept for compatibility but ignored
 }: {
   firstName: string
   lastName: string
@@ -15,24 +15,18 @@ export async function createUserAction({
   password: string
   organizationId: string
 }) {
-  const client = await clerkClient()
-  const user = await client.users.createUser({
-    firstName,
-    lastName,
-    emailAddress: [email],
-    password,
-  })
-
-//   try {
-//     await clerkClient.organizations.createMembership({
-//       organizationId,
-//       userId: user.id,
-//     })
-//   } catch (orgError) {
-//     console.error('Failed to add user to organization:', orgError)
-//     // Optionally: handle or rollback the created user.
-//     throw orgError
-//   }
-
-  return user
+  try {
+    const client = await clerkClient()
+    const user = await client.users.createUser({
+      firstName,
+      lastName,
+      emailAddress: [email],
+      password,
+    })
+    
+    return user
+  } catch (error) {
+    console.error('Failed to create user:', error)
+    throw new Error('User creation failed')
+  }
 }
