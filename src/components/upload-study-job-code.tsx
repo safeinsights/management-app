@@ -83,6 +83,8 @@ export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStud
         )
     }
 
+    const [ setFiles] = useState<File[]>([])
+
     return (
         <>
             <Dropzone
