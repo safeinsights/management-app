@@ -1,5 +1,5 @@
 import { defineConfig } from 'kysely-ctl'
-import { dialect } from './src/database/dialect'
+import { dialect } from '@/database/dialect'
 
 export default defineConfig({
     dialect,
