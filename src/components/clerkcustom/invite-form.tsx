@@ -1,9 +1,10 @@
 'use client'
 
-import { TextInput, PasswordInput, Select, Button } from '@mantine/core'
+import { TextInput, PasswordInput, Select, Button, Alert } from '@mantine/core'
 import React, { useState } from 'react'
 import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 import { createUserAction } from '@/server/actions/clerk-user-actions'
+import { IconAlertCircle } from '@tabler/icons-react'
 
 type InviteFormProps = {
     organizations: { id: string; name: string }[]
@@ -11,9 +12,16 @@ type InviteFormProps = {
 
 export default function InviteForm({ organizations }: InviteFormProps) {
     const [selectedOrg, setSelectedOrg] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+    const [success, setSuccess] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
+        setError(null)
+        setSuccess(false)
+        setLoading(true)
+
         const formData = new FormData(e.currentTarget)
         const firstName = formData.get('firstName')?.toString() ?? ''
         const lastName = formData.get('lastName')?.toString() ?? ''
@@ -35,15 +43,29 @@ export default function InviteForm({ organizations }: InviteFormProps) {
             // Reset form after successful submission
             e.currentTarget.reset()
             setSelectedOrg(null)
-            // Optionally: provide success feedback
-        } catch (error) {
+            setSuccess(true)
+        } catch (error: any) {
+            setError(error.message || 'User creation failed')
             console.error('User creation failed:', error)
-            // Optionally: display an error notification.
+        } finally {
+            setLoading(false)
         }
     }
 
     return (
         <form onSubmit={handleSubmit}>
+            {error && (
+                <Alert icon={<IconAlertCircle size="1rem" />} color="red" mb="md">
+                    {error}
+                </Alert>
+            )}
+            
+            {success && (
+                <Alert color="green" mb="md">
+                    User created successfully!
+                </Alert>
+            )}
+            
             <OrganizationSelect
                 organizations={organizations}
                 onOrganizationSelect={setSelectedOrg}
@@ -71,6 +93,7 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 ]}
                 required
                 mb="sm"
+                name="role"
             />
             <TextInput
                 label="Email Address"
@@ -87,7 +110,7 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 mb="sm"
                 name="password"
             />
-            <Button type="submit" mt="md" fullWidth>
+            <Button type="submit" mt="md" fullWidth loading={loading}>
                 Invite
             </Button>
         </form>
