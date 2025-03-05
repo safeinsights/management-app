@@ -21,10 +21,8 @@ export default function InviteForm({ organizations }: InviteFormProps) {
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
 
-        if (!selectedOrg) {
-            console.error('No organization selected')
-            return
-        }
+        // Use a default or empty string if no organization is selected
+        const organizationId = selectedOrg || ''
 
         try {
             await createUserAction({
@@ -32,9 +30,12 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                 lastName,
                 email,
                 password,
-                organizationId: selectedOrg,
+                organizationId,
             })
-            // Optionally: provide success feedback or clear the form.
+            // Reset form after successful submission
+            e.currentTarget.reset()
+            setSelectedOrg(null)
+            // Optionally: provide success feedback
         } catch (error) {
             console.error('User creation failed:', error)
             // Optionally: display an error notification.
