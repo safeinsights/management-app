@@ -47,7 +47,7 @@ const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup'
 
 export default clerkMiddleware(async (auth, req) => {
     const { userId, orgId, orgRole, orgSlug, sessionClaims } = await auth()
-
+    console.log(sessionClaims)
     if (!userId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
