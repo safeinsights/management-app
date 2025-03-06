@@ -1,7 +1,7 @@
 import React from 'react'
 import { db } from '@/database'
 import { currentUser } from '@clerk/nextjs/server'
-import {StudiesTable} from './studies-table'
+import { StudiesTable } from './studies-table'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +18,9 @@ export async function RetrieveClerkUser() {
         .orderBy('createdAt', 'desc')
         .execute()
 
-    return { 
-        name: user.firstName|| '  ', 
-        studies 
+    return {
+        name: user.firstName || '  ',
+        studies,
     }
 }
 
