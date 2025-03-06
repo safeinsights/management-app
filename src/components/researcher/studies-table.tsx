@@ -24,6 +24,35 @@ interface StudiesTableProps {
 }
 
 export function StudiesTable({ userName, studies }: StudiesTableProps) {
+    const rows = studies.map((study) => (
+        <Table.Tr key={study.id}>
+            <Table.Td>
+                <Tooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                        {study.title}
+                    </Text>
+                </Tooltip>
+            </Table.Td>
+            <Table.Td>
+                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
+            </Table.Td>
+            <Table.Td>Review Team Name</Table.Td>
+            <Table.Td>
+                <Stack gap="xs">
+                    {humanizeStatus(study.status)}
+                    <Text fz={10} pl={8} c="dimmed" style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }} className='text-xs'>
+                        TBC
+                    </Text>
+                </Stack>
+            </Table.Td>
+            <Table.Td>
+                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${uuidToB64(study.id)}/review`}>
+                    View
+                </Link>
+            </Table.Td>
+        </Table.Tr>
+    ))
+
     return (
         <>
             <Container fluid>
@@ -49,13 +78,29 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                     <Flex justify="flex-end">
                         <Link href="/researcher/study/request/openstax">
                             <Button mt={30} mb={30}>
-                                <Plus size={15} className={iconRightSpacing} /> Propose New Study
+                                <Plus size={15} style={{ marginRight:'4px'}} /> Propose New Study
                             </Button>
                         </Link>
                     </Flex>
                 </Group>
-                <Table striped highlightOnHover>
-                    <Table.Thead className={studyRowHeaderStyle}>
+                <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
+                    {!rows.length && (
+                        <Table.Caption>
+                            <Text>You haven't started a study yet</Text>
+                            <Alert variant="transparent">
+                                You haven't started a study yet
+                                <Stack>
+                                    <Link
+                                        style={{ textDecoration: 'underline' }}
+                                        href="/researcher/study/request/openstax"
+                                    >
+                                        Propose New Study
+                                    </Link>
+                                </Stack>
+                            </Alert>
+                        </Table.Caption>
+                    )}
+                    <Table.Thead>
                         <Table.Tr>
                             <Table.Th>Study Name</Table.Th>
                             <Table.Th>Submitted On</Table.Th>
@@ -64,59 +109,7 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                             <Table.Th>Study Details</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
-                    <Table.Tbody>
-                        {studies.length > 0 ? (
-                            studies.map((study) => (
-                                <Table.Tr key={study.id}>
-                                    <Table.Td>
-                                        <Tooltip label={study.title}>
-                                            <Text lineClamp={2} style={{ cursor: 'pointer', maxWidth: 150 }}>
-                                                {study.title}
-                                            </Text>
-                                        </Tooltip>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
-                                    </Table.Td>
-                                    <Table.Td>Review Team Name</Table.Td>
-                                    <Table.Td>
-                                        <Stack gap="xs">
-                                            {humanizeStatus(study.status)}
-                                            <Text fz={10} pl={8} c="dimmed" className={statusBannerStyle}>
-                                                TBC
-                                            </Text>
-                                        </Stack>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Link
-                                            style={{ textDecoration: 'underline' }}
-                                            href={`/researcher/study/${uuidToB64(study.id)}/review`}
-                                        >
-                                            View
-                                        </Link>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ))
-                        ) : (
-                            <Table.Tr>
-                                <Table.Td colSpan={5} style={{ textAlign: 'center' }}>
-                                    <Container p="xl" style={{ fontSize: '18px' }}>
-                                        <Alert variant="transparent">
-                                            You haven't started a study yet
-                                            <Stack>
-                                                <Link
-                                                    style={{ textDecoration: 'underline' }}
-                                                    href="/researcher/study/request/openstax"
-                                                >
-                                                    Propose New Study
-                                                </Link>
-                                            </Stack>
-                                        </Alert>
-                                    </Container>
-                                </Table.Td>
-                            </Table.Tr>
-                        )}
-                    </Table.Tbody>
+                    <Table.Tbody>{rows}</Table.Tbody>  
                 </Table>
             </Paper>
         </>

@@ -9,7 +9,7 @@ export const UserNav = () => {
     const auth = useAuthInfo()
     const router = useRouter()
 
-    useEffect(() => {
+
         if (auth.isLoaded) {
             if (auth.isResearcher) {
                 router.push('/researcher/dashboard') // Redirect to the Researcher dashboard
@@ -19,7 +19,7 @@ export const UserNav = () => {
                 router.push('/admin/members') // Redirect to the Admin dashboard
             }
         }
-    }, [auth.isLoaded, auth.isResearcher, auth.isMember, auth.isAdmin, auth.orgSlug, router])
+
 
     if (!auth.isLoaded) {
         return <LoadingOverlay />
