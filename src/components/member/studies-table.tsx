@@ -22,9 +22,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
             <Table.Td>{study.title}</Table.Td>
-            <Table.Td>
-                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
-            </Table.Td>
+            <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
             <Table.Td>{study.researcherName}</Table.Td>
             {/* TODO Reviewed by doesn't exist yet */}
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
