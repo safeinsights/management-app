@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { Anchor, Stack, Table, Text, Title } from '@mantine/core'
+import { Anchor, Paper, Stack, Table, Text, Title } from '@mantine/core'
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -22,9 +22,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
             <Table.Td>{study.title}</Table.Td>
-            <Table.Td>
-                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
-            </Table.Td>
+            <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
             <Table.Td>{study.researcherName}</Table.Td>
             {/* TODO Reviewed by doesn't exist yet */}
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
@@ -38,29 +36,31 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     ))
 
     return (
-        <Stack gap="lg">
-            <Title order={4}>Review Studies</Title>
+        <Paper shadow="xs" p="xl">
+            <Stack gap="lg">
+                <Title order={4}>Review Studies</Title>
 
-            <Table layout="fixed" striped highlightOnHover withRowBorders>
-                {!rows.length && (
-                    <Table.Caption>
-                        <Text>You have no studies to review.</Text>
-                    </Table.Caption>
-                )}
+                <Table layout="fixed" striped highlightOnHover withRowBorders>
+                    {!rows.length && (
+                        <Table.Caption>
+                            <Text>You have no studies to review.</Text>
+                        </Table.Caption>
+                    )}
 
-                <Table.Thead>
-                    <Table.Tr>
-                        <Table.Th>Study Name</Table.Th>
-                        <Table.Th>Submitted On</Table.Th>
-                        <Table.Th>Researcher</Table.Th>
-                        {/* TODO Reviewed by */}
-                        {/*<Table.Th>Reviewed By</Table.Th>*/}
-                        <Table.Th>Status</Table.Th>
-                        <Table.Th>Details</Table.Th>
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>{rows}</Table.Tbody>
-            </Table>
-        </Stack>
+                    <Table.Thead>
+                        <Table.Tr>
+                            <Table.Th>Study Name</Table.Th>
+                            <Table.Th>Submitted On</Table.Th>
+                            <Table.Th>Researcher</Table.Th>
+                            {/* TODO Reviewed by */}
+                            {/*<Table.Th>Reviewed By</Table.Th>*/}
+                            <Table.Th>Status</Table.Th>
+                            <Table.Th>Details</Table.Th>
+                        </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>{rows}</Table.Tbody>
+                </Table>
+            </Stack>
+        </Paper>
     )
 }

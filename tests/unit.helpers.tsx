@@ -51,6 +51,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
             description: 'my description',
             researcherId: researcher.id,
             piName: 'test',
+            irbProtocols: 'https://www.google.com',
             status: 'APPROVED',
             dataSources: ['all'],
             outputMimeType: 'text/csv',
