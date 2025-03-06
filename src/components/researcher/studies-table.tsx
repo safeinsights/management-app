@@ -67,13 +67,12 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                     <Text mt="md">Welcome to SafeInsights</Text>
                     <Flex w="50%" wrap="wrap">
                         <Text>
-                        We&apos;re
-                        so glad to have you. This space is intended to help you submit your proposed studies
-                            and associated code, as well as accessing your analysis results—all while ensuring strict
-                            data privacy and security. Your work plays a vital role in advancing educational research,
-                            and w&apos;re committed to making this process as seamless as possible. We&apos;re continuously
-                            refining the experience and value your feedback in shaping a more effective research
-                            environment.
+                            We&apos;re so glad to have you. This space is intended to help you submit your proposed
+                            studies and associated code, as well as accessing your analysis results—all while ensuring
+                            strict data privacy and security. Your work plays a vital role in advancing educational
+                            research, and w&apos;re committed to making this process as seamless as possible. We&apos;re
+                            continuously refining the experience and value your feedback in shaping a more effective
+                            research environment.
                         </Text>
                     </Flex>
                 </Stack>
