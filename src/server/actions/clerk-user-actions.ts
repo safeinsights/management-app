@@ -7,13 +7,11 @@ export async function createUserAction({
   lastName,
   email,
   password,
-  organizationId, // Keeping parameter for compatibility but it will be ignored
 }: {
   firstName: string
   lastName: string
   email: string
   password: string
-  organizationId: string
 }) {
   try {
     // Basic validation before attempting to create the user

@@ -2,16 +2,11 @@
 
 import { TextInput, PasswordInput, Select, Button, Alert } from '@mantine/core'
 import React, { useState } from 'react'
-import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 import { createUserAction } from '@/server/actions/clerk-user-actions'
 import { IconAlertCircle } from '@tabler/icons-react'
+import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 
-type InviteFormProps = {
-    organizations: { id: string; name: string }[]
-}
-
-export default function InviteForm({ organizations }: InviteFormProps) {
-    const [selectedOrg, setSelectedOrg] = useState<string | null>(null)
+export default function InviteForm() {
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -22,6 +17,7 @@ export default function InviteForm({ organizations }: InviteFormProps) {
         password: '',
         role: ''
     })
+    const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null)
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
@@ -35,6 +31,7 @@ export default function InviteForm({ organizations }: InviteFormProps) {
         // Role is dismissed for now.
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
+        const organization = selectedOrganization || ''
 
         // Update form values state
         setFormValues({
@@ -45,16 +42,12 @@ export default function InviteForm({ organizations }: InviteFormProps) {
             role: formData.get('role')?.toString() ?? ''
         })
 
-        // Use a default or empty string if no organization is selected
-        const organizationId = selectedOrg || ''
-
         try {
             const result = await createUserAction({
                 firstName,
                 lastName,
                 email,
                 password,
-                organizationId,
             })
             
             if (result.success) {
@@ -66,7 +59,6 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                     password: '',
                     role: ''
                 });
-                setSelectedOrg(null);
                 setSuccess(true);
             }
         } catch (error: any) {
@@ -90,11 +82,7 @@ export default function InviteForm({ organizations }: InviteFormProps) {
                     User created successfully!
                 </Alert>
             )}
-            
-            <OrganizationSelect
-                organizations={organizations}
-                onOrganizationSelect={setSelectedOrg}
-            />
+            <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
             <TextInput
                 label="First Name"
                 placeholder="Enter first name"

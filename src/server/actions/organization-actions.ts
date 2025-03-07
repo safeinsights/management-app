@@ -11,7 +11,7 @@ export async function getAllOrganizations() {
 
         // Access the data array from the response
         return (await response).data.map(org => ({
-            id: org.id,
+            identifier: org.id,
             name: org.name
         }))
     } catch (error) {
