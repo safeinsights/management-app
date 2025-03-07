@@ -2,10 +2,12 @@
 
 import { Button, Container, CopyButton, Group, Stack, Text, Title } from '@mantine/core'
 import { useUserContext } from '@clerk/shared/react'
-import { useState } from 'react'
-import { generateKeyPairSync } from 'crypto'
+import { FC, useState } from 'react'
+import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
 
-export default function GenerateKeys() {
+export const GenerateKeys: FC<{
+    clerkId: string
+}> = ({ clerkId }) => {
     const user = useUserContext()
     const [keys, setKeys] = useState<{ publicKey: string; privateKey: string }>()
 
@@ -36,6 +38,8 @@ export default function GenerateKeys() {
             publicKey: publicKeyPem,
             privateKey: privateKeyPem,
         })
+
+        await setMemberUserPublicKey(clerkId, publicKeyPem, 'TODO')
     }
 
     if (keys) {
