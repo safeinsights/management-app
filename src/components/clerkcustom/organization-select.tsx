@@ -40,6 +40,7 @@ export const OrganizationSelect = ({
 
   return (
     <Select
+      style={{ width: '100%' }}
       label="Select Organization"
       placeholder="Choose an organization"
       data={members.map((m) => ({

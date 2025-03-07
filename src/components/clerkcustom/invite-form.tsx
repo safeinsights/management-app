@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 import { createUserAction } from '@/server/actions/clerk-user-actions'
 import { IconAlertCircle } from '@tabler/icons-react'
 import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
+import Link from 'next/link'
 
 export default function InviteForm() {
     const [error, setError] = useState<string | null>(null)
@@ -82,8 +83,23 @@ export default function InviteForm() {
                     User created successfully!
                 </Alert>
             )}
-            <div style={{ marginBottom: '1rem' }}>
+            <div
+              style={{
+                display: 'flex',
+                width: '100%',
+                gap: '1rem',
+                alignItems: 'flex-end',
+                marginBottom: '1rem'
+              }}
+            >
+              <div style={{ flex: 1 }}>
                 <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
+              </div>
+              <Link href="/admin/members" style={{ textDecoration: 'none' }}>
+                <Button variant="outline">
+                  New
+                </Button>
+              </Link>
             </div>
             <TextInput
                 label="First Name"
