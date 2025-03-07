@@ -1,26 +1,16 @@
-'use client'
+'use server'
 
-import { Container, Button, Stack, Text } from '@mantine/core'
-import { useUserContext } from '@clerk/shared/react'
+import GenerateKeys from '@/app/account/keys/generate-keys'
+import { auth } from '@clerk/nextjs/server'
+import { getMemberUserPublicKey } from '@/server/actions/user-actions'
 
-export default function Keys() {
-    const user = useUserContext()
-
-    return (
-        <Container>
-            <Stack>
-                <Text>Create your Private Key</Text>
-                <Text>Hello {user?.firstName}, welcome to SafeInsights!</Text>
-                <Text>
-                    You’ve been invited to join this team in the role of a Reviewer, giving you the permissions to
-                    access and review research proposals and associated code.{' '}
-                </Text>
-                <Text>
-                    For security reasons, this role requires you to have an encryption key linked to your account.
-                </Text>
-                <Text>To get started, click the button below to generate your private key.</Text>
-            </Stack>
-            <Button onClick={() => {}}>Create Private Key</Button>
-        </Container>
-    )
+export default async function Keys() {
+    const { userId } = await auth()
+    if (!userId) return null
+    const publicKey = await getMemberUserPublicKey(userId)
+    if (publicKey) {
+        // TODO dont let them come back here, redirect to dashboard?
+    }
+    console.log(publicKey)
+    return <GenerateKeys />
 }
