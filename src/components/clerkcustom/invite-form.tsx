@@ -82,7 +82,9 @@ export default function InviteForm() {
                     User created successfully!
                 </Alert>
             )}
-            <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
+            <div style={{ marginBottom: '1rem' }}>
+                <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
+            </div>
             <TextInput
                 label="First Name"
                 placeholder="Enter first name"
