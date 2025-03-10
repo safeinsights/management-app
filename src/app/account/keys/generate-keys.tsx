@@ -44,15 +44,22 @@ export const GenerateKeys: FC<{
 
     if (keys) {
         return (
-            <Stack>
+            <Container>
                 <Stack>
-                    <Title>Public key: </Title>
-                    <Text>{keys.publicKey}</Text>
-                </Stack>
+                    <Stack>
+                        <Title>Public key: </Title>
+                        <Text>{keys.publicKey}</Text>
+                        <CopyButton value={keys.publicKey}>
+                            {({ copied, copy }) => (
+                                <Button color={copied ? 'teal' : 'blue'} onClick={copy}>
+                                    {copied ? 'Copied public key!' : 'Copy public key'}
+                                </Button>
+                            )}
+                        </CopyButton>
+                    </Stack>
 
-                <Stack>
-                    <Title>Private key: </Title>
-                    <Group>
+                    <Stack>
+                        <Title>Private key: </Title>
                         <Text>{keys.privateKey}</Text>
                         <CopyButton value={keys.privateKey}>
                             {({ copied, copy }) => (
@@ -61,9 +68,9 @@ export const GenerateKeys: FC<{
                                 </Button>
                             )}
                         </CopyButton>
-                    </Group>
+                    </Stack>
                 </Stack>
-            </Stack>
+            </Container>
         )
     }
 
