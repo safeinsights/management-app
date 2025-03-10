@@ -10,6 +10,8 @@ import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdent
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { first } from 'remeda'
 
+export const dynamicParams = true
+
 export default async function StudyReviewPage(props: {
     params: Promise<{
         memberIdentifier: string
@@ -24,6 +26,8 @@ export default async function StudyReviewPage(props: {
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
+
+    console.log(studyIdentifier)
 
     const study = await getStudyAction(b64toUUID(studyIdentifier))
 

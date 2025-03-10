@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Badge, Group, Skeleton, Text } from '@mantine/core'
+import { Badge, Group, Text } from '@mantine/core'
 import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { uuidToB64 } from '@/lib/uuid'
 import { useQuery } from '@tanstack/react-query'
