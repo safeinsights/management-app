@@ -1,7 +1,7 @@
 import React from 'react'
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
-import { Form } from './form'
+import { StudyProposalForm } from './study-proposal'
 import { Flex, List, Title, Text, Container, Paper, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { YodaNotice } from './yoda'
@@ -28,13 +28,13 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
     return (
         <>
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
-            <Flex w="70%" align="center">
+            <Flex align="center">
                 <Stack w="100%">
-                    <Paper p="md">
+                    <Paper p="md" mt="md">
                         <Title mb="lg">Propose A Study</Title>
                     </Paper>
-                    <Flex direction="column" bg="#f5f5f5" shadow="xs" p={80}>
-                        <Form memberId={member.id} memberIdentifier={member.identifier} />
+                    <Flex p={80}>
+                        <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
                     </Flex>
                 </Stack>
             </Flex>

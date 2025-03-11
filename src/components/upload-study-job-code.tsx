@@ -83,7 +83,7 @@ export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStud
         )
     }
 
-    const [files, setFiles] = useState<File[]>([])
+    const [setFiles] = useState<File[]>([])
 
     return (
         <>
@@ -124,7 +124,7 @@ export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStud
                 </Stack>
                 <Divider my="xl" label="Or" labelPosition="center" />
                 <Group justify="center">
-                    <FileButton mb={10} onChange={setFiles} accept="image/png,image/jpeg" multiple>
+                    <FileButton onChange={setFiles} accept="image/png,image/jpeg" multiple>
                         {(props) => (
                             <Button {...props} variant="outline" color="#616161">
                                 Upload

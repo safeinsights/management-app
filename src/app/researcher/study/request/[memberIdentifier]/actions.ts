@@ -24,6 +24,9 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const studyId = uuidv7()
 
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
+    const descriptionFile = study.description ? await study.description.text() : ''
+    const irbDocumentFile = study.irbDocument ? await study.irbDocument.text() : ''
+    const agreementDocumentFile = study.agreementDocument ? await study.agreementDocument.text() : ''
 
     let repoUrl = ''
 
@@ -41,7 +44,9 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
         .values({
             id: studyId,
             title: study.title,
-            description: study.description,
+            description: descriptionFile,
+            irbDocument: irbDocumentFile,
+            agreementDocument: agreementDocumentFile,
             piName: study.piName,
             memberId,
             researcherId: user.id,

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Form } from './form'
+import { StudyProposalForm } from './study-proposal'
 import userEvent from '@testing-library/user-event'
 import { onCreateStudyAction } from './actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
@@ -11,7 +11,7 @@ vi.mock('./actions', () => ({
 describe('Member Start Page Form', () => {
     it('submits form', async () => {
         const { getByLabelText, getByRole, container } = renderWithProviders(
-            <Form memberId="1234" memberIdentifier="hello-world" />,
+            <StudyProposalForm memberId="1234" memberIdentifier="hello-world" />,
         )
         let title = '2srt'
 
