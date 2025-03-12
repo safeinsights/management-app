@@ -10,6 +10,7 @@ import { sleep } from '@/lib/util'
 import { queryJobResult } from '@/server/queries'
 import { SIMULATE_RESULTS_UPLOAD } from '@/server/config'
 import { fetchStudyJobResults } from '@/server/aws'
+import { ResultsReader } from 'si-encryption/job-results/reader'
 
 const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
 
@@ -61,7 +62,7 @@ export const onStudyJobCreateAction = async (studyId: string) => {
     return studyJob.id
 }
 
-export const fetchJobResultsAction = async (jobId: string) => {
+export const fetchJobResultsCsvAction = async (jobId: string): Promise<string> => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
@@ -72,11 +73,39 @@ export const fetchJobResultsAction = async (jobId: string) => {
         const body = await fetchStudyJobResults(job)
         // TODO: handle other types of results that are not string/CSV
         csv = await body.transformToString('utf-8')
-    }
-
-    if (storage.file) {
+    } else if (storage.file) {
         csv = await fs.readFile(storage.file, 'utf-8')
+    } else {
+        throw new Error('Unknown storage type')
     }
 
     return csv
+}
+
+const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => {
+    const job = await queryJobResult(jobId)
+    if (!job) {
+        throw new Error(`Job ${jobId} not found or does not have results`)
+    }
+    const storage = await storageForResultsFile(job)
+    let file = new File([], '', { type: 'application/zip' })
+    if (storage.s3) {
+        const body = await fetchStudyJobResults(job)
+        // TODO: get zip file from body
+        throw new Error('Zip from S3 not implemented')
+    } else if (storage.file) {
+        file = new File([await fs.readFile(storage.file)], storage.file, { type: 'application/zip' })
+    } else {
+        throw new Error('Unknown storage type')
+    }
+
+    return file
+}
+
+export const fetchJobResultsAndDecryptAction = async (jobId: string, privateKey: string): Promise<string[]> => {
+    // Get zip
+    const zip: Blob = await fetchJobResultsZipAction(jobId)
+    // Decrypt results
+    const reader = new ResultsReader()
+    return await reader.decryptZip(zip, privateKey)
 }

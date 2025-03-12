@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { uuidToB64 } from '@/lib/uuid'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
-import { fetchJobResultsAction } from './actions'
+import { fetchJobResultsCsvAction } from './actions'
 import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { slugify } from '@/lib/string'
@@ -27,7 +27,7 @@ const ViewCSV: FC<JobResultsProps> = ({ job }) => {
     } = useQuery({
         queryKey: ['job-results', job.id],
         queryFn: async () => {
-            const csv = await fetchJobResultsAction(job.id)
+            const csv = await fetchJobResultsCsvAction(job.id)
             return Papa.parse<Record<string, string | number>>(csv, {
                 header: true,
                 complete: (results) => {
