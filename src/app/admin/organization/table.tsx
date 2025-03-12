@@ -39,7 +39,7 @@ export function MembersAdminTable() {
                 withTableBorder
                 withColumnBorders
                 idAccessor="identifier"
-                noRecordsText="No members yet, add some using button below"
+                noRecordsText="No organisations yet, add some using button below"
                 noRecordsIcon={<IconUsers />}
                 records={members}
                 sortStatus={sortStatus}
@@ -68,10 +68,10 @@ const AddMember: FC = () => {
 
     return (
         <Flex justify={'end'} mt="lg">
-            <Modal opened={opened} onClose={close} title={`Add Member`} closeOnClickOutside={false}>
+            <Modal opened={opened} onClose={close} title={`Add organization`} closeOnClickOutside={false}>
                 <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
-            <Button onClick={open}>Add new Member</Button>
+            <Button onClick={open}>Add new organization</Button>
         </Flex>
     )
 }
