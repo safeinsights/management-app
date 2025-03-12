@@ -10,7 +10,7 @@ export default async function Keys() {
     if (!clerkId) return null
 
     const publicKey = await getMemberUserPublicKey(clerkId)
-    if (!publicKey) {
+    if (publicKey) {
         // If they already have a public key, don't let them come here to regenerate keys (MVP only)
         redirect('/')
     }
