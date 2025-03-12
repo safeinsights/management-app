@@ -4,7 +4,6 @@ import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
 import { FormValues, schema } from './schema'
 import { db } from '@/database'
-import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
 import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
@@ -53,7 +52,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const studyJobId = await onStudyJobCreateAction(studyId)
 
     return {
-        studyId: uuidToB64(studyId),
-        studyJobId: uuidToB64(studyJobId),
+        studyId: studyId,
+        studyJobId: studyJobId,
     }
 }

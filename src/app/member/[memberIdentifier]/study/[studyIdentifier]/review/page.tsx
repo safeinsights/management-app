@@ -1,5 +1,4 @@
 import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { b64toUUID } from '@/lib/uuid'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -25,7 +24,7 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const study = await getStudyAction(b64toUUID(studyIdentifier))
+    const study = await getStudyAction(studyIdentifier)
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

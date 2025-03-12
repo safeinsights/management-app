@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Button, LoadingOverlay, Modal, ScrollArea } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { useQuery } from '@tanstack/react-query'
-import { uuidToB64 } from '@/lib/uuid'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
 import { fetchJobResultsAction } from './actions'
@@ -70,7 +69,7 @@ export const PreviewCSVResultsBtn: FC<JobResultsProps> = ({ job, study }) => {
                 onClose={close}
                 size="100%"
                 title={
-                    <Link href={`/dl/results/${uuidToB64(job.id)}/${slugify(study.title)}.csv`}>
+                    <Link href={`/dl/results/${job.id}/${slugify(study.title)}.csv`}>
                         <Button rightSection={<Download />}>Download Results</Button>
                     </Link>
                 }
