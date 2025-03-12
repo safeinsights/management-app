@@ -1,4 +1,3 @@
-import { b64toUUID } from '@/lib/uuid'
 import { NextResponse } from 'next/server'
 import { urlOrPathToResultsFile } from '@/server/results'
 import { MinimalJobResultsInfo } from '@/lib/types'
@@ -8,7 +7,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ slug: [str
     const {
         slug: [jobIdentifier],
     } = await params
-    const jobId = b64toUUID(jobIdentifier)
+    const jobId = jobIdentifier
 
     // TODO: check if the job is owned by the researcher
     const job = await queryJobResult(jobId)

@@ -5,10 +5,9 @@ import { useForm } from '@mantine/form'
 import { Anchor, Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { StudyJob } from '@/schema/study'
-import { fetchJobResultsAction } from '@/app/researcher/study/[encodedStudyId]/review/actions'
+import { fetchJobResultsAction } from '@/app/researcher/study/[studyId]/review/actions'
 import { notifications } from '@mantine/notifications'
 import Link from 'next/link'
-import { uuidToB64 } from '@/lib/uuid'
 
 export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
     const { data: results, isLoading } = useQuery({
@@ -58,7 +57,7 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
                         </Group>
                     </form>
                     {/* TODO Hide this eventually behind the form validation */}
-                    <Anchor component={Link} target="_blank" href={`/dl/results/${uuidToB64(latestJob.id)}/`}>
+                    <Anchor component={Link} target="_blank" href={`/dl/results/${latestJob.id}/`}>
                         View Results
                     </Anchor>
                 </Stack>

@@ -8,7 +8,6 @@ import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJob, pathForStudyJobResults, pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
-import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { CodeManifest, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
@@ -48,7 +47,7 @@ const s3BucketName = () => {
 }
 
 export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
-    return `si/analysis/${opts.memberIdentifier}/${uuidToB64(opts.studyId).toLowerCase()}/${slugify(opts.studyTitle)}`
+    return `si/analysis/${opts.memberIdentifier}/${opts.studyId}/${slugify(opts.studyTitle)}`
 }
 
 export const getAWSInfo = async () => {

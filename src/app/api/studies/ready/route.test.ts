@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestStudyData, mockApiMember, readTestSupportFile } from '@/tests/unit.helpers'
-import { uuidToB64 } from '@/lib/uuid'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -48,7 +47,7 @@ test('return study jobs', async () => {
                 status: 'JOB-RUNNING',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
-                containerLocation: `test-container:${uuidToB64(jobIds[1])}`,
+                containerLocation: `test-container:${jobIds[1]}`,
             }),
             expect.objectContaining({
                 jobId: jobIds[2],
@@ -56,7 +55,7 @@ test('return study jobs', async () => {
                 status: 'JOB-READY',
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
-                containerLocation: `test-container:${uuidToB64(jobIds[2])}`,
+                containerLocation: `test-container:${jobIds[2]}`,
             }),
         ]),
     })
