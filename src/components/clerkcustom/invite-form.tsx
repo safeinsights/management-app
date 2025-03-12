@@ -95,7 +95,7 @@ export default function InviteForm() {
               <div style={{ flex: 1 }}>
                 <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
               </div>
-              <Link href="/admin/members" style={{ textDecoration: 'none' }}>
+              <Link href="/admin/organization" style={{ textDecoration: 'none' }}>
                 <Button variant="outline">
                   New
                 </Button>
