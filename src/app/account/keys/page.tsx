@@ -2,20 +2,17 @@
 
 import { GenerateKeys } from '@/app/account/keys/generate-keys'
 import { auth } from '@clerk/nextjs/server'
-import { getMemberUserPublicKey, testQuery } from '@/app/account/keys/user-key-actions'
-import { getUserIdByClerkId } from '@/server/actions/user-actions'
+import { redirect } from 'next/navigation'
+import { getMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
 
 export default async function Keys() {
     const { userId: clerkId } = await auth()
     if (!clerkId) return null
-    const memberUserPublicKeys = await testQuery()
-    const userId = await getUserIdByClerkId(clerkId)
-    console.log('clerk id: ', clerkId)
-    console.log('Keys: ', memberUserPublicKeys)
+
     const publicKey = await getMemberUserPublicKey(clerkId)
-    if (publicKey) {
-        // TODO dont let them come back here, redirect to dashboard?
+    if (!publicKey) {
+        // If they already have a public key, don't let them come here to regenerate keys (MVP only)
+        redirect('/')
     }
-    console.log(publicKey)
     return <GenerateKeys clerkId={clerkId} />
 }

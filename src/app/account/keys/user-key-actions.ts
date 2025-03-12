@@ -3,11 +3,6 @@
 import { db } from '@/database'
 import { getUserIdByClerkId } from '@/server/actions/user-actions'
 
-export const testQuery = async () => {
-    return await db.selectFrom('user').selectAll().execute()
-    // return await db.selectFrom('memberUserPublicKey').selectAll().execute()
-}
-
 export const getMemberUserPublicKey = async (clerkId: string) => {
     const result = await db
         .selectFrom('memberUserPublicKey')

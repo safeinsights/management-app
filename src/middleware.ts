@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import logger from '@/lib/logger'
 import debug from 'debug'
+import { getMemberUserPublicKey } from '@/server/actions/user-actions'
 
 const middlewareDebug = debug('app:middleware')
 
@@ -101,6 +102,12 @@ export default clerkMiddleware(async (auth, req) => {
         logger.warn('Access denied: Researcher route requires researcher or admin access')
         middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
         return new NextResponse(null, { status: 403 })
+    }
+
+    if (userRoles.isMember) {
+        // TODO Will this break anything else?
+        const publicKey = await getMemberUserPublicKey(userId)
+        if (!publicKey) return NextResponse.redirect(new URL('/account/keys', req.url))
     }
 
     return NextResponse.next()

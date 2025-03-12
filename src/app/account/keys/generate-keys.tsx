@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Container, CopyButton, Group, Stack, Text, Title } from '@mantine/core'
+import { Button, Container, CopyButton, Stack, Text, Title } from '@mantine/core'
 import { useUserContext } from '@clerk/shared/react'
 import { FC, useState } from 'react'
 import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
