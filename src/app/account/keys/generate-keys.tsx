@@ -4,6 +4,7 @@ import { Button, Container, CopyButton, Stack, Text, Title } from '@mantine/core
 import { useUserContext } from '@clerk/shared/react'
 import { FC, useState } from 'react'
 import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
+import { createFingerprint, generateKeyPair } from 'si-encryption/util/keypair'
 
 export const GenerateKeys: FC<{
     clerkId: string
@@ -12,25 +13,28 @@ export const GenerateKeys: FC<{
     const [keys, setKeys] = useState<{ publicKey: string; privateKey: string }>()
 
     const onGenerateKeys = async () => {
-        // TODO actually create keys w/ encryption lib
         // TODO Store the public key at this point for the MemberUserPublicKey w/ react query mutation
-        const keyPair = await window.crypto.subtle.generateKey(
-            {
-                name: 'RSA-OAEP',
-                modulusLength: 2048,
-                publicExponent: new Uint8Array([1, 0, 1]),
-                hash: 'SHA-256',
-            },
-            true, // whether the key is extractable (i.e., can be used in exportKey)
-            ['encrypt', 'decrypt'], // key usage - can be any combination of "encrypt" and "decrypt"
-        )
-        // Export the public key
-        const exportedPublicKey = await window.crypto.subtle.exportKey('spki', keyPair.publicKey)
-        const publicKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)))
 
-        // Export the private key
-        const exportedPrivateKey = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
-        const privateKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)))
+        const { publicKey, privateKey } = await generateKeyPair()
+        const fingerprint = createFingerprint(publicKey)
+
+        // const keyPair = await window.crypto.subtle.generateKey(
+        //     {
+        //         name: 'RSA-OAEP',
+        //         modulusLength: 2048,
+        //         publicExponent: new Uint8Array([1, 0, 1]),
+        //         hash: 'SHA-256',
+        //     },
+        //     true, // whether the key is extractable (i.e., can be used in exportKey)
+        //     ['encrypt', 'decrypt'], // key usage - can be any combination of "encrypt" and "decrypt"
+        // )
+        // // Export the public key
+        // const exportedPublicKey = await window.crypto.subtle.exportKey('spki', keyPair.publicKey)
+        // const publicKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)))
+        //
+        // // Export the private key
+        // const exportedPrivateKey = await window.crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+        // const privateKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)))
 
         const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${publicKeyString}\n-----END PUBLIC KEY-----`
         const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`
