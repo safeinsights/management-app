@@ -28,8 +28,7 @@ export async function createUserAction({
       firstName,
       lastName,
       emailAddress: [email],
-      password,
-      phoneNumber: ['+12345550100'],
+      password
     })
     
     console.log('User created successfully with ID:', user.id)
