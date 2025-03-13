@@ -1,11 +1,18 @@
 'use client'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, FileInput, Flex, Group, Paper, Stack, Text, TextInput } from '@mantine/core'
+import { Anchor, Button, Divider, FileInput, Group, Paper, Stack, Text, TextInput } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
+import { css } from '@/styles'
+import { CancelButton } from '@/components/cancel-button'
 import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './studyProposalSchema'
+
+export const customLabel = css({
+    fontSize: '18px',
+    marginBottom: '10px',
+})
 
 export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()
@@ -119,7 +126,7 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 )} */}
                         </Stack>
                         <Stack mt="md">
-                            <Flex direction="column" gap="sm">
+                            <Stack gap="sm">
                                 {/* TODO: Need Database column for this attribute */}
                                 {/* <FileInput
 
@@ -128,21 +135,18 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                                     key={form.key('agreementDocument')}
                                                     {...form.getInputProps('agreementDocument')}
                                                 /> */}
-                            </Flex>
+                            </Stack>
                         </Stack>
                     </Group>
                 </Paper>
                 <Group gap="xl" p={2} mt="xl" justify="flex-end">
-                    <Button
-                        fz="lg"
-                        mb="lg"
-                        type="button"
-                        onClick={() => router.push(`/`)}
-                        variant="outline"
-                        color="#616161"
-                    >
-                        Cancel
-                    </Button>
+                    {/*<CancelButton isDirty={studyProposalForm.isDirty} */}
+                    {/*              uploadedFiles={[*/}
+                    {/*                  studyProposalForm.key('irbDocument'), */}
+                    {/*                  studyProposalForm.key('agreementDocument'), */}
+                    {/*                  studyProposalForm.key('description')*/}
+                    {/*              ]} />*/}
+
                     <Button
                         fz="lg"
                         mb="lg"
