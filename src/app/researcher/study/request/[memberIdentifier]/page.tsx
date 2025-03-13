@@ -1,10 +1,7 @@
 import React from 'react'
-import { db } from '@/database'
-import { b64toUUID } from '@/lib/uuid'
 import { StudyProposalForm } from './study-proposal'
-import { Flex, List, Title, Text, Container, Paper, Stack } from '@mantine/core'
+import { Flex, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { YodaNotice } from './yoda'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
@@ -13,8 +10,6 @@ export const dynamic = 'force-dynamic'
 export default async function MemberHome(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
     const member = await getMemberFromIdentifier(params.memberIdentifier)
-
-    const study = await db.selectFrom('study').selectAll().executeTakeFirst()
 
     if (!member) {
         return (
@@ -33,9 +28,8 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
                     <Paper p="md" mt="md">
                         <Title mb="lg">Propose A Study</Title>
                     </Paper>
-                    
-                        <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
-                   
+
+                    <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
                 </Stack>
             </Flex>
         </>
