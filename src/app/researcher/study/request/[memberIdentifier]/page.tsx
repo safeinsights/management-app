@@ -1,15 +1,21 @@
 import React from 'react'
-import { Form } from './form'
-import { Flex, List, Title, Text } from '@mantine/core'
+import { db } from '@/database'
+import { b64toUUID } from '@/lib/uuid'
+import { StudyProposalForm } from './study-proposal'
+import { Flex, List, Title, Text, Container, Paper, Stack } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { YodaNotice } from './yoda'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
 export const dynamic = 'force-dynamic'
 
 export default async function MemberHome(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
     const member = await getMemberFromIdentifier(params.memberIdentifier)
+
+    const study = await db.selectFrom('study').selectAll().executeTakeFirst()
+
     if (!member) {
         return (
             <AlertNotFound
@@ -20,19 +26,18 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
     }
 
     return (
-        <Flex justify="center">
-            <YodaNotice />
-            <Flex direction="column">
-                <Title>{member.name} Proposal Step 1)</Title>
-
-                <List>
-                    <Text mt={20} mb={20} pt={10} fz="lg" fs="italic">
-                        {'{'}For the Pilot, detailed research proposal fields are skipped{'}'}
-                    </Text>
-                </List>
-
-                <Form memberId={member.id} memberIdentifier={member.identifier} />
+        <>
+            <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
+            <Flex align="center">
+                <Stack w="100%">
+                    <Paper p="md" mt="md">
+                        <Title mb="lg">Propose A Study</Title>
+                    </Paper>
+                    
+                        <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
+                   
+                </Stack>
             </Flex>
-        </Flex>
+        </>
     )
 }
