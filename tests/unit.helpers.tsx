@@ -104,6 +104,104 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
     }
 }
 
+export const insertTestJobKeyData = async (opts: { memberId: string }) => {
+    // Set users
+    const user1 = await db
+        .insertInto('user')
+        .values({
+            isResearcher: false,
+            clerkId: 'testClerkId1',
+            name: 'User One'
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const user2 = await db
+        .insertInto('user')
+        .values({
+            isResearcher: false,
+            clerkId: 'testClerkId2',
+            name: 'User Two'
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    // Add users as memberUsers
+    await db
+        .insertInto('memberUser')
+        .values({
+            memberId: opts.memberId,
+            userId: user1.id,
+            isAdmin: false,
+            isReviewer: true,
+        })
+        .execute()
+
+    await db
+        .insertInto('memberUser')
+        .values({
+            memberId: opts.memberId,
+            userId: user2.id,
+            isAdmin: false,
+            isReviewer: true,
+        })
+        .execute()
+
+    // Give memberUsers a public key
+    await db
+        .insertInto('memberUserPublicKey')
+        .values({
+            userId: user1.id,
+            value: 'testPublicKey1',
+            fingerprint: 'testFingerprint1'
+        })
+        .execute()
+
+    await db
+        .insertInto('memberUserPublicKey')
+        .values({
+            userId: user2.id,
+            value: 'testPublicKey2',
+            fingerprint: 'testFingerprint2'
+        })
+        .execute()
+
+    // Create a study for the member
+    const researcher = await db
+        .selectFrom('user')
+        .select('id')
+        .where('isResearcher', '=', true)
+        .executeTakeFirstOrThrow()
+
+    const study = await db
+        .insertInto('study')
+        .values({
+            memberId: opts.memberId,
+            containerLocation: 'test-container',
+            title: 'my 1st study',
+            description: 'my description',
+            researcherId: researcher.id,
+            piName: 'test',
+            status: 'PENDING-REVIEW',
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    // Create job
+    const job = await db
+        .insertInto('studyJob')
+        .values({
+            studyId: study.id,
+            resultFormat: 'SI_V1_ENCRYPT',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    return job.id
+}
+
 export async function createTempDir() {
     const ostmpdir = os.tmpdir()
     const tmpdir = path.join(ostmpdir, 'unit-test-')
