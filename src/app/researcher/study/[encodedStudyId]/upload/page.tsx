@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Button, Flex, Text, Title, Container } from '@mantine/core'
 import { getLatestStudyJobAction } from './actions'
@@ -20,13 +19,8 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
     }
 
     return (
-        <Container w="100%">
-            <Title mb="lg">{study.memberName} Study Proposal Step 2)</Title>
-            <Text
-                pt={10}
-                fs="italic"
-            >{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
-
+        <>
+            <Title mb="lg">Propose A Study</Title>
             <UploadStudyJobCode
                 job={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyJobId: study.pendingJobId }}
                 getSignedURL={getUploadUrlForStudyJobCodeAction}
@@ -36,6 +30,6 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
                     <Button>Next</Button>
                 </Link>
             </Flex>
-        </Container>
+        </>
     )
 }

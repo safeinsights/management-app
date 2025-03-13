@@ -1,17 +1,37 @@
 import { useState } from 'react'
-import { Button, Modal, Group } from '@mantine/core'
+import { Button, Modal, Group, Loader } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 
-export function CancelButton({ form }: { form: ReturnType<typeof useForm> }) {
+export function CancelButton({ form, uploadedFiles }: { form: ReturnType<typeof useForm>; uploadedFiles: File[] }) {
     const [opened, setOpened] = useState(false)
+    const [loading, setLoading] = useState(false)
     const router = useRouter()
 
     const handleCancel = () => {
         if (form.isDirty()) {
             setOpened(true)
         } else {
-            router.push('/') 
+            router.push('/')
+        }
+    }
+
+    const confirmCancel = async () => {
+        setLoading(true)
+        try {
+            if (uploadedFiles.length > 0) {
+                const uploadedFile = uploadedFiles[0].name
+                await fetch('/api/delete-file', {
+                    method: 'DELETE',
+                    body: JSON.stringify({ filePath: uploadedFile }),
+                    headers: { 'Content-Type': 'application/json' },
+                })
+            }
+        } catch (error) {
+            console.error('Error deleting file:', error)
+        } finally {
+            setLoading(false)
+            router.push('/')
         }
     }
 
@@ -23,13 +43,13 @@ export function CancelButton({ form }: { form: ReturnType<typeof useForm> }) {
                     <Button variant="subtle" onClick={() => setOpened(false)}>
                         No, keep editing
                     </Button>
-                    <Button color="red" onClick={() => router.push('/dashboard')}>
-                        Yes, erase draft
+                    <Button color="red" onClick={confirmCancel} disabled={loading}>
+                        {loading ? <Loader size="xs" /> : 'Yes, erase draft'}
                     </Button>
                 </Group>
             </Modal>
 
-            <Button fz="lg" mb={20} w={248} type="button" variant="outline" color="#616161" onClick={handleCancel}>
+            <Button fz="lg" mb="lg" type="button" variant="outline" color="#616161" onClick={handleCancel}>
                 Cancel
             </Button>
         </>

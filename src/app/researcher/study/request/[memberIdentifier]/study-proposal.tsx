@@ -22,6 +22,7 @@ import { onCreateStudyAction } from './actions'
 import { css } from '@/styles'
 import { zodResolver, FormValues, schema } from './schema'
 import { UploadStudyJobCode } from '@/components/upload-study-job-code'
+import { CancelButton } from '@/components/cancel-button'
 export const customLabel = css({
     fontSize: '18px',
     marginBottom: '10px',
@@ -80,7 +81,8 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
     })
 
     return (
-        <>
+      
+            <Flex direction="column" justify="center">                    
                 <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
                     <Paper p="xl">
                         <Text>Researcher Study Proposal</Text>
@@ -215,16 +217,7 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                         </Group>
                     </Paper>
                     <Group gap="xl" p={2} mt="xl" justify="flex-end">
-                        <Button
-                            fz="lg"
-                            mb="lg"
-                            type="button"
-                            onClick={() => router.push(`/`)}
-                            variant="outline"
-                            color="#616161"
-                        >
-                            Cancel
-                        </Button>
+                    <CancelButton form={studyProposalForm} uploadedFiles={[studyProposalForm.key('irbDocument'), studyProposalForm.key('agreementDocument'), studyProposalForm.key('description')]} />
                         <Button
                             fz="lg"
                             mb="lg"
@@ -238,6 +231,6 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                         </Button>
                     </Group>
                 </form>
-        </>
+            </Flex>
     )
 }
