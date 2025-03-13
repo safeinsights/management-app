@@ -1,3 +1,4 @@
+
 import React from 'react'
 import { Button, Flex, Text, Title, Container } from '@mantine/core'
 import { getLatestStudyJobAction } from './actions'
