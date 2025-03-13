@@ -124,7 +124,6 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                 <Accordion.Item value="jobs" mt="xl">
                     <Accordion.Control>Study Code</Accordion.Control>
                     <Accordion.Panel>
-                    <Divider my="sm" mt="sm" mb="md" />
                         <Stack></Stack>
                     </Accordion.Panel>
                 </Accordion.Item>
