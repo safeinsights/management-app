@@ -15,7 +15,7 @@ describe('Member Start Page Form', () => {
         )
         let title = '2srt'
 
-        const submitBtn = getByRole('button', { name: /submit/i })
+        const submitBtn = getByRole('button', { name: /next/i })
         const description = 'this is a description'
         const piName = 'i am the PI and also like PI'
         await userEvent.type(getByLabelText(/description/i), description)
