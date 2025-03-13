@@ -24,17 +24,13 @@ export default async function StudyEditPage(props: { params: Promise<{ encodedSt
     }
 
     return (
-        <Container w="80%">
-            <Paper shadow="xs" p="xl">
-                <Form
-                    studyId={study.id}
-                    study={{
-                        ...study,
-                        highlights: study.dataSources?.includes('highlights'),
-                        eventCapture: study.dataSources?.includes('eventCapture'),
-                    }}
-                />
-            </Paper>
-        </Container>
+        <Form
+            studyId={study.id}
+            study={{
+                ...study,
+                highlights: study.dataSources?.includes('highlights'),
+                eventCapture: study.dataSources?.includes('eventCapture'),
+            }}
+        />
     )
 }
