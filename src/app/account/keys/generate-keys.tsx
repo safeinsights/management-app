@@ -4,35 +4,31 @@ import { Button, Container, CopyButton, Stack, Text, Title } from '@mantine/core
 import { useUserContext } from '@clerk/shared/react'
 import { FC, useState } from 'react'
 import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
-import { createFingerprint, generateKeyPair } from 'si-encryption/util/keypair'
+import { generateKeyPair } from 'si-encryption/util/keypair'
 
 export const GenerateKeys: FC<{
     clerkId: string
 }> = ({ clerkId }) => {
     const user = useUserContext()
-    const [keys, setKeys] = useState<{ publicKey: string; privateKey: string }>()
+    const [keys, setKeys] = useState<{ publicKey: string; privateKey: string; fingerprint: string }>()
 
     const onGenerateKeys = async () => {
-        // TODO Store the public key at this point for the MemberUserPublicKey w/ react query mutation
-
-        const { publicKey, privateKey } = await generateKeyPair()
-        // const fingerprint = createFingerprint(publicKey)
-
-        // Export the public key
-        const exportedPublicKey = await window.crypto.subtle.exportKey('spki', publicKey)
-        const publicKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPublicKey)))
-        // Export the private key
-        const exportedPrivateKey = await window.crypto.subtle.exportKey('pkcs8', privateKey)
-        const privateKeyString = btoa(String.fromCharCode(...new Uint8Array(exportedPrivateKey)))
+        const { publicKeyString, privateKeyString, fingerprint } = await generateKeyPair()
 
         const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${publicKeyString}\n-----END PUBLIC KEY-----`
         const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`
+
         setKeys({
             publicKey: publicKeyPem,
             privateKey: privateKeyPem,
+            fingerprint,
         })
+    }
 
-        await setMemberUserPublicKey(clerkId, publicKeyPem, 'TODO')
+    const saveKeys = async () => {
+        if (keys?.publicKey && keys.fingerprint) {
+            await setMemberUserPublicKey(clerkId, keys.publicKey, keys.fingerprint)
+        }
     }
 
     if (keys) {
@@ -56,7 +52,13 @@ export const GenerateKeys: FC<{
                         <Text>{keys.privateKey}</Text>
                         <CopyButton value={keys.privateKey}>
                             {({ copied, copy }) => (
-                                <Button color={copied ? 'teal' : 'blue'} onClick={copy}>
+                                <Button
+                                    color={copied ? 'teal' : 'blue'}
+                                    onClick={() => {
+                                        copy()
+                                        saveKeys()
+                                    }}
+                                >
                                     {copied ? 'Copied private key!' : 'Copy private key'}
                                 </Button>
                             )}
