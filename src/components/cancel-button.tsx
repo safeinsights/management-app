@@ -1,15 +1,14 @@
 import { useState } from 'react'
 import { Button, Modal, Group, Loader } from '@mantine/core'
-import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 
-export function CancelButton({ form, uploadedFiles }: { form: ReturnType<typeof useForm>; uploadedFiles: File[] }) {
+export function CancelButton({ isDirty, uploadedFiles }: { isDirty: boolean; uploadedFiles: File[] }) {
     const [opened, setOpened] = useState(false)
     const [loading, setLoading] = useState(false)
     const router = useRouter()
 
     const handleCancel = () => {
-        if (form.isDirty()) {
+        if (isDirty) {
             setOpened(true)
         } else {
             router.push('/')
