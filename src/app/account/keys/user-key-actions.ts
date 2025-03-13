@@ -28,11 +28,5 @@ export const setMemberUserPublicKey = async (clerkId: string, publicKey: string,
             value: publicKey,
             fingerprint: fingerprint,
         })
-        .onConflict((oc) =>
-            oc.column('userId').doUpdateSet({
-                value: publicKey,
-                fingerprint: fingerprint,
-            }),
-        )
         .execute()
 }

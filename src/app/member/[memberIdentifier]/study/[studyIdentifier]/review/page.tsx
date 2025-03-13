@@ -27,8 +27,6 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    console.log(studyIdentifier)
-
     const study = await getStudyAction(b64toUUID(studyIdentifier))
 
     if (!study) {
@@ -78,7 +76,7 @@ export default async function StudyReviewPage(props: {
                                 <Text>{study.description}</Text>
                                 <Text>{study.irbProtocols} some link</Text>
                                 <Text>TODO agreements</Text>
-                                <StudyJobFiles jobId={study.jobs[0].id} />
+                                <StudyJobFiles job={study.jobs[0]} />
                             </Stack>
                         </GridCol>
                     </Grid>
