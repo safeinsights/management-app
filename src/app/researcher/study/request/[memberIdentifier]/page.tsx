@@ -33,9 +33,9 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
                     <Paper p="md" mt="md">
                         <Title mb="lg">Propose A Study</Title>
                     </Paper>
-                    <Flex p={80}>
+                    
                         <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
-                    </Flex>
+                   
                 </Stack>
             </Flex>
         </>

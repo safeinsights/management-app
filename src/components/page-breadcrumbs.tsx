@@ -45,7 +45,7 @@ export const ResearcherBreadcrumbs: React.FC<{
         current?: string
     }
 }> = ({ crumbs: { encodedStudyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/studies`]]
+    const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/dashboard`]]
     if (studyTitle && encodedStudyId) {
         crumbs.push([studyTitle, `/researcher/study/${encodedStudyId}/review`])
     }
