@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { Anchor, Paper, Stack, Table, Text, Title } from '@mantine/core'
+import { Anchor, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -21,7 +21,14 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
 
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
-            <Table.Td>{study.title}</Table.Td>
+            <Table.Td>
+                <Tooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                        {study.title} {study.title} {study.title}
+                    </Text>
+                </Tooltip>
+            </Table.Td>
+            {/*<Table.Td>{study.title}</Table.Td>*/}
             <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
             <Table.Td>{study.researcherName}</Table.Td>
             {/* TODO Reviewed by doesn't exist yet */}

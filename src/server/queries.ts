@@ -20,7 +20,7 @@ export const queryJobResult = async (jobId: string) =>
 
 type SiUser = ClerkUser & {
     id: string
-    isRsearcher: boolean
+    isResearcher: boolean
 }
 
 export async function siUser(throwIfNotFound?: true): Promise<SiUser>
@@ -53,6 +53,6 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     return {
         ...clerkUser,
         id: user.id,
-        isRsearcher: user.isResearcher,
+        isResearcher: user.isResearcher,
     } as SiUser
 }
