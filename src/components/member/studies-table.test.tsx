@@ -20,6 +20,7 @@ const mockMember: Member = {
 const mockStudies = [
     {
         approvedAt: null,
+        rejectedAt: null,
         containerLocation: 'Location1',
         createdAt: new Date(),
         dataSources: [],
@@ -36,6 +37,7 @@ const mockStudies = [
     },
     {
         approvedAt: null,
+        rejectedAt: null,
         containerLocation: 'Location2',
         createdAt: new Date(),
         dataSources: [],
@@ -52,6 +54,7 @@ const mockStudies = [
     },
     {
         approvedAt: null,
+        rejectedAt: null,
         containerLocation: 'Location3',
         createdAt: new Date(),
         dataSources: [],

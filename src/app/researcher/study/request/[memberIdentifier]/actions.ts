@@ -2,7 +2,7 @@
 
 import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
-import { FormValues, schema } from './schema'
+import { StudyProposalFormValues, studyProposalSchema } from './studyProposalSchema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
@@ -10,8 +10,8 @@ import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
 import { siUser } from '@/server/queries'
 
-export const onCreateStudyAction = async (memberId: string, study: FormValues) => {
-    schema.parse(study) // throws when malformed
+export const onCreateStudyAction = async (memberId: string, study: StudyProposalFormValues) => {
+    studyProposalSchema.parse(study) // throws when malformed
 
     const user = await siUser()
 
@@ -24,7 +24,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
     const studyId = uuidv7()
 
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
-    const descriptionFile = study.description ? study.description.name: ''
+    const descriptionFile = study.description ? study.description.name : ''
     const irbDocumentFile = study.irbDocument ? study.irbDocument.name : ''
     // TODO: Add agreement document
 
@@ -46,7 +46,7 @@ export const onCreateStudyAction = async (memberId: string, study: FormValues) =
             title: study.title,
             piName: study.piName,
             description: descriptionFile,
-            irbProtocols:  irbDocumentFile,
+            irbProtocols: irbDocumentFile,
             //TODO: add study lead
             // TODO:add agreement document
             memberId,
