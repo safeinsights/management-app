@@ -29,7 +29,7 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
                 <Group>
                     <Link href="/researcher/dashboard" passHref>
                         <Button fz="lg"
-                            color="#616161"variant="outline" color="">Cancel</Button>
+                            color="#616161"variant="outline">Cancel</Button>
                     </Link>
                     <Link href="/researcher/dashboard" passHref>
                         <Button>Submit Proposal</Button>
