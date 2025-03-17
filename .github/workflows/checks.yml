@@ -70,8 +70,8 @@ jobs:
               run: npm run checks
             - name: npm run test:unit
               run: npm run test:unit
-            #            - name: npm run test:e2e
-            #              run: npm run test:e2e
+            - name: npm run test:e2e
+              run: npm run test:e2e
             - name: npm run test:coverage
               run: npm run test:coverage
 
