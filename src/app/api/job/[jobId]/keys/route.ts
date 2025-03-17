@@ -2,11 +2,8 @@ import { db } from '@/database'
 import { wrapApiMemberAction } from '@/server/wrappers'
 import { NextResponse } from 'next/server'
 
-export const GET = wrapApiMemberAction(async ({ params }: { params: Promise<{ jobId: string }> }) => {
+export const GET = wrapApiMemberAction(async (_req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const jobId = (await params).jobId
-    if (!jobId) {
-        return new NextResponse('Job id not provided', { status: 400 })
-    }
 
     const publicKeys = await db
         .selectFrom('studyJob')
