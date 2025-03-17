@@ -55,7 +55,6 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                     </Text>
                     <Group mt="xl">
                         <Stack>
-
                             <TextInput
                                 horizontal
                                 label="Study Title"
@@ -64,13 +63,12 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 {...studyProposalForm.getInputProps('title')}
                             />
 
-
                             <TextInput
                                 horizontal
                                 label="Study Lead"
                                 disabled
                                 value="Researcher Name"
-                            // value={user?.firstName + ' ' + user?.lastName}
+                                // value={user?.firstName + ' ' + user?.lastName}
                             />
 
                             <TextInput
@@ -80,11 +78,9 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 {...studyProposalForm.getInputProps('piName')}
                             />
 
-
-
                             <FileInput
                                 label="Study Description"
-                                name='description-doc'
+                                name="description-doc"
                                 component={Anchor}
                                 placeholder="Upload a document describing your study"
                                 key={studyProposalForm.key('description')}
@@ -92,11 +88,9 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 onChange={(file) => handleFileChange('description', file)}
                             />
 
-
                             <FileInput
                                 label="IRB Document"
-                                name='irb-doc'
-
+                                name="irb-doc"
                                 component={Anchor}
                                 placeholder="Upload IRB approval document"
                                 key={studyProposalForm.key('irbDocument')}

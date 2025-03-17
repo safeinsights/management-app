@@ -1,7 +1,8 @@
 import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
-import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
+import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { addCoverageReport } from 'monocart-reporter'
 import { faker } from '@faker-js/faker'
 
@@ -148,7 +149,13 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     }
 
     await w.Clerk.setActive({ session: result.createdSessionId })
+}
 
+
+export const readTestSupportFile = (file: string) => {
+    const filename = fileURLToPath(import.meta.url) // get the resolved path to the file
+
+    return fs.promises.readFile(path.join(path.dirname(filename), 'support', file), 'utf8')
 }
 
 export type TestingRole = 'researcher' | 'member'

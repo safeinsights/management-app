@@ -39,5 +39,4 @@ export const findOrCreateSiUserId = async (clerkId: string, name: string) => {
     }
 
     return user.id
-
 }

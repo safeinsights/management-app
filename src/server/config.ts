@@ -80,3 +80,9 @@ export type SSOCookieConfig = {
     private_key: string
     public_key: string
 }
+
+export const CLERK_MEMBER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
+
+export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
+    PROD_ENV ? [] : ['user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ', 'user_2oiQ37cyMUZuHnEwxjLmFJJY5kR'],
+)

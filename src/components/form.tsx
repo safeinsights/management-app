@@ -1,5 +1,5 @@
 import { TextInput as MantineTextInput, TextInputProps } from '@mantine/core'
-import { cva, cx, css } from '@/styles'
+import { cva, cx } from '@/styles'
 
 type TextInputVariantProps = {
     horizontal?: boolean
@@ -20,9 +20,18 @@ const styles = cva({
                 flexDirection: 'column',
             },
         },
-    }
+    },
 })
 
-export const TextInput: React.FC<TextInputProps & TextInputVariantProps> = ({ className, horizontal, ...inputProps}) => {
-    return <MantineTextInput {...inputProps} className={cx(styles({ direction: horizontal ? 'horizontal' : 'vertical' }), className)} />
+export const TextInput: React.FC<TextInputProps & TextInputVariantProps> = ({
+    className,
+    horizontal,
+    ...inputProps
+}) => {
+    return (
+        <MantineTextInput
+            {...inputProps}
+            className={cx(styles({ direction: horizontal ? 'horizontal' : 'vertical' }), className)}
+        />
+    )
 }
