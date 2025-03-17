@@ -73,6 +73,7 @@ test.describe('Studies', () => {
 
         await page.locator('tr').filter({ hasText: title }).getByText('View').click()
 
+        await page.waitForURL(/\/study\//)
         expect(page.getByText('Study details')).toBeVisible()
     })
 })
