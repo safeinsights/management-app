@@ -1,6 +1,6 @@
 'use client'
 
-import { TextInput, PasswordInput, Select, Button, Alert } from '@mantine/core'
+import { TextInput, PasswordInput, Button, Alert, Checkbox, Group, Text } from '@mantine/core'
 import React, { useState } from 'react'
 import { createUserAction } from '@/server/actions/clerk-user-actions'
 import { Warning } from '@phosphor-icons/react'
@@ -16,7 +16,10 @@ export default function InviteForm() {
         lastName: '',
         email: '',
         password: '',
-        role: ''
+        roles: {
+            reviewer: false,
+            researcher: false
+        }
     })
     const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null)
 
@@ -29,10 +32,16 @@ export default function InviteForm() {
         const formData = new FormData(e.currentTarget)
         const firstName = formData.get('firstName')?.toString() ?? ''
         const lastName = formData.get('lastName')?.toString() ?? ''
-        // Role is dismissed for now.
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
         const organization = selectedOrganization || ''
+        
+        // Check if at least one role is selected
+        if (!formValues.roles.reviewer && !formValues.roles.researcher) {
+            setError('Please select at least one role (Reviewer or Researcher)')
+            setLoading(false)
+            return
+        }
 
         // Update form values state
         setFormValues({
@@ -40,7 +49,7 @@ export default function InviteForm() {
             lastName,
             email,
             password,
-            role: formData.get('role')?.toString() ?? ''
+            roles: formValues.roles // Keep the existing roles structure
         })
 
         try {
@@ -58,7 +67,10 @@ export default function InviteForm() {
                     lastName: '',
                     email: '',
                     password: '',
-                    role: ''
+                    roles: {
+                        reviewer: false,
+                        researcher: false
+                    }
                 });
                 setSuccess(true);
             }
@@ -119,19 +131,35 @@ export default function InviteForm() {
                 value={formValues.lastName}
                 onChange={(e) => setFormValues({...formValues, lastName: e.target.value})}
             />
-            <Select
-                label="Role"
-                placeholder="Select role"
-                data={[
-                    { value: 'Reviewer', label: 'Reviewer' },
-                    { value: 'Researcher', label: 'Researcher' },
-                ]}
-                required
-                mb="sm"
-                name="role"
-                value={formValues.role}
-                onChange={(value) => setFormValues({...formValues, role: value || ''})}
-            />
+            <div style={{ marginBottom: '1rem' }}>
+                <Text fw={500} size="sm" mb={5}>Roles (select at least one)</Text>
+                <Group>
+                    <Checkbox
+                        label="Reviewer"
+                        name="role-reviewer"
+                        checked={formValues.roles.reviewer}
+                        onChange={(e) => setFormValues({
+                            ...formValues, 
+                            roles: {
+                                ...formValues.roles,
+                                reviewer: e.currentTarget.checked
+                            }
+                        })}
+                    />
+                    <Checkbox
+                        label="Researcher"
+                        name="role-researcher"
+                        checked={formValues.roles.researcher}
+                        onChange={(e) => setFormValues({
+                            ...formValues, 
+                            roles: {
+                                ...formValues.roles,
+                                researcher: e.currentTarget.checked
+                            }
+                        })}
+                    />
+                </Group>
+            </div>
             <TextInput
                 label="Email Address"
                 placeholder="Enter email address"
