@@ -14,5 +14,3 @@ export const db = new Kysely<DB>({
     ...kyselyOpts,
     plugins: [new CamelCasePlugin()],
 })
-
-export const BLANK_UUID = '00000000-0000-0000-0000-000000000000'
