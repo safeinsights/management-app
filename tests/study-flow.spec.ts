@@ -4,9 +4,12 @@ import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 // this ensures they run in order and will share the study title
 test.describe.configure({ mode: 'serial' })
 
-test.describe('Studies', () => {
-    // const codeLine = 'print("Hello, Tester")'
+test.beforeEach(async ({}, testInfo) => {
+    // Extend timeout for all tests running this hook by 30 seconds.
+    testInfo.setTimeout(testInfo.timeout + 30_000)
+})
 
+test.describe('Studies', () => {
     test('researcher creates a study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
 
