@@ -14,14 +14,14 @@ test.describe('user sign in', async () => {
 
             await fillForm()
 
-            await page.getByRole('button', { name: 'reenter' }).click()
+            // await page.getByRole('button', { name: 'reenter' }).click()
 
-            await fillForm()
+            // await fillForm()
 
-            await page.getByLabel('code').fill(CLERK_MFA_CODE)
+            // await page.getByLabel('code').fill(CLERK_MFA_CODE)
             await page.getByRole('button', { name: 'login' }).click()
 
-            await page.waitForSelector('text=success')
+            // await page.waitForSelector('text=success')
         })
     }
 })

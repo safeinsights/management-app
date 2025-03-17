@@ -1,6 +1,5 @@
 'use client'
 
-import { LoadingOverlay } from '@mantine/core'
 import { useAuthInfo } from '@/components/auth'
 import { useRouter } from 'next/navigation'
 
@@ -19,6 +18,6 @@ export const UserNav = () => {
     }
 
     if (!auth.isLoaded) {
-        return <LoadingOverlay />
+        return null
     }
 }

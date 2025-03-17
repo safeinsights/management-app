@@ -4,7 +4,7 @@ import React from 'react'
 import { Container, Flex, Button, Paper, Title, Group, Alert, Stack, Text, Tooltip, Table } from '@mantine/core'
 import dayjs from 'dayjs'
 import Link from 'next/link'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
+import { House, Plus } from '@phosphor-icons/react/dist/ssr'
 import { uuidToB64 } from '@/lib/uuid'
 import { humanizeStatus } from '@/lib/status'
 import type { AllStatus } from '@/lib/types'
@@ -65,29 +65,23 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                 <Title>Hi, {userName}</Title>
                 <Stack>
                     <Text mt="md">Welcome to SafeInsights</Text>
-                    <Flex w="50%" wrap="wrap">
-                        <Text>
-                            We&apos;re so glad to have you. This space is intended to help you submit your proposed
-                            studies and associated code, as well as accessing your analysis results—all while ensuring
-                            strict data privacy and security. Your work plays a vital role in advancing educational
-                            research, and w&apos;re committed to making this process as seamless as possible. We&apos;re
-                            continuously refining the experience and value your feedback in shaping a more effective
-                            research environment.
-                        </Text>
-                    </Flex>
+                    <Text>
+                        We&apos;re so glad to have you. This space is intended to help you submit your proposed studies
+                        and associated code, as well as accessing your analysis results—all while ensuring strict data
+                        privacy and security. Your work plays a vital role in advancing educational research, and
+                        w&apos;re committed to making this process as seamless as possible. We&apos;re continuously
+                        refining the experience and value your feedback in shaping a more effective research
+                        environment.
+                    </Text>
                 </Stack>
             </Container>
 
             <Paper m="xl" shadow="xs" p="xl">
                 <Group justify="space-between">
                     <Title>Proposed Studies</Title>
-                    <Flex justify="flex-end">
-                        <Link href="/researcher/study/request/openstax">
-                            <Button mt={30} mb={30}>
-                                <Plus size={15} style={{ marginRight: '4px' }} /> Propose New Study
-                            </Button>
-                        </Link>
-                    </Flex>
+                    <Button component={Link} href="/researcher/study/request/openstax" c="white" leftSection={<Plus />}>
+                        Propose New Study
+                    </Button>
                 </Group>
                 <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                     {!rows.length && (

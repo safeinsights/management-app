@@ -8,14 +8,15 @@ test.describe('Studies', () => {
     // const codeLine = 'print("Hello, Tester")'
 
     test('researcher creates a study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
+        await page.waitForLoadState('networkidle')
+        await page.getByRole('link', { name: /propose new study/i }).click()
+        await expect(page.getByText('Researcher Study Proposal')).toBeVisible()
 
-        await page.getByRole('button', { name: /propose/i }).click()
-
-        await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
-        await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
+        await page.getByPlaceholder(/enter a title/i).fill(studyFeatures.studyTitle)
+        await page.getByPlaceholder(/investigator/i).fill('Ricky McResearcher')
         await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
         await page.getByRole('button', { name: /submit/i }).click()
 
