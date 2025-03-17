@@ -112,7 +112,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId1',
-            name: 'User One'
+            name: 'User One',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -122,7 +122,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId2',
-            name: 'User Two'
+            name: 'User Two',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -154,7 +154,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             userId: user1.id,
             value: 'testPublicKey1',
-            fingerprint: 'testFingerprint1'
+            fingerprint: 'testFingerprint1',
         })
         .execute()
 
@@ -163,7 +163,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             userId: user2.id,
             value: 'testPublicKey2',
-            fingerprint: 'testFingerprint2'
+            fingerprint: 'testFingerprint2',
         })
         .execute()
 

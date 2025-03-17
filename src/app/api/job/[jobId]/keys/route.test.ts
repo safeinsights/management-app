@@ -7,7 +7,7 @@ describe('get keys', () => {
 
     beforeEach(() => {
         req = new Request('http://localhost', {
-            method: 'GET'
+            method: 'GET',
         })
     })
 
@@ -51,5 +51,4 @@ describe('get keys', () => {
             ],
         })
     })
-
 })
