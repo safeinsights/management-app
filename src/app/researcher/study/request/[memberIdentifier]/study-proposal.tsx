@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
 import { css } from '@/styles'
-import { CancelButton } from '@/components/cancel-button'
 import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './studyProposalSchema'
 
 export const customLabel = css({

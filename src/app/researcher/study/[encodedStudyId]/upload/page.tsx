@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Flex, Text, Title, Group } from '@mantine/core'
+import { Button, Flex, Title, Group } from '@mantine/core'
 import { getLatestStudyJobAction } from './actions'
 import Link from 'next/link'
 import { UploadStudyJobCode } from '@/components/upload-study-job-code'
@@ -28,8 +28,9 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
             <Flex justify="end" mt="lg">
                 <Group>
                     <Link href="/researcher/dashboard" passHref>
-                        <Button fz="lg"
-                            color="#616161"variant="outline">Cancel</Button>
+                        <Button fz="lg" color="#616161" variant="outline">
+                            Cancel
+                        </Button>
                     </Link>
                     <Link href="/researcher/dashboard" passHref>
                         <Button>Submit Proposal</Button>
