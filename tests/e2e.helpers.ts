@@ -125,6 +125,11 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
 
     const signIn = await w.Clerk.client.signIn.create({ identifier: params.identifier, password: params.password })
 
+    if (signIn.status == 'complete') {
+        await w.Clerk.setActive({ session: signIn.createdSessionId })
+        return
+    }
+
     if (
         signIn.status !== 'needs_second_factor' ||
         !signIn.supportedSecondFactors?.find((sf) => sf.strategy == 'phone_code')
@@ -138,12 +143,12 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
         strategy: 'phone_code',
         code: params.mfa,
     })
-
-    if (result.status === 'complete') {
-        await w.Clerk.setActive({ session: result.createdSessionId })
-    } else {
+    if (result.status !== 'complete') {
         reportError(`Unknown signIn status: ${result.status}`)
     }
+
+    await w.Clerk.setActive({ session: result.createdSessionId })
+
 }
 
 export type TestingRole = 'researcher' | 'member'
