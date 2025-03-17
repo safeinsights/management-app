@@ -3,7 +3,7 @@
 import { TextInput, PasswordInput, Select, Button, Alert } from '@mantine/core'
 import React, { useState } from 'react'
 import { createUserAction } from '@/server/actions/clerk-user-actions'
-import { IconAlertCircle } from '@tabler/icons-react'
+import { Warning } from '@phosphor-icons/react'
 import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 import Link from 'next/link'
 
@@ -73,7 +73,7 @@ export default function InviteForm() {
     return (
         <form onSubmit={handleSubmit}>
             {error && (
-                <Alert icon={<IconAlertCircle size="1rem" />} color="red" mb="md">
+                <Alert icon={<Warning size={16} />} color="red" mb="md">
                     {error}
                 </Alert>
             )}
