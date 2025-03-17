@@ -1,13 +1,58 @@
 import { db } from '@/database'
-import { MinimalRunResultsInfo } from '@/lib/types'
+import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
+import { MinimalJobResultsInfo } from '@/lib/types'
+import { wasCalledFromAPI } from './context'
 
-export const queryRunResult = async (runId: string) =>
+export const queryJobResult = async (jobId: string) =>
     (await db
-        .selectFrom('studyRun')
-        .innerJoin('study', 'study.id', 'studyRun.studyId')
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['studyRun.id as studyRunId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
-        .where('studyRun.id', '=', runId)
-        .where('studyRun.status', '=', 'COMPLETED')
-        .where('studyRun.resultsPath', 'is not', null)
-        .executeTakeFirst()) as MinimalRunResultsInfo | undefined
+        .select(['studyJob.id as studyJobId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
+        .where('studyJob.id', '=', jobId)
+        .innerJoin('jobStatusChange', (st) =>
+            st
+                .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
+        )
+        .where('studyJob.resultsPath', 'is not', null)
+        .executeTakeFirst()) as MinimalJobResultsInfo | undefined
+
+type SiUser = ClerkUser & {
+    id: string
+    isResearcher: boolean
+}
+
+export async function siUser(throwIfNotFound?: true): Promise<SiUser>
+export async function siUser(throwIfNotFound?: false): Promise<SiUser | null>
+export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
+    const clerkUser = wasCalledFromAPI() ? null : await currentClerkUser()
+    if (!clerkUser || clerkUser.banned) {
+        if (throwIfNotFound) throw new Error('User not logged in')
+        return null
+    }
+
+    let user = await db
+        .selectFrom('user')
+        .select(['id', 'isResearcher'])
+        .where('clerkId', '=', clerkUser.id)
+        .executeTakeFirst()
+
+    if (!user) {
+        user = await db
+            .insertInto('user')
+            .values({
+                name: clerkUser.fullName || 'unknown',
+                clerkId: clerkUser.id,
+                isResearcher: true, // FIXME: we'll ned to update this once we have orgs membership
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+    }
+
+    return {
+        ...clerkUser,
+        id: user.id,
+        isResearcher: user.isResearcher,
+    } as SiUser
+}

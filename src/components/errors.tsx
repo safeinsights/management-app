@@ -1,6 +1,7 @@
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps } from '@mantine/core'
-import { IconError404, IconAlertTriangle, IconLockAccess } from '@tabler/icons-react'
+import { Lock, Warning } from '@phosphor-icons/react/dist/ssr'
+import { FC, ReactNode } from 'react'
 
 type ClerkAPIErrorResponse = {
     errors: Array<{
@@ -38,11 +39,7 @@ export const reportError = (error: unknown, title = 'An error occured') => {
 
 type ErrorAlertProps = { error: string | Error } & AlertProps
 
-export const ErrorAlert: React.FC<ErrorAlertProps> = ({
-    icon = <IconAlertTriangle />,
-    title = 'An error occured',
-    error,
-}) => {
+export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occured', error }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
             {error.toString()}
@@ -52,8 +49,8 @@ export const ErrorAlert: React.FC<ErrorAlertProps> = ({
 
 type AccessDeniedAlertProps = { message?: string } & Omit<AlertProps, 'title'>
 
-export const AccessDeniedAlert: React.FC<AccessDeniedAlertProps> = ({
-    icon = <IconLockAccess />,
+export const AccessDeniedAlert: FC<AccessDeniedAlertProps> = ({
+    icon = <Lock />,
     message = 'You do not have permission to access this resource.',
     ...props
 }) => {
@@ -64,15 +61,15 @@ export const AccessDeniedAlert: React.FC<AccessDeniedAlertProps> = ({
     )
 }
 
-export const AlertNotFound: React.FC<{ title: string; message: React.ReactNode; hideIf?: boolean }> = ({
+export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boolean }> = ({
     title,
     message,
     hideIf,
 }) => {
-    if (hideIf === true) return null
+    if (hideIf) return null
 
     return (
-        <Alert w="400" m="auto" variant="filled" color="red" icon={<IconError404 />} title={title}>
+        <Alert w="400" m="auto" variant="filled" color="red" icon={<Warning />} title={title}>
             {message}
         </Alert>
     )

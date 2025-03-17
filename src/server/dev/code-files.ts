@@ -1,16 +1,16 @@
 import path from 'path'
 import fs from 'fs'
 import { getUploadTmpDirectory, PROD_ENV } from '@/server/config'
-import { pathForStudyRunCode } from '@/lib/paths'
-import { MinimalRunInfo } from '@/lib/types'
+import { pathForStudyJobCode } from '@/lib/paths'
+import { MinimalJobInfo } from '@/lib/types'
 
 type PseudoFile = { name: string }
 
-const dirForFile = (info: MinimalRunInfo, file: PseudoFile) =>
-    path.join(getUploadTmpDirectory(), pathForStudyRunCode(info), path.dirname(file.name))
+const dirForFile = (info: MinimalJobInfo, file: PseudoFile) =>
+    path.join(getUploadTmpDirectory(), pathForStudyJobCode(info), path.dirname(file.name))
 
 export async function devStoreCodeFile(
-    info: MinimalRunInfo,
+    info: MinimalJobInfo,
     file: PseudoFile & { arrayBuffer: () => Promise<ArrayBuffer> },
 ) {
     if (PROD_ENV) throw new Error('This method is only available in development')
@@ -22,7 +22,7 @@ export async function devStoreCodeFile(
     await fs.promises.writeFile(filePath, Buffer.from(buffer))
 }
 
-export async function devReadCodeFile(info: MinimalRunInfo, fileName: string) {
+export async function devReadCodeFile(info: MinimalJobInfo, fileName: string) {
     if (PROD_ENV) throw new Error('This method is only available in development')
 
     const dir = dirForFile(info, { name: fileName })

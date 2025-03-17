@@ -6,13 +6,13 @@ describe('humanizeStatus', () => {
         const testCases = [
             ['CODE-REJECTED', 'Code Rejected'],
             ['CODE-SUBMITTED', 'Code Submitted'],
-            ['COMPLETED', 'Completed'],
-            ['ERRORED', 'Errored'],
+            ['RUN-COMPLETE', 'Run Complete'],
+            ['JOB-ERRORED', 'Job Errored'],
             ['INITIATED', 'Initiated'],
-            ['READY', 'Ready'],
+            ['JOB-READY', 'Job Ready'],
             ['RESULTS-REJECTED', 'Results Rejected'],
-            ['RESULTS-REVIEW', 'Results Review'],
-            ['RUNNING', 'Running'],
+            ['RESULTS-APPROVED', 'Results Approved'],
+            ['JOB-RUNNING', 'Job Running'],
         ] as const
 
         testCases.forEach(([input, expected]) => {

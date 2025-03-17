@@ -4,7 +4,9 @@ const SPECIAL_STATUSES: Record<string, string> = {
     REJECTED: 'Changes Requested',
 }
 
-export function humanizeStatus(status: AllStatus): string {
+export function humanizeStatus(status?: AllStatus): string {
+    if (!status) return ''
+
     if (SPECIAL_STATUSES[status]) {
         return SPECIAL_STATUSES[status]
     }

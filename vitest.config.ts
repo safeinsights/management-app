@@ -15,13 +15,13 @@ export default defineConfig({
         setupFiles: ['tests/vitest.setup.ts'],
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
         coverage: {
-            enabled: IS_CI,
-            reportsDirectory: 'tests/coverage/code-coverage/unit',
+            enabled: true, //IS_CI,
+            reportsDirectory: 'test-results/unit',
             clean: true,
             coverageReportOptions: {
                 reports: ['raw', 'console-details', 'v8', 'html'],
                 lcov: true,
-                outputDir: 'tests/coverage/code-coverage/unit',
+                outputDir: 'test-results/unit',
                 clean: true,
                 sourceFilter: testsCoverageSourceFilter,
             },

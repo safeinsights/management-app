@@ -1,4 +1,4 @@
-import { BLANK_UUID, db } from '@/database'
+import { db } from '@/database'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -36,6 +36,12 @@ export function renderWithProviders(ui: ReactElement) {
 export * from './common.helpers'
 
 export const insertTestStudyData = async (opts: { memberId: string }) => {
+    const researcher = await db
+        .selectFrom('user')
+        .select('id')
+        .where('isResearcher', '=', true)
+        .executeTakeFirstOrThrow()
+
     const study = await db
         .insertInto('study')
         .values({
@@ -43,8 +49,9 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
             containerLocation: 'test-container',
             title: 'my 1st study',
             description: 'my description',
-            researcherId: BLANK_UUID,
+            researcherId: researcher.id,
             piName: 'test',
+            irbProtocols: 'https://www.google.com',
             status: 'APPROVED',
             dataSources: ['all'],
             outputMimeType: 'text/csv',
@@ -52,37 +59,49 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const run0 = await db
-        .insertInto('studyRun')
+    const job0 = await db
+        .insertInto('studyJob')
         .values({
             studyId: study.id,
-            status: 'INITIATED',
+            resultFormat: 'SI_V1_ENCRYPT',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'INITIATED', studyJobId: job0.id, userId: researcher.id })
+        .execute()
 
-    const run1 = await db
-        .insertInto('studyRun')
+    const job1 = await db
+        .insertInto('studyJob')
         .values({
             studyId: study.id,
-            status: 'RUNNING',
+            resultFormat: 'SI_V1_ENCRYPT',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'JOB-RUNNING', studyJobId: job1.id, userId: researcher.id })
+        .execute()
 
-    const run2 = await db
-        .insertInto('studyRun')
+    const job2 = await db
+        .insertInto('studyJob')
         .values({
             studyId: study.id,
-            status: 'READY',
+            resultFormat: 'SI_V1_ENCRYPT',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
+    await db
+        .insertInto('jobStatusChange')
+        .values({ status: 'JOB-READY', studyJobId: job2.id, userId: researcher.id })
+        .execute()
 
     return {
         memberId: opts.memberId,
         studyId: study.id,
-        runIds: [run0.id, run1.id, run2.id],
+        jobIds: [job0.id, job1.id, job2.id],
     }
 }
 

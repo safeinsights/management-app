@@ -16,7 +16,10 @@ export default [
     {
         rules: {
             'no-console': ['error', { allow: ['warn', 'error'] }],
-            'no-unused-vars': ['error', { ignoreRestSiblings: true, varsIgnorePattern: '_+', argsIgnorePattern: '^_' }],
+            '@typescript-eslint/no-unused-vars': [
+                'error',
+                { ignoreRestSiblings: true, varsIgnorePattern: '_+', argsIgnorePattern: '^_' },
+            ],
             semi: ['error', 'never'],
         },
     },

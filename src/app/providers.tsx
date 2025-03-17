@@ -9,14 +9,17 @@ import { ClerkProvider } from '@clerk/nextjs'
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { FC, ReactNode } from 'react'
 
 function makeQueryClient() {
     return new QueryClient({
         defaultOptions: {
             queries: {
                 // With SSR, we usually want to set some default staleTime
-                // above 0 to avoid refetching immediately on the client
+                // above 0 to avoid re-fetching immediately on the client
                 staleTime: 60 * 1000,
+                // Every 15 minutes - open to input on this
+                refetchInterval: 15 * 1000 * 60,
             },
         },
     })
@@ -25,7 +28,7 @@ function makeQueryClient() {
 let browserQueryClient: QueryClient | undefined = undefined
 
 type Props = {
-    children: React.ReactNode
+    children: ReactNode
 }
 
 export function getQueryClient() {
@@ -42,7 +45,7 @@ export function getQueryClient() {
     }
 }
 
-export const Providers: React.FC<Props> = ({ children }) => {
+export const Providers: FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
 
     return (

@@ -6,19 +6,19 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyRun, pathForStudyRunResults, pathForStudyRunCode } from '@/lib/paths'
+import { pathForStudyJob, pathForStudyJobResults, pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { CodeManifest, MinimalRunInfo, MinimalRunResultsInfo } from '@/lib/types'
+import { CodeManifest, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
 export type { PresignedPost }
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
-    return Object.entries({ ...tags, Environment, Application: 'Mangement App' }).map(([Key, Value]) => ({
+    return Object.entries({ ...tags, Environment, Application: 'Management App' }).map(([Key, Value]) => ({
         Key,
         Value: strToAscii(Value).slice(0, 256),
     }))
@@ -107,30 +107,30 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeResultsFile = async (info: MinimalRunResultsInfo, body: ReadableStream) => {
+export const storeResultsFile = async (info: MinimalJobResultsInfo, body: ReadableStream) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
         client: getS3Client(),
-        tags: objectToAWSTags({ studyId: info.studyId, runId: info.studyRunId }),
+        tags: objectToAWSTags({ studyId: info.studyId, jobId: info.studyJobId }),
         params: {
             Bucket: s3BucketName(),
             ChecksumSHA256: hash,
-            Key: pathForStudyRunResults(info),
+            Key: pathForStudyJobResults(info),
             Body: upStream,
         },
     })
     await uploader.done()
 }
 
-export async function fetchCodeFile(info: MinimalRunInfo, path: string) {
+export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
     const resp = await getS3Client().send(
         new GetObjectCommand({
             Bucket: s3BucketName(),
-            Key: `${pathForStudyRun(info)}/code/${path}`,
+            Key: `${pathForStudyJob(info)}/code/${path}`,
         }),
     )
-    if (!resp.Body) throw new Error('no body recieved from s3')
+    if (!resp.Body) throw new Error('no body received from s3')
 
     const stream = resp.Body as Readable
     const chunks: Buffer[] = []
@@ -142,22 +142,22 @@ export async function fetchCodeFile(info: MinimalRunInfo, path: string) {
     return Buffer.concat(chunks).toString('utf-8')
 }
 
-export async function fetchCodeManifest(info: MinimalRunInfo) {
+export async function fetchCodeManifest(info: MinimalJobInfo) {
     const body = await fetchCodeFile(info, 'manifest.json')
     return JSON.parse(body) as CodeManifest
 }
 
-export async function urlForResults(info: MinimalRunResultsInfo) {
-    const path = pathForStudyRunResults(info)
+export async function urlForResults(info: MinimalJobResultsInfo) {
+    const path = pathForStudyJobResults(info)
     const url = await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key: path }), {
         expiresIn: 3600,
     })
     return url
 }
 
-export async function urlForStudyRunCodeUpload(info: MinimalRunInfo) {
+export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
     const bucket = s3BucketName()
-    const prefix = pathForStudyRunCode(info)
+    const prefix = pathForStudyJobCode(info)
     const psPost = await createPresignedPost(getS3Client(), {
         Bucket: bucket,
         Conditions: [['starts-with', '$key', prefix]],
@@ -167,9 +167,9 @@ export async function urlForStudyRunCodeUpload(info: MinimalRunInfo) {
     return psPost
 }
 
-export async function fetchStudyRunResults(info: MinimalRunResultsInfo) {
-    const path = pathForStudyRunResults(info)
+export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
+    const path = pathForStudyJobResults(info)
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
-    if (!result.Body) throw new Error(`no file recieved from s3 for run result ${info.studyRunId}`)
+    if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
     return result.Body
 }

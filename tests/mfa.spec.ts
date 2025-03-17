@@ -1,4 +1,4 @@
-import { visitClerkProtectedPage, clerk, test, TestingUsers, CLERK_MFA_CODE } from './e2e.helpers'
+import { test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('MFA authentication', async () => {
     test('adds using app', async ({ page }) => {

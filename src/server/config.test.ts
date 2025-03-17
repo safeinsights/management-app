@@ -1,0 +1,53 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { getConfigValue } from './config'
+
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
+import { mockClient } from 'aws-sdk-client-mock'
+
+const secretsManagerMock = mockClient(SecretsManagerClient)
+
+describe('getConfigValue', () => {
+    const ORIGINAL_ENV = process.env
+
+    beforeEach(() => {
+        secretsManagerMock.reset()
+        process.env = { ...ORIGINAL_ENV }
+    })
+
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
+    })
+
+    it('should return the value from process.env if it exists', async () => {
+        process.env.MY_CONFIG = 'envValue'
+        const value = await getConfigValue('MY_CONFIG')
+        expect(value).toBe('envValue')
+    })
+
+    it('should return the value from AWS secrets if process.env does not contain the key', async () => {
+        delete process.env.MY_CONFIG
+        process.env.SECRETS_ARN = '1234_ARN'
+        // Setup the mock to return a secret containing MY_CONFIG
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: '1234_ARN' }).resolves({
+            SecretString: JSON.stringify({ MY_CONFIG: 'secretValue' }),
+        })
+
+        const value = await getConfigValue('MY_CONFIG')
+        expect(value).toBe('secretValue')
+        delete process.env.SECRETS_ARN
+    })
+
+    it('should throw an error if the key is not found in AWS secrets', async () => {
+        delete process.env.MY_CONFIG
+
+        // Setup the mock to return a secret that does not include MY_CONFIG
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'SECRETS_ARN' }).resolves({
+            SecretString: JSON.stringify({ OTHER_CONFIG: 'otherValue' }),
+        })
+
+        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('missing ARN SECRETS_ARN in env')
+
+        process.env.SECRETS_ARN = '1234_ARN'
+        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('failed to fetch 1234_ARN from AWS secrets')
+    })
+})

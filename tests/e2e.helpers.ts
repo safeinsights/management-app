@@ -3,6 +3,7 @@ import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
 import { addCoverageReport } from 'monocart-reporter'
+import { faker } from '@faker-js/faker'
 
 export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
@@ -63,14 +64,22 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
     await addCoverageReport(coverageReports.flat(), test.info())
 }
 
-// See https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
-interface AppFixtures {
-    codeCoverageAutoTestFixture: void
+class StudyFeatures {
+    public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()}`
+
+    static perWorkerFeatures: Record<number, StudyFeatures> = {}
+
+    static getFeature(workerIndex: number) {
+        return (
+            StudyFeatures.perWorkerFeatures[workerIndex] ||
+            (StudyFeatures.perWorkerFeatures[workerIndex] = new StudyFeatures())
+        )
+    }
 }
 
-// Export the extended test type.
-// All tests that use this export 'test' type will have the automatic fixture applied to them.
-export const test = baseTest.extend<AppFixtures>({
+// See https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
+// Note that we pass page scoped as first and worker fixture types as a second template parameter.
+export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { studyFeatures: StudyFeatures }>({
     codeCoverageAutoTestFixture: [
         async ({ browser, page }, use): Promise<void> => {
             const options: CollectV8CodeCoverageOptions = {
@@ -82,9 +91,14 @@ export const test = baseTest.extend<AppFixtures>({
             }
             await collectV8CodeCoverageAsync(options)
         },
-        {
-            auto: true,
+        { auto: true },
+    ],
+    studyFeatures: [
+        async ({}, use, workerInfo) => {
+            const feat = StudyFeatures.getFeature(workerInfo.workerIndex)
+            await use(feat)
         },
+        { scope: 'worker' },
     ],
 })
 
@@ -103,7 +117,7 @@ type ClerkSignInParams = {
 
 export const CLERK_MFA_CODE = '424242'
 
-const clerkSignInHelper = async (params: ClerkSignInParams) => {
+export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     const w = window
     if (!w.Clerk.client) {
         return

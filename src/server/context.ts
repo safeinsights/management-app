@@ -26,3 +26,7 @@ export function requestingUser() {
 
     return user
 }
+
+export function wasCalledFromAPI() {
+    return Boolean(localStorageContext.getStore())
+}

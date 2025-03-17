@@ -1,10 +1,10 @@
 import React from 'react'
 import { Button, Flex, Text, Title, Container } from '@mantine/core'
-import { getLatestStudyRunAction } from './actions'
+import { getLatestStudyJobAction } from './actions'
 import Link from 'next/link'
-import { UploadStudyRunCode } from '@/components/upload-study-run-code'
+import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 import { AlertNotFound } from '@/components/errors'
-import { getUploadUrlForStudyRunCodeAction } from './actions'
+import { getUploadUrlForStudyJobCodeAction } from './actions'
 
 export default async function UploadPage(props: { params: Promise<{ encodedStudyId: string }> }) {
     const params = await props.params
@@ -12,9 +12,9 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
     const { encodedStudyId } = params
 
     // TODO check user permissions
-    const study = await getLatestStudyRunAction({ encodedStudyId })
+    const study = await getLatestStudyJobAction({ encodedStudyId })
 
-    if (!study?.pendingRunId) {
+    if (!study?.pendingJobId) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
@@ -25,12 +25,10 @@ export default async function UploadPage(props: { params: Promise<{ encodedStudy
                 pt={10}
                 fs="italic"
             >{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
-            <Text mb="xl" mt="lg" fw="bold">
-                For the Pilot, engineers use the following to containerize and upload code:
-            </Text>
-            <UploadStudyRunCode
-                run={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyRunId: study.pendingRunId }}
-                getSignedURL={getUploadUrlForStudyRunCodeAction}
+
+            <UploadStudyJobCode
+                job={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyJobId: study.pendingJobId }}
+                getSignedURL={getUploadUrlForStudyJobCodeAction}
             />
             <Flex justify="end" mt="lg">
                 <Link href="edit" passHref>

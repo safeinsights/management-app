@@ -5,11 +5,11 @@ import { useMutation } from '@tanstack/react-query'
 import { Accordion, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { css } from '@/styles'
-import { RunsTable } from './runs-table'
+import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
+import { updateStudyStatusAction } from '@/server/actions/study-actions'
 
 export const labelStyle = css({
     width: '10rem',
@@ -124,12 +124,12 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
 
                 {/* Researcher Code Review Panel will be addressed by OTTER-51 */}
 
-                <Accordion.Item value="runs">
+                <Accordion.Item value="jobs">
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <RunsTable
-                                isActive={activeSection == 'runs'}
+                            <JobsTable
+                                isActive={activeSection == 'jobs'}
                                 study={study}
                                 encodedStudyId={studyIdentifier}
                             />
