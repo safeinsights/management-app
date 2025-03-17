@@ -99,26 +99,6 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                                 </Text>
                             </Group>
                         </Stack>
-
-                        <Stack align="stretch" mb={30}>
-                            <Flex p={2} gap="lg">
-                                <Text className={labelStyle}>Datasets of Interest</Text>
-                                <Stack>
-                                    <Checkbox
-                                        name="highlights"
-                                        label="Highlights and Notes"
-                                        checked={study.dataSources?.includes('highlights')}
-                                        disabled={true}
-                                    ></Checkbox>
-                                    <Checkbox
-                                        name="eventCapture"
-                                        label="Event Capture"
-                                        checked={study.dataSources?.includes('eventCapture')}
-                                        disabled={true}
-                                    ></Checkbox>
-                                </Stack>
-                            </Flex>
-                        </Stack>
                     </Accordion.Panel>
                 </Accordion.Item>
 
