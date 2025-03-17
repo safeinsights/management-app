@@ -6,7 +6,20 @@ on:
     pull_request: {}
 
 jobs:
-    all:
+    lint:
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'npm'
+            - name: npm install
+              run: npm ci
+            - name: npm run checks
+              run: npm run checks
+    test:
         timeout-minutes: 15
         runs-on: ubuntu-latest
         services:
@@ -36,7 +49,6 @@ jobs:
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
         steps:
             - uses: actions/checkout@v4
-
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
@@ -66,8 +78,6 @@ jobs:
             - name: start NextJS server
               run: npm run dev &
 
-            - name: npm run checks
-              run: npm run checks
             - name: npm run test:unit
               run: npm run test:unit
             - name: npm run test:e2e
