@@ -19,7 +19,7 @@ export const UserNav = () => {
         } else if (auth.isAdmin) {
             router.push('/admin/members') // Redirect to the Admin dashboard
         }
-    }, [auth.isLoaded])
+    }, [auth, router])
 
     if (!auth.isLoaded) {
         return <LoadingOverlay />

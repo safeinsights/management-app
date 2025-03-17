@@ -151,7 +151,6 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     await w.Clerk.setActive({ session: result.createdSessionId })
 }
 
-
 export const readTestSupportFile = (file: string) => {
     const filename = fileURLToPath(import.meta.url) // get the resolved path to the file
 
