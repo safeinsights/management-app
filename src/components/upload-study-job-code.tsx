@@ -1,8 +1,9 @@
 'use client'
 import { useCallback, useState } from 'react'
-import { Flex, Group, Paper, rem, Text } from '@mantine/core'
-import { Code, ImageSquare, Upload, X } from '@phosphor-icons/react/dist/ssr'
+import { Flex, Group, Paper, rem, Text, Stack, Divider, Button, FileButton } from '@mantine/core'
+import { Code, Upload, X } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
+import { UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import type { MinimalJobInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { notifications } from '@mantine/notifications'
@@ -50,7 +51,7 @@ async function uploadFilesToS3(files: FileWithPath[], job: MinimalJobInfo, getSi
         if (!(await uploadFile(file, post))) allSuccess = false
     }
     // TODO Re: This note, couldn't we just sort the files and place manifest.json last?
-    // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
+    // the manifest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     if (!(await uploadFile(file, post))) allSuccess = false
     return allSuccess
@@ -58,6 +59,7 @@ async function uploadFilesToS3(files: FileWithPath[], job: MinimalJobInfo, getSi
 
 export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStudyJobCodeProps) {
     const [uploadState, setUploading] = useState<false | 'uploading' | 'complete'>(false)
+    const [_, setFiles] = useState<File[] | null>([])
 
     const onDrop = useCallback(
         async (files: FileWithPath[]) => {
@@ -83,44 +85,63 @@ export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStud
     }
 
     return (
-        <Dropzone
-            onDrop={onDrop}
-            onReject={(rejections) =>
-                notifications.show({
-                    color: 'red',
-                    title: 'rejected files',
-                    message: rejections
-                        .map(
-                            (rej) =>
-                                `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
-                        )
-                        .join('\n'),
-                })
-            }
-            {...dzProps}
-            loading={uploadState === 'uploading'}
-            multiple={false}
-        >
-            <Group justify="center" gap="xl" mih={220} style={{ pointerEvents: 'none' }}>
-                <Dropzone.Accept>
-                    <Upload style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-blue-6)' }} />
-                </Dropzone.Accept>
-                <Dropzone.Reject>
-                    <X style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-red-6)' }} />
-                </Dropzone.Reject>
-                <Dropzone.Idle>
-                    <ImageSquare style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-dimmed)' }} />
-                </Dropzone.Idle>
-
-                <div>
-                    <Text size="xl" inline>
-                        Drag files here or click to select a file or directory.
+        <>
+            <Dropzone
+                w="50%"
+                onDrop={onDrop}
+                onReject={(rejections) =>
+                    notifications.show({
+                        color: 'red',
+                        title: 'rejected files',
+                        message: rejections
+                            .map(
+                                (rej) =>
+                                    `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
+                            )
+                            .join('\n'),
+                    })
+                }
+                {...dzProps}
+                loading={uploadState === 'uploading'}
+                multiple={false}
+            >
+                <Stack align="center" justify="center" gap="md" mih={120} style={{ pointerEvents: 'none' }}>
+                    <Dropzone.Accept>
+                        <Upload style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-blue-6)' }} />
+                    </Dropzone.Accept>
+                    <Dropzone.Reject>
+                        <X style={{ width: rem(52), height: rem(52), color: 'var(--mantine-color-red-6)' }} />
+                    </Dropzone.Reject>
+                    <Dropzone.Idle>
+                        <UploadSimple size={32} />
+                    </Dropzone.Idle>
+                    <div>
+                        <Text size="md" mb="sm" inline>
+                            Drop files here.
+                        </Text>
+                    </div>
+                </Stack>
+                <Divider my="xl" label="Or" labelPosition="center" />
+                <Group justify="center">
+                    <FileButton onChange={setFiles} accept="image/png,image/jpeg" multiple>
+                        {(props) => (
+                            <Button {...props} variant="outline" color="#616161">
+                                Upload
+                            </Button>
+                        )}
+                    </FileButton>
+                </Group>
+            </Dropzone>
+            <div>
+                <Stack gap="xs" pl={2}>
+                    <Text size="sm" c="dimmed" inline>
+                        Accepted file type: .R
                     </Text>
-                    <Text size="sm" c="dimmed" inline mt={7}>
-                        If more than one file is uploaded, one of them <b>MUST</b> be named <b>main.r</b>
+                    <Text size="sm" c="dimmed" inline>
+                        Maximum file size: 10MB, up to 10 files
                     </Text>
-                </div>
-            </Group>
-        </Dropzone>
+                </Stack>
+            </div>
+        </>
     )
 }

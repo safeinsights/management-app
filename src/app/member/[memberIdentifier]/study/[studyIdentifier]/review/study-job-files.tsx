@@ -5,14 +5,17 @@ import { Badge, Group, Text } from '@mantine/core'
 import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
+import { StudyJob } from '@/schema/study'
 
-export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
-    const { data } = useQuery({
-        queryKey: ['studyJobFiles', jobId],
-        queryFn: () => dataForJobAction(jobId),
+export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
+    const { data, isLoading } = useQuery({
+        queryKey: ['studyJobFiles', job.id],
+        queryFn: () => dataForJobAction(job.id),
     })
 
-    if (!jobId) {
+    if (isLoading) return null
+
+    if (!data) {
         return <Text>No files!</Text>
     }
 
@@ -25,7 +28,7 @@ export const StudyJobFiles: FC<{ jobId: string }> = ({ jobId }) => {
                 color="#D4D1F3"
                 c="black"
                 component="a"
-                href="TODO Download"
+                href={`analysis/${data.jobInfo?.memberIdentifier}/${data.jobInfo?.studyId}/${data.jobInfo?.studyJobId}/code`}
                 target="_blank"
                 rightSection={<Download />}
                 style={{ cursor: 'pointer' }}

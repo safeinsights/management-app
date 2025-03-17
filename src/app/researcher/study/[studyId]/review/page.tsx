@@ -19,7 +19,13 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     return (
         <Center>
             <Paper w="70%" shadow="xs" p="sm" m="xs">
-                <ResearcherBreadcrumbs crumbs={{ studyId, current: study.title }} />
+                <ResearcherBreadcrumbs
+                    crumbs={{
+                        studyId,
+                        studyTitle: study?.title,
+                        current: 'Proposal Request',
+                    }}
+                />
                 <Stack>
                     <Group gap="xl" mb="xl">
                         <Title>{study.title}</Title>

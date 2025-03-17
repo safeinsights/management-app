@@ -42,7 +42,7 @@ export const ResearcherBreadcrumbs: FC<{
     crumbs: {
         memberIdentifier?: string
         studyTitle?: string
-        studyId: string
+        studyId?: string
         current?: string
     }
 }> = ({ crumbs: { studyId, studyTitle, current } }) => {
