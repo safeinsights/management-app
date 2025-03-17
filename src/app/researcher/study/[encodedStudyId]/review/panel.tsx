@@ -54,68 +54,39 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                         <Accordion.Panel>
                             <Divider my="sm" mt="sm" mb="md" />
                             <Stack mt={30}>
-                                <Flex p={2} gap="md" wrap="wrap">
-                                    <Text className={labelStyle}>Study Title</Text>
+                                <Group>
+                                    <Text className={labelStyle}> Study Title</Text>
                                     <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
                                         disabled
-                                        className={inputStyle}
                                         name="title"
                                         data-testid="study-title"
                                         value={study.title}
                                         readOnly
                                     />
-                                </Flex>
-                                <Flex p={2} gap="md" wrap="wrap">
+                                </Group>
+                                <Group>
                                     <Text className={labelStyle}>Study Lead</Text>
                                     <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
                                         disabled
-                                        className={inputStyle}
                                         name="study-lead"
                                         data-testid="study-lead"
                                         value="Researcher Name"
                                         readOnly
                                     />
-                                </Flex>
+                                </Group>
 
-                                <Flex p={2} gap="md">
+                                <Group>
                                     <Text className={labelStyle}>Principal Investigator</Text>
-                                    <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
-                                        className={inputStyle}
-                                        name="piName"
-                                        value={study.piName}
-                                        disabled
-                                    />
-                                </Flex>
+                                    <TextInput name="piName" value={study.piName} disabled />
+                                </Group>
 
-                                <Flex p={2} gap="md" wrap="wrap">
+                                <Group>
                                     <Text className={labelStyle}>Study Description</Text>
-                                    <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
-                                        className={inputStyle}
-                                        name="description"
-                                        label=""
-                                        value={study.description}
-                                        disabled={true}
-                                    />
-                                </Flex>
-                                <Group p={2} gap="md">
+                                    <TextInput name="description" label="" value={study.description} disabled={true} />
+                                </Group>
+                                <Group>
                                     <Text className={labelStyle}>IRB Document</Text>
-                                    <TextInput
-                                        bg="#ddd"
-                                        bd="1px solid #ccc"
-                                        className={inputStyle}
-                                        name="irbDocument"
-                                        value={study.irbProtocols}
-                                        disabled={true}
-                                        readOnly
-                                    />
+                                    <TextInput name="irbDocument" value={study.irbProtocols} disabled={true} readOnly />
                                 </Group>
                             </Stack>
                         </Accordion.Panel>
@@ -124,7 +95,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                 <Accordion.Item value="jobs" mt="xl">
                     <Accordion.Control>Study Code</Accordion.Control>
                     <Accordion.Panel>
-                    <Divider my="sm" mt="sm" mb="md" />
+                        <Divider my="sm" mt="sm" mb="md" />
                         <Stack></Stack>
                     </Accordion.Panel>
                 </Accordion.Item>

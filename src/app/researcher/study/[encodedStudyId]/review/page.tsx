@@ -35,7 +35,7 @@ export default async function StudyReviewPage(props: {
             />
             <Stack w="100%">
                 <Paper p="md" mt="md">
-                        <Title mb="lg">{study.title}</Title>
+                    <Title mb="lg">{study.title}</Title>
                 </Paper>
 
                 <StudyPanel study={study} studyIdentifier={studyIdentifier} encodedStudyId={study.id} />

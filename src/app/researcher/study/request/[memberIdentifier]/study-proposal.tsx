@@ -8,11 +8,6 @@ import { onCreateStudyAction } from './actions'
 import { css } from '@/styles'
 import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './studyProposalSchema'
 
-export const customLabel = css({
-    fontSize: '18px',
-    marginBottom: '10px',
-})
-
 export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()
 

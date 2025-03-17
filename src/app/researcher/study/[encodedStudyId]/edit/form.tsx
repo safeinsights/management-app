@@ -25,10 +25,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
         mode: 'uncontrolled',
         validate: zodResolver(schema),
         validateInputOnBlur: true,
-        initialValues: {
-            irbDocument: study.irbProtocols,
-            ...study,
-        },
+        initialValues: study,
     })
 
     return (
