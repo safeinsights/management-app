@@ -12,6 +12,8 @@ npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
 npx prettier --write $TYPES
 npx eslint --fix $TYPES
 
+npx tsx tests/configure-test-env.ts
+
 if [ -e "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then
         echo "src/database/types.ts has uncommitted changes."

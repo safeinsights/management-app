@@ -6,13 +6,13 @@ import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 import { AlertNotFound } from '@/components/errors'
 import { getUploadUrlForStudyJobCodeAction } from './actions'
 
-export default async function UploadPage(props: { params: Promise<{ encodedStudyId: string }> }) {
+export default async function UploadPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
 
-    const { encodedStudyId } = params
+    const { studyId } = params
 
     // TODO check user permissions
-    const study = await getLatestStudyJobAction({ encodedStudyId })
+    const study = await getLatestStudyJobAction(studyId)
 
     if (!study?.pendingJobId) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

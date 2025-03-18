@@ -1,10 +1,15 @@
-import { Paper, Center, Title, Text, Stack, Group } from '@mantine/core'
-import { b64toUUID } from '@/lib/uuid'
-import { StudyPanel } from './panel'
+import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study-actions'
+import React from 'react'
+import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
+import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
+import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
+import { first } from 'remeda'
+
+export const dynamicParams = true
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -16,35 +21,65 @@ export default async function StudyReviewPage(props: {
 
     const { memberIdentifier, studyIdentifier } = params
 
-    // TODO check user permissions
     const member = await getMemberFromIdentifier(memberIdentifier)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
-    const study = await getStudyAction(b64toUUID(studyIdentifier))
+    const study = await getStudyAction(studyIdentifier)
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    return (
-        <Center>
-            <Paper w="50%" shadow="xs" p="sm" m="xs">
-                <MemberBreadcrumbs crumbs={{ memberIdentifier, current: study.title }} />
-                <Stack>
-                    <Group gap="xl">
-                        <Title>
-                            {study.title} | {study.piName}
-                        </Title>
-                    </Group>
+    const latestJob = first(study.jobs)
 
-                    <Text c="#7F7D7D" mb={30} pt={10} fz="lg" fs="italic">
-                        {'{'}Communication between member and researcher will be skipped for this pilot{'}'}
-                    </Text>
+    return (
+        <Stack px="xl" gap="xl">
+            <Stack mt="xl" gap="lg">
+                <MemberBreadcrumbs
+                    crumbs={{
+                        memberIdentifier,
+                        current: study.title,
+                    }}
+                />
+                <Divider />
+            </Stack>
+
+            <Title>Study details</Title>
+
+            <Paper bg="white" p="xl">
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={4}>Study Proposal</Title>
+                        <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                    </Group>
+                    <Divider />
+                    <Grid>
+                        <GridCol span={3}>
+                            <Stack>
+                                <Text fw="bold">Study Name</Text>
+                                <Text fw="bold">Principal investigator</Text>
+                                <Text fw="bold">Researcher</Text>
+                                <Text fw="bold">IRB</Text>
+                                <Text fw="bold">Agreement(s)</Text>
+                                <Text fw="bold">Study Code</Text>
+                            </Stack>
+                        </GridCol>
+                        <GridCol span={9}>
+                            <Stack>
+                                <Text>{study.title}</Text>
+                                <Text>{study.piName}</Text>
+                                <Text>{study.researcherName}</Text>
+                                <Text>{study.irbProtocols} some link</Text>
+                                <Text>TODO agreements</Text>
+                                <StudyJobFiles job={study.jobs[0]} />
+                            </Stack>
+                        </GridCol>
+                    </Grid>
                 </Stack>
-                <StudyPanel study={study} memberIdentifier={memberIdentifier} />
             </Paper>
-        </Center>
+            {latestJob && <StudyResults latestJob={latestJob} />}
+        </Stack>
     )
 }

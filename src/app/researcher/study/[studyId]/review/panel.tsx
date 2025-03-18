@@ -2,14 +2,14 @@
 
 import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Accordion, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
+import { Accordion, Checkbox, Flex, Group, Stack, Text, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { updateStudyStatusAction } from './actions'
 import type { StudyStatus } from '@/database/types'
 import { css } from '@/styles'
 import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
+import { updateStudyStatusAction } from '@/server/actions/study-actions'
 
 export const labelStyle = css({
     width: '10rem',
@@ -19,10 +19,7 @@ export const inputStyle = css({
     width: '20rem',
 })
 
-export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
-    studyIdentifier,
-    study,
-}) => {
+export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
     const router = useRouter()
     const [activeSection, setActiveSection] = useState<string | null>(null)
 
@@ -57,18 +54,6 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                                     data-testid="study-title"
                                     value={study.title}
                                     readOnly
-                                />
-                            </Flex>
-                            <Flex p={2} gap="md" wrap="wrap">
-                                <Text className={labelStyle}>Study Description</Text>
-                                <Textarea
-                                    bg="#ddd"
-                                    bd="1px solid #ccc"
-                                    className={inputStyle}
-                                    name="description"
-                                    label=""
-                                    value={study.description}
-                                    disabled={true}
                                 />
                             </Flex>
 
@@ -128,11 +113,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <JobsTable
-                                isActive={activeSection == 'jobs'}
-                                study={study}
-                                encodedStudyId={studyIdentifier}
-                            />
+                            <JobsTable isActive={activeSection == 'jobs'} study={study} />
                         </Stack>
                     </Accordion.Panel>
                 </Accordion.Item>

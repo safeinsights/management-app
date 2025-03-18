@@ -1,7 +1,8 @@
 import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
-import { clerk, setupClerkTestingToken } from '@clerk/testing/playwright'
+import { setupClerkTestingToken } from '@clerk/testing/playwright'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'url'
 import { addCoverageReport } from 'monocart-reporter'
 import { faker } from '@faker-js/faker'
 
@@ -125,6 +126,11 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
 
     const signIn = await w.Clerk.client.signIn.create({ identifier: params.identifier, password: params.password })
 
+    if (signIn.status == 'complete') {
+        await w.Clerk.setActive({ session: signIn.createdSessionId })
+        return
+    }
+
     if (
         signIn.status !== 'needs_second_factor' ||
         !signIn.supportedSecondFactors?.find((sf) => sf.strategy == 'phone_code')
@@ -138,12 +144,17 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
         strategy: 'phone_code',
         code: params.mfa,
     })
-
-    if (result.status === 'complete') {
-        await w.Clerk.setActive({ session: result.createdSessionId })
-    } else {
+    if (result.status !== 'complete') {
         reportError(`Unknown signIn status: ${result.status}`)
     }
+
+    await w.Clerk.setActive({ session: result.createdSessionId })
+}
+
+export const readTestSupportFile = (file: string) => {
+    const filename = fileURLToPath(import.meta.url) // get the resolved path to the file
+
+    return fs.promises.readFile(path.join(path.dirname(filename), 'support', file), 'utf8')
 }
 
 export type TestingRole = 'researcher' | 'member'
@@ -170,6 +181,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     await page.evaluate(() => {
         window.Clerk.session?.end()
     })
+
     await page.goto('/account/signin')
     await clerkLoaded(page)
     await page.evaluate(clerkSignInHelper, TestingUsers[role])

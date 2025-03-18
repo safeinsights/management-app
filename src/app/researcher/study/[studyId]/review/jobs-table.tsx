@@ -24,7 +24,6 @@ import { PreviewCSVResultsBtn } from './results'
 import { Study } from '@/schema/study'
 
 type JobsTableProps = {
-    encodedStudyId: string
     isActive: boolean
     study: Study
 }
@@ -105,7 +104,7 @@ export const JobsTable: FC<JobsTableProps> = ({ isActive, study }) => {
     )
 }
 
-export const Panel: FC<{ studies: Study[]; encodedStudyId: string }> = ({ studies, encodedStudyId }) => {
+export const Panel: FC<{ studies: Study[] }> = ({ studies }) => {
     const [activeId, setActiveId] = useState<string | null>(null)
 
     if (!studies.length) {
@@ -123,8 +122,7 @@ export const Panel: FC<{ studies: Study[]; encodedStudyId: string }> = ({ studie
                 <AccordionItem key={study.id} value={study.id} my="xl">
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
-                        <p>{study.description}</p>
-                        <JobsTable isActive={activeId == study.id} study={study} encodedStudyId={encodedStudyId} />
+                        <JobsTable isActive={activeId == study.id} study={study} />
                     </AccordionPanel>
                 </AccordionItem>
             ))}

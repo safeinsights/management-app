@@ -1,21 +1,18 @@
 'use server'
 
 import { db } from '@/database'
-import { MinimalJobInfo } from '@/lib/types'
-import { uuidToB64 } from '@/lib/uuid'
-import { fetchCodeFile } from '@/server/aws'
+import { CodeManifest, MinimalJobInfo } from '@/lib/types'
+import { fetchCodeFile, fetchCodeManifest } from '@/server/aws'
 import { StudyJobStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
-import { CodeManifest } from '@/lib/types'
-import { b64toUUID } from '@/lib/uuid'
-import { fetchCodeManifest } from '@/server/aws'
 import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
 import { siUser } from '@/server/queries'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    db.insertInto('jobStatusChange')
+    await db
+        .insertInto('jobStatusChange')
         .values({
             userId: (await siUser()).id,
             status,
@@ -23,7 +20,7 @@ export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: S
         })
         .executeTakeFirstOrThrow()
 
-    revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(info.studyId)}/job/${uuidToB64(info.studyJobId)}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
 }
 
 export const fetchFileAction = async (job: MinimalJobInfo, path: string) => {
@@ -35,7 +32,6 @@ export const fetchFileAction = async (job: MinimalJobInfo, path: string) => {
 }
 
 export const dataForJobAction = async (studyJobIdentifier: string) => {
-    const jobId = b64toUUID(studyJobIdentifier)
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -47,7 +43,7 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
             'study.title as studyTitle',
             'member.identifier as memberIdentifier',
         ])
-        .where('studyJob.id', '=', jobId)
+        .where('studyJob.id', '=', studyJobIdentifier)
         .executeTakeFirst()
 
     let manifest: CodeManifest = {

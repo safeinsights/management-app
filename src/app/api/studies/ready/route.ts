@@ -21,7 +21,7 @@ export const GET = wrapApiMemberAction(async () => {
             'jobStatusChange.status',
             'study.dataSources',
             'study.outputMimeType',
-            sql<string>`concat(study.container_location, ':', uuid_to_b64(study_job.id) )`.as('containerLocation'),
+            sql<string>`concat(study.container_location, ':', study_job.id )`.as('containerLocation'),
         ])
         .where('jobStatusChange.status', 'in', ['JOB-READY', 'JOB-RUNNING'])
         .execute()

@@ -8,17 +8,22 @@ import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJob, pathForStudyJobResults, pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii, slugify } from '@/lib/string'
-import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { CodeManifest, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
+import {
+    CodeManifest,
+    isMinimalStudyRunInfo,
+    MinimalJobInfo,
+    MinimalJobResultsInfo,
+    MinimalStudyInfo,
+} from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
 export type { PresignedPost }
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
-    return Object.entries({ ...tags, Environment, Application: 'Mangement App' }).map(([Key, Value]) => ({
+    return Object.entries({ ...tags, Environment, Application: 'Management App' }).map(([Key, Value]) => ({
         Key,
         Value: strToAscii(Value).slice(0, 256),
     }))
@@ -48,7 +53,7 @@ const s3BucketName = () => {
 }
 
 export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
-    return `si/analysis/${opts.memberIdentifier}/${uuidToB64(opts.studyId).toLowerCase()}/${slugify(opts.studyTitle)}`
+    return `si/analysis/${opts.memberIdentifier}/${opts.studyId}/${slugify(opts.studyTitle)}`
 }
 
 export const getAWSInfo = async () => {
@@ -107,16 +112,23 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeResultsFile = async (info: MinimalJobResultsInfo, body: ReadableStream) => {
+export const storeStudyFile = async (
+    info: MinimalStudyInfo | MinimalJobResultsInfo,
+    body: ReadableStream,
+    Key: string,
+) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
-        client: getS3Client(),
-        tags: objectToAWSTags({ studyId: info.studyId, jobId: info.studyJobId }),
+        client: getS3Client(), // jobId: info.studyJobId//
+        tags: objectToAWSTags({
+            studyId: info.studyId,
+            ...(isMinimalStudyRunInfo(info) ? { studyJobId: info.studyJobId } : {}),
+        }),
         params: {
             Bucket: s3BucketName(),
             ChecksumSHA256: hash,
-            Key: pathForStudyJobResults(info),
+            Key,
             Body: upStream,
         },
     })
@@ -130,7 +142,7 @@ export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
             Key: `${pathForStudyJob(info)}/code/${path}`,
         }),
     )
-    if (!resp.Body) throw new Error('no body recieved from s3')
+    if (!resp.Body) throw new Error('no body received from s3')
 
     const stream = resp.Body as Readable
     const chunks: Buffer[] = []
@@ -170,6 +182,6 @@ export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
 export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
     const path = pathForStudyJobResults(info)
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
-    if (!result.Body) throw new Error(`no file recieved from s3 for job result ${info.studyJobId}`)
+    if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
     return result.Body
 }

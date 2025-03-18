@@ -3,7 +3,6 @@
 import { FC, useState } from 'react'
 import { Accordion, AccordionControl, AccordionItem, AccordionPanel, Button, Table } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { uuidToB64 } from '@/lib/uuid'
 import { last } from 'remeda'
 import { onFetchStudyJobsAction } from '@/server/actions/study-actions'
 import Link from 'next/link'
@@ -49,9 +48,7 @@ export const JobsTable: FC<JobsTableProps> = ({ memberIdentifier, isActive, stud
                         </Table.Td>
                         <Table.Td align="right">
                             {last(job.statuses)?.status == 'CODE-SUBMITTED' && (
-                                <Link
-                                    href={`/member/${memberIdentifier}/study/${uuidToB64(study.id)}/job/${uuidToB64(job.id)}/review`}
-                                >
+                                <Link href={`/member/${memberIdentifier}/study/${study.id}/job/${job.id}/review`}>
                                     <Button>View Code</Button>
                                 </Link>
                             )}
@@ -81,7 +78,6 @@ export const Panel: FC<{ studies: Study[] }> = ({ studies }) => {
                 <AccordionItem key={study.id} value={study.id} my="xl">
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
-                        <p>{study.description}</p>
                         <JobsTable isActive={activeId == study.id} study={study} memberIdentifier={study.id} />
                     </AccordionPanel>
                 </AccordionItem>

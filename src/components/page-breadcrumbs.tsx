@@ -1,11 +1,12 @@
 import { Breadcrumbs, Anchor, Text } from '@mantine/core'
 import Link from 'next/link'
+import { FC } from 'react'
 
-export const PageBreadcrumbs: React.FC<{
+export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
     return (
-        <Breadcrumbs mb={40} separator=">" separatorMargin="md">
+        <Breadcrumbs separator=">">
             {crumbs.map(([title, href], index) =>
                 href ? (
                     <Anchor component={Link} href={href} key={index}>
@@ -19,7 +20,7 @@ export const PageBreadcrumbs: React.FC<{
     )
 }
 
-export const MemberBreadcrumbs: React.FC<{
+export const MemberBreadcrumbs: FC<{
     crumbs: {
         memberIdentifier: string
         studyTitle?: string
@@ -27,7 +28,7 @@ export const MemberBreadcrumbs: React.FC<{
         current?: string
     }
 }> = ({ crumbs: { memberIdentifier, studyIdentifier, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['All Studies', `/member/${memberIdentifier}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/member/${memberIdentifier}/dashboard`]]
     if (studyTitle && studyIdentifier) {
         crumbs.push([studyTitle, `/member/${memberIdentifier}/study/${studyIdentifier}/review`])
     }
@@ -37,17 +38,17 @@ export const MemberBreadcrumbs: React.FC<{
     return <PageBreadcrumbs crumbs={crumbs} />
 }
 
-export const ResearcherBreadcrumbs: React.FC<{
+export const ResearcherBreadcrumbs: FC<{
     crumbs: {
         memberIdentifier?: string
         studyTitle?: string
-        encodedStudyId: string
+        studyId?: string
         current?: string
     }
-}> = ({ crumbs: { encodedStudyId, studyTitle, current } }) => {
+}> = ({ crumbs: { studyId, studyTitle, current } }) => {
     const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/studies`]]
-    if (studyTitle && encodedStudyId) {
-        crumbs.push([studyTitle, `/researcher/study/${encodedStudyId}/review`])
+    if (studyTitle && studyId) {
+        crumbs.push([studyTitle, `/researcher/study/${studyId}/review`])
     }
     if (current) {
         crumbs.push([current])
