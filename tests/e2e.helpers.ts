@@ -181,6 +181,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     await page.evaluate(() => {
         window.Clerk.session?.end()
     })
+
     await page.goto('/account/signin')
     await clerkLoaded(page)
     await page.evaluate(clerkSignInHelper, TestingUsers[role])
