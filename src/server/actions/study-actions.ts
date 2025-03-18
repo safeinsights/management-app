@@ -4,7 +4,6 @@ import { db } from '@/database'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { StudyStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
-import { uuidToB64 } from '@/lib/uuid'
 
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
@@ -109,5 +108,5 @@ export const updateStudyStatusAction = async (studyId: string, status: StudyStat
         }
     })
 
-    revalidatePath(`/member/[memberIdentifier]/study/${uuidToB64(studyId)}`, 'page')
+    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
 }

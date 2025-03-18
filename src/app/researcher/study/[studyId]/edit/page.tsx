@@ -1,22 +1,16 @@
 import { db } from '@/database'
 import { Form } from './form'
 import { AlertNotFound } from '@/components/errors'
-import { b64toUUID } from '@/lib/uuid'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StudyEditPage(props: { params: Promise<{ encodedStudyId: string }> }) {
+export default async function StudyEditPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
 
-    const { encodedStudyId } = params
+    const { studyId } = params
 
     // TODO: validate that member from clerk session matches memberId from url
-
-    const study = await db
-        .selectFrom('study')
-        .selectAll()
-        .where('id', '=', b64toUUID(encodedStudyId))
-        .executeTakeFirst()
+    const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

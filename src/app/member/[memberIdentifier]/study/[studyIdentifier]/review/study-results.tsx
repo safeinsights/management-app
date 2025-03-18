@@ -6,7 +6,6 @@ import { Anchor, Button, Divider, Group, Paper, Stack, Text, TextInput, Title } 
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import Link from 'next/link'
-import { uuidToB64 } from '@/lib/uuid'
 
 export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
     const form = useForm({
@@ -51,7 +50,7 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
                         </Group>
                     </form>
                     {/* TODO Hide this eventually behind the form validation */}
-                    <Anchor component={Link} target="_blank" href={`/dl/results/${uuidToB64(latestJob.id)}/`}>
+                    <Anchor component={Link} target="_blank" href={`/dl/results/${latestJob.id}/`}>
                         View Results
                     </Anchor>
                 </Stack>

@@ -1,12 +1,11 @@
 'use server'
 
-import { b64toUUID } from '@/lib/uuid'
 import { db } from '@/database'
 import { MinimalJobInfo } from '@/lib/types'
-import { urlForStudyJobCodeUpload, type PresignedPost } from '@/server/aws'
+import { type PresignedPost, urlForStudyJobCodeUpload } from '@/server/aws'
 import { USING_S3_STORAGE } from '@/server/config'
 
-export const getLatestStudyJobAction = async ({ encodedStudyId }: { encodedStudyId: string }) => {
+export const getLatestStudyJobAction = async (studyId: string) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'member.id', 'study.memberId')
@@ -24,7 +23,7 @@ export const getLatestStudyJobAction = async ({ encodedStudyId }: { encodedStudy
                     .limit(1)
                     .as('pendingJobId'),
         ])
-        .where('study.id', '=', b64toUUID(encodedStudyId))
+        .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
 

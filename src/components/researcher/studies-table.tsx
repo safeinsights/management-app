@@ -1,11 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Container, Flex, Button, Paper, Title, Group, Alert, Stack, Text, Tooltip, Table } from '@mantine/core'
+import { Alert, Button, Container, Flex, Group, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { uuidToB64 } from '@/lib/uuid'
 import { humanizeStatus } from '@/lib/status'
 import type { AllStatus } from '@/lib/types'
 
@@ -52,8 +51,7 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                 </Stack>
             </Table.Td>
             <Table.Td>
-                {/*{study.status === 'CODE-SUBMITTED' && (*/}
-                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${uuidToB64(study.id)}/review`}>
+                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${study.id}/review`}>
                     View
                 </Link>
                 {/*)}*/}
