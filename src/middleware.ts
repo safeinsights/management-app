@@ -75,10 +75,6 @@ export default clerkMiddleware(async (auth, req) => {
         ...userRoles,
     })
 
-    // if they don't have MFA and are not currently adding it, force them to do so
-    if (!userRoles.hasMFA && !req.nextUrl.pathname.startsWith(MFA_ROUTE)) {
-    }
-
     // TODO Redirect users to different URIs based on their role? ie:
     //  member -> /member
     //  researcher -> /researcher

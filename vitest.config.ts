@@ -15,7 +15,7 @@ export default defineConfig({
         setupFiles: ['tests/vitest.setup.ts'],
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
         coverage: {
-            enabled: true, //IS_CI,
+            enabled: Boolean(IS_CI || process.env.COVERAGE),
             reportsDirectory: 'test-results/unit',
             clean: true,
             coverageReportOptions: {
