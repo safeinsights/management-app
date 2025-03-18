@@ -52,7 +52,7 @@ export async function storageForResultsFile(info: MinimalJobResultsInfo) {
     if (USING_S3_STORAGE) {
         return { s3: true }
     } else {
-        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), 'results', info.resultsPath) }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), info.resultsPath) }
     }
 }
 

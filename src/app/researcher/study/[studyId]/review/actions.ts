@@ -65,30 +65,27 @@ export const fetchJobResultsCsvAction = async (jobId: string): Promise<string> =
     return csv
 }
 
-const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => {
+export const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
     }
     const storage = await storageForResultsFile(job)
-    let file = new File([], '', { type: 'application/zip' })
     if (storage.s3) {
         const body = await fetchStudyJobResults(job)
         // TODO: get zip file from body
         throw new Error('Zip from S3 not implemented')
     } else if (storage.file) {
-        file = new File([await fs.readFile(storage.file)], storage.file, { type: 'application/zip' })
+        return new Blob([await fs.readFile(storage.file)])
     } else {
         throw new Error('Unknown storage type')
     }
-
-    return file
 }
 
-export const fetchJobResultsAndDecryptAction = async (jobId: string, privateKey: string): Promise<string[]> => {
-    // Get zip
-    const zip: Blob = await fetchJobResultsZipAction(jobId)
-    // Decrypt results
-    const reader = new ResultsReader()
-    return await reader.decryptZip(zip, privateKey)
-}
+// export const fetchJobResultsAndDecryptAction = async (jobId: string, privateKey: string): Promise<string[]> => {
+//     // Get zip
+//     const zip: Blob = await fetchJobResultsZipAction(jobId)
+//     // Decrypt results
+//     const reader = new ResultsReader()
+//     return await reader.decryptZip(zip, privateKey)
+// }

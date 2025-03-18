@@ -2,12 +2,35 @@
 
 import React, { FC } from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
-import Link from 'next/link'
+import { fetchJobResultsZipAction } from '@/app/researcher/study/[studyId]/review/actions'
+import { useMutation } from '@tanstack/react-query'
+import { ResultsReader } from 'si-encryption/job-results/reader'
+
+interface StudyResultsFormValues {
+    privateKey: string
+}
 
 export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
+    const { data: results, mutate: decryptResults } = useMutation({
+        mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
+            const blob = await fetchJobResultsZipAction(jobId)
+            console.log('my blob: ', blob)
+
+            // Get zip
+            const reader = new ResultsReader()
+            console.log('before')
+            debugger
+            const stuff = await reader.decryptZip(blob, privateKey)
+            console.log('after')
+            console.log('RESULTS???', stuff)
+        },
+    })
+
+    // console.log('RESULTS: ', results)
+
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: { privateKey: '' },
@@ -24,6 +47,11 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
         )
     }
 
+    const onSubmit = (values: StudyResultsFormValues) => {
+        decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
+        // console.log('values: ', values.privateKey)
+    }
+
     const handleError = (errors: typeof form.errors) => {
         if (errors.privateKey) {
             notifications.show({ message: 'Invalid private key', color: 'red' })
@@ -36,7 +64,7 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
                 <Title order={4}>Study Results</Title>
                 <Divider />
                 <Stack>
-                    <form onSubmit={form.onSubmit(() => {}, handleError)}>
+                    <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                         <Group>
                             <TextInput
                                 {...form.getInputProps('privateKey')}
@@ -50,9 +78,9 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
                         </Group>
                     </form>
                     {/* TODO Hide this eventually behind the form validation */}
-                    <Anchor component={Link} target="_blank" href={`/dl/results/${latestJob.id}/`}>
-                        View Results
-                    </Anchor>
+                    {/*<Anchor component={Link} target="_blank" href={`/dl/results/${latestJob.id}/`}>*/}
+                    {/*    View Results*/}
+                    {/*</Anchor>*/}
                 </Stack>
             </Stack>
         </Paper>

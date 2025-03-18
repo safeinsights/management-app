@@ -15,12 +15,9 @@ export const GenerateKeys: FC<{
     const onGenerateKeys = async () => {
         const { publicKeyString, privateKeyString, fingerprint } = await generateKeyPair()
 
-        const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${publicKeyString}\n-----END PUBLIC KEY-----`
-        const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`
-
         setKeys({
-            publicKey: publicKeyPem,
-            privateKey: privateKeyPem,
+            publicKey: publicKeyString,
+            privateKey: privateKeyString,
             fingerprint,
         })
     }
