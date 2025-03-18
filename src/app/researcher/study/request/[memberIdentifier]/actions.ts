@@ -24,7 +24,7 @@ export const onCreateStudyAction = async (memberId: string, study: StudyProposal
     const studyId = uuidv7()
 
     const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
-    const descriptionFile = study.description ? study.description.name : ''
+
     const irbDocumentFile = study.irbDocument ? study.irbDocument.name : ''
     // TODO: Add agreement document
 
@@ -45,7 +45,6 @@ export const onCreateStudyAction = async (memberId: string, study: StudyProposal
             id: studyId,
             title: study.title,
             piName: study.piName,
-            description: descriptionFile,
             irbProtocols: irbDocumentFile,
             //TODO: add study lead
             // TODO:add agreement document

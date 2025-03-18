@@ -20,7 +20,6 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'study.containerLocation',
             'study.createdAt',
             'study.dataSources',
-            'study.description',
             'study.irbProtocols',
             'study.memberId',
             'study.outputMimeType',
@@ -45,7 +44,6 @@ export const getStudyAction = async (studyId: string) => {
             'study.containerLocation',
             'study.createdAt',
             'study.dataSources',
-            'study.description',
             'study.irbProtocols',
             'study.memberId',
             'study.outputMimeType',
@@ -69,6 +67,8 @@ export const getStudyAction = async (studyId: string) => {
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
+
+export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const onFetchStudyJobsAction = async (studyId: string) => {
     return await db
