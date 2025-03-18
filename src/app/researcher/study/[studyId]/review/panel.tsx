@@ -19,10 +19,7 @@ export const inputStyle = css({
     width: '20rem',
 })
 
-export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
-    studyIdentifier,
-    study,
-}) => {
+export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
     const router = useRouter()
     const [activeSection, setActiveSection] = useState<string | null>(null)
 
@@ -116,11 +113,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                     <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
                     <Accordion.Panel>
                         <Stack>
-                            <JobsTable
-                                isActive={activeSection == 'jobs'}
-                                study={study}
-                                encodedStudyId={studyIdentifier}
-                            />
+                            <JobsTable isActive={activeSection == 'jobs'} study={study} />
                         </Stack>
                     </Accordion.Panel>
                 </Accordion.Item>

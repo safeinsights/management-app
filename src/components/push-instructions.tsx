@@ -1,6 +1,5 @@
-import { Text, Stack, Paper } from '@mantine/core'
+import { Paper, Stack, Text } from '@mantine/core'
 import { CopyingInput } from './copying-input'
-import { uuidToB64 } from '@/lib/uuid'
 
 const decodeLocation = (loc: string) => {
     const u = new URL(`http://${loc}`)
@@ -10,7 +9,7 @@ const decodeLocation = (loc: string) => {
 
 export const PushInstructions = ({ containerLocation, jobId }: { containerLocation: string; jobId: string }) => {
     const { host, repo } = decodeLocation(containerLocation)
-    const tag = uuidToB64(jobId)
+    const tag = jobId
 
     return (
         <>
