@@ -63,6 +63,14 @@ export const GenerateKeys: FC<{
                                 </Button>
                             )}
                         </CopyButton>
+                        <Text>
+                            Please make sure to securely store this private key in your password manager software, as
+                            you will need it at a later stage to review data outputs.
+                        </Text>
+                        <Text>
+                            Important disclaimer: SafeInsights does not store private keys. If you lose this key, we
+                            won’t be able to recover it for you.
+                        </Text>
                     </Stack>
                 </Stack>
             </Container>
