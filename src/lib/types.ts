@@ -32,8 +32,12 @@ export type CodeManifest = {
     tree: TreeNode
     size: number
 }
-
-export type MinimalJobInfo = { memberIdentifier: string; studyId: string; studyJobId: string }
+export type MinimalStudyInfo = { memberIdentifier: string; studyId: string }
+export type MinimalJobInfo = MinimalStudyInfo & { studyJobId: string }
 export type MinimalJobResultsInfo = { resultsPath: string } & MinimalJobInfo
 
 export type AllStatus = StudyJobStatus | StudyStatus
+
+export function isMinimalStudyRunInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
+    return 'studyJobId' in info
+}

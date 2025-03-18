@@ -2,16 +2,17 @@
 
 import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
-import { StudyProposalFormValues, studyProposalSchema } from './studyProposalSchema'
+import { StudyProposalFormValues, studyProposalSchema } from './schema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
 import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
 import { siUser } from '@/server/queries'
+import { storeStudyDocumentFile } from '@/server/storage'
 
-export const onCreateStudyAction = async (memberId: string, study: StudyProposalFormValues) => {
-    studyProposalSchema.parse(study) // throws when malformed
+export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProposalFormValues) => {
+    studyProposalSchema.parse(studyInfo) // throws when malformed
 
     const user = await siUser()
 
@@ -23,29 +24,56 @@ export const onCreateStudyAction = async (memberId: string, study: StudyProposal
 
     const studyId = uuidv7()
 
-    const repoPath = generateRepositoryPath({ memberIdentifier: member.identifier, studyId, studyTitle: study.title })
+    // storeStudyDocumentFile({
+    //     studyId,
+    //     file: study.irbDocument,
+    // }, file)
 
-    const irbDocumentFile = study.irbDocument ? study.irbDocument.name : ''
+    const repoPath = generateRepositoryPath({
+        memberIdentifier: member.identifier,
+        studyId,
+        studyTitle: studyInfo.title,
+    })
+
+    //    const irbDocumentFile = studyInfo.irbDocument ? study.irbDocument.name : ''
     // TODO: Add agreement document
 
     let repoUrl = ''
 
     if (USING_CONTAINER_REGISTRY) {
         repoUrl = await createAnalysisRepository(repoPath, {
-            title: strToAscii(study.title),
+            title: strToAscii(studyInfo.title),
             studyId,
         })
     } else {
         const { accountId, region } = await getAWSInfo()
         repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
     }
+    let irbDocPath = ''
+    if (studyInfo.irbDocument) {
+        irbDocPath = await storeStudyDocumentFile(
+            { studyId, memberIdentifier: member.identifier },
+            studyInfo.irbDocument,
+        )
+    }
+
+    let descriptionDocPath = ''
+    if (studyInfo.descriptionDocument) {
+        descriptionDocPath = await storeStudyDocumentFile(
+            { studyId, memberIdentifier: member.identifier },
+            studyInfo.descriptionDocument,
+        )
+    }
+
     await db
         .insertInto('study')
         .values({
             id: studyId,
-            title: study.title,
-            piName: study.piName,
-            irbProtocols: irbDocumentFile,
+            title: studyInfo.title,
+            piName: studyInfo.piName,
+            descriptionDocPath,
+            irbDocPath,
+            // irbProtocols: irbDocumentFile,
             //TODO: add study lead
             // TODO:add agreement document
             memberId,

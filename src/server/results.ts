@@ -1,26 +1,17 @@
 import { db } from '@/database'
 import { MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
-import { storeResultsFile, urlForResults } from './aws'
+import { urlForResults } from './aws'
 import { pathForStudyJob } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 import path from 'path'
 import fs from 'fs'
-import { sanitizeFileName } from '@/lib/util'
+import { storeStudyResultsFile } from './storage'
+
 import { faker } from '@faker-js/faker'
 import { siUser } from './queries'
 
 export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) {
-    const fileName = sanitizeFileName(file.name)
-
-    if (USING_S3_STORAGE) {
-        await storeResultsFile({ ...info, resultsPath: fileName }, file.stream())
-    } else {
-        const dir = path.join(getUploadTmpDirectory(), pathForStudyJob(info), 'results', path.dirname(fileName))
-        fs.mkdirSync(dir, { recursive: true })
-        const filePath = path.join(dir, path.basename(fileName))
-        const buffer = await file.arrayBuffer()
-        await fs.promises.writeFile(filePath, Buffer.from(buffer))
-    }
+    await storeStudyResultsFile(info, file)
 
     await db
         .updateTable('studyJob')

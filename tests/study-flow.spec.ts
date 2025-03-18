@@ -20,8 +20,8 @@ test.describe('Studies', () => {
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
-        await page.setInputFiles('input[type="file"][name="description-doc"]', 'tests/assets/empty.pdf')
-        await page.setInputFiles('input[type="file"][name="irb-doc"]', 'tests/assets/empty.pdf')
+        await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+        await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
 
         // using "exact" to work around possible "NextJS tools"  button in dev mode
         await page.getByRole('button', { name: 'Next', exact: true }).click()

@@ -37,13 +37,12 @@ async function fetchSecret<T extends Record<string, unknown>>(envKey: string): P
     try {
         const client = new SecretsManagerClient()
         const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
-
-        if (data.SecretString) {
-            return JSON.parse(data.SecretString)
+        if (!data?.SecretString) {
+            throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
         }
+        return JSON.parse(data.SecretString)
     } catch (e) {
-        console.warn(e)
-        throw new Error(`failed to fetch ${arn} from AWS secrets`)
+        throw new Error(`failed to parse AWS secrets: ${e}`)
     }
     return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
