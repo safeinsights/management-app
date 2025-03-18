@@ -7,7 +7,6 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 const schema = z
     .object({
         title: z.string().min(3).max(100),
-        description: z.string().min(3).max(500),
         piName: z.string().min(3).max(1500),
         highlights: z.boolean().nullish(), // .preprocess((value) => value === 'on', z.boolean()).nullish(),
         eventCapture: z.boolean().nullish(),

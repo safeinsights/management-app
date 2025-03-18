@@ -39,15 +39,22 @@ describe('getConfigValue', () => {
 
     it('should throw an error if the key is not found in AWS secrets', async () => {
         delete process.env.MY_CONFIG
+        process.env.SECRETS_ARN = '1234_ARN'
 
-        // Setup the mock to return a secret that does not include MY_CONFIG
-        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'SECRETS_ARN' }).resolves({
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'BAD_ARN' }).resolves({
+            SecretString: 'bad-json',
+        })
+        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow(/failed to parse AWS secrets/)
+
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: 'BAD_ARN' }).resolves({
+            SecretString: JSON.stringify({ OTHER_CONFIG: 'otherValue' }),
+        })
+        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow(/failed to fetch AWS secrets/)
+
+        secretsManagerMock.on(GetSecretValueCommand, { SecretId: process.env.SECRETS_ARN }).resolves({
             SecretString: JSON.stringify({ OTHER_CONFIG: 'otherValue' }),
         })
 
-        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('missing ARN SECRETS_ARN in env')
-
-        process.env.SECRETS_ARN = '1234_ARN'
-        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('failed to fetch 1234_ARN from AWS secrets')
+        await expect(getConfigValue('MY_CONFIG')).rejects.toThrow('failed to find MY_CONFIG in config')
     })
 })

@@ -6,12 +6,12 @@ import { Button, Group, Text } from '@mantine/core'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
+import { type SelectedStudy } from '@/server/actions/study-actions'
 import { updateStudyStatusAction } from '@/server/actions/study-actions'
-import { Study } from '@/schema/study'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const ReviewControls: FC<{ study: Study; memberIdentifier: string }> = ({ memberIdentifier, study }) => {
+export const ReviewControls: FC<{ study: SelectedStudy; memberIdentifier: string }> = ({ study, memberIdentifier }) => {
     const router = useRouter()
 
     const backPath = `/member/${memberIdentifier}/dashboard`
