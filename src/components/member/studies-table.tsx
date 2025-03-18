@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
-import { uuidToB64 } from '@/lib/uuid'
 
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const { data: studies = [] } = useQuery({
@@ -35,7 +34,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
             <Table.Td>{humanizeStatus(study.status)}</Table.Td>
             <Table.Td>
-                <Anchor component={Link} href={`/member/${member.identifier}/study/${uuidToB64(study.id)}/review`}>
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
                     View
                 </Anchor>
             </Table.Td>
