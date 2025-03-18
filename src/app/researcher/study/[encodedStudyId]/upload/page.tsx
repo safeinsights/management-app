@@ -1,10 +1,9 @@
 import React from 'react'
-import { Button, Flex, Text, Title, Group } from '@mantine/core'
-import { getLatestStudyJobAction } from './actions'
+import { Button, Flex, Group, Title } from '@mantine/core'
+import { getLatestStudyJobAction, getUploadUrlForStudyJobCodeAction } from './actions'
 import Link from 'next/link'
 import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 import { AlertNotFound } from '@/components/errors'
-import { getUploadUrlForStudyJobCodeAction } from './actions'
 
 export default async function UploadPage(props: { params: Promise<{ encodedStudyId: string }> }) {
     const params = await props.params

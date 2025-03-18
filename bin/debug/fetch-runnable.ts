@@ -1,6 +1,6 @@
 import { DebugRequest } from './request'
 
-const req = new DebugRequest('studies/runnable')
+const req = new DebugRequest('studies/ready')
 
 req.parse()
     .perform()

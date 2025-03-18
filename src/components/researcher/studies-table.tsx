@@ -52,14 +52,11 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
                 </Stack>
             </Table.Td>
             <Table.Td>
-                {study.status === 'CODE-SUBMITTED' && (
-                    <Link
-                        style={{ textDecoration: 'underline' }}
-                        href={`/researcher/study/${uuidToB64(study.id)}/review`}
-                    >
-                        View
-                    </Link>
-                )}
+                {/*{study.status === 'CODE-SUBMITTED' && (*/}
+                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${uuidToB64(study.id)}/review`}>
+                    View
+                </Link>
+                {/*)}*/}
             </Table.Td>
         </Table.Tr>
     ))

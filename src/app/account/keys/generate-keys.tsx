@@ -72,7 +72,7 @@ export const GenerateKeys: FC<{
     return (
         <Container>
             <Stack>
-                <Text>Create your Private Key</Text>
+                <Title>Create your Private Key</Title>
                 <Text>Hello {user?.firstName}, welcome to SafeInsights!</Text>
                 <Text>
                     You’ve been invited to join this team in the role of a Reviewer, giving you the permissions to

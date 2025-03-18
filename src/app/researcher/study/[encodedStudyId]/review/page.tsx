@@ -1,4 +1,4 @@
-import { Paper, Center, Title, Stack, Group } from '@mantine/core'
+import { Paper, Stack, Title } from '@mantine/core'
 import { db } from '@/database'
 import { b64toUUID } from '@/lib/uuid'
 import { StudyPanel } from './panel'
@@ -10,7 +10,7 @@ export default async function StudyReviewPage(props: {
 }) {
     const params = await props.params
 
-    const { studyIdentifier, encodedStudyId } = params
+    const { encodedStudyId } = params
 
     // TODO check user permissions
 
@@ -38,7 +38,7 @@ export default async function StudyReviewPage(props: {
                     <Title mb="lg">{study.title}</Title>
                 </Paper>
 
-                <StudyPanel study={study} studyIdentifier={studyIdentifier} encodedStudyId={study.id} />
+                <StudyPanel study={study} />
             </Stack>
         </>
     )

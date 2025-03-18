@@ -11,7 +11,13 @@ import { strToAscii, slugify } from '@/lib/string'
 import { uuidToB64 } from '@/lib/uuid'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { CodeManifest, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
+import {
+    CodeManifest,
+    isMinimalStudyRunInfo,
+    MinimalJobInfo,
+    MinimalJobResultsInfo,
+    MinimalStudyInfo,
+} from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
 
 export type { PresignedPost }
@@ -107,16 +113,23 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeResultsFile = async (info: MinimalJobResultsInfo, body: ReadableStream) => {
+export const storeStudyFile = async (
+    info: MinimalStudyInfo | MinimalJobResultsInfo,
+    body: ReadableStream,
+    Key: string,
+) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
-        client: getS3Client(),
-        tags: objectToAWSTags({ studyId: info.studyId, jobId: info.studyJobId }),
+        client: getS3Client(), // jobId: info.studyJobId//
+        tags: objectToAWSTags({
+            studyId: info.studyId,
+            ...(isMinimalStudyRunInfo(info) ? { studyJobId: info.studyJobId } : {}),
+        }),
         params: {
             Bucket: s3BucketName(),
             ChecksumSHA256: hash,
-            Key: pathForStudyJobResults(info),
+            Key,
             Body: upStream,
         },
     })

@@ -1,31 +1,16 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Accordion, Checkbox, Flex, Group, Stack, Text, TextInput, Divider, Paper } from '@mantine/core'
+import { Accordion, Divider, Group, Paper, Stack, Text, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
-import { css } from '@/styles'
-import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
 import { updateStudyStatusAction } from '@/server/actions/study-actions'
-import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 
-export const labelStyle = css({
-    width: '10rem',
-})
-
-export const inputStyle = css({
-    width: '20rem',
-})
-
-export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyIdentifier: string }> = ({
-    studyIdentifier,
-    study,
-}) => {
+export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
     const router = useRouter()
-    const [activeSection, setActiveSection] = useState<string | null>(null)
 
     const backPath = `/researcher/studies/review`
 
@@ -42,12 +27,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
 
     return (
         <>
-            <Accordion
-                chevronPosition="left"
-                defaultValue={['study', 'jobs']}
-                variant="separated"
-                onChange={setActiveSection}
-            >
+            <Accordion chevronPosition="left" defaultValue="study" variant="separated">
                 <Paper>
                     <Accordion.Item value="study">
                         <Accordion.Control>Researcher Study Proposal</Accordion.Control>
@@ -55,7 +35,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                             <Divider my="sm" mt="sm" mb="md" />
                             <Stack mt={30}>
                                 <Group>
-                                    <Text className={labelStyle}> Study Title</Text>
+                                    <Text> Study Title</Text>
                                     <TextInput
                                         disabled
                                         name="title"
@@ -65,7 +45,7 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                                     />
                                 </Group>
                                 <Group>
-                                    <Text className={labelStyle}>Study Lead</Text>
+                                    <Text>Study Lead</Text>
                                     <TextInput
                                         disabled
                                         name="study-lead"
@@ -76,17 +56,13 @@ export const StudyPanel: React.FC<{ encodedStudyId: string; study: Study; studyI
                                 </Group>
 
                                 <Group>
-                                    <Text className={labelStyle}>Principal Investigator</Text>
+                                    <Text>Principal Investigator</Text>
                                     <TextInput name="piName" value={study.piName} disabled />
                                 </Group>
 
                                 <Group>
-                                    <Text className={labelStyle}>Study Description</Text>
-                                    <TextInput name="description" label="" value={study.description} disabled={true} />
-                                </Group>
-                                <Group>
-                                    <Text className={labelStyle}>IRB Document</Text>
-                                    <TextInput name="irbDocument" value={study.irbProtocols} disabled={true} readOnly />
+                                    <Text>IRB Document</Text>
+                                    <TextInput name="irbDocument" value="IRB Document.pdf" disabled={true} readOnly />
                                 </Group>
                             </Stack>
                         </Accordion.Panel>

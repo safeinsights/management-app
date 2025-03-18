@@ -149,7 +149,7 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
                 }
             }
         },
-        [setUploading, getSignedURL, job, fileProgresses, onUploadComplete],
+        [setUploading, getSignedURL, job, onUploadComplete],
     )
 
     const removeFile = useCallback((fileToRemove: FileWithPath) => {

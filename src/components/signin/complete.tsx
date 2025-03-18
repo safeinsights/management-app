@@ -9,7 +9,7 @@ export const SigninComplete = () => {
     if (!user) return null
 
     return (
-        <Panel title={user.totpEnabled ? 'Signin Success' : 'Your account lacks MFA protection'}>
+        <Panel title={user.twoFactorEnabled ? 'Signin Success' : 'Your account lacks MFA protection'}>
             {user.twoFactorEnabled ? (
                 <Title order={4}>
                     You have successfully signed in. Visit the <Link href="/">homepage</Link> to get started.
