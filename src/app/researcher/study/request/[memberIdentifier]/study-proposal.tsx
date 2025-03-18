@@ -1,18 +1,15 @@
 'use client'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, FileInput, Flex, Group, Paper, Stack, Text, TextInput } from '@mantine/core'
+import { TextInput } from '@/components/form'
+import { Anchor, Button, Divider, FileInput, Flex, Group, Paper, Stack, Text } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
-import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './studyProposalSchema'
+import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-proposal-schema'
 
 export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()
-
-    const handleFileChange = (key: string, file: File | null) => {
-        studyProposalForm.setFieldValue(key as keyof StudyProposalFormValues, file)
-    }
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -21,9 +18,8 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
         initialValues: {
             title: '',
             piName: '',
-            // studyLead: '',
-            description: null,
             irbDocument: null,
+            descriptionDocument: null,
             // TODO: Add agreement document
         },
     })
@@ -54,49 +50,47 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                     </Text>
                     <Group mt="xl">
                         <Stack>
-                            <Group>
-                                <Text>Study Title</Text>
-                                <TextInput
-                                    placeholder="Enter a title (max. 50 characters)"
-                                    key={studyProposalForm.key('title')}
-                                    {...studyProposalForm.getInputProps('title')}
-                                />
-                            </Group>
-                            <Group>
-                                <Text>Study Lead</Text>
-                                <TextInput
-                                    disabled
-                                    value="Researcher Name"
-                                    // value={user?.firstName + ' ' + user?.lastName}
-                                />
-                            </Group>
-                            <Group>
-                                <Text>Principal Investigator</Text>
-                                <TextInput
-                                    key={studyProposalForm.key('piName')}
-                                    {...studyProposalForm.getInputProps('piName')}
-                                />
-                            </Group>
-                            <Group>
-                                <Text>Study Description</Text>
-                                <FileInput
-                                    component={Anchor}
-                                    placeholder="Upload a document describing your study"
-                                    key={studyProposalForm.key('description')}
-                                    {...studyProposalForm.getInputProps('description')}
-                                    onChange={(file) => handleFileChange('description', file)}
-                                />
-                            </Group>
-                            <Group>
-                                <Text>IRB Document</Text>
-                                <FileInput
-                                    component={Anchor}
-                                    placeholder="Upload IRB approval document"
-                                    key={studyProposalForm.key('irbDocument')}
-                                    {...studyProposalForm.getInputProps('irbDocument')}
-                                    onChange={(file) => handleFileChange('irbDocument', file)}
-                                />
-                            </Group>
+                            <TextInput
+                                horizontal
+                                label="Study Title"
+                                placeholder="Enter a title (max. 50 characters)"
+                                key={studyProposalForm.key('title')}
+                                {...studyProposalForm.getInputProps('title')}
+                            />
+
+                            <TextInput
+                                horizontal
+                                label="Study Lead"
+                                disabled
+                                value="Researcher Name"
+                                // value={user?.firstName + ' ' + user?.lastName}
+                            />
+
+                            <TextInput
+                                horizontal
+                                label="Principal Investigator"
+                                key={studyProposalForm.key('piName')}
+                                {...studyProposalForm.getInputProps('piName')}
+                            />
+
+                            <FileInput
+                                label="Study Description"
+                                name="descriptionDocument"
+                                component={Anchor}
+                                placeholder="Upload a document describing your study"
+                                key={studyProposalForm.key('description')}
+                                {...studyProposalForm.getInputProps('descriptionDocument')}
+                            />
+
+                            <FileInput
+                                label="IRB Document"
+                                name="irbDocument"
+                                component={Anchor}
+                                placeholder="Upload IRB approval document"
+                                key={studyProposalForm.key('irbDocument')}
+                                {...studyProposalForm.getInputProps('irbDocument')}
+                            />
+
                             {/* <Text>Agreement Document</Text> TODO: Need Database column for this attribute */}
                             {/* <FileInput
                                     ref={fileRefs.agreementDocument}

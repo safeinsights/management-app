@@ -8,7 +8,7 @@ export const studyProposalSchema = z.object({
         .min(5, { message: 'Title must be at least 5 characters long' })
         .max(50, { message: 'Title must be less than 50 characters long' }),
     piName: z.string().min(1, { message: 'Principal Investigator name must be present' }).max(100).trim(),
-    description: z
+    descriptionDocument: z
         .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
         .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
         .refine((file) => file && file.size < 10 * 1024 * 1024, {

@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from './context'
+import { findOrCreateSiUserId } from './actions/user-actions'
 
 export const queryJobResult = async (jobId: string) =>
     (await db
@@ -31,28 +32,10 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
         if (throwIfNotFound) throw new Error('User not logged in')
         return null
     }
-
-    let user = await db
-        .selectFrom('user')
-        .select(['id', 'isResearcher'])
-        .where('clerkId', '=', clerkUser.id)
-        .executeTakeFirst()
-
-    if (!user) {
-        user = await db
-            .insertInto('user')
-            .values({
-                name: clerkUser.fullName || 'unknown',
-                clerkId: clerkUser.id,
-                isResearcher: true, // FIXME: we'll ned to update this once we have orgs membership
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-    }
-
+    const userId = await findOrCreateSiUserId(clerkUser.id, clerkUser.fullName || 'unknown')
     return {
         ...clerkUser,
-        id: user.id,
-        isResearcher: user.isResearcher,
+        id: userId,
+        isResearcher: true, // FIXME: we'll ned to update this once we have orgs membership
     } as SiUser
 }
