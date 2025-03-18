@@ -136,10 +136,6 @@ export const storeStudyFile = async (
     await uploader.done()
 }
 
-// export const storeResultsFile = async (info: MinimalJobResultsInfo, body: ReadableStream) => {
-//     await storeStudyFile(info, body, pathForStudyJobResults(info))
-// }
-
 export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
     const resp = await getS3Client().send(
         new GetObjectCommand({

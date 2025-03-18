@@ -6,14 +6,10 @@ import { Anchor, Button, Divider, FileInput, Flex, Group, Paper, Stack, Text } f
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
-import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './schema'
+import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-prooposal-schema'
 
 export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()
-
-    // const handleFileChange = (key: string, file: File | null) => {
-    //     studyProposalForm.setFieldValue(key as keyof StudyProposalFormValues, file)
-    // }
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -84,7 +80,6 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 placeholder="Upload a document describing your study"
                                 key={studyProposalForm.key('description')}
                                 {...studyProposalForm.getInputProps('descriptionDocument')}
-                                //onChange={(file) => handleFileChange('descriptionDocument', file)}
                             />
 
                             <FileInput
@@ -94,7 +89,6 @@ export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: s
                                 placeholder="Upload IRB approval document"
                                 key={studyProposalForm.key('irbDocument')}
                                 {...studyProposalForm.getInputProps('irbDocument')}
-                                //onChange={(file) => handleFileChange('irbDocument', file)}
                             />
 
                             {/* <Text>Agreement Document</Text> TODO: Need Database column for this attribute */}
