@@ -33,11 +33,9 @@ test('handling upload', async () => {
             studyId,
             studyJobId: jobIds[0],
         }),
-        'results',
         'testfile.txt',
     )
-
-    expect(fs.existsSync(filePath)).toBe(true)
+    expect(fs.existsSync(filePath)).toBeTruthy()
 
     const sr = await db
         .selectFrom('studyJob')

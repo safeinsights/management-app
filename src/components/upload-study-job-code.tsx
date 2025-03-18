@@ -51,7 +51,7 @@ async function uploadFilesToS3(files: FileWithPath[], job: MinimalJobInfo, getSi
         if (!(await uploadFile(file, post))) allSuccess = false
     }
     // TODO Re: This note, couldn't we just sort the files and place manifest.json last?
-    // the manifiest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
+    // the manifest MUST BE UPLOADED LAST. it's presence signals the end of the upload and triggers the docker container build
     const file = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     if (!(await uploadFile(file, post))) allSuccess = false
     return allSuccess
@@ -59,6 +59,7 @@ async function uploadFilesToS3(files: FileWithPath[], job: MinimalJobInfo, getSi
 
 export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStudyJobCodeProps) {
     const [uploadState, setUploading] = useState<false | 'uploading' | 'complete'>(false)
+    const [_, setFiles] = useState<File[] | null>([])
 
     const onDrop = useCallback(
         async (files: FileWithPath[]) => {
@@ -82,8 +83,6 @@ export function UploadStudyJobCode({ job, getSignedURL, ...dzProps }: UploadStud
             </Paper>
         )
     }
-
-    const [setFiles] = useState<File[]>([])
 
     return (
         <>

@@ -18,7 +18,7 @@ Note: For developing locally without docker compose, you will need to install Po
 
 Copy the .env.sample file to .env replacing the XXX strings with values obtained from your one of your teammates.
 
-When testing you can either use the accounts from the .env file or you can sign-up for a Clerk account using either a authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info mean that no SMS or email is sent and `424242` can be used to authenticate.
+When testing you can either use the accounts from the .env file or you can sign up for a Clerk account using either an authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info mean that no SMS or email is sent and `424242` can be used to authenticate.
 
 You can use Docker compose to run the app and a Postgresql database by using:
 
@@ -30,9 +30,8 @@ Other useful commands:
 
 For developing locally without docker compose, you will need to install Postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
-Otherwise, you can use Docker compose to run the app and a Postgresql database by using:
-
-`docker compose up`
+Otherwise, you can use Docker compose to run the app and a Postgresql database by using: `docker compose up`
+Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
 Other useful commands:
 
@@ -40,12 +39,7 @@ Other useful commands:
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
-
-Open [http://localhost:4000](http://localhost:4000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+- `npx kysely migrate:make your_migration_name` Creates a migration file, we should use `snake_case` for migration names
 
 ### Enclave API Routes
 

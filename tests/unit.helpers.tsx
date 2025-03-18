@@ -4,13 +4,16 @@ import path from 'path'
 import os from 'os'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
-import { readTestSupportFile } from './common.helpers'
 import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
+
+export const readTestSupportFile = (file: string) => {
+    return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
+}
 
 const createTestQueryClient = () =>
     new QueryClient({
@@ -48,7 +51,6 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
             memberId: opts.memberId,
             containerLocation: 'test-container',
             title: 'my 1st study',
-            description: 'my description',
             researcherId: researcher.id,
             piName: 'test',
             irbProtocols: 'https://www.google.com',
