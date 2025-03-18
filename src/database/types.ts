@@ -70,8 +70,9 @@ export interface Study {
     containerLocation: string
     createdAt: Generated<Timestamp>
     dataSources: Generated<string[]>
-    description: string
+    descriptionDocPath: string | null
     id: Generated<string>
+    irbDocPath: string | null
     irbProtocols: string | null
     memberId: string
     outputMimeType: string | null

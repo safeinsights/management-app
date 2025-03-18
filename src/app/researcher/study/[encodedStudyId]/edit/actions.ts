@@ -18,7 +18,7 @@ export const onUpdateStudyAction = async (studyId: string, study: FormValues) =>
     await db
         .updateTable('study')
         .set({
-            ...pick(study, ['description', 'piName', 'outputMimeType']),
+            ...pick(study, ['piName', 'outputMimeType']),
             status: 'APPROVED',
             dataSources: studyDataSources,
         })

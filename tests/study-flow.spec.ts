@@ -4,9 +4,12 @@ import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
 // this ensures they run in order and will share the study title
 test.describe.configure({ mode: 'serial' })
 
-test.describe('Studies', () => {
-    // const codeLine = 'print("Hello, Tester")'
+test.beforeEach(async ({}, testInfo) => {
+    // Extend timeout for all tests running this hook by 30 seconds.
+    testInfo.setTimeout(testInfo.timeout + 30_000)
+})
 
+test.describe('Studies', () => {
     test('researcher creates a study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
 
@@ -16,10 +19,14 @@ test.describe('Studies', () => {
 
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
-        await page.getByLabel(/description/i).fill('this study will cement my legacy as the greatest researcher')
-        await page.getByRole('button', { name: /submit/i }).click()
 
-        await expect(page.getByText('Drag files here')).toBeVisible()
+        await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+        await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
+
+        // using "exact" to work around possible "NextJS tools"  button in dev mode
+        await page.getByRole('button', { name: 'Next', exact: true }).click()
+
+        await expect(page.getByText('Drop files here')).toBeVisible()
 
         //TODO: Test that will validate the upload without a main.r file
         //Test upload without main.r file
@@ -46,7 +53,7 @@ test.describe('Studies', () => {
         // await page.setInputFiles('input[type="file"]', largeFile)
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
 
-        await page.getByRole('button', { name: /next/i }).click()
+        await page.getByRole('button', { name: 'Next', exact: true }).click()
 
         await expect(page.getByTestId('study-title')).toHaveValue(studyFeatures.studyTitle)
 
@@ -62,8 +69,14 @@ test.describe('Studies', () => {
 
     test('member reviews the study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/' })
-        await page.getByRole('button', { name: /review studies/i }).click()
-        await page.locator('tr').filter({ hasText: studyFeatures.studyTitle }).getByText('View').click()
-        // TODO Update tests once designs/implementation is finished
+
+        expect(page.getByText('Review Studies')).toBeVisible()
+
+        const title = studyFeatures.studyTitle.substring(0, 30)
+
+        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+
+        await page.waitForURL(/\/study\//)
+        expect(page.getByText('Study details')).toBeVisible()
     })
 })
