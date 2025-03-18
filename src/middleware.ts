@@ -109,12 +109,13 @@ export default clerkMiddleware(async (auth, req) => {
 //
 export const config = {
     matcher: [
-        // Skip:
+        // as optimziation and for clarity, we always run for routes below:
+        '/(admin|dl|member|researcher)(.*)',
+        // This regex should also match the above urls, but it's hard to read
+        // We want to run on everything except:
         //   Next.js internals
         //   api requests: the api access wrapper accesses DB, but nextjs middleware doesn't support a full node env
         //   and all static files, unless found in search params
         '/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-        // Always run for routes below
-        '/(dl|member|researcher)(.*)',
     ],
 }
