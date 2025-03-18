@@ -182,7 +182,6 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
             memberId: opts.memberId,
             containerLocation: 'test-container',
             title: 'my 1st study',
-            description: 'my description',
             researcherId: researcher.id,
             piName: 'test',
             status: 'PENDING-REVIEW',
