@@ -30,9 +30,8 @@ Other useful commands:
 
 For developing locally without docker compose, you will need to install Postgresql and add a `.env` file that contains a valid DATABASE_URL to access it.
 
-Otherwise, you can use Docker compose to run the app and a Postgresql database by using:
-
-`docker compose up`
+Otherwise, you can use Docker compose to run the app and a Postgresql database by using: `docker compose up`
+Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
 Other useful commands:
 
@@ -40,12 +39,7 @@ Other useful commands:
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
-
-Open [http://localhost:4000](http://localhost:4000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load Inter, a custom Google Font.
+- `npx kysely migrate:make your_migration_name` Creates a migration file, we should use `snake_case` for migration names
 
 ### Enclave API Routes
 
