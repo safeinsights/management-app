@@ -61,7 +61,6 @@ export default async function StudyReviewPage(props: {
                                 <Text fw="bold">Study Name</Text>
                                 <Text fw="bold">Principal investigator</Text>
                                 <Text fw="bold">Researcher</Text>
-                                <Text fw="bold">Study Description</Text>
                                 <Text fw="bold">IRB</Text>
                                 <Text fw="bold">Agreement(s)</Text>
                                 <Text fw="bold">Study Code</Text>
@@ -72,7 +71,6 @@ export default async function StudyReviewPage(props: {
                                 <Text>{study.title}</Text>
                                 <Text>{study.piName}</Text>
                                 <Text>{study.researcherName}</Text>
-                                <Text>{study.description}</Text>
                                 <Text>{study.irbProtocols} some link</Text>
                                 <Text>TODO agreements</Text>
                                 <StudyJobFiles job={study.jobs[0]} />

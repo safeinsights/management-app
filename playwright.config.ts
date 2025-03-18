@@ -14,7 +14,7 @@ if (process.argv.includes('--ui')) {
                 outputFile: './test-results/e2e/index.html',
                 coverage: {
                     entryFilter: (entry: { url: string; source: string }) => {
-                        return entry.url.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
+                        return entry.url?.match(/\/chunks\/src/) && !entry.source.match(/TURBOPACK_CHUNK_LISTS/)
                     },
                     sourceFilter: testsCoverageSourceFilter,
                     reports: [
@@ -34,7 +34,7 @@ if (process.argv.includes('--ui')) {
     )
 }
 
-if (process.env.CI) reporters.push(['github'])
+if (IS_CI) reporters.push(['github'])
 
 export default defineConfig({
     testDir: './tests',
@@ -44,7 +44,7 @@ export default defineConfig({
     forbidOnly: IS_CI,
 
     /* Retry on CI only */
-    retries: IS_CI ? 2 : 0,
+    retries: IS_CI ? 1 : 0,
     /* Opt out of parallel tests on CI. */
     workers: IS_CI ? 1 : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -55,6 +55,11 @@ export default defineConfig({
         baseURL: 'http://127.0.0.1:4000',
         trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
+    },
+
+    expect: {
+        // gh actions is slow
+        timeout: IS_CI ? 10_000 : 5_000,
     },
 
     outputDir: 'test-results/e2e',

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Accordion, Checkbox, Flex, Group, Stack, Text, Textarea, TextInput } from '@mantine/core'
+import { Accordion, Checkbox, Flex, Group, Stack, Text, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
@@ -54,18 +54,6 @@ export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
                                     data-testid="study-title"
                                     value={study.title}
                                     readOnly
-                                />
-                            </Flex>
-                            <Flex p={2} gap="md" wrap="wrap">
-                                <Text className={labelStyle}>Study Description</Text>
-                                <Textarea
-                                    bg="#ddd"
-                                    bd="1px solid #ccc"
-                                    className={inputStyle}
-                                    name="description"
-                                    label=""
-                                    value={study.description}
-                                    disabled={true}
                                 />
                             </Flex>
 

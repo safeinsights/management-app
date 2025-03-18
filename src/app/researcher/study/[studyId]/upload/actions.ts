@@ -32,7 +32,7 @@ export async function getUploadUrlForStudyJobCodeAction(info: MinimalJobInfo): P
         return urlForStudyJobCodeUpload(info)
     } else {
         return {
-            url: `/api/dev/upload-code/${info.studyJobId}`,
+            url: `/dev/upload-code/${info.studyJobId}`,
             fields: {},
         }
     }

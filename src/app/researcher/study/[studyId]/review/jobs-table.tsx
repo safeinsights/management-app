@@ -122,7 +122,6 @@ export const Panel: FC<{ studies: Study[] }> = ({ studies }) => {
                 <AccordionItem key={study.id} value={study.id} my="xl">
                     <AccordionControl>{study.title}</AccordionControl>
                     <AccordionPanel>
-                        <p>{study.description}</p>
                         <JobsTable isActive={activeId == study.id} study={study} />
                     </AccordionPanel>
                 </AccordionItem>
