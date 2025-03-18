@@ -106,10 +106,14 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next()
 })
 
+//
 export const config = {
     matcher: [
-        // Skip Next.js internals and all static files, unless found in search params
-        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // Skip:
+        //   Next.js internals
+        //   api requests: the api access wrapper accesses DB, but nextjs middleware doesn't support a full node env
+        //   and all static files, unless found in search params
+        '/((?!_next|api|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
         // Always run for routes below
         '/(dl|member|researcher)(.*)',
     ],
