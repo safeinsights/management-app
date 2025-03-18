@@ -6,7 +6,7 @@ import { Anchor, Button, Divider, FileInput, Flex, Group, Paper, Stack, Text } f
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
-import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-prooposal-schema'
+import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-proposal-schema'
 
 export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
     const router = useRouter()

@@ -2,7 +2,7 @@
 
 import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
-import { StudyProposalFormValues, studyProposalSchema } from './study-prooposal-schema'
+import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { uuidToB64 } from '@/lib/uuid'
 import { v7 as uuidv7 } from 'uuid'
