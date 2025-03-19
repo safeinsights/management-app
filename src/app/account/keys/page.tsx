@@ -14,5 +14,5 @@ export default async function Keys() {
         // If they already have a public key, don't let them come here to regenerate keys (MVP only)
         redirect('/')
     }
-    return <GenerateKeys clerkId={clerkId} />
+    return <GenerateKeys />
 }

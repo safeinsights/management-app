@@ -10,9 +10,9 @@ export const getUserIdByClerkId = async (clerkId: string) => {
 
 export const getMemberUserPublicKey = async (clerkId: string) => {
     const result = await db
-        .selectFrom('memberUserPublicKey')
-        .innerJoin('user', 'memberUserPublicKey.userId', 'user.id')
-        .select(['memberUserPublicKey.value as memberUserPublicKey'])
+        .selectFrom('userPublicKey')
+        .innerJoin('user', 'userPublicKey.userId', 'user.id')
+        .select(['userPublicKey.publicKey as memberUserPublicKey'])
         .where('user.clerkId', '=', clerkId)
         .executeTakeFirst()
 
