@@ -4,13 +4,11 @@ import React from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberDashboard } from '@/components/member/member-dashboard'
-import { auth } from '@clerk/nextjs/server'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
-    const { userId: clerkId } = await auth()
-    if (!clerkId) return null
 
+    // TODO Needed for now to manually do job things
     // await db
     //     .insertInto('studyJob')
     //     .values({
