@@ -39,14 +39,6 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
         },
     })
 
-    if (!latestJob) {
-        return (
-            <Paper bg="white" p="xl">
-                <Text>Study results are not available yet</Text>
-            </Paper>
-        )
-    }
-
     const onSubmit = (values: StudyResultsFormValues) => {
         decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
     }
@@ -55,6 +47,24 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
         if (errors.privateKey) {
             notifications.show({ message: 'Invalid private key', color: 'red' })
         }
+    }
+
+    if (!latestJob) {
+        return (
+            <Paper bg="white" p="xl">
+                <Text>Study results are not available yet</Text>
+            </Paper>
+        )
+    }
+
+    if (!fingerprint) {
+        return (
+            <Paper bg="white" p="xl">
+                <Text>
+                    It looks like you have not generated a key yet. You cannot view results without a private key.
+                </Text>
+            </Paper>
+        )
     }
 
     return (

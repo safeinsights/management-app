@@ -20,7 +20,6 @@ export default async function StudyReviewPage(props: {
     }>
 }) {
     const { userId: clerkId } = await auth()
-    if (!clerkId) return null
     const fingerprint = await getMemberUserFingerprint(clerkId)
 
     const params = await props.params
