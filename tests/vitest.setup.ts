@@ -3,6 +3,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
+//import * as mockRouter from 'next-router-mock';
 import { cleanup } from '@testing-library/react'
 
 const Headers = new Map()
@@ -10,9 +11,36 @@ const Headers = new Map()
 beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     vi.mock('next/router', () => require('next-router-mock'))
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    vi.mock('next/navigation', () => require('next-router-mock'))
+
+    // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
+    vi.mock('next/navigation', () => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const mockRouter = require('next-router-mock')
+        const useRouter = mockRouter.useRouter
+
+        return {
+            ...mockRouter,
+            notFound: vi.fn(),
+            redirect: vi.fn().mockImplementation((url: string) => {
+                mockRouter.memoryRouter.setCurrentUrl(url)
+            }),
+            usePathname: () => {
+                const router = useRouter()
+                return router.asPath
+            },
+            useSearchParams: () => {
+                const router = useRouter()
+                const path = router.query
+                return new URLSearchParams(path as any)
+            },
+        }
+    })
+
     vi.mock('next/headers', async () => ({ headers: async () => Headers }))
+
+    vi.mock('@clerk/nextjs')
+    vi.mock('@clerk/nextjs/server')
+
     testTransaction.start()
 })
 

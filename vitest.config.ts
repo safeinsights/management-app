@@ -14,6 +14,7 @@ export default defineConfig({
         environment: 'happy-dom',
         setupFiles: ['tests/vitest.setup.ts'],
         include: ['src/**/*.(test).{js,jsx,ts,tsx}'],
+
         coverage: {
             enabled: Boolean(IS_CI || process.env.COVERAGE),
             reportsDirectory: 'test-results/unit',
@@ -23,9 +24,11 @@ export default defineConfig({
                 lcov: true,
                 outputDir: 'test-results/unit',
                 clean: true,
+                filter: { '**/*.css': false, '**/*': true },
                 sourceFilter: testsCoverageSourceFilter,
             },
             provider: 'custom',
+
             customProviderModule: 'vitest-monocart-coverage',
         } as any, // eslint-disable-line
         // ↑ is needed because the monocart-coverage uses non-typed coverageReportOptions
