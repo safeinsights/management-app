@@ -1,3 +1,5 @@
+'use server'
+
 import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
@@ -8,8 +10,8 @@ import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIden
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { first } from 'remeda'
-
-export const dynamicParams = true
+import { auth } from '@clerk/nextjs/server'
+import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -17,6 +19,10 @@ export default async function StudyReviewPage(props: {
         studyIdentifier: string
     }>
 }) {
+    const { userId: clerkId } = await auth()
+    if (!clerkId) return null
+    const fingerprint = await getMemberUserFingerprint(clerkId)
+
     const params = await props.params
 
     const { memberIdentifier, studyIdentifier } = params
@@ -79,7 +85,7 @@ export default async function StudyReviewPage(props: {
                     </Grid>
                 </Stack>
             </Paper>
-            {latestJob && <StudyResults latestJob={latestJob} />}
+            {latestJob && <StudyResults latestJob={latestJob} fingerprint={fingerprint} />}
         </Stack>
     )
 }

@@ -13,23 +13,19 @@ interface StudyResultsFormValues {
     privateKey: string
 }
 
-export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
-    const { data: results, mutate: decryptResults } = useMutation({
+export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null }> = ({ latestJob, fingerprint }) => {
+    const { mutate: decryptResults } = useMutation({
         mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
-            const blob = await fetchJobResultsZipAction(jobId)
-            console.log('my blob: ', blob)
+            if (!fingerprint) return
 
-            // Get zip
+            const blob = await fetchJobResultsZipAction(jobId)
             const reader = new ResultsReader()
-            console.log('before')
-            debugger
-            const stuff = await reader.decryptZip(blob, privateKey)
-            console.log('after')
-            console.log('RESULTS???', stuff)
+            return await reader.decryptZip(blob, privateKey, fingerprint)
+        },
+        onSuccess: async (data) => {
+            console.log('Success!', data)
         },
     })
-
-    // console.log('RESULTS: ', results)
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -49,7 +45,6 @@ export const StudyResults: FC<{ latestJob: StudyJob }> = ({ latestJob }) => {
 
     const onSubmit = (values: StudyResultsFormValues) => {
         decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
-        // console.log('values: ', values.privateKey)
     }
 
     const handleError = (errors: typeof form.errors) => {
