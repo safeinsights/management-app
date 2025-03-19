@@ -71,9 +71,12 @@ export const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => 
     }
     const storage = await storageForResultsFile(job)
     if (storage.s3) {
-        // TODO: get zip file from body
-        // const body = await fetchStudyJobResults(job)
-        throw new Error('Zip from S3 not implemented')
+        const body = await fetchStudyJobResults(job)
+        return body
+            .transformToWebStream()
+            .getReader()
+            .read()
+            .then(({ value }) => new Blob([value]))
     } else if (storage.file) {
         return new Blob([await fs.readFile(storage.file)])
     } else {
