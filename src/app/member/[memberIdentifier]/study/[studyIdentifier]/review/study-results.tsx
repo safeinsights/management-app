@@ -2,12 +2,14 @@
 
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import { fetchJobResultsZipAction } from '@/app/researcher/study/[studyId]/review/actions'
 import { useMutation } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
+import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
+import Link from 'next/link'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -15,6 +17,12 @@ interface StudyResultsFormValues {
 
 export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null }> = ({ latestJob, fingerprint }) => {
     const [decryptedResults, setDecryptedResults] = useState<string[]>()
+
+    const form = useForm({
+        mode: 'uncontrolled',
+        initialValues: { privateKey: '' },
+    })
+
     const { mutate: decryptResults } = useMutation({
         mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
             if (!fingerprint) return []
@@ -25,17 +33,9 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
         },
         onSuccess: async (data: string[]) => {
             setDecryptedResults(data)
-            // TODO Show a modal with the data,
-            //  or set some state and show button based on that
-            // console.log('Success!', data)
         },
-    })
-
-    const form = useForm({
-        mode: 'uncontrolled',
-        initialValues: { privateKey: '' },
-        validate: {
-            privateKey: (value: string) => (value.length < 2 ? 'Name must have at least 2 letters' : null),
+        onError: async () => {
+            form.setFieldError('privateKey', 'Invalid private key')
         },
     })
 
@@ -70,23 +70,37 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
     return (
         <Paper bg="white" p="xl">
             <Stack>
-                <Title order={4}>Study Results</Title>
+                <Group justify="space-between">
+                    <Title order={4}>Study Results</Title>
+                    {decryptedResults?.length && (
+                        <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
+                    )}
+                </Group>
                 <Divider />
                 <Stack>
-                    <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
-                        <Group>
-                            <TextInput
-                                {...form.getInputProps('privateKey')}
-                                label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                                placeholder="Enter private key"
-                                key={form.key('privateKey')}
-                            />
-                            <Button type="submit" disabled={!form.isValid}>
-                                Validate
-                            </Button>
-                        </Group>
-                    </form>
-                    <Text>{decryptedResults}</Text>
+                    {!decryptedResults?.length ? (
+                        <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
+                            <Group>
+                                <TextInput
+                                    {...form.getInputProps('privateKey')}
+                                    label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
+                                    placeholder="Enter private key"
+                                    key={form.key('privateKey')}
+                                />
+                                <Button type="submit" disabled={!form.isValid}>
+                                    Validate
+                                </Button>
+                            </Group>
+                        </form>
+                    ) : (
+                        <Text>{decryptedResults}</Text>
+                    )}
+                </Stack>
+                <Stack>
+                    {/* TODO Lock this down behind approvedAt field when it exists */}
+                    <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
+                        View results here
+                    </Anchor>
                 </Stack>
             </Stack>
         </Paper>

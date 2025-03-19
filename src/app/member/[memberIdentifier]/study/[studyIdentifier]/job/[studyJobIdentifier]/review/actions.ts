@@ -8,8 +8,9 @@ import { revalidatePath } from 'next/cache'
 import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
 import { siUser } from '@/server/queries'
+import { attachResultsToStudyJob } from '@/server/results'
 
-export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus) => {
+export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus, results?: string[]) => {
     // TODO: check clerk session to ensure researcher can actually update this
     await db
         .insertInto('jobStatusChange')
@@ -20,7 +21,20 @@ export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: S
         })
         .executeTakeFirstOrThrow()
 
+    if (results?.length) {
+        const blob = new Blob(results, { type: 'text/csv' })
+        const resultsFile = new File([blob], 'dummy_filename')
+        await attachResultsToStudyJob(
+            {
+                ...info,
+                memberIdentifier: info.memberIdentifier,
+            },
+            resultsFile,
+        )
+    }
+
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }
 
 export const fetchFileAction = async (job: MinimalJobInfo, path: string) => {

@@ -6,7 +6,7 @@ import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study-actions'
 import React from 'react'
-import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
+import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { first } from 'remeda'
@@ -57,7 +57,7 @@ export default async function StudyReviewPage(props: {
                 <Stack>
                     <Group justify="space-between">
                         <Title order={4}>Study Proposal</Title>
-                        <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                        <StudyReviewButtons study={study} memberIdentifier={memberIdentifier} />
                     </Group>
                     <Divider />
                     <Grid>
