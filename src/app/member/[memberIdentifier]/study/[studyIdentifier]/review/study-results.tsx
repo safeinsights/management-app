@@ -1,6 +1,6 @@
 'use client'
 
-import React, { FC } from 'react'
+import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
 import { Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
@@ -14,16 +14,20 @@ interface StudyResultsFormValues {
 }
 
 export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null }> = ({ latestJob, fingerprint }) => {
+    const [decryptedResults, setDecryptedResults] = useState<string[]>()
     const { mutate: decryptResults } = useMutation({
         mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
-            if (!fingerprint) return
+            if (!fingerprint) return []
 
             const blob = await fetchJobResultsZipAction(jobId)
             const reader = new ResultsReader()
             return await reader.decryptZip(blob, privateKey, fingerprint)
         },
-        onSuccess: async (data) => {
-            console.log('Success!', data)
+        onSuccess: async (data: string[]) => {
+            setDecryptedResults(data)
+            // TODO Show a modal with the data,
+            //  or set some state and show button based on that
+            // console.log('Success!', data)
         },
     })
 
@@ -72,10 +76,7 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                             </Button>
                         </Group>
                     </form>
-                    {/* TODO Hide this eventually behind the form validation */}
-                    {/*<Anchor component={Link} target="_blank" href={`/dl/results/${latestJob.id}/`}>*/}
-                    {/*    View Results*/}
-                    {/*</Anchor>*/}
+                    <Text>{decryptedResults}</Text>
                 </Stack>
             </Stack>
         </Paper>

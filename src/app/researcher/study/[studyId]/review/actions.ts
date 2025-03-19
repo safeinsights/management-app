@@ -7,7 +7,6 @@ import { sleep } from '@/lib/util'
 import { queryJobResult } from '@/server/queries'
 import { SIMULATE_RESULTS_UPLOAD } from '@/server/config'
 import { fetchStudyJobResults } from '@/server/aws'
-import { ResultsReader } from 'si-encryption/job-results/reader'
 
 export const onStudyJobCreateAction = async (studyId: string) => {
     const studyJob = await db
@@ -72,8 +71,8 @@ export const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => 
     }
     const storage = await storageForResultsFile(job)
     if (storage.s3) {
-        const body = await fetchStudyJobResults(job)
         // TODO: get zip file from body
+        // const body = await fetchStudyJobResults(job)
         throw new Error('Zip from S3 not implemented')
     } else if (storage.file) {
         return new Blob([await fs.readFile(storage.file)])
@@ -81,11 +80,3 @@ export const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => 
         throw new Error('Unknown storage type')
     }
 }
-
-// export const fetchJobResultsAndDecryptAction = async (jobId: string, privateKey: string): Promise<string[]> => {
-//     // Get zip
-//     const zip: Blob = await fetchJobResultsZipAction(jobId)
-//     // Decrypt results
-//     const reader = new ResultsReader()
-//     return await reader.decryptZip(zip, privateKey)
-// }
