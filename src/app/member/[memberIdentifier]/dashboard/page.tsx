@@ -4,15 +4,10 @@ import React from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberDashboard } from './member-dashboard'
-import { currentUser } from '@clerk/nextjs/server'
-import { siUser } from '@/server/queries'
-import { db } from '@/database'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
-    // const user = await currentUser()
-    // const user = await siUser()
-    // console.log('user', user)
+
     // TODO Needed for now to manually do job things
     // await db
     //     .insertInto('studyJob')
@@ -39,6 +34,8 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
 
+    // const user = await siUser()
+    // console.log('user', user)
     // await db
     //     .insertInto('memberUser')
     //     .values({

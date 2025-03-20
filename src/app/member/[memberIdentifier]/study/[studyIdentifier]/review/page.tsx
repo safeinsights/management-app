@@ -9,12 +9,8 @@ import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { last } from 'remeda'
-import { auth } from '@clerk/nextjs/server'
 import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
-import { getLatestStudyJobAction } from '@/app/researcher/study/[studyId]/upload/actions'
 import { jobStatusForJob, latestJobForStudy } from '@/server/actions/study-job-actions'
-import { db } from '@/database'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -22,7 +18,6 @@ export default async function StudyReviewPage(props: {
         studyIdentifier: string
     }>
 }) {
-    const { userId: clerkId } = await auth()
     const fingerprint = await getMemberUserFingerprint()
 
     const params = await props.params
