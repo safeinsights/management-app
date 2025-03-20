@@ -1,8 +1,9 @@
 import 'dotenv/config'
 import { readTestSupportFile } from './e2e.helpers'
-import { db } from '@/database'
+import { db, sql } from '@/database'
 import { PROD_ENV } from '@/server/config'
 import { findOrCreateSiUserId } from '@/server/actions/user-actions'
+import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 
 const CLERK_MEMBER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
@@ -11,18 +12,19 @@ export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
 )
 
 async function setupUsers() {
-    const pubKey = await readTestSupportFile('public_key.pem')
+    const pubKeyStr = await readTestSupportFile('public_key.pem')
+    const pubKey = Buffer.from(pemToArrayBuffer(pubKeyStr)) // db exp;ects nodejs buffer
     const fingerprint = await readTestSupportFile('public_key.sig')
 
     for (const clerkId of CLERK_MEMBER_TEST_IDS) {
         const userId = await findOrCreateSiUserId(clerkId, 'Test Researcher User')
 
-        const pkey = await db.selectFrom('memberUserPublicKey').where('userId', '=', userId).executeTakeFirst()
+        const pkey = await db.selectFrom('userPublicKey').where('userId', '=', userId).executeTakeFirst()
 
         if (!pkey) {
             await db
-                .insertInto('memberUserPublicKey')
-                .values({ fingerprint, userId, value: pubKey })
+                .insertInto('userPublicKey')
+                .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
     }

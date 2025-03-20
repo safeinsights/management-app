@@ -5,33 +5,23 @@ import { siUser } from '@/server/queries'
 
 export const getMemberUserPublicKey = async (clerkId: string) => {
     const result = await db
-        .selectFrom('memberUserPublicKey')
-        .innerJoin('user', 'memberUserPublicKey.userId', 'user.id')
-        .select(['memberUserPublicKey.value as memberUserPublicKey'])
+        .selectFrom('userPublicKey')
+        .innerJoin('user', 'userPublicKey.userId', 'user.id')
+        .select(['userPublicKey.publicKey as memberUserPublicKey'])
         .where('user.clerkId', '=', clerkId)
         .executeTakeFirst()
 
     return result?.memberUserPublicKey
 }
 
-export const getMemberUserFingerprint = async (clerkId: string | null) => {
-    const result = await db
-        .selectFrom('memberUserPublicKey')
-        .innerJoin('user', 'memberUserPublicKey.userId', 'user.id')
-        .select(['memberUserPublicKey.fingerprint'])
-        .where('user.clerkId', '=', clerkId)
-        .executeTakeFirst()
-    return result?.fingerprint || null
-}
-
-export const setMemberUserPublicKey = async (clerkId: string, publicKey: string, fingerprint: string) => {
+export const setMemberUserPublicKey = async (publicKey: ArrayBuffer, fingerprint: string) => {
     const user = await siUser()
 
     await db
-        .insertInto('memberUserPublicKey')
+        .insertInto('userPublicKey')
         .values({
             userId: user.id,
-            value: publicKey,
+            publicKey: Buffer.from(publicKey),
             fingerprint: fingerprint,
         })
         .execute()

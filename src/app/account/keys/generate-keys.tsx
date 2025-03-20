@@ -6,25 +6,32 @@ import { FC, useState } from 'react'
 import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 
-export const GenerateKeys: FC<{
-    clerkId: string
-}> = ({ clerkId }) => {
+export const GenerateKeys: FC = () => {
     const user = useUserContext()
-    const [keys, setKeys] = useState<{ publicKey: string; privateKey: string; fingerprint: string }>()
+    const [keys, setKeys] = useState<{
+        binaryPublicKey: ArrayBuffer
+        publicKey: string
+        privateKey: string
+        fingerprint: string
+    }>()
 
     const onGenerateKeys = async () => {
-        const { publicKeyString, privateKeyString, fingerprint } = await generateKeyPair()
+        const { publicKeyString, privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
+
+        const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${publicKeyString}\n-----END PUBLIC KEY-----`
+        const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`
 
         setKeys({
-            publicKey: publicKeyString,
-            privateKey: privateKeyString,
+            publicKey: publicKeyPem,
+            binaryPublicKey: exportedPublicKey,
+            privateKey: privateKeyPem,
             fingerprint,
         })
     }
 
     const saveKeys = async () => {
         if (keys?.publicKey && keys.fingerprint) {
-            await setMemberUserPublicKey(clerkId, keys.publicKey, keys.fingerprint)
+            await setMemberUserPublicKey(keys.binaryPublicKey, keys.fingerprint)
         }
     }
 
