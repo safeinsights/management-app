@@ -3,7 +3,6 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
-//import * as mockRouter from 'next-router-mock';
 import { cleanup } from '@testing-library/react'
 
 const Headers = new Map()
