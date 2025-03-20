@@ -88,7 +88,6 @@ export default function InviteForm() {
                         researcher: false
                     }
                 });
-                setSelectedOrganization(null);
                 setSuccess(true);
             }
         } catch (error: any) {
