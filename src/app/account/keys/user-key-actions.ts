@@ -1,31 +1,27 @@
 'use server'
 
 import { db } from '@/database'
-import { getUserIdByClerkId } from '@/server/actions/user-actions'
+import { siUser } from '@/server/queries'
 
 export const getMemberUserPublicKey = async (clerkId: string) => {
     const result = await db
-        .selectFrom('memberUserPublicKey')
-        .innerJoin('user', 'memberUserPublicKey.userId', 'user.id')
-        .select(['memberUserPublicKey.value as memberUserPublicKey'])
+        .selectFrom('userPublicKey')
+        .innerJoin('user', 'userPublicKey.userId', 'user.id')
+        .select(['userPublicKey.publicKey as memberUserPublicKey'])
         .where('user.clerkId', '=', clerkId)
         .executeTakeFirst()
 
     return result?.memberUserPublicKey
 }
 
-export const setMemberUserPublicKey = async (clerkId: string, publicKey: string, fingerprint: string) => {
-    const userId = await getUserIdByClerkId(clerkId)
-
-    if (!userId) {
-        throw new Error(`User for clerk id ${clerkId} doesn't exist!`)
-    }
+export const setMemberUserPublicKey = async (publicKey: ArrayBuffer, fingerprint: string) => {
+    const user = await siUser()
 
     await db
-        .insertInto('memberUserPublicKey')
+        .insertInto('userPublicKey')
         .values({
-            userId: userId,
-            value: publicKey,
+            userId: user.id,
+            publicKey: Buffer.from(publicKey),
             fingerprint: fingerprint,
         })
         .execute()
