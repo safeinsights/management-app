@@ -31,8 +31,6 @@ describe('Member Actions', () => {
                 name: 'Duplicate Org',
                 email: 'duplicate@example.com',
                 publicKey: 'duplicate-key',
-                createdAt: new Date(),
-                updatedAt: new Date(),
             }
 
             // Simulate that a member with the same name already exists
@@ -43,6 +41,7 @@ describe('Member Actions', () => {
             // Override db.selectFrom chain for duplicate check
             vi.mocked(db.selectFrom).mockReturnValue({
                 select: () => ({ where: mockWhere }),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
             } as any)
 
             await expect(upsertMemberAction(newMember)).rejects.toThrow('Organization with this name already exists')

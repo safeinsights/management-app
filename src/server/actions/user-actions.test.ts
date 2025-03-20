@@ -189,13 +189,7 @@ describe('User Actions', () => {
                 execute: mockExecute,
             } as never)
 
-            const result = await createUserAction(
-                'test-clerk-id',
-                'Test User',
-                true,
-                'test-member-id',
-                true
-            )
+            const result = await createUserAction('test-clerk-id', 'Test User', true, 'test-member-id', true)
 
             expect(result).toEqual({ id: 'new-user-id' })
             expect(db.transaction).toHaveBeenCalled()
@@ -225,7 +219,7 @@ describe('User Actions', () => {
             } as never)
 
             await expect(
-                createUserAction('existing-clerk-id', 'Test User', true, 'test-member-id', true)
+                createUserAction('existing-clerk-id', 'Test User', true, 'test-member-id', true),
             ).rejects.toThrow('User with clerkId existing-clerk-id already exists')
         })
 
@@ -259,9 +253,9 @@ describe('User Actions', () => {
                 execute: mockExecute,
             } as never)
 
-            await expect(
-                createUserAction('test-clerk-id', 'Test User', true, 'test-member-id', true)
-            ).rejects.toThrow('Failed to create user in DB')
+            await expect(createUserAction('test-clerk-id', 'Test User', true, 'test-member-id', true)).rejects.toThrow(
+                'Failed to create user in DB',
+            )
         })
 
         it('throws an error when member_user insert fails', async () => {
@@ -307,9 +301,9 @@ describe('User Actions', () => {
                 execute: mockExecute,
             } as never)
 
-            await expect(
-                createUserAction('test-clerk-id', 'Test User', true, 'test-member-id', true)
-            ).rejects.toThrow('Failed to create member_user record')
+            await expect(createUserAction('test-clerk-id', 'Test User', true, 'test-member-id', true)).rejects.toThrow(
+                'Failed to create member_user record',
+            )
         })
     })
 })
