@@ -10,8 +10,8 @@ export const GET = wrapApiMemberAction(async (_req: Request, { params }: { param
         .where('studyJob.id', '=', jobId)
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .innerJoin('memberUserPublicKey', 'memberUserPublicKey.userId', 'memberUser.userId')
-        .select(['studyJob.id as jobId', 'memberUserPublicKey.value as publicKey', 'memberUserPublicKey.fingerprint'])
+        .innerJoin('userPublicKey', 'userPublicKey.userId', 'memberUser.userId')
+        .select(['studyJob.id as jobId', 'userPublicKey.publicKey', 'userPublicKey.fingerprint'])
         .execute()
 
     if (!publicKeys) {

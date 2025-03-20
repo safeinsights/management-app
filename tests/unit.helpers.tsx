@@ -152,19 +152,19 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
 
     // Give memberUsers a public key
     await db
-        .insertInto('memberUserPublicKey')
+        .insertInto('userPublicKey')
         .values({
             userId: user1.id,
-            value: 'testPublicKey1',
+            publicKey: Buffer.from('testPublicKey1'),
             fingerprint: 'testFingerprint1',
         })
         .execute()
 
     await db
-        .insertInto('memberUserPublicKey')
+        .insertInto('userPublicKey')
         .values({
             userId: user2.id,
-            value: 'testPublicKey2',
+            publicKey: Buffer.from('testPublicKey2'),
             fingerprint: 'testFingerprint2',
         })
         .execute()
