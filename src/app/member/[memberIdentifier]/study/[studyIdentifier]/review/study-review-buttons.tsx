@@ -32,7 +32,6 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
         },
     })
 
-    // TODO Do we want to support approved/rejected at timestamps?
     if (study.status === 'APPROVED' && study.approvedAt) {
         return (
             <Group c="#12B886" gap="0">
