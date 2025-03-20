@@ -4,7 +4,7 @@ import { Select, Text } from '@mantine/core'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMembersAction } from '@/server/actions/member-actions'
-import { Member } from '@/schema/member' // if you have a Member type defined
+import { Member } from '@/schema/member'
 
 export const OrganizationSelect = ({
   onOrganizationSelect,
@@ -45,12 +45,14 @@ export const OrganizationSelect = ({
       label="Select Organization"
       placeholder="Choose an organization"
       data={members.map((m) => ({
-        value: m.identifier, // internal value
-        label: m.name, // displayed in the dropdown
+        value: m.id, // use member id (uuid) for createUserAction
+        label: m.name,
       }))}
       value={selected ?? undefined}
       onChange={handleChange}
       allowDeselect={false}
+      searchable
+      clearable={false}
     />
   )
 }

@@ -35,7 +35,13 @@ export default function InviteForm() {
         const lastName = formData.get('lastName')?.toString() ?? ''
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
-        const organization = selectedOrganization || ''
+        
+        // Check if organization is selected
+        if (!selectedOrganization) {
+            setError('Please select an organization')
+            setLoading(false)
+            return
+        }
         
         // Check if at least one role is selected
         if (!formValues.roles.reviewer && !formValues.roles.researcher) {
@@ -62,7 +68,13 @@ export default function InviteForm() {
                 password,
             })
             // save user in DB
-            await createUserAction(result.clerkId, `${firstName} ${lastName}`, formValues.roles.researcher)
+            await createUserAction(
+                result.clerkId,
+                `${firstName} ${lastName}`,
+                formValues.roles.researcher,
+                selectedOrganization, // Use the selected organization ID directly
+                formValues.roles.reviewer
+            )
             
             if (result.success) {
                 // Reset form state
@@ -76,6 +88,7 @@ export default function InviteForm() {
                         researcher: false
                     }
                 });
+                setSelectedOrganization(null);
                 setSuccess(true);
             }
         } catch (error: any) {
