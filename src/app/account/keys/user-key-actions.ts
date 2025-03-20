@@ -14,6 +14,18 @@ export const getMemberUserPublicKey = async (clerkId: string) => {
     return result?.memberUserPublicKey
 }
 
+export const getMemberUserFingerprint = async () => {
+    const user = await siUser()
+    const result = await db
+        .selectFrom('userPublicKey')
+        .innerJoin('user', 'userPublicKey.userId', 'user.id')
+        .select(['userPublicKey.fingerprint'])
+        .where('user.id', '=', user.id)
+        .executeTakeFirst()
+
+    return result?.fingerprint
+}
+
 export const setMemberUserPublicKey = async (publicKey: ArrayBuffer, fingerprint: string) => {
     const user = await siUser()
 

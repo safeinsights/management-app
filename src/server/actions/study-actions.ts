@@ -58,9 +58,12 @@ export const getStudyAction = async (studyId: string) => {
                 eb
                     .selectFrom('studyJob')
                     .selectAll()
+                    .innerJoin('jobStatusChange', 'studyJob.id', 'jobStatusChange.studyJobId')
+                    .orderBy('jobStatusChange.id')
+                    .select('jobStatusChange.status')
                     // .select(['id', 'resultFormat', 'resultsPath', 'createdAt'])
                     .whereRef('studyJob.studyId', '=', 'study.id')
-                    .orderBy('createdAt'),
+                    .orderBy('studyJob.createdAt'),
             ).as('jobs'),
         ])
         .where('study.id', '=', studyId)

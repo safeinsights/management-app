@@ -23,7 +23,7 @@ export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: S
 
     if (results?.length) {
         const blob = new Blob(results, { type: 'text/csv' })
-        const resultsFile = new File([blob], 'dummy_filename')
+        const resultsFile = new File([blob], 'job_results.csv')
         await attachResultsToStudyJob(
             {
                 ...info,

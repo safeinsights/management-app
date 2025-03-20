@@ -21,7 +21,8 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
     //         resultFormat: 'SI_V1_ENCRYPT',
     //     })
     //     .execute()
-    //
+
+    // await db.deleteFrom('userPublicKey').execute()
     // console.log(
     //     await db
     //         .selectFrom('studyJob')

@@ -9,7 +9,7 @@ import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { first, last } from 'remeda'
+import { last } from 'remeda'
 import { auth } from '@clerk/nextjs/server'
 import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
 
@@ -20,7 +20,7 @@ export default async function StudyReviewPage(props: {
     }>
 }) {
     const { userId: clerkId } = await auth()
-    const fingerprint = await getMemberUserFingerprint(clerkId)
+    const fingerprint = await getMemberUserFingerprint()
 
     const params = await props.params
 

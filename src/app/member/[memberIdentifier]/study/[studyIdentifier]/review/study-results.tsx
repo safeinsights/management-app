@@ -29,7 +29,6 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
             if (!fingerprint) return []
 
             const blob = await fetchJobResultsZipAction(jobId)
-            console.log(blob)
             const privateKeyBuffer = pemToArrayBuffer(privateKey)
             const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
             return await reader.decryptZip()
@@ -82,20 +81,24 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                 </Group>
                 <Divider />
                 <Stack>
-                    <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
-                        <Group>
-                            <Textarea
-                                resize="vertical"
-                                {...form.getInputProps('privateKey')}
-                                label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                                placeholder="Enter private key"
-                                key={form.key('privateKey')}
-                            />
-                            <Button type="submit" disabled={!form.isValid}>
-                                Validate
-                            </Button>
-                        </Group>
-                    </form>
+                    {!decryptedResults?.length ? (
+                        <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
+                            <Group>
+                                <Textarea
+                                    resize="vertical"
+                                    {...form.getInputProps('privateKey')}
+                                    label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
+                                    placeholder="Enter private key"
+                                    key={form.key('privateKey')}
+                                />
+                                <Button type="submit" disabled={!form.isValid}>
+                                    Validate
+                                </Button>
+                            </Group>
+                        </form>
+                    ) : (
+                        decryptedResults
+                    )}
                 </Stack>
                 <Stack>
                     {/* TODO Lock this down behind approvedAt field when it exists */}
