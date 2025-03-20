@@ -19,8 +19,8 @@ export default function InviteForm() {
         password: '',
         roles: {
             reviewer: false,
-            researcher: false
-        }
+            researcher: false,
+        },
     })
     const [selectedOrganization, setSelectedOrganization] = useState<string | null>(null)
 
@@ -35,14 +35,14 @@ export default function InviteForm() {
         const lastName = formData.get('lastName')?.toString() ?? ''
         const email = formData.get('email')?.toString() ?? ''
         const password = formData.get('password')?.toString() ?? ''
-        
+
         // Check if organization is selected
         if (!selectedOrganization) {
             setError('Please select an organization')
             setLoading(false)
             return
         }
-        
+
         // Check if at least one role is selected
         if (!formValues.roles.reviewer && !formValues.roles.researcher) {
             setError('Please select at least one role (Reviewer or Researcher)')
@@ -56,7 +56,7 @@ export default function InviteForm() {
             lastName,
             email,
             password,
-            roles: formValues.roles // Keep the existing roles structure
+            roles: formValues.roles, // Keep the existing roles structure
         })
 
         try {
@@ -73,9 +73,9 @@ export default function InviteForm() {
                 `${firstName} ${lastName}`,
                 formValues.roles.researcher,
                 selectedOrganization, // Use the selected organization ID directly
-                formValues.roles.reviewer
+                formValues.roles.reviewer,
             )
-            
+
             if (result.success) {
                 // Reset form state
                 setFormValues({
@@ -85,8 +85,8 @@ export default function InviteForm() {
                     password: '',
                     roles: {
                         reviewer: false,
-                        researcher: false
-                    }
+                        researcher: false,
+                    },
                 })
                 setSuccess(true)
             }
@@ -105,29 +105,27 @@ export default function InviteForm() {
                     {error}
                 </Alert>
             )}
-            
+
             {success && (
                 <Alert color="green" mb="md">
                     User created successfully!
                 </Alert>
             )}
             <div
-              style={{
-                display: 'flex',
-                width: '100%',
-                gap: '1rem',
-                alignItems: 'flex-end',
-                marginBottom: '1rem'
-              }}
+                style={{
+                    display: 'flex',
+                    width: '100%',
+                    gap: '1rem',
+                    alignItems: 'flex-end',
+                    marginBottom: '1rem',
+                }}
             >
-              <div style={{ flex: 1 }}>
-                <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
-              </div>
-              <Link href="/admin/organization" style={{ textDecoration: 'none' }}>
-                <Button variant="outline">
-                  New
-                </Button>
-              </Link>
+                <div style={{ flex: 1 }}>
+                    <OrganizationSelect onOrganizationSelect={(orgId) => setSelectedOrganization(orgId)} />
+                </div>
+                <Link href="/admin/organization" style={{ textDecoration: 'none' }}>
+                    <Button variant="outline">New</Button>
+                </Link>
             </div>
             <TextInput
                 label="First Name"
@@ -136,7 +134,7 @@ export default function InviteForm() {
                 mb="sm"
                 name="firstName"
                 value={formValues.firstName}
-                onChange={(e) => setFormValues({...formValues, firstName: e.target.value})}
+                onChange={(e) => setFormValues({ ...formValues, firstName: e.target.value })}
             />
             <TextInput
                 label="Last Name"
@@ -145,34 +143,40 @@ export default function InviteForm() {
                 mb="sm"
                 name="lastName"
                 value={formValues.lastName}
-                onChange={(e) => setFormValues({...formValues, lastName: e.target.value})}
+                onChange={(e) => setFormValues({ ...formValues, lastName: e.target.value })}
             />
             <div style={{ marginBottom: '1rem' }}>
-                <Text fw={500} size="sm" mb={5}>Roles (select at least one)</Text>
+                <Text fw={500} size="sm" mb={5}>
+                    Roles (select at least one)
+                </Text>
                 <Group>
                     <Checkbox
                         label="Reviewer"
                         name="role-reviewer"
                         checked={formValues.roles.reviewer}
-                        onChange={(e) => setFormValues({
-                            ...formValues, 
-                            roles: {
-                                ...formValues.roles,
-                                reviewer: e.currentTarget.checked
-                            }
-                        })}
+                        onChange={(e) =>
+                            setFormValues({
+                                ...formValues,
+                                roles: {
+                                    ...formValues.roles,
+                                    reviewer: e.currentTarget.checked,
+                                },
+                            })
+                        }
                     />
                     <Checkbox
                         label="Researcher"
                         name="role-researcher"
                         checked={formValues.roles.researcher}
-                        onChange={(e) => setFormValues({
-                            ...formValues, 
-                            roles: {
-                                ...formValues.roles,
-                                researcher: e.currentTarget.checked
-                            }
-                        })}
+                        onChange={(e) =>
+                            setFormValues({
+                                ...formValues,
+                                roles: {
+                                    ...formValues.roles,
+                                    researcher: e.currentTarget.checked,
+                                },
+                            })
+                        }
                     />
                 </Group>
             </div>
@@ -184,7 +188,7 @@ export default function InviteForm() {
                 mb="sm"
                 name="email"
                 value={formValues.email}
-                onChange={(e) => setFormValues({...formValues, email: e.target.value})}
+                onChange={(e) => setFormValues({ ...formValues, email: e.target.value })}
             />
             <PasswordInput
                 label="Password"
@@ -193,7 +197,7 @@ export default function InviteForm() {
                 mb="sm"
                 name="password"
                 value={formValues.password}
-                onChange={(e) => setFormValues({...formValues, password: e.target.value})}
+                onChange={(e) => setFormValues({ ...formValues, password: e.target.value })}
             />
             <Button type="submit" mt="md" fullWidth loading={loading}>
                 Invite

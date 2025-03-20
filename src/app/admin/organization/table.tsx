@@ -38,9 +38,9 @@ export function MembersAdminTable() {
     return (
         <Flex direction={'column'}>
             {globalError && (
-              <Alert icon={<Warning size={16} />} color="red" mb="md">
-                {globalError}
-              </Alert>
+                <Alert icon={<Warning size={16} />} color="red" mb="md">
+                    {globalError}
+                </Alert>
             )}
             <DataTable
                 withTableBorder
@@ -71,29 +71,20 @@ export function MembersAdminTable() {
 }
 
 interface AddMemberProps {
-  onError: (err: string) => void
+    onError: (err: string) => void
 }
 
 const AddMember: FC<AddMemberProps> = ({ onError }) => {
-  const [opened, { open, close }] = useDisclosure(false)
+    const [opened, { open, close }] = useDisclosure(false)
 
-  return (
-    <Flex justify={'end'} mt="lg">
-      <Modal
-        opened={opened}
-        onClose={close}
-        title="Add organization"
-        closeOnClickOutside={false}
-      >
-        <EditMemberForm
-          member={getNewMember()}
-          onCompleteAction={close}
-          onError={onError}
-        />
-      </Modal>
-      <Button onClick={open}>Add new organization</Button>
-    </Flex>
-  )
+    return (
+        <Flex justify={'end'} mt="lg">
+            <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
+                <EditMemberForm member={getNewMember()} onCompleteAction={close} onError={onError} />
+            </Modal>
+            <Button onClick={open}>Add new organization</Button>
+        </Flex>
+    )
 }
 
 const MemberRow: FC<{ member: Member }> = ({ member }) => {

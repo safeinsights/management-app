@@ -33,7 +33,7 @@ export async function createClerkUserAction({
     } catch (error: unknown) {
         // Extract more specific error information if available
         let errorMessage = 'Unknown error during user creation'
-        
+
         if (error && typeof error === 'object') {
             if ('errors' in error) {
                 errorMessage = JSON.stringify((error as { errors: unknown }).errors)
