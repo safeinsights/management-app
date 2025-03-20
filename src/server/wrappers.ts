@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { localStorageContext } from './context'
 import { memberFromAuthToken } from './member-from-auth-token'
 
@@ -18,13 +19,13 @@ export function wrapApiMemberAction<F extends WrappedFunc>(func: F): F {
         }
 
         const member = await memberFromAuthToken()
-        // if (!member) {
-        //     // return 404
-        //     return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
-        //         status: 401,
-        //         headers: { 'Content-Type': 'application/json' },
-        //     })
-        // }
+        if (!member) {
+            // return 404
+            return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' },
+            })
+        }
 
         const result = await new Promise<ReturnType<F>>((resolve, reject) => {
             localStorageContext.run(
