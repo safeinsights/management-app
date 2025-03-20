@@ -4,24 +4,29 @@ import React from 'react'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { MemberDashboard } from './member-dashboard'
+import { currentUser } from '@clerk/nextjs/server'
+import { siUser } from '@/server/queries'
+import { db } from '@/database'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
-
+    // const user = await currentUser()
+    // const user = await siUser()
+    // console.log('user', user)
     // TODO Needed for now to manually do job things
     // await db
     //     .insertInto('studyJob')
     //     .values({
-    //         studyId: '0195a985-b231-7501-a3c9-ad8f41b6bd66',
+    //         studyId: '0195b473-d3d3-777b-9de4-9946426710e1',
     //         resultFormat: 'SI_V1_ENCRYPT',
     //     })
     //     .execute()
-
+    //
     // console.log(
     //     await db
     //         .selectFrom('studyJob')
     //         .selectAll()
-    //         .where('studyId', '=', '0195a985-b231-7501-a3c9-ad8f41b6bd66')
+    //         .where('studyId', '=', '0195b473-d3d3-777b-9de4-9946426710e1')
     //         .execute(),
     // )
 
@@ -37,7 +42,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
     //     .insertInto('memberUser')
     //     .values({
     //         memberId: member.id,
-    //         userId: userId,
+    //         userId: user.id,
     //         isAdmin: true,
     //         isReviewer: true,
     //     })

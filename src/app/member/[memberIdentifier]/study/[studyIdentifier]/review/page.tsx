@@ -9,7 +9,7 @@ import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { first } from 'remeda'
+import { first, last } from 'remeda'
 import { auth } from '@clerk/nextjs/server'
 import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
 
@@ -37,7 +37,7 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const latestJob = first(study.jobs)
+    const latestJob = last(study.jobs)
 
     return (
         <Stack px="xl" gap="xl">

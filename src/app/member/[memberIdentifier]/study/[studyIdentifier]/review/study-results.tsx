@@ -10,6 +10,7 @@ import { useMutation } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import Link from 'next/link'
+import { pemToArrayBuffer } from 'si-encryption/util'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -17,7 +18,7 @@ interface StudyResultsFormValues {
 
 export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null }> = ({ latestJob, fingerprint }) => {
     const [decryptedResults, setDecryptedResults] = useState<string[]>()
-
+    console.log(latestJob)
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: { privateKey: '' },
@@ -28,8 +29,10 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
             if (!fingerprint) return []
 
             const blob = await fetchJobResultsZipAction(jobId)
-            const reader = new ResultsReader()
-            return await reader.decryptZip(blob, privateKey, fingerprint)
+            console.log(blob)
+            const privateKeyBuffer = pemToArrayBuffer(privateKey)
+            const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
+            return await reader.decryptZip()
         },
         onSuccess: async (data: string[]) => {
             setDecryptedResults(data)
@@ -82,8 +85,7 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                     <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                         <Group>
                             <Textarea
-                                minRows={4}
-                                autosize
+                                resize="vertical"
                                 {...form.getInputProps('privateKey')}
                                 label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
                                 placeholder="Enter private key"
