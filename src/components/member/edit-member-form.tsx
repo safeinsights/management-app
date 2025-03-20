@@ -7,27 +7,30 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Member, memberSchema, NewMember, ValidatedMember, zodResolver } from '@/schema/member'
 import { FC } from 'react'
 
-export const EditMemberForm: FC<{ member: Member | NewMember; onCompleteAction?: () => void }> = ({
-    member,
-    onCompleteAction,
-}) => {
-    const form = useForm<ValidatedMember>({
-        validate: zodResolver(memberSchema),
-        initialValues: member,
-    })
+export const EditMemberForm: FC<{
+  member: Member | NewMember
+  onCompleteAction?: () => void
+  onError?: (err: string) => void
+}> = ({ member, onCompleteAction, onError }) => {
+  const form = useForm<ValidatedMember>({
+    validate: zodResolver(memberSchema),
+    initialValues: member,
+  })
 
-    const queryClient = useQueryClient()
+  const queryClient = useQueryClient()
 
-    const { isPending, mutate: upsertMember } = useMutation({
-        mutationFn: async (data: ValidatedMember) => {
-            return await upsertMemberAction(data)
-        },
-        onSettled: async () => {
-            const result = await queryClient.invalidateQueries({ queryKey: ['members'] })
-            onCompleteAction?.()
-            return result
-        },
-    })
+  const { isPending, mutate: upsertMember } = useMutation({
+    mutationFn: async (data: ValidatedMember) => await upsertMemberAction(data),
+    onError: (error: unknown) => {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Failed to update member'
+      onError?.(errorMessage)
+    },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['members'] })
+      onCompleteAction?.()
+    },
+  })
 
     return (
         <form onSubmit={form.onSubmit((values) => upsertMember(values))}>

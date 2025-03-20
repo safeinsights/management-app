@@ -5,6 +5,17 @@ import { memberSchema, NewMember, Member } from '@/schema/member'
 
 export const upsertMemberAction = async (member: Member | NewMember) => {
     memberSchema.parse(member) // will throw when malformed
+    // Check for duplicate organization name for new organizations only
+    if (!('id' in member)) {
+        const duplicate = await db
+            .selectFrom('member')
+            .select('id')
+            .where('name', '=', member.name)
+            .executeTakeFirst()
+        if (duplicate) {
+            throw new Error('Organization with this name already exists')
+        }
+    }
     const results = await db
         .insertInto('member')
         .values(member)
