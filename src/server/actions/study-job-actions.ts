@@ -12,17 +12,10 @@ import { siUser } from '@/server/queries'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus, results?: string[]) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    if (status === 'RESULTS-APPROVED') {
+    if (status === 'RESULTS-APPROVED' && results?.length) {
         const blob = new Blob(results, { type: 'text/csv' })
         const resultsFile = new File([blob], 'job_results.csv')
-        await attachResultsToStudyJob(
-            {
-                ...info,
-                memberIdentifier: info.memberIdentifier,
-            },
-            resultsFile,
-            status,
-        )
+        await attachResultsToStudyJob(info, resultsFile, status)
     }
 
     if (status === 'RESULTS-REJECTED') {

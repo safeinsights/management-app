@@ -25,7 +25,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             .innerJoin('study', (join) =>
                 join.onRef('study.id', '=', 'studyJob.studyId').on('study.memberId', '=', member.id),
             )
-            .select(['studyJob.id as studyJobId', 'studyId'])
+            .select(['studyJob.id as studyJobId', 'studyId', 'study.memberId as memberIdentifier'])
             .where('studyJob.id', '=', jobId)
             .executeTakeFirst()
 
@@ -33,14 +33,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
         }
 
-        await attachResultsToStudyJob(
-            {
-                ...info,
-                memberIdentifier: member.identifier,
-            },
-            contents,
-            'RUN-COMPLETE',
-        )
+        await attachResultsToStudyJob(info, contents, 'RUN-COMPLETE')
 
         return NextResponse.json({ status: 'success' }, { status: 200 })
     } catch (e) {

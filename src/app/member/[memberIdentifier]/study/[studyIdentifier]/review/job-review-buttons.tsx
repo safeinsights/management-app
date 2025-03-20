@@ -18,7 +18,13 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     const { mutate: updateStudyJob } = useMutation({
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
-            await updateStudyJobStatusAction(jobInfo, status, decryptedResults)
+            if (status === 'RESULTS-APPROVED') {
+                await updateStudyJobStatusAction(jobInfo, status, decryptedResults)
+            }
+
+            if (status === 'RESULTS-REJECTED') {
+                await updateStudyJobStatusAction(jobInfo, status)
+            }
         },
         onSuccess: () => {
             router.push('/')
