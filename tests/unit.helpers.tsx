@@ -24,7 +24,7 @@ const createTestQueryClient = () =>
         },
     })
 
-export function renderWithProviders(ui: ReactElement) {
+export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
     const testQueryClient = createTestQueryClient()
 
     return render(
@@ -33,6 +33,7 @@ export function renderWithProviders(ui: ReactElement) {
                 <ModalsProvider>{ui}</ModalsProvider>
             </MantineProvider>
         </QueryClientProvider>,
+        options,
     )
 }
 
