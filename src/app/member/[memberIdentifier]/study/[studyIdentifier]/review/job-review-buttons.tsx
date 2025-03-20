@@ -8,8 +8,10 @@ import React from 'react'
 import { StudyJobStatus } from '@/database/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { MinimalJobInfo } from '@/lib/types'
+import { useRouter } from 'next/navigation'
 
 export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
+    const router = useRouter()
     const jobInfo = useQuery({
         queryKey: ['jobInfo', job.id],
         queryFn: () => {
@@ -21,7 +23,9 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
             await updateStudyJobStatusAction(jobInfo, status, decryptedResults)
         },
-        onSuccess: () => {},
+        onSuccess: () => {
+            router.push('/')
+        },
     })
 
     if (!jobInfo) return null

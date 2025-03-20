@@ -9,7 +9,6 @@ const nextConfig: NextConfig = async (phase: string) => {
     const nextConfig: NextConfig = {
         assetPrefix: isDev ? undefined : '/assets/',
         output: 'standalone',
-        transpilePackages: ['si-encryption'],
     }
     return nextConfig
 }

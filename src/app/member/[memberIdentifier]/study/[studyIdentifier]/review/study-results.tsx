@@ -2,7 +2,7 @@
 
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
+import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import { fetchJobResultsZipAction } from '@/app/researcher/study/[studyId]/review/actions'
