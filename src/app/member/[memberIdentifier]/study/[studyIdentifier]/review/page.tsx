@@ -12,6 +12,9 @@ import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdenti
 import { last } from 'remeda'
 import { auth } from '@clerk/nextjs/server'
 import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
+import { getLatestStudyJobAction } from '@/app/researcher/study/[studyId]/upload/actions'
+import { jobStatusForJob, latestJobForStudy } from '@/server/actions/study-job-actions'
+import { db } from '@/database'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -37,7 +40,9 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const latestJob = last(study.jobs)
+    const latestJob = await latestJobForStudy(study.id)
+
+    const latestJobStatus = await jobStatusForJob(latestJob?.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -78,13 +83,13 @@ export default async function StudyReviewPage(props: {
                                 <Text>{study.researcherName}</Text>
                                 <Text>{study.irbProtocols} some link</Text>
                                 <Text>TODO agreements</Text>
-                                <StudyJobFiles job={study.jobs[0]} />
+                                {latestJob && <StudyJobFiles job={latestJob} />}
                             </Stack>
                         </GridCol>
                     </Grid>
                 </Stack>
             </Paper>
-            {latestJob && <StudyResults latestJob={latestJob} fingerprint={fingerprint} />}
+            {latestJob && <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />}
         </Stack>
     )
 }

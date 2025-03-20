@@ -11,14 +11,19 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import Link from 'next/link'
 import { pemToArrayBuffer } from 'si-encryption/util'
+import { StudyJobStatus } from '@/database/types'
 
 interface StudyResultsFormValues {
     privateKey: string
 }
 
-export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null }> = ({ latestJob, fingerprint }) => {
+export const StudyResults: FC<{
+    latestJob: StudyJob
+    fingerprint: string | undefined
+    jobStatus: StudyJobStatus | null
+}> = ({ latestJob, fingerprint, jobStatus }) => {
     const [decryptedResults, setDecryptedResults] = useState<string[]>()
-    console.log(latestJob)
+
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: { privateKey: '' },
@@ -70,6 +75,14 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
         )
     }
 
+    if (jobStatus === 'RESULTS-REJECTED') {
+        return (
+            <Paper bg="white" p="xl">
+                <Title order={4}>Latest results rejected</Title>
+            </Paper>
+        )
+    }
+
     return (
         <Paper bg="white" p="xl">
             <Stack>
@@ -80,8 +93,9 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                     )}
                 </Group>
                 <Divider />
+                <Stack>{decryptedResults}</Stack>
                 <Stack>
-                    {!decryptedResults?.length ? (
+                    {jobStatus === 'RUN-COMPLETE' && !decryptedResults?.length && (
                         <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                             <Group>
                                 <Textarea
@@ -96,18 +110,15 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                                 </Button>
                             </Group>
                         </form>
-                    ) : (
-                        decryptedResults
                     )}
                 </Stack>
-                <Stack>
-                    {/* TODO Lock this down behind approvedAt field when it exists */}
-                    {decryptedResults && (
+                {jobStatus === 'RESULTS-APPROVED' ? (
+                    <Stack>
                         <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
                             View results here
                         </Anchor>
-                    )}
-                </Stack>
+                    </Stack>
+                ) : null}
             </Stack>
         </Paper>
     )

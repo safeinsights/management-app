@@ -7,21 +7,12 @@ import { StudyJobStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
 import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
-import { siUser } from '@/server/queries'
 import { attachResultsToStudyJob } from '@/server/results'
+import { siUser } from '@/server/queries'
 
 export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus, results?: string[]) => {
     // TODO: check clerk session to ensure researcher can actually update this
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: (await siUser()).id,
-            status,
-            studyJobId: info.studyJobId,
-        })
-        .executeTakeFirstOrThrow()
-
-    if (results?.length) {
+    if (status === 'RESULTS-APPROVED') {
         const blob = new Blob(results, { type: 'text/csv' })
         const resultsFile = new File([blob], 'job_results.csv')
         await attachResultsToStudyJob(
@@ -30,7 +21,19 @@ export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: S
                 memberIdentifier: info.memberIdentifier,
             },
             resultsFile,
+            status,
         )
+    }
+
+    if (status === 'RESULTS-REJECTED') {
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: (await siUser()).id,
+                status,
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
     }
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
@@ -82,4 +85,28 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
     }
 
     return { jobInfo, manifest }
+}
+
+export const latestJobForStudy = async (studyId: string) => {
+    return await db
+        .selectFrom('studyJob')
+        .selectAll()
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+}
+
+export const jobStatusForJob = async (jobId: string | undefined) => {
+    if (!jobId) return null
+
+    const result = await db
+        .selectFrom('jobStatusChange')
+        .select('status')
+        .where('jobStatusChange.studyJobId', '=', jobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    return result?.status || null
 }

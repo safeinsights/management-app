@@ -53,19 +53,6 @@ export const getStudyAction = async (studyId: string) => {
         ])
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
         .select('user.name as researcherName')
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('studyJob')
-                    .selectAll()
-                    .innerJoin('jobStatusChange', 'studyJob.id', 'jobStatusChange.studyJobId')
-                    .orderBy('jobStatusChange.id', 'desc')
-                    .select('jobStatusChange.status')
-                    // .select(['id', 'resultFormat', 'resultsPath', 'createdAt'])
-                    .whereRef('studyJob.studyId', '=', 'study.id')
-                    .orderBy('studyJob.createdAt'),
-            ).as('jobs'),
-        ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
