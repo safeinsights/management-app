@@ -1,7 +1,6 @@
 'use server'
 
 import { db } from '@/database'
-import { getUserIdByClerkId } from '@/server/actions/user-actions'
 import { siUser } from '@/server/queries'
 
 export const getMemberUserPublicKey = async (clerkId: string) => {
