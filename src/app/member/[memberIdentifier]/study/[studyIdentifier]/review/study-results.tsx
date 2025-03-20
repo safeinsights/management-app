@@ -2,7 +2,7 @@
 
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, TextInput, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import { fetchJobResultsZipAction } from '@/app/researcher/study/[studyId]/review/actions'
@@ -34,7 +34,8 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
         onSuccess: async (data: string[]) => {
             setDecryptedResults(data)
         },
-        onError: async () => {
+        onError: async (error) => {
+            console.error(error)
             form.setFieldError('privateKey', 'Invalid private key')
         },
     })
@@ -78,29 +79,29 @@ export const StudyResults: FC<{ latestJob: StudyJob; fingerprint: string | null 
                 </Group>
                 <Divider />
                 <Stack>
-                    {!decryptedResults?.length ? (
-                        <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
-                            <Group>
-                                <TextInput
-                                    {...form.getInputProps('privateKey')}
-                                    label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                                    placeholder="Enter private key"
-                                    key={form.key('privateKey')}
-                                />
-                                <Button type="submit" disabled={!form.isValid}>
-                                    Validate
-                                </Button>
-                            </Group>
-                        </form>
-                    ) : (
-                        <Text>{decryptedResults}</Text>
-                    )}
+                    <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
+                        <Group>
+                            <Textarea
+                                minRows={4}
+                                autosize
+                                {...form.getInputProps('privateKey')}
+                                label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
+                                placeholder="Enter private key"
+                                key={form.key('privateKey')}
+                            />
+                            <Button type="submit" disabled={!form.isValid}>
+                                Validate
+                            </Button>
+                        </Group>
+                    </form>
                 </Stack>
                 <Stack>
                     {/* TODO Lock this down behind approvedAt field when it exists */}
-                    <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
-                        View results here
-                    </Anchor>
+                    {decryptedResults && (
+                        <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
+                            View results here
+                        </Anchor>
+                    )}
                 </Stack>
             </Stack>
         </Paper>
