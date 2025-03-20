@@ -2,6 +2,7 @@
 
 import { db } from '@/database'
 import { getUserIdByClerkId } from '@/server/actions/user-actions'
+import { siUser } from '@/server/queries'
 
 export const getMemberUserPublicKey = async (clerkId: string) => {
     const result = await db
@@ -25,16 +26,12 @@ export const getMemberUserFingerprint = async (clerkId: string | null) => {
 }
 
 export const setMemberUserPublicKey = async (clerkId: string, publicKey: string, fingerprint: string) => {
-    const userId = await getUserIdByClerkId(clerkId)
-
-    if (!userId) {
-        throw new Error(`User for clerk id ${clerkId} doesn't exist!`)
-    }
+    const user = await siUser()
 
     await db
         .insertInto('memberUserPublicKey')
         .values({
-            userId: userId,
+            userId: user.id,
             value: publicKey,
             fingerprint: fingerprint,
         })

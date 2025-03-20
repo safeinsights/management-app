@@ -1,14 +1,11 @@
 import { StudyJob } from '@/schema/study'
-import {
-    dataForJobAction,
-    updateStudyJobStatusAction,
-} from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { Button, Group } from '@mantine/core'
 import React from 'react'
 import { StudyJobStatus } from '@/database/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { MinimalJobInfo } from '@/lib/types'
 import { useRouter } from 'next/navigation'
+import { dataForJobAction, updateStudyJobStatusAction } from '@/server/actions/study-job-actions'
 
 export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
     const router = useRouter()
@@ -32,7 +29,6 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     // TODO Add job approvedAt/rejectedAt fields
     //  and render appropriately if they exist
-
     return (
         <Group>
             <Button

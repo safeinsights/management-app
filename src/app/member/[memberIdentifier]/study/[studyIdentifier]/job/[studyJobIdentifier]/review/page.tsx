@@ -1,11 +1,11 @@
 import { Button, Flex, Paper, Title } from '@mantine/core'
 import Link from 'next/link'
-import { dataForJobAction } from './actions'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { ReviewControls } from './controls'
 import { Files } from './files'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
+import { dataForJobAction } from '@/server/actions/study-job-actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{

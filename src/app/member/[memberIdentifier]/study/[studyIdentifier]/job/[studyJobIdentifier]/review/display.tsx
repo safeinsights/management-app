@@ -1,13 +1,13 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { fetchFileAction } from './actions'
 import type { MinimalJobInfo, CodeManifest } from '@/lib/types'
 import { useEffect, useState } from 'react'
 import { Flex, Title, LoadingOverlay } from '@mantine/core'
 import hljs from 'highlight.js'
 import { codeViewStyles, filePathHeading } from './styles.css'
 import 'highlight.js/styles/github.css'
+import { fetchFileAction } from '@/server/actions/study-job-actions'
 
 function guessLanguage(filePath: string) {
     const lastDotPosition = filePath.lastIndexOf('.')

@@ -5,9 +5,9 @@ import { useMutation } from '@tanstack/react-query'
 import { Button, Flex } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { ErrorAlert } from '@/components/errors'
-import { updateStudyJobStatusAction } from './actions'
 import type { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
+import { updateStudyJobStatusAction } from '@/server/actions/study-job-actions'
 
 export const ReviewControls: React.FC<{ job: MinimalJobInfo; memberIdentifier: string }> = ({
     memberIdentifier,
