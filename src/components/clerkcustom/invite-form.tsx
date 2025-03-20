@@ -87,8 +87,8 @@ export default function InviteForm() {
                         reviewer: false,
                         researcher: false
                     }
-                });
-                setSuccess(true);
+                })
+                setSuccess(true)
             }
         } catch (error: any) {
             setError(error.message || 'User creation failed')
