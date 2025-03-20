@@ -2,7 +2,7 @@
 
 import { clerkClient } from '@clerk/nextjs/server'
 
-export async function createUserAction({
+export async function createClerkUserAction({
   firstName,
   lastName,
   email,
@@ -32,7 +32,7 @@ export async function createUserAction({
     })
     
     console.log('User created successfully with ID:', user.id)
-    return { success: true, message: 'User created successfully' }
+    return { success: true, message: 'User created successfully', clerkId: user.id }
   } catch (error: any) {
     // Log the detailed error information
     console.error('Failed to create user:', error)

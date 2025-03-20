@@ -2,10 +2,11 @@
 
 import { TextInput, PasswordInput, Button, Alert, Checkbox, Group, Text } from '@mantine/core'
 import React, { useState } from 'react'
-import { createUserAction } from '@/server/actions/clerk-user-actions'
+import { createClerkUserAction } from '@/server/actions/clerk-user-actions'
 import { Warning } from '@phosphor-icons/react'
 import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
 import Link from 'next/link'
+import { createUserAction } from '@/server/actions/user-actions'
 
 export default function InviteForm() {
     const [error, setError] = useState<string | null>(null)
@@ -53,12 +54,15 @@ export default function InviteForm() {
         })
 
         try {
-            const result = await createUserAction({
+            // save user in Clerk
+            const result = await createClerkUserAction({
                 firstName,
                 lastName,
                 email,
                 password,
             })
+            // save user in DB
+            await createUserAction(result.clerkId, `${firstName} ${lastName}`, formValues.roles.researcher)
             
             if (result.success) {
                 // Reset form state
