@@ -25,7 +25,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             .innerJoin('study', (join) =>
                 join.onRef('study.id', '=', 'studyJob.studyId').on('study.memberId', '=', member.id),
             )
-            .select(['studyJob.id as studyJobId', 'studyId', 'study.memberId'])
+            .select(['studyJob.id as studyJobId', 'studyId'])
             .where('studyJob.id', '=', jobId)
             .executeTakeFirst()
 
