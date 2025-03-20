@@ -23,23 +23,3 @@ export const findOrCreateSiUserId = async (clerkId: string, name: string) => {
 
     return user.id
 }
-
-export const createUserAction = async (
-  clerkId: string,
-  name: string,
-  isResearcher: boolean
-) => {
-  const [newUser] = await db
-    .insertInto('user')
-    .values({
-      clerk_id: clerkId,
-      name, // using the provided full name
-      is_researcher: isResearcher,
-    })
-    .returningAll()
-    .execute()
-  if (!newUser) {
-    throw new Error('Failed to create user in DB')
-  }
-  return newUser
-}
