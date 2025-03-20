@@ -90,9 +90,9 @@ export default function InviteForm() {
                 })
                 setSuccess(true)
             }
-        } catch (error: any) {
-            setError(error.message || 'User creation failed')
-            console.error('User creation failed:', error)
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'User creation failed'
+            setError(errorMessage)
         } finally {
             setLoading(false)
         }
