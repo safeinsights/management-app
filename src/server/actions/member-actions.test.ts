@@ -24,6 +24,29 @@ const mockMember: Member = {
 
 describe('Member Actions', () => {
     describe('upsertMemberAction', () => {
+        it('throws error when duplicate organization name exists for new member', async () => {
+            // Construct a new member without an "id"
+            const newMember = {
+                identifier: 'new-org',
+                name: 'Duplicate Org',
+                email: 'duplicate@example.com',
+                publicKey: 'duplicate-key',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            }
+
+            // Simulate that a member with the same name already exists
+            const duplicateRecord = { id: 'duplicate-id' }
+            const mockExecuteTakeFirst = vi.fn().mockResolvedValue(duplicateRecord)
+            const mockWhere = vi.fn().mockReturnValue({ executeTakeFirst: mockExecuteTakeFirst })
+
+            // Override db.selectFrom chain for duplicate check
+            vi.mocked(db.selectFrom).mockReturnValue({
+                select: () => ({ where: mockWhere }),
+            } as any)
+
+            await expect(upsertMemberAction(newMember)).rejects.toThrow('Organization with this name already exists')
+        })
         it('successfully inserts a new member', async () => {
             const mockExecute = vi.fn().mockResolvedValue([mockMember])
             const mockReturningAll = vi.fn().mockReturnValue({ execute: mockExecute })
