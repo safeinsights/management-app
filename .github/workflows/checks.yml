@@ -50,7 +50,7 @@ jobs:
             E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
         container:
-            image: mcr.microsoft.com/playwright:v1.51.1-noble
+            image: mcr.microsoft.com/playwright:v1.51.1-jammy
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
