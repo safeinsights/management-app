@@ -15,12 +15,12 @@ type ClerkAPIErrorResponse = {
 }
 
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
-    return (
+    return Boolean(
         error != null &&
-        typeof error === 'object' &&
-        'errors' in error &&
-        Array.isArray(error.errors) &&
-        error.errors?.[0].code
+            typeof error === 'object' &&
+            'errors' in error &&
+            Array.isArray(error.errors) &&
+            error.errors?.[0].code,
     )
 }
 
