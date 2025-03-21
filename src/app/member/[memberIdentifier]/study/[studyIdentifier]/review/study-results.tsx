@@ -5,13 +5,13 @@ import { useForm } from '@mantine/form'
 import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
-import { fetchJobResultsZipAction } from '@/app/researcher/study/[studyId]/review/actions'
 import { useMutation } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import Link from 'next/link'
 import { pemToArrayBuffer } from 'si-encryption/util'
 import { StudyJobStatus } from '@/database/types'
+import { fetchJobResultsZipAction } from '@/server/actions/study-job-actions'
 
 interface StudyResultsFormValues {
     privateKey: string

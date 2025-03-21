@@ -16,12 +16,12 @@ import { last } from 'remeda'
 import { PushInstructions } from '@/components/push-instructions'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { onStudyJobCreateAction } from './actions'
 import { onFetchStudyJobsAction } from '@/server/actions/study-actions'
 import { humanizeStatus } from '@/lib/status'
 import { AlertNotFound } from '@/components/errors'
 import { PreviewCSVResultsBtn } from './results'
 import { Study } from '@/schema/study'
+import { onStudyJobCreateAction } from '@/server/actions/study-job-actions'
 
 type JobsTableProps = {
     isActive: boolean
