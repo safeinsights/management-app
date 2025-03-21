@@ -1,10 +1,9 @@
 import React from 'react'
-import { Button, Flex, Text, Title, Container } from '@mantine/core'
-import { getLatestStudyJobAction } from './actions'
+import { Button, Flex, Group, Title } from '@mantine/core'
+import { getLatestStudyJobAction, getUploadUrlForStudyJobCodeAction } from './actions'
 import Link from 'next/link'
 import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 import { AlertNotFound } from '@/components/errors'
-import { getUploadUrlForStudyJobCodeAction } from './actions'
 
 export default async function UploadPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
@@ -19,22 +18,24 @@ export default async function UploadPage(props: { params: Promise<{ studyId: str
     }
 
     return (
-        <Container w="100%">
-            <Title mb="lg">{study.memberName} Study Proposal Step 2)</Title>
-            <Text
-                pt={10}
-                fs="italic"
-            >{`{ For the Pilot, communications steps and member review/approval are skipped }`}</Text>
-
+        <>
+            <Title mb="lg">Propose A Study</Title>
             <UploadStudyJobCode
                 job={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyJobId: study.pendingJobId }}
                 getSignedURL={getUploadUrlForStudyJobCodeAction}
             />
             <Flex justify="end" mt="lg">
-                <Link href="edit" passHref>
-                    <Button>Next</Button>
-                </Link>
+                <Group>
+                    <Link href="/researcher/dashboard" passHref>
+                        <Button fz="lg" color="#616161" variant="outline">
+                            Cancel
+                        </Button>
+                    </Link>
+                    <Link href="/researcher/dashboard" passHref>
+                        <Button>Submit Proposal</Button>
+                    </Link>
+                </Group>
             </Flex>
-        </Container>
+        </>
     )
 }

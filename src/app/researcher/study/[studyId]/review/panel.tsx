@@ -1,27 +1,16 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Accordion, Checkbox, Flex, Group, Stack, Text, TextInput } from '@mantine/core'
+import { Accordion, Divider, Group, Paper, Stack, Text, TextInput } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
-import { css } from '@/styles'
-import { JobsTable } from './jobs-table'
 import { Study } from '@/schema/study'
 import { updateStudyStatusAction } from '@/server/actions/study-actions'
 
-export const labelStyle = css({
-    width: '10rem',
-})
-
-export const inputStyle = css({
-    width: '20rem',
-})
-
 export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
     const router = useRouter()
-    const [activeSection, setActiveSection] = useState<string | null>(null)
 
     const backPath = `/researcher/studies/review`
 
@@ -38,83 +27,52 @@ export const StudyPanel: React.FC<{ study: Study }> = ({ study }) => {
 
     return (
         <>
-            <Accordion onChange={setActiveSection}>
-                <Accordion.Item value="study">
-                    <Accordion.Control bg="#ccc">Researcher Study Proposal</Accordion.Control>
+            <Accordion chevronPosition="left" defaultValue="study" variant="separated">
+                <Paper>
+                    <Accordion.Item value="study">
+                        <Accordion.Control>Researcher Study Proposal</Accordion.Control>
+                        <Accordion.Panel>
+                            <Divider my="sm" mt="sm" mb="md" />
+                            <Stack mt={30}>
+                                <Group>
+                                    <Text> Study Title</Text>
+                                    <TextInput
+                                        disabled
+                                        name="title"
+                                        data-testid="study-title"
+                                        value={study.title}
+                                        readOnly
+                                    />
+                                </Group>
+                                <Group>
+                                    <Text>Study Lead</Text>
+                                    <TextInput
+                                        disabled
+                                        name="study-lead"
+                                        data-testid="study-lead"
+                                        value="Researcher Name"
+                                        readOnly
+                                    />
+                                </Group>
+
+                                <Group>
+                                    <Text>Principal Investigator</Text>
+                                    <TextInput name="piName" value={study.piName} disabled />
+                                </Group>
+
+                                <Group>
+                                    <Text>IRB Document</Text>
+                                    <TextInput name="irbDocument" value="IRB Document.pdf" disabled={true} readOnly />
+                                </Group>
+                            </Stack>
+                        </Accordion.Panel>
+                    </Accordion.Item>
+                </Paper>
+                <Accordion.Item value="jobs" mt="xl">
+                    <Accordion.Control>Study Code</Accordion.Control>
                     <Accordion.Panel>
-                        <Stack mt={30}>
-                            <Flex p={2} gap="md" wrap="wrap">
-                                <Text className={labelStyle}>Study Title</Text>
-                                <TextInput
-                                    bg="#ddd"
-                                    bd="1px solid #ccc"
-                                    disabled
-                                    className={inputStyle}
-                                    name="title"
-                                    data-testid="study-title"
-                                    value={study.title}
-                                    readOnly
-                                />
-                            </Flex>
-
-                            <Flex p={2} gap="md">
-                                <Text className={labelStyle}>Principal Investigator</Text>
-                                <TextInput
-                                    bg="#ddd"
-                                    bd="1px solid #ccc"
-                                    className={inputStyle}
-                                    name="piName"
-                                    value={study.piName}
-                                    disabled
-                                />
-                            </Flex>
-                            <Group p={2} gap="md">
-                                <Text className={labelStyle}>IRB Approval Documentation</Text>
-                                <TextInput
-                                    bg="#ddd"
-                                    bd="1px solid #ccc"
-                                    className={inputStyle}
-                                    name="irbDocument"
-                                    value={'IRB Document.pdf'}
-                                    disabled={true}
-                                    readOnly
-                                />
-                                <Text fs="italic" c="dimmed" w="30%">
-                                    {'For the pilot, we are skipping the IRB step'}
-                                </Text>
-                            </Group>
-                        </Stack>
-
-                        <Stack align="stretch" mb={30}>
-                            <Flex p={2} gap="lg">
-                                <Text className={labelStyle}>Datasets of Interest</Text>
-                                <Stack>
-                                    <Checkbox
-                                        name="highlights"
-                                        label="Highlights and Notes"
-                                        checked={study.dataSources?.includes('highlights')}
-                                        disabled={true}
-                                    ></Checkbox>
-                                    <Checkbox
-                                        name="eventCapture"
-                                        label="Event Capture"
-                                        checked={study.dataSources?.includes('eventCapture')}
-                                        disabled={true}
-                                    ></Checkbox>
-                                </Stack>
-                            </Flex>
-                        </Stack>
-                    </Accordion.Panel>
-                </Accordion.Item>
-
-                {/* Researcher Code Review Panel will be addressed by OTTER-51 */}
-
-                <Accordion.Item value="jobs">
-                    <Accordion.Control bg="#ccc">Researcher Code</Accordion.Control>
-                    <Accordion.Panel>
-                        <Stack>
-                            <JobsTable isActive={activeSection == 'jobs'} study={study} />
-                        </Stack>
+                        <Divider my="sm" mt="sm" mb="md" />
+                        <Stack></Stack>
                     </Accordion.Panel>
                 </Accordion.Item>
             </Accordion>

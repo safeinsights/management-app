@@ -1,6 +1,5 @@
 import { db } from '@/database'
 import { Form } from './form'
-import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
@@ -18,17 +17,13 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     }
 
     return (
-        <Container w="80%">
-            <Paper shadow="xs" p="xl">
-                <Form
-                    studyId={study.id}
-                    study={{
-                        ...study,
-                        highlights: study.dataSources?.includes('highlights'),
-                        eventCapture: study.dataSources?.includes('eventCapture'),
-                    }}
-                />
-            </Paper>
-        </Container>
+        <Form
+            studyId={study.id}
+            study={{
+                ...study,
+                highlights: study.dataSources?.includes('highlights'),
+                eventCapture: study.dataSources?.includes('eventCapture'),
+            }}
+        />
     )
 }
