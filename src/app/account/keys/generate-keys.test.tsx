@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { GenerateKeys } from '@/app/account/keys/generate-keys'
-import { fireEvent, screen, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { UseUserReturn } from '@clerk/types'
 import { useUser } from '@clerk/nextjs'
 import { generateKeyPair } from 'si-encryption/util/keypair'
