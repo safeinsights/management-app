@@ -3,31 +3,30 @@
 import { db } from '@/database'
 import { CodeManifest, MinimalJobInfo } from '@/lib/types'
 import { fetchCodeFile, fetchCodeManifest } from '@/server/aws'
-import { StudyJobStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
 import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
 import { attachResultsToStudyJob } from '@/server/results'
 import { siUser } from '@/server/queries'
 
-export const updateStudyJobStatusAction = async (info: MinimalJobInfo, status: StudyJobStatus, results?: string[]) => {
-    // TODO: check clerk session to ensure researcher can actually update this
-    if (status === 'RESULTS-APPROVED' && results?.length) {
-        const blob = new Blob(results, { type: 'text/csv' })
-        const resultsFile = new File([blob], 'job_results.csv')
-        await attachResultsToStudyJob(info, resultsFile, status)
-    }
+export const approveStudyJobResults = async (info: MinimalJobInfo, results?: string[]) => {
+    const blob = new Blob(results, { type: 'text/csv' })
+    const resultsFile = new File([blob], 'job_results.csv')
+    await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
 
-    if (status === 'RESULTS-REJECTED') {
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: (await siUser()).id,
-                status,
-                studyJobId: info.studyJobId,
-            })
-            .executeTakeFirstOrThrow()
-    }
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+}
+
+export const rejectStudyJobResults = async (info: MinimalJobInfo) => {
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: (await siUser()).id,
+            status: 'RESULTS-REJECTED',
+            studyJobId: info.studyJobId,
+        })
+        .executeTakeFirstOrThrow()
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)

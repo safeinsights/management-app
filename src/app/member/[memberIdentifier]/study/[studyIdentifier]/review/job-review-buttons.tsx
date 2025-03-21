@@ -5,7 +5,7 @@ import { StudyJobStatus } from '@/database/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { MinimalJobInfo } from '@/lib/types'
 import { useRouter } from 'next/navigation'
-import { dataForJobAction, updateStudyJobStatusAction } from '@/server/actions/study-job-actions'
+import { approveStudyJobResults, dataForJobAction, rejectStudyJobResults } from '@/server/actions/study-job-actions'
 
 export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
     const router = useRouter()
@@ -19,11 +19,11 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
     const { mutate: updateStudyJob } = useMutation({
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
             if (status === 'RESULTS-APPROVED') {
-                await updateStudyJobStatusAction(jobInfo, status, decryptedResults)
+                await approveStudyJobResults(jobInfo, decryptedResults)
             }
 
             if (status === 'RESULTS-REJECTED') {
-                await updateStudyJobStatusAction(jobInfo, status)
+                await rejectStudyJobResults(jobInfo)
             }
         },
         onSuccess: () => {

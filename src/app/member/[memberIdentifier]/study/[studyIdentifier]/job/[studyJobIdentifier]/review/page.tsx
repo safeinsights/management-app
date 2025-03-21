@@ -2,11 +2,11 @@ import { Button, Flex, Paper, Title } from '@mantine/core'
 import Link from 'next/link'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
-import { ReviewControls } from './controls'
 import { Files } from './files'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { dataForJobAction } from '@/server/actions/study-job-actions'
 
+// TODO Remove this whole route
 export default async function StudyReviewPage(props: {
     params: Promise<{
         memberIdentifier: string
@@ -56,7 +56,6 @@ export default async function StudyReviewPage(props: {
                     <Link href={`/member/${memberIdentifier}/dashboard`}>
                         <Button color="blue">Back to pending review</Button>
                     </Link>
-                    <ReviewControls memberIdentifier={memberIdentifier} job={jobInfo} />
                 </Flex>
             </Flex>
             <Files
