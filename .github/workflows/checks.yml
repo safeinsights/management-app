@@ -80,14 +80,14 @@ jobs:
             - name: start NextJS server
               run: npm run dev &
 
-            - name: npm run test:unit
-              run: npm run test:unit
             - name: Run Playwright tests
               uses: docker://mcr.microsoft.com/playwright:v1.51.1-jammy
               with:
                   args: npx playwright test
-            - name: npm run test:e2e
-              run: npm run test:e2e
+
+            - name: Run unit tests
+              run: npm run test:unit
+
             - name: npm run test:coverage
               run: npm run test:coverage
 
