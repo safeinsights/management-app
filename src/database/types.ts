@@ -56,15 +56,6 @@ export interface MemberUser {
     userId: string
 }
 
-export interface MemberUserPublicKey {
-    createdAt: Generated<Timestamp>
-    fingerprint: string
-    id: Generated<string>
-    updatedAt: Generated<Timestamp>
-    userId: string
-    value: string
-}
-
 export interface Study {
     approvedAt: Timestamp | null
     containerLocation: string
@@ -100,12 +91,21 @@ export interface User {
     updatedAt: Generated<Timestamp>
 }
 
+export interface UserPublicKey {
+    createdAt: Generated<Timestamp>
+    fingerprint: string
+    id: Generated<string>
+    publicKey: Buffer
+    updatedAt: Generated<Timestamp>
+    userId: string
+}
+
 export interface DB {
     jobStatusChange: JobStatusChange
     member: Member
     memberUser: MemberUser
-    memberUserPublicKey: MemberUserPublicKey
     study: Study
     studyJob: StudyJob
     user: User
+    userPublicKey: UserPublicKey
 }

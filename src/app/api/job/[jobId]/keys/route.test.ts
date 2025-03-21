@@ -40,12 +40,12 @@ describe('get keys', () => {
             keys: [
                 {
                     jobId: jobId,
-                    publicKey: 'testPublicKey1',
+                    publicKey: JSON.parse(JSON.stringify(Buffer.from('testPublicKey1'))),
                     fingerprint: 'testFingerprint1',
                 },
                 {
                     jobId: jobId,
-                    publicKey: 'testPublicKey2',
+                    publicKey: JSON.parse(JSON.stringify(Buffer.from('testPublicKey2'))),
                     fingerprint: 'testFingerprint2',
                 },
             ],
