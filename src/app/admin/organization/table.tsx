@@ -7,20 +7,15 @@ import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member-
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
-import { ActionIcon, Box, Button, Flex, Group, Modal, Alert } from '@mantine/core'
-import { Warning } from '@phosphor-icons/react'
+import { ActionIcon, Box, Button, Flex, Group, Modal } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
 import { EditMemberForm } from '@/components/member/edit-member-form'
 
 export function MembersAdminTable() {
-    const [globalError, setGlobalError] = useState<string | null>(null)
-    const { data } = useQuery({
+    const { data = [] } = useQuery({
         queryKey: ['members'],
-        initialData: [] as Member[],
-        queryFn: () => {
-            return fetchMembersAction()
-        },
+        queryFn: fetchMembersAction,
     })
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
@@ -37,11 +32,6 @@ export function MembersAdminTable() {
 
     return (
         <Flex direction={'column'}>
-            {globalError && (
-                <Alert icon={<Warning size={16} />} color="red" mb="md">
-                    {globalError}
-                </Alert>
-            )}
             <DataTable
                 withTableBorder
                 withColumnBorders
@@ -65,22 +55,18 @@ export function MembersAdminTable() {
                 ]}
             />
 
-            <AddMember onError={setGlobalError} />
+            <AddMember />
         </Flex>
     )
 }
 
-interface AddMemberProps {
-    onError: (err: string) => void
-}
-
-const AddMember: FC<AddMemberProps> = ({ onError }) => {
+const AddMember: FC = () => {
     const [opened, { open, close }] = useDisclosure(false)
 
     return (
         <Flex justify={'end'} mt="lg">
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
-                <EditMemberForm member={getNewMember()} onCompleteAction={close} onError={onError} />
+                <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
             <Button onClick={open}>Add new organization</Button>
         </Flex>

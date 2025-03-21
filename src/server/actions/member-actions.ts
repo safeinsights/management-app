@@ -30,6 +30,10 @@ export const upsertMemberAction = async (member: Member | NewMember) => {
     return results[0]
 }
 
+export const fetchMembersForSelectAction = async () => {
+    return await db.selectFrom('member').select(['id as value', 'name as label']).execute()
+}
+
 export const fetchMembersAction = async () => {
     return await db.selectFrom('member').selectAll('member').execute()
 }

@@ -1,17 +1,15 @@
 import { Text, Select, type SelectProps } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { fetchMembersAction } from '@/server/actions/member-actions'
-import { Member } from '@/schema/member'
+import { fetchMembersForSelectAction } from '@/server/actions/member-actions'
 
 export const OrganizationSelect: React.FC<SelectProps> = (props) => {
     const {
-        data: members,
+        data: members = [],
         isLoading,
         error,
     } = useQuery({
-        queryKey: ['members'],
-        initialData: [] as Member[],
-        queryFn: () => fetchMembersAction(),
+        queryKey: ['memberForSelect'],
+        queryFn: fetchMembersForSelectAction,
     })
 
     if (isLoading) {
@@ -32,10 +30,7 @@ export const OrganizationSelect: React.FC<SelectProps> = (props) => {
             style={{ width: '100%' }}
             label="Select Organization"
             placeholder="Choose an organization"
-            data={members.map((m) => ({
-                value: m.id, // use member id (uuid) for createUserAction
-                label: m.name,
-            }))}
+            data={members}
             allowDeselect={false}
             searchable
             clearable={false}

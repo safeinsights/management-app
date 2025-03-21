@@ -10,8 +10,7 @@ import { FC } from 'react'
 export const EditMemberForm: FC<{
     member: Member | NewMember
     onCompleteAction?: () => void
-    onError?: (err: string) => void
-}> = ({ member, onCompleteAction, onError }) => {
+}> = ({ member, onCompleteAction }) => {
     const form = useForm<ValidatedMember>({
         validate: zodResolver(memberSchema),
         initialValues: member,
@@ -22,8 +21,7 @@ export const EditMemberForm: FC<{
     const { isPending, mutate: upsertMember } = useMutation({
         mutationFn: async (data: ValidatedMember) => await upsertMemberAction(data),
         onError: (error: unknown) => {
-            const errorMessage = error instanceof Error ? error.message : 'Failed to update member'
-            onError?.(errorMessage)
+            reportError(error)
         },
         onSettled: async () => {
             await queryClient.invalidateQueries({ queryKey: ['members'] })
