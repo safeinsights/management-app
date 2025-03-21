@@ -9,8 +9,8 @@ import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { getMemberUserFingerprint } from '@/app/account/keys/user-key-actions'
 import { jobStatusForJob, latestJobForStudy } from '@/server/actions/study-job-actions'
+import { getMemberUserFingerprint } from '@/server/actions/user-key-actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{

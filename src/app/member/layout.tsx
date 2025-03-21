@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react'
-import { getMemberUserPublicKey } from '@/server/actions/user-actions'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
+import { getMemberUserPublicKey } from '@/server/actions/user-key-actions'
 
 export default async function MemberLayout({
     children,

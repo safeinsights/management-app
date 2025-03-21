@@ -80,5 +80,9 @@ test.describe('Studies', () => {
         await expect(page.getByText('Study details')).toBeVisible()
 
         await page.getByRole('button', { name: /approve/i }).click()
+        await page.waitForURL(/\/dashboard\//)
+
+        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+        await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })

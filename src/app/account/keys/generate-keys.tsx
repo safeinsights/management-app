@@ -1,13 +1,13 @@
 'use client'
 
-import { Button, Container, CopyButton, Stack, Text, Title } from '@mantine/core'
-import { useUserContext } from '@clerk/shared/react'
+import { Button, Container, CopyButton, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
-import { setMemberUserPublicKey } from '@/app/account/keys/user-key-actions'
 import { generateKeyPair } from 'si-encryption/util/keypair'
+import { setMemberUserPublicKey } from '@/server/actions/user-key-actions'
+import { useUser } from '@clerk/nextjs'
 
 export const GenerateKeys: FC = () => {
-    const user = useUserContext()
+    const user = useUser()
     const [keys, setKeys] = useState<{
         binaryPublicKey: ArrayBuffer
         publicKey: string
@@ -41,7 +41,7 @@ export const GenerateKeys: FC = () => {
                 <Stack>
                     <Stack>
                         <Title>Public key: </Title>
-                        <Text>{keys.publicKey}</Text>
+                        <ScrollArea>{keys.publicKey}</ScrollArea>
                         <CopyButton value={keys.publicKey}>
                             {({ copied, copy }) => (
                                 <Button color={copied ? 'teal' : 'blue'} onClick={copy}>
@@ -53,7 +53,7 @@ export const GenerateKeys: FC = () => {
 
                     <Stack>
                         <Title>Private key: </Title>
-                        <Text>{keys.privateKey}</Text>
+                        <ScrollArea>{keys.privateKey}</ScrollArea>
                         <CopyButton value={keys.privateKey}>
                             {({ copied, copy }) => (
                                 <Button
@@ -85,7 +85,7 @@ export const GenerateKeys: FC = () => {
         <Container>
             <Stack>
                 <Title>Create your Private Key</Title>
-                <Text>Hello {user?.firstName}, welcome to SafeInsights!</Text>
+                <Text>Hello {user.user?.firstName}, welcome to SafeInsights!</Text>
                 <Text>
                     You’ve been invited to join this team in the role of a Reviewer, giving you the permissions to
                     access and review research proposals and associated code.{' '}
@@ -95,7 +95,7 @@ export const GenerateKeys: FC = () => {
                 </Text>
                 <Text>To get started, click the button below to generate your private key.</Text>
             </Stack>
-            <Button onClick={() => onGenerateKeys()}>Create Private Key</Button>
+            <Button onClick={() => onGenerateKeys()}>Generate Keypair</Button>
         </Container>
     )
 }
