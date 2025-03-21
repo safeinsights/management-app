@@ -22,12 +22,12 @@ export function slugify(str: string) {
     return str.slice(0, 50)
 }
 
-export function random(length: number) {
+export function randomString(length: number) {
     // without ambiguous characters i, l, 1, o, O, and 0
-    const charset = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    let retVal = "";
+    const charset = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    let retVal = ''
     for (let i = 0, n = charset.length; i < length; ++i) {
-        retVal += charset.charAt(Math.floor(Math.random() * n));
+        retVal += charset.charAt(Math.floor(Math.random() * n))
     }
-    return retVal;
+    return retVal
 }
