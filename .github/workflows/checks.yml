@@ -55,26 +55,13 @@ jobs:
               with:
                   node-version: 22
                   cache: 'npm'
-            #            - name: Get installed Playwright version
-            #              shell: bash
-            #              run: echo PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies."@playwright/test"' || 'latest') >> $GITHUB_ENV
-            #
-            #            - name: Cache playwright binaries
-            #              uses: actions/cache@v4
-            #              id: playwright-cache
-            #              with:
-            #                  path: |
-            #                      ~/.cache/ms-playwright
-            #                  key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
-            #                  restore-keys: ${{ runner.os }}-playwright-
             - name: npm install
               run: npm ci
 
+            # If this becomes an issue long term with time, we can try re-implementing caching
+            # https://github.com/microsoft/playwright/issues/7249#issuecomment-2664215505
             - name: install playwright dependencies
               run: npx playwright install --with-deps --only-shell chromium
-            #            - shell: bash
-            #              if: steps.playwright-cache.outputs.cache-hit != 'true'
-            #              run: npx playwright install --with-deps
 
             - name: provision db
               run: npm run db:migrate

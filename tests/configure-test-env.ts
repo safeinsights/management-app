@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { readTestSupportFile } from './e2e.helpers'
-import { db, sql } from '@/database'
+import { db } from '@/database'
 import { PROD_ENV } from '@/server/config'
 import { findOrCreateSiUserId } from '@/server/actions/user-actions'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
@@ -30,4 +30,4 @@ async function setupUsers() {
     }
 }
 
-setupUsers()
+await setupUsers()

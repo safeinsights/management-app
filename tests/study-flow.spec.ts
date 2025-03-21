@@ -67,16 +67,18 @@ test.describe('Studies', () => {
         await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
     })
 
-    test('member reviews the study', async ({ page, studyFeatures }) => {
+    test('member reviews and approves the study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/' })
 
-        expect(page.getByText('Review Studies')).toBeVisible()
+        await expect(page.getByText('Review Studies')).toBeVisible()
 
         const title = studyFeatures.studyTitle.substring(0, 30)
 
         await page.locator('tr').filter({ hasText: title }).getByText('View').click()
 
         await page.waitForURL(/\/study\//)
-        expect(page.getByText('Study details')).toBeVisible()
+        await expect(page.getByText('Study details')).toBeVisible()
+
+        await page.getByRole('button', { name: /approve/i }).click()
     })
 })
