@@ -35,39 +35,46 @@ export default function ManageMFA() {
 
     return (
         <Container>
-            <Panel title="MFA is required">
-                <Title order={4}>In order to use SafeInsights, your account must have MFA enabled</Title>
+            <Panel title="Set up Two-Step Verification">
 
-                <Flex gap="md">
+                <Flex direction="column" gap="lg" align="flex-start">
+                    <Text size="md">
+                        To enhance the security of your account, we’re enforcing two-factor verification at
+                        SafeInsights.
+                    </Text>
+                    <Text size="md" mb="md">
+                        Feel free to opt in to use either SMS verification OR Authenticator App verification.
+                    </Text>
+                    <Link href="/account/mfa/sms">
+                            <Button>SMS Verification</Button>
+                    </Link>
                     <Link href="/account/mfa/app">
-                        <Button>Add MFA with an authenticator app</Button>
+                        <Button>Authenticator App Verification</Button>
                     </Link>
 
-                    {user.phoneNumbers.length ? (
+                    {/* {user.phoneNumbers.length ? (
                         <Link href="/account/mfa/sms">
                             <Button>Add MFA using SMS</Button>
                         </Link>
                     ) : (
-                        <Flex>
-                            <p>You could use SMS MFA if you have a phone number entered on your account.</p>
-                            <Button onClick={() => openUserProfile()}>
-                                Open user profile to add a new phone number
-                            </Button>
-                        </Flex>
-                    )}
+                        <>
+                            <Button onClick={() => openUserProfile()}>SMS Verification</Button>
+                        </>
+                    )} */}
                 </Flex>
 
                 {/* Manage backup codes */}
                 {user.backupCodeEnabled && user.twoFactorEnabled && (
-                    <Text my="md">
-                        Generate new backup codes? - <Button onClick={() => setShowNewCodes(true)}>Generate</Button>
-                    </Text>
+                    <Flex direction="column" gap="sm" mt="lg">
+                        <Text size="md">Generate new backup codes?</Text>
+                        <Button onClick={() => setShowNewCodes(true)}>Generate</Button>
+                    </Flex>
                 )}
                 {showNewCodes && (
-                    <>
+                    <Flex direction="column" gap="sm" mt="lg">
                         <GenerateBackupCodes />
                         <Button onClick={() => setShowNewCodes(false)}>Done</Button>
-                    </>
+                    </Flex>
                 )}
             </Panel>
         </Container>

@@ -2,10 +2,12 @@
 
 import * as React from 'react'
 import { useUser, useClerk } from '@clerk/nextjs'
-
-import { Button, Flex, Title } from '@mantine/core'
+import { Button, Flex, Title, Container, Text, TextInput } from '@mantine/core'
+import { savePhoneNumberAction, verifyPhoneNumberCodeAction } from '@/server/actions/clerk-sms-actions'
+import { Panel } from '@/components/panel'
+import { ButtonLink } from '@/components/links'
 import { BackupCodeResource, PhoneNumberResource } from '@clerk/types'
-import Link from 'next/link'
+import { Link } from '@/components/links'
 
 // Display phone numbers reserved for MFA
 const ManageMfaPhoneNumbers = () => {
@@ -20,44 +22,45 @@ const ManageMfaPhoneNumbers = () => {
         .sort((ph: PhoneNumberResource) => (ph.defaultSecondFactor ? -1 : 1))
 
     if (user.phoneNumbers.length === 0) {
-        return <p>There are currently no phone numbers on your account.</p>
+        return <Text>There are currently no phone numbers on your account.</Text>
     }
 
     return (
         <>
-            <h2>Phone numbers reserved for MFA</h2>
+            <Title order={2}>Phone numbers reserved for MFA</Title>
             <ul>
-                {mfaPhones.map((phone) => {
-                    return (
-                        <li key={phone.id} style={{ display: 'flex', gap: '10px' }}>
-                            <p>
-                                {phone.phoneNumber} {phone.defaultSecondFactor && '(Default)'}
-                            </p>
-                            <div>
-                                <Button onClick={() => phone.setReservedForSecondFactor({ reserved: false })}>
-                                    Disable for MFA
-                                </Button>
-                            </div>
-
-                            {!phone.defaultSecondFactor && (
-                                <div>
-                                    <Button onClick={() => phone.makeDefaultSecondFactor()}>Make default</Button>
-                                </div>
-                            )}
-
-                            {user.phoneNumbers.length > 1 && (
-                                <div>
-                                    <Button onClick={() => phone.destroy()}>Remove from account</Button>
-                                </div>
-                            )}
-                        </li>
-                    )
-                })}
+                {mfaPhones.map((phone) => (
+                    <Flex component="li" key={phone.id} gap="sm" align="center">
+                        <Text>
+                            {phone.phoneNumber} {phone.defaultSecondFactor && '(Default)'}
+                        </Text>
+                        <Button 
+                            onClick={() => phone.setReservedForSecondFactor({ reserved: false })}
+                            styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                        >
+                            Disable for MFA
+                        </Button>
+                        {!phone.defaultSecondFactor && (
+                            <Button 
+                                onClick={() => phone.makeDefaultSecondFactor()}
+                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                            >
+                                Make default
+                            </Button>
+                        )}
+                        {user.phoneNumbers.length > 1 && (
+                            <Button 
+                                onClick={() => phone.destroy()}
+                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                            >
+                                Remove from account
+                            </Button>
+                        )}
+                    </Flex>
+                ))}
             </ul>
-            You have enabled MFA on your account
-            <Link href="/">
-                <Button>Return to homepage</Button>
-            </Link>
+            <Text>You have enabled MFA on your account</Text>
+            <ButtonLink href="/">Return to homepage</ButtonLink>
         </>
     )
 }
@@ -82,29 +85,33 @@ const ManageAvailablePhoneNumbers = () => {
     )
 
     if (availableForMfaPhones.length) {
-        return <p>There are currently no verified phone numbers available to be reserved for MFA.</p>
+        return <Text>There are currently no verified phone numbers available to be reserved for MFA.</Text>
     }
 
     return (
         <>
-            <h2>Phone numbers that are not reserved for MFA</h2>
+            <Title order={2}>Phone numbers that are not reserved for MFA</Title>
 
             <ul>
-                {availableForMfaPhones.map((phone) => {
-                    return (
-                        <li key={phone.id} style={{ display: 'flex', gap: '10px' }}>
-                            <p>{phone.phoneNumber}</p>
-                            <div>
-                                <Button onClick={() => reservePhoneForMfa(phone)}>Use for MFA</Button>
-                            </div>
-                            {user.phoneNumbers.length > 1 && (
-                                <div>
-                                    <Button onClick={() => phone.destroy()}>Remove from account</Button>
-                                </div>
-                            )}
-                        </li>
-                    )
-                })}
+                {availableForMfaPhones.map((phone) => (
+                    <Flex component="li" key={phone.id} gap="sm" align="center">
+                        <Text>{phone.phoneNumber}</Text>
+                        <Button 
+                            onClick={() => reservePhoneForMfa(phone)}
+                            styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                        >
+                            Use for MFA
+                        </Button>
+                        {user.phoneNumbers.length > 1 && (
+                            <Button 
+                                onClick={() => phone.destroy()}
+                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                            >
+                                Remove from account
+                            </Button>
+                        )}
+                    </Flex>
+                ))}
             </ul>
         </>
     )
@@ -158,6 +165,44 @@ export default function ManageSMSMFA() {
     const [showBackupCodes, setShowBackupCodes] = React.useState(false)
     const { openUserProfile } = useClerk()
     const { isLoaded, user } = useUser()
+    const [phoneNumber, setPhoneNumber] = React.useState('')
+    const [verificationCode, setVerificationCode] = React.useState('')
+    const [error, setError] = React.useState('')
+    const [verificationSuccess, setVerificationSuccess] = React.useState(false)
+
+    // Determine if there's an existing phone record
+    const existingPhone = user && user.phoneNumbers && user.phoneNumbers[0]
+    const prefilledPhone = existingPhone ? existingPhone.phoneNumber : phoneNumber
+    const isPhoneEditable = !existingPhone
+
+    async function handleVerify() {
+        // (Assumes user.id is available)
+        const phoneToUse = prefilledPhone
+        if (!phoneToUse) {
+            setError('Please enter a valid phone number')
+            return
+        }
+        // If there's no phone stored, first call the action to save it.
+        if (!existingPhone) {
+            const res = await savePhoneNumberAction({ userId: user.id, phoneNumber: phoneToUse })
+            if (!res.success) {
+                setError(`Error saving phone number: ${res.error}`)
+                return
+            }
+        }
+        // Attempt to verify with the entered code.
+        const verifyRes = await verifyPhoneNumberCodeAction({
+            userId: user.id,
+            phoneNumber: phoneToUse,
+            code: verificationCode,
+        })
+        if (verifyRes.success && verifyRes.user.phoneNumbers[0].verification.status === 'verified') {
+            setVerificationSuccess(true)
+            setError('')
+        } else {
+            setError('try again')
+        }
+    }
 
     if (!isLoaded) return null
 
@@ -166,34 +211,40 @@ export default function ManageSMSMFA() {
     }
 
     return (
-        <>
-            <Title mb="lg">MFA using SMS</Title>
-            <Flex direction="column" gap="md">
-                <ManageMfaPhoneNumbers />
-                <ManageAvailablePhoneNumbers />
+        <Container>
+            <Panel title="SMS Verification">
+                {error && <Text color="red" align="center" mb="md">{error}</Text>}
+                <Flex direction="column" gap="lg" align="flex-start">
+                    <TextInput
+                        label="Phone Number"
+                        value={prefilledPhone}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        disabled={!isPhoneEditable}
+                    />
+                    <TextInput
+                        label="Verification Code"
+                        placeholder="Enter 6-digit code"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        maxLength={6}
+                    />
+                    <Button
+                        onClick={handleVerify}
+                        styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                    >
+                        Verify
+                    </Button>
 
-                <Button w="fit-content" onClick={() => openUserProfile()}>
-                    Open user profile to add a new phone number
-                </Button>
-
-                {/* Manage backup codes */}
-                {user.twoFactorEnabled && (
-                    <div>
-                        <p>
-                            Generate new backup codes? -{' '}
-                            <Button onClick={() => setShowBackupCodes(true)}>Generate</Button>
-                        </p>
-                    </div>
-                )}
-                {showBackupCodes && (
-                    <>
-                        <GenerateBackupCodes />
-                        <Button w="fit-content" onClick={() => setShowBackupCodes(false)}>
-                            Done
-                        </Button>
-                    </>
-                )}
-            </Flex>
-        </>
+                    {verificationSuccess && (
+                        <Flex direction="column" gap="lg">
+                            <GenerateBackupCodes />
+                            <Button onClick={() => {/* complete final action */}}>
+                                Done
+                            </Button>
+                        </Flex>
+                    )}
+                </Flex>
+            </Panel>
+        </Container>
     )
 }
