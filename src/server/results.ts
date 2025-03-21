@@ -9,8 +9,9 @@ import { storeStudyResultsFile } from './storage'
 
 import { faker } from '@faker-js/faker'
 import { siUser } from './queries'
+import { StudyJobStatus } from '@/database/types'
 
-export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) {
+export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File, studyJobStatus: StudyJobStatus) {
     await storeStudyResultsFile(info, file)
 
     await db
@@ -27,7 +28,7 @@ export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File) 
         .insertInto('jobStatusChange')
         .values({
             userId: user?.id,
-            status: 'RUN-COMPLETE',
+            status: studyJobStatus,
             studyJobId: info.studyJobId,
         })
         .execute()
@@ -45,14 +46,14 @@ export async function attachSimulatedResultsToStudyJob(info: MinimalJobInfo) {
     // probably should use a real csv lib for this, but it's testing only so ¯\_(ツ)_/¯
     const csv = `Name,Email,Address,City,Country,Phone Number\n${rows.map((r) => r.join(',')).join('\n')}`
     const file = new File([csv], 'results.csv', { type: 'application/csv' })
-    await attachResultsToStudyJob(info, file)
+    await attachResultsToStudyJob(info, file, 'RUN-COMPLETE')
 }
 
 export async function storageForResultsFile(info: MinimalJobResultsInfo) {
     if (USING_S3_STORAGE) {
         return { s3: true }
     } else {
-        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), 'results', info.resultsPath) }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), info.resultsPath) }
     }
 }
 

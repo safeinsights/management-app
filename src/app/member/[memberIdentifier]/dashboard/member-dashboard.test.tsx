@@ -1,11 +1,26 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { Member } from '@/schema/member'
+import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { faker } from '@faker-js/faker'
+import { MemberDashboard } from '@/app/member/[memberIdentifier]/dashboard/member-dashboard'
 import { useUser } from '@clerk/nextjs'
-import { UserResource } from '@clerk/types'
-import { StudiesTable } from '@/components/member/studies-table'
+import { UserResource, UseUserReturn } from '@clerk/types'
+import { Member } from '@/schema/member'
+import { fetchStudiesForMember } from '@/server/actions/study-actions'
+import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
+
+vi.mock('@/server/actions/member-actions', () => ({
+    getMemberFromIdentifier: vi.fn(),
+}))
+
+vi.mock('@clerk/nextjs', () => ({
+    useUser: vi.fn(),
+}))
+
+vi.mock('@/server/actions/study-actions', () => ({
+    fetchStudiesForMember: vi.fn(),
+}))
 
 const mockMember: Member = {
     id: '1',
@@ -71,15 +86,34 @@ const mockStudies = [
     },
 ]
 
-vi.mock('@/server/actions/study-actions', () => ({
-    fetchStudiesForMember: vi.fn(),
-}))
-
-vi.mock('@clerk/nextjs', () => ({
-    useUser: vi.fn(),
-}))
-
 describe('Member Dashboard', () => {
+    it('renders the welcome text', async () => {
+        vi.mocked(getMemberFromIdentifier).mockResolvedValue({
+            createdAt: new Date(),
+            email: faker.internet.email(),
+            id: faker.string.uuid(),
+            identifier: faker.company.buzzAdjective(),
+            name: faker.company.name(),
+            publicKey: 'fake-key',
+            updatedAt: new Date(),
+        })
+
+        vi.mocked(useUser).mockResolvedValue({
+            user: {
+                id: '123',
+                externalId: '456',
+                primaryEmailAddressId: '123',
+                firstName: 'Test User',
+            },
+        } as UseUserReturn)
+
+        renderWithProviders(<MemberDashboard member={mockMember} />)
+
+        expect(screen.getByText(/We’re so glad to have you/i)).toBeDefined()
+    })
+})
+
+describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
         vi.mocked(fetchStudiesForMember).mockResolvedValue([])
         vi.mocked(useUser).mockResolvedValue({

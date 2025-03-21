@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
 
@@ -15,8 +15,6 @@ describe('Member Dashboard', () => {
 
         renderWithProviders(await MemberDashboardPage(props))
 
-        await waitFor(() => {
-            expect(screen.getByText(/Member was not found/i)).toBeDefined()
-        })
+        expect(screen.getByText(/Member was not found/i)).toBeDefined()
     })
 })

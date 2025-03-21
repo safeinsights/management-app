@@ -1,6 +1,6 @@
 import { defineConfig, devices, type ReporterDescription } from '@playwright/test'
 import { testsCoverageSourceFilter } from './tests/coverage.mjs'
-import { path, IS_CI } from './tests/e2e.helpers'
+import { IS_CI } from './tests/e2e.helpers'
 
 const reporters: ReporterDescription[] = []
 if (process.argv.includes('--ui')) {
