@@ -2,7 +2,13 @@
 
 import { db } from '@/database'
 
-export const findOrCreateSiUserId = async (clerkId: string, name: string) => {
+type SiUserOptionalAttrs = {
+    firstName?: string | null
+    lastName?: string | null
+    email?: string | null
+    isResearcher?: boolean
+}
+export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptionalAttrs = {}) => {
     let user = await db
         .selectFrom('user')
         .select(['id', 'isResearcher'])
@@ -13,9 +19,10 @@ export const findOrCreateSiUserId = async (clerkId: string, name: string) => {
         user = await db
             .insertInto('user')
             .values({
-                name,
                 clerkId,
-                isResearcher: true, // FIXME: we'll ned to update this once we have orgs membership
+                isResearcher: attrs.isResearcher ?? false,
+                ...attrs,
+                firstName: attrs.firstName ?? 'Unknown', // unlike clerk, we require users to have some sort of name for showing in reports
             })
             .returningAll()
             .executeTakeFirstOrThrow()
