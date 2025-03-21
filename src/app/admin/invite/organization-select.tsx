@@ -1,10 +1,9 @@
-import { Select, Text } from '@mantine/core'
-import { useState } from 'react'
+import { Text, Select, type SelectProps } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { fetchMembersAction } from '@/server/actions/member-actions'
 import { Member } from '@/schema/member'
 
-export const OrganizationSelect = ({ onOrganizationSelect }: { onOrganizationSelect?: (orgId: string) => void }) => {
+export const OrganizationSelect: React.FC<SelectProps> = (props) => {
     const {
         data: members,
         isLoading,
@@ -14,8 +13,6 @@ export const OrganizationSelect = ({ onOrganizationSelect }: { onOrganizationSel
         initialData: [] as Member[],
         queryFn: () => fetchMembersAction(),
     })
-
-    const [selected, setSelected] = useState<string | null>(null)
 
     if (isLoading) {
         return <div>Loading organisations...</div>
@@ -29,16 +26,9 @@ export const OrganizationSelect = ({ onOrganizationSelect }: { onOrganizationSel
         return <Text>No organisations available</Text>
     }
 
-    const handleChange = (value: string | null) => {
-        setSelected(value)
-        if (value && onOrganizationSelect) {
-            onOrganizationSelect(value)
-        }
-    }
-
     return (
         <Select
-            required
+            withAsterisk
             style={{ width: '100%' }}
             label="Select Organization"
             placeholder="Choose an organization"
@@ -46,11 +36,10 @@ export const OrganizationSelect = ({ onOrganizationSelect }: { onOrganizationSel
                 value: m.id, // use member id (uuid) for createUserAction
                 label: m.name,
             }))}
-            value={selected ?? undefined}
-            onChange={handleChange}
             allowDeselect={false}
             searchable
             clearable={false}
+            {...props}
         />
     )
 }

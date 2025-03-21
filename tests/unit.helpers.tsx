@@ -115,7 +115,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId1',
-            name: 'User One',
+            firstName: 'User One',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -125,7 +125,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId2',
-            name: 'User Two',
+            firstName: 'User Two',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

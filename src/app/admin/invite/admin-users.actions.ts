@@ -1,91 +1,62 @@
 'use server'
 
+import { db } from '@/database'
 import { clerkClient } from '@clerk/nextjs/server'
-import { InviteUserFormValues } from './admin-users.schema'
+import { InviteUserFormValues, inviteUserSchema } from './admin-users.schema'
 
-export async function adminInviteUserAction(invite: InviteUserFormValues): Promise<void> {
-    try {
-        // Basic validation before attempting to create the user
-        if (!firstName || !lastName || !email || !password) {
-            throw new Error('Missing required user information')
-        }
+export async function adminInviteUserAction(
+    invite: InviteUserFormValues,
+): Promise<InviteUserFormValues & { userId: string }> {
+    inviteUserSchema.parse(invite) // validate
 
-        const client = await clerkClient()
+    const client = await clerkClient()
 
-        // Create the user without associating with organization
-        const user = await client.users.createUser({
-            firstName,
-            lastName,
-            emailAddress: [email],
-            password,
-        })
+    const clerkUser = await client.users.createUser({
+        firstName: invite.firstName,
+        lastName: invite.lastName,
+        emailAddress: [invite.email],
+        password: invite.password,
+    })
 
-        //return { success: true, message: 'User created successfully', clerkId: user.id }
-    } catch (error: unknown) {
-        // Extract more specific error information if available
-        let errorMessage = 'Unknown error during user creation'
-
-        if (error && typeof error === 'object') {
-            if ('errors' in error) {
-                errorMessage = JSON.stringify((error as { errors: unknown }).errors)
-            } else if ('message' in error) {
-                errorMessage = (error as { message: string }).message
-            }
-        }
-
-        // Re-throw with more context
-        throw new Error(`User creation failed: ${errorMessage}`)
-    }
-}
-
-export const createUserAction = async (
-    clerkId: string,
-    name: string,
-    isResearcher: boolean,
-    memberId: string,
-    isReviewer: boolean,
-) => {
-    // Run all related inserts in a transaction for atomicity
     return await db.transaction().execute(async (trx) => {
-        // Check if a user with the given clerkId already exists
-        const existingUser = await trx.selectFrom('user').select('id').where('clerkId', '=', clerkId).executeTakeFirst()
+        const existingUser = await trx
+            .selectFrom('user')
+            .select('id')
+            .where('clerkId', '=', clerkUser.id)
+            .executeTakeFirst()
 
         if (existingUser) {
-            throw new Error(`User with clerkId ${clerkId} already exists`)
+            throw new Error(`User with clerkId ${clerkUser.id} already exists`)
         }
 
-        // Insert the user record
-        const results = await trx
+        const siUser = await trx
             .insertInto('user')
             .values({
-                clerkId: clerkId,
-                name,
-                isResearcher: isResearcher,
+                clerkId: clerkUser.id,
+                firstName: invite.firstName,
+                lastName: invite.lastName,
+                email: invite.email,
+                isResearcher: !!invite.isResearcher,
             })
-            .returningAll()
-            .execute()
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-        if (!results.length) {
-            throw new Error('Failed to create user in DB')
-        }
-
-        // Insert into member_user table using provided memberId and isReviewer flags.
-        const memberUserResults = await trx
+        await trx
             .insertInto('memberUser')
             .values({
-                userId: results[0].id,
-                memberId: memberId,
-                isReviewer: isReviewer,
+                userId: siUser.id,
+                memberId: invite.organizationId,
+                isReviewer: !!invite.isReviewer,
                 isAdmin: false,
             })
-            .returningAll()
-            .execute()
-
-        if (!memberUserResults.length) {
-            throw new Error('Failed to create member_user record')
-        }
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
         // Return the created user record.
-        return results[0]
+        return {
+            ...invite,
+            clerkId: clerkUser.id,
+            userId: siUser.id,
+        }
     })
 }
