@@ -46,7 +46,7 @@ export const ResearcherBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/studies`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/studies`]]
     if (studyTitle && studyId) {
         crumbs.push([studyTitle, `/researcher/study/${studyId}/review`])
     }

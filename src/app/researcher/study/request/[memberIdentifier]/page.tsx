@@ -25,10 +25,9 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
             <Flex align="center">
                 <Stack w="100%">
-                    <Paper p="md" mt="md">
-                        <Title mb="lg">Propose A Study</Title>
-                    </Paper>
-
+                    <Title mb="lg" mt="lg">
+                        Propose A Study
+                    </Title>
                     <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
                 </Stack>
             </Flex>

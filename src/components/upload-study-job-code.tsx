@@ -1,7 +1,7 @@
 'use client'
 import { useCallback, useState } from 'react'
-import { ActionIcon, Button, Divider, FileButton, Flex, Group, Paper, rem, Stack, Text } from '@mantine/core'
-import { Check, Trash, Upload, UploadSimple, X as PhosphorX } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Button, Divider, FileInput, Flex, Group, Paper, rem, Stack, Text, Anchor } from '@mantine/core'
+import { CheckCircle, Trash, Upload, UploadSimple, X as PhosphorX } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, DropzoneProps, type FileWithPath } from '@mantine/dropzone'
 import type { MinimalJobInfo } from '@/lib/types'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -154,7 +154,7 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
     return (
         <>
             <Paper p="xl">
-                <Text>Study Code</Text>
+                <Text fw="bold">Study Code</Text>
                 <Divider my="sm" mt="sm" mb="md" />
                 <Text mb="md">
                     This section is key to your proposal, as it defines the analysis that will generate the results
@@ -162,7 +162,7 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
                     your analysis. In this iteration, we currently support .r and .rmd files.
                 </Text>
 
-                <Group>
+                <Group align="space-between" gap="xl">
                     <Stack w="30%">
                         <Dropzone
                             onDrop={onDrop}
@@ -182,8 +182,10 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
                             loading={uploadState === 'uploading'}
                             multiple={true}
                             maxFiles={10}
+                            accept={['.r', '.rmd', '.R']}
                         >
                             <Stack align="center" justify="center" gap="md" mih={120} style={{ pointerEvents: 'none' }}>
+                                <Text fw="bold">Upload File</Text>
                                 <Dropzone.Accept>
                                     <Upload
                                         style={{
@@ -201,96 +203,59 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
                                 <Dropzone.Idle>
                                     <UploadSimple size={32} />
                                 </Dropzone.Idle>
-                                <div>
-                                    <Text size="md" mb="sm" inline>
-                                        Drop files here.
+                                <Group gap="xs">
+                                    <Text size="md">
+                                        Drop your files or
                                     </Text>
-                                </div>
+                                    <FileInput component={Anchor} underline="always" placeholder="Browse" onChange={onDrop} accept=".r,.rmd" multiple={true}/>
+                                </Group>
+                                <Group>
+                                <Text size="xs" c="dimmed" >
+                                    .R, .r, .rmd only
+                                </Text>
+                                <Divider orientation="vertical" size="xs" />
+                                <Text size="xs" c="dimmed">
+                                    10MB max
+                                </Text>
+                                </Group>
                             </Stack>
-                            <Divider my="xl" label="Or" labelPosition="center" />
-                            <Group justify="center">
-                                <FileButton onChange={onDrop} accept=".r,.rmd" multiple={true}>
-                                    {(props) => (
-                                        <Button {...props} variant="outline" color="#616161">
-                                            Upload
-                                        </Button>
-                                    )}
-                                </FileButton>
-                            </Group>
                         </Dropzone>
 
-                        <div>
-                            <Stack gap="xs" pl={2} mt="md">
-                                <Text size="sm" c="dimmed" inline>
-                                    Accepted file types: .R, .Rmd
-                                </Text>
-                                <Text size="sm" c="dimmed" inline>
-                                    Maximum file size: 10MB, up to 10 files
-                                </Text>
-                            </Stack>
-                        </div>
                     </Stack>
-
                     {(uploadState === 'uploading' || uploadState === 'complete') && fileProgresses.length > 0 && (
+                        <>
+                        <Divider orientation="vertical" />
                         <Stack gap="xs" mt="sm">
-                            <Text size="sm" fw={500}>
-                                Uploaded Files:
+                            <Text size="sm" c="#828181">
+                            {fileProgresses.filter(fp => fp.status === 'complete').length} of {fileProgresses.length} files uploaded
                             </Text>
                             {fileProgresses.map((fileProgress) => (
                                 <Flex
                                     key={fileProgress.file.name}
-                                    align="center"
-                                    justify="space-between"
                                     p="xs"
-                                    bg={
-                                        fileProgress.status === 'error'
-                                            ? 'var(--mantine-color-red-light)'
-                                            : fileProgress.status === 'complete'
-                                              ? 'var(--mantine-color-green-light)'
-                                              : 'var(--mantine-color-gray-light)'
-                                    }
-                                    style={{ borderRadius: 'var(--mantine-radius-md)' }}
                                 >
-                                    <Flex align="center" gap="md">
+                                    <Group>
                                         {fileProgress.status === 'complete' ? (
-                                            <Check color="var(--mantine-color-green-6)" />
-                                        ) : fileProgress.status === 'error' ? (
-                                            <PhosphorX color="var(--mantine-color-red-6)" />
+                                            <CheckCircle color="var(--mantine-color-green-6)" weight="fill" />
                                         ) : null}
-                                        <Text size="sm" p="xs">
+                                        <Text size="sm">
                                             {fileProgress.file.name}
                                         </Text>
-                                    </Flex>
-                                    <Flex align="center" gap="sm">
-                                        <Text
-                                            size="sm"
-                                            c={
-                                                fileProgress.status === 'error'
-                                                    ? 'red'
-                                                    : fileProgress.status === 'complete'
-                                                      ? 'green'
-                                                      : 'gray'
-                                            }
-                                        >
-                                            {fileProgress.status === 'complete'
-                                                ? 'Uploaded'
-                                                : fileProgress.status === 'error'
-                                                  ? 'Failed'
-                                                  : `${Math.round(fileProgress.progress)}%`}
-                                        </Text>
+                                    </Group>
+                                    <Group>
                                         {(fileProgress.status === 'complete' || fileProgress.status === 'error') && (
                                             <ActionIcon
                                                 variant="subtle"
-                                                color="red"
                                                 onClick={() => removeFile(fileProgress.file)}
                                             >
-                                                <Trash size={16} />
+                                                <Trash size={14} color="#C4C9CF"/>
                                             </ActionIcon>
                                         )}
-                                    </Flex>
+                                    </Group>
                                 </Flex>
                             ))}
                         </Stack>
+                        </>
                     )}
                 </Group>
             </Paper>
