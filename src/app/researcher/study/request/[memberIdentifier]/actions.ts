@@ -7,8 +7,9 @@ import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { strToAscii } from '@/lib/string'
 import { siUser } from '@/server/queries'
-import { storeStudyDocumentFile } from '@/server/storage'
+import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { onStudyJobCreateAction } from '@/server/actions/study-job-actions'
+import { CodeReviewManifest } from '@/lib/code-manifest'
 
 export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProposalFormValues) => {
     studyProposalSchema.parse(studyInfo) // throws when malformed
@@ -23,19 +24,11 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
 
     const studyId = uuidv7()
 
-    // storeStudyDocumentFile({
-    //     studyId,
-    //     file: study.irbDocument,
-    // }, file)
-
     const repoPath = generateRepositoryPath({
         memberIdentifier: member.identifier,
         studyId,
         studyTitle: studyInfo.title,
     })
-
-    //    const irbDocumentFile = studyInfo.irbDocument ? study.irbDocument.name : ''
-    // TODO: Add agreement document
 
     let repoUrl = ''
 
@@ -72,17 +65,51 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
             piName: studyInfo.piName,
             descriptionDocPath,
             irbDocPath,
-            // irbProtocols: irbDocumentFile,
-            //TODO: add study lead
-            // TODO:add agreement document
+            // TODO: add study lead
+            // TODO: add agreement document
             memberId,
             researcherId: user.id,
             containerLocation: repoUrl,
+            status: 'INITIATED',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
 
     const studyJobId = await onStudyJobCreateAction(studyId)
+
+    const manifest = new CodeReviewManifest(studyJobId, 'r')
+
+    for (const codeFile of studyInfo.codeFiles) {
+        manifest.files.push(codeFile)
+        await storeStudyCodeFile(
+            {
+                memberIdentifier: member.identifier,
+                studyId,
+                studyJobId,
+            },
+            codeFile,
+        )
+    }
+
+    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+
+    await storeStudyCodeFile(
+        {
+            memberIdentifier: member.identifier,
+            studyId,
+            studyJobId,
+        },
+        manifestFile,
+    )
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: user.id,
+            status: 'CODE-SUBMITTED',
+            studyJobId,
+        })
+        .execute()
 
     return {
         studyId: studyId,

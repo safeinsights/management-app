@@ -1,11 +1,11 @@
+'use server'
+
 import React from 'react'
-import { StudyProposalForm } from './study-proposal'
-import { Flex, Paper, Stack, Title } from '@mantine/core'
+import { Flex, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-
-export const dynamic = 'force-dynamic'
+import { StudyProposalFormSteps } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form-steps'
 
 export default async function MemberHome(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
@@ -25,11 +25,10 @@ export default async function MemberHome(props: { params: Promise<{ memberIdenti
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
             <Flex align="center">
                 <Stack w="100%">
-                    <Paper p="md" mt="md">
-                        <Title mb="lg">Propose A Study</Title>
-                    </Paper>
-
-                    <StudyProposalForm memberId={member.id} memberIdentifier={member.identifier} />
+                    <Title mb="lg" mt="lg">
+                        Propose A Study
+                    </Title>
+                    <StudyProposalFormSteps memberId={member.id} />
                 </Stack>
             </Flex>
         </>

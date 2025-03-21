@@ -1,12 +1,13 @@
 'use client'
 
-import React from 'react'
-import { Container, Flex, Button, Paper, Title, Group, Alert, Stack, Text, Tooltip, Table } from '@mantine/core'
+import React, { FC } from 'react'
+import { Alert, Button, Container, Flex, Group, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { humanizeStatus } from '@/lib/status'
 import type { AllStatus } from '@/lib/types'
+import { useUser } from '@clerk/nextjs'
 
 interface Study {
     id: string
@@ -17,12 +18,9 @@ interface Study {
     createdAt: Date
 }
 
-interface StudiesTableProps {
-    userName: string
-    studies: Study[]
-}
+export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
+    const { user } = useUser()
 
-export function StudiesTable({ userName, studies }: StudiesTableProps) {
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
             <Table.Td>
@@ -61,7 +59,7 @@ export function StudiesTable({ userName, studies }: StudiesTableProps) {
     return (
         <>
             <Container fluid>
-                <Title>Hi, {userName}</Title>
+                <Title>Hi, {user?.firstName}</Title>
                 <Stack>
                     <Text mt="md">Welcome to SafeInsights</Text>
                     <Flex w="50%" wrap="wrap">

@@ -29,7 +29,6 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'user.name as researcherName',
         ])
         .orderBy('study.createdAt', 'desc')
-        .where('study.status', '!=', 'INITIATED')
         .execute()
 }
 

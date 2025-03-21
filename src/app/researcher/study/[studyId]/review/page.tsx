@@ -1,6 +1,5 @@
 import { Center, Group, Paper, Stack, Title } from '@mantine/core'
 import { db } from '@/database'
-import { StudyPanel } from './panel'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
@@ -31,7 +30,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title>{study.title}</Title>
                     </Group>
                 </Stack>
-                <StudyPanel study={study} />
             </Paper>
         </Center>
     )
