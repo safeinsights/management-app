@@ -49,8 +49,6 @@ jobs:
             E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
             E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
-        container:
-            image: mcr.microsoft.com/playwright:v1.51.1-jammy
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -87,6 +85,10 @@ jobs:
             - name: Run changed Playwright tests
               run: npx playwright test --only-changed=$GITHUB_BASE_REF
               if: github.event_name == 'pull_request'
+            - name: Run Playwright tests
+              uses: docker://mcr.microsoft.com/playwright:v1.51.1-jammy
+              with:
+                  args: npx playwright test
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
