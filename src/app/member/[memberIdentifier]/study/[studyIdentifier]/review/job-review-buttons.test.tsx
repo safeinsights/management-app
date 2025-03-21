@@ -10,7 +10,6 @@ vi.mock('@/server/actions/study-job-actions', () => ({
     dataForJobAction: vi.fn(),
 }))
 
-// Function to generate mock data for Study
 const mockStudy: Study = {
     approvedAt: faker.datatype.boolean() ? faker.date.past() : null,
     containerLocation: faker.system.directoryPath(),
@@ -29,7 +28,6 @@ const mockStudy: Study = {
     title: faker.lorem.sentence(),
 }
 
-// Function to generate mock data for StudyJob
 const mockStudyJob: StudyJob = {
     createdAt: faker.date.past(),
     id: faker.string.uuid(),

@@ -18,7 +18,7 @@ interface StudyResultsFormValues {
 }
 
 export const StudyResults: FC<{
-    latestJob: StudyJob
+    latestJob: StudyJob | null
     fingerprint: string | undefined
     jobStatus: StudyJobStatus | null
 }> = ({ latestJob, fingerprint, jobStatus }) => {
@@ -47,16 +47,6 @@ export const StudyResults: FC<{
         },
     })
 
-    const onSubmit = (values: StudyResultsFormValues) => {
-        decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
-    }
-
-    const handleError = (errors: typeof form.errors) => {
-        if (errors.privateKey) {
-            notifications.show({ message: 'Invalid private key', color: 'red' })
-        }
-    }
-
     if (!latestJob) {
         return (
             <Paper bg="white" p="xl">
@@ -68,9 +58,8 @@ export const StudyResults: FC<{
     if (!fingerprint) {
         return (
             <Paper bg="white" p="xl">
-                <Text>
-                    It looks like you have not generated a key yet. You cannot view results without a private key.
-                </Text>
+                <Text>It looks like you have not generated a key yet.</Text>
+                <Text>You cannot view results without a private key.</Text>
             </Paper>
         )
     }
@@ -81,6 +70,16 @@ export const StudyResults: FC<{
                 <Title order={4}>Latest results rejected</Title>
             </Paper>
         )
+    }
+
+    const onSubmit = (values: StudyResultsFormValues) => {
+        decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
+    }
+
+    const handleError = (errors: typeof form.errors) => {
+        if (errors.privateKey) {
+            notifications.show({ message: 'Invalid private key', color: 'red' })
+        }
     }
 
     return (
