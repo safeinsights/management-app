@@ -1,6 +1,6 @@
+import { NextResponse } from 'next/server'
 import { localStorageContext } from './context'
 import { memberFromAuthToken } from './member-from-auth-token'
-import { NextResponse } from 'next/server'
 
 export * from './context'
 

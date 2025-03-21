@@ -4,7 +4,7 @@ import { useUser } from '@clerk/nextjs'
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { StudiesTable } from '@/components/member/studies-table'
+import { StudiesTable } from './studies-table'
 
 export const dynamic = 'force-dynamic'
 

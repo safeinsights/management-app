@@ -56,16 +56,6 @@ export const getStudyAction = async (studyId: string) => {
         ])
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
         .select('user.name as researcherName')
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('studyJob')
-                    .selectAll()
-                    // .select(['id', 'resultFormat', 'resultsPath', 'createdAt'])
-                    .whereRef('studyJob.studyId', '=', 'study.id')
-                    .orderBy('createdAt'),
-            ).as('jobs'),
-        ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }

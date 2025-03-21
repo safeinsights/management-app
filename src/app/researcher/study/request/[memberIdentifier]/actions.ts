@@ -5,10 +5,10 @@ import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/
 import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
 import { strToAscii } from '@/lib/string'
 import { siUser } from '@/server/queries'
 import { storeStudyDocumentFile } from '@/server/storage'
+import { onStudyJobCreateAction } from '@/server/actions/study-job-actions'
 
 export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProposalFormValues) => {
     studyProposalSchema.parse(studyInfo) // throws when malformed

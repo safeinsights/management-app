@@ -35,6 +35,7 @@ test('handling upload', async () => {
         }),
         'testfile.txt',
     )
+
     expect(fs.existsSync(filePath)).toBeTruthy()
 
     const sr = await db

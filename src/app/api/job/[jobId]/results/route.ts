@@ -39,6 +39,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
                 memberIdentifier: member.identifier,
             },
             contents,
+            'RUN-COMPLETE',
         )
 
         return NextResponse.json({ status: 'success' }, { status: 200 })

@@ -11,7 +11,10 @@ import { updateStudyStatusAction } from '@/server/actions/study-actions'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const ReviewControls: FC<{ study: SelectedStudy; memberIdentifier: string }> = ({ study, memberIdentifier }) => {
+export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: string }> = ({
+    study,
+    memberIdentifier,
+}) => {
     const router = useRouter()
 
     const backPath = `/member/${memberIdentifier}/dashboard`
@@ -29,7 +32,6 @@ export const ReviewControls: FC<{ study: SelectedStudy; memberIdentifier: string
         },
     })
 
-    // TODO Do we want to support approved/rejected at timestamps?
     if (study.status === 'APPROVED' && study.approvedAt) {
         return (
             <Group c="#12B886" gap="0">

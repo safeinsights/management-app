@@ -3,11 +3,8 @@ import { urlOrPathToResultsFile } from '@/server/results'
 import { MinimalJobResultsInfo } from '@/lib/types'
 import { queryJobResult } from '@/server/queries'
 
-export const GET = async (_: Request, { params }: { params: Promise<{ slug: [string, string] }> }) => {
-    const {
-        slug: [jobIdentifier],
-    } = await params
-    const jobId = jobIdentifier
+export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string }> }) => {
+    const jobId = (await params).jobId
 
     // TODO: check if the job is owned by the researcher
     const job = await queryJobResult(jobId)
