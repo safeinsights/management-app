@@ -10,29 +10,6 @@ import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results
 import { queryJobResult, siUser } from '@/server/queries'
 import { promises as fs } from 'fs'
 
-// TODO Delete me, don't think we need but confirm, we can replace with getLatestStudyJob
-export const getLatestStudyJobAction = async (studyId: string) => {
-    return await db
-        .selectFrom('study')
-        .innerJoin('member', 'member.id', 'study.memberId')
-        .select([
-            'study.id',
-            'study.title',
-            'study.containerLocation',
-            'member.identifier as memberIdentifier',
-            'member.name as memberName',
-            ({ selectFrom }) =>
-                selectFrom('studyJob')
-                    .whereRef('study.id', '=', 'studyJob.studyId')
-                    .select('id as jobId')
-                    .orderBy('study.createdAt desc')
-                    .limit(1)
-                    .as('pendingJobId'),
-        ])
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
-}
-
 export const approveStudyJobResults = async (info: MinimalJobInfo, results?: string[]) => {
     const blob = new Blob(results, { type: 'text/csv' })
     const resultsFile = new File([blob], 'job_results.csv')
