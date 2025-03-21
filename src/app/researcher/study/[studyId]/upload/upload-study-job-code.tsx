@@ -204,57 +204,57 @@ export function UploadStudyJobCode({ job, getSignedURL, onUploadComplete, ...dzP
                                     <UploadSimple size={32} />
                                 </Dropzone.Idle>
                                 <Group gap="xs">
-                                    <Text size="md">
-                                        Drop your files or
-                                    </Text>
-                                    <FileInput component={Anchor} underline="always" placeholder="Browse" onChange={onDrop} accept=".r,.rmd" multiple={true}/>
+                                    <Text size="md">Drop your files or</Text>
+                                    <FileInput
+                                        component={Anchor}
+                                        placeholder="Browse"
+                                        onChange={onDrop}
+                                        accept=".r,.rmd"
+                                        multiple={true}
+                                    />
                                 </Group>
                                 <Group>
-                                <Text size="xs" c="dimmed" >
-                                    .R, .r, .rmd only
-                                </Text>
-                                <Divider orientation="vertical" size="xs" />
-                                <Text size="xs" c="dimmed">
-                                    10MB max
-                                </Text>
+                                    <Text size="xs" c="dimmed">
+                                        .R, .r, .rmd only
+                                    </Text>
+                                    <Divider orientation="vertical" size="xs" />
+                                    <Text size="xs" c="dimmed">
+                                        10MB max
+                                    </Text>
                                 </Group>
                             </Stack>
                         </Dropzone>
-
                     </Stack>
                     {(uploadState === 'uploading' || uploadState === 'complete') && fileProgresses.length > 0 && (
                         <>
-                        <Divider orientation="vertical" />
-                        <Stack gap="xs" mt="sm">
-                            <Text size="sm" c="#828181">
-                            {fileProgresses.filter(fp => fp.status === 'complete').length} of {fileProgresses.length} files uploaded
-                            </Text>
-                            {fileProgresses.map((fileProgress) => (
-                                <Flex
-                                    key={fileProgress.file.name}
-                                    p="xs"
-                                >
-                                    <Group>
-                                        {fileProgress.status === 'complete' ? (
-                                            <CheckCircle color="var(--mantine-color-green-6)" weight="fill" />
-                                        ) : null}
-                                        <Text size="sm">
-                                            {fileProgress.file.name}
-                                        </Text>
-                                    </Group>
-                                    <Group>
-                                        {(fileProgress.status === 'complete' || fileProgress.status === 'error') && (
-                                            <ActionIcon
-                                                variant="subtle"
-                                                onClick={() => removeFile(fileProgress.file)}
-                                            >
-                                                <Trash size={14} color="#C4C9CF"/>
-                                            </ActionIcon>
-                                        )}
-                                    </Group>
-                                </Flex>
-                            ))}
-                        </Stack>
+                            <Divider orientation="vertical" />
+                            <Stack gap="xs" mt="sm">
+                                <Text size="sm" c="#828181">
+                                    {fileProgresses.filter((fp) => fp.status === 'complete').length} of{' '}
+                                    {fileProgresses.length} files uploaded
+                                </Text>
+                                {fileProgresses.map((fileProgress) => (
+                                    <Flex key={fileProgress.file.name} p="xs">
+                                        <Group>
+                                            {fileProgress.status === 'complete' ? (
+                                                <CheckCircle color="var(--mantine-color-green-6)" weight="fill" />
+                                            ) : null}
+                                            <Text size="sm">{fileProgress.file.name}</Text>
+                                        </Group>
+                                        <Group>
+                                            {(fileProgress.status === 'complete' ||
+                                                fileProgress.status === 'error') && (
+                                                <ActionIcon
+                                                    variant="subtle"
+                                                    onClick={() => removeFile(fileProgress.file)}
+                                                >
+                                                    <Trash size={14} color="#C4C9CF" />
+                                                </ActionIcon>
+                                            )}
+                                        </Group>
+                                    </Flex>
+                                ))}
+                            </Stack>
                         </>
                     )}
                 </Group>

@@ -2,10 +2,10 @@ import React from 'react'
 import { Button, Flex, Title, Group } from '@mantine/core'
 import { getLatestStudyJobAction } from './actions'
 import Link from 'next/link'
-import { UploadStudyJobCode } from '@/components/upload-study-job-code'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { AlertNotFound } from '@/components/errors'
 import { getUploadUrlForStudyJobCodeAction } from './actions'
+import { UploadStudyJobCode } from './upload-study-job-code'
 
 export default async function UploadPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
@@ -34,6 +34,7 @@ export default async function UploadPage(props: { params: Promise<{ studyId: str
                             Cancel
                         </Button>
                     </Link>
+                    {/* Update the study here */}
                     <Link href="edit" passHref>
                         <Button color="#291bc4">Submit Proposal</Button>
                     </Link>
