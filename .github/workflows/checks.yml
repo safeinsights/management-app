@@ -82,9 +82,6 @@ jobs:
 
             - name: npm run test:unit
               run: npm run test:unit
-            - name: Run changed Playwright tests
-              run: npx playwright test --only-changed=$GITHUB_BASE_REF
-              if: github.event_name == 'pull_request'
             - name: Run Playwright tests
               uses: docker://mcr.microsoft.com/playwright:v1.51.1-jammy
               with:
