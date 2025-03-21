@@ -65,13 +65,6 @@ export const studyProposalSchema = z.object({
         ),
     codeFiles: z
         .array(z.instanceof(File))
-        // .array(
-        //     z.object({
-        //         name: z.string(),
-        //         type: z.string(),
-        //         size: z.number().max(10 * 1024 * 1024, { message: 'File size must be less than 10MB.' }),
-        //     }),
-        // )
         .min(1, { message: 'At least one code file is required.' })
         .max(10, { message: 'No more than 10 code files are allowed.' })
         .refine((files) => files.some((file) => !['.R', '.r', 'rmd'].includes(file.type)), {
