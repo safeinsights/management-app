@@ -71,7 +71,7 @@ jobs:
               run: npm ci
 
             - name: install playwright dependencies
-              run: npx playwright install --with-deps chromium
+              run: npx playwright install --with-deps --only-shell chromium
             #            - shell: bash
             #              if: steps.playwright-cache.outputs.cache-hit != 'true'
             #              run: npx playwright install --with-deps
