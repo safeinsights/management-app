@@ -47,7 +47,7 @@ export function MembersAdminTable() {
                 withColumnBorders
                 idAccessor="identifier"
                 noRecordsText="No organisations yet, add some using button below"
-                noRecordsIcon={<IconUsers />}
+                noRecordsIcon={<Users />}
                 records={members}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
