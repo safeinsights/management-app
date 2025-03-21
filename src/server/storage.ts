@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { storeStudyFile } from './aws'
 import { MinimalStudyInfo, MinimalJobInfo } from '@/lib/types'
-import { pathForStudyJob, pathForStudyDocuments } from '@/lib/paths'
+import { pathForStudyJob, pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 
 async function saveLocalFile(dir: string, file: File, fileName: string) {
@@ -21,9 +21,13 @@ async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
         await storeStudyFile(info, file.stream(), path.join(filePath, fileName))
     } else {
         const dir = path.join(getUploadTmpDirectory(), filePath)
-        saveLocalFile(dir, file, fileName)
+        await saveLocalFile(dir, file, fileName)
     }
     return fileName
+}
+
+export async function storeStudyCodeFile(info: MinimalJobInfo, file: File) {
+    return await storeFile(pathForStudyJobCode(info), info, file)
 }
 
 export async function storeStudyResultsFile(info: MinimalJobInfo, file: File) {

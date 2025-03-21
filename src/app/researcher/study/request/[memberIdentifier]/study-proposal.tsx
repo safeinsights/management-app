@@ -1,15 +1,11 @@
 'use client'
 
-import React from 'react'
-import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, FileInput, Group, Paper, Stack, Text } from '@mantine/core'
-import { FileDoc, FileText, FilePdf, UploadSimple } from '@phosphor-icons/react/dist/ssr'
-import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
-import { onCreateStudyAction } from './actions'
-import { CancelButton } from '@/components/cancel-button'
+import React, { FC } from 'react'
+import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { TextInput } from '@/components/form'
-import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-proposal-schema'
+import { UseFormReturnType } from '@mantine/form'
+import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
 
 //TODO: Finish - Update the file upload icon to match the file type of the document
 const Icons: [RegExp, React.ReactNode][] = [
@@ -25,156 +21,102 @@ const getFileUploadIcon = (fileName?: string | null) => {
     return matchedIcon || <UploadSimple size={14} color="#291bc4" weight="fill" />
 }
 
-export const StudyProposalForm: React.FC<{ memberId: string; memberIdentifier: string }> = ({ memberId }) => {
-    const router = useRouter()
-
-    const studyProposalForm = useForm<StudyProposalFormValues>({
-        mode: 'uncontrolled',
-        validate: zodResolver(studyProposalSchema),
-        validateInputOnBlur: true,
-        initialValues: {
-            title: '',
-            piName: '',
-            irbDocument: null,
-            descriptionDocument: null,
-            agreementDocument: null,
-        },
-    })
-
-    const { mutate: createStudy, isPending } = useMutation({
-        mutationFn: async (d: StudyProposalFormValues) => await onCreateStudyAction(memberId, d),
-        onSettled(result, error) {
-            if (error || !result?.studyId) {
-                studyProposalForm.setErrors({
-                    title: error?.message || 'An error occurred',
-                })
-            } else {
-                router.push(`/researcher/study/${result.studyId}/upload`)
-            }
-        },
-    })
-
+export const StudyProposalForm: FC<{
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+}> = ({ studyProposalForm }) => {
     const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name)
     const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name)
     const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name)
 
     return (
-        <>
-            <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
-                <Paper p="xl">
-                    <Text fz="xs" c="dimmed">
-                        Step 1 of 2
-                    </Text>
-                    <Text fz="lg">Study Proposal</Text>
-                    <Divider my="sm" mt="sm" mb="md" />
-                    <Text>
-                        This section is key to your proposal, as it defines the analysis that will generate the results
-                        you’re intending to obtain from the Member’s data. Upload any necessary files to support your
-                        analysis. In this iteration, we currently support .r and .rmd files.
-                    </Text>
-                    <Stack gap="lg" mt="md">
-                        <Group gap="xl">
-                            <Text>Study Title</Text>
-                            <TextInput
-                                horizontal
-                                aria-label="Study Title"
-                                placeholder="Enter a title (max. 50 characters)"
-                                {...studyProposalForm.getInputProps('title')}
-                            />
-                        </Group>
-
-                        <Group gap="xl">
-                            <Text>Study Lead</Text>
-                            <TextInput
-                                horizontal
-                                aria-label="Study Lead"
-                                disabled
-                                value="Researcher Name"
-                                // value={user?.firstName + ' ' + user?.lastName}
-                            />
-                        </Group>
-
-                        <Group gap="xl">
-                            <Text>Principal Investigator</Text>
-                            <TextInput horizontal {...studyProposalForm.getInputProps('piName')} />
-                        </Group>
-
-                        <Group>
-                            <Text>Study Description</Text>
-                            {fileUpload}
-                            <Stack gap={0}>
-                                <FileInput
-                                    name="descriptionDocument"
-                                    component={Anchor}
-                                    aria-label="Upload Study Description Document"
-                                    placeholder="Upload Document"
-                                    clearable
-                                    accept=".doc,.docx,.txt,.pdf"
-                                    {...studyProposalForm.getInputProps('descriptionDocument')}
-                                />
-                                <Text size="xs" c="dimmed">
-                                    Accepted formats: doc, docx, pdf and txt
-                                </Text>
-                            </Stack>
-                        </Group>
-
-                        <Group gap="xs">
-                            <Text>IRB Document</Text>
-                            {irbFileUpload}
-                            <Stack gap={0}>
-                                <FileInput
-                                    name="irbDocument"
-                                    component={Anchor}
-                                    aria-label="Upload IRB Document"
-                                    placeholder="Upload Document"
-                                    clearable
-                                    accept=".doc,.docx,.txt,.pdf"
-                                    key={studyProposalForm.key('irbDocument')}
-                                    {...studyProposalForm.getInputProps('irbDocument')}
-                                />
-                                <Text size="xs" c="dimmed">
-                                    Accepted formats: doc, docx, pdf and txt
-                                </Text>
-                            </Stack>
-                        </Group>
-
-                        <Group gap="xs">
-                            <Text>Agreement Document</Text>
-                            {agreementFileUpload}
-                            <Stack gap={0}>
-                                <FileInput
-                                    name="agreementDocument"
-                                    aria-label="Upload Agreement Document"
-                                    component={Anchor}
-                                    placeholder="Upload Document"
-                                    clearable
-                                    accept=".doc,.docx,.txt,.pdf"
-                                    key={studyProposalForm.key('agreementDocument')}
-                                    {...studyProposalForm.getInputProps('agreementDocument')}
-                                />
-                                <Text size="xs" c="dimmed">
-                                    Accepted formats: doc, docx, pdf and txt
-                                </Text>
-                            </Stack>
-                        </Group>
-                    </Stack>
-                </Paper>
-                <Group gap="xl" p={2} mt="xl" justify="flex-end">
-                    <CancelButton isDirty={studyProposalForm.isDirty()} uploadedFiles={[]} />
-
-                    <Button
-                        fz="lg"
-                        mb="lg"
-                        type="submit"
-                        disabled={!studyProposalForm.isValid()}
-                        variant="filled"
-                        color="#291bc4"
-                        loading={isPending}
-                    >
-                        Next Step
-                    </Button>
+        <Paper p="md">
+            <Title order={4}>Study Proposal</Title>
+            <Divider my="sm" mt="sm" mb="md" />
+            <Text>
+                This section is key to your proposal, as it defines the analysis that will generate the results you’re
+                intending to obtain from the Member’s data. Upload any necessary files to support your analysis. In this
+                iteration, we currently support .r and .rmd files.
+            </Text>
+            <Stack gap="lg" mt="md">
+                {/* TODO flesh out with UX/do when hifi-s ready */}
+                <Group gap="xl">
+                    <Text>Study Title</Text>
+                    <TextInput
+                        aria-label="Study Title"
+                        placeholder="Enter a title (max. 50 characters)"
+                        {...studyProposalForm.getInputProps('title')}
+                    />
                 </Group>
-            </form>
-        </>
+
+                <Group gap="xl">
+                    <Text>Study Lead</Text>
+                    <TextInput horizontal aria-label="Study Lead" disabled value="Researcher Name" />
+                </Group>
+
+                <Group gap="xl">
+                    <Text>Principal Investigator</Text>
+                    <TextInput horizontal {...studyProposalForm.getInputProps('piName')} />
+                </Group>
+
+                <Group>
+                    <Text>Study Description</Text>
+                    {fileUpload}
+                    <Stack gap={0}>
+                        <FileInput
+                            name="descriptionDocument"
+                            component={Anchor}
+                            aria-label="Upload Study Description Document"
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.txt,.pdf"
+                            {...studyProposalForm.getInputProps('descriptionDocument')}
+                        />
+                        <Text size="xs" c="dimmed">
+                            Accepted formats: doc, docx, pdf and txt
+                        </Text>
+                    </Stack>
+                </Group>
+
+                <Group gap="xs">
+                    <Text>IRB Document</Text>
+                    {irbFileUpload}
+                    <Stack gap={0}>
+                        <FileInput
+                            name="irbDocument"
+                            component={Anchor}
+                            aria-label="Upload IRB Document"
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.txt,.pdf"
+                            key={studyProposalForm.key('irbDocument')}
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                        />
+                        <Text size="xs" c="dimmed">
+                            Accepted formats: doc, docx, pdf and txt
+                        </Text>
+                    </Stack>
+                </Group>
+
+                <Group gap="xs">
+                    <Text>Agreement Document</Text>
+                    {agreementFileUpload}
+                    <Stack gap={0}>
+                        <FileInput
+                            name="agreementDocument"
+                            aria-label="Upload Agreement Document"
+                            component={Anchor}
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.txt,.pdf"
+                            key={studyProposalForm.key('agreementDocument')}
+                            {...studyProposalForm.getInputProps('agreementDocument')}
+                        />
+                        <Text size="xs" c="dimmed">
+                            Accepted formats: doc, docx, pdf and txt
+                        </Text>
+                    </Stack>
+                </Group>
+            </Stack>
+        </Paper>
     )
 }

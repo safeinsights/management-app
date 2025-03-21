@@ -1,13 +1,13 @@
-import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts'
-import { S3Client, GetObjectCommand, DeleteObjectsCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
-import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
+import { CreateRepositoryCommand, ECRClient, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyJob, pathForStudyJobResults, pathForStudyJobCode } from '@/lib/paths'
-import { strToAscii, slugify } from '@/lib/string'
+import { pathForStudyJob, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
+import { slugify, strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import {
@@ -161,10 +161,9 @@ export async function fetchCodeManifest(info: MinimalJobInfo) {
 
 export async function urlForResults(info: MinimalJobResultsInfo) {
     const path = pathForStudyJobResults(info)
-    const url = await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key: path }), {
+    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key: path }), {
         expiresIn: 3600,
     })
-    return url
 }
 
 export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
@@ -184,33 +183,4 @@ export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
     if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
     return result.Body
-}
-
-export async function deleteStudyFiles(repoPath: string) {
-    const s3Client = getS3Client()
-    const bucket = s3BucketName()
-
-    const listCommand = new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: repoPath
-    })
-
-    const listedObjects = await s3Client.send(listCommand)
-
-    if (listedObjects.Contents && listedObjects.Contents.length > 0) {
-        const deleteParams = {
-            Bucket: bucket,
-            Delete: {
-                Objects: listedObjects.Contents.map(({ Key }) => ({ Key }))
-            }
-        }
-
-        const deleteCommand = new DeleteObjectsCommand(deleteParams)
-        await s3Client.send(deleteCommand)
-
-        // If there are more objects, recursively delete
-        if (listedObjects.IsTruncated) {
-            await deleteStudyFiles(repoPath)
-        }
-    }
 }

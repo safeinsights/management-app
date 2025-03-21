@@ -1,10 +1,9 @@
 import { useState } from 'react'
-import { Button, Modal, Group, Loader } from '@mantine/core'
+import { Button, Group, Modal } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 
-export function CancelButton({ isDirty, uploadedFiles }: { isDirty: boolean; uploadedFiles: File[] }) {
+export function CancelButton({ isDirty }: { isDirty: boolean }) {
     const [opened, setOpened] = useState(false)
-    const [loading, setLoading] = useState(false)
     const router = useRouter()
 
     const handleCancel = () => {
@@ -16,22 +15,7 @@ export function CancelButton({ isDirty, uploadedFiles }: { isDirty: boolean; upl
     }
 
     const confirmCancel = async () => {
-        setLoading(true)
-        try {
-            if (uploadedFiles.length > 0) {
-                const uploadedFile = uploadedFiles[0].name
-                await fetch('/api/delete-file', {
-                    method: 'DELETE',
-                    body: JSON.stringify({ filePath: uploadedFile }),
-                    headers: { 'Content-Type': 'application/json' },
-                })
-            }
-        } catch (error) {
-            console.error('Error deleting file:', error)
-        } finally {
-            setLoading(false)
-            router.push('/')
-        }
+        router.push('/')
     }
 
     return (
@@ -42,13 +26,13 @@ export function CancelButton({ isDirty, uploadedFiles }: { isDirty: boolean; upl
                     <Button variant="subtle" onClick={() => setOpened(false)}>
                         No, keep editing
                     </Button>
-                    <Button color="red" onClick={confirmCancel} disabled={loading}>
-                        {loading ? <Loader size="xs" /> : 'Yes, erase draft'}
+                    <Button color="red" onClick={confirmCancel}>
+                        Yes, erase draft
                     </Button>
                 </Group>
             </Modal>
 
-            <Button fz="lg" mb="lg" type="button" variant="outline" color="#616161" onClick={handleCancel}>
+            <Button type="button" variant="outline" color="#616161" onClick={handleCancel}>
                 Cancel
             </Button>
         </>

@@ -2,14 +2,36 @@
 
 import { db } from '@/database'
 import { CodeManifest, MinimalJobInfo } from '@/lib/types'
-import { fetchCodeFile, fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
+import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
-import { SIMULATE_RESULTS_UPLOAD, USING_S3_STORAGE } from '@/server/config'
+import { USING_S3_STORAGE } from '@/server/config'
 import { devReadCodeFile } from '@/server/dev/code-files'
-import { attachResultsToStudyJob, attachSimulatedResultsToStudyJob, storageForResultsFile } from '@/server/results'
+import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/queries'
-import { sleep } from '@/lib/util'
 import { promises as fs } from 'fs'
+
+// TODO Delete me, don't think we need but confirm, we can replace with getLatestStudyJob
+export const getLatestStudyJobAction = async (studyId: string) => {
+    return await db
+        .selectFrom('study')
+        .innerJoin('member', 'member.id', 'study.memberId')
+        .select([
+            'study.id',
+            'study.title',
+            'study.containerLocation',
+            'member.identifier as memberIdentifier',
+            'member.name as memberName',
+            ({ selectFrom }) =>
+                selectFrom('studyJob')
+                    .whereRef('study.id', '=', 'studyJob.studyId')
+                    .select('id as jobId')
+                    .orderBy('study.createdAt desc')
+                    .limit(1)
+                    .as('pendingJobId'),
+        ])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+}
 
 export const approveStudyJobResults = async (info: MinimalJobInfo, results?: string[]) => {
     const blob = new Blob(results, { type: 'text/csv' })
@@ -32,14 +54,6 @@ export const rejectStudyJobResults = async (info: MinimalJobInfo) => {
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-}
-
-export const fetchFileAction = async (job: MinimalJobInfo, path: string) => {
-    if (USING_S3_STORAGE) {
-        return await fetchCodeFile(job, path)
-    } else {
-        return (await devReadCodeFile(job, path)).toString()
-    }
 }
 
 export const dataForJobAction = async (studyJobIdentifier: string) => {
@@ -121,22 +135,6 @@ export const onStudyJobCreateAction = async (studyId: string) => {
             status: 'INITIATED',
         })
         .executeTakeFirstOrThrow()
-
-    if (SIMULATE_RESULTS_UPLOAD) {
-        const study = await db
-            .selectFrom('study')
-            .innerJoin('member', 'study.memberId', 'member.id')
-            .select(['member.identifier as memberIdentifier'])
-            .where('study.id', '=', studyId)
-            .executeTakeFirstOrThrow()
-        sleep({ 3: 'seconds' }).then(() => {
-            attachSimulatedResultsToStudyJob({
-                studyId,
-                studyJobId: studyJob.id,
-                memberIdentifier: study.memberIdentifier,
-            })
-        })
-    }
 
     return studyJob.id
 }

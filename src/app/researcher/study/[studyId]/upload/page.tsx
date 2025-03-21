@@ -1,12 +1,11 @@
 import React from 'react'
-import { Button, Flex, Title, Group } from '@mantine/core'
-import { getLatestStudyJobAction } from './actions'
+import { Button, Flex, Group, Title } from '@mantine/core'
 import Link from 'next/link'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { AlertNotFound } from '@/components/errors'
-import { getUploadUrlForStudyJobCodeAction } from './actions'
-import { UploadStudyJobCode } from './upload-study-job-code'
+import { getLatestStudyJobAction } from '@/server/actions/study-job-actions'
 
+// TODO Delete me?
 export default async function UploadPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
 
@@ -23,21 +22,15 @@ export default async function UploadPage(props: { params: Promise<{ studyId: str
         <>
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
             <Title mb="lg">Propose A Study</Title>
-            <UploadStudyJobCode
-                job={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyJobId: study.pendingJobId }}
-                getSignedURL={getUploadUrlForStudyJobCodeAction}
-            />
+            {/*<UploadStudyJobCode*/}
+            {/*    job={{ memberIdentifier: study.memberIdentifier, studyId: study.id, studyJobId: study.pendingJobId }}*/}
+            {/*/>*/}
             <Flex justify="end" mt="lg">
                 <Group>
-                    <Link href="/researcher/dashboard" passHref>
-                        <Button fz="lg" color="#616161" variant="outline">
-                            Cancel
-                        </Button>
-                    </Link>
-                    {/* Update the study here */}
-                    <Link href="edit" passHref>
-                        <Button color="#291bc4">Submit Proposal</Button>
-                    </Link>
+                    <Button component={Link} href="/researcher/dashboard" fz="lg" color="#616161" variant="outline">
+                        Cancel
+                    </Button>
+                    <Button color="#291bc4">Submit Proposal</Button>
                 </Group>
             </Flex>
         </>
