@@ -24,8 +24,6 @@ jobs:
     test:
         timeout-minutes: 15
         runs-on: ubuntu-latest
-        container:
-            image: mcr.microsoft.com/playwright:v1.34.3-jammy
         services:
             db:
                 image: postgres:15
@@ -51,30 +49,32 @@ jobs:
             E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
             E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
+        container:
+            image: mcr.microsoft.com/playwright:v1.51.1-noble
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
                   cache: 'npm'
-#            - name: Get installed Playwright version
-#              shell: bash
-#              run: echo PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies."@playwright/test"' || 'latest') >> $GITHUB_ENV
+            #            - name: Get installed Playwright version
+            #              shell: bash
+            #              run: echo PLAYWRIGHT_VERSION=$(cat package.json | jq -r '.devDependencies."@playwright/test"' || 'latest') >> $GITHUB_ENV
 
-#            - name: Cache playwright binaries
-#              uses: actions/cache@v4
-#              id: playwright-cache
-#              with:
-#                  path: |
-#                      ~/.cache/ms-playwright
-#                  key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
-#                  restore-keys: ${{ runner.os }}-playwright-
+            #            - name: Cache playwright binaries
+            #              uses: actions/cache@v4
+            #              id: playwright-cache
+            #              with:
+            #                  path: |
+            #                      ~/.cache/ms-playwright
+            #                  key: ${{ runner.os }}-playwright-${{ env.PLAYWRIGHT_VERSION }}
+            #                  restore-keys: ${{ runner.os }}-playwright-
             - name: npm install
               run: npm ci
 
-#            - shell: bash
-#              if: steps.playwright-cache.outputs.cache-hit != 'true'
-#              run: npx playwright install --with-deps
+            #            - shell: bash
+            #              if: steps.playwright-cache.outputs.cache-hit != 'true'
+            #              run: npx playwright install --with-deps
 
             - name: provision db
               run: npm run db:migrate
