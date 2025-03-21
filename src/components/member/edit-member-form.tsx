@@ -7,10 +7,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Member, memberSchema, NewMember, ValidatedMember, zodResolver } from '@/schema/member'
 import { FC } from 'react'
 
-export const EditMemberForm: FC<{ member: Member | NewMember; onCompleteAction?: () => void }> = ({
-    member,
-    onCompleteAction,
-}) => {
+export const EditMemberForm: FC<{
+    member: Member | NewMember
+    onCompleteAction?: () => void
+}> = ({ member, onCompleteAction }) => {
     const form = useForm<ValidatedMember>({
         validate: zodResolver(memberSchema),
         initialValues: member,
@@ -19,13 +19,13 @@ export const EditMemberForm: FC<{ member: Member | NewMember; onCompleteAction?:
     const queryClient = useQueryClient()
 
     const { isPending, mutate: upsertMember } = useMutation({
-        mutationFn: async (data: ValidatedMember) => {
-            return await upsertMemberAction(data)
+        mutationFn: async (data: ValidatedMember) => await upsertMemberAction(data),
+        onError: (error: unknown) => {
+            reportError(error)
         },
         onSettled: async () => {
-            const result = await queryClient.invalidateQueries({ queryKey: ['members'] })
+            await queryClient.invalidateQueries({ queryKey: ['members'] })
             onCompleteAction?.()
-            return result
         },
     })
 

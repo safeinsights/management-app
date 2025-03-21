@@ -15,19 +15,51 @@ type ClerkAPIErrorResponse = {
 }
 
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
-    return (
+    return Boolean(
         error != null &&
-        typeof error === 'object' &&
-        'errors' in error &&
-        Array.isArray(error.errors) &&
-        error.errors?.[0].code
+            typeof error === 'object' &&
+            'errors' in error &&
+            Array.isArray(error.errors) &&
+            error.errors?.[0].code,
     )
 }
 
-export const errorToString = (error: unknown) =>
-    isClerkApiError(error)
-        ? error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
-        : JSON.stringify(error, null, 2)
+type ServerActionError = {
+    digest: string
+    name: string
+    Error: string
+    stack?: string
+    environmentName: 'Server'
+}
+
+export function isServerActionError(error: unknown): error is ServerActionError {
+    return (
+        error != null &&
+        typeof error === 'object' &&
+        'environmentName' in error &&
+        error['environmentName'] === 'Server'
+    )
+}
+
+export const errorToString = (error: unknown) => {
+    if (!error) return ''
+
+    if (typeof error === 'string') {
+        return error
+    }
+
+    if (isServerActionError(error)) {
+        return `An unexpected error occurred on the server.\nDigest: ${error.digest}`
+    }
+
+    if (isClerkApiError(error)) {
+        return error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
+    }
+
+    if (error instanceof Error) {
+        return String(error)
+    }
+}
 
 export const reportError = (error: unknown, title = 'An error occured') => {
     notifications.show({

@@ -12,7 +12,6 @@ import Link from 'next/link'
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const { data: studies = [] } = useQuery({
         queryKey: ['studiesForMember', member.identifier],
-        placeholderData: [],
         queryFn: () => {
             return fetchStudiesForMember(member.identifier)
         },
