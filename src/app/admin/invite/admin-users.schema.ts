@@ -20,8 +20,6 @@ export const inviteUserSchema = z
                 message: 'At least one role must be selected.',
             })
         }
-
-        //message: "At least one role must be selected."
     })
 
 export type InviteUserFormValues = z.infer<typeof inviteUserSchema>
