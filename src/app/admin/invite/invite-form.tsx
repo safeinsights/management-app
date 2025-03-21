@@ -4,7 +4,7 @@ import { TextInput, PasswordInput, Button, Alert, Checkbox, Group, Text } from '
 import React, { useState } from 'react'
 import { createClerkUserAction } from '@/server/actions/clerk-user-actions'
 import { Warning } from '@phosphor-icons/react'
-import { OrganizationSelect } from '@/components/clerkcustom/organization-select'
+import { OrganizationSelect } from './organization-select'
 import Link from 'next/link'
 import { createUserAction } from '@/server/actions/user-actions'
 

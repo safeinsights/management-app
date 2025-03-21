@@ -1,5 +1,3 @@
-'use client'
-
 import { Select, Text } from '@mantine/core'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
