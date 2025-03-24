@@ -17,7 +17,7 @@ async function setupUsers() {
     const fingerprint = await readTestSupportFile('public_key.sig')
 
     for (const clerkId of CLERK_MEMBER_TEST_IDS) {
-        const userId = await findOrCreateSiUserId(clerkId, 'Test Researcher User')
+        const userId = await findOrCreateSiUserId(clerkId, { firstName: 'Test Researcher User' })
 
         const pkey = await db.selectFrom('userPublicKey').where('userId', '=', userId).executeTakeFirst()
 

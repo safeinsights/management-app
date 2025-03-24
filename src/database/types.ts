@@ -85,9 +85,12 @@ export interface StudyJob {
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
+    email: string | null
+    firstName: string
+    fullName: Generated<string>
     id: Generated<string>
     isResearcher: Generated<boolean>
-    name: string
+    lastName: string | null
     updatedAt: Generated<Timestamp>
 }
 

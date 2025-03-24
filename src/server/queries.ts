@@ -32,7 +32,8 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
         if (throwIfNotFound) throw new Error('User not logged in')
         return null
     }
-    const userId = await findOrCreateSiUserId(clerkUser.id, clerkUser.fullName || 'unknown')
+
+    const userId = await findOrCreateSiUserId(clerkUser.id, clerkUser)
     return {
         ...clerkUser,
         id: userId,
