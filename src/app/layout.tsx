@@ -1,9 +1,7 @@
-'use server'
+'use client'
 
-import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
-import { currentUser } from '@clerk/nextjs/server'
-
+import { usePathname, useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
@@ -11,33 +9,43 @@ import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from './providers'
 import { AppLayout } from '@/components/layout/app-layout'
-import { type ReactNode } from 'react'
+import { useLayoutEffect, type ReactNode } from 'react'
 
-export async function generateMetadata(): Promise<Metadata> {
-    return {
-        title: 'SafeInsights Management Application',
-        description: 'Manages studies, members, and data',
-        icons: {
-            icon: '/icon.png',
-        },
-    }
+export const Metadata = {
+    title: 'SafeInsights Management Application',
+    description: 'Manages studies, members, and data',
+    icons: {
+        icon: '/icon.png',
+    },
 }
 
-export default async function RootLayout({
+const RequireMFA = () => {
+    const { user } = useUser()
+    const pathname = usePathname()
+    const router = useRouter()
+
+    useLayoutEffect(() => {
+        if (user?.twoFactorEnabled === false && !pathname.startsWith('/account/mfa')) {
+            router.push('/account/mfa')
+        }
+    }, [pathname])
+
+    return null
+}
+
+export default function RootLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
-    const user = await currentUser()
-    if (user?.twoFactorEnabled === false) {
-        redirect('/account/mfa')
-    }
-
     return (
         <html lang="en">
             <body>
                 <Providers>
-                    <AppLayout>{children}</AppLayout>
+                    <AppLayout>
+                        {children}
+                        <RequireMFA />
+                    </AppLayout>
                 </Providers>
             </body>
         </html>

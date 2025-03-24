@@ -1,8 +1,8 @@
-import { it, vi, expect, type Mock } from 'vitest'
-import { currentUser } from '@clerk/nextjs/server'
+import { it, vi, expect, beforeEach, type Mock } from 'vitest'
+import { useUser as origUseUser } from '@clerk/nextjs'
 import RootLayout from './layout'
-import { redirect } from 'next/navigation'
 import { render } from '@testing-library/react'
+import router from 'next-router-mock'
 
 vi.mock('./providers', () => ({
     Providers: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -11,26 +11,41 @@ vi.mock('@/components/layout/app-layout', () => ({
     AppLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-const user = currentUser as unknown as Mock
+const useUser = origUseUser as unknown as Mock
+
+beforeEach(() => {
+    router.setCurrentUrl('/')
+})
 
 it('redirects to MFA setup if twoFactorEnabled is false', async () => {
-    user.mockResolvedValue({ twoFactorEnabled: false })
-
-    render(await RootLayout({ children: <div>Test</div> }), { container: document })
-
-    expect(redirect).toHaveBeenCalledWith('/account/mfa')
+    useUser.mockReturnValue({ user: { twoFactorEnabled: false } })
+    render(
+        <RootLayout>
+            <div>Test</div>
+        </RootLayout>,
+        { container: document },
+    )
+    expect(router.asPath).toEqual('/account/mfa')
 })
 
 it('does not redirect if twoFactorEnabled is true', async () => {
-    user.mockResolvedValue({ twoFactorEnabled: true })
-
-    render(await RootLayout({ children: <div>Test</div> }), { container: document })
-
-    expect(redirect).not.toHaveBeenCalled()
+    useUser.mockReturnValue({ user: { twoFactorEnabled: true } })
+    render(
+        <RootLayout>
+            <div>Test</div>
+        </RootLayout>,
+        { container: document },
+    )
+    expect(router.asPath).toEqual('/')
 })
 
 it('does not redirect if user is null', async () => {
-    user.mockResolvedValue(null)
-    render(await RootLayout({ children: <div>Test</div> }), { container: document })
-    expect(redirect).not.toHaveBeenCalled()
+    useUser.mockResolvedValue({ user: null })
+    render(
+        <RootLayout>
+            <div>Test</div>
+        </RootLayout>,
+        { container: document },
+    )
+    expect(router.asPath).toEqual('/')
 })
