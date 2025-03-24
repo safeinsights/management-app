@@ -8,6 +8,7 @@ npx kysely migrate:latest
 
 npx kysely-codegen --camel-case --dialect postgres --out-file $TYPES
 
+# run seeds after generating types above so the seed files see the updated DB state
 npx kysely seed:run
 
 npx prettier --write $TYPES
