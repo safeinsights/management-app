@@ -19,33 +19,18 @@ beforeEach(() => {
 
 it('redirects to MFA setup if twoFactorEnabled is false', async () => {
     useUser.mockReturnValue({ user: { twoFactorEnabled: false } })
-    render(
-        <RootLayout>
-            <div>Test</div>
-        </RootLayout>,
-        { container: document },
-    )
+    render(await RootLayout({ children: <div>Test</div> }), { container: document })
     expect(router.asPath).toEqual('/account/mfa')
 })
 
 it('does not redirect if twoFactorEnabled is true', async () => {
     useUser.mockReturnValue({ user: { twoFactorEnabled: true } })
-    render(
-        <RootLayout>
-            <div>Test</div>
-        </RootLayout>,
-        { container: document },
-    )
+    render(await RootLayout({ children: <div>Test</div> }), { container: document })
     expect(router.asPath).toEqual('/')
 })
 
 it('does not redirect if user is null', async () => {
     useUser.mockResolvedValue({ user: null })
-    render(
-        <RootLayout>
-            <div>Test</div>
-        </RootLayout>,
-        { container: document },
-    )
+    render(await RootLayout({ children: <div>Test</div> }), { container: document })
     expect(router.asPath).toEqual('/')
 })

@@ -1,7 +1,7 @@
-'use client'
+'use server'
 
-import { usePathname, useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import type { Metadata } from 'next'
+
 import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
@@ -9,31 +9,20 @@ import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from './providers'
 import { AppLayout } from '@/components/layout/app-layout'
-import { useLayoutEffect, type ReactNode } from 'react'
+import { RequireMFA } from '@/components/require-mfa'
+import { type ReactNode } from 'react'
 
-export const Metadata = {
-    title: 'SafeInsights Management Application',
-    description: 'Manages studies, members, and data',
-    icons: {
-        icon: '/icon.png',
-    },
+export async function generateMetadata(): Promise<Metadata> {
+    return {
+        title: 'SafeInsights Management Application',
+        description: 'Manages studies, members, and data',
+        icons: {
+            icon: '/icon.png',
+        },
+    }
 }
 
-const RequireMFA = () => {
-    const { user } = useUser()
-    const pathname = usePathname()
-    const router = useRouter()
-
-    useLayoutEffect(() => {
-        if (user?.twoFactorEnabled === false && !pathname.startsWith('/account/mfa')) {
-            router.push('/account/mfa')
-        }
-    }, [pathname])
-
-    return null
-}
-
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: ReactNode
