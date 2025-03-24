@@ -41,18 +41,6 @@ export const GenerateKeys: FC = () => {
             <Container>
                 <Stack>
                     <Stack>
-                        <Title>Public key: </Title>
-                        <ScrollArea>{keys.publicKey}</ScrollArea>
-                        <CopyButton value={keys.publicKey}>
-                            {({ copied, copy }) => (
-                                <Button color={copied ? 'teal' : 'blue'} onClick={copy}>
-                                    {copied ? 'Copied public key!' : 'Copy public key'}
-                                </Button>
-                            )}
-                        </CopyButton>
-                    </Stack>
-
-                    <Stack>
                         <Title>Private key: </Title>
                         <ScrollArea>{keys.privateKey}</ScrollArea>
                         <CopyButton value={keys.privateKey}>
