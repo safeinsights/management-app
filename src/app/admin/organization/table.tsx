@@ -13,12 +13,9 @@ import { useDisclosure } from '@mantine/hooks'
 import { EditMemberForm } from '@/components/member/edit-member-form'
 
 export function MembersAdminTable() {
-    const { data } = useQuery({
+    const { data = [] } = useQuery({
         queryKey: ['members'],
-        initialData: [] as Member[],
-        queryFn: () => {
-            return fetchMembersAction()
-        },
+        queryFn: fetchMembersAction,
     })
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
@@ -39,7 +36,7 @@ export function MembersAdminTable() {
                 withTableBorder
                 withColumnBorders
                 idAccessor="identifier"
-                noRecordsText="No members yet, add some using button below"
+                noRecordsText="No organisations yet, add some using button below"
                 noRecordsIcon={<Users />}
                 records={members}
                 sortStatus={sortStatus}
@@ -68,10 +65,10 @@ const AddMember: FC = () => {
 
     return (
         <Flex justify={'end'} mt="lg">
-            <Modal opened={opened} onClose={close} title={`Add Member`} closeOnClickOutside={false}>
+            <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
                 <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
-            <Button onClick={open}>Add new Member</Button>
+            <Button onClick={open}>Add new organization</Button>
         </Flex>
     )
 }

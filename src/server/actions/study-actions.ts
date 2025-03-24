@@ -28,7 +28,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'study.researcherId',
             'study.status',
             'study.title',
-            'user.name as researcherName',
+            'user.fullName as researcherName',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
@@ -53,7 +53,7 @@ export const getStudyAction = async (studyId: string) => {
             'study.title',
         ])
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-        .select('user.name as researcherName')
+        .select('user.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
