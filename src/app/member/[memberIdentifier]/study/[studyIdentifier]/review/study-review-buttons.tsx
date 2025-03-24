@@ -26,9 +26,9 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
                 return approveStudyProposal(study.id)
-            } else if (status === 'REJECTED') {
-                return rejectStudyProposal(study.id)
             }
+
+            return rejectStudyProposal(study.id)
         },
         onSettled(error) {
             if (!error) {

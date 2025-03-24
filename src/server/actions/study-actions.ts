@@ -60,8 +60,6 @@ export const getStudyAction = async (studyId: string) => {
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
-
 export const approveStudyProposal = async (studyId: string) => {
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
