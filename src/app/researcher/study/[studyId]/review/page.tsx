@@ -1,4 +1,4 @@
-import { Center, Group, Paper, Stack, Title } from '@mantine/core'
+import { Paper, Stack, Title } from '@mantine/core'
 import { db } from '@/database'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -16,21 +16,21 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     }
 
     return (
-        <Center>
-            <Paper w="70%" shadow="xs" p="sm" m="xs">
-                <ResearcherBreadcrumbs
-                    crumbs={{
-                        studyId,
-                        studyTitle: study?.title,
-                        current: 'Proposal Request',
-                    }}
-                />
-                <Stack>
-                    <Group gap="xl" mb="xl">
-                        <Title>{study.title}</Title>
-                    </Group>
-                </Stack>
-            </Paper>
-        </Center>
+        <>
+            <ResearcherBreadcrumbs
+                crumbs={{
+                    studyId,
+                    studyTitle: study?.title,
+                    current: 'Study Details',
+                }}
+            />
+            <Stack w="100%">
+                <Paper p="md" mt="md">
+                    <Title mb="lg">{study.title}</Title>
+                </Paper>
+
+                <StudyPanel study={study} />
+            </Stack>
+        </>
     )
 }

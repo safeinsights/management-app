@@ -96,26 +96,98 @@ export const StudyProposalForm: FC<{
                     </Stack>
                 </Group>
 
-                <Group gap="xs">
-                    <Text>Agreement Document</Text>
-                    {agreementFileUpload}
-                    <Stack gap={0}>
-                        <FileInput
-                            name="agreementDocument"
-                            aria-label="Upload Agreement Document"
-                            component={Anchor}
-                            placeholder="Upload Document"
-                            clearable
-                            accept=".doc,.docx,.txt,.pdf"
-                            key={studyProposalForm.key('agreementDocument')}
-                            {...studyProposalForm.getInputProps('agreementDocument')}
-                        />
-                        <Text size="xs" c="dimmed">
-                            Accepted formats: doc, docx, pdf and txt
-                        </Text>
-                    </Stack>
+                            <TextInput
+                                horizontal
+                                label="Study Lead"
+                                disabled
+                                value="Researcher Name"
+                                // value={user?.firstName + ' ' + user?.lastName}
+                            />
+
+                            <TextInput
+                                horizontal
+                                label="Principal Investigator"
+                                key={studyProposalForm.key('piName')}
+                                {...studyProposalForm.getInputProps('piName')}
+                            />
+
+                            <FileInput
+                                label="Study Description"
+                                name="descriptionDocument"
+                                component={Anchor}
+                                placeholder="Upload a document describing your study"
+                                key={studyProposalForm.key('description')}
+                                {...studyProposalForm.getInputProps('descriptionDocument')}
+                            />
+
+                            <FileInput
+                                label="IRB Document"
+                                name="irbDocument"
+                                component={Anchor}
+                                placeholder="Upload IRB approval document"
+                                key={studyProposalForm.key('irbDocument')}
+                                {...studyProposalForm.getInputProps('irbDocument')}
+                            />
+
+                            {/* <Text>Agreement Document</Text> TODO: Need Database column for this attribute */}
+                            {/* <FileInput
+                                    ref={fileRefs.agreementDocument}
+                                    placeholder="Upload agreement document"
+                                    required
+                                    key={studyProposalForm.key('agreementDocument')}
+                                    {...studyProposalForm.getInputProps('agreementDocument')}
+                                    onChange={(file) => handleFileChange('agreementDocument', file)}
+                                    style={{ display: 'none' }}
+                                />
+                                <Anchor
+                                    component="button"
+                                    onClick={() => fileRefs.agreementDocument.current?.click()}
+                                    underline="always"
+                                >
+                                    Upload
+                                </Anchor>
+                                {fileNames.agreementDocument && (
+                                    <Text> {fileNames.agreementDocument}</Text>
+                                )} */}
+                        </Stack>
+                        <Stack mt="md">
+                            <Flex direction="column" gap="sm">
+                                {/* TODO: Need Database column for this attribute */}
+                                {/* <FileInput
+
+                                                    placeholder="Upload agreement document"
+                                                    required
+                                                    key={form.key('agreementDocument')}
+                                                    {...form.getInputProps('agreementDocument')}
+                                                /> */}
+                            </Flex>
+                        </Stack>
+                    </Group>
+                </Paper>
+                <Group gap="xl" p={2} mt="xl" justify="flex-end">
+                    <Button
+                        fz="lg"
+                        mb="lg"
+                        type="button"
+                        onClick={() => router.push(`/`)}
+                        variant="outline"
+                        color="#616161"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        fz="lg"
+                        mb="lg"
+                        type="submit"
+                        disabled={!studyProposalForm.isValid}
+                        variant="filled"
+                        color="#616161"
+                        loading={isPending}
+                    >
+                        Next
+                    </Button>
                 </Group>
-            </Stack>
-        </Paper>
+            </form>
+        </>
     )
 }

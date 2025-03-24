@@ -1,6 +1,6 @@
 'use client'
 
-import { Checkbox, Textarea, TextInput, Button, Flex, Group, Stack, Text, Paper, Title } from '@mantine/core'
+import { Button, Flex, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { FormValues, schema, zodResolver } from './schema'
@@ -25,10 +25,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
         mode: 'uncontrolled',
         validate: zodResolver(schema),
         validateInputOnBlur: true,
-        initialValues: {
-            irbDocument: study.irbProtocols,
-            ...study,
-        },
+        initialValues: study,
     })
 
     return (
