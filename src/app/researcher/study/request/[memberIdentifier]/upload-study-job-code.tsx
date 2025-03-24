@@ -33,7 +33,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     onReject={(rejections) =>
                         notifications.show({
                             color: 'red',
-                            title: 'rejected files',
+                            title: 'Rejected files',
                             message: rejections
                                 .map(
                                     (rej) =>

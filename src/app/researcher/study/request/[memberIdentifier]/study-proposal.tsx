@@ -1,9 +1,8 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
-import { TextInput } from '@/components/form'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
 
@@ -50,12 +49,12 @@ export const StudyProposalForm: FC<{
 
                 <Group gap="xl">
                     <Text>Study Lead</Text>
-                    <TextInput horizontal aria-label="Study Lead" disabled value="Researcher Name" />
+                    <TextInput aria-label="Study Lead" disabled value="Researcher Name" />
                 </Group>
 
                 <Group gap="xl">
                     <Text>Principal Investigator</Text>
-                    <TextInput horizontal {...studyProposalForm.getInputProps('piName')} />
+                    <TextInput aria-label="Principal Investigator" {...studyProposalForm.getInputProps('piName')} />
                 </Group>
 
                 <Group>
