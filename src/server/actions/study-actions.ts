@@ -4,6 +4,8 @@ import { db } from '@/database'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { StudyStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
+import { siUser } from '@/server/queries'
+import { latestJobForStudy } from '@/server/actions/study-job-actions'
 
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
@@ -58,43 +60,57 @@ export const getStudyAction = async (studyId: string) => {
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const onFetchStudyJobsAction = async (studyId: string) => {
-    return await db
-        .selectFrom('studyJob')
-        .select('studyJob.id')
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['status', 'message', 'createdAt'])
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .orderBy('createdAt'),
-            ).as('statuses'),
-        ])
-        .where('studyId', '=', studyId)
-        .execute()
-}
-
 const AllowedStatusChanges: Array<StudyStatus> = ['APPROVED', 'REJECTED'] as const
 
-export const updateStudyStatusAction = async (studyId: string, status: StudyStatus) => {
-    // TODO: check clerk session to ensure researcher can actually update this
-
-    if (!AllowedStatusChanges.includes(status)) {
-        throw new Error('Invalid status')
-    }
-
+export const approveStudyProposal = async (studyId: string) => {
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         // Update the status of the study
-        await trx.updateTable('study').set({ status }).where('id', '=', studyId).execute()
+        await trx
+            .updateTable('study')
+            .set({ status: 'APPROVED', approvedAt: new Date() })
+            .where('id', '=', studyId)
+            .execute()
 
-        // Update the appropriate timestamp field based on the new status
-        if (status === 'APPROVED') {
-            await trx.updateTable('study').set({ approvedAt: new Date() }).where('id', '=', studyId).execute()
-        } else if (status === 'REJECTED') {
-            await trx.updateTable('study').set({ rejectedAt: new Date() }).where('id', '=', studyId).execute()
-        }
+        // TODO Will transaction work when calling another method?
+        const latestJob = await latestJobForStudy(studyId)
+
+        await trx
+            .insertInto('jobStatusChange')
+            .values({
+                userId: (await siUser()).id,
+                // TODO Figure out correct job status
+                status: 'JOB-READY',
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
+    })
+
+    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
+}
+
+export const rejectStudyProposal = async (studyId: string) => {
+    // Start a transaction to ensure atomicity
+    await db.transaction().execute(async (trx) => {
+        // Update the status of the study
+        await trx
+            .updateTable('study')
+            .set({ status: 'REJECTED', approvedAt: new Date() })
+            .where('id', '=', studyId)
+            .execute()
+
+        // TODO Will transaction work when calling another method?
+        const latestJob = await latestJobForStudy(studyId)
+
+        await trx
+            .insertInto('jobStatusChange')
+            .values({
+                userId: (await siUser()).id,
+                // TODO Figure out correct job status
+                status: 'CODE-SUBMITTED',
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')

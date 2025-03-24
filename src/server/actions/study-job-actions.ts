@@ -29,6 +29,8 @@ export const rejectStudyJobResults = async (info: MinimalJobInfo) => {
         })
         .executeTakeFirstOrThrow()
 
+    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }
@@ -73,13 +75,19 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
 }
 
 export const latestJobForStudy = async (studyId: string) => {
-    return await db
+    const latestJob = await db
         .selectFrom('studyJob')
         .selectAll()
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+
+    // We should always have a job, something is wrong if we don't
+    if (!latestJob) {
+        throw new Error(`No job found for study id: ${studyId}`)
+    }
+    return latestJob
 }
 
 export const jobStatusForJob = async (jobId: string | undefined) => {
