@@ -4,8 +4,6 @@ import { db } from '@/database'
 import { CodeManifest, MinimalJobInfo } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
-import { USING_S3_STORAGE } from '@/server/config'
-import { devReadCodeFile } from '@/server/dev/code-files'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/queries'
 import { promises as fs } from 'fs'
@@ -58,12 +56,7 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
 
     if (jobInfo) {
         try {
-            if (USING_S3_STORAGE) {
-                manifest = await fetchCodeManifest(jobInfo)
-            } else {
-                const buf = await devReadCodeFile(jobInfo, 'manifest.json')
-                manifest = JSON.parse(buf.toString('utf-8'))
-            }
+            manifest = await fetchCodeManifest(jobInfo)
         } catch (e) {
             console.error('Failed to fetch code manifest', e)
         }

@@ -2,10 +2,28 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
+import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { faker } from '@faker-js/faker'
+import { Member } from '@/schema/member'
+import { SiUser, siUser } from '@/server/queries'
 
 vi.mock('@/server/actions/member-actions', () => ({
     getMemberFromIdentifier: vi.fn(),
 }))
+
+vi.mock('@/server/queries', () => ({
+    siUser: vi.fn(),
+}))
+
+const mockMember: Member = {
+    createdAt: new Date(),
+    email: faker.internet.email(),
+    id: faker.string.uuid(),
+    identifier: faker.company.buzzAdjective(),
+    name: faker.company.name(),
+    publicKey: 'fake-key',
+    updatedAt: new Date(),
+}
 
 describe('Member Dashboard', () => {
     it('renders an error when the member is not found', async () => {
@@ -16,5 +34,22 @@ describe('Member Dashboard', () => {
         renderWithProviders(await MemberDashboardPage(props))
 
         expect(screen.getByText(/Member was not found/i)).toBeDefined()
+    })
+
+    it('renders the welcome text', async () => {
+        const props = {
+            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+        }
+
+        vi.mocked(getMemberFromIdentifier).mockResolvedValue(mockMember)
+
+        vi.mocked(siUser).mockResolvedValue({
+            fullName: 'Test User',
+        } as SiUser)
+
+        renderWithProviders(await MemberDashboardPage(props))
+
+        expect(screen.getByText(/We’re so glad to have you/i)).toBeDefined()
+        expect(screen.getByText(/Hi Test User!/i)).toBeDefined()
     })
 })

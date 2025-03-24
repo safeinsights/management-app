@@ -4,7 +4,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
 import { CreateRepositoryCommand, ECRClient, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
-import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, getUploadTmpDirectory, PROD_ENV, TEST_ENV, USING_S3_STORAGE } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJob, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
 import { slugify, strToAscii } from '@/lib/string'
@@ -18,6 +18,8 @@ import {
     MinimalStudyInfo,
 } from '@/lib/types'
 import { getECRPolicy } from './aws-ecr-policy'
+import fs from 'fs'
+import path from 'path'
 
 export type { PresignedPost }
 
@@ -155,8 +157,15 @@ export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
 }
 
 export async function fetchCodeManifest(info: MinimalJobInfo) {
-    const body = await fetchCodeFile(info, 'manifest.json')
-    return JSON.parse(body) as CodeManifest
+    if (USING_S3_STORAGE) {
+        const body = await fetchCodeFile(info, 'manifest.json')
+        return JSON.parse(body) as CodeManifest
+    } else {
+        if (PROD_ENV) throw new Error('This method is only available in development')
+        const dir = path.join(getUploadTmpDirectory(), pathForStudyJobCode(info), path.dirname('manifest.json'))
+        const buf = fs.readFileSync(path.join(dir, path.basename('manifest.json')))
+        return JSON.parse(buf.toString('utf-8'))
+    }
 }
 
 export async function urlForResults(info: MinimalJobResultsInfo) {
