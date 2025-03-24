@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from './user-actions'
 
@@ -12,10 +12,6 @@ vi.mock('@/database', () => ({
 }))
 
 describe('User Actions', () => {
-    afterEach(() => {
-        vi.clearAllMocks() // Reset all mocks between tests
-    })
-
     describe('findOrCreateSiUserId', () => {
         it('returns existing user id when user exists', async () => {
             // Mock the chain for finding an existing user

@@ -12,7 +12,7 @@ import { randomString } from '@/lib/string'
 import { reportError } from '@/components/errors'
 
 export function InviteForm() {
-    const studyProposalForm = useForm({
+    const studyProposalForm = useForm<InviteUserFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
@@ -24,7 +24,7 @@ export function InviteForm() {
             password: randomString(8),
             isReviewer: false,
             isResearcher: false,
-        } as InviteUserFormValues,
+        },
     })
 
     const { mutate: inviteUser, isPending } = useMutation({
