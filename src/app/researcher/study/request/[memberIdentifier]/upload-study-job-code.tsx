@@ -26,6 +26,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
 
             <Group justify="space-evenly" gap="xl">
                 <Dropzone
+                    name="codeFiles"
                     onDrop={(files) => {
                         setFiles((previousFiles) => uniqueBy([...previousFiles, ...files], (file) => file.name))
                         studyProposalForm.setFieldValue('codeFiles', files)

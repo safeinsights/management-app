@@ -22,7 +22,7 @@ test.describe('Studies', () => {
 
         // Invalid file testing
         const invalidFileType = 'tests/assets/invalid.txt'
-        await page.setInputFiles('input[type="file"]', invalidFileType)
+        await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
         await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
 
         await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
@@ -38,7 +38,7 @@ test.describe('Studies', () => {
         // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
         // Test valid file upload with main.r
         const mainR = 'tests/assets/main.r'
-        await page.setInputFiles('input[type="file"]', mainR)
+        await page.setInputFiles('input[type="file"][name="codeFiles"]', mainR)
 
         // // Verify main.r was detected
         // await expect(page.getByText('main.r detected')).toBeVisible()
