@@ -5,6 +5,7 @@ import { FC, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { setMemberUserPublicKey } from '@/server/actions/user-key-actions'
 import { useUser } from '@clerk/nextjs'
+import Link from 'next/link'
 
 export const GenerateKeys: FC = () => {
     const user = useUser()
@@ -58,6 +59,7 @@ export const GenerateKeys: FC = () => {
                             {({ copied, copy }) => (
                                 <Button
                                     color={copied ? 'teal' : 'blue'}
+                                    disabled={copied}
                                     onClick={() => {
                                         copy()
                                         saveKeys()
@@ -76,6 +78,10 @@ export const GenerateKeys: FC = () => {
                             won’t be able to recover it for you.
                         </Text>
                     </Stack>
+
+                    <Button component={Link} href="/dashboard">
+                        Go To Dashboard
+                    </Button>
                 </Stack>
             </Container>
         )

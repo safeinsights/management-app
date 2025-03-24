@@ -49,7 +49,7 @@ describe('Member Dashboard', () => {
 
         renderWithProviders(await MemberDashboardPage(props))
 
-        expect(screen.getByText(/We’re so glad to have you/i)).toBeDefined()
+        expect(screen.getByText(/Welcome to your SafeInsights dashboard!/i)).toBeDefined()
         expect(screen.getByText(/Hi Test User!/i)).toBeDefined()
     })
 })

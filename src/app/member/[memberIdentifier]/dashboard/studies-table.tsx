@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
+import { StudyJobStatus, StudyStatus } from '@/database/types'
 
 export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const { data: studies = [] } = useQuery({
@@ -16,6 +17,8 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             return fetchStudiesForMember(member.identifier)
         },
     })
+
+    console.log(studies)
 
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
@@ -68,4 +71,14 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             </Stack>
         </Paper>
     )
+}
+
+const StudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus }> = ({ studyStatus, jobStatus }) => {
+    if (status === '')
+        return (
+            <Stack>
+                <Text size="xs"></Text>
+                <Text></Text>
+            </Stack>
+        )
 }

@@ -8,10 +8,41 @@ import { revalidatePath } from 'next/cache'
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
         .selectFrom('study')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
+        .innerJoin('member', 'study.memberId', 'member.id')
+        .innerJoin('user', 'study.researcherId', 'user.id')
+        .where('member.identifier', '=', memberIdentifier)
+        .leftJoin(
+            // Subquery to get the most recent study job for each study
+            (eb) =>
+                eb
+                    .selectFrom('studyJob')
+                    .select([
+                        'studyJob.studyId',
+                        'studyJob.id as latestStudyJobId',
+                        'studyJob.createdAt as studyJobCreatedAt',
+                    ])
+                    .distinctOn('studyId')
+                    .orderBy('studyId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestStudyJob'),
+            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
         )
-        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
+        .leftJoin(
+            // Subquery to get the latest status change for the most recent study job
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select([
+                        'jobStatusChange.studyJobId',
+                        'jobStatusChange.status',
+                        'jobStatusChange.createdAt as statusCreatedAt',
+                    ])
+                    .distinctOn('studyJobId')
+                    .orderBy('studyJobId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestJobStatus'),
+            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
+        )
         .select([
             'study.id',
             'study.approvedAt',
@@ -27,6 +58,11 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'study.status',
             'study.title',
             'user.fullName as researcherName',
+            'member.identifier as memberIdentifier',
+            'latestStudyJob.latestStudyJobId',
+            'latestStudyJob.studyJobCreatedAt',
+            'latestJobStatus.status as latestJobStatus',
+            'latestJobStatus.statusCreatedAt',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()

@@ -22,10 +22,9 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
             <Title>Hi {user.fullName}!</Title>
             <Text>Welcome to SafeInsights</Text>
             <Text>
-                We’re so glad to have you. This space was built with your journey in mind. Your contributions are
-                essential to maintaining a trusted and secure research environment, and in here, you can easily find and
-                review researcher studies submitted to your organization. We’re continuously iterating to improve your
-                experience, and we welcome your feedback to help shape the future of SafeInsights.
+                Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your
+                organization, view their status and know when you need to take action. We continuously iterate to
+                improve your experience and welcome your feedback.
             </Text>
             <Divider />
             <StudiesTable member={member} />
