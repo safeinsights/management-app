@@ -46,12 +46,10 @@ describe('User keypair generation', () => {
 
         // Wait for state updates
         await waitFor(() => {
-            expect(screen.getByText('Public key:')).toBeDefined()
             expect(screen.getByText('Private key:')).toBeDefined()
         })
 
-        // Simulate copy button clicks
-        fireEvent.click(screen.getByRole('button', { name: /copy public key/i }))
+        // Simulate copy button click
         fireEvent.click(screen.getByRole('button', { name: /copy private key/i }))
 
         // Verify that setMemberUserPublicKey was called

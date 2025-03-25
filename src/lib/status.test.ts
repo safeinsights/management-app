@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { humanizeStatus } from './status'
 
+// TODO Don't need this after hifis implemented
 describe('humanizeStatus', () => {
     it('should convert status to human readable format with capitalization', () => {
         const testCases = [

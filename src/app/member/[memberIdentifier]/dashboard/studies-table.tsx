@@ -29,12 +29,13 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
                     </Text>
                 </Tooltip>
             </Table.Td>
-            {/*<Table.Td>{study.title}</Table.Td>*/}
             <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
             <Table.Td>{study.researcherName}</Table.Td>
-            {/* TODO Reviewed by doesn't exist yet */}
+            {/* TODO Reviewed add column for reviewedBy with user and update when approve/rejecting study */}
             {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
-            <Table.Td>{humanizeStatus(study.status)}</Table.Td>
+            <Table.Td>
+                <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
+            </Table.Td>
             <Table.Td>
                 <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
                     View
@@ -73,12 +74,97 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     )
 }
 
-const StudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus }> = ({ studyStatus, jobStatus }) => {
-    if (status === '')
+export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus | null }> = ({
+    studyStatus,
+    jobStatus,
+}) => {
+    if (jobStatus === 'JOB-PACKAGING') {
         return (
             <Stack>
-                <Text size="xs"></Text>
-                <Text></Text>
+                <Text size="xs" c="#64707C">
+                    Code
+                </Text>
+                <Text>Processing</Text>
             </Stack>
         )
+    }
+
+    if (jobStatus === 'JOB-ERRORED') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Code
+                </Text>
+                <Text>Errored</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RUN-COMPLETE') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Results
+                </Text>
+                <Text>Under Review</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RESULTS-REJECTED') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Results
+                </Text>
+                <Text>Rejected</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RESULTS-APPROVED') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Results
+                </Text>
+                <Text>Approved</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'PENDING-REVIEW') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Proposal
+                </Text>
+                <Text>Under Review</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'APPROVED') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Proposal
+                </Text>
+                <Text>Approved</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'REJECTED') {
+        return (
+            <Stack>
+                <Text size="xs" c="#64707C">
+                    Proposal
+                </Text>
+                <Text>Rejected</Text>
+            </Stack>
+        )
+    }
+
+    return null
 }
