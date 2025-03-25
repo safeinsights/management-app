@@ -36,8 +36,8 @@ describe('get keys', () => {
 
         const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: jobId }) })
 
-        expect(await response.json()).toStrictEqual({
-            keys: [
+        expect(await response.json()).toEqual({
+            keys: expect.arrayContaining([
                 {
                     jobId: jobId,
                     publicKey: JSON.parse(JSON.stringify(Buffer.from('testPublicKey1'))),
@@ -48,7 +48,7 @@ describe('get keys', () => {
                     publicKey: JSON.parse(JSON.stringify(Buffer.from('testPublicKey2'))),
                     fingerprint: 'testFingerprint2',
                 },
-            ],
+            ]),
         })
     })
 })

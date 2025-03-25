@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 import { siUser } from '@/server/db/queries'
-import { z, memberAction, getUserIdFromActionContext, getOrgSlugFromActionContext } from './wrappers'
+import { z, memberAction, getOrgSlugFromActionContext } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { StudyJobStatus } from '../../database/types'
@@ -17,13 +17,6 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
         )
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-
-        // // security, check user has access to record
-        // .innerJoin('memberUser', (join) =>
-        //     join
-        //         .on('memberUser.userId', '=', getUserIdFromActionContext())
-        //         .onRef('memberUser.memberId', '=', 'study.memberId'),
-        // )
 
         .leftJoin(
             // Subquery to get the most recent study job for each study
@@ -91,11 +84,10 @@ export const getStudyAction = memberAction(async (studyId) => {
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
 
         // security, check user has access to record
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
         )
+
         .select([
             'study.id',
             'study.approvedAt',

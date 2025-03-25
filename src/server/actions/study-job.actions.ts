@@ -10,7 +10,7 @@ import { USING_S3_STORAGE } from '@/server/config'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
-import { getUserIdFromActionContext, memberAction, z } from './wrappers'
+import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
@@ -95,10 +95,8 @@ export const latestJobForStudyAction = memberAction(async (studyId) => {
 
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
         )
 
         .where('studyJob.studyId', '=', studyId)
@@ -122,10 +120,8 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
         )
 
         .select('jobStatusChange.status')
@@ -141,13 +137,13 @@ export const onFetchStudyJobsAction = memberAction(async (studyId) => {
     return await db
         .selectFrom('studyJob')
         .select('studyJob.id')
+
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
         )
+
         .select((eb) => [
             jsonArrayFrom(
                 eb
