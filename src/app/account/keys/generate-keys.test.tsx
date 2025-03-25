@@ -28,7 +28,7 @@ describe('User keypair generation', () => {
         } as UseUserReturn)
 
         mockClerkSession({
-            userId: 'user-id',
+            clerkUserId: 'user-id',
             org_slug: 'dev',
         })
         const mockKeys = {

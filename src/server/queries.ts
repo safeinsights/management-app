@@ -28,6 +28,7 @@ export async function siUser(throwIfNotFound?: true): Promise<SiUser>
 export async function siUser(throwIfNotFound?: false): Promise<SiUser | null>
 export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     const clerkUser = wasCalledFromAPI() ? null : await currentClerkUser()
+
     if (!clerkUser || clerkUser.banned) {
         if (throwIfNotFound) throw new Error('User not logged in')
         return null

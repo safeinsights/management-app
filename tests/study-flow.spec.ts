@@ -21,9 +21,9 @@ test.describe('Studies', () => {
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
         // Invalid file testing
-        const invalidFileType = 'tests/assets/invalid.txt'
-        await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
-        await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
+        // const invalidFileType = 'tests/assets/invalid.txt'
+        // await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
+        // await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
 
         await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')

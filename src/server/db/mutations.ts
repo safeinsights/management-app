@@ -20,7 +20,8 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
             .values({
                 clerkId,
                 isResearcher: attrs.isResearcher ?? false,
-                ...attrs,
+                lastName: attrs.lastName,
+                email: attrs.email,
                 firstName: attrs.firstName ?? 'Unknown', // unlike clerk, we require users to have some sort of name for showing in reports
             })
             .returningAll()

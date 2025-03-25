@@ -12,7 +12,7 @@ import {
 describe('Member Actions', () => {
     beforeEach(() => {
         mockClerkSession({
-            userId: 'user-id',
+            clerkUserId: 'user-id',
             org_slug: 'safeinsights',
         })
     })

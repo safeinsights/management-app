@@ -54,7 +54,7 @@ export const checkMemberAllowedStudyRead = async (studyId: string, userId = getU
     return true
 }
 
-type SiUser = ClerkUser & {
+export type SiUser = ClerkUser & {
     id: string
     isResearcher: boolean
 }
@@ -64,7 +64,7 @@ export async function siUser(throwIfNotFound?: false): Promise<SiUser | null>
 export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     const clerkUser = wasCalledFromAPI() ? null : await currentClerkUser()
     if (!clerkUser || clerkUser.banned) {
-        if (throwIfNotFound) throw new Error('User not logged in')
+        if (throwIfNotFound) throw new AccessDeniedError('User not found')
         return null
     }
 
@@ -81,6 +81,17 @@ export const getMemberUserPublicKey = async (userId: string) => {
         .selectFrom('userPublicKey')
         .select(['userPublicKey.publicKey'])
         .where('userPublicKey.userId', '=', userId)
+        .executeTakeFirst()
+
+    return result?.publicKey
+}
+
+export const getMemberUserPublicKeyByClerkId = async (clerkId: string) => {
+    const result = await db
+        .selectFrom('userPublicKey')
+        .select(['userPublicKey.publicKey'])
+        .innerJoin('user', 'user.id', 'userPublicKey.userId')
+        .where('user.clerkId', '=', clerkId)
         .executeTakeFirst()
 
     return result?.publicKey

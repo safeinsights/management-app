@@ -4,9 +4,12 @@ import { z, type Schema } from 'zod'
 export { z } from 'zod'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { siUser } from '../queries'
+import { SiUser } from '../db/queries'
 
 export type ActionContext = {
     userId?: string | null
+    user?: SiUser | null
     orgSlug?: string | null
 }
 
@@ -16,7 +19,7 @@ export function actionContext() {
     return localStorageContext.getStore()
 }
 
-export function getUserIdFromActionContext() {
+export function getUserIdFromActionContext(): string {
     const store = localStorageContext.getStore()
     return store?.userId ?? ''
 }
@@ -40,15 +43,14 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
         const auth = await clerkAuth()
         const { sessionClaims } = auth || {}
 
-        if (!sessionClaims?.userId) {
-            throw new AccessDeniedError('No user in context')
-        }
+        const user = await siUser()
 
         const result = await new Promise<ReturnType<F>>((resolve, reject) => {
             localStorageContext.run(
                 {
-                    orgSlug: sessionClaims.org_slug as string,
-                    userId: sessionClaims.userId,
+                    orgSlug: sessionClaims?.org_slug as string | undefined,
+                    userId: user.id,
+                    user: user,
                 },
                 async () => {
                     try {
@@ -90,21 +92,11 @@ export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(fun
         if (!store?.userId) {
             throw new AccessDeniedError('Only researchers are allowed to perform this action')
         }
+        // TODO: check siUser's isResearcher vs clerk session
         if (!store.orgSlug) {
             return func(arg)
         }
         throw new AccessDeniedError('Only researchers are allowed to perform this action')
-
-        // TODO: check db vs clerk session
-        // const user = await db
-        //     .selectFrom('user')
-        //     .select(['isResearcher'])
-        //     .where('id', '=', store.userId)
-        //     .executeTakeFirst()
-        // if (!user?.isResearcher) {
-        //     throw new AccessDeniedError('Only researchers are allowed to perform this action')
-        // }
-        // return func(arg)
     }
     return userAction(wrappedFunction, schema) as F
 }

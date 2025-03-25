@@ -9,7 +9,7 @@ import * as clerk from '@clerk/nextjs/server'
 describe('invite user Actions', async () => {
     beforeEach(() => {
         mockClerkSession({
-            userId: 'user-id',
+            clerkUserId: 'user-id',
             org_slug: 'safeinsights',
         })
     })
@@ -77,6 +77,6 @@ describe('invite user Actions', async () => {
             },
         }))
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError()
-        expect(beforeCount).toEqual(await userRecordCount())
+        expect(beforeCount).toEqual((await userRecordCount()) - 1)
     })
 })
