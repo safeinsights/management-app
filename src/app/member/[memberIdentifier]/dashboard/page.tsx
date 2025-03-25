@@ -2,15 +2,12 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-<<<<<<< HEAD
+
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
-import { MemberDashboard } from './member-dashboard'
-=======
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
 import { siUser } from '@/server/queries'
->>>>>>> main
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params

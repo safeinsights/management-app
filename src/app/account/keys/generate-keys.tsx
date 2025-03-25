@@ -18,7 +18,6 @@ export const GenerateKeys: FC = () => {
     const [opened, { open, close }] = useDisclosure(false)
 
     const onGenerateKeys = async () => {
-
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
 
         const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`

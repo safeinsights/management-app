@@ -6,7 +6,7 @@ import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
 import { minimalJobInfoShema } from '@/lib/types'
 import { USING_S3_STORAGE } from '@/server/config'
-import { devReadCodeFile } from '@/server/dev/code-files'
+
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/queries'
 import { promises as fs } from 'fs'
@@ -43,6 +43,8 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
         })
         .executeTakeFirstOrThrow()
 
+    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoShema)
@@ -77,12 +79,7 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
 
     if (jobInfo) {
         try {
-            if (USING_S3_STORAGE) {
-                manifest = await fetchCodeManifest(jobInfo)
-            } else {
-                const buf = await devReadCodeFile(jobInfo, 'manifest.json')
-                manifest = JSON.parse(buf.toString('utf-8'))
-            }
+            manifest = await fetchCodeManifest(jobInfo)
         } catch (e) {
             console.error('Failed to fetch code manifest', e)
         }
@@ -92,7 +89,7 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
 }, z.string())
 
 export const latestJobForStudyAction = memberAction(async (studyId) => {
-    return await db
+    const latestJob = await db
         .selectFrom('studyJob')
         .selectAll('studyJob')
 
@@ -108,6 +105,12 @@ export const latestJobForStudyAction = memberAction(async (studyId) => {
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+
+    // We should always have a job, something is wrong if we don't
+    if (!latestJob) {
+        throw new Error(`No job found for study id: ${studyId}`)
+    }
+    return latestJob
 }, z.string())
 
 export const jobStatusForJobAction = memberAction(async (jobId) => {

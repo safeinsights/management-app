@@ -6,7 +6,6 @@ import { Anchor, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core
 import { fetchStudiesForMemberAction } from '@/server/actions/study.actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
@@ -17,8 +16,6 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             return fetchStudiesForMemberAction(member.identifier)
         },
     })
-
-    console.log(studies)
 
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>

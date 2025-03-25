@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
 import { SiUser, siUser } from '@/server/queries'
@@ -41,7 +41,7 @@ describe('Member Dashboard', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         vi.mocked(siUser).mockResolvedValue({
             fullName: 'Test User',
