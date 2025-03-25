@@ -5,7 +5,9 @@ import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Text } from '@mantine/core'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
-import { type SelectedStudy, updateStudyStatusAction } from '@/server/actions/study.actions'
+import type { StudyStatus } from '@/database/types'
+import { approveStudyProposalAction, rejectStudyProposalAction, type SelectedStudy } from '@/server/actions/study.actions'
+
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
@@ -22,7 +24,13 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
         isPending,
         error,
     } = useMutation({
-        mutationFn: (status: 'APPROVED' | 'REJECTED') => updateStudyStatusAction({ studyId: study.id, status }),
+        mutationFn: (status: StudyStatus) => {
+            if (status === 'APPROVED') {
+                return approveStudyProposalAction(study.id)
+            }
+
+            return rejectStudyProposalAction(study.id)
+        },
         onSettled(error) {
             if (!error) {
                 router.push(backPath)

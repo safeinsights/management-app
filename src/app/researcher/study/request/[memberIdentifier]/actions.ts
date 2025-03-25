@@ -73,7 +73,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             memberId,
             researcherId: userId,
             containerLocation: repoUrl,
-            status: 'INITIATED',
+            status: 'PENDING-REVIEW',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

@@ -35,9 +35,11 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
+
     // FIXME: why aren't we combining these two into a single query
     const latestJob = await latestJobForStudyAction(study.id)
     const latestJobStatus = latestJob?.id && (await jobStatusForJobAction(latestJob?.id))
+
 
     return (
         <Stack px="xl" gap="xl">

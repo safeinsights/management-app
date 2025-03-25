@@ -5,8 +5,8 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
 const schema = z.object({
-    jobId: z.string().uuid(),
-    status: z.enum(['JOB-PACKAGING', 'JOB-READY']),
+    jobId: z.string(),
+    status: z.enum(['JOB-PACKAGING', 'JOB-READY'])
 })
 
 export async function POST(req: Request) {
