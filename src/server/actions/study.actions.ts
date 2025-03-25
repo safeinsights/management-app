@@ -2,25 +2,28 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
-import { siUser } from '@/server/queries'
-import { z, memberAction, getUserIdFromActionContext } from './wrappers'
+import { siUser } from '@/server/db/queries'
+import { z, memberAction, getUserIdFromActionContext, getOrgSlugFromActionContext } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { StudyJobStatus } from '../../database/types'
+import { USING_S3_STORAGE } from '../config'
+import { storeStudyCodeFile } from '../storage'
 
-export const fetchStudiesForMemberAction = memberAction(async (memberIdentifier) => {
+export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     return await db
         .selectFrom('study')
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', memberIdentifier).onRef('study.memberId', '=', 'member.id'),
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
         )
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
 
-        // security, check user has access to record
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
-        )
+        // // security, check user has access to record
+        // .innerJoin('memberUser', (join) =>
+        //     join
+        //         .on('memberUser.userId', '=', getUserIdFromActionContext())
+        //         .onRef('memberUser.memberId', '=', 'study.memberId'),
+        // )
 
         .leftJoin(
             // Subquery to get the most recent study job for each study
@@ -80,7 +83,7 @@ export const fetchStudiesForMemberAction = memberAction(async (memberIdentifier)
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
-}, z.string())
+})
 
 export const getStudyAction = memberAction(async (studyId) => {
     return await db
@@ -116,7 +119,7 @@ export const getStudyAction = memberAction(async (studyId) => {
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposalAction = async (studyId: string) => {
+export const approveStudyProposalAction = memberAction(async (studyId: string) => {
     checkMemberAllowedStudyReview(studyId)
 
     // Start a transaction to ensure atomicity
@@ -130,22 +133,34 @@ export const approveStudyProposalAction = async (studyId: string) => {
 
         // TODO Will transaction work when calling another method?
         const latestJob = await latestJobForStudyAction(studyId)
-
+        let status: StudyJobStatus = 'CODE-APPROVED'
+        const userId = (await siUser()).id
+        if (USING_S3_STORAGE) {
+            storeStudyCodeFile(
+                {
+                    memberIdentifier: getOrgSlugFromActionContext(),
+                    studyId,
+                    studyJobId: latestJob.id,
+                },
+                new File([`userId: ${userId}`], 'APPROVED', { type: 'text/plain' }),
+            )
+        } else {
+            status = 'JOB-READY' // if we're in dev and not using s3 then containers will never build so just mark it ready
+        }
         await trx
             .insertInto('jobStatusChange')
             .values({
-                userId: (await siUser()).id,
-                // TODO Figure out correct job status
-                status: 'JOB-READY',
+                userId,
+                status,
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
-}
+}, z.string())
 
-export const rejectStudyProposalAction = async (studyId: string) => {
+export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
     checkMemberAllowedStudyReview(studyId)
 
     // Start a transaction to ensure atomicity
@@ -164,12 +179,11 @@ export const rejectStudyProposalAction = async (studyId: string) => {
             .insertInto('jobStatusChange')
             .values({
                 userId: (await siUser()).id,
-                // TODO Figure out correct job status
-                status: 'CODE-SUBMITTED',
+                status: 'CODE-REJECTED',
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
-}
+}, z.string())

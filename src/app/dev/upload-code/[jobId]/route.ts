@@ -5,7 +5,7 @@ import { getUploadTmpDirectory } from '@/server/config'
 import { pathForStudyJobCode } from '@/lib/paths'
 import path from 'path'
 import fs from 'fs'
-import { siUser } from '@/server/queries'
+import { siUser } from '@/server/db/queries'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 

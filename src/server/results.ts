@@ -6,7 +6,7 @@ import { getUploadTmpDirectory, USING_S3_STORAGE } from './config'
 import path from 'path'
 import fs from 'fs'
 import { storeStudyResultsFile } from './storage'
-import { siUser } from './queries'
+import { siUser } from './db/queries'
 import { StudyJobStatus } from '@/database/types'
 
 export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File, studyJobStatus: StudyJobStatus) {

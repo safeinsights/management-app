@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Member } from '@/schema/member'
-import { fetchStudiesForMemberAction } from '@/server/actions/study.actions'
+import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { DisplayStudyStatus, StudiesTable } from './studies-table'
 import { screen, waitFor } from '@testing-library/react'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForMemberAction: vi.fn(),
+    fetchStudiesForCurrentMemberAction: vi.fn(),
 }))
 
 const mockMember: Member = {
@@ -87,14 +87,14 @@ const mockStudies = [
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-        vi.mocked(fetchStudiesForMemberAction).mockResolvedValue([])
+        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
 
         renderWithProviders(<StudiesTable member={mockMember} />)
         expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        vi.mocked(fetchStudiesForMemberAction).mockResolvedValue(mockStudies)
+        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue(mockStudies)
 
         renderWithProviders(<StudiesTable member={mockMember} />)
 

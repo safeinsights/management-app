@@ -5,13 +5,13 @@ import MemberDashboardPage from './page'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
-import { SiUser, siUser } from '@/server/queries'
+import { SiUser, siUser } from '@/server/db/queries'
 
 vi.mock('@/server/actions/member.actions', () => ({
     getMemberFromIdentifierAction: vi.fn(),
 }))
 
-vi.mock('@/server/queries', () => ({
+vi.mock('@/server/db/queries', () => ({
     siUser: vi.fn(),
 }))
 

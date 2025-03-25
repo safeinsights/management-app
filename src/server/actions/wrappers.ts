@@ -1,11 +1,10 @@
 import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { AccessDeniedError } from '@/lib/types'
 import { z, type Schema } from 'zod'
-export { z } from 'zod'
-
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { siUser } from '../queries'
-import { SiUser } from '../db/queries'
+import { type SiUser, siUser } from '../db/queries'
+
+export { z } from 'zod'
 
 export type ActionContext = {
     userId?: string | null
@@ -22,6 +21,12 @@ export function actionContext() {
 export function getUserIdFromActionContext(): string {
     const store = localStorageContext.getStore()
     return store?.userId ?? ''
+}
+
+export function getOrgSlugFromActionContext(): string {
+    const store = localStorageContext.getStore()
+    if (!store?.orgSlug) throw new Error('user is not a member of organization?')
+    return store?.orgSlug
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

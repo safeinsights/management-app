@@ -7,7 +7,7 @@ import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
-import { siUser } from '@/server/queries'
+import { siUser } from '@/server/db/queries'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params

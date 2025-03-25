@@ -8,7 +8,7 @@ import { minimalJobInfoShema } from '@/lib/types'
 import { USING_S3_STORAGE } from '@/server/config'
 
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
-import { queryJobResult, siUser } from '@/server/queries'
+import { queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
 import { getUserIdFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'

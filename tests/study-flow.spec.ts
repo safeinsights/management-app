@@ -69,7 +69,7 @@ test.describe('Studies', () => {
 
         const title = studyFeatures.studyTitle.substring(0, 30)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
 
         await page.waitForURL(/\/study\//)
         await expect(page.getByText('Study details')).toBeVisible()
@@ -77,7 +77,7 @@ test.describe('Studies', () => {
         await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForURL(/\/dashboard/)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })
