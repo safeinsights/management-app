@@ -3,10 +3,10 @@
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 import { siUser } from '@/server/db/queries'
-import { z, memberAction, getOrgSlugFromActionContext } from './wrappers'
+import { getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
-import { StudyJobStatus } from '../../database/types'
+import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
 import { storeStudyCodeFile } from '../storage'
 
@@ -16,8 +16,8 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .innerJoin('member', (join) =>
             join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
         )
-        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-
+        .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
+        .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .leftJoin(
             // Subquery to get the most recent study job for each study
 
@@ -67,12 +67,10 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'study.researcherId',
             'study.status',
             'study.title',
-            'user.fullName as researcherName',
+            'researcherUser.fullName as researcherName',
+            'reviewerUser.fullName as reviewerName',
             'member.identifier as memberIdentifier',
-            'latestStudyJob.latestStudyJobId',
-            'latestStudyJob.studyJobCreatedAt',
             'latestJobStatus.status as latestJobStatus',
-            'latestJobStatus.statusCreatedAt',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
@@ -112,14 +110,14 @@ export const getStudyAction = memberAction(async (studyId) => {
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
-    checkMemberAllowedStudyReview(studyId)
+    await checkMemberAllowedStudyReview(studyId)
+    const { id } = await siUser()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
-        // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date() })
+            .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: id })
             .where('id', '=', studyId)
             .execute()
 
@@ -128,7 +126,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         let status: StudyJobStatus = 'CODE-APPROVED'
         const userId = (await siUser()).id
         if (USING_S3_STORAGE) {
-            storeStudyCodeFile(
+            await storeStudyCodeFile(
                 {
                     memberIdentifier: getOrgSlugFromActionContext(),
                     studyId,
@@ -153,14 +151,14 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
-    checkMemberAllowedStudyReview(studyId)
+    await checkMemberAllowedStudyReview(studyId)
+    const { id } = await siUser()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
-        // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date() })
+            .set({ status: 'REJECTED', approvedAt: new Date(), reviewerId: id })
             .where('id', '=', studyId)
             .execute()
 

@@ -1,4 +1,4 @@
-import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 // re-use the same worker between the tests inside the describe block
 // this ensures they run in order and will share the study title
@@ -64,12 +64,13 @@ test.describe('Studies', () => {
 
     test('member reviews and approves the study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/' })
+        await page.getByText(/dashboard/i).click()
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
         const title = studyFeatures.studyTitle.substring(0, 30)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
+        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
         await page.waitForURL(/\/study\//)
         await expect(page.getByText('Study details')).toBeVisible()
@@ -77,7 +78,8 @@ test.describe('Studies', () => {
         await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForURL(/\/dashboard/)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
+        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
+
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })

@@ -70,6 +70,7 @@ export interface Study {
     piName: string
     rejectedAt: Timestamp | null
     researcherId: string
+    reviewerId: string | null
     status: Generated<StudyStatus>
     title: string
 }

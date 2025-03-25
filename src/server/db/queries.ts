@@ -37,23 +37,6 @@ export const checkMemberAllowedStudyReview = async (studyId: string, userId = ge
     return true
 }
 
-export const checkMemberAllowedStudyRead = async (studyId: string, userId = getUserIdFromActionContext()) => {
-    const found = await db
-        .selectFrom('study')
-        .select('study.id')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', userId)
-                .on('memberUser.isReviewer', '=', true)
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
-        )
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
-
-    if (!found) throw new AccessDeniedError(`not allowed access to study`)
-    return true
-}
-
 export type SiUser = ClerkUser & {
     id: string
     isResearcher: boolean

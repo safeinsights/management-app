@@ -48,7 +48,7 @@ export const GenerateKeys: FC = () => {
                             <Button variant="outline" onClick={close}>
                                 Take me back
                             </Button>
-                            <Button component={Link} href="/dashboard">
+                            <Button component={Link} href="/">
                                 Proceed
                             </Button>
                         </Group>
