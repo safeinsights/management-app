@@ -118,10 +118,11 @@ function analyzeFile(filePath: string) {
                 const isOk = named && wrapped
                 console.log(`   ${isOk ? '✓' : '✗'} ${func.name}`)
                 if (!isOk) {
-                    if (!named)
-                        console.error(`     is not named correctly, should end in 'Action'`)
+                    if (!named) console.error(`     is not named correctly, should end in 'Action'`)
                     if (!wrapped)
-                        console.error(`     is not named wrapped, should be wrapped in one of the access control functions`)
+                        console.error(
+                            `     is not named wrapped, should be wrapped in one of the access control functions`,
+                        )
                     success = false
                 }
             })
