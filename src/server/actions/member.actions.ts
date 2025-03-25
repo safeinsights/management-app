@@ -1,10 +1,11 @@
 'use server'
 
 import { db } from '@/database'
-import { memberSchema, NewMember, Member } from '@/schema/member'
+import { memberSchema } from '@/schema/member'
 
-export const upsertMemberAction = async (member: Member | NewMember) => {
-    memberSchema.parse(member) // will throw when malformed
+import { adminAction, memberAction, userAction, z } from './wrappers'
+
+export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
     if (!('id' in member)) {
         const duplicate = await db.selectFrom('member').select('id').where('name', '=', member.name).executeTakeFirst()
@@ -21,27 +22,27 @@ export const upsertMemberAction = async (member: Member | NewMember) => {
             }),
         )
         .returningAll()
-        .execute()
+        .executeTakeFirstOrThrow()
 
-    if (!results.length) {
-        throw new Error('Failed to insert member')
-    }
+    return results
+}, memberSchema)
 
-    return results[0]
-}
-
-export const fetchMembersForSelectAction = async () => {
+export const fetchMembersForSelectAction = adminAction(async () => {
     return await db.selectFrom('member').select(['id as value', 'name as label']).execute()
-}
+})
 
-export const fetchMembersAction = async () => {
+export const fetchMembersAction = adminAction(async () => {
     return await db.selectFrom('member').selectAll('member').execute()
-}
+})
 
-export const deleteMemberAction = async (identifier: string) => {
+export const deleteMemberAction = adminAction(async (identifier) => {
     await db.deleteFrom('member').where('identifier', '=', identifier).execute()
-}
+}, z.string())
 
-export const getMemberFromIdentifier = async (identifier: string): Promise<Member | undefined> => {
+export const getMemberFromIdentifierAction = memberAction(async (identifier) => {
     return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
-}
+}, z.string())
+
+export const getMemberIdFromIdentifierAction = userAction(async (identifier) => {
+    return await db.selectFrom('member').select('id').where('identifier', '=', identifier).executeTakeFirst()
+}, z.string())

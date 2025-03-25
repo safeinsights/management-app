@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
-import { findOrCreateSiUserId } from './user-actions'
+import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 // Mock the database
 vi.mock('@/database', () => ({

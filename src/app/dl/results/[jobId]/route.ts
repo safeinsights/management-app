@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { urlOrPathToResultsFile } from '@/server/results'
 import { MinimalJobResultsInfo } from '@/lib/types'
-import { queryJobResult } from '@/server/queries'
+import { queryJobResult } from '@/server/db/queries'
 
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const jobId = (await params).jobId

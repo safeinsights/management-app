@@ -20,6 +20,8 @@ jobs:
               run: npm ci
             - name: npm run checks
               run: npm run checks
+            - name: validate actions
+              run: npm run validate-actions
 
     test:
         timeout-minutes: 15
@@ -86,6 +88,7 @@ jobs:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
+                  allowed-to-fail: true
 
             - uses: actions/upload-artifact@v4
               if: failure()

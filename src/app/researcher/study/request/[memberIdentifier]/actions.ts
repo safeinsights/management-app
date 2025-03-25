@@ -2,19 +2,22 @@
 
 import { USING_CONTAINER_REGISTRY } from '@/server/config'
 import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
-import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
+import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { strToAscii } from '@/lib/string'
-import { siUser } from '@/server/queries'
+
 import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
-import { onStudyJobCreateAction } from '@/server/actions/study-job-actions'
 import { CodeReviewManifest } from '@/lib/code-manifest'
+import { z, getUserIdFromActionContext, researcherAction } from '@/server/actions/wrappers'
 
-export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProposalFormValues) => {
-    studyProposalSchema.parse(studyInfo) // throws when malformed
+const onCreateStudyActionArgsSchema = z.object({
+    memberId: z.string(),
+    studyInfo: studyProposalSchema,
+})
 
-    const user = await siUser()
+export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
+    const userId = getUserIdFromActionContext()
 
     const member = await db
         .selectFrom('member')
@@ -68,16 +71,30 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
             // TODO: add study lead
             // TODO: add agreement document
             memberId,
-            researcherId: user.id,
+            researcherId: userId,
             containerLocation: repoUrl,
             status: 'PENDING-REVIEW',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const studyJobId = await onStudyJobCreateAction(studyId)
+    const studyJob = await db
+        .insertInto('studyJob')
+        .values({
+            studyId: studyId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 
-    const manifest = new CodeReviewManifest(studyJobId, 'r')
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: studyJob.id,
+            status: 'INITIATED',
+        })
+        .executeTakeFirstOrThrow()
+
+    const manifest = new CodeReviewManifest(studyJob.id, 'r')
 
     for (const codeFile of studyInfo.codeFiles) {
         manifest.files.push(codeFile)
@@ -85,7 +102,7 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
             {
                 memberIdentifier: member.identifier,
                 studyId,
-                studyJobId,
+                studyJobId: studyJob.id,
             },
             codeFile,
         )
@@ -97,7 +114,7 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
         {
             memberIdentifier: member.identifier,
             studyId,
-            studyJobId,
+            studyJobId: studyJob.id,
         },
         manifestFile,
     )
@@ -105,14 +122,14 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
     await db
         .insertInto('jobStatusChange')
         .values({
-            userId: user.id,
+            userId: userId,
             status: 'CODE-SUBMITTED',
-            studyJobId,
+            studyJobId: studyJob.id,
         })
         .execute()
 
     return {
         studyId: studyId,
-        studyJobId: studyJobId,
+        studyJobId: studyJob.id,
     }
-}
+}, onCreateStudyActionArgsSchema)

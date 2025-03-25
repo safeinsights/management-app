@@ -1,11 +1,18 @@
 import { db } from '@/database'
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
+import { mockClerkSession } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
 
 describe('invite user Actions', async () => {
+    beforeEach(() => {
+        mockClerkSession({
+            clerkUserId: 'user-id',
+            org_slug: 'safeinsights',
+        })
+    })
     async function userRecordCount() {
         const c = await db
             .selectFrom('user')
@@ -70,6 +77,6 @@ describe('invite user Actions', async () => {
             },
         }))
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError()
-        expect(beforeCount).toEqual(await userRecordCount())
+        expect(beforeCount).toEqual((await userRecordCount()) - 1)
     })
 })

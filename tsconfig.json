@@ -23,6 +23,13 @@
             "@/tests/*": ["./tests/*"]
         }
     },
-    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "vitest.config.mts"],
+    "include": [
+        "next-env.d.ts",
+        "**/*.ts",
+        "**/*.tsx",
+        ".next/types/**/*.ts",
+        "vitest.config.mts",
+        "src/server/actions/f"
+    ],
     "exclude": ["node_modules"]
 }

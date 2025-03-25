@@ -6,7 +6,12 @@ import { Button, Group, Text } from '@mantine/core'
 import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
-import { approveStudyProposal, rejectStudyProposal, type SelectedStudy } from '@/server/actions/study-actions'
+import {
+    approveStudyProposalAction,
+    rejectStudyProposalAction,
+    type SelectedStudy,
+} from '@/server/actions/study.actions'
+
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
@@ -25,10 +30,10 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
     } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
-                return approveStudyProposal(study.id)
+                return approveStudyProposalAction(study.id)
             }
 
-            return rejectStudyProposal(study.id)
+            return rejectStudyProposalAction(study.id)
         },
         onSettled(error) {
             if (!error) {

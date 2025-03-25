@@ -1,20 +1,26 @@
 'use server'
 
 import { db } from '@/database'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
-import { StudyStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
-import { siUser } from '@/server/queries'
-import { latestJobForStudy } from '@/server/actions/study-job-actions'
+import { siUser } from '@/server/db/queries'
+import { z, memberAction, getOrgSlugFromActionContext } from './wrappers'
+import { checkMemberAllowedStudyReview } from '../db/queries'
+import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { StudyJobStatus } from '../../database/types'
+import { USING_S3_STORAGE } from '../config'
+import { storeStudyCodeFile } from '../storage'
 
-export const fetchStudiesForMember = async (memberIdentifier: string) => {
+export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     return await db
         .selectFrom('study')
-        .innerJoin('member', 'study.memberId', 'member.id')
-        .innerJoin('user', 'study.researcherId', 'user.id')
-        .where('member.identifier', '=', memberIdentifier)
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
+        )
+        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
+
         .leftJoin(
             // Subquery to get the most recent study job for each study
+
             (eb) =>
                 eb
                     .selectFrom('studyJob')
@@ -31,6 +37,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
         )
         .leftJoin(
             // Subquery to get the latest status change for the most recent study job
+
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
@@ -45,6 +52,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
                     .as('latestJobStatus'),
             (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
         )
+
         .select([
             'study.id',
             'study.approvedAt',
@@ -68,11 +76,18 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
-}
+})
 
-export const getStudyAction = async (studyId: string) => {
+export const getStudyAction = memberAction(async (studyId) => {
     return await db
         .selectFrom('study')
+        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
+
+        // security, check user has access to record
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        )
+
         .select([
             'study.id',
             'study.approvedAt',
@@ -88,15 +103,17 @@ export const getStudyAction = async (studyId: string) => {
             'study.status',
             'study.title',
         ])
-        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
+
         .select('user.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()
-}
+}, z.string())
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposal = async (studyId: string) => {
+export const approveStudyProposalAction = memberAction(async (studyId: string) => {
+    checkMemberAllowedStudyReview(studyId)
+
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         // Update the status of the study
@@ -107,23 +124,37 @@ export const approveStudyProposal = async (studyId: string) => {
             .execute()
 
         // TODO Will transaction work when calling another method?
-        const latestJob = await latestJobForStudy(studyId)
-
+        const latestJob = await latestJobForStudyAction(studyId)
+        let status: StudyJobStatus = 'CODE-APPROVED'
+        const userId = (await siUser()).id
+        if (USING_S3_STORAGE) {
+            storeStudyCodeFile(
+                {
+                    memberIdentifier: getOrgSlugFromActionContext(),
+                    studyId,
+                    studyJobId: latestJob.id,
+                },
+                new File([`userId: ${userId}`], 'APPROVED', { type: 'text/plain' }),
+            )
+        } else {
+            status = 'JOB-READY' // if we're in dev and not using s3 then containers will never build so just mark it ready
+        }
         await trx
             .insertInto('jobStatusChange')
             .values({
-                userId: (await siUser()).id,
-                // TODO Figure out correct job status
-                status: 'JOB-READY',
+                userId,
+                status,
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
-}
+}, z.string())
 
-export const rejectStudyProposal = async (studyId: string) => {
+export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
+    checkMemberAllowedStudyReview(studyId)
+
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         // Update the status of the study
@@ -134,18 +165,17 @@ export const rejectStudyProposal = async (studyId: string) => {
             .execute()
 
         // TODO Will transaction work when calling another method?
-        const latestJob = await latestJobForStudy(studyId)
+        const latestJob = await latestJobForStudyAction(studyId)
 
         await trx
             .insertInto('jobStatusChange')
             .values({
                 userId: (await siUser()).id,
-                // TODO Figure out correct job status
-                status: 'CODE-SUBMITTED',
+                status: 'CODE-REJECTED',
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
-}
+}, z.string())

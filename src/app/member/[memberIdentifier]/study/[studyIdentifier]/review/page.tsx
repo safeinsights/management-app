@@ -2,15 +2,15 @@
 
 import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getStudyAction } from '@/server/actions/study-actions'
+import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { jobStatusForJob, latestJobForStudy } from '@/server/actions/study-job-actions'
-import { getMemberUserFingerprint } from '@/server/actions/user-key-actions'
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -18,13 +18,13 @@ export default async function StudyReviewPage(props: {
         studyIdentifier: string
     }>
 }) {
-    const fingerprint = await getMemberUserFingerprint()
+    const fingerprint = await getMemberUserFingerprintAction()
 
     const params = await props.params
 
     const { memberIdentifier, studyIdentifier } = params
 
-    const member = await getMemberFromIdentifier(memberIdentifier)
+    const member = await getMemberFromIdentifierAction(memberIdentifier)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
@@ -35,9 +35,9 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const latestJob = await latestJobForStudy(study.id)
-
-    const latestJobStatus = await jobStatusForJob(latestJob.id)
+    // FIXME: why aren't we combining these two into a single query
+    const latestJob = await latestJobForStudyAction(study.id)
+    const latestJobStatus = latestJob?.id && (await jobStatusForJobAction(latestJob?.id))
 
     return (
         <Stack px="xl" gap="xl">
@@ -84,7 +84,9 @@ export default async function StudyReviewPage(props: {
                     </Grid>
                 </Stack>
             </Paper>
-            {latestJob && <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />}
+            {latestJob && latestJobStatus && (
+                <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+            )}
         </Stack>
     )
 }

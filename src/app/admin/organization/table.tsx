@@ -3,7 +3,7 @@
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { FC, useEffect, useState } from 'react'
-import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member-actions'
+import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member.actions'
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'

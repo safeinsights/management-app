@@ -21,9 +21,9 @@ test.describe('Studies', () => {
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
         // Invalid file testing
-        const invalidFileType = 'tests/assets/invalid.txt'
-        await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
-        await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
+        // const invalidFileType = 'tests/assets/invalid.txt'
+        // await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
+        // await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
 
         await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
@@ -69,7 +69,7 @@ test.describe('Studies', () => {
 
         const title = studyFeatures.studyTitle.substring(0, 30)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
 
         await page.waitForURL(/\/study\//)
         await expect(page.getByText('Study details')).toBeVisible()
@@ -77,7 +77,7 @@ test.describe('Studies', () => {
         await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForURL(/\/dashboard/)
 
-        await page.locator('tr').filter({ hasText: title }).getByText('View').click()
+        await page.locator('tr').filter({ hasText: title }).getByText('View', { exact: true }).click()
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })

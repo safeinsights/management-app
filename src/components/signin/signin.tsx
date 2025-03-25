@@ -4,12 +4,11 @@ import { isNotEmpty, isEmail, useForm } from '@mantine/form'
 import { isClerkApiError, reportError } from '../errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '../links'
-
 import { type MFAState, isUsingPhoneMFA } from './logic'
 
 export const SignInForm: React.FC<{
     mfa: MFAState
-    onComplete: React.Dispatch<React.SetStateAction<MFAState>>
+    onComplete: (state: MFAState) => void
 }> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()

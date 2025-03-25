@@ -28,6 +28,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
 
         if (signInAttempt.status === 'complete') {
             await setActive({ session: signInAttempt.createdSessionId })
+
             onReset()
         } else {
             reportError(`Unknown signIn status: ${signInAttempt.status}`)

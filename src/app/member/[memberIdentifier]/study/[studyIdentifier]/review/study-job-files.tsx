@@ -5,7 +5,7 @@ import { Badge, Group, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyJob } from '@/schema/study'
-import { dataForJobAction } from '@/server/actions/study-job-actions'
+import { dataForJobAction } from '@/server/actions/study-job.actions'
 
 export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({

@@ -2,13 +2,10 @@
 
 import { db } from '@/database'
 import { clerkClient } from '@clerk/nextjs/server'
-import { InviteUserFormValues, inviteUserSchema } from './admin-users.schema'
+import { inviteUserSchema } from './admin-users.schema'
+import { adminAction } from '@/server/actions/wrappers'
 
-export async function adminInviteUserAction(
-    invite: InviteUserFormValues,
-): Promise<InviteUserFormValues & { userId: string }> {
-    inviteUserSchema.parse(invite) // validate
-
+export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()
 
     const clerkUser = await client.users.createUser({
@@ -59,4 +56,4 @@ export async function adminInviteUserAction(
             userId: siUser.id,
         }
     })
-}
+}, inviteUserSchema)
