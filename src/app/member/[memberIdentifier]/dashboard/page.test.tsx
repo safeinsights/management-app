@@ -3,8 +3,8 @@ import { screen } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
 
-vi.mock('@/server/actions/member-actions', () => ({
-    getMemberFromIdentifier: vi.fn(),
+vi.mock('@/server/actions/member.actions', () => ({
+    getMemberFromIdentifierAction: vi.fn(),
 }))
 
 describe('Member Dashboard', () => {

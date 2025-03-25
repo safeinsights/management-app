@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { memberSchema } from '@/schema/member'
 
-import { adminAction, z } from './wrappers'
+import { adminAction, memberAction, userAction, z } from './wrappers'
 
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
@@ -39,6 +39,10 @@ export const deleteMemberAction = adminAction(async (identifier) => {
     await db.deleteFrom('member').where('identifier', '=', identifier).execute()
 }, z.string())
 
-export const getMemberFromIdentifierAction = adminAction(async (identifier) => {
+export const getMemberFromIdentifierAction = memberAction(async (identifier) => {
     return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
+}, z.string())
+
+export const getMemberIdFromIdentifierAction = userAction(async (identifier) => {
+    return await db.selectFrom('member').select('id').where('identifier', '=', identifier).executeTakeFirst()
 }, z.string())

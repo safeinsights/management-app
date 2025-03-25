@@ -3,10 +3,10 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import { Study, StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
-import { dataForJobAction } from '@/server/actions/study-job-actions'
+import { dataForJobAction } from '@/server/actions/study-job.actions'
 import { screen } from '@testing-library/react'
 
-vi.mock('@/server/actions/study-job-actions', () => ({
+vi.mock('@/server/actions/study-job.actions', () => ({
     dataForJobAction: vi.fn(),
 }))
 

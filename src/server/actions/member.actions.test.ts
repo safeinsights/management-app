@@ -1,9 +1,21 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { db } from '@/database'
+import { mockClerkSession } from '@/tests/unit.helpers'
 import { Member } from '@/schema/member'
-import { deleteMemberAction, fetchMembersAction, getMemberFromIdentifier, upsertMemberAction } from './member-actions'
+import {
+    deleteMemberAction,
+    fetchMembersAction,
+    getMemberFromIdentifierAction,
+    upsertMemberAction,
+} from './member.actions'
 
 describe('Member Actions', () => {
+    beforeEach(() => {
+        mockClerkSession({
+            userId: 'user-id',
+            org_slug: 'safeinsights',
+        })
+    })
     const newMember = {
         identifier: 'new-org',
         name: 'A Testing Org',
@@ -52,12 +64,12 @@ describe('Member Actions', () => {
 
     describe('getMemberFromIdentifier', () => {
         it('returns member when found', async () => {
-            const result = await getMemberFromIdentifier(newMember.identifier)
+            const result = await getMemberFromIdentifierAction(newMember.identifier)
             expect(result).toMatchObject(newMember)
         })
 
         it('returns undefined when member not found', async () => {
-            const result = await getMemberFromIdentifier('non-existent')
+            const result = await getMemberFromIdentifierAction('non-existent')
             expect(result).toBeUndefined()
         })
     })

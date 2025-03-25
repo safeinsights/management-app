@@ -2,7 +2,7 @@ import { db } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from './context'
-import { findOrCreateSiUserId } from './actions/user-actions'
+import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 export const queryJobResult = async (jobId: string) =>
     (await db

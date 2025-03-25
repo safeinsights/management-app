@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { MemberDashboard } from './member-dashboard'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
@@ -10,7 +10,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
 
     const { memberIdentifier } = params
 
-    const member = await getMemberFromIdentifier(memberIdentifier)
+    const member = await getMemberFromIdentifierAction(memberIdentifier)
 
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />

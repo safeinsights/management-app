@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { MemberDashboard } from '@/app/member/[memberIdentifier]/dashboard/member-dashboard'
 import { useUser } from '@clerk/nextjs'
 import { UserResource, UseUserReturn } from '@clerk/types'
 import { Member } from '@/schema/member'
-import { fetchStudiesForMember } from '@/server/actions/study-actions'
+import { fetchStudiesForMemberAction } from '@/server/actions/study.actions'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
 
-vi.mock('@/server/actions/member-actions', () => ({
-    getMemberFromIdentifier: vi.fn(),
+vi.mock('@/server/actions/member.actions', () => ({
+    getMemberFromIdentifierAction: vi.fn(),
 }))
 
 vi.mock('@clerk/nextjs', () => ({
     useUser: vi.fn(),
 }))
 
-vi.mock('@/server/actions/study-actions', () => ({
-    fetchStudiesForMember: vi.fn(),
+vi.mock('@/server/actions/study.actions', () => ({
+    fetchStudiesForMemberAction: vi.fn(),
 }))
 
 const mockMember: Member = {
@@ -88,7 +88,7 @@ const mockStudies = [
 
 describe('Member Dashboard', () => {
     it('renders the welcome text', async () => {
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue({
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue({
             createdAt: new Date(),
             email: faker.internet.email(),
             id: faker.string.uuid(),
@@ -115,7 +115,7 @@ describe('Member Dashboard', () => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-        vi.mocked(fetchStudiesForMember).mockResolvedValue([])
+        vi.mocked(fetchStudiesForMemberAction).mockResolvedValue([])
         vi.mocked(useUser).mockResolvedValue({
             isLoaded: true,
             isSignedIn: true,
@@ -137,7 +137,7 @@ describe('Studies Table', () => {
             } as UserResource,
         })
 
-        vi.mocked(fetchStudiesForMember).mockResolvedValue(mockStudies)
+        vi.mocked(fetchStudiesForMemberAction).mockResolvedValue(mockStudies)
 
         renderWithProviders(<StudiesTable member={mockMember} />)
 

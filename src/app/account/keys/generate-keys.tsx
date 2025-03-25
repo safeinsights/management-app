@@ -3,7 +3,7 @@
 import { Button, Container, CopyButton, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
-import { setMemberUserPublicKey } from '@/server/actions/user-key-actions'
+import { setMemberUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useUser } from '@clerk/nextjs'
 
 export const GenerateKeys: FC = () => {
@@ -31,7 +31,7 @@ export const GenerateKeys: FC = () => {
 
     const saveKeys = async () => {
         if (keys?.publicKey && keys.fingerprint) {
-            await setMemberUserPublicKey(keys.binaryPublicKey, keys.fingerprint)
+            await setMemberUserPublicKeyAction({ publicKey: keys.binaryPublicKey, fingerprint: keys.fingerprint })
         }
     }
 

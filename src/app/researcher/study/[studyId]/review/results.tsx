@@ -10,7 +10,7 @@ import { DataTable } from 'mantine-datatable'
 import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { slugify } from '@/lib/string'
-import { fetchJobResultsCsvAction } from '@/server/actions/study-job-actions'
+import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
 
 type JobResultsProps = {
     job: { id: string }

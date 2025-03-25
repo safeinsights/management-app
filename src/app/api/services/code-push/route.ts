@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { NextResponse } from 'next/server'
 
 const schema = z.object({
-    jobId: z.string().uuid(),
+    jobId: z.string(),
 })
 
 export async function POST(req: Request) {

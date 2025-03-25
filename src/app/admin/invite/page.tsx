@@ -2,7 +2,7 @@ import { Title, Container } from '@mantine/core'
 import { pageStyles, mainStyles } from '@/styles/common'
 import { InviteForm } from './invite-form'
 import { QueryClient, HydrationBoundary, dehydrate } from '@tanstack/react-query'
-import { fetchMembersAction } from '@/server/actions/member-actions'
+import { fetchMembersAction } from '@/server/actions/member.actions'
 
 export default async function InvitePage() {
     const queryClient = new QueryClient()

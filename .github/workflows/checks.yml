@@ -20,6 +20,8 @@ jobs:
               run: npm ci
             - name: npm run checks
               run: npm run checks
+            - name: validate actions
+              run: npm run validate-actions
 
     test:
         timeout-minutes: 15

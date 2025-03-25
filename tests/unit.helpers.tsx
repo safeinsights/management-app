@@ -10,6 +10,8 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
+import { auth as clerkAuth } from '@clerk/nextjs/server'
+import { Mock } from 'vitest'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -237,4 +239,14 @@ export const mockApiMember = async (opts: { identifier: string } = { identifier:
         )}`,
     )
     return member
+}
+
+type MockSession = {
+    userId: string
+    org_slug: string
+}
+export const mockClerkSession = (sessionClaims: MockSession) => {
+    ;(clerkAuth as unknown as Mock).mockImplementation(() => ({
+        sessionClaims,
+    }))
 }

@@ -1,18 +1,20 @@
+'use server'
+
 import React, { ReactNode } from 'react'
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { getMemberUserPublicKey } from '@/server/actions/user-key-actions'
+import { getMemberUserPublicKey } from '@/server/db/queries'
 
 export default async function MemberLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
-    const { userId: clerkId } = await auth()
+    const { sessionClaims } = await auth()
 
-    if (!clerkId) return null
+    if (!sessionClaims?.userId) return null
 
-    const publicKey = await getMemberUserPublicKey(clerkId)
+    const publicKey = await getMemberUserPublicKey(sessionClaims.userId)
 
     if (!publicKey) {
         redirect('/account/keys')

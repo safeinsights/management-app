@@ -3,7 +3,7 @@
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
 import { Anchor, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
-import { fetchStudiesForMember } from '@/server/actions/study-actions'
+import { fetchStudiesForMemberAction } from '@/server/actions/study.actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { humanizeStatus } from '@/lib/status'
@@ -13,7 +13,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
     const { data: studies = [] } = useQuery({
         queryKey: ['studiesForMember', member.identifier],
         queryFn: () => {
-            return fetchStudiesForMember(member.identifier)
+            return fetchStudiesForMemberAction(member.identifier)
         },
     })
 

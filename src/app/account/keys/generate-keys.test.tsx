@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { GenerateKeys } from '@/app/account/keys/generate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { UseUserReturn } from '@clerk/types'
 import { useUser } from '@clerk/nextjs'
 import { generateKeyPair } from 'si-encryption/util/keypair'
-import { setMemberUserPublicKey } from '@/server/actions/user-key-actions'
+import { setMemberUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 
 vi.mock('@clerk/nextjs', () => ({
     useUser: vi.fn(),
@@ -15,8 +15,8 @@ vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
 }))
 
-vi.mock('@/server/actions/user-key-actions', () => ({
-    setMemberUserPublicKey: vi.fn(),
+vi.mock('@/server/actions/user-keys.actions', () => ({
+    setMemberUserPublicKeyAction: vi.fn(),
 }))
 
 describe('User keypair generation', () => {
@@ -27,6 +27,10 @@ describe('User keypair generation', () => {
             },
         } as UseUserReturn)
 
+        mockClerkSession({
+            userId: 'user-id',
+            org_slug: 'dev',
+        })
         const mockKeys = {
             publicKeyString: 'mockPublicKey',
             privateKeyString: 'mockPrivateKey',
@@ -55,6 +59,11 @@ describe('User keypair generation', () => {
         fireEvent.click(screen.getByRole('button', { name: /copy private key/i }))
 
         // Verify that setMemberUserPublicKey was called
-        expect(setMemberUserPublicKey).toHaveBeenCalledWith(mockKeys.exportedPublicKey, mockKeys.fingerprint)
+        expect(setMemberUserPublicKeyAction).toHaveBeenCalledWith(
+            expect.objectContaining({
+                publicKey: mockKeys.exportedPublicKey,
+                fingerprint: mockKeys.fingerprint,
+            }),
+        )
     })
 })

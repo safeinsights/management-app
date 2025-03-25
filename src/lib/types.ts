@@ -1,5 +1,5 @@
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
-
+import { z } from 'zod'
 export class AccessDeniedError extends Error {}
 
 export type User = {
@@ -32,9 +32,22 @@ export type CodeManifest = {
     tree: TreeNode
     size: number
 }
-export type MinimalStudyInfo = { memberIdentifier: string; studyId: string }
-export type MinimalJobInfo = MinimalStudyInfo & { studyJobId: string }
-export type MinimalJobResultsInfo = { resultsPath: string } & MinimalJobInfo
+
+export const minimalStudyInfoSchema = z.object({
+    memberIdentifier: z.string(),
+    studyId: z.string(),
+})
+export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
+
+export const minimalJobInfoShema = minimalStudyInfoSchema.extend({
+    studyJobId: z.string(),
+})
+export type MinimalJobInfo = z.infer<typeof minimalJobInfoShema>
+
+export const minimalJobResultsInfoSchema = minimalJobInfoShema.extend({
+    resultsPath: z.string(),
+})
+export type MinimalJobResultsInfo = z.infer<typeof minimalJobResultsInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus
 

@@ -1,11 +1,12 @@
 'use server'
 
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
-import { userAction } from './wrappers'
+import { anonAction } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
-export const onUserSignInAction = userAction(async () => {
+export const onUserSignInAction = anonAction(async () => {
     const user = await currentUser()
+
     if (!user) throw new Error('User not authenticated')
 
     const siUserId = await findOrCreateSiUserId(user.id, {
@@ -14,6 +15,7 @@ export const onUserSignInAction = userAction(async () => {
         email: user.primaryEmailAddress?.emailAddress,
     })
     const client = await clerkClient()
+
     await client.users.updateUserMetadata(user.id, {
         publicMetadata: {
             userId: siUserId,

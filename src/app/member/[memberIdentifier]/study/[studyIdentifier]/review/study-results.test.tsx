@@ -4,9 +4,9 @@ import { screen } from '@testing-library/react'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
-import { fetchJobResultsZipAction } from '@/server/actions/study-job-actions'
+import { fetchJobResultsZipAction } from '@/server/actions/study-job.actions'
 
-vi.mock('@/server/actions/study-job-actions')
+vi.mock('@/server/actions/study-job.actions')
 
 const mockStudyJob: StudyJob = {
     createdAt: new Date(),
