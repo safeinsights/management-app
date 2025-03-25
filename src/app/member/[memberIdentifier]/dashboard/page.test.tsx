@@ -16,7 +16,7 @@ vi.mock('@/server/db/queries', () => ({
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForMember: vi.fn(),
+    fetchStudiesForCurrentMemberAction: vi.fn(),
 }))
 
 const mockMember: Member = {
