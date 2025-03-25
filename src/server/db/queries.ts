@@ -3,7 +3,7 @@ import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/
 import { AccessDeniedError, MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { getUserIdFromActionContext } from '../actions/wrappers'
+import { getOrgSlugFromActionContext} from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string) =>
     (await db
@@ -20,15 +20,29 @@ export const queryJobResult = async (jobId: string) =>
         .where('studyJob.resultsPath', 'is not', null)
         .executeTakeFirst()) as MinimalJobResultsInfo | undefined
 
-export const checkMemberAllowedStudyReview = async (studyId: string, userId = getUserIdFromActionContext()) => {
+export const checkMemberAllowedStudyReview = async (studyId: string, identifier = getOrgSlugFromActionContext()) => {
+
     const found = await db
         .selectFrom('study')
         .select('study.id')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', userId)
-                .on('memberUser.isReviewer', '=', true)
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', identifier)
+                .onRef('study.memberId', '=', 'member.id')
+        )
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+
+    if (!found) throw new AccessDeniedError(`not allowed access to study`)
+    return true
+}
+
+export const checkMemberAllowedStudyRead = async (studyId: string, identifier = getOrgSlugFromActionContext()) => {
+    const found = await db
+        .selectFrom('study')
+        .select('study.id')
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', identifier)
+                .onRef('study.memberId', '=', 'member.id')
         )
         .where('study.id', '=', studyId)
         .executeTakeFirst()

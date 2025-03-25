@@ -16,7 +16,7 @@ import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
 export const approveStudyJobResultsAction = memberAction(
     async ({ jobInfo: info, jobResults }) => {
-        await checkMemberAllowedStudyReview(info.studyId, getUserIdFromActionContext())
+        await checkMemberAllowedStudyReview(info.studyId)
 
         const blob = new Blob(jobResults, { type: 'text/csv' })
         const resultsFile = new File([blob], 'job_results.csv')
