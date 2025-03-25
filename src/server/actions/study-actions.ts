@@ -4,12 +4,13 @@ import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 import { siUser } from '@/server/queries'
 import { latestJobForStudy } from '@/server/actions/study-job-actions'
+
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .innerJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
-        .leftJoin('user as reviewerUser', 'study.reviewedBy', 'reviewerUser.id')
+        .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
+        .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .where('member.identifier', '=', memberIdentifier)
         .leftJoin(
             // Subquery to get the most recent study job for each study
@@ -60,10 +61,7 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'researcherUser.fullName as researcherName',
             'reviewerUser.fullName as reviewerName',
             'member.identifier as memberIdentifier',
-            'latestStudyJob.latestStudyJobId',
-            'latestStudyJob.studyJobCreatedAt',
             'latestJobStatus.status as latestJobStatus',
-            'latestJobStatus.statusCreatedAt',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
@@ -100,7 +98,7 @@ export const approveStudyProposalAction = async (studyId: string) => {
     await db.transaction().execute(async (trx) => {
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), reviewedBy: id })
+            .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: id })
             .where('id', '=', studyId)
             .execute()
 
@@ -127,7 +125,7 @@ export const rejectStudyProposalAction = async (studyId: string) => {
     await db.transaction().execute(async (trx) => {
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date(), reviewedBy: id })
+            .set({ status: 'REJECTED', approvedAt: new Date(), reviewerId: id })
             .where('id', '=', studyId)
             .execute()
 

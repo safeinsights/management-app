@@ -5,6 +5,7 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { DisplayStudyStatus, StudiesTable } from './studies-table'
 import { screen, waitFor } from '@testing-library/react'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
+
 vi.mock('@/server/actions/study-actions', () => ({
     fetchStudiesForMember: vi.fn(),
 }))
@@ -36,10 +37,7 @@ const mockStudies = [
         status: 'PENDING-REVIEW' as StudyStatus,
         title: 'Study Title 1',
         researcherName: 'Person A',
-        latestStudyJobId: 'job-1',
-        studyJobCreatedAt: new Date(),
         latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
-        statusCreatedAt: new Date(),
         memberIdentifier: 'test-member',
     },
     {
@@ -59,9 +57,7 @@ const mockStudies = [
         researcherName: 'Person B',
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
-        studyJobCreatedAt: new Date(),
         latestJobStatus: 'RUN-COMPLETE' as StudyJobStatus,
-        statusCreatedAt: new Date(),
         memberIdentifier: 'test-member',
     },
     {
@@ -81,9 +77,7 @@ const mockStudies = [
         title: 'Study Title 3',
         researcherName: 'Person C',
         latestStudyJobId: null,
-        studyJobCreatedAt: null,
         latestJobStatus: null,
-        statusCreatedAt: null,
         memberIdentifier: 'test-member',
     },
 ]

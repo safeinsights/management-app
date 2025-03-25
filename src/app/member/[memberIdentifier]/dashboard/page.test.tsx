@@ -15,6 +15,10 @@ vi.mock('@/server/queries', () => ({
     siUser: vi.fn(),
 }))
 
+vi.mock('@/server/actions/study-actions', () => ({
+    fetchStudiesForMember: vi.fn(),
+}))
+
 const mockMember: Member = {
     createdAt: new Date(),
     email: faker.internet.email(),

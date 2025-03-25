@@ -26,7 +26,7 @@ const mockStudy: Study = {
     researcherId: faker.string.uuid(),
     status: 'APPROVED',
     title: faker.lorem.sentence(),
-    reviewedBy: 'Cool person',
+    reviewerId: faker.string.uuid(),
 }
 
 const mockStudyJob: StudyJob = {
