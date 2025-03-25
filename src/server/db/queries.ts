@@ -1,9 +1,9 @@
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { AccessDeniedError, MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { getOrgSlugFromActionContext} from '../actions/wrappers'
+import { getOrgSlugFromActionContext } from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string) =>
     (await db
@@ -21,13 +21,11 @@ export const queryJobResult = async (jobId: string) =>
         .executeTakeFirst()) as MinimalJobResultsInfo | undefined
 
 export const checkMemberAllowedStudyReview = async (studyId: string, identifier = getOrgSlugFromActionContext()) => {
-
     const found = await db
         .selectFrom('study')
         .select('study.id')
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', identifier)
-                .onRef('study.memberId', '=', 'member.id')
+            join.on('member.identifier', '=', identifier).onRef('study.memberId', '=', 'member.id'),
         )
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -41,8 +39,7 @@ export const checkMemberAllowedStudyRead = async (studyId: string, identifier = 
         .selectFrom('study')
         .select('study.id')
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', identifier)
-                .onRef('study.memberId', '=', 'member.id')
+            join.on('member.identifier', '=', identifier).onRef('study.memberId', '=', 'member.id'),
         )
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -92,4 +89,21 @@ export const getMemberUserPublicKeyByClerkId = async (clerkId: string) => {
         .executeTakeFirst()
 
     return result?.publicKey
+}
+
+export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
+    return await conn
+        .selectFrom('studyJob')
+        .selectAll('studyJob')
+
+        // security, check user has access to record
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        )
+
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
 }

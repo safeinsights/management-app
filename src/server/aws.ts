@@ -1,6 +1,7 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
 import { CreateRepositoryCommand, ECRClient, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
@@ -192,4 +193,33 @@ export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
     if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
     return result.Body
+}
+
+export async function triggerBuildImageForJob(info: MinimalJobInfo) {
+    const codebuild = new CodeBuildClient({})
+    await codebuild.send(
+        new StartBuildCommand({
+            projectName: 'MgmntAppContainerizer-dev',
+            environmentVariablesOverride: [
+                {
+                    name: 'ON_START_PAYLOAD',
+                    value: JSON.stringify({
+                        jobId: info.studyJobId,
+                        status: 'JOB-PACKAGING',
+                    }),
+                },
+                {
+                    name: 'ON_SUCCESS_PAYLOAD',
+                    value: JSON.stringify({
+                        jobId: info.studyJobId,
+                        status: 'JOB-READY',
+                    }),
+                },
+                { name: 'S3_PATH', value: pathForStudyJobCode(info) },
+                { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
+                { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
+                { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
+            ],
+        }),
+    )
 }
