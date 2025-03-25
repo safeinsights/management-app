@@ -1,6 +1,6 @@
 import { Text, Select, type SelectProps } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { fetchMembersForSelectAction } from '@/server/actions/member-actions'
+import { fetchMembersForSelectAction } from '@/server/actions/member.actions'
 
 export const OrganizationSelect: React.FC<SelectProps> = (props) => {
     const {

@@ -2,16 +2,18 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
-import { siUser } from '@/server/queries'
+import { siUser } from '@/server/db/queries'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
     const user = await siUser()
 
-    const member = await getMemberFromIdentifier(memberIdentifier)
+    const member = await getMemberFromIdentifierAction(memberIdentifier)
 
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />

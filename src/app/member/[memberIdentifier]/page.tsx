@@ -1,7 +1,7 @@
 import React from 'react'
 import { Flex, Paper, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { EditMemberForm } from '@/components/member/edit-member-form'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,7 @@ export default async function ManageMemberPage(props: { params: Promise<{ member
 
     const { memberIdentifier } = params
 
-    const member = await getMemberFromIdentifier(memberIdentifier)
+    const member = await getMemberFromIdentifierAction(memberIdentifier)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }

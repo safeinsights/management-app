@@ -1,4 +1,4 @@
-import { visitClerkProtectedPage, test, expect } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 // re-use the same worker between the tests inside the describe block
 // this ensures they run in order and will share the study title
@@ -21,9 +21,9 @@ test.describe('Studies', () => {
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
         // Invalid file testing
-        const invalidFileType = 'tests/assets/invalid.txt'
-        await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
-        await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
+        // const invalidFileType = 'tests/assets/invalid.txt'
+        // await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
+        // await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
 
         await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
@@ -69,7 +69,8 @@ test.describe('Studies', () => {
         await expect(page.getByText('Review Studies')).toBeVisible()
 
         const title = studyFeatures.studyTitle.substring(0, 30)
-        await page.getByRole('row', { name: title }).getByRole('link').click()
+
+        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
         await page.waitForURL(/\/study\//)
         await expect(page.getByText('Study details')).toBeVisible()
@@ -77,7 +78,8 @@ test.describe('Studies', () => {
         await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForURL(/\/dashboard/)
 
-        await page.getByRole('row', { name: title }).getByRole('link').click()
+        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
+
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })

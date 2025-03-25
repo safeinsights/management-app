@@ -20,7 +20,7 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
 
     const { mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            return await onCreateStudyAction(memberId, formValues)
+            return await onCreateStudyAction({ memberId, studyInfo: formValues })
         },
         onSuccess() {
             router.push(`/researcher/dashboard`)

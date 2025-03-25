@@ -46,7 +46,7 @@ const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup'
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
 export default clerkMiddleware(async (auth, req) => {
-    const { userId, orgId, orgRole, orgSlug, sessionClaims } = await auth()
+    const { userId, orgId, orgSlug, sessionClaims } = await auth()
 
     if (!userId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
@@ -58,22 +58,21 @@ export default clerkMiddleware(async (auth, req) => {
     // Define user roles
     const userRoles = {
         isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
-        isOpenStaxMember: orgSlug === OPENSTAX_ORG_SLUG,
         hasMFA: !!sessionClaims?.hasMFA,
         get isMember() {
-            return this.isOpenStaxMember && !this.isAdmin
+            return orgSlug && !this.isAdmin
         },
         get isResearcher() {
-            return !this.isAdmin && !this.isOpenStaxMember
+            return !this.isAdmin && !this.isMember
         },
     }
 
-    middlewareDebug('Auth check: %o', {
-        organization: orgId,
-        role: orgRole,
-        userId,
-        ...userRoles,
-    })
+    // middlewareDebug('Auth check: %o', {
+    //     organization: orgId,
+    //     role: orgRole,
+    //     userId,
+    //     ...userRoles,
+    // })
 
     // TODO Redirect users to different URIs based on their role? ie:
     //  member -> /member

@@ -7,6 +7,7 @@ import { type MFAState } from './logic'
 import { SigninComplete } from './complete'
 import { RequestMFA } from './mfa'
 import { SignInForm } from './signin'
+import { onUserSignInAction } from '@/server/actions/user.actions'
 
 export function SignIn() {
     const { isLoaded } = useSignIn()
@@ -16,12 +17,18 @@ export function SignIn() {
         return <Loader />
     }
 
-    const s: React.Dispatch<React.SetStateAction<MFAState>> = setState
+    const setPending = (pending: MFAState) => {
+        if (pending === false) {
+            onUserSignInAction().then(() => setState(pending))
+        } else {
+            setState(pending)
+        }
+    }
 
     return (
         <>
             <SigninComplete />
-            <SignInForm onComplete={s} mfa={state} />
+            <SignInForm onComplete={setPending} mfa={state} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
         </>
     )

@@ -10,7 +10,8 @@ import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
     type SelectedStudy,
-} from '@/server/actions/study-actions'
+} from '@/server/actions/study.actions'
+
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 

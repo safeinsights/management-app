@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { Member } from '@/schema/member'
 import ManageMemberPage from '@/app/member/[memberIdentifier]/page'
 
 // Mock the server action
-vi.mock('@/server/actions/member-actions', () => ({
-    getMemberFromIdentifier: vi.fn(),
+vi.mock('@/server/actions/member.actions', () => ({
+    getMemberFromIdentifierAction: vi.fn(),
 }))
 
 const mockMember: Member = {
@@ -21,7 +21,7 @@ const mockMember: Member = {
 
 describe('ManageMemberPage', () => {
     it('renders member details when member is found', async () => {
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         const props = {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
@@ -38,7 +38,7 @@ describe('ManageMemberPage', () => {
     })
 
     it('renders not found alert when member does not exist', async () => {
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue(undefined)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(undefined)
 
         const props = {
             params: Promise.resolve({ memberIdentifier: 'non-existent' }),
@@ -56,7 +56,7 @@ describe('ManageMemberPage', () => {
     })
 
     it('passes correct member data to EditMemberForm', async () => {
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         const props = {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
@@ -77,7 +77,7 @@ describe('ManageMemberPage', () => {
 
     it('calls getMemberFromIdentifier with correct identifier', async () => {
         const memberIdentifier = 'test-member'
-        vi.mocked(getMemberFromIdentifier).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         const props = {
             params: Promise.resolve({ memberIdentifier }),
@@ -85,7 +85,7 @@ describe('ManageMemberPage', () => {
 
         await ManageMemberPage(props)
 
-        expect(getMemberFromIdentifier).toHaveBeenCalledWith(memberIdentifier)
-        expect(getMemberFromIdentifier).toHaveBeenCalledTimes(1)
+        expect(getMemberFromIdentifierAction).toHaveBeenCalledWith(memberIdentifier)
+        expect(getMemberFromIdentifierAction).toHaveBeenCalledTimes(1)
     })
 })

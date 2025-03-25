@@ -18,6 +18,7 @@
         "start": "next start",
         "deploy": "tsx bin/deploy.ts",
         "lint": "next lint && prettier --check .",
+        "validate-actions": "tsx tests/validate-actions.ts",
         "lint:fix": "next lint --fix && prettier --write .",
         "pre:push": "run-s lint:fix typecheck",
         "typecheck": "cd src && tsc --noEmit",

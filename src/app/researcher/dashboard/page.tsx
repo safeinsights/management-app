@@ -1,8 +1,8 @@
-'use server'
-
 import * as React from 'react'
 import { db } from '@/database'
 import { StudiesTable } from './studies-table'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
     // TODO Best practice? create explicit action or do inline?

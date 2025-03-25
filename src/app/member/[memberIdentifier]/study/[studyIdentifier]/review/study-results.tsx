@@ -11,7 +11,7 @@ import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyId
 import Link from 'next/link'
 import { pemToArrayBuffer } from 'si-encryption/util'
 import { StudyJobStatus } from '@/database/types'
-import { fetchJobResultsZipAction } from '@/server/actions/study-job-actions'
+import { fetchJobResultsZipAction } from '@/server/actions/study-job.actions'
 
 interface StudyResultsFormValues {
     privateKey: string

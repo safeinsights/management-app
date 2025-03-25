@@ -1,5 +1,3 @@
-'use server'
-
 import { db } from '@/database'
 
 type SiUserOptionalAttrs = {
@@ -8,6 +6,7 @@ type SiUserOptionalAttrs = {
     email?: string | null
     isResearcher?: boolean
 }
+
 export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptionalAttrs = {}) => {
     let user = await db
         .selectFrom('user')
