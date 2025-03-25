@@ -1,8 +1,8 @@
-import { it, vi, expect, type Mock } from 'vitest'
-import { currentUser } from '@clerk/nextjs/server'
+import { it, vi, expect, beforeEach, type Mock } from 'vitest'
+import { useUser as origUseUser } from '@clerk/nextjs'
 import RootLayout from './layout'
-import { redirect } from 'next/navigation'
 import { render } from '@testing-library/react'
+import router from 'next-router-mock'
 
 vi.mock('./providers', () => ({
     Providers: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -11,26 +11,26 @@ vi.mock('@/components/layout/app-layout', () => ({
     AppLayout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-const user = currentUser as unknown as Mock
+const useUser = origUseUser as unknown as Mock
+
+beforeEach(() => {
+    router.setCurrentUrl('/')
+})
 
 it('redirects to MFA setup if twoFactorEnabled is false', async () => {
-    user.mockResolvedValue({ twoFactorEnabled: false })
-
+    useUser.mockReturnValue({ user: { twoFactorEnabled: false } })
     render(await RootLayout({ children: <div>Test</div> }), { container: document })
-
-    expect(redirect).toHaveBeenCalledWith('/account/mfa')
+    expect(router.asPath).toEqual('/account/mfa')
 })
 
 it('does not redirect if twoFactorEnabled is true', async () => {
-    user.mockResolvedValue({ twoFactorEnabled: true })
-
+    useUser.mockReturnValue({ user: { twoFactorEnabled: true } })
     render(await RootLayout({ children: <div>Test</div> }), { container: document })
-
-    expect(redirect).not.toHaveBeenCalled()
+    expect(router.asPath).toEqual('/')
 })
 
 it('does not redirect if user is null', async () => {
-    user.mockResolvedValue(null)
+    useUser.mockResolvedValue({ user: null })
     render(await RootLayout({ children: <div>Test</div> }), { container: document })
-    expect(redirect).not.toHaveBeenCalled()
+    expect(router.asPath).toEqual('/')
 })
