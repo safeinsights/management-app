@@ -4,6 +4,7 @@ const SPECIAL_STATUSES: Record<string, string> = {
     REJECTED: 'Changes Requested',
 }
 
+// TODO Don't need this after hifis implemented
 export function humanizeStatus(status?: AllStatus): string {
     if (!status) return ''
 

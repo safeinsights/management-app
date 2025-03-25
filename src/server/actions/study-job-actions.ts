@@ -4,8 +4,6 @@ import { db } from '@/database'
 import { CodeManifest, MinimalJobInfo } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
-import { USING_S3_STORAGE } from '@/server/config'
-import { devReadCodeFile } from '@/server/dev/code-files'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/queries'
 import { promises as fs } from 'fs'
@@ -28,6 +26,8 @@ export const rejectStudyJobResults = async (info: MinimalJobInfo) => {
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
+
+    // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
@@ -58,12 +58,7 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
 
     if (jobInfo) {
         try {
-            if (USING_S3_STORAGE) {
-                manifest = await fetchCodeManifest(jobInfo)
-            } else {
-                const buf = await devReadCodeFile(jobInfo, 'manifest.json')
-                manifest = JSON.parse(buf.toString('utf-8'))
-            }
+            manifest = await fetchCodeManifest(jobInfo)
         } catch (e) {
             console.error('Failed to fetch code manifest', e)
         }
@@ -73,13 +68,19 @@ export const dataForJobAction = async (studyJobIdentifier: string) => {
 }
 
 export const latestJobForStudy = async (studyId: string) => {
-    return await db
+    const latestJob = await db
         .selectFrom('studyJob')
         .selectAll()
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+
+    // We should always have a job, something is wrong if we don't
+    if (!latestJob) {
+        throw new Error(`No job found for study id: ${studyId}`)
+    }
+    return latestJob
 }
 
 export const jobStatusForJob = async (jobId: string | undefined) => {

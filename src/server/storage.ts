@@ -14,6 +14,7 @@ async function saveLocalFile(dir: string, file: File, fileName: string) {
     await fs.promises.writeFile(filePath, Buffer.from(buffer))
 }
 
+// TODO Do we want to have an inverse method for retrieveFile centralized here?
 async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
     const fileName = sanitizeFileName(file.name)
 

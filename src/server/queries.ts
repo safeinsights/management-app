@@ -19,7 +19,7 @@ export const queryJobResult = async (jobId: string) =>
         .where('studyJob.resultsPath', 'is not', null)
         .executeTakeFirst()) as MinimalJobResultsInfo | undefined
 
-type SiUser = ClerkUser & {
+export type SiUser = ClerkUser & {
     id: string
     isResearcher: boolean
 }
