@@ -1,17 +1,15 @@
 'use server'
 
 import { db } from '@/database'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
-import { StudyStatus } from '@/database/types'
 import { revalidatePath } from 'next/cache'
 import { siUser } from '@/server/queries'
 import { latestJobForStudy } from '@/server/actions/study-job-actions'
-
 export const fetchStudiesForMember = async (memberIdentifier: string) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .innerJoin('user', 'study.researcherId', 'user.id')
+        .innerJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
+        .leftJoin('user as reviewerUser', 'study.reviewedBy', 'reviewerUser.id')
         .where('member.identifier', '=', memberIdentifier)
         .leftJoin(
             // Subquery to get the most recent study job for each study
@@ -59,7 +57,8 @@ export const fetchStudiesForMember = async (memberIdentifier: string) => {
             'study.researcherId',
             'study.status',
             'study.title',
-            'user.fullName as researcherName',
+            'researcherUser.fullName as researcherName',
+            'reviewerUser.fullName as reviewerName',
             'member.identifier as memberIdentifier',
             'latestStudyJob.latestStudyJobId',
             'latestStudyJob.studyJobCreatedAt',
@@ -96,13 +95,12 @@ export const getStudyAction = async (studyId: string) => {
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposal = async (studyId: string) => {
-    // Start a transaction to ensure atomicity
+export const approveStudyProposalAction = async (studyId: string) => {
+    const { id } = await siUser()
     await db.transaction().execute(async (trx) => {
-        // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date() })
+            .set({ status: 'APPROVED', approvedAt: new Date(), reviewedBy: id })
             .where('id', '=', studyId)
             .execute()
 
@@ -123,13 +121,13 @@ export const approveStudyProposal = async (studyId: string) => {
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
 }
 
-export const rejectStudyProposal = async (studyId: string) => {
-    // Start a transaction to ensure atomicity
+export const rejectStudyProposalAction = async (studyId: string) => {
+    const { id } = await siUser()
+
     await db.transaction().execute(async (trx) => {
-        // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date() })
+            .set({ status: 'REJECTED', approvedAt: new Date(), reviewedBy: id })
             .where('id', '=', studyId)
             .execute()
 

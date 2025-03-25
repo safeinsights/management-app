@@ -6,7 +6,6 @@ import { Anchor, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core
 import { fetchStudiesForMember } from '@/server/actions/study-actions'
 import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { humanizeStatus } from '@/lib/status'
 import Link from 'next/link'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
@@ -17,8 +16,6 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             return fetchStudiesForMember(member.identifier)
         },
     })
-
-    console.log(studies)
 
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
@@ -31,8 +28,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             </Table.Td>
             <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
             <Table.Td>{study.researcherName}</Table.Td>
-            {/* TODO Reviewed add column for reviewedBy with user and update when approve/rejecting study */}
-            {/*<Table.Td>{study.reviewedBy}</Table.Td>*/}
+            <Table.Td>{study.reviewerName}</Table.Td>
             <Table.Td>
                 <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </Table.Td>
@@ -61,8 +57,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
                             <Table.Th>Study Name</Table.Th>
                             <Table.Th>Submitted On</Table.Th>
                             <Table.Th>Researcher</Table.Th>
-                            {/* TODO Reviewed by */}
-                            {/*<Table.Th>Reviewed By</Table.Th>*/}
+                            <Table.Th>Reviewed By</Table.Th>
                             <Table.Th>Status</Table.Th>
                             <Table.Th>Details</Table.Th>
                         </Table.Tr>
