@@ -37,7 +37,7 @@ export default async function StudyReviewPage(props: {
 
     const latestJob = await latestJobForStudy(study.id)
 
-    const latestJobStatus = await jobStatusForJob(latestJob?.id)
+    const latestJobStatus = await jobStatusForJob(latestJob.id)
 
     return (
         <Stack px="xl" gap="xl">
