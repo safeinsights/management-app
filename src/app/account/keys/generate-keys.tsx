@@ -1,11 +1,12 @@
 'use client'
 
-import { Button, Container, CopyButton, ScrollArea, Stack, Text, Title } from '@mantine/core'
+import { Button, Container, CopyButton, Group, Modal, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { setMemberUserPublicKey } from '@/server/actions/user-key-actions'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
+import { useDisclosure } from '@mantine/hooks'
 
 export const GenerateKeys: FC = () => {
     const user = useUser()
@@ -14,6 +15,7 @@ export const GenerateKeys: FC = () => {
         privateKey: string
         fingerprint: string
     }>()
+    const [opened, { open, close }] = useDisclosure(false)
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
@@ -36,24 +38,42 @@ export const GenerateKeys: FC = () => {
     if (keys) {
         return (
             <Container>
+                <Modal opened={opened} onClose={close} centered title="Important disclaimer">
+                    <Stack gap="xl">
+                        <Text>
+                            SafeInsights does not store private keys. Lost keys cannot be recovered. Please store your
+                            key before proceeding.
+                        </Text>
+                        <Group justify="flex-end">
+                            <Button variant="outline" onClick={close}>
+                                Take me back
+                            </Button>
+                            <Button component={Link} href="/dashboard">
+                                Proceed
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Modal>
                 <Stack>
                     <Stack>
                         <Title>Private key: </Title>
                         <ScrollArea>{keys.privateKey}</ScrollArea>
-                        <CopyButton value={keys.privateKey}>
-                            {({ copied, copy }) => (
-                                <Button
-                                    color={copied ? 'teal' : 'blue'}
-                                    disabled={copied}
-                                    onClick={() => {
-                                        copy()
-                                        saveKeys()
-                                    }}
-                                >
-                                    {copied ? 'Copied private key!' : 'Copy private key'}
-                                </Button>
-                            )}
-                        </CopyButton>
+                        <Group>
+                            <CopyButton value={keys.privateKey}>
+                                {({ copied, copy }) => (
+                                    <Button
+                                        color={copied ? 'teal' : 'blue'}
+                                        disabled={copied}
+                                        onClick={() => {
+                                            copy()
+                                            saveKeys()
+                                        }}
+                                    >
+                                        {copied ? 'Copied private key!' : 'Copy private key'}
+                                    </Button>
+                                )}
+                            </CopyButton>
+                        </Group>
                         <Text>
                             Please make sure to securely store this private key in your password manager software, as
                             you will need it at a later stage to review data outputs.
@@ -64,9 +84,9 @@ export const GenerateKeys: FC = () => {
                         </Text>
                     </Stack>
 
-                    <Button component={Link} href="/dashboard">
-                        Go To Dashboard
-                    </Button>
+                    <Group>
+                        <Button onClick={open}>Go To Dashboard</Button>
+                    </Group>
                 </Stack>
             </Container>
         )
