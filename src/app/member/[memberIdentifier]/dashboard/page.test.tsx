@@ -15,7 +15,7 @@ vi.mock('@/server/db/queries', () => ({
     siUser: vi.fn(),
 }))
 
-vi.mock('@/server/actions/study-actions', () => ({
+vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForMember: vi.fn(),
 }))
 
