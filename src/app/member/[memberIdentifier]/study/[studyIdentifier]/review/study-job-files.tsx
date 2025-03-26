@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Badge, Group, Text } from '@mantine/core'
+import { Badge, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyJob } from '@/schema/study'
@@ -13,22 +13,30 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
         queryFn: () => dataForJobAction(job.id),
     })
 
-    if (isLoading) return null
+    if (isLoading) return <Text>Loading files...</Text>
 
-    if (!data) {
-        return <Text>No files!</Text>
+    if (!data || Object.keys(data?.manifest?.files || {}).length === 0) {
+        return (
+            <Stack>
+                <Text c="dimmed" size="sm">
+                    No code files have been uploaded for this job yet.
+                </Text>
+            </Stack>
+        )
     }
 
-    // TODO figure out download endpoint
-    const fileNames = Object.keys(data?.manifest.files || {})
+    const fileNames = Object.keys(data.manifest.files || {})
 
     const fileChips = fileNames.map((fileName) => {
+        const downloadUrl = data.jobInfo
+            ? `/analysis/${data.jobInfo.memberIdentifier}/${data.jobInfo.studyId}/${data.jobInfo.studyJobId}/code/${fileName}`
+            : '#'
         return (
             <Badge
                 color="#D4D1F3"
                 c="black"
                 component="a"
-                href={`analysis/${data.jobInfo?.memberIdentifier}/${data.jobInfo?.studyId}/${data.jobInfo?.studyJobId}/code`}
+                href={downloadUrl}
                 target="_blank"
                 rightSection={<Download />}
                 style={{ cursor: 'pointer' }}
@@ -39,5 +47,5 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
         )
     })
 
-    return <Group>{fileChips}</Group>
+    return <Stack>{fileChips}</Stack>
 }

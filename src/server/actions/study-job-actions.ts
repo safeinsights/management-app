@@ -1,39 +1,25 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeManifest } from '@/lib/types'
+import { CodeManifest, MinimalJobInfo } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
-import { minimalJobInfoShema } from '@/lib/types'
 import { USING_S3_STORAGE } from '@/server/config'
-
+import { devReadCodeFile } from '@/server/dev/code-files'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
-import { queryJobResult, siUser } from '@/server/db/queries'
+import { queryJobResult, siUser } from '@/server/queries'
 import { promises as fs } from 'fs'
-import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
-import { checkMemberAllowedStudyReview } from '../db/queries'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
-export const approveStudyJobResultsAction = memberAction(
-    async ({ jobInfo: info, jobResults }) => {
-        await checkMemberAllowedStudyReview(info.studyId, getUserIdFromActionContext())
+export const approveStudyJobResults = async (info: MinimalJobInfo, results?: string[]) => {
+    const blob = new Blob(results, { type: 'text/csv' })
+    const resultsFile = new File([blob], 'job_results.csv')
+    await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
 
-        const blob = new Blob(jobResults, { type: 'text/csv' })
-        const resultsFile = new File([blob], 'job_results.csv')
-        await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+}
 
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-    },
-    z.object({
-        jobInfo: minimalJobInfoShema,
-        jobResults: z.array(z.string()),
-    }),
-)
-
-export const rejectStudyJobResultsAction = memberAction(async (info) => {
-    await checkMemberAllowedStudyReview(info.studyId)
-
+export const rejectStudyJobResults = async (info: MinimalJobInfo) => {
     await db
         .insertInto('jobStatusChange')
         .values({
@@ -43,22 +29,15 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
         })
         .executeTakeFirstOrThrow()
 
-    // TODO Confirm / Make sure we delete files from S3 when rejecting?
-
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-}, minimalJobInfoShema)
+}
 
-export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
+export const dataForJobAction = async (studyJobIdentifier: string) => {
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
-        )
         .select([
             'studyJob.id as studyJobId',
             'studyJob.studyId',
@@ -79,14 +58,19 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
 
     if (jobInfo) {
         try {
-            manifest = await fetchCodeManifest(jobInfo)
+            if (USING_S3_STORAGE) {
+                manifest = await fetchCodeManifest(jobInfo)
+            } else {
+                const buf = await devReadCodeFile(jobInfo, 'manifest.json')
+                manifest = JSON.parse(buf.toString('utf-8'))
+            }
         } catch (e) {
             console.error('Failed to fetch code manifest', e)
         }
     }
 
     return { jobInfo, manifest }
-}, z.string())
+}
 
 export const dataForStudyDocumentsAction = async (studyId: string) => {
     // Fetch study information
@@ -110,18 +94,18 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
 
     // Prepare document list
     const documents = []
-
+    
     if (studyInfo.descriptionDocPath) {
         documents.push({
             name: 'Description Document',
-            path: studyInfo.descriptionDocPath,
+            path: studyInfo.descriptionDocPath
         })
     }
 
     if (studyInfo.irbDocPath) {
         documents.push({
             name: 'IRB Document',
-            path: studyInfo.irbDocPath,
+            path: studyInfo.irbDocPath
         })
     }
 
@@ -133,82 +117,59 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
     //     })
     // }
 
-    return {
-        studyInfo,
-        documents,
+    return { 
+        studyInfo, 
+        documents 
     }
 }
 
-export const latestJobForStudyAction = memberAction(async (studyId) => {
-    const latestJob = await db
+
+
+export const latestJobForStudy = async (studyId: string) => {
+    return await db
         .selectFrom('studyJob')
-        .selectAll('studyJob')
-
-        // security, check user has access to record
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
+        .selectAll()
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
+}
 
-    // We should always have a job, something is wrong if we don't
-    if (!latestJob) {
-        throw new Error(`No job found for study id: ${studyId}`)
-    }
-    return latestJob
-}, z.string())
-
-export const jobStatusForJobAction = memberAction(async (jobId) => {
+export const jobStatusForJob = async (jobId: string | undefined) => {
     if (!jobId) return null
 
     const result = await db
         .selectFrom('jobStatusChange')
-
-        // security, check user has access to record
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
-        .select('jobStatusChange.status')
+        .select('status')
         .where('jobStatusChange.studyJobId', '=', jobId)
-        .orderBy('jobStatusChange.createdAt', 'desc')
+        .orderBy('createdAt', 'desc')
         .limit(1)
         .executeTakeFirst()
 
     return result?.status || null
-}, z.string())
+}
 
-export const onFetchStudyJobsAction = memberAction(async (studyId) => {
-    return await db
-        .selectFrom('studyJob')
-        .select('studyJob.id')
+export const onStudyJobCreateAction = async (studyId: string) => {
+    const studyJob = await db
+        .insertInto('studyJob')
+        .values({
+            studyId: studyId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
 
-        // security, check user has access to record
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: studyJob.id,
+            status: 'INITIATED',
+        })
+        .executeTakeFirstOrThrow()
 
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['status', 'message', 'createdAt'])
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .orderBy('createdAt'),
-            ).as('statuses'),
-        ])
-        .where('studyId', '=', studyId)
-        .execute()
-}, z.string())
+    return studyJob.id
+}
 
-export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Promise<string> => {
+export const fetchJobResultsCsvAction = async (jobId: string): Promise<string> => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
@@ -226,9 +187,9 @@ export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Prom
     }
 
     return csv
-}, z.string())
+}
 
-export const fetchJobResultsZipAction = memberAction(async (jobId: string): Promise<Blob> => {
+export const fetchJobResultsZipAction = async (jobId: string): Promise<Blob> => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
@@ -246,4 +207,4 @@ export const fetchJobResultsZipAction = memberAction(async (jobId: string): Prom
     } else {
         throw new Error('Unknown storage type')
     }
-}, z.string())
+}

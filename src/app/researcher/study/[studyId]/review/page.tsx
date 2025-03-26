@@ -1,36 +1,80 @@
-import { Center, Group, Paper, Stack, Title } from '@mantine/core'
-import { db } from '@/database'
+import { Divider, Paper, Stack, Title, Text } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { StudyProposalDetails } from '@/components/study/study-proposal-details'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { db } from '@/database'
+import { getMemberIdFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
-export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
-    const params = await props.params
+export default async function StudyReviewPage(props: { params: { studyId: string } }) {
+    const { studyId } = props.params
 
-    const { studyId } = params
+    const fingerprint = await getMemberUserFingerprintAction()
 
-    // TODO check user permissions
     const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
+    const memberIdentifier = await getMemberIdFromIdentifierAction(study.memberId)
+
+    const latestJob = await latestJobForStudyAction(study.id)
+    const latestJobStatus = await jobStatusForJobAction(latestJob?.id)
+
     return (
-        <Center>
-            <Paper w="70%" shadow="xs" p="sm" m="xs">
+        <>
+            <Stack px="xl" gap="xl">
                 <ResearcherBreadcrumbs
                     crumbs={{
                         studyId,
                         studyTitle: study?.title,
-                        current: 'Proposal Request',
+                        current: 'Study Details',
                     }}
                 />
-                <Stack>
-                    <Group gap="xl" mb="xl">
-                        <Title>{study.title}</Title>
-                    </Group>
-                </Stack>
-            </Paper>
-        </Center>
+                <Divider />
+                <Paper bg="white" p="xl">
+                    <Stack mt="md">
+                        <Title order={3}>{study.title}</Title>
+                        {memberIdentifier && (
+                            <StudyProposalDetails
+                                params={{
+                                    memberIdentifier,
+                                    studyIdentifier: studyId,
+                                }}
+                            />
+                        )}
+                    </Stack>
+                </Paper>
+
+                <Paper bg="white" p="xl">
+                    <Stack mt="md">
+                        <Title order={3}>Study Code</Title>
+                        {memberIdentifier && (
+                            <StudyCodeDetails
+                                params={{
+                                    memberIdentifier,
+                                    studyIdentifier: studyId,
+                                }}
+                            />
+                        )}
+                    </Stack>
+                </Paper>
+
+                <Paper bg="white" p="xl">
+                    <Stack mt="md">
+                        <Title order={3}>Study Results</Title>
+                        <Divider />
+                        <Text>Study results will be displayed after the data organization reviews them.</Text>
+                        {latestJob && (
+                            <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+                        )}
+                    </Stack>
+                </Paper>
+            </Stack>
+        </>
     )
 }

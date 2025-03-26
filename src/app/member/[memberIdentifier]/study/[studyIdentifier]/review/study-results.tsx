@@ -83,15 +83,13 @@ export const StudyResults: FC<{
     }
 
     return (
-        <Paper bg="white" p="xl">
+        <Paper bg="white">
             <Stack>
                 <Group justify="space-between">
-                    <Title order={4}>Study Results</Title>
                     {decryptedResults?.length && (
                         <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
                     )}
                 </Group>
-                <Divider />
                 <Stack>{decryptedResults}</Stack>
                 <Stack>
                     {jobStatus === 'RUN-COMPLETE' && !decryptedResults?.length && (

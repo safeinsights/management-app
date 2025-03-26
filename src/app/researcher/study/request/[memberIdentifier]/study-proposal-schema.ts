@@ -63,11 +63,13 @@ export const studyProposalSchema = z.object({
                 message: 'Only .doc, .docx, and .pdf files are allowed for Agreement document',
             },
         ),
-    codeFiles: z
+        codeFiles: z
         .array(z.instanceof(File))
         .min(1, { message: 'At least one code file is required.' })
         .max(10, { message: 'No more than 10 code files are allowed.' })
-        .refine((files) => files.some((file) => !['.R', '.r', 'rmd'].includes(file.type)), {
+        .refine((files) => files.every((file) => 
+            /\.(R|r|rmd)$/.test(file.name)
+        ), {
             message: 'Only .R, .r, and .rmd files are allowed for code files.',
         }),
 })

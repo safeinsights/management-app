@@ -56,4 +56,5 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
             </Stack>
         </form>
     )
+    
 }

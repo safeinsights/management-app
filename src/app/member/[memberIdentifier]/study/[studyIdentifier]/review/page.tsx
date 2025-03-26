@@ -1,5 +1,3 @@
-'use server'
-
 import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
@@ -7,7 +5,8 @@ import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
-import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
+import { StudyProposalDetails } from '@/components/study/study-proposal-details'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
@@ -45,7 +44,7 @@ export default async function StudyReviewPage(props: {
                 <MemberBreadcrumbs
                     crumbs={{
                         memberIdentifier,
-                        current: study.title,
+                        current: 'Study Details',
                     }}
                 />
                 <Divider />
@@ -56,37 +55,45 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xl">
                 <Stack>
                     <Group justify="space-between">
-                        <Title order={4}>Study Proposal</Title>
+                        <Title order={3}>Study Proposal</Title>
                         <StudyReviewButtons study={study} memberIdentifier={memberIdentifier} />
                     </Group>
-                    <Divider />
-                    <Grid>
-                        <GridCol span={3}>
-                            <Stack>
-                                <Text fw="bold">Study Name</Text>
-                                <Text fw="bold">Principal investigator</Text>
-                                <Text fw="bold">Researcher</Text>
-                                <Text fw="bold">IRB</Text>
-                                <Text fw="bold">Agreement(s)</Text>
-                                <Text fw="bold">Study Code</Text>
-                            </Stack>
-                        </GridCol>
-                        <GridCol span={9}>
-                            <Stack>
-                                <Text>{study.title}</Text>
-                                <Text>{study.piName}</Text>
-                                <Text>{study.researcherName}</Text>
-                                <Text>{study.irbProtocols} some link</Text>
-                                <Text>TODO agreements</Text>
-                                {latestJob && <StudyJobFiles job={latestJob} />}
-                            </Stack>
-                        </GridCol>
-                    </Grid>
+                    <Stack mt="md">
+                        {studyIdentifier && (
+                            <StudyProposalDetails
+                                params={{
+                                    memberIdentifier,
+                                    studyIdentifier: studyIdentifier,
+                                }}
+                            />
+                        )}
+                    </Stack>
                 </Stack>
             </Paper>
-            {latestJob && latestJobStatus && (
-                <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
-            )}
+
+            <Paper bg="white" p="xl">
+                <Stack mt="md">
+                    <Title order={3}>Study Code</Title>
+                    {memberIdentifier && (
+                        <StudyCodeDetails
+                            params={{
+                                memberIdentifier,
+                                studyIdentifier: studyIdentifier,
+                            }}
+                        />
+                    )}
+                </Stack>
+            </Paper>
+
+            <Paper bg="white" p="xl">
+                <Stack mt="md">
+                    <Title order={3}>Study Results</Title>
+                    <Divider />
+                    {latestJob && (
+                        <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+                    )}
+                </Stack>
+            </Paper>
         </Stack>
     )
 }
