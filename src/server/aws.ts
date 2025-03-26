@@ -197,9 +197,12 @@ export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
+    if (!process.env.ENVIRONMENT_ID) {
+        throw new Error('ENVIRONMENT_ID env var not set')
+    }
     await codebuild.send(
         new StartBuildCommand({
-            projectName: 'MgmntAppContainerizer-dev',
+            projectName: `MgmntAppContainerizer-${process.env.ENVIRONMENT_ID}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',
