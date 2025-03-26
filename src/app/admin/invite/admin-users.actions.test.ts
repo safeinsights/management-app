@@ -10,7 +10,7 @@ describe('invite user Actions', async () => {
     beforeEach(() => {
         mockClerkSession({
             clerkUserId: 'user-id',
-            org_slug: 'safe-insights',
+            org_slug: CLERK_ADMIN_ORG_SLUG,
         })
     })
     async function userRecordCount() {

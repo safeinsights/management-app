@@ -1,4 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
+import { CLERK_ADMIN_ORG_SLUG } from '@/server/config'
 import { db } from '@/database'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { Member } from '@/schema/member'
@@ -13,7 +14,7 @@ describe('Member Actions', () => {
     beforeEach(() => {
         mockClerkSession({
             clerkUserId: 'user-id',
-            org_slug: 'safe-insights',
+            org_slug: CLERK_ADMIN_ORG_SLUG,
         })
     })
     const newMember = {
