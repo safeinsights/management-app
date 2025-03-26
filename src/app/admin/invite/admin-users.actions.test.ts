@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
+import { CLERK_ADMIN_ORG_SLUG } from '@/server/config'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
