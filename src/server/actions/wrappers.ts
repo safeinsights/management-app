@@ -82,7 +82,7 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const store = localStorageContext.getStore()
         if (store?.orgSlug !== 'safe-insights') {
-            logger.error("Current orgSlug in adminAction:", store?.orgSlug)
+            logger.error('Current orgSlug in adminAction:', store?.orgSlug)
             throw new AccessDeniedError('Only admins are allowed to perform this action')
         }
         return await func(arg)
