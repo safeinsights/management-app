@@ -13,7 +13,7 @@ describe('Member Actions', () => {
     beforeEach(() => {
         mockClerkSession({
             clerkUserId: 'user-id',
-            org_slug: 'safeinsights',
+            org_slug: 'safe-insights',
         })
     })
     const newMember = {
