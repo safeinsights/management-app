@@ -1,4 +1,4 @@
-import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
