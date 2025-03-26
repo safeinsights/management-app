@@ -94,18 +94,18 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
 
     // Prepare document list
     const documents = []
-    
+
     if (studyInfo.descriptionDocPath) {
         documents.push({
             name: 'Description Document',
-            path: studyInfo.descriptionDocPath
+            path: studyInfo.descriptionDocPath,
         })
     }
 
     if (studyInfo.irbDocPath) {
         documents.push({
             name: 'IRB Document',
-            path: studyInfo.irbDocPath
+            path: studyInfo.irbDocPath,
         })
     }
 
@@ -117,13 +117,11 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
     //     })
     // }
 
-    return { 
-        studyInfo, 
-        documents 
+    return {
+        studyInfo,
+        documents,
     }
 }
-
-
 
 export const latestJobForStudy = async (studyId: string) => {
     return await db

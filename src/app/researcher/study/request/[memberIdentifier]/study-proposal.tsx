@@ -6,7 +6,6 @@ import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
 
-
 const Icons: [RegExp, React.ReactNode][] = [
     [/\.docx?$/i, <FileDoc key="doc" size={14} color="#291bc4" />],
     [/\.txt$/i, <FileText key="txt" size={14} color="#291bc4" />],

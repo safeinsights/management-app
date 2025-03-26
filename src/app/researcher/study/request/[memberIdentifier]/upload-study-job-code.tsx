@@ -49,7 +49,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         'text/plain': ['.r', '.R', '.rmd'],
                         'application/x-r': ['.r', '.R'],
                         'text/x-r': ['.r', '.R'],
-                        'text/markdown': ['.rmd']
+                        'text/markdown': ['.rmd'],
                     }}
                 >
                     <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
