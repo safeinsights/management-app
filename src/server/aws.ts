@@ -4,11 +4,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
-import { CreateRepositoryCommand, ECRClient, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
+import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, getUploadTmpDirectory, PROD_ENV, TEST_ENV, USING_S3_STORAGE } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJob, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
-import { slugify, strToAscii } from '@/lib/string'
+import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import {
@@ -18,7 +18,7 @@ import {
     MinimalJobResultsInfo,
     MinimalStudyInfo,
 } from '@/lib/types'
-import { getECRPolicy } from './aws-ecr-policy'
+
 import fs from 'fs'
 import path from 'path'
 
@@ -55,8 +55,15 @@ const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
-export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
-    return `si/analysis/${opts.memberIdentifier}/${opts.studyId}/${slugify(opts.studyTitle)}`
+const awsEnvironmentId = () => {
+    return process.env.ENVIRONMENT_ID || 'dev'
+}
+
+// we currently use a single ECR, but in the future we may use a different one for each member and/or study
+export async function codeBuildRepositoryUrl(_info: MinimalStudyInfo) {
+    const repoName = process.env.CODE_BUILD_ECR_NAME || 'si/analysis/code-builds/${awsEnvironmentId()}'
+    const { accountId, region } = await getAWSInfo()
+    return `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoName}`
 }
 
 export const getAWSInfo = async () => {
@@ -77,29 +84,6 @@ export const getAWSInfo = async () => {
         accountId,
         region,
     }
-}
-
-export async function createAnalysisRepository(repositoryName: string, tags: Record<string, string> = {}) {
-    const ecrClient = getECRClient()
-    const { accountId } = await getAWSInfo()
-    const resp = await ecrClient.send(
-        new CreateRepositoryCommand({
-            repositoryName,
-            tags: objectToAWSTags({ ...tags, Target: 'si:analysis' }),
-        }),
-    )
-    if (!resp?.repository?.repositoryUri) {
-        throw new Error('Failed to create repository')
-    }
-
-    await ecrClient.send(
-        new SetRepositoryPolicyCommand({
-            repositoryName,
-            registryId: resp.repository.registryId,
-            policyText: JSON.stringify(getECRPolicy(accountId)),
-        }),
-    )
-    return resp.repository.repositoryUri
 }
 
 const calculateChecksum = async (body: ReadableStream) => {
@@ -197,12 +181,10 @@ export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
-    if (!process.env.ENVIRONMENT_ID) {
-        throw new Error('ENVIRONMENT_ID env var not set')
-    }
-    await codebuild.send(
+
+    const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: `MgmntAppContainerizer-${process.env.ENVIRONMENT_ID}`,
+            projectName: `MgmntAppContainerizer-${awsEnvironmentId()}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',
@@ -225,4 +207,5 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
             ],
         }),
     )
+    if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
