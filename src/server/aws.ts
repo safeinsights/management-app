@@ -55,6 +55,13 @@ const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
+const awsEnvironmentId = () => {
+    if (!process.env.ENVIRONMENT_ID) {
+        throw new Error('ENVIRONMENT_ID env var not set')
+    }
+    return process.env.ENVIRONMENT_ID
+}
+
 export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
     return `si/analysis/${opts.memberIdentifier}/${opts.studyId}/${slugify(opts.studyTitle)}`
 }
@@ -197,12 +204,10 @@ export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
-    if (!process.env.ENVIRONMENT_ID) {
-        throw new Error('ENVIRONMENT_ID env var not set')
-    }
-    await codebuild.send(
+
+    const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: `MgmntAppContainerizer-${process.env.ENVIRONMENT_ID}`,
+            projectName: `MgmntAppContainerizer-${awsEnvironmentId()}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',
@@ -225,4 +230,5 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
             ],
         }),
     )
+    if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
