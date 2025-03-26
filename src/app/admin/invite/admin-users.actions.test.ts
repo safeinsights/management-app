@@ -1,5 +1,6 @@
 import { db } from '@/database'
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
+import { CLERK_ADMIN_ORG_SLUG } from '@/server/config'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
@@ -10,7 +11,7 @@ describe('invite user Actions', async () => {
     beforeEach(() => {
         mockClerkSession({
             clerkUserId: 'user-id',
-            org_slug: 'safeinsights',
+            org_slug: CLERK_ADMIN_ORG_SLUG,
         })
     })
     async function userRecordCount() {

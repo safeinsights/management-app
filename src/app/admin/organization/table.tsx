@@ -2,7 +2,7 @@
 
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
-import { FC, useEffect, useState } from 'react'
+import { FC, useMemo, useState } from 'react'
 import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member.actions'
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,12 +23,10 @@ export function MembersAdminTable() {
         direction: 'desc',
     })
 
-    const [members, setMembers] = useState<Member[]>([])
-
-    useEffect(() => {
+    const sortedMembers = useMemo(() => {
         const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Member))
-        setMembers(sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers)
-    }, [sortStatus, data])
+        return sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers
+    }, [data, sortStatus])
 
     return (
         <Flex direction={'column'}>
@@ -38,7 +36,7 @@ export function MembersAdminTable() {
                 idAccessor="identifier"
                 noRecordsText="No organisations yet, add some using button below"
                 noRecordsIcon={<Users />}
-                records={members}
+                records={sortedMembers}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
                 columns={[

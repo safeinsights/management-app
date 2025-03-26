@@ -36,7 +36,7 @@ const middlewareDebug = debug('app:middleware')
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const OPENSTAX_ORG_SLUG = 'openstax'
-const SAFEINSIGHTS_ORG_SLUG = 'safe-insights'
+const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
 
 const MFA_ROUTE = '/account/mfa'
 
@@ -57,7 +57,7 @@ export default clerkMiddleware(async (auth, req) => {
 
     // Define user roles
     const userRoles = {
-        isAdmin: orgSlug === SAFEINSIGHTS_ORG_SLUG,
+        isAdmin: orgSlug === CLERK_ADMIN_ORG_SLUG,
         hasMFA: !!sessionClaims?.hasMFA,
         get isMember() {
             return orgSlug && !this.isAdmin
