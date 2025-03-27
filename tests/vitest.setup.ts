@@ -34,7 +34,7 @@ beforeAll(async () => {
             },
         }
     })
-
+    vi.mock('next/cache')
     vi.mock('next/headers', async () => ({ headers: async () => Headers }))
 
     vi.mock('@clerk/nextjs')

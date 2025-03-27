@@ -1,11 +1,9 @@
 'use server'
 
-import { USING_CONTAINER_REGISTRY } from '@/server/config'
-import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
+import { codeBuildRepositoryUrl } from '@/server/aws'
 import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { strToAscii } from '@/lib/string'
 
 import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -27,23 +25,6 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     const studyId = uuidv7()
 
-    const repoPath = generateRepositoryPath({
-        memberIdentifier: member.identifier,
-        studyId,
-        studyTitle: studyInfo.title,
-    })
-
-    let repoUrl = ''
-
-    if (USING_CONTAINER_REGISTRY) {
-        repoUrl = await createAnalysisRepository(repoPath, {
-            title: strToAscii(studyInfo.title),
-            studyId,
-        })
-    } else {
-        const { accountId, region } = await getAWSInfo()
-        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
-    }
     let irbDocPath = ''
     if (studyInfo.irbDocument) {
         irbDocPath = await storeStudyDocumentFile(
@@ -60,6 +41,8 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         )
     }
 
+    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberIdentifier: member.identifier })
+
     await db
         .insertInto('study')
         .values({
@@ -72,7 +55,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             // TODO: add agreement document
             memberId,
             researcherId: userId,
-            containerLocation: repoUrl,
+            containerLocation,
             status: 'PENDING-REVIEW',
         })
         .returning('id')

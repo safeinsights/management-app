@@ -5,10 +5,8 @@ import { CodeManifest } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
 import { minimalJobInfoShema } from '@/lib/types'
-import { USING_S3_STORAGE } from '@/server/config'
-
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
-import { queryJobResult, siUser } from '@/server/db/queries'
+import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
 import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -16,7 +14,7 @@ import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
 export const approveStudyJobResultsAction = memberAction(
     async ({ jobInfo: info, jobResults }) => {
-        await checkMemberAllowedStudyReview(info.studyId, getUserIdFromActionContext())
+        await checkMemberAllowedStudyReview(info.studyId)
 
         const blob = new Blob(jobResults, { type: 'text/csv' })
         const resultsFile = new File([blob], 'job_results.csv')
@@ -89,21 +87,7 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
 }, z.string())
 
 export const latestJobForStudyAction = memberAction(async (studyId) => {
-    const latestJob = await db
-        .selectFrom('studyJob')
-        .selectAll('studyJob')
-
-        // security, check user has access to record
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-
+    const latestJob = await latestJobForStudy(studyId)
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
@@ -126,7 +110,7 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
 
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
-        .orderBy('jobStatusChange.createdAt', 'desc')
+        .orderBy('jobStatusChange.id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
