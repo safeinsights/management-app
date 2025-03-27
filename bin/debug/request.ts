@@ -34,8 +34,9 @@ export class DebugRequest {
 
     async perform() {
         const { origin } = this.program.opts()
-
-        const response = await fetch(`${origin}/api/${this.path}`, {
+        const url = `${origin}/api/${this.path}`
+        console.log(`Sending request to ${url}`)
+        const response = await fetch(url, {
             method: this.method,
             headers: {
                 Authorization: this.authorization,
