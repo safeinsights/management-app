@@ -32,7 +32,7 @@ test('handling upload', async () => {
             memberIdentifier: member.identifier,
             studyId,
             studyJobId: jobIds[0],
-            resultsPath: 'testfile.txt',
+            resultsType: 'ENCRYPTED',
         }),
     )
 
@@ -43,6 +43,6 @@ test('handling upload', async () => {
         .select('resultsPath')
         .where('id', '=', jobIds[0])
         .executeTakeFirstOrThrow()
-
-    expect(sr.resultsPath).toBe('testfile.txt')
+    // we don't store the path in the database until results are approved
+    expect(sr.resultsPath).toBeNull()
 })

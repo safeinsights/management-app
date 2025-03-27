@@ -2,7 +2,7 @@ import { sanitizeFileName } from '@/lib/util'
 import path from 'path'
 import fs from 'fs'
 import { storeStudyFile } from './aws'
-import { MinimalStudyInfo, MinimalJobInfo } from '@/lib/types'
+import { MinimalStudyInfo, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 
@@ -31,8 +31,8 @@ export async function storeStudyCodeFile(info: MinimalJobInfo, file: File) {
     return await storeFile(pathForStudyJobCode(info), info, file)
 }
 
-export async function storeStudyResultsFile(info: MinimalJobInfo, file: File) {
-    return await storeFile(pathForStudyJobResults({ ...info, resultsPath: file.name }), info, file)
+export async function storeStudyResultsFile(info: MinimalJobResultsInfo, file: File) {
+    return await storeFile(pathForStudyJobResults(info), info, file)
 }
 
 export async function storeStudyDocumentFile(info: MinimalStudyInfo, file: File) {

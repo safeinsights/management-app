@@ -5,54 +5,32 @@ import { CodeManifest } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
 import { minimalJobInfoSchema } from '@/lib/types'
-import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
+import { attachApprovedResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
 import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
-import logger from '@/lib/logger'
 
-export const approveStudyJobResultsAction = memberAction(
-    async ({ jobInfo: info, jobResults }) => {
-        await checkMemberAllowedStudyReview(info.studyId)
+const approveStudyJobResultsActionSchema = z.object({
+    jobInfo: minimalJobInfoSchema,
+    jobResults: z.array(z.string()),
+})
+// FIXME: we should probably send the file directly into the action
+// vs relying on it always being CSV string
+export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
+    await checkMemberAllowedStudyReview(info.studyId)
 
-        await db
-            .updateTable('studyJob')
-            .set({
-                approvedAt: new Date(),
-                rejectedAt: null,
-            })
-            .where('id', '=', info.studyJobId)
-            .execute()
+    const blob = new Blob(jobResults, { type: 'text/csv' })
+    const resultsFile = new File([blob], 'job_results.csv')
+    await attachApprovedResultsToStudyJob(info, resultsFile)
 
-        const blob = new Blob(jobResults, { type: 'text/csv' })
-        const resultsFile = new File([blob], 'job_results.csv')
-        await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
-        logger.info('Study Job Approved', {
-            reviewerId: getUserIdFromActionContext(),
-            studyId: info.studyId,
-        })
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-    },
-    z.object({
-        jobInfo: minimalJobInfoSchema,
-        jobResults: z.array(z.string()),
-    }),
-)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+}, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
     await checkMemberAllowedStudyReview(info.studyId)
-
-    await db
-        .updateTable('studyJob')
-        .set({
-            rejectedAt: new Date(),
-            approvedAt: null,
-        })
-        .where('id', '=', info.studyJobId)
-        .execute()
 
     await db
         .insertInto('jobStatusChange')
@@ -63,10 +41,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
         })
         .executeTakeFirstOrThrow()
 
-    logger.info('Study Job Rejected', {
-        reviewerId: getUserIdFromActionContext(),
-        studyId: info.studyId,
-    })
+    // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
@@ -168,8 +143,8 @@ export const onFetchStudyJobsAction = memberAction(async (studyId) => {
 
 export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Promise<string> => {
     const job = await queryJobResult(jobId)
-    if (!job) {
-        throw new Error(`Job ${jobId} not found or does not have results`)
+    if (!job || job.resultsType != 'APPROVED') {
+        throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
     const storage = await storageForResultsFile(job)
     let csv = ''
@@ -191,9 +166,14 @@ export const fetchJobResultsZipAction = memberAction(async (jobId: string): Prom
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
     }
+
     const storage = await storageForResultsFile(job)
     if (storage.s3) {
-        const body = await fetchStudyJobResults(job)
+        const body = await fetchStudyJobResults({
+            ...job,
+
+            //resultsPath: path.join(job.resultsPath, job.resultsPath)
+        })
         return body
             .transformToWebStream()
             .getReader()
