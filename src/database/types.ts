@@ -76,8 +76,10 @@ export interface Study {
 }
 
 export interface StudyJob {
+    approvedAt: Timestamp | null
     createdAt: Generated<Timestamp>
     id: Generated<string>
+    rejectedAt: Timestamp | null
     resultFormat: ResultFormat | null
     resultsPath: string | null
     studyId: string

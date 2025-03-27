@@ -42,15 +42,15 @@ describe('User keypair generation', () => {
 
         renderWithProviders(<GenerateKeys />)
 
-        expect(screen.getByText(/create your private key/i)).toBeDefined()
-        const generateKeypairButton = screen.getByRole('button', { name: /generate keypair/i })
+        expect(screen.getByText(/create private key/i)).toBeDefined()
+        const generateKeypairButton = screen.getByRole('button', { name: /create private key/i })
         expect(generateKeypairButton).toBeDefined()
 
         fireEvent.click(generateKeypairButton)
 
         // Wait for state updates
         await waitFor(() => {
-            expect(screen.getByText('Private key:')).toBeDefined()
+            expect(screen.getByText('Private key')).toBeDefined()
         })
 
         // Simulate copy button click

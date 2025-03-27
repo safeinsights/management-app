@@ -2,12 +2,13 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
-import { latestJobForStudy, siUser } from '@/server/db/queries'
+import { latestJobForStudy } from '@/server/db/queries'
 import { getOrgSlugFromActionContext, getUserIdFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
 import { triggerBuildImageForJob } from '../aws'
+import logger from '@/lib/logger'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     return await db
@@ -109,14 +110,15 @@ export const getStudyAction = memberAction(async (studyId) => {
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
-    checkMemberAllowedStudyReview(studyId)
+    await checkMemberAllowedStudyReview(studyId)
+    const userId = getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date() })
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -124,10 +126,9 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
         let status: StudyJobStatus = 'CODE-APPROVED'
-        const userId = getUserIdFromActionContext()
 
         if (USING_S3_STORAGE) {
-            triggerBuildImageForJob({
+            await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
                 memberIdentifier: getOrgSlugFromActionContext(),
@@ -145,18 +146,23 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             .executeTakeFirstOrThrow()
     })
 
+    logger.info('Study Approved', {
+        reviewerId: userId,
+        studyId: studyId,
+    })
+
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const { id } = await siUser()
+    const userId = getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date(), reviewerId: id })
+            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -166,11 +172,16 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
         await trx
             .insertInto('jobStatusChange')
             .values({
-                userId: (await siUser()).id,
+                userId: userId,
                 status: 'CODE-REJECTED',
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
+    })
+
+    logger.info('Study Rejected', {
+        reviewerId: userId,
+        studyId: studyId,
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')

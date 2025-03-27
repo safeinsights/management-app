@@ -22,7 +22,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             <Table.Td>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title} {study.title} {study.title}
+                        {study.title}
                     </Text>
                 </Tooltip>
             </Table.Td>
@@ -75,7 +75,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 }) => {
     if (jobStatus === 'JOB-PACKAGING') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Code
                 </Text>
@@ -86,7 +86,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (jobStatus === 'JOB-ERRORED') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Code
                 </Text>
@@ -97,7 +97,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (jobStatus === 'RUN-COMPLETE') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Results
                 </Text>
@@ -108,7 +108,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (jobStatus === 'RESULTS-REJECTED') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Results
                 </Text>
@@ -119,7 +119,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (jobStatus === 'RESULTS-APPROVED') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Results
                 </Text>
@@ -130,7 +130,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (studyStatus === 'PENDING-REVIEW') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Proposal
                 </Text>
@@ -141,7 +141,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (studyStatus === 'APPROVED') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Proposal
                 </Text>
@@ -152,7 +152,7 @@ export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: Study
 
     if (studyStatus === 'REJECTED') {
         return (
-            <Stack>
+            <Stack gap="0">
                 <Text size="xs" c="#64707C">
                     Proposal
                 </Text>
