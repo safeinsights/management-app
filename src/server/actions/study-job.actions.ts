@@ -4,7 +4,7 @@ import { db } from '@/database'
 import { CodeManifest } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
 import { revalidatePath } from 'next/cache'
-import { minimalJobInfoShema } from '@/lib/types'
+import { minimalJobInfoSchema } from '@/lib/types'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
@@ -37,7 +37,7 @@ export const approveStudyJobResultsAction = memberAction(
         revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
     },
     z.object({
-        jobInfo: minimalJobInfoShema,
+        jobInfo: minimalJobInfoSchema,
         jobResults: z.array(z.string()),
     }),
 )
@@ -70,7 +70,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-}, minimalJobInfoShema)
+}, minimalJobInfoSchema)
 
 export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
     const jobInfo = await db

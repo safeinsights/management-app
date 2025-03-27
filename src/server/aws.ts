@@ -13,7 +13,7 @@ import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import {
     CodeManifest,
-    isMinimalStudyRunInfo,
+    isMinimalStudyJobInfo,
     MinimalJobInfo,
     MinimalJobResultsInfo,
     MinimalStudyInfo,
@@ -110,7 +110,7 @@ export const storeStudyFile = async (
         client: getS3Client(), // jobId: info.studyJobId//
         tags: objectToAWSTags({
             studyId: info.studyId,
-            ...(isMinimalStudyRunInfo(info) ? { studyJobId: info.studyJobId } : {}),
+            ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),
         }),
         params: {
             Bucket: s3BucketName(),

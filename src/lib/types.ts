@@ -39,18 +39,18 @@ export const minimalStudyInfoSchema = z.object({
 })
 export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
 
-export const minimalJobInfoShema = minimalStudyInfoSchema.extend({
+export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
     studyJobId: z.string(),
 })
-export type MinimalJobInfo = z.infer<typeof minimalJobInfoShema>
+export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
-export const minimalJobResultsInfoSchema = minimalJobInfoShema.extend({
+export const minimalJobResultsInfoSchema = minimalJobInfoSchema.extend({
     resultsPath: z.string(),
 })
 export type MinimalJobResultsInfo = z.infer<typeof minimalJobResultsInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
-export function isMinimalStudyRunInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
+export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
     return 'studyJobId' in info
 }
