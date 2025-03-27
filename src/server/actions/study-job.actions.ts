@@ -16,7 +16,7 @@ const approveStudyJobResultsActionSchema = z.object({
     jobInfo: minimalJobInfoSchema,
     jobResults: z.array(z.string()),
 })
-// FIXME: we should probalby send the file directly into the action
+// FIXME: we should probably send the file directly into the action
 // vs relying on it always being CSV string
 export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
     await checkMemberAllowedStudyReview(info.studyId)
