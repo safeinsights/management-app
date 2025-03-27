@@ -29,7 +29,6 @@ export function InviteForm() {
 
     const { mutate: inviteUser, isPending } = useMutation({
         mutationFn: adminInviteUserAction,
-
         onSettled(result, error) {
             if (error) {
                 reportError(error)

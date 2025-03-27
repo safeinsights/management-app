@@ -1,7 +1,7 @@
 import { db } from '@/database'
 import { MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
 import { urlForResults } from './aws'
-import { pathForStudyJob } from '@/lib/paths'
+import { pathForStudyJobResults } from '@/lib/paths'
 import { getUploadTmpDirectory, USING_S3_STORAGE } from './config'
 import path from 'path'
 import fs from 'fs'
@@ -36,7 +36,7 @@ export async function storageForResultsFile(info: MinimalJobResultsInfo) {
     if (USING_S3_STORAGE) {
         return { s3: true }
     } else {
-        return { file: path.join(getUploadTmpDirectory(), pathForStudyJob(info), info.resultsPath) }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyJobResults(info), info.resultsPath) }
     }
 }
 
