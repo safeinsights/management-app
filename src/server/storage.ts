@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { storeStudyFile } from './aws'
 import { MinimalStudyInfo, MinimalJobInfo } from '@/lib/types'
-import { pathForStudyJob, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
+import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 
 async function saveLocalFile(dir: string, file: File, fileName: string) {

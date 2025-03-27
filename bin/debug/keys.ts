@@ -1,6 +1,5 @@
 import { DebugRequest } from './request'
 
-
 const req = new DebugRequest()
 req.program.requiredOption('-j, --jobId <jobId>', 'jobId to get keys for')
 req.parse()
@@ -14,4 +13,3 @@ req.method = 'GET'
 req.perform().then((json) => {
     console.dir(json)
 })
-

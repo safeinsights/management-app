@@ -141,6 +141,25 @@ export const onFetchStudyJobsAction = memberAction(async (studyId) => {
         .execute()
 }, z.string())
 
+export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Promise<string> => {
+    const job = await queryJobResult(jobId)
+    if (!job) {
+        throw new Error(`Job ${jobId} not found or does not have results`)
+    }
+    const storage = await storageForResultsFile(job)
+    let csv = ''
+    if (storage.s3) {
+        const body = await fetchStudyJobResults(job)
+        // TODO: handle other types of results that are not string/CSV
+        csv = await body.transformToString('utf-8')
+    } else if (storage.file) {
+        csv = await fs.readFile(storage.file, 'utf-8')
+    } else {
+        throw new Error('Unknown storage type')
+    }
+
+    return csv
+}, z.string())
 
 export const fetchJobResultsZipAction = memberAction(async (jobId: string): Promise<Blob> => {
     const job = await queryJobResult(jobId)
