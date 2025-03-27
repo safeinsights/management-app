@@ -49,12 +49,17 @@ async function fetchSecret<T extends Record<string, unknown>>(envKey: string): P
     return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
-export async function getConfigValue(key: string): Promise<string> {
+export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
+export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
+export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
+
+    //    export async function getConfigValue(key: string): Promise<string> {
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
     const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN')
-    if (!secret[key]) throw new Error(`failed to find ${key} in config`)
+    if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
+
     return secret[key]
 }
 
@@ -75,6 +80,7 @@ export async function databaseURL(): Promise<string> {
 
     return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }
+
 
 export type SSOCookieConfig = {
     name: string
