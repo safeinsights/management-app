@@ -9,7 +9,6 @@ export const pathForStudyJobCode = (parts: MinimalJobInfo) => `${pathForStudyJob
 export const pathForStudyDocuments = (parts: MinimalStudyInfo) => `${pathForStudy(parts)}/docs`
 
 export const pathForStudyJobResults = (parts: MinimalJobResultsInfo) =>
-    `${pathForStudyJob(parts)}/results/${parts.resultsType == 'APPROVED' ? `approved/${parts.resultsPath}` : 'encypted.zip'}`
-
+    `${pathForStudyJob(parts)}/results/${parts.resultsType == 'APPROVED' ? `approved/${parts.resultsPath}` : 'encrypted.zip'}`
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
