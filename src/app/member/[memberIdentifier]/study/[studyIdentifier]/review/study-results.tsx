@@ -39,7 +39,7 @@ export const StudyResults: FC<{
                 throw error
             }
         },
-        enabled: !!latestJob?.id,
+        enabled: Boolean(latestJob && jobStatus == 'RUN-COMPLETE'),
     })
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
