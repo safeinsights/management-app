@@ -43,7 +43,7 @@ export const StudyResults: FC<{
         },
         onError: async (error) => {
             console.error(error)
-            form.setFieldError('privateKey', 'Invalid private key')
+            form.setFieldError('privateKey', 'Unable to decrtypt file')
         },
     })
 
