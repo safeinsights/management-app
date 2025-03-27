@@ -10,9 +10,10 @@ import { USING_S3_STORAGE } from '@/server/config'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
-import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
+import { actionContext, getUserIdFromActionContext, getOrgSlugFromActionContext, userAction, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
+
 
 export const approveStudyJobResultsAction = memberAction(
     async ({ jobInfo: info, jobResults }) => {
@@ -184,16 +185,21 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
     return result?.status || null
 }, z.string())
 
-export const onFetchStudyJobsAction = memberAction(async (studyId) => {
+export const onFetchStudyJobsAction = userAction(async (studyId) => {
+    const ctx = actionContext()
+
     return await db
         .selectFrom('studyJob')
         .select('studyJob.id')
 
-        // security, check user has access to record
+        // security, check user has access to record. the user must:
+        //    be the researcher who created the study
+        //    OR the study is for the the user's current organization
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
+        .$if(Boolean(ctx?.orgSlug), (qb) => qb.innerJoin('member', (join) =>
             join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
+        ))
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select((eb) => [
             jsonArrayFrom(
