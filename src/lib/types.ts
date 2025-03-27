@@ -44,10 +44,18 @@ export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
 })
 export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
-export const minimalJobResultsInfoSchema = minimalJobInfoSchema.extend({
-    resultsPath: z.string(),
-})
-export type MinimalJobResultsInfo = z.infer<typeof minimalJobResultsInfoSchema>
+// there's probably a way to do this with zod schema
+// but don't need it yet so i haven't investigated how
+export type MinimalJobResultsInfo = MinimalJobInfo &
+    (
+        | {
+              resultsType: 'APPROVED'
+              resultsPath: string
+          }
+        | {
+              resultsType: 'ENCRYPTED'
+          }
+    )
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
