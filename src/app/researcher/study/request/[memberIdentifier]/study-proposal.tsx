@@ -82,6 +82,7 @@ export const StudyProposalForm: FC<{
                     <Stack gap={0}>
                         <FileInput
                             name="irbDocument"
+                            color="siPurple"
                             component={Anchor}
                             aria-label="Upload IRB Document"
                             placeholder="Upload Document"

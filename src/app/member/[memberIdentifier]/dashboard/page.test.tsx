@@ -6,13 +6,14 @@ import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
 import { SiUser, siUser } from '@/server/db/queries'
+import { currentUser } from '@clerk/nextjs/server'
 
 vi.mock('@/server/actions/member.actions', () => ({
     getMemberFromIdentifierAction: vi.fn(),
 }))
 
-vi.mock('@/server/db/queries', () => ({
-    siUser: vi.fn(),
+vi.mock('@clerk/nextjs/server', () => ({
+    currentUser: vi.fn(),
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
@@ -47,7 +48,7 @@ describe('Member Dashboard', () => {
 
         vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
-        vi.mocked(siUser).mockResolvedValue({
+        vi.mocked(currentUser).mockResolvedValue({
             fullName: 'Test User',
         } as SiUser)
 
