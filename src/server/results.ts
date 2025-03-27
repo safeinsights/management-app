@@ -7,26 +7,19 @@ import path from 'path'
 import fs from 'fs'
 import { storeStudyResultsFile } from './storage'
 import { siUser } from './db/queries'
-import { StudyJobStatus } from '@/database/types'
 
-export async function attachResultsToStudyJob(info: MinimalJobInfo, file: File, studyJobStatus: StudyJobStatus) {
-    await storeStudyResultsFile(info, file)
-
-    await db
-        .updateTable('studyJob')
-        .set({
-            resultsPath: file.name,
-        })
-        .where('id', '=', info.studyJobId)
-        .execute()
+export async function attachApprovedResultsToStudyJob(info: MinimalJobInfo, file: File) {
+    await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: file.name }, file)
 
     const user = await siUser(false)
+
+    await db.updateTable('studyJob').set({ resultsPath: file.name }).where('id', '=', info.studyJobId).execute()
 
     await db
         .insertInto('jobStatusChange')
         .values({
             userId: user?.id,
-            status: studyJobStatus,
+            status: 'RESULTS-APPROVED',
             studyJobId: info.studyJobId,
         })
         .execute()
@@ -36,7 +29,7 @@ export async function storageForResultsFile(info: MinimalJobResultsInfo) {
     if (USING_S3_STORAGE) {
         return { s3: true }
     } else {
-        return { file: path.join(getUploadTmpDirectory(), pathForStudyJobResults(info), info.resultsPath) }
+        return { file: path.join(getUploadTmpDirectory(), pathForStudyJobResults(info)) }
     }
 }
 

@@ -5,7 +5,7 @@ import { useForm } from '@mantine/form'
 import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import Link from 'next/link'
@@ -29,11 +29,23 @@ export const StudyResults: FC<{
         initialValues: { privateKey: '' },
     })
 
-    const { mutate: decryptResults } = useMutation({
-        mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
-            if (!fingerprint) return []
+    const { isLoading: isLoadingBlob, data: blob } = useQuery({
+        queryKey: ['study-job', latestJob?.id],
+        queryFn: async () => {
+            try {
+                return await fetchJobResultsZipAction(latestJob!.id)
+            } catch (error) {
+                form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
+                throw error
+            }
+        },
+        enabled: !!latestJob?.id,
+    })
 
-            const blob = await fetchJobResultsZipAction(jobId)
+    const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
+        mutationFn: async ({ privateKey }: { privateKey: string }) => {
+            if (!fingerprint || !blob) return []
+
             const privateKeyBuffer = pemToArrayBuffer(privateKey)
             const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
             return await reader.decryptZip()
@@ -43,7 +55,7 @@ export const StudyResults: FC<{
         },
         onError: async (error) => {
             console.error(error)
-            form.setFieldError('privateKey', 'Invalid private key')
+            form.setFieldError('privateKey', 'Invalid private key, please double check the key and try again.')
         },
     })
 
@@ -73,7 +85,7 @@ export const StudyResults: FC<{
     }
 
     const onSubmit = (values: StudyResultsFormValues) => {
-        decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
+        decryptResults({ privateKey: values.privateKey })
     }
 
     const handleError = (errors: typeof form.errors) => {
@@ -104,7 +116,7 @@ export const StudyResults: FC<{
                                     placeholder="Enter private key"
                                     key={form.key('privateKey')}
                                 />
-                                <Button type="submit" disabled={!form.isValid}>
+                                <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
                                     Validate
                                 </Button>
                             </Group>
