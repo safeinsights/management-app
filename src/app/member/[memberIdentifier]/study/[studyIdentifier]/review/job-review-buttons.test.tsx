@@ -29,23 +29,67 @@ const mockStudy: Study = {
     reviewerId: faker.string.uuid(),
 }
 
-const mockStudyJob: StudyJob = {
+const mockApprovedStudyJob: StudyJob = {
     createdAt: faker.date.past(),
     id: faker.string.uuid(),
     resultFormat: 'SI_V1_ENCRYPT',
     resultsPath: faker.system.filePath(),
     studyId: mockStudy.id,
+    approvedAt: new Date(),
+    rejectedAt: null,
+}
+
+const mockRejectedStudyJob: StudyJob = {
+    createdAt: faker.date.past(),
+    id: faker.string.uuid(),
+    resultFormat: 'SI_V1_ENCRYPT',
+    resultsPath: faker.system.filePath(),
+    studyId: mockStudy.id,
+    approvedAt: null,
+    rejectedAt: new Date(),
 }
 
 describe('Study Results Approve/Reject buttons', () => {
+    vi.mocked(dataForJobAction).mockResolvedValue({
+        manifest: {
+            jobId: '',
+            language: 'r',
+            files: {},
+            size: 0,
+            tree: { label: '', value: '', size: 0, children: [] },
+        },
+        jobInfo: {
+            studyId: mockStudy.id,
+            createdAt: new Date(),
+            studyJobId: mockApprovedStudyJob.id,
+            studyTitle: mockStudy.title,
+            memberIdentifier: 'test-org',
+        },
+    })
+
     it('does not render when missing job info', async () => {
-        // vi.mocked(dataForJobAction).mockResolvedValue({ jobInfo: undefined, manifest: {} })
-        renderWithProviders(<JobReviewButtons job={mockStudyJob} decryptedResults={['123asdf']} />)
+        vi.mocked(dataForJobAction).mockResolvedValue({
+            jobInfo: undefined,
+            manifest: {
+                jobId: '',
+                language: 'r',
+                files: {},
+                size: 0,
+                tree: { label: '', value: '', size: 0, children: [] },
+            },
+        })
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
         expect(screen.queryByText('Reject')).toBeNull()
         expect(screen.queryByText('Approve')).toBeNull()
     })
 
     it('renders the approve/reject buttons when there is a job', async () => {
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        expect(screen.queryByText('Reject')).toBeDefined()
+        expect(screen.queryByText('Approve')).toBeDefined()
+    })
+
+    it('renders the approved timestamp for an approved job', async () => {
         vi.mocked(dataForJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
@@ -57,13 +101,35 @@ describe('Study Results Approve/Reject buttons', () => {
             jobInfo: {
                 studyId: mockStudy.id,
                 createdAt: new Date(),
-                studyJobId: mockStudyJob.id,
+                studyJobId: mockApprovedStudyJob.id,
                 studyTitle: mockStudy.title,
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockStudyJob} decryptedResults={['123asdf']} />)
-        expect(screen.queryByText('Reject')).toBeDefined()
-        expect(screen.queryByText('Approve')).toBeDefined()
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        expect(screen.queryByText(/approved on/i)).toBeDefined()
+        expect(screen.queryByText(/rejected on/i)).toBeNull()
+    })
+
+    it('renders the rejected timestamp for a rejected job', async () => {
+        vi.mocked(dataForJobAction).mockResolvedValue({
+            manifest: {
+                jobId: '',
+                language: 'r',
+                files: {},
+                size: 0,
+                tree: { label: '', value: '', size: 0, children: [] },
+            },
+            jobInfo: {
+                studyId: mockStudy.id,
+                createdAt: new Date(),
+                studyJobId: mockRejectedStudyJob.id,
+                studyTitle: mockStudy.title,
+                memberIdentifier: 'test-org',
+            },
+        })
+        renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={['123asdf']} />)
+        expect(screen.queryByText(/rejected on/i)).toBeDefined()
+        expect(screen.queryByText(/approved on/i)).toBeNull()
     })
 })

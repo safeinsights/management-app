@@ -1,5 +1,5 @@
 import { StudyJob } from '@/schema/study'
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Text } from '@mantine/core'
 import React from 'react'
 import { StudyJobStatus } from '@/database/types'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -10,6 +10,8 @@ import {
     dataForJobAction,
     rejectStudyJobResultsAction,
 } from '@/server/actions/study-job.actions'
+import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import dayjs from 'dayjs'
 
 export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
     const router = useRouter()
@@ -38,8 +40,24 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     if (!jobInfo) return null
 
-    // TODO Add job approvedAt/rejectedAt fields
-    //  and render appropriately if they exist
+    if (job.approvedAt) {
+        return (
+            <Group c="#12B886" gap="0">
+                <CheckCircle weight="fill" />
+                <Text>Approved on {dayjs(job.approvedAt).format('MMM DD, YYYY')}</Text>
+            </Group>
+        )
+    }
+
+    if (job.rejectedAt) {
+        return (
+            <Group c="#FA5252" gap="0">
+                <XCircle weight="fill" />
+                <Text>Rejected on {dayjs(job.rejectedAt).format('MMM DD, YYYY')}</Text>
+            </Group>
+        )
+    }
+
     return (
         <Group>
             <Button

@@ -8,6 +8,7 @@ import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
 import { triggerBuildImageForJob } from '../aws'
+import logger from '@/lib/logger'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     return await db
@@ -117,7 +118,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: userId })
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -145,6 +146,11 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             .executeTakeFirstOrThrow()
     })
 
+    logger.info('Study Approved', {
+        reviewerId: userId,
+        studyId: studyId,
+    })
+
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
 }, z.string())
 
@@ -156,7 +162,7 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
     await db.transaction().execute(async (trx) => {
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date(), reviewerId: userId })
+            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
@@ -171,6 +177,11 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
+    })
+
+    logger.info('Study Rejected', {
+        reviewerId: userId,
+        studyId: studyId,
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')

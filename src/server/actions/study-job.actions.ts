@@ -11,15 +11,28 @@ import { promises as fs } from 'fs'
 import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import logger from '@/lib/logger'
 
 export const approveStudyJobResultsAction = memberAction(
     async ({ jobInfo: info, jobResults }) => {
         await checkMemberAllowedStudyReview(info.studyId)
 
+        await db
+            .updateTable('studyJob')
+            .set({
+                approvedAt: new Date(),
+                rejectedAt: null,
+            })
+            .where('id', '=', info.studyJobId)
+            .execute()
+
         const blob = new Blob(jobResults, { type: 'text/csv' })
         const resultsFile = new File([blob], 'job_results.csv')
         await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
-
+        logger.info('Study Job Approved', {
+            reviewerId: getUserIdFromActionContext(),
+            studyId: info.studyId,
+        })
         revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
         revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
     },
@@ -33,6 +46,15 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
     await db
+        .updateTable('studyJob')
+        .set({
+            rejectedAt: new Date(),
+            approvedAt: null,
+        })
+        .where('id', '=', info.studyJobId)
+        .execute()
+
+    await db
         .insertInto('jobStatusChange')
         .values({
             userId: (await siUser()).id,
@@ -41,7 +63,10 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
         })
         .executeTakeFirstOrThrow()
 
-    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+    logger.info('Study Job Rejected', {
+        reviewerId: getUserIdFromActionContext(),
+        studyId: info.studyId,
+    })
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)

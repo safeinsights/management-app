@@ -14,6 +14,8 @@ const mockStudyJob: StudyJob = {
     resultFormat: 'SI_V1_ENCRYPT',
     resultsPath: faker.system.filePath(),
     studyId: faker.string.uuid(),
+    approvedAt: null,
+    rejectedAt: null,
 }
 
 describe('Study Results Approve/Reject buttons', () => {
