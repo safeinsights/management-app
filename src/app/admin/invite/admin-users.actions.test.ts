@@ -6,6 +6,11 @@ import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
+import { sendWelcomeEmail } from '@/lib/mailgun'
+
+vi.mock('@/lib/mailgun', () => ({
+    sendWelcomeEmail: vi.fn(),
+}))
 
 describe('invite user Actions', async () => {
     beforeEach(() => {
@@ -14,6 +19,7 @@ describe('invite user Actions', async () => {
             org_slug: CLERK_ADMIN_ORG_SLUG,
         })
     })
+
     async function userRecordCount() {
         const c = await db
             .selectFrom('user')
@@ -63,6 +69,8 @@ describe('invite user Actions', async () => {
             .where('memberId', '=', userInvite.organizationId)
             .executeTakeFirst()
         expect(memberUser).toBeTruthy()
+
+        expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email, `${user.firstName} ${user.lastName}`)
     })
 
     it('throws an error when user insert fails', async () => {
