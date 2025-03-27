@@ -1,15 +1,18 @@
-import { Center, Group, Paper, Stack, Title } from '@mantine/core'
+import { Center, Group, Paper, Stack } from '@mantine/core'
 import { db } from '@/database'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
+import { ViewCSV } from './results'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
-    const params = await props.params
+    const { studyId } = await props.params
 
-    const { studyId } = params
+    await checkUserAllowedStudyView(studyId)
 
-    // TODO check user permissions
     const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+
+    const job = await latestJobForStudy(studyId)
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
@@ -17,7 +20,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     return (
         <Center>
-            <Paper w="70%" shadow="xs" p="sm" m="xs">
+            <Paper shadow="xs" p="xl" w="100%">
                 <ResearcherBreadcrumbs
                     crumbs={{
                         studyId,
@@ -27,7 +30,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 />
                 <Stack>
                     <Group gap="xl" mb="xl">
-                        <Title>{study.title}</Title>
+                        <ViewCSV job={job} />
                     </Group>
                 </Stack>
             </Paper>

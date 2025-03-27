@@ -1,32 +1,32 @@
 'use client'
 
 import { FC } from 'react'
-import Link from 'next/link'
-import { Button, LoadingOverlay, Modal, ScrollArea } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+
+import { Alert, Flex, Group, LoadingOverlay, Stack, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
 import { ErrorAlert } from '@/components/errors'
-import { Download } from '@phosphor-icons/react/dist/ssr'
-import { slugify } from '@/lib/string'
+import { Download, Notification } from '@phosphor-icons/react/dist/ssr'
+import { resultsDownloadURL } from '@/lib/paths'
 import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
+import { ButtonLink } from '@/components/links'
 
 type JobResultsProps = {
-    job: { id: string }
-    study: { title: string }
+    job?: { id: string; resultsPath?: string | null }
 }
 
-const ViewCSV: FC<JobResultsProps> = ({ job }) => {
+export const ViewCSV: FC<JobResultsProps> = ({ job }) => {
     const {
         data: csv,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: ['job-results', job.id],
+        enabled: !!job?.id,
+        queryKey: ['job-results', job?.id],
         queryFn: async () => {
-            const csv = await fetchJobResultsCsvAction(job.id)
+            const csv = await fetchJobResultsCsvAction(job?.id || '')
             return Papa.parse<Record<string, string | number>>(csv, {
                 header: true,
                 complete: (results) => {
@@ -39,6 +39,16 @@ const ViewCSV: FC<JobResultsProps> = ({ job }) => {
         },
     })
 
+    if (!job?.id || !job?.resultsPath) {
+        return (
+            <Flex justify={'center'} w="100%" mt="xl">
+                <Alert variant="light" color="blue" title={'Results not available'} icon={<Notification />}>
+                    <p>Results are not yet available for this study.</p>
+                </Alert>
+            </Flex>
+        )
+    }
+
     if (isError) {
         return <ErrorAlert error={error} />
     }
@@ -48,44 +58,21 @@ const ViewCSV: FC<JobResultsProps> = ({ job }) => {
     }
 
     return (
-        <DataTable
-            height={'calc(100vh - 250px)'}
-            idAccessor={'INDEX_KEY_FOR_RENDERING'}
-            withTableBorder={false}
-            withColumnBorders={false}
-            records={csv.data}
-            columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))}
-        />
-    )
-}
+        <Stack mt="xl">
+            <Group justify="space-between">
+                <Title order={3}>CSV Results</Title>
+                <ButtonLink
+                    target="_blank"
+                    rightSection={<Download />}
+                    href={resultsDownloadURL({ id: job.id, resultsPath: job.resultsPath })}
+                >
+                    Download Results
+                </ButtonLink>
+            </Group>
 
-export const PreviewCSVResultsBtn: FC<JobResultsProps> = ({ job, study }) => {
-    const [opened, { open, close }] = useDisclosure(false)
-
-    return (
-        <>
-            <Modal
-                opened={opened}
-                onClose={close}
-                size="100%"
-                title={
-                    <Link href={`/dl/results/${job.id}/${slugify(study.title)}.csv`}>
-                        <Button rightSection={<Download />}>Download Results</Button>
-                    </Link>
-                }
-                scrollAreaComponent={ScrollArea.Autosize}
-                overlayProps={{
-                    backgroundOpacity: 0.55,
-                    blur: 3,
-                }}
-                centered
-            >
-                <ViewCSV job={job} study={study} />
-            </Modal>
-
-            <Button variant="outline" onClick={open}>
-                View Results
-            </Button>
-        </>
+            <div style={{ width: 'calc(100vw - 350px)' }}>
+                <DataTable records={csv.data} columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))} />
+            </div>
+        </Stack>
     )
 }
