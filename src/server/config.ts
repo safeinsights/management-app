@@ -46,13 +46,11 @@ async function fetchSecret<T extends Record<string, unknown>>(envKey: string): P
     } catch (e) {
         throw new Error(`failed to parse AWS secrets: ${e}`)
     }
-    return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
 export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
 export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
-
     //    export async function getConfigValue(key: string): Promise<string> {
     const envValue = process.env[key]
     if (envValue != null) return envValue
@@ -80,7 +78,6 @@ export async function databaseURL(): Promise<string> {
 
     return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }
-
 
 export type SSOCookieConfig = {
     name: string

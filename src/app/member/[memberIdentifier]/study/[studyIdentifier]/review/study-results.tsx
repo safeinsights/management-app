@@ -11,7 +11,7 @@ import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyId
 import Link from 'next/link'
 import { pemToArrayBuffer } from 'si-encryption/util'
 import { StudyJobStatus } from '@/database/types'
-import { fetchJobResultsZipAction } from '@/server/actions/study-job.actions'
+import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -33,7 +33,7 @@ export const StudyResults: FC<{
         queryKey: ['study-job', latestJob?.id],
         queryFn: async () => {
             try {
-                return await fetchJobResultsZipAction(latestJob!.id)
+                return await fetchJobResultsEncryptedZipAction(latestJob!.id)
             } catch (error) {
                 form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
                 throw error

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { urlOrPathToResultsFile } from '@/server/results'
+import { urlOrPathToResultsFile } from '@/server/storage'
 import { MinimalJobResultsInfo } from '@/lib/types'
 import { queryJobResult } from '@/server/db/queries'
 
@@ -14,6 +14,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     }
 
     const location = await urlOrPathToResultsFile(job as MinimalJobResultsInfo)
+
     if (location.content) {
         return new NextResponse(location.content)
     } else if (location.url) {

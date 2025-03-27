@@ -1,40 +1,88 @@
-import { sanitizeFileName } from '@/lib/util'
 import path from 'path'
 import fs from 'fs'
-import { storeStudyFile } from './aws'
-import { MinimalStudyInfo, MinimalJobInfo, MinimalJobResultsInfo } from '@/lib/types'
-import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
+import { Readable } from 'stream'
+import { storeS3File, fetchS3File, signedUrlForFile } from './aws'
+import { MinimalStudyInfo, MinimalJobInfo, MinimalJobResultsInfo, CodeManifest, StudyDocumentType } from '@/lib/types'
+import { pathForStudyDocuments, pathForStudyJobCodeFile, pathForStudyJobResults } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
+import logger from '@/lib/logger'
 
-async function saveLocalFile(dir: string, file: File, fileName: string) {
-    fs.mkdirSync(dir, { recursive: true })
-    const filePath = path.join(dir, path.basename(fileName))
-    const buffer = await file.arrayBuffer()
-
-    await fs.promises.writeFile(filePath, Buffer.from(buffer))
+async function urlForFile(filePath: string) {
+    if (USING_S3_STORAGE) {
+        return await signedUrlForFile(filePath)
+    } else {
+        return `/dev/download/${path}`
+    }
 }
 
-// TODO Do we want to have an inverse method for retrieveFile centralized here?
-async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
-    const fileName = sanitizeFileName(file.name)
-
+async function fetchFile(filePath: string) {
+    let stream: Readable
     if (USING_S3_STORAGE) {
-        await storeStudyFile(info, file.stream(), path.join(filePath, fileName))
+        stream = await fetchS3File(filePath)
     } else {
-        const dir = path.join(getUploadTmpDirectory(), filePath)
-        await saveLocalFile(dir, file, fileName)
+        stream = fs.createReadStream(path.join(getUploadTmpDirectory(), filePath))
+        stream.on('error', (err: unknown) => {
+            logger.error(`error reading file ${filePath}: ${err}`)
+        })
     }
-    return fileName
+    const chunks: Uint8Array[] = []
+    for await (const chunk of stream) {
+        chunks.push(chunk)
+    }
+    return new Blob(chunks)
+}
+
+export async function fetchStudyApprovedResultsFile(info: MinimalJobResultsInfo) {
+    if (info.resultsType != 'APPROVED') throw new Error('results type must be APPROVED')
+    return await fetchFile(pathForStudyJobResults(info))
+}
+
+export async function fetchStudyEncryptedResultsFile(info: MinimalJobResultsInfo) {
+    if (info.resultsType != 'ENCRYPTED') throw new Error('results type must be ENCRYPTED')
+    return await fetchFile(pathForStudyJobResults(info))
+}
+
+export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, fileName: string) {
+    return await urlForFile(pathForStudyDocuments(info, fileType, fileName))
+}
+
+export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {
+    return await fetchFile(pathForStudyJobCodeFile(info, filePath))
+}
+
+export async function fetchCodeManifest(info: MinimalJobInfo) {
+    const body = await fetchStudyCodeFile(info, 'manifest.json')
+    return JSON.parse(await body.text()) as CodeManifest
+}
+
+async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
+    if (USING_S3_STORAGE) {
+        await storeS3File(info, file.stream(), filePath)
+    } else {
+        const dirName = path.join(getUploadTmpDirectory(), path.dirname(filePath))
+        fs.mkdirSync(dirName, { recursive: true })
+        const buffer = await file.arrayBuffer()
+        await fs.promises.writeFile(path.join(dirName, path.basename(filePath)), Buffer.from(buffer))
+    }
 }
 
 export async function storeStudyCodeFile(info: MinimalJobInfo, file: File) {
-    return await storeFile(pathForStudyJobCode(info), info, file)
+    await storeFile(pathForStudyJobCodeFile(info, file.name), info, file)
 }
 
 export async function storeStudyResultsFile(info: MinimalJobResultsInfo, file: File) {
     return await storeFile(pathForStudyJobResults(info), info, file)
 }
 
-export async function storeStudyDocumentFile(info: MinimalStudyInfo, file: File) {
-    return await storeFile(pathForStudyDocuments(info), info, file)
+export async function storeStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, file: File) {
+    await storeFile(pathForStudyDocuments(info, fileType, file.name), info, file)
+}
+
+export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo): Promise<{ url?: string; content?: Blob }> {
+    const filePath = pathForStudyJobResults(info)
+    if (USING_S3_STORAGE) {
+        return { url: await urlForFile(filePath) }
+    } else {
+        return { content: await fetchFile(filePath) }
+    }
 }

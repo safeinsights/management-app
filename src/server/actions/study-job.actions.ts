@@ -2,28 +2,46 @@
 
 import { db } from '@/database'
 import { CodeManifest } from '@/lib/types'
-import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
+import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
+
 import { revalidatePath } from 'next/cache'
 import { minimalJobInfoSchema } from '@/lib/types'
-import { attachApprovedResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
-import { promises as fs } from 'fs'
 import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import { storeStudyResultsFile } from '@/server/storage'
 
 const approveStudyJobResultsActionSchema = z.object({
     jobInfo: minimalJobInfoSchema,
     jobResults: z.array(z.string()),
 })
+
 // FIXME: we should probably send the file directly into the action
 // vs relying on it always being CSV string
 export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
     const blob = new Blob(jobResults, { type: 'text/csv' })
+
     const resultsFile = new File([blob], 'job_results.csv')
-    await attachApprovedResultsToStudyJob(info, resultsFile)
+
+    await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
+
+    const user = await siUser(false)
+
+    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).execute()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: user?.id,
+            status: 'RESULTS-APPROVED',
+            studyJobId: info.studyJobId,
+        })
+        .execute()
+
+    //    await attachApprovedResultsToStudyJob(info, resultsFile)
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
@@ -146,42 +164,17 @@ export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Prom
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
-    const storage = await storageForResultsFile(job)
-    let csv = ''
-    if (storage.s3) {
-        const body = await fetchStudyJobResults(job)
-        // TODO: handle other types of results that are not string/CSV
-        csv = await body.transformToString('utf-8')
-    } else if (storage.file) {
-        csv = await fs.readFile(storage.file, 'utf-8')
-    } else {
-        throw new Error('Unknown storage type')
-    }
-
-    return csv
+    const body = await fetchStudyApprovedResultsFile(job)
+    return body.text()
+    //Buffer.from(body).toString('utf-8')
 }, z.string())
 
-export const fetchJobResultsZipAction = memberAction(async (jobId: string): Promise<Blob> => {
+export const fetchJobResultsEncryptedZipAction = memberAction(async (jobId: string) => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
     }
 
-    const storage = await storageForResultsFile(job)
-    if (storage.s3) {
-        const body = await fetchStudyJobResults({
-            ...job,
+    return await fetchStudyEncryptedResultsFile(job)
 
-            //resultsPath: path.join(job.resultsPath, job.resultsPath)
-        })
-        return body
-            .transformToWebStream()
-            .getReader()
-            .read()
-            .then(({ value }) => new Blob([value]))
-    } else if (storage.file) {
-        return new Blob([await fs.readFile(storage.file)])
-    } else {
-        throw new Error('Unknown storage type')
-    }
 }, z.string())
