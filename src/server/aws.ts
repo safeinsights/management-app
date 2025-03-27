@@ -61,7 +61,7 @@ const awsEnvironmentId = () => {
 
 // we currently use a single ECR, but in the future we may use a different one for each member and/or study
 export async function codeBuildRepositoryUrl(_info: MinimalStudyInfo) {
-    const repoName = process.env.CODE_BUILD_ECR_NAME || 'si/analysis/code-builds/${awsEnvironmentId()}'
+    const repoName = process.env.CODE_BUILD_ECR_NAME || `si/analysis/code-builds/${awsEnvironmentId()}`
     const { accountId, region } = await getAWSInfo()
     return `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoName}`
 }

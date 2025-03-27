@@ -22,7 +22,7 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
             <Table.Td>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title} {study.title} {study.title}
+                        {study.title}
                     </Text>
                 </Tooltip>
             </Table.Td>

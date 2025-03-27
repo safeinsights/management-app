@@ -43,7 +43,7 @@ describe('User keypair generation', () => {
         renderWithProviders(<GenerateKeys />)
 
         expect(screen.getByText(/create your private key/i)).toBeDefined()
-        const generateKeypairButton = screen.getByRole('button', { name: /generate keypair/i })
+        const generateKeypairButton = screen.getByRole('button', { name: /create private key/i })
         expect(generateKeypairButton).toBeDefined()
 
         fireEvent.click(generateKeypairButton)

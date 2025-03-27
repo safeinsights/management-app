@@ -109,7 +109,7 @@ export const getStudyAction = memberAction(async (studyId) => {
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
-    checkMemberAllowedStudyReview(studyId)
+    await checkMemberAllowedStudyReview(studyId)
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
