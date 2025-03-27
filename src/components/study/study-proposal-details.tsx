@@ -1,9 +1,9 @@
 import { use } from 'react'
 import { Divider, Grid, GridCol, Stack, Text, Badge } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { dataForStudyDocumentsAction } from '@/server/actions/study-job.actions'
+import { dataForStudyDocumentsAction } from '@/server/actions/user.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 
 export function StudyProposalDetails(props: {

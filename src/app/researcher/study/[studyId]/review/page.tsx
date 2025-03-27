@@ -4,9 +4,9 @@ import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposalDetails } from '@/components/study/study-proposal-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/user.actions'
 import { db } from '@/database'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: { params: { studyId: string } }) {
@@ -42,7 +42,7 @@ export default async function StudyReviewPage(props: { params: { studyId: string
                         {memberIdentifier && (
                             <StudyProposalDetails
                                 params={{
-                                    memberIdentifier,
+                                    memberIdentifier: memberIdentifier.id,
                                     studyIdentifier: studyId,
                                 }}
                             />
@@ -56,7 +56,7 @@ export default async function StudyReviewPage(props: { params: { studyId: string
                         {memberIdentifier && (
                             <StudyCodeDetails
                                 params={{
-                                    memberIdentifier,
+                                    memberIdentifier: memberIdentifier.id,
                                     studyIdentifier: studyId,
                                 }}
                             />
