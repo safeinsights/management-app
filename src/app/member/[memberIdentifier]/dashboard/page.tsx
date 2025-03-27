@@ -6,6 +6,7 @@ import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
 import { siUser } from '@/server/db/queries'
+import { sendWelcomeEmail } from '@/lib/mailgun'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
@@ -16,6 +17,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
+    await sendWelcomeEmail('chrissbendel@gmail.com', 'Chris Bendel')
 
     return (
         <Stack px="lg" bg="#F1F3F5">
