@@ -4,7 +4,7 @@ import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
 import fs from 'fs'
 import path from 'path'
 import { db } from '@/database'
-import { pathForStudyJob } from '@/lib/paths'
+import { pathForStudyJobResults } from '@/lib/paths'
 import { getUploadTmpDirectory } from '@/server/config'
 
 test('handling upload', async () => {
@@ -28,12 +28,12 @@ test('handling upload', async () => {
 
     const filePath = path.join(
         getUploadTmpDirectory(),
-        pathForStudyJob({
+        pathForStudyJobResults({
             memberIdentifier: member.identifier,
             studyId,
             studyJobId: jobIds[0],
+            resultsPath: 'testfile.txt',
         }),
-        'testfile.txt',
     )
 
     expect(fs.existsSync(filePath)).toBeTruthy()
