@@ -184,7 +184,7 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
 
     const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: `MgmntAppContainerizer-${awsEnvironmentId()}`,
+            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',
