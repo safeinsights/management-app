@@ -37,7 +37,6 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
             router.push('/')
         },
     })
-
     if (!jobInfo) return null
 
     if (job.approvedAt) {
