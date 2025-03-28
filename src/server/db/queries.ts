@@ -99,3 +99,19 @@ export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) 
         .limit(1)
         .executeTakeFirst()
 }
+
+export const jobInfoForJobId = async (jobId: string) => {
+    return await db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('member', 'member.id', 'study.memberId')
+        .select([
+            'studyId',
+            'studyJob.id as studyJobId',
+            'member.identifier as memberIdentifier',
+            'studyJob.resultsPath',
+            'studyJob.resultFormat',
+        ])
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow()
+}

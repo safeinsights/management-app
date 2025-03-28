@@ -63,6 +63,11 @@ export async function urlOrContentForStudyJobCodeFile(info: MinimalJobInfo, file
     return urlOrContentForFile(pathForStudyJobCodeFile(info, fileName))
 }
 
+export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo): Promise<{ url?: string; content?: Blob }> {
+    const filePath = pathForStudyJobResults(info)
+    return urlOrContentForFile(filePath)
+}
+
 export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {
     return await fetchFile(pathForStudyJobCodeFile(info, filePath))
 }
@@ -93,13 +98,4 @@ export async function storeStudyResultsFile(info: MinimalJobResultsInfo, file: F
 
 export async function storeStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, file: File) {
     await storeFile(pathForStudyDocuments(info, fileType, file.name), info, file)
-}
-
-export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo): Promise<{ url?: string; content?: Blob }> {
-    const filePath = pathForStudyJobResults(info)
-    if (USING_S3_STORAGE) {
-        return { url: await urlForFile(filePath) }
-    } else {
-        return { content: await fetchFile(filePath) }
-    }
 }
