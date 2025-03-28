@@ -56,7 +56,6 @@ async function fetchSecret<T extends Record<string, unknown>>(envKey: string, th
 export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
 export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
 export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
-
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
