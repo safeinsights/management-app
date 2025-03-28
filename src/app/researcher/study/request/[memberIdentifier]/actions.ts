@@ -8,6 +8,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { z, getUserIdFromActionContext, researcherAction } from '@/server/actions/wrappers'
+import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberId: z.string(),
@@ -27,18 +28,22 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     let irbDocPath = ''
     if (studyInfo.irbDocument) {
-        irbDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.IRB,
             studyInfo.irbDocument,
         )
+        irbDocPath = studyInfo.irbDocument.name
     }
 
     let descriptionDocPath = ''
     if (studyInfo.descriptionDocument) {
-        descriptionDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.DESCRIPTION,
             studyInfo.descriptionDocument,
         )
+        descriptionDocPath = studyInfo.descriptionDocument.name
     }
 
     const containerLocation = await codeBuildRepositoryUrl({ studyId, memberIdentifier: member.identifier })

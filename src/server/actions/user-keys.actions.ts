@@ -3,6 +3,7 @@
 import { db } from '@/database'
 import { z, userAction, getUserIdFromActionContext } from './wrappers'
 import { getMemberUserPublicKey } from '@/server/db/queries'
+import { ensureUserIsMemberOfOrg } from '../mutations'
 
 export const getMemberUserFingerprintAction = userAction(async () => {
     const userId = getUserIdFromActionContext()
@@ -26,6 +27,11 @@ const setMemberUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuf
 
 export const setMemberUserPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
     const userId = getUserIdFromActionContext()
+
+    // during MVP, we have several users who were setup in clerk without invites
+    // those accounts are not associated with any organization
+    ensureUserIsMemberOfOrg()
+
     await db
         .insertInto('userPublicKey')
         .values({

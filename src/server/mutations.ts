@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import { getOrgSlugFromActionContext, getUserIdFromActionContext } from './actions/wrappers'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -28,4 +29,28 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     }
 
     return user.id
+}
+
+export async function ensureUserIsMemberOfOrg() {
+    const userId = getUserIdFromActionContext()
+    const identifier = getOrgSlugFromActionContext()
+    const found = await db
+        .selectFrom('memberUser')
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', identifier).onRef('member.id', '=', 'memberUser.memberId'),
+        )
+        .where('memberUser.userId', '=', userId)
+        .executeTakeFirst()
+
+    if (!found) {
+        db.insertInto('memberUser')
+            .values(({ selectFrom }) => ({
+                userId,
+                isResearcher: true,
+                isAdmin: false,
+                isReviewer: true,
+                memberId: selectFrom('member').select('id').where('identifier', '=', identifier),
+            }))
+            .executeTakeFirstOrThrow()
+    }
 }

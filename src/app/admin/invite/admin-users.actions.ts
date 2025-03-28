@@ -4,7 +4,7 @@ import { db } from '@/database'
 import { clerkClient } from '@clerk/nextjs/server'
 import { inviteUserSchema } from './admin-users.schema'
 import { adminAction } from '@/server/actions/wrappers'
-import { sendWelcomeEmail } from '@/lib/mailgun'
+import { sendWelcomeEmail } from '@/server/mailgun'
 
 export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()

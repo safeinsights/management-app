@@ -10,9 +10,9 @@ export class DebugRequest {
 
     constructor(public path = '') {
         this.program
-            .requiredOption('-m, --member <member>', 'member identifier')
-            .requiredOption('-o, --origin <origin>', 'base URL to send the request to')
-            .requiredOption('-k, --key <path>', 'Path to the private key file')
+            .option('-m, --member <member>', 'member identifier')
+            .option('-o, --origin <origin>', 'base URL to send the request to')
+            .option('-k, --key <path>', 'Path to the private key file')
     }
 
     parse() {
@@ -21,20 +21,27 @@ export class DebugRequest {
         return this
     }
 
+    get privateKey() {
+        return fs.readFileSync(this.program.opts().key || 'tests/support/private_key.pem', 'utf8')
+    }
+
     get authorization() {
-        const { key, member } = this.program.opts()
-        const privateKey = fs.readFileSync(key, 'utf8')
+        const { member = 'openstax' } = this.program.opts()
+        //const privateKey = fs.readFileSync(key, 'utf8')
         const payload = {
             iss: member,
             exp: Math.floor(Date.now() / 1000) + 60 * 60, // Token expiration (1 hour)
         }
-        const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' })
+        const token = jwt.sign(payload, this.privateKey, { algorithm: 'RS256' })
         return `Bearer ${token}`
     }
 
+    get origin() {
+        return this.program.opts().origin || 'http://localhost:4000'
+    }
+
     async perform() {
-        const { origin } = this.program.opts()
-        const url = `${origin}/api/${this.path}`
+        const url = `${this.origin}/api/${this.path}`
         console.log(`Sending request to ${url}`)
         const response = await fetch(url, {
             method: this.method,
