@@ -60,6 +60,13 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         )
     }
 
+    let agreementDocPath = ''
+    if (studyInfo.agreementDocument) {
+        agreementDocPath = await storeStudyDocumentFile(
+            { studyId, memberIdentifier: member.identifier },
+            studyInfo.agreementDocument,
+        )
+    }
     await db
         .insertInto('study')
         .values({
@@ -69,7 +76,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             descriptionDocPath,
             irbDocPath,
             // TODO: add study lead
-            // TODO: add agreement document
+            agreementDocPath,
             memberId,
             researcherId: userId,
             containerLocation: repoUrl,

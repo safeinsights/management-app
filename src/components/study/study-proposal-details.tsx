@@ -3,7 +3,7 @@ import { Divider, Grid, GridCol, Stack, Text, Badge } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { dataForStudyDocumentsAction } from '@/server/actions/user.actions'
+import { dataForStudyDocumentsAction } from '@/server/actions/study-job.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 
 export function StudyProposalDetails(props: {
@@ -15,6 +15,7 @@ export function StudyProposalDetails(props: {
     const { memberIdentifier, studyIdentifier } = props.params
 
     const member = use(getMemberIdFromIdentifierAction(memberIdentifier))
+
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
@@ -50,7 +51,7 @@ export function StudyProposalDetails(props: {
                         <Text>{study.researcherName}</Text>
                         <Text>
                             {documents?.documents
-                                .filter((doc) => doc.name === 'Description Document')
+                                .filter((doc) => doc.name === documents.studyInfo.descriptionDocPath)
                                 .map((doc) => (
                                     <Badge
                                         key={doc.path}
@@ -68,7 +69,7 @@ export function StudyProposalDetails(props: {
                         </Text>
                         <Text>
                             {documents?.documents
-                                .filter((doc) => doc.name === 'IRB Document')
+                                .filter((doc) => doc.name === documents.studyInfo.irbDocPath)
                                 .map((doc) => (
                                     <Badge
                                         key={doc.path}
@@ -84,7 +85,24 @@ export function StudyProposalDetails(props: {
                                     </Badge>
                                 ))}
                         </Text>
-                        <Text>{study.agreements}</Text>
+                        <Text>
+                            {documents?.documents
+                                .filter((doc) => doc.name === documents.studyInfo.agreementDocPath)
+                                .map((doc) => (
+                                    <Badge
+                                        key={doc.path}
+                                        color="#D4D1F3"
+                                        c="black"
+                                        component="a"
+                                        href={`/dl/study/${documents.studyInfo.memberIdentifier}/${studyIdentifier}/docs/${doc.path}`}
+                                        target="_blank"
+                                        rightSection={<Download />}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        {doc.name}
+                                    </Badge>
+                                ))}
+                        </Text>
                     </Stack>
                 </GridCol>
             </Grid>

@@ -4,9 +4,9 @@ import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposalDetails } from '@/components/study/study-proposal-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/user.actions'
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { db } from '@/database'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
+import { getIdentifierFromMemberIdAction } from '@/server/actions/user.actions'
 import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: { params: { studyId: string } }) {
@@ -16,11 +16,13 @@ export default async function StudyReviewPage(props: { params: { studyId: string
 
     const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
 
+
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const memberIdentifier = await getMemberIdFromIdentifierAction(study.memberId)
+    const memberIdentifier = await getIdentifierFromMemberIdAction(study.memberId)
+
 
     const latestJob = await latestJobForStudyAction(study.id)
     const latestJobStatus = await jobStatusForJobAction(latestJob?.id)
@@ -39,28 +41,26 @@ export default async function StudyReviewPage(props: { params: { studyId: string
                 <Paper bg="white" p="xl">
                     <Stack mt="md">
                         <Title order={3}>{study.title}</Title>
-                        {memberIdentifier && (
+                       
                             <StudyProposalDetails
                                 params={{
-                                    memberIdentifier: memberIdentifier.id,
+                                    memberIdentifier,
                                     studyIdentifier: studyId,
                                 }}
                             />
-                        )}
+
                     </Stack>
                 </Paper>
 
                 <Paper bg="white" p="xl">
                     <Stack mt="md">
                         <Title order={3}>Study Code</Title>
-                        {memberIdentifier && (
                             <StudyCodeDetails
                                 params={{
-                                    memberIdentifier: memberIdentifier.id,
+                                    memberIdentifier: memberIdentifier,
                                     studyIdentifier: studyId,
                                 }}
                             />
-                        )}
                     </Stack>
                 </Paper>
 
@@ -69,9 +69,8 @@ export default async function StudyReviewPage(props: { params: { studyId: string
                         <Title order={3}>Study Results</Title>
                         <Divider />
                         <Text>Study results will be displayed after the data organization reviews them.</Text>
-                        {latestJob && (
+
                             <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
-                        )}
                     </Stack>
                 </Paper>
             </Stack>

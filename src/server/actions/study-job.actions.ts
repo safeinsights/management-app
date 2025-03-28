@@ -10,10 +10,16 @@ import { USING_S3_STORAGE } from '@/server/config'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
-import { actionContext, getUserIdFromActionContext, getOrgSlugFromActionContext, userAction, memberAction, z } from './wrappers'
+import {
+    actionContext,
+    getUserIdFromActionContext,
+    getOrgSlugFromActionContext,
+    userAction,
+    memberAction,
+    z,
+} from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
-
 
 export const approveStudyJobResultsAction = memberAction(
     async ({ jobInfo: info, jobResults }) => {
@@ -50,7 +56,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoShema)
 
-export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
+export const dataForJobAction = userAction(async (studyJobIdentifier) => {
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -99,7 +105,7 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
             'study.title as studyTitle',
             'study.descriptionDocPath',
             'study.irbDocPath',
-            // 'study.agreementsDocPath', //TODO:column does not exist yet
+            'study.agreementDocPath',
             'member.identifier as memberIdentifier',
         ])
         .where('study.id', '=', studyId)
@@ -114,25 +120,24 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
 
     if (studyInfo.descriptionDocPath) {
         documents.push({
-            name: 'Description Document',
+            name: studyInfo.descriptionDocPath || 'Description Document',
             path: studyInfo.descriptionDocPath,
         })
     }
 
     if (studyInfo.irbDocPath) {
         documents.push({
-            name: 'IRB Document',
+            name: studyInfo.irbDocPath || 'IRB Document',
             path: studyInfo.irbDocPath,
         })
     }
 
-    // TODO:column does not exist yet
-    // if (studyInfo.agreementsDocPath) {
-    //     documents.push({
-    //         name: 'Agreements Document',
-    //         path: studyInfo.agreementsDocPath
-    //     })
-    // }
+    if (studyInfo.agreementDocPath) {
+        documents.push({
+            name: studyInfo.agreementDocPath || 'Agreement Document',
+            path: studyInfo.agreementDocPath
+        })
+    }
 
     return {
         studyInfo,
@@ -140,16 +145,22 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
     }
 }
 
-export const latestJobForStudyAction = memberAction(async (studyId) => {
+export const latestJobForStudyAction = userAction(async (studyId) => {
+    const ctx = actionContext()
     const latestJob = await db
         .selectFrom('studyJob')
         .selectAll('studyJob')
 
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
         )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
@@ -163,18 +174,23 @@ export const latestJobForStudyAction = memberAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const jobStatusForJobAction = memberAction(async (jobId) => {
+export const jobStatusForJobAction = userAction(async (jobId) => {
     if (!jobId) return null
-
+    const ctx = actionContext()
     const result = await db
         .selectFrom('jobStatusChange')
 
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
         )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
@@ -196,9 +212,13 @@ export const onFetchStudyJobsAction = userAction(async (studyId) => {
         //    be the researcher who created the study
         //    OR the study is for the the user's current organization
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .$if(Boolean(ctx?.orgSlug), (qb) => qb.innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        ))
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
+        )
         .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select((eb) => [

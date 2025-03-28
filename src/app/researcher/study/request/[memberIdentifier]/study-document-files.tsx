@@ -4,7 +4,7 @@ import React, { FC } from 'react'
 import { Badge, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
-import { dataForStudyDocumentsAction } from '@/server/actions/user.actions'
+import { dataForStudyDocumentsAction } from '@/server/actions/study-job.actions'
 export const StudyDocuments: FC<{ studyId: string }> = ({ studyId }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['studyDocuments', studyId],

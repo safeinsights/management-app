@@ -4,7 +4,7 @@ import { AlertNotFound } from '@/components/errors'
 import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
-import { latestJobForStudyAction } from '@/server/actions/user.actions'
+import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
 
 export function StudyCodeDetails(props: {
     params: {
@@ -30,7 +30,7 @@ export function StudyCodeDetails(props: {
         <Stack>
             <Divider />
             <Text order={6}>View the code files that you uploaded to run against the dataset.</Text>
-            {/* {latestJob && <StudyJobFiles job={latestJob} />} */}
+            {latestJob && <StudyJobFiles job={latestJob} />}
         </Stack>
     )
 }

@@ -8,7 +8,7 @@ import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[study
 import { StudyProposalDetails } from '@/components/study/study-proposal-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/user.actions'
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
@@ -74,14 +74,12 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xl">
                 <Stack mt="md">
                     <Title order={3}>Study Code</Title>
-                    {memberIdentifier && (
                         <StudyCodeDetails
                             params={{
                                 memberIdentifier,
                                 studyIdentifier: studyIdentifier,
                             }}
                         />
-                    )}
                 </Stack>
             </Paper>
 
@@ -89,9 +87,7 @@ export default async function StudyReviewPage(props: {
                 <Stack mt="md">
                     <Title order={3}>Study Results</Title>
                     <Divider />
-                    {latestJob && (
                         <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
-                    )}
                 </Stack>
             </Paper>
         </Stack>
