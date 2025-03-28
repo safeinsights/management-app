@@ -2,8 +2,9 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
+import { siUser } from '@/server/db/queries'
+import { getOrgSlugFromActionContext, memberAction, z, userAction, actionContext } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
-import { getOrgSlugFromActionContext, getUserIdFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
@@ -76,15 +77,21 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const getStudyAction = memberAction(async (studyId) => {
+export const getStudyAction = userAction(async (studyId) => {
+    const ctx = actionContext()
     return await db
         .selectFrom('study')
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
 
         // security, check user has access to record
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+        qb.innerJoin('member', (join) =>
+            join
+                .on('member.identifier', '=', getOrgSlugFromActionContext())
+                .onRef('member.id', '=', 'study.memberId'),
+        ),
+    )
+    .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select([
             'study.id',

@@ -3,7 +3,7 @@
 import React from 'react'
 import { Flex, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposalFormSteps } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form-steps'
 

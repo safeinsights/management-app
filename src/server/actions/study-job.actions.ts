@@ -3,11 +3,20 @@
 import { db } from '@/database'
 import { CodeManifest } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
-
+import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
+import { queryJobResult, siUser } from '@/server/db/queries'
+import { promises as fs } from 'fs'
+import {
+    actionContext,
+    getUserIdFromActionContext,
+    getOrgSlugFromActionContext,
+    userAction,
+    memberAction,
+    z,
+} from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { minimalJobInfoSchema } from '@/lib/types'
 import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
-import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { storeStudyResultsFile } from '@/server/storage'
@@ -65,7 +74,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
-export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
+export const dataForJobAction = userAction(async (studyJobIdentifier) => {
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -104,8 +113,82 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
     return { jobInfo, manifest }
 }, z.string())
 
+export const dataForStudyDocumentsAction = async (studyId: string) => {
+    // Fetch study information
+    const studyInfo = await db
+        .selectFrom('study')
+        .innerJoin('member', 'study.memberId', 'member.id')
+        .select([
+            'study.id as studyId',
+            'study.title as studyTitle',
+            'study.descriptionDocPath',
+            'study.irbDocPath',
+            'study.agreementDocPath',
+            'member.identifier as memberIdentifier',
+        ])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+
+    if (!studyInfo) {
+        return null
+    }
+
+    // Prepare document list
+    const documents = []
+
+    if (studyInfo.descriptionDocPath) {
+        documents.push({
+            name: studyInfo.descriptionDocPath || 'Description Document',
+            path: studyInfo.descriptionDocPath,
+        })
+    }
+
+    if (studyInfo.irbDocPath) {
+        documents.push({
+            name: studyInfo.irbDocPath || 'IRB Document',
+            path: studyInfo.irbDocPath,
+        })
+    }
+
+    if (studyInfo.agreementDocPath) {
+        documents.push({
+            name: studyInfo.agreementDocPath || 'Agreement Document',
+            path: studyInfo.agreementDocPath
+        })
+    }
+
+    return {
+        studyInfo,
+        documents,
+    }
+}
+
+export const latestJobForStudyAction = userAction(async (studyId) => {
+    const ctx = actionContext()
+    const latestJob = await db
+        .selectFrom('studyJob')
+        .selectAll('studyJob')
+
+        // security, check user has access to record
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
+        )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+
 export const latestJobForStudyAction = memberAction(async (studyId) => {
     const latestJob = await latestJobForStudy(studyId)
+
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
@@ -113,18 +196,23 @@ export const latestJobForStudyAction = memberAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const jobStatusForJobAction = memberAction(async (jobId) => {
+export const jobStatusForJobAction = userAction(async (jobId) => {
     if (!jobId) return null
-
+    const ctx = actionContext()
     const result = await db
         .selectFrom('jobStatusChange')
 
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
         )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
@@ -135,16 +223,25 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
     return result?.status || null
 }, z.string())
 
-export const onFetchStudyJobsAction = memberAction(async (studyId) => {
+export const onFetchStudyJobsAction = userAction(async (studyId) => {
+    const ctx = actionContext()
+
     return await db
         .selectFrom('studyJob')
         .select('studyJob.id')
 
-        // security, check user has access to record
+        // security, check user has access to record. the user must:
+        //    be the researcher who created the study
+        //    OR the study is for the the user's current organization
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
         )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select((eb) => [
             jsonArrayFrom(
