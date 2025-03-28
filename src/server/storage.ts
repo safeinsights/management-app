@@ -7,14 +7,6 @@ import { pathForStudyDocuments, pathForStudyJobCodeFile, pathForStudyJobResults 
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 import logger from '@/lib/logger'
 
-async function urlForFile(filePath: string) {
-    if (USING_S3_STORAGE) {
-        return await signedUrlForFile(filePath)
-    } else {
-        return `/dev/download/${path}`
-    }
-}
-
 async function fetchFile(filePath: string) {
     let stream: Readable
     if (USING_S3_STORAGE) {
@@ -42,18 +34,10 @@ export async function fetchStudyEncryptedResultsFile(info: MinimalJobResultsInfo
     return await fetchFile(pathForStudyJobResults(info))
 }
 
-export async function urlOrPathForStudyDocumentFile(
-    info: MinimalStudyInfo,
-    fileType: StudyDocumentType,
-    fileName: string,
-) {
-    return await urlForFile(pathForStudyDocuments(info, fileType, fileName))
-}
-
 export type UrlOrContent = { url?: string; content?: Blob }
 async function urlOrContentForFile(filePath: string): Promise<UrlOrContent> {
     if (USING_S3_STORAGE) {
-        return { url: await urlForFile(filePath) }
+        return { url: await signedUrlForFile(filePath) }
     } else {
         return { content: await fetchFile(filePath) }
     }
