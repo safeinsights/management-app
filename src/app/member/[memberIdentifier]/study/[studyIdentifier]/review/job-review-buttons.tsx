@@ -59,16 +59,10 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     return (
         <Group>
-            <Button
-                color="#291BC4"
-                onClick={() => updateStudyJob({ jobInfo: jobInfo, status: 'RESULTS-REJECTED' })}
-                variant="outline"
-            >
+            <Button onClick={() => updateStudyJob({ jobInfo: jobInfo, status: 'RESULTS-REJECTED' })} variant="outline">
                 Reject
             </Button>
-            <Button color="#291BC4" onClick={() => updateStudyJob({ jobInfo: jobInfo, status: 'RESULTS-APPROVED' })}>
-                Approve
-            </Button>
+            <Button onClick={() => updateStudyJob({ jobInfo: jobInfo, status: 'RESULTS-APPROVED' })}>Approve</Button>
         </Group>
     )
 }

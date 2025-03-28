@@ -60,15 +60,12 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
         )
     }
 
-    if (!study) return <AlertNotFound title="No study found" message="The study was not found" />
-    if (error) return <ErrorAlert error={error} />
-
     return (
         <Group>
-            <Button color="#291BC4" onClick={() => updateStudy('REJECTED')} loading={isPending} variant="outline">
+            <Button onClick={() => updateStudy('REJECTED')} loading={isPending} variant="outline">
                 Reject
             </Button>
-            <Button color="#291BC4" onClick={() => updateStudy('APPROVED')} loading={isPending}>
+            <Button onClick={() => updateStudy('APPROVED')} loading={isPending}>
                 Approve
             </Button>
         </Group>
