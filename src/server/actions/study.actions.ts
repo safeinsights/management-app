@@ -4,11 +4,12 @@ import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 import { siUser } from '@/server/db/queries'
 import { getOrgSlugFromActionContext, memberAction, z, userAction, actionContext } from './wrappers'
+import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
-import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
-import { storeStudyCodeFile } from '../storage'
+import { triggerBuildImageForJob } from '../aws'
+import logger from '@/lib/logger'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     return await db
@@ -117,31 +118,30 @@ export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const { id } = await siUser()
+    const userId = getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
+        // Update the status of the study
         await trx
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), reviewerId: id })
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
-        // TODO Will transaction work when calling another method?
-        const latestJob = await latestJobForStudyAction(studyId)
+        const latestJob = await latestJobForStudy(studyId, trx)
+        if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+
         let status: StudyJobStatus = 'CODE-APPROVED'
-        const userId = (await siUser()).id
+
         if (USING_S3_STORAGE) {
-            await storeStudyCodeFile(
-                {
-                    memberIdentifier: getOrgSlugFromActionContext(),
-                    studyId,
-                    studyJobId: latestJob.id,
-                },
-                new File([`userId: ${userId}`], 'APPROVED', { type: 'text/plain' }),
-            )
+            await triggerBuildImageForJob({
+                studyJobId: latestJob.id,
+                studyId,
+                memberIdentifier: getOrgSlugFromActionContext(),
+            })
         } else {
-            status = 'JOB-READY' // if we're in dev and not using s3 then containers will never build so just mark it ready
+            status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
         }
         await trx
             .insertInto('jobStatusChange')
@@ -153,32 +153,42 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             .executeTakeFirstOrThrow()
     })
 
+    logger.info('Study Approved', {
+        reviewerId: userId,
+        studyId: studyId,
+    })
+
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const { id } = await siUser()
+    const userId = getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
         await trx
             .updateTable('study')
-            .set({ status: 'REJECTED', approvedAt: new Date(), reviewerId: id })
+            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
 
-        // TODO Will transaction work when calling another method?
-        const latestJob = await latestJobForStudyAction(studyId)
+        const latestJob = await latestJobForStudy(studyId, trx)
+        if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
         await trx
             .insertInto('jobStatusChange')
             .values({
-                userId: (await siUser()).id,
+                userId: userId,
                 status: 'CODE-REJECTED',
                 studyJobId: latestJob.id,
             })
             .executeTakeFirstOrThrow()
+    })
+
+    logger.info('Study Rejected', {
+        reviewerId: userId,
+        studyId: studyId,
     })
 
     revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')

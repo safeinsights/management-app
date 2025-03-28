@@ -1,15 +1,14 @@
 'use server'
 
-import { USING_CONTAINER_REGISTRY } from '@/server/config'
-import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
+import { codeBuildRepositoryUrl } from '@/server/aws'
 import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { strToAscii } from '@/lib/string'
 
 import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { z, getUserIdFromActionContext, researcherAction } from '@/server/actions/wrappers'
+import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberId: z.string(),
@@ -27,38 +26,26 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     const studyId = uuidv7()
 
-    const repoPath = generateRepositoryPath({
-        memberIdentifier: member.identifier,
-        studyId,
-        studyTitle: studyInfo.title,
-    })
-
-    let repoUrl = ''
-
-    if (USING_CONTAINER_REGISTRY) {
-        repoUrl = await createAnalysisRepository(repoPath, {
-            title: strToAscii(studyInfo.title),
-            studyId,
-        })
-    } else {
-        const { accountId, region } = await getAWSInfo()
-        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
-    }
     let irbDocPath = ''
     if (studyInfo.irbDocument) {
-        irbDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.IRB,
             studyInfo.irbDocument,
         )
+        irbDocPath = studyInfo.irbDocument.name
     }
 
     let descriptionDocPath = ''
     if (studyInfo.descriptionDocument) {
-        descriptionDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.DESCRIPTION,
             studyInfo.descriptionDocument,
         )
+        descriptionDocPath = studyInfo.descriptionDocument.name
     }
+
 
     let agreementDocPath = ''
     if (studyInfo.agreementDocument) {
@@ -67,6 +54,8 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             studyInfo.agreementDocument,
         )
     }
+
+    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberIdentifier: member.identifier })
     await db
         .insertInto('study')
         .values({
@@ -79,7 +68,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             agreementDocPath,
             memberId,
             researcherId: userId,
-            containerLocation: repoUrl,
+            containerLocation,
             status: 'PENDING-REVIEW',
         })
         .returning('id')

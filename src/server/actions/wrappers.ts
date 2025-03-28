@@ -1,8 +1,10 @@
+import logger from '@/lib/logger'
 import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { AccessDeniedError } from '@/lib/types'
 import { z, type Schema } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
+import { CLERK_ADMIN_ORG_SLUG } from '../config'
 
 export { z } from 'zod'
 
@@ -80,8 +82,8 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const store = localStorageContext.getStore()
-
-        if (store?.orgSlug !== 'safeinsights') {
+        if (store?.orgSlug !== CLERK_ADMIN_ORG_SLUG) {
+            logger.error('Current orgSlug in adminAction:', store?.orgSlug)
             throw new AccessDeniedError('Only admins are allowed to perform this action')
         }
         return await func(arg)

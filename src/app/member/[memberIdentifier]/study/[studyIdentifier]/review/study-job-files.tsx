@@ -25,7 +25,9 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
         )
     }
 
-    const fileNames = Object.keys(data.manifest.files || {})
+
+    const fileNames = Object.keys(data?.manifest.files || {})
+
 
     const fileChips = fileNames.map((fileName) => {
         const downloadUrl = data.jobInfo

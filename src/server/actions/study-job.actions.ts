@@ -2,11 +2,7 @@
 
 import { db } from '@/database'
 import { CodeManifest } from '@/lib/types'
-import { fetchCodeManifest, fetchStudyJobResults } from '@/server/aws'
-import { revalidatePath } from 'next/cache'
-import { minimalJobInfoShema } from '@/lib/types'
-import { USING_S3_STORAGE } from '@/server/config'
-
+import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
 import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
 import { queryJobResult, siUser } from '@/server/db/queries'
 import { promises as fs } from 'fs'
@@ -18,25 +14,47 @@ import {
     memberAction,
     z,
 } from './wrappers'
+import { revalidatePath } from 'next/cache'
+import { minimalJobInfoSchema } from '@/lib/types'
+import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import { storeStudyResultsFile } from '@/server/storage'
 
-export const approveStudyJobResultsAction = memberAction(
-    async ({ jobInfo: info, jobResults }) => {
-        await checkMemberAllowedStudyReview(info.studyId, getUserIdFromActionContext())
+const approveStudyJobResultsActionSchema = z.object({
+    jobInfo: minimalJobInfoSchema,
+    jobResults: z.array(z.string()),
+})
 
-        const blob = new Blob(jobResults, { type: 'text/csv' })
-        const resultsFile = new File([blob], 'job_results.csv')
-        await attachResultsToStudyJob(info, resultsFile, 'RESULTS-APPROVED')
+// FIXME: we should probably send the file directly into the action
+// vs relying on it always being CSV string
+export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
+    await checkMemberAllowedStudyReview(info.studyId)
 
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-        revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-    },
-    z.object({
-        jobInfo: minimalJobInfoShema,
-        jobResults: z.array(z.string()),
-    }),
-)
+    const blob = new Blob(jobResults, { type: 'text/csv' })
+
+    const resultsFile = new File([blob], 'job_results.csv')
+
+    await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
+
+    const user = await siUser(false)
+
+    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).execute()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: user?.id,
+            status: 'RESULTS-APPROVED',
+            studyJobId: info.studyJobId,
+        })
+        .execute()
+
+    //    await attachApprovedResultsToStudyJob(info, resultsFile)
+
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+}, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
     await checkMemberAllowedStudyReview(info.studyId)
@@ -54,7 +72,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
-}, minimalJobInfoShema)
+}, minimalJobInfoSchema)
 
 export const dataForJobAction = userAction(async (studyJobIdentifier) => {
     const jobInfo = await db
@@ -167,6 +185,10 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
         .limit(1)
         .executeTakeFirst()
 
+
+export const latestJobForStudyAction = memberAction(async (studyId) => {
+    const latestJob = await latestJobForStudy(studyId)
+
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
@@ -194,7 +216,7 @@ export const jobStatusForJobAction = userAction(async (jobId) => {
 
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
-        .orderBy('jobStatusChange.createdAt', 'desc')
+        .orderBy('jobStatusChange.id', 'desc')
         .limit(1)
         .executeTakeFirst()
 
@@ -236,40 +258,19 @@ export const onFetchStudyJobsAction = userAction(async (studyId) => {
 
 export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Promise<string> => {
     const job = await queryJobResult(jobId)
-    if (!job) {
-        throw new Error(`Job ${jobId} not found or does not have results`)
+    if (!job || job.resultsType != 'APPROVED') {
+        throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
-    const storage = await storageForResultsFile(job)
-    let csv = ''
-    if (storage.s3) {
-        const body = await fetchStudyJobResults(job)
-        // TODO: handle other types of results that are not string/CSV
-        csv = await body.transformToString('utf-8')
-    } else if (storage.file) {
-        csv = await fs.readFile(storage.file, 'utf-8')
-    } else {
-        throw new Error('Unknown storage type')
-    }
-
-    return csv
+    const body = await fetchStudyApprovedResultsFile(job)
+    return body.text()
+    //Buffer.from(body).toString('utf-8')
 }, z.string())
 
-export const fetchJobResultsZipAction = memberAction(async (jobId: string): Promise<Blob> => {
+export const fetchJobResultsEncryptedZipAction = memberAction(async (jobId: string) => {
     const job = await queryJobResult(jobId)
     if (!job) {
         throw new Error(`Job ${jobId} not found or does not have results`)
     }
-    const storage = await storageForResultsFile(job)
-    if (storage.s3) {
-        const body = await fetchStudyJobResults(job)
-        return body
-            .transformToWebStream()
-            .getReader()
-            .read()
-            .then(({ value }) => new Blob([value]))
-    } else if (storage.file) {
-        return new Blob([await fs.readFile(storage.file)])
-    } else {
-        throw new Error('Unknown storage type')
-    }
+
+    return await fetchStudyEncryptedResultsFile(job)
 }, z.string())

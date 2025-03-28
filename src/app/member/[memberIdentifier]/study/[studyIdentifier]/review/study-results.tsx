@@ -5,13 +5,39 @@ import { useForm } from '@mantine/form'
 import { Anchor, Button, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import Link from 'next/link'
-import { pemToArrayBuffer } from 'si-encryption/util'
+import { fingerprintKeyData, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import { StudyJobStatus } from '@/database/types'
-import { fetchJobResultsZipAction } from '@/server/actions/study-job.actions'
+import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+
+async function fingerPrintPublicKeyFromPrivateKey(privateKey: CryptoKey) {
+    // Export the private key as a JWK (JSON Web Key)
+    const jwk = await crypto.subtle.exportKey('jwk', privateKey)
+
+    // Create a public JWK by keeping only the public parts: the modulus (n) and exponent (e)
+    const publicJwk = {
+        kty: jwk.kty, // key type (should be "RSA")
+        n: jwk.n, // modulus
+        e: jwk.e, // public exponent
+        alg: jwk.alg, // algorithm (e.g., "RSA-OAEP-256")
+        ext: jwk.ext, // extractable flag
+    }
+
+    // Re-import the public JWK as a public CryptoKey
+    const publicKey = await crypto.subtle.importKey(
+        'jwk',
+        publicJwk,
+        { name: 'RSA-OAEP', hash: 'SHA-256' }, // Use your specific algorithm here
+        true,
+        ['encrypt'], // Set usages appropriate for your public key (e.g., "encrypt")
+    )
+
+    const pk = await crypto.subtle.exportKey('spki', publicKey)
+    return await fingerprintKeyData(pk)
+}
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -29,12 +55,26 @@ export const StudyResults: FC<{
         initialValues: { privateKey: '' },
     })
 
-    const { mutate: decryptResults } = useMutation({
-        mutationFn: async ({ jobId, privateKey }: { jobId: string; privateKey: string }) => {
-            if (!fingerprint) return []
+    const { isLoading: isLoadingBlob, data: blob } = useQuery({
+        queryKey: ['study-job', latestJob?.id],
+        queryFn: async () => {
+            try {
+                return await fetchJobResultsEncryptedZipAction(latestJob!.id)
+            } catch (error) {
+                form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
+                throw error
+            }
+        },
+        enabled: Boolean(latestJob && jobStatus == 'RUN-COMPLETE'),
+    })
 
-            const blob = await fetchJobResultsZipAction(jobId)
+    const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
+        mutationFn: async ({ privateKey }: { privateKey: string }) => {
+            if (!blob) return []
             const privateKeyBuffer = pemToArrayBuffer(privateKey)
+            const key = await privateKeyFromBuffer(privateKeyBuffer)
+            const fingerprint = await fingerPrintPublicKeyFromPrivateKey(key)
+
             const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
             return await reader.decryptZip()
         },
@@ -43,7 +83,7 @@ export const StudyResults: FC<{
         },
         onError: async (error) => {
             console.error(error)
-            form.setFieldError('privateKey', 'Invalid private key')
+            form.setFieldError('privateKey', 'Invalid private key, please double check the key and try again.')
         },
     })
 
@@ -73,7 +113,7 @@ export const StudyResults: FC<{
     }
 
     const onSubmit = (values: StudyResultsFormValues) => {
-        decryptResults({ jobId: latestJob.id, privateKey: values.privateKey })
+        decryptResults({ privateKey: values.privateKey })
     }
 
     const handleError = (errors: typeof form.errors) => {
@@ -102,7 +142,7 @@ export const StudyResults: FC<{
                                     placeholder="Enter private key"
                                     key={form.key('privateKey')}
                                 />
-                                <Button type="submit" disabled={!form.isValid}>
+                                <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
                                     Validate
                                 </Button>
                             </Group>

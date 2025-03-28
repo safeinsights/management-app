@@ -2,9 +2,7 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
-
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
 import { siUser } from '@/server/db/queries'

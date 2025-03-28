@@ -70,7 +70,7 @@ export const StudyProposalForm: FC<{
                             {...studyProposalForm.getInputProps('descriptionDocument')}
                         />
                         <Text size="xs" c="dimmed">
-                            Accepted formats: doc, docx, pdf and txt
+                            Accepted formats: doc, docx, pdf
                         </Text>
                     </Stack>
                 </Group>
@@ -90,7 +90,7 @@ export const StudyProposalForm: FC<{
                             {...studyProposalForm.getInputProps('irbDocument')}
                         />
                         <Text size="xs" c="dimmed">
-                            Accepted formats: doc, docx, pdf and txt
+                            Accepted formats: doc, docx, pdf
                         </Text>
                     </Stack>
                 </Group>
@@ -110,7 +110,7 @@ export const StudyProposalForm: FC<{
                             {...studyProposalForm.getInputProps('agreementDocument')}
                         />
                         <Text size="xs" c="dimmed">
-                            Accepted formats: doc, docx, pdf and txt
+                            Accepted formats: doc, docx, pdf
                         </Text>
                     </Stack>
                 </Group>

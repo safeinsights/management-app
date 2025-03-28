@@ -1,34 +1,37 @@
-import { db } from '@/database'
+import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { AccessDeniedError, MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { getUserIdFromActionContext } from '../actions/wrappers'
+import { getOrgSlugFromActionContext } from '../actions/wrappers'
 
-export const queryJobResult = async (jobId: string) =>
-    (await db
+export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
+    const results = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['studyJob.id as studyJobId', 'studyId', 'resultsPath', 'member.identifier as memberIdentifier'])
-        .where('studyJob.id', '=', jobId)
         .innerJoin('jobStatusChange', (st) =>
             st
                 .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                 .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
         )
-        .where('studyJob.resultsPath', 'is not', null)
-        .executeTakeFirst()) as MinimalJobResultsInfo | undefined
+        .select(['member.identifier as memberIdentifier', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
 
-export const checkMemberAllowedStudyReview = async (studyId: string, userId = getUserIdFromActionContext()) => {
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirst()
+
+    if (!results) return null
+
+    return { ...results, resultsType: results.resultsPath ? 'APPROVED' : 'ENCRYPTED' } as MinimalJobResultsInfo
+}
+
+export const checkMemberAllowedStudyReview = async (studyId?: string, identifier = getOrgSlugFromActionContext()) => {
+    if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
     const found = await db
         .selectFrom('study')
         .select('study.id')
-        .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', userId)
-                .on('memberUser.isReviewer', '=', true)
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', identifier).onRef('study.memberId', '=', 'member.id'),
         )
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -78,4 +81,37 @@ export const getMemberUserPublicKeyByClerkId = async (clerkId: string) => {
         .executeTakeFirst()
 
     return result?.publicKey
+}
+
+export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
+    return await conn
+        .selectFrom('studyJob')
+        .selectAll('studyJob')
+
+        // security, check user has access to record
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('member', (join) =>
+            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        )
+
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+}
+
+export const jobInfoForJobId = async (jobId: string) => {
+    return await db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('member', 'member.id', 'study.memberId')
+        .select([
+            'studyId',
+            'studyJob.id as studyJobId',
+            'member.identifier as memberIdentifier',
+            'studyJob.resultsPath',
+            'studyJob.resultFormat',
+        ])
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirstOrThrow()
 }

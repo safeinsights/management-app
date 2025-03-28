@@ -1,14 +1,14 @@
 import { DebugRequest } from './request'
 
 const req = new DebugRequest()
-req.program.option('-s, --status <status>', 'status to set').option('-j, --jobId <jobId>', 'jobId to set status for')
+req.program.requiredOption('-j, --jobId <jobId>', 'jobId to get keys for')
 req.parse()
 
 const { status, jobId } = req.program.opts()
 
-req.path = `job/${jobId}`
-req.method = 'PUT'
-req.body = { status }
+req.path = `job/${jobId}/keys`
+req.method = 'GET'
+//req.body = { status }
 
 req.perform().then((json) => {
     console.dir(json)

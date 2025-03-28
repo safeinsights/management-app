@@ -33,24 +33,37 @@ export type CodeManifest = {
     size: number
 }
 
+export enum StudyDocumentType {
+    'IRB' = 'IRB',
+    'DESCRIPTION' = 'DESCRIPTION',
+}
+
 export const minimalStudyInfoSchema = z.object({
     memberIdentifier: z.string(),
     studyId: z.string(),
 })
 export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
 
-export const minimalJobInfoShema = minimalStudyInfoSchema.extend({
+export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
     studyJobId: z.string(),
 })
-export type MinimalJobInfo = z.infer<typeof minimalJobInfoShema>
+export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
-export const minimalJobResultsInfoSchema = minimalJobInfoShema.extend({
-    resultsPath: z.string(),
-})
-export type MinimalJobResultsInfo = z.infer<typeof minimalJobResultsInfoSchema>
+// there's probably a way to do this with zod schema
+// but don't need it yet so i haven't investigated how
+export type MinimalJobResultsInfo = MinimalJobInfo &
+    (
+        | {
+              resultsType: 'APPROVED'
+              resultsPath: string
+          }
+        | {
+              resultsType: 'ENCRYPTED'
+          }
+    )
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
-export function isMinimalStudyRunInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
+export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
     return 'studyJobId' in info
 }
