@@ -42,9 +42,23 @@ export async function fetchStudyEncryptedResultsFile(info: MinimalJobResultsInfo
     return await fetchFile(pathForStudyJobResults(info))
 }
 
-export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, fileName: string) {
+export async function urlOrPathForStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, fileName: string) {
     return await urlForFile(pathForStudyDocuments(info, fileType, fileName))
 }
+
+export type UrlOrContent = { url?: string; content?: Blob }
+async function urlOrContentForFile(filePath: string): Promise<ContentOrUrl> {
+    if (USING_S3_STORAGE) {
+        return { url: await urlForFile(filePath) }
+    } else {
+        return { content: await fetchFile(filePath) }
+    }
+}
+
+export async function urlOrContentForStudyJobCodeFile(info: MinimalJobInfo, fileName: string) {
+    return urlOrContentForFile(pathForStudyJobCodeFile(info, fileName))
+}
+
 
 export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {
     return await fetchFile(pathForStudyJobCodeFile(info, filePath))

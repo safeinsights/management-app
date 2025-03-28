@@ -25,7 +25,8 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
     return { ...results, resultsType: results.resultsPath ? 'APPROVED' : 'ENCRYPTED' } as MinimalJobResultsInfo
 }
 
-export const checkMemberAllowedStudyReview = async (studyId: string, identifier = getOrgSlugFromActionContext()) => {
+export const checkMemberAllowedStudyReview = async (studyId?: string, identifier = getOrgSlugFromActionContext()) => {
+    if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
     const found = await db
         .selectFrom('study')
         .select('study.id')

@@ -8,7 +8,7 @@ export const pathForStudyJob = (parts: MinimalJobInfo) => `${pathForStudy(parts)
 export const pathForStudyJobCode = (parts: MinimalJobInfo) => `${pathForStudyJob(parts)}/code`
 
 export const pathForStudyJobCodeFile = (parts: MinimalJobInfo, fileName: string) =>
-    `${pathForStudyJob(parts)}/${sanitizeFileName(fileName)}`
+    `${pathForStudyJobCode(parts)}/${sanitizeFileName(fileName)}`
 
 export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudy(parts)}/docs/${docType}/${sanitizeFileName(fileName)}`
