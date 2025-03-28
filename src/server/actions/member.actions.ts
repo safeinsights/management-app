@@ -4,6 +4,7 @@ import { db } from '@/database'
 import { memberSchema } from '@/schema/member'
 
 import { adminAction, memberAction, userAction, z } from './wrappers'
+import { findOrCreateClerkOrganization } from '../clerk'
 
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
@@ -23,6 +24,8 @@ export const upsertMemberAction = adminAction(async (member) => {
         )
         .returningAll()
         .executeTakeFirstOrThrow()
+
+    await findOrCreateClerkOrganization({ slug: member.identifier, name: member.name })
 
     return results
 }, memberSchema)

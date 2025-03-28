@@ -22,6 +22,4 @@ fetch_and_export "${DB_SECRET_ARN}"
 
 export PORT=8080
 
-env
-
 node server.js
