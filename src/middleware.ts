@@ -5,42 +5,14 @@ import debug from 'debug'
 
 const middlewareDebug = debug('app:middleware')
 
-/**
- * Example Clerk auth() response structure:
- * ```typescript
- * {
- *   sessionClaims: {
- *     azp: "http://localhost:4000",
- *     exp: 1730995945,
- *     iat: 1730995885,
- *     iss: "https://example.clerk.accounts.dev",
- *     nbf: 1730995875,
- *     org_id: "org_xxxxxxxxxxxxxxxxxxxx",
- *     org_permissions: [],
- *     org_role: "org:admin",
- *     org_slug: "example-org",
- *     sid: "sess_xxxxxxxxxxxxxxxxxxxx",
- *     sub: "user_xxxxxxxxxxxxxxxxxxxx"
- *   },
- *   sessionId: "sess_xxxxxxxxxxxxxxxxxxxx",
- *   userId: "user_xxxxxxxxxxxxxxxxxxxx",
- *   orgId: "org_xxxxxxxxxxxxxxxxxxxx",
- *   orgRole: "org:admin",
- *   orgSlug: "example-org",
- *   orgPermissions: [],
- *   __experimental_factorVerificationAge: null
- * }
- * ```
- */
-
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
-const OPENSTAX_ORG_SLUG = 'openstax'
 const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
 
-const MFA_ROUTE = '/account/mfa'
-
 const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
+
+// eslint-disable-next-line no-console
+console.log('middleware.ts', process.env)
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
@@ -101,7 +73,6 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next()
 })
 
-//
 export const config = {
     matcher: [
         // as optimziation and for clarity, we always run for routes below:
