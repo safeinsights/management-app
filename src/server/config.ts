@@ -33,29 +33,34 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '872515273917': 'Development',
 }
 
-async function fetchSecret<T extends Record<string, unknown>>(envKey: string): Promise<T> {
+async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
     const arn = process.env[envKey]
-    if (!arn) throw new Error(`missing ARN ${envKey} in env`)
+    if (!arn) {
+        if (throwIfNotFound) throw new Error(`missing ARN ${envKey} in env`)
+        return {} as T
+    }
     try {
         const client = new SecretsManagerClient()
         const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
         if (!data?.SecretString) {
-            throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
+            if (throwIfNotFound) throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
+            return {} as T
         }
         return JSON.parse(data.SecretString)
     } catch (e) {
-        throw new Error(`failed to parse AWS secrets: ${e}`)
+        if (throwIfNotFound) throw new Error(`failed to parse AWS secrets: ${e}`)
+        return {} as T
     }
 }
 
 export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
 export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
 export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
-    //    export async function getConfigValue(key: string): Promise<string> {
+
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
-    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN')
+    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN', throwIfNotFound)
     if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
 
     return secret[key]
@@ -74,7 +79,7 @@ type DBSecrets = {
 export async function databaseURL(): Promise<string> {
     if (process.env['DATABASE_URL']) return process.env['DATABASE_URL']
 
-    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN')
+    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN', true)
 
     return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }
