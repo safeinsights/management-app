@@ -1,4 +1,4 @@
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { BackupCodeResource } from '@clerk/types'
 import { reportError } from '@/components/errors'
 import { useUser } from '@clerk/nextjs'
@@ -6,11 +6,11 @@ import { useUser } from '@clerk/nextjs'
 // Generate and display backup codes
 export function GenerateBackupCodes() {
     const { user } = useUser()
-    const [backupCodes, setBackupCodes] = React.useState<BackupCodeResource | undefined>(undefined)
+    const [backupCodes, setBackupCodes] = useState<BackupCodeResource | undefined>(undefined)
 
-    const [loading, setLoading] = React.useState(false)
+    const [loading, setLoading] = useState(false)
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (backupCodes) {
             return
         }

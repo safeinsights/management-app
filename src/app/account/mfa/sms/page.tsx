@@ -1,8 +1,8 @@
 'use client'
 
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { Button, Flex, Title, Container, Text, TextInput } from '@mantine/core'
+import { Button, Group, Stack, Title, Container, Text, TextInput } from '@mantine/core'
 import { savePhoneNumberAction, verifyPhoneNumberCodeAction } from '@/server/actions/clerk-sms-actions'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
@@ -30,20 +30,20 @@ const ManageMfaPhoneNumbers = () => {
             <Title order={2}>Phone numbers reserved for MFA</Title>
             <ul>
                 {mfaPhones.map((phone) => (
-                    <Flex component="li" key={phone.id} gap="sm" align="center">
+                    <Group component="li" key={phone.id} gap="sm" align="center">
                         <Text>
                             {phone.phoneNumber} {phone.defaultSecondFactor && '(Default)'}
                         </Text>
                         <Button 
                             onClick={() => phone.setReservedForSecondFactor({ reserved: false })}
-                            styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                            miw={150} mih={40}
                         >
                             Disable for MFA
                         </Button>
                         {!phone.defaultSecondFactor && (
                             <Button 
                                 onClick={() => phone.makeDefaultSecondFactor()}
-                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                                miw={150} mih={40}
                             >
                                 Make default
                             </Button>
@@ -56,7 +56,7 @@ const ManageMfaPhoneNumbers = () => {
                                 Remove from account
                             </Button>
                         )}
-                    </Flex>
+                    </Group>
                 ))}
             </ul>
             <Text>You have enabled MFA on your account</Text>
@@ -98,7 +98,7 @@ const ManageAvailablePhoneNumbers = () => {
                         <Text>{phone.phoneNumber}</Text>
                         <Button 
                             onClick={() => reservePhoneForMfa(phone)}
-                            styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                            miw={150} mih={40}
                         >
                             Use for MFA
                         </Button>
@@ -214,7 +214,7 @@ export default function ManageSMSMFA() {
         <Container>
             <Panel title="SMS Verification">
                 {error && <Text color="red" align="center" mb="md">{error}</Text>}
-                <Flex direction="column" gap="lg" align="flex-start">
+                <Stack gap="lg">
                     <TextInput
                         label="Phone Number"
                         value={prefilledPhone}
@@ -230,20 +230,20 @@ export default function ManageSMSMFA() {
                     />
                     <Button
                         onClick={handleVerify}
-                        styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
+                        miw={150} mih={40}
                     >
                         Verify
                     </Button>
 
                     {verificationSuccess && (
-                        <Flex direction="column" gap="lg">
+                        <Stack gap="lg">
                             <GenerateBackupCodes />
                             <Button onClick={() => {/* complete final action */}}>
                                 Done
                             </Button>
-                        </Flex>
+                        </Stack>
                     )}
-                </Flex>
+                </Stack>
             </Panel>
         </Container>
     )

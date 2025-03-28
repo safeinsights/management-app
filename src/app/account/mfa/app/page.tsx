@@ -2,11 +2,11 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import * as React from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
-import { Button, TextInput, Text, Flex, Container, Box } from '@mantine/core'
+import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
@@ -17,9 +17,9 @@ type DisplayFormat = 'qr' | 'uri'
 
 function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     const { user } = useUser()
-    const [totp, setTOTP] = React.useState<TOTPResource | undefined>(undefined)
-    const [displayFormat, setDisplayFormat] = React.useState<DisplayFormat>('qr')
-    const secret = React.useMemo(() => {
+    const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
+    const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
+    const secret = useMemo(() => {
         if (totp?.uri) {
             try {
                 const url = new URL(totp.uri)
@@ -65,7 +65,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
             <Text size="md" mb={60} align="center">
                 Open your preferred authenticator app and scan this QR code.<br/>Once setup, enter the code from the app into the field below to complete the process.
             </Text>
-            <Flex gap="md" mb={60} direction="column" align="center">
+            <Stack gap="md" mb={60} align="center">
                 {totp && displayFormat === 'qr' && (
                     <>
                         <QRCodeSVG value={totp?.uri || ''} size={200} />
@@ -86,7 +86,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                     </>
                 )}
                 {/* <Button onClick={() => setStep('add')}>Re-generate</Button> */}
-            </Flex>
+            </Stack>
             <Text mt={60} size="md" align="center">Enter a generated code</Text>
             <form onSubmit={form.onSubmit(verifyTotp)}>
                 <Box mb="lg" maw="30%" mx="auto">
@@ -105,20 +105,15 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                         {form.errors.code || '\u00A0'}
                     </Text>
                 </Box>
-                <Flex gap="lg" justify="center">
+                <Group gap="lg" justify="center">
                     <Button 
                         type="submit" 
                         disabled={!/^\d{6}$/.test(form.values.code)}
-                        styles={(theme) => ({
-                            root: {
-                                minWidth: 150,
-                                minHeight: 40,
-                            },
-                        })}
+                        miw={150} mih={40}
                     >
                         Verify Code
                     </Button>
-                </Flex>
+                </Group>
             </form>
         </>
     )
@@ -162,44 +157,36 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
                     {form.errors.code || '\u00A0'}
                 </Text>
             </Box>
-            <Flex gap="lg" justify="center">
+            <Group gap="lg" justify="center">
                 <Button variant="light" onClick={() => setStep('add')}>
                     Retry
                 </Button>
-                <Button 
-                    type="submit"
-                    styles={(theme) => ({
-                        root: {
-                            minWidth: 150,
-                            minHeight: 40,
-                        },
-                    })}
-                >
+                <Button type="submit" miw={150} mih={40}>
                     Verify code
                 </Button>
-            </Flex>
+            </Group>
         </form>
     )
 }
 
 function BackupCodeScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     return (
-        <>
+        <Stack gap="lg">
             <Text>
                 Save this list of backup codes somewhere safe in case you need to access your account in an emergency.
             </Text>
             <GenerateBackupCodes />
             <Button onClick={() => setStep('success')}>Finish</Button>
-        </>
+        </Stack>
     )
 }
 
 function SuccessScreenContent() {
     return (
-        <>
+        <Stack gap="lg">
             <Text>You have successfully added TOTP MFA with an authentication application.</Text>
             <ButtonLink href="/">Return to homepage</ButtonLink>
-        </>
+        </Stack>
     )
 }
 

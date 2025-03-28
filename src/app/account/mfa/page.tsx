@@ -1,9 +1,9 @@
 'use client'
 
-import * as React from 'react'
+import React, { useState } from 'react'
 import { useClerk, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
-import { Container, Button, Flex, Text, Title } from '@mantine/core'
+import { Container, Button, Stack, Text, Title } from '@mantine/core'
 import { GenerateBackupCodes } from './backup-codes'
 import { Panel } from '@/components/panel'
 
@@ -23,7 +23,7 @@ const HasMFA = () => {
 export default function ManageMFA() {
     const { openUserProfile } = useClerk()
     const { isLoaded, user } = useUser()
-    const [showNewCodes, setShowNewCodes] = React.useState(false)
+    const [showNewCodes, setShowNewCodes] = useState(false)
 
     if (!isLoaded) return null
 
@@ -37,7 +37,7 @@ export default function ManageMFA() {
         <Container>
             <Panel title="Set up Two-Step Verification">
 
-                <Flex direction="column" gap="lg" align="flex-start">
+                <Stack gap="lg">
                     <Text size="md">
                         To enhance the security of your account, we’re enforcing two-factor verification at
                         SafeInsights.
@@ -61,20 +61,20 @@ export default function ManageMFA() {
                             <Button onClick={() => openUserProfile()}>SMS Verification</Button>
                         </>
                     )} */}
-                </Flex>
+                </Stack>
 
                 {/* Manage backup codes */}
                 {user.backupCodeEnabled && user.twoFactorEnabled && (
-                    <Flex direction="column" gap="sm" mt="lg">
+                    <Stack gap="sm" mt="lg">
                         <Text size="md">Generate new backup codes?</Text>
                         <Button onClick={() => setShowNewCodes(true)}>Generate</Button>
-                    </Flex>
+                    </Stack>
                 )}
                 {showNewCodes && (
-                    <Flex direction="column" gap="sm" mt="lg">
+                    <Stack gap="sm" mt="lg">
                         <GenerateBackupCodes />
                         <Button onClick={() => setShowNewCodes(false)}>Done</Button>
-                    </Flex>
+                    </Stack>
                 )}
             </Panel>
         </Container>
