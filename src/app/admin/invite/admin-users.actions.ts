@@ -5,6 +5,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { inviteUserSchema } from './admin-users.schema'
 import { adminAction } from '@/server/actions/wrappers'
 import { sendWelcomeEmail } from '@/server/mailgun'
+import { findOrCreateClerkOrganization } from '@/server/clerk'
 
 export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()
@@ -15,6 +16,22 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         emailAddress: [invite.email],
         password: invite.password,
     })
+
+    if (invite.isReviewer) {
+        const org = await db
+            .selectFrom('member')
+            .select(['identifier', 'name'])
+            .where('id', '=', invite.organizationId)
+            .executeTakeFirstOrThrow()
+
+        const clerkOrg = await findOrCreateClerkOrganization({ slug: org.identifier, name: org.name })
+
+        await client.organizations.createOrganizationMembership({
+            organizationId: clerkOrg.id,
+            userId: clerkUser.id,
+            role: 'org:member',
+        })
+    }
 
     return await db.transaction().execute(async (trx) => {
         const existingUser = await trx
