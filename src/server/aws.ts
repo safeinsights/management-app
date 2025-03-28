@@ -10,13 +10,7 @@ import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import {
-    isMinimalStudyJobInfo,
-    MinimalJobInfo,
-    MinimalJobResultsInfo,
-    MinimalStudyInfo,
-} from '@/lib/types'
-
+import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'

@@ -176,5 +176,4 @@ export const fetchJobResultsEncryptedZipAction = memberAction(async (jobId: stri
     }
 
     return await fetchStudyEncryptedResultsFile(job)
-
 }, z.string())

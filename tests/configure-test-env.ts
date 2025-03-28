@@ -18,9 +18,13 @@ async function setupUsers() {
 
     const member = await db
         .selectFrom('member')
-        .select('id')
+        .select(['id', 'publicKey'])
         .where('identifier', '=', 'openstax')
         .executeTakeFirstOrThrow()
+
+    if (member.publicKey.length < 1000) {
+        db.updateTable('member').set({ publicKey: pubKeyStr }).where('id', '=', member.id).execute()
+    }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
         await findOrCreateSiUserId(clerkId, {
