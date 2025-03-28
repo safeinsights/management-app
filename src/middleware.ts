@@ -12,7 +12,7 @@ const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
 const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
 
 // eslint-disable-next-line no-console
-console.log('middleware.ts', process.env)
+console.info('middleware.ts', process.env)
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
