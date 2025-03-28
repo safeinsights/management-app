@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { BackupCodeResource } from '@clerk/types'
 import { reportError } from '@/components/errors'
+import { Code } from '@mantine/core'
 import { useUser } from '@clerk/nextjs'
 
 // Generate and display backup codes
@@ -39,7 +40,7 @@ export function GenerateBackupCodes() {
     return (
         <ol>
             {backupCodes.codes.map((code, index) => (
-                <li key={index}>{code}</li>
+                <li key={index}><Code fz="lg">{code}</Code></li>
             ))}
         </ol>
     )
