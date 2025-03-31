@@ -104,7 +104,7 @@ export default function ManageSMSMFA() {
     return (
         <Container>
             <Panel title="SMS Verification">
-                {error && <Text color="red" align="center" mb="md">{error}</Text>}
+                {error && <Text color="red" ta="center" mb="md">{error}</Text>}
                 <Stack gap="lg">
                     <Text size="md" mb="md">
                         Enter your preferred phone number and click &apos;Send Code.&apos; Once you receive the code, simply enter it below to complete the process.
