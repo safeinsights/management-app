@@ -67,3 +67,5 @@ export type AllStatus = StudyJobStatus | StudyStatus
 export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
     return 'studyJobId' in info
 }
+
+export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const

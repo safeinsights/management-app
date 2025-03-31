@@ -1,13 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import debug from 'debug'
-
+import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
 const middlewareDebug = debug('app:middleware')
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
-const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
 
 const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
 
@@ -29,7 +28,7 @@ function redirectToRole(request: NextRequest, route: string, roles: Roles) {
 }
 
 export default clerkMiddleware(async (auth, req) => {
-    const { userId, orgId, orgSlug } = await auth()
+    const { userId, orgSlug } = await auth()
 
     if (!userId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
