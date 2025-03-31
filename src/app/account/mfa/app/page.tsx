@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
@@ -62,7 +62,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
 
     return (
         <>
-            <Text size="md" mb={60} align="center">
+            <Text size="md" mb={60} ta="center">
                 Open your preferred authenticator app and scan this QR code.<br/>Once setup, enter the code from the app into the field below to complete the process.
             </Text>
             <Stack gap="md" mb={60} align="center">
@@ -87,7 +87,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                 )}
                 {/* <Button onClick={() => setStep('add')}>Re-generate</Button> */}
             </Stack>
-            <Text mt={60} size="md" align="center">Enter a generated code</Text>
+            <Text mt={60} size="md" ta="center">Enter a generated code</Text>
             <form onSubmit={form.onSubmit(verifyTotp)}>
                 <Box mb="lg" maw="30%" mx="auto">
                     <TextInput
@@ -95,13 +95,13 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                         maxLength={8}
                         name="code"
                         placeholder="000000"
-                        styles={(theme) => ({ input: { textAlign: 'center' } })}
+                        styles={(_theme) => ({ input: { textAlign: 'center' } })}
                         {...(function() {
                             const { error, ...rest } = form.getInputProps('code')
                             return rest
                         })()}
                     />
-                    <Text color="red" size="xs" align="center">
+                    <Text color="red" size="xs" ta="center">
                         {form.errors.code || '\u00A0'}
                     </Text>
                 </Box>

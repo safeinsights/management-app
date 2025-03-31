@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useClerk, useUser } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
-import { Container, Button, Stack, Text, Title } from '@mantine/core'
+import { Container, Button, Stack, Text } from '@mantine/core'
 import { GenerateBackupCodes } from './backup-codes'
 import { Panel } from '@/components/panel'
 
@@ -21,7 +21,6 @@ const HasMFA = () => {
 }
 
 export default function ManageMFA() {
-    const { openUserProfile } = useClerk()
     const { isLoaded, user } = useUser()
     const [showNewCodes, setShowNewCodes] = useState(false)
 

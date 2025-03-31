@@ -1,120 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useUser, useClerk } from '@clerk/nextjs'
+import React from 'react'
+import { useUser} from '@clerk/nextjs'
 import { Button, Group, Stack, Title, Container, Text, TextInput, Code } from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { BackupCodeResource, PhoneNumberResource } from '@clerk/types'
-import { Link } from '@/components/links'
-
-// Display phone numbers reserved for MFA
-const ManageMfaPhoneNumbers = () => {
-    const { user } = useUser()
-
-    if (!user) return null
-
-    // Check if any phone numbers are reserved for MFA
-    const mfaPhones = user.phoneNumbers
-        .filter((ph) => ph.verification.status === 'verified')
-        .filter((ph) => ph.reservedForSecondFactor)
-        .sort((ph: PhoneNumberResource) => (ph.defaultSecondFactor ? -1 : 1))
-
-    if (user.phoneNumbers.length === 0) {
-        return <Text>There are currently no phone numbers on your account.</Text>
-    }
-
-    return (
-        <>
-            <Title order={2}>Phone numbers reserved for MFA</Title>
-            <ul>
-                {mfaPhones.map((phone) => (
-                    <Group component="li" key={phone.id} gap="sm" align="center">
-                        <Text>
-                            {phone.phoneNumber} {phone.defaultSecondFactor && '(Default)'}
-                        </Text>
-                        <Button 
-                            onClick={() => phone.setReservedForSecondFactor({ reserved: false })}
-                            miw={150} mih={40}
-                        >
-                            Disable for MFA
-                        </Button>
-                        {!phone.defaultSecondFactor && (
-                            <Button 
-                                onClick={() => phone.makeDefaultSecondFactor()}
-                                miw={150} mih={40}
-                            >
-                                Make default
-                            </Button>
-                        )}
-                        {user.phoneNumbers.length > 1 && (
-                            <Button 
-                                onClick={() => phone.destroy()}
-                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
-                            >
-                                Remove from account
-                            </Button>
-                        )}
-                    </Group>
-                ))}
-            </ul>
-            <Text>You have enabled MFA on your account</Text>
-            <ButtonLink href="/">Return to homepage</ButtonLink>
-        </>
-    )
-}
-
-// Display phone numbers that are not reserved for MFA
-const ManageAvailablePhoneNumbers = () => {
-    const { user } = useUser()
-
-    if (!user) return null
-
-    // Reserve a phone number for MFA
-    const reservePhoneForMfa = async (phone: PhoneNumberResource) => {
-        // Set the phone number as reserved for MFA
-        await phone.setReservedForSecondFactor({ reserved: true })
-        // Refresh the user information to reflect changes
-        await user.reload()
-    }
-
-    // phone numbers are valid for MFA but aren't used for it
-    const availableForMfaPhones = user.phoneNumbers.filter(
-        (phone) => phone.verification.status === 'verified' && !phone.reservedForSecondFactor,
-    )
-
-    if (availableForMfaPhones.length === 0) {
-        return <Text>There are currently no verified phone numbers available to be reserved for MFA.</Text>
-    }
-
-    return (
-        <>
-            <Title order={2}>Phone numbers that are not reserved for MFA</Title>
-
-            <ul>
-                {availableForMfaPhones.map((phone) => (
-                    <Group component="li" key={phone.id} gap="sm" align="center">
-                        <Text>{phone.phoneNumber}</Text>
-                        <Button 
-                            onClick={() => reservePhoneForMfa(phone)}
-                            miw={150} mih={40}
-                        >
-                            Use for MFA
-                        </Button>
-                        {user.phoneNumbers.length > 1 && (
-                            <Button 
-                                onClick={() => phone.destroy()}
-                                styles={(theme) => ({ root: { minWidth: 150, minHeight: 40 } })}
-                            >
-                                Remove from account
-                            </Button>
-                        )}
-                    </Group>
-                ))}
-            </ul>
-        </>
-    )
-}
 
 // Generate and display backup codes
 function GenerateBackupCodes() {
@@ -141,7 +32,7 @@ function GenerateBackupCodes() {
                 console.error(JSON.stringify(err, null, 2))
                 setLoading(false)
             })
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [user, backupCodes])
 
     if (loading) {
         return <p>Loading...</p>
@@ -161,8 +52,6 @@ function GenerateBackupCodes() {
 }
 
 export default function ManageSMSMFA() {
-    const [showBackupCodes, setShowBackupCodes] = React.useState(false)
-    const { openUserProfile } = useClerk()
     const { isLoaded, user } = useUser()
     const [phoneNumber, setPhoneNumber] = React.useState('')
     const [verificationCode, setVerificationCode] = React.useState('')
@@ -174,7 +63,7 @@ export default function ManageSMSMFA() {
     const [phoneResourceToVerify, setPhoneResourceToVerify] = React.useState<PhoneNumberResource | null>(null)
 
     // Determine if there's an existing phone record
-    const existingPhone = user && user.phoneNumbers && user.phoneNumbers[0]
+    const existingPhone = user?.phoneNumbers?.[0]
     const prefilledPhone = existingPhone ? existingPhone.phoneNumber : phoneNumber
     const isPhoneEditable = !existingPhone
 
@@ -208,7 +97,7 @@ export default function ManageSMSMFA() {
             await phoneResource.prepareVerification()
             setPhoneResourceToVerify(phoneResource)
             setCodeSent(true)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error sending code:', err)
             const clerkError = err.errors?.[0]
             setError(clerkError?.longMessage || clerkError?.message || 'Failed to send verification code. Please check the number and try again.')
@@ -238,7 +127,7 @@ export default function ManageSMSMFA() {
             } else {
                 setError('Verification failed. Please try again.')
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error verifying code:', err)
             const clerkError = err.errors?.[0]
             setError(clerkError?.longMessage || clerkError?.message || 'Invalid verification code. Please try again.')
@@ -260,7 +149,7 @@ export default function ManageSMSMFA() {
                 {error && <Text color="red" align="center" mb="md">{error}</Text>}
                 <Stack gap="lg">
                     <Text size="md" mb="md">
-                        Enter your preferred phone number and click 'Send Code.' Once you receive the code, simply enter it below to complete the process.
+                        Enter your preferred phone number and click &apos;Send Code.&apos; Once you receive the code, simply enter it below to complete the process.
                     </Text>
                     {!verificationSuccess && (
                         <Group align="flex-end" gap="md">
@@ -306,9 +195,9 @@ export default function ManageSMSMFA() {
 
                     {verificationSuccess && (
                         <Stack gap="lg">
-                            <Text color="green" align="center">Phone number verified and enabled for MFA!</Text>
-                            <Title order={3} align="center">Save Your Backup Codes</Title>
-                            <Text align="center">Store these codes securely. They are needed if you lose access to your phone.</Text>
+                            <Text color="green" ta="center">Phone number verified and enabled for MFA!</Text>
+                            <Title order={3} ta="center">Save Your Backup Codes</Title>
+                            <Text ta="center">Store these codes securely. They are needed if you lose access to your phone.</Text>
                             <GenerateBackupCodes />
                             <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
                         </Stack>
