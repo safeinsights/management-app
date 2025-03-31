@@ -1,5 +1,5 @@
-.hoverItem {
+.hover {
     &:hover {
-        background-color: #0058BD;
+        background-color: #0058bd;
     }
 }

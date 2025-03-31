@@ -23,7 +23,7 @@ export const NavbarItems: FC = () => {
         <Stack gap="xs">
             <Button
                 fullWidth
-                className={styles.hoverItem}
+                className={styles.hover}
                 justify="flex-start"
                 variant="transparent"
                 component={Link}
@@ -36,7 +36,7 @@ export const NavbarItems: FC = () => {
 
             <Button
                 fullWidth
-                className={styles.hoverItem}
+                className={styles.hover}
                 justify="flex-start"
                 variant="transparent"
                 onClick={() => openUserProfile()}
@@ -50,7 +50,7 @@ export const NavbarItems: FC = () => {
 
             <Button
                 fullWidth
-                className={styles.hoverItem}
+                className={styles.hover}
                 justify="flex-start"
                 variant="transparent"
                 onClick={() => signOut()}
