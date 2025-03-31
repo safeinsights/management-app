@@ -57,7 +57,8 @@ export function AppLayout({ children }: Props) {
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
             <AppShellFooter p="md" bg="#353068">
                 <Group justify="center" c="white">
-                    <Text>© 2025 - SafeInsights</Text>e{/* TODO Temporary for dev mode only? admins? */}
+                    <Text>© 2025 - SafeInsights</Text>
+                    {/* TODO Temporary for dev mode only? admins? */}
                     <OrganizationSwitcher afterSelectOrganizationUrl="/" />
                 </Group>
             </AppShellFooter>
