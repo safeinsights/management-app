@@ -6,11 +6,10 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { humanizeStatus } from '@/lib/status'
-import type { AllStatus } from '@/lib/types'
 import { useUser } from '@clerk/nextjs'
 import { Study } from '@/schema/study'
 
-export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
+export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => {
     const { user } = useUser()
 
     const rows = studies.map((study) => (
@@ -50,7 +49,7 @@ export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
 
     return (
         <Stack p="md">
-            <Title>Hi {user?.fullName}!</Title>
+            <Title>Hi {user?.firstName}!</Title>
             <Stack>
                 <Text mt="md">Welcome to SafeInsights</Text>
 
@@ -63,7 +62,7 @@ export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
                 </Text>
             </Stack>
 
-            <Paper m="xl" shadow="xs" p="xl">
+            <Paper shadow="xs" p="xl">
                 <Group justify="space-between">
                     <Title>Proposed Studies</Title>
                     <Flex justify="flex-end">

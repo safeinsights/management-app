@@ -3,7 +3,6 @@
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Text } from '@mantine/core'
-import { AlertNotFound, ErrorAlert } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -23,11 +22,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: st
 
     const backPath = `/member/${memberIdentifier}/dashboard`
 
-    const {
-        mutate: updateStudy,
-        isPending,
-        error,
-    } = useMutation({
+    const { mutate: updateStudy, isPending } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
                 return approveStudyProposalAction(study.id)

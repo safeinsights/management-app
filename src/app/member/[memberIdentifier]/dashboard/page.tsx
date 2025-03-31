@@ -19,7 +19,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
 
     return (
         <Stack p="md">
-            <Title>Hi {user?.fullName}!</Title>
+            <Title>Hi {user?.firstName}!</Title>
             <Text>Welcome to SafeInsights</Text>
             <Text>
                 Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your
