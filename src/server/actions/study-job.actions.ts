@@ -3,9 +3,6 @@
 import { db } from '@/database'
 import { CodeManifest } from '@/lib/types'
 import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
-import { attachResultsToStudyJob, storageForResultsFile } from '@/server/results'
-import { queryJobResult, siUser } from '@/server/db/queries'
-import { promises as fs } from 'fs'
 import {
     actionContext,
     getUserIdFromActionContext,
@@ -153,7 +150,7 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
     if (studyInfo.agreementDocPath) {
         documents.push({
             name: studyInfo.agreementDocPath || 'Agreement Document',
-            path: studyInfo.agreementDocPath
+            path: studyInfo.agreementDocPath,
         })
     }
 
@@ -164,29 +161,6 @@ export const dataForStudyDocumentsAction = async (studyId: string) => {
 }
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
-    const ctx = actionContext()
-    const latestJob = await db
-        .selectFrom('studyJob')
-        .selectAll('studyJob')
-
-        // security, check user has access to record
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .$if(Boolean(ctx?.orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join
-                    .on('member.identifier', '=', getOrgSlugFromActionContext())
-                    .onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
-
-        .where('studyJob.studyId', '=', studyId)
-        .orderBy('createdAt', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-
-
-export const latestJobForStudyAction = memberAction(async (studyId) => {
     const latestJob = await latestJobForStudy(studyId)
 
     // We should always have a job, something is wrong if we don't

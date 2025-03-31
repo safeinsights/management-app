@@ -17,13 +17,19 @@ export const StudyDocuments: FC<{ studyId: string }> = ({ studyId }) => {
         return <Text>No documents found!</Text>
     }
 
-    const documentChips = data.documents.map((doc) => (
+    interface Document {
+        name: string
+        path: string
+    }
+
+    const documentChips = data.documents.map((doc: Document) => (
         <Badge
             key={doc.path}
             color="#D4D1F3"
             c="black"
             component="a"
             href={`/dl/study/${data.studyInfo.memberIdentifier}/${studyId}/docs/${doc.path}`}
+            download
             target="_blank"
             rightSection={<Download />}
             style={{ cursor: 'pointer' }}

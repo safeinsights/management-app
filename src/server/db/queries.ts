@@ -3,7 +3,7 @@ import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/
 import { AccessDeniedError, MinimalJobResultsInfo } from '@/lib/types'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { getOrgSlugFromActionContext } from '../actions/wrappers'
+import { getOrgSlugFromActionContext, actionContext } from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
     const results = await db
@@ -84,15 +84,22 @@ export const getMemberUserPublicKeyByClerkId = async (clerkId: string) => {
 }
 
 export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
+    const ctx = actionContext()
+
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
 
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
         )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
