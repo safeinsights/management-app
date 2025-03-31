@@ -11,7 +11,7 @@ import { InviteUserFormValues, inviteUserSchema, zodResolver } from './admin-use
 import { randomString } from '@/lib/string'
 import { reportError } from '@/components/errors'
 
-const initialValues = () =>({
+const initialValues = () => ({
     firstName: '',
     lastName: '',
     email: '',

@@ -1,6 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import logger from '@/lib/logger'
 import debug from 'debug'
 
 const middlewareDebug = debug('app:middleware')
@@ -14,9 +13,6 @@ const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup'
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
-
-
-//.redirect(new URL('/home', request.url))
 
 type Roles = {
     isAdmin: boolean
@@ -62,8 +58,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     if (isResearcherRoute(req) && !userRoles.isResearcher) {
-        middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
-        return new NextResponse(null, { status: 403 })
+        redirectToRole(req, 'researcher', userRoles)
     }
 
     return NextResponse.next()

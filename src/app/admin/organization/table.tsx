@@ -70,7 +70,7 @@ const AddMember: FC = () => {
             </Modal>
             <ButtonGroup>
                 <ButtonGroupSection>
-                    <ButtonLink href='/admin/invite'>Invite Users</ButtonLink>
+                    <ButtonLink href="/admin/invite">Invite Users</ButtonLink>
                 </ButtonGroupSection>
                 <Button onClick={open}>Add new organization</Button>
             </ButtonGroup>
