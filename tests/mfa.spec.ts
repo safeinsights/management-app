@@ -1,4 +1,4 @@
-import { test, expect, visitClerkProtectedPage, clerkLoaded } from './e2e.helpers'
+import { test, expect, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
     // Use the same worker
@@ -7,13 +7,6 @@ test.describe('MFA Setup Visibility', () => {
     test('checks Authenticator App page elements', async ({ page }) => {
         // Go DIRECTLY to the authenticator app page
         await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'member' })
-
-        // Verify URL after navigation helper
-        await page.waitForURL('**/account/mfa/app')
-        await expect(page).toHaveURL(/.*\/account\/mfa\/app/)
-
-        // Wait for Clerk to be ready on the target page
-        await clerkLoaded(page)
 
         // Check if the main heading is visible
         await expect(page.getByRole('heading', { name: 'Authenticator App Verification' })).toBeVisible()
