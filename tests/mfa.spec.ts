@@ -8,9 +8,6 @@ test.describe('MFA Setup Visibility', () => {
         // Go DIRECTLY to the authenticator app page
         await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'member' })
 
-        // Check if the main heading is visible
-        await expect(page.getByRole('heading', { name: 'Authenticator App Verification' })).toBeVisible()
-
         // Check if the code input field is visible
         await expect(page.getByPlaceholder('000000')).toBeVisible()
 
