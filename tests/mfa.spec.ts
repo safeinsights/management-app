@@ -10,6 +10,7 @@ test.describe('MFA Setup', () => {
 
         // Navigate to the Authenticator App setup
         await page.getByRole('link', { name: 'Authenticator App Verification' }).click()
+        await page.waitForURL('**/account/mfa/app') // Wait for the URL to change
         await expect(page.getByRole('heading', { name: 'Authenticator App Verification' })).toBeVisible()
 
         // Verify QR code is present
