@@ -6,50 +6,7 @@ import { Button, Group, Stack, Title, Container, Text, TextInput, Code } from '@
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { BackupCodeResource, PhoneNumberResource } from '@clerk/types'
-
-// Generate and display backup codes
-function GenerateBackupCodes() {
-    const { user } = useUser()
-    const [backupCodes, setBackupCodes] = React.useState<BackupCodeResource | undefined>(undefined)
-
-    const [loading, setLoading] = React.useState(false)
-
-    React.useEffect(() => {
-        if (backupCodes) {
-            return
-        }
-
-        setLoading(true)
-        void user
-            ?.createBackupCode()
-            .then((backupCode: BackupCodeResource) => {
-                setBackupCodes(backupCode)
-                setLoading(false)
-            })
-            .catch((err) => {
-                // See https://clerk.com/docs/custom-flows/error-handling
-                // for more info on error handling
-                console.error(JSON.stringify(err, null, 2))
-                setLoading(false)
-            })
-    }, [user, backupCodes])
-
-    if (loading) {
-        return <p>Loading...</p>
-    }
-
-    if (!backupCodes) {
-        return <p>There was a problem generating backup codes</p>
-    }
-
-    return (
-        <ol>
-            {backupCodes.codes.map((code, index) => (
-                <li key={index}><Code fz="lg">{code}</Code></li>
-            ))}
-        </ol>
-    )
-}
+import { GenerateBackupCodes } from '../backup-codes'
 
 export default function ManageSMSMFA() {
     const { isLoaded, user } = useUser()
