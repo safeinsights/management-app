@@ -49,7 +49,7 @@ describe('Member Dashboard', () => {
         vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         vi.mocked(currentUser).mockResolvedValue({
-            fullName: 'Test User',
+            firstName: 'Test User',
         } as SiUser)
 
         renderWithProviders(await MemberDashboardPage(props))
