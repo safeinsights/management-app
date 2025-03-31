@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers' // Uses Mantine/Query providers
 import { screen, waitFor } from '@testing-library/react'

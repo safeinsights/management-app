@@ -14,7 +14,7 @@ test.describe('MFA Setup Visibility', () => {
         // Check if the Verify Code button is visible and initially disabled (as no code is entered)
         const verifyButton = page.getByRole('button', { name: 'Verify Code' })
         await expect(verifyButton).toBeVisible()
-        await expect(verifyButton.disabled).toBe(true)
+        await expect(verifyButton).toBeDisabled()
     })
 
     test('checks SMS page elements', async ({ page }) => {
