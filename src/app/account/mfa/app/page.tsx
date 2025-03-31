@@ -10,6 +10,7 @@ import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/
 import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
+import logger from '@/lib/logger'
 
 type AddTotpSteps = 'add' | 'verify' | 'backupcodes' | 'success'
 
@@ -25,7 +26,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                 const url = new URL(totp.uri)
                 return url.searchParams.get('secret')
             } catch (err) {
-                console.error(err)
+                logger.error({ err, message: 'Error parsing TOTP URI' })
                 return null
             }
         }

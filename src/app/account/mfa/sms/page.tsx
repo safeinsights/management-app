@@ -7,6 +7,7 @@ import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
 import { GenerateBackupCodes } from '../backup-codes'
+import logger from '@/lib/logger'
 
 export default function ManageSMSMFA() {
     const { isLoaded, user } = useUser()
@@ -54,8 +55,8 @@ export default function ManageSMSMFA() {
             await phoneResource.prepareVerification()
             setPhoneResourceToVerify(phoneResource)
             setCodeSent(true)
-        } catch (err: unknown) {
-            console.error('Error sending code:', err)
+        } catch (err) {
+            logger.error({ err, message: 'Error sending code' })
             const clerkError = err.errors?.[0]
             setError(clerkError?.longMessage || clerkError?.message || 'Failed to send verification code. Please check the number and try again.')
         } finally {
@@ -84,8 +85,8 @@ export default function ManageSMSMFA() {
             } else {
                 setError('Verification failed. Please try again.')
             }
-        } catch (err: unknown) {
-            console.error('Error verifying code:', err)
+        } catch (err) {
+            logger.error({ err, message: 'Error verifying code' })
             const clerkError = err.errors?.[0]
             setError(clerkError?.longMessage || clerkError?.message || 'Invalid verification code. Please try again.')
             setVerificationSuccess(false)
