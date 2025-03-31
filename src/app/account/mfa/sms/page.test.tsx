@@ -46,7 +46,7 @@ describe('ManageSMSMFA', () => {
                 id: 'user_123',
                 phoneNumbers: phoneNumbers.map((p) => ({
                     id: p.id || 'phone_123',
-                    phoneNumber: p.phoneNumber || '+15551234567',
+                    phoneNumber: p.phoneNumber || '+12015550123',
                     verification: { status: 'verified', ...p.verification },
                     reservedForSecondFactor: p.reservedForSecondFactor || false,
                     prepareVerification: mockPrepareVerification,
