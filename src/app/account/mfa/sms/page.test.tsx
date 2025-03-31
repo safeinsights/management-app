@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers' // Uses Mantine/Query providers
 import { screen } from '@testing-library/react'
@@ -30,7 +29,7 @@ vi.mock('@/lib/logger', () => ({
 
 describe('ManageSMSMFA', () => {
     // Explicitly type the mock
-    const mockUseUser = useUser as vi.Mock<[], UseUserReturn>
+    const mockUseUser = vi.mocked(useUser, true)
     const mockCreatePhoneNumber = vi.fn()
     const mockPrepareVerification = vi.fn()
     const mockAttemptVerification = vi.fn()
