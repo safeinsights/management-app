@@ -23,7 +23,7 @@ const initialValues = () => ({
 
 export function InviteForm() {
     const studyProposalForm = useForm<InviteUserFormValues>({
-        mode: 'uncontrolled',
+        mode: 'controlled',
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
         initialValues: initialValues(),
@@ -31,13 +31,12 @@ export function InviteForm() {
 
     const { mutate: inviteUser, isPending } = useMutation({
         mutationFn: adminInviteUserAction,
-        onSettled(result, error) {
-            if (error) {
-                reportError(error)
-            } else if (result) {
-                notifications.show({ message: 'User invited successfully', color: 'green' })
-                studyProposalForm.setValues(initialValues())
-            }
+        onError(error) {
+            reportError(error)
+        },
+        onSuccess(info) {
+            notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
+            studyProposalForm.setValues(initialValues())
         },
     })
 
@@ -53,6 +52,7 @@ export function InviteForm() {
             <TextInput
                 withAsterisk
                 label="First Name"
+                autoFocus
                 placeholder="Enter first name"
                 mb="sm"
                 {...studyProposalForm.getInputProps('firstName')}

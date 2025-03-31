@@ -1,6 +1,7 @@
 import logger from '@/lib/logger'
 import { auth as clerkAuth } from '@clerk/nextjs/server'
-import { AccessDeniedError, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { AccessDeniedError } from '@/lib/errors'
 import { z, type Schema } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'

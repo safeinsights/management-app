@@ -57,7 +57,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     if (isResearcherRoute(req) && !userRoles.isResearcher) {
-        redirectToRole(req, 'researcher', userRoles)
+        return redirectToRole(req, 'researcher', userRoles)
     }
 
     return NextResponse.next()
