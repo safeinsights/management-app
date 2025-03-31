@@ -63,41 +63,43 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
             </Stack>
 
             <Paper shadow="xs" p="xl">
-                <Group justify="space-between">
-                    <Title>Proposed Studies</Title>
-                    <Flex justify="flex-end">
-                        <Link href="/researcher/study/request/openstax">
-                            <Button leftSection={<Plus />}>Propose New Study</Button>
-                        </Link>
-                    </Flex>
-                </Group>
-                <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
-                    {!rows.length && (
-                        <Table.Caption>
-                            <Alert variant="transparent">
-                                You haven&apos;t started a study yet
-                                <Stack>
-                                    <Link
-                                        style={{ textDecoration: 'underline' }}
-                                        href="/researcher/study/request/openstax"
-                                    >
-                                        Propose New Study
-                                    </Link>
-                                </Stack>
-                            </Alert>
-                        </Table.Caption>
-                    )}
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Study Name</Table.Th>
-                            <Table.Th>Submitted On</Table.Th>
-                            <Table.Th>Submitted To</Table.Th>
-                            <Table.Th>Status</Table.Th>
-                            <Table.Th>Study Details</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>{rows}</Table.Tbody>
-                </Table>
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={3}>Proposed Studies</Title>
+                        <Flex justify="flex-end">
+                            <Link href="/researcher/study/request/openstax">
+                                <Button leftSection={<Plus />}>Propose New Study</Button>
+                            </Link>
+                        </Flex>
+                    </Group>
+                    <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
+                        {!rows.length && (
+                            <Table.Caption>
+                                <Alert variant="transparent">
+                                    You haven&apos;t started a study yet
+                                    <Stack>
+                                        <Link
+                                            style={{ textDecoration: 'underline' }}
+                                            href="/researcher/study/request/openstax"
+                                        >
+                                            Propose New Study
+                                        </Link>
+                                    </Stack>
+                                </Alert>
+                            </Table.Caption>
+                        )}
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Study Name</Table.Th>
+                                <Table.Th>Submitted On</Table.Th>
+                                <Table.Th>Submitted To</Table.Th>
+                                <Table.Th>Status</Table.Th>
+                                <Table.Th>Study Details</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>{rows}</Table.Tbody>
+                    </Table>
+                </Stack>
             </Paper>
         </Stack>
     )

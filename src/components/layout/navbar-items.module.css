@@ -1,0 +1,5 @@
+.hoverItem {
+    &:hover {
+        background-color: #0058BD;
+    }
+}

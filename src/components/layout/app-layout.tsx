@@ -1,6 +1,15 @@
 'use client'
 
-import { AppShell, AppShellFooter, AppShellMain, AppShellNavbar, AppShellSection, Group, Text } from '@mantine/core'
+import {
+    AppShell,
+    AppShellFooter,
+    AppShellMain,
+    AppShellNavbar,
+    AppShellSection,
+    Group,
+    Stack,
+    Text,
+} from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
@@ -28,27 +37,27 @@ export function AppLayout({ children }: Props) {
         return <div>{children}</div>
     }
 
-    // TODO Don't render sidebar on certain routes, aka KEYGEN
-
     return (
-        <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'sm' }} padding="md">
+        <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
             <Notifications />
 
-            <AppShellNavbar p="md" bg="#080527">
-                <AppShellSection>
-                    <Link href="/">
-                        <SafeInsightsLogo />
-                    </Link>
-                </AppShellSection>
-                <AppShellSection grow my="md">
-                    <NavbarItems />
-                </AppShellSection>
+            {/* TODO use siPurple.5 or whatever shade we want, blocked by UX */}
+            <AppShellNavbar bg="#100A4C">
+                <Stack py="md">
+                    <AppShellSection>
+                        <Link href="/">
+                            <SafeInsightsLogo />
+                        </Link>
+                    </AppShellSection>
+                    <AppShellSection grow>
+                        <NavbarItems />
+                    </AppShellSection>
+                </Stack>
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
             <AppShellFooter p="md" bg="#353068">
                 <Group justify="center" c="white">
-                    <Text>© 2025 - SafeInsights</Text>
-                    {/* TODO Temporary for dev mode only? admins? */}
+                    <Text>© 2025 - SafeInsights</Text>e{/* TODO Temporary for dev mode only? admins? */}
                     <OrganizationSwitcher afterSelectOrganizationUrl="/" />
                 </Group>
             </AppShellFooter>

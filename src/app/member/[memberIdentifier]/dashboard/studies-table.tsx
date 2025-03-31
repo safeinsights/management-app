@@ -42,10 +42,10 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
 
     return (
         <Paper shadow="xs" p="xl">
-            <Stack gap="lg">
-                <Title order={4}>Review Studies</Title>
+            <Stack>
+                <Title order={3}>Review Studies</Title>
 
-                <Table layout="fixed" striped highlightOnHover withRowBorders>
+                <Table layout="fixed" highlightOnHover withRowBorders>
                     {!rows.length && (
                         <Table.Caption>
                             <Text>You have no studies to review.</Text>
@@ -53,13 +53,13 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
                     )}
 
                     <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Study Name</Table.Th>
-                            <Table.Th>Submitted On</Table.Th>
-                            <Table.Th>Researcher</Table.Th>
-                            <Table.Th>Reviewed By</Table.Th>
-                            <Table.Th>Status</Table.Th>
-                            <Table.Th>Details</Table.Th>
+                        <Table.Tr bg="#F1F3F5">
+                            <Table.Th fw={600}>Study Name</Table.Th>
+                            <Table.Th fw={600}>Submitted On</Table.Th>
+                            <Table.Th fw={600}>Researcher</Table.Th>
+                            <Table.Th fw={600}>Reviewed By</Table.Th>
+                            <Table.Th fw={600}>Status</Table.Th>
+                            <Table.Th fw={600}>Details</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>{rows}</Table.Tbody>
