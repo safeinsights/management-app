@@ -1,15 +1,16 @@
+'use server'
+
 import { Divider, Grid, GridCol, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
-import { getStudyAction } from '@/server/actions/study-actions'
+import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
-import { ReviewControls } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/review-buttons'
+import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
 import { StudyJobFiles } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-job-files'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
-import { first } from 'remeda'
-
-export const dynamicParams = true
+import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -17,11 +18,13 @@ export default async function StudyReviewPage(props: {
         studyIdentifier: string
     }>
 }) {
+    const fingerprint = await getMemberUserFingerprintAction()
+
     const params = await props.params
 
     const { memberIdentifier, studyIdentifier } = params
 
-    const member = await getMemberFromIdentifier(memberIdentifier)
+    const member = await getMemberFromIdentifierAction(memberIdentifier)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
@@ -32,7 +35,9 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const latestJob = first(study.jobs)
+    // FIXME: why aren't we combining these two into a single query
+    const latestJob = await latestJobForStudyAction(study.id)
+    const latestJobStatus = latestJob?.id && (await jobStatusForJobAction(latestJob?.id))
 
     return (
         <Stack px="xl" gap="xl">
@@ -52,7 +57,7 @@ export default async function StudyReviewPage(props: {
                 <Stack>
                     <Group justify="space-between">
                         <Title order={4}>Study Proposal</Title>
-                        <ReviewControls study={study} memberIdentifier={memberIdentifier} />
+                        <StudyReviewButtons study={study} memberIdentifier={memberIdentifier} />
                     </Group>
                     <Divider />
                     <Grid>
@@ -73,13 +78,15 @@ export default async function StudyReviewPage(props: {
                                 <Text>{study.researcherName}</Text>
                                 <Text>{study.irbProtocols} some link</Text>
                                 <Text>TODO agreements</Text>
-                                <StudyJobFiles job={study.jobs[0]} />
+                                {latestJob && <StudyJobFiles job={latestJob} />}
                             </Stack>
                         </GridCol>
                     </Grid>
                 </Stack>
             </Paper>
-            {latestJob && <StudyResults latestJob={latestJob} />}
+            {latestJob && latestJobStatus && (
+                <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+            )}
         </Stack>
     )
 }

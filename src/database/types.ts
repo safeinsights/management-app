@@ -70,13 +70,16 @@ export interface Study {
     piName: string
     rejectedAt: Timestamp | null
     researcherId: string
+    reviewerId: string | null
     status: Generated<StudyStatus>
     title: string
 }
 
 export interface StudyJob {
+    approvedAt: Timestamp | null
     createdAt: Generated<Timestamp>
     id: Generated<string>
+    rejectedAt: Timestamp | null
     resultFormat: ResultFormat | null
     resultsPath: string | null
     studyId: string
@@ -85,9 +88,12 @@ export interface StudyJob {
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
+    email: string | null
+    firstName: string
+    fullName: Generated<string>
     id: Generated<string>
     isResearcher: Generated<boolean>
-    name: string
+    lastName: string | null
     updatedAt: Generated<Timestamp>
 }
 

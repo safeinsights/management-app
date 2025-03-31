@@ -1,3 +1,5 @@
+'use server'
+
 import type { Metadata } from 'next'
 
 import './globals.css'
@@ -7,17 +9,20 @@ import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from './providers'
 import { AppLayout } from '@/components/layout/app-layout'
-import { ReactNode } from 'react'
+import { RequireMFA } from '@/components/require-mfa'
+import { type ReactNode } from 'react'
 
-export const metadata: Metadata = {
-    title: 'SafeInsights Management Application',
-    description: 'Manages studies, members, and data',
-    icons: {
-        icon: '/icon.png',
-    },
+export async function generateMetadata(): Promise<Metadata> {
+    return {
+        title: 'SafeInsights Management Application',
+        description: 'Manages studies, members, and data',
+        icons: {
+            icon: '/icon.png',
+        },
+    }
 }
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: ReactNode
@@ -26,7 +31,10 @@ export default function RootLayout({
         <html lang="en">
             <body>
                 <Providers>
-                    <AppLayout>{children}</AppLayout>
+                    <AppLayout>
+                        {children}
+                        <RequireMFA />
+                    </AppLayout>
                 </Providers>
             </body>
         </html>

@@ -13,7 +13,9 @@ export const PageBreadcrumbs: FC<{
                         {title}
                     </Anchor>
                 ) : (
-                    <Text key={index}>{title}</Text>
+                    <Text c="#7A8794" key={index}>
+                        {title}
+                    </Text>
                 ),
             )}
         </Breadcrumbs>
@@ -46,7 +48,7 @@ export const ResearcherBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['All Studies', `/researcher/studies`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`]]
     if (studyTitle && studyId) {
         crumbs.push([studyTitle, `/researcher/study/${studyId}/review`])
     }

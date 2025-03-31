@@ -1,7 +1,7 @@
 import { headers } from 'next/headers'
 
+import { db } from '@/database'
 import jwt from 'jsonwebtoken'
-import { getMemberFromIdentifier } from '@/server/actions/member-actions'
 import { Member } from '@/schema/member'
 
 export const memberFromAuthToken = async (): Promise<Member | null> => {
@@ -13,15 +13,19 @@ export const memberFromAuthToken = async (): Promise<Member | null> => {
     }
 
     const token = authHeader.replace('Bearer ', '')
-
     try {
         const values = jwt.decode(token, { json: true })
+
         const memberIdentifier = values?.iss
         if (!memberIdentifier) {
             return null
         }
 
-        const member = await getMemberFromIdentifier(memberIdentifier)
+        const member = await db
+            .selectFrom('member')
+            .selectAll()
+            .where('identifier', '=', memberIdentifier)
+            .executeTakeFirst()
         if (!member) {
             return null
         }

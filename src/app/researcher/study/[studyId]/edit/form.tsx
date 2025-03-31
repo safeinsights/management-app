@@ -18,7 +18,7 @@ export const inputStyle = css({
 
 export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId, study }) => {
     const { mutate: updateStudy, isPending } = useMutation({
-        mutationFn: async (data: FormValues) => await onUpdateStudyAction(studyId, data),
+        mutationFn: async (study: FormValues) => await onUpdateStudyAction({ studyId, study }),
     })
 
     const form = useForm<FormValues>({

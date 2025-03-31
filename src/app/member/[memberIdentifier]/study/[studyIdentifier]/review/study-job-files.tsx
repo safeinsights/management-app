@@ -2,10 +2,10 @@
 
 import React, { FC } from 'react'
 import { Badge, Group, Text } from '@mantine/core'
-import { dataForJobAction } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/job/[studyJobIdentifier]/review/actions'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyJob } from '@/schema/study'
+import { dataForJobAction } from '@/server/actions/study-job.actions'
 
 export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
@@ -19,7 +19,6 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
         return <Text>No files!</Text>
     }
 
-    // TODO figure out download endpoint
     const fileNames = Object.keys(data?.manifest.files || {})
 
     const fileChips = fileNames.map((fileName) => {
@@ -28,7 +27,7 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
                 color="#D4D1F3"
                 c="black"
                 component="a"
-                href={`analysis/${data.jobInfo?.memberIdentifier}/${data.jobInfo?.studyId}/${data.jobInfo?.studyJobId}/code`}
+                href={`/dl/code/${data.jobInfo?.studyJobId}/${fileName}`}
                 target="_blank"
                 rightSection={<Download />}
                 style={{ cursor: 'pointer' }}

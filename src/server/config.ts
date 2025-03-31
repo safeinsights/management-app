@@ -1,5 +1,7 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 
+export const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
+
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
 export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
@@ -14,8 +16,8 @@ export const USING_CONTAINER_REGISTRY = ALWAYS_CREATE_ECR || PROD_ENV
 
 export const USING_S3_STORAGE = process.env.USE_S3_STORAGE === 't' || PROD_ENV
 
-export const SIMULATE_RESULTS_UPLOAD =
-    process.env.SIMULATE_RESULTS_UPLOAD === 't' || (process.env.SIMULATE_RESULTS_UPLOAD != 'f' && DEV_ENV)
+export const SIMULATE_IMAGE_BUILD =
+    process.env.SIMULATE_IMAGE_BUILD === 't' || (process.env.SIMULATE_IMAGE_BUILD != 'f' && DEV_ENV)
 
 export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
     '337909745635', // prod
@@ -31,28 +33,35 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '872515273917': 'Development',
 }
 
-async function fetchSecret<T extends Record<string, unknown>>(envKey: string): Promise<T> {
+async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
     const arn = process.env[envKey]
-    if (!arn) throw new Error(`missing ARN ${envKey} in env`)
+    if (!arn) {
+        if (throwIfNotFound) throw new Error(`missing ARN ${envKey} in env`)
+        return {} as T
+    }
     try {
         const client = new SecretsManagerClient()
         const data = await client.send(new GetSecretValueCommand({ SecretId: arn }))
         if (!data?.SecretString) {
-            throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
+            if (throwIfNotFound) throw new Error(`failed to fetch AWS secrets ARN: ${arn}`)
+            return {} as T
         }
         return JSON.parse(data.SecretString)
     } catch (e) {
-        throw new Error(`failed to parse AWS secrets: ${e}`)
+        if (throwIfNotFound) throw new Error(`failed to parse AWS secrets: ${e}`)
+        return {} as T
     }
-    return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
-export async function getConfigValue(key: string): Promise<string> {
+export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
+export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
+export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
-    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN')
-    if (!secret[key]) throw new Error(`failed to find ${key} in config`)
+    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN', throwIfNotFound)
+    if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
+
     return secret[key]
 }
 
@@ -69,7 +78,7 @@ type DBSecrets = {
 export async function databaseURL(): Promise<string> {
     if (process.env['DATABASE_URL']) return process.env['DATABASE_URL']
 
-    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN')
+    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN', true)
 
     return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }

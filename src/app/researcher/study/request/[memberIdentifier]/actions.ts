@@ -1,19 +1,22 @@
 'use server'
 
-import { USING_CONTAINER_REGISTRY } from '@/server/config'
-import { createAnalysisRepository, generateRepositoryPath, getAWSInfo } from '@/server/aws'
-import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
+import { codeBuildRepositoryUrl } from '@/server/aws'
+import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { onStudyJobCreateAction } from '@/app/researcher/studies/actions'
-import { strToAscii } from '@/lib/string'
-import { siUser } from '@/server/queries'
-import { storeStudyDocumentFile } from '@/server/storage'
 
-export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProposalFormValues) => {
-    studyProposalSchema.parse(studyInfo) // throws when malformed
+import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
+import { CodeReviewManifest } from '@/lib/code-manifest'
+import { z, getUserIdFromActionContext, researcherAction } from '@/server/actions/wrappers'
+import { StudyDocumentType } from '@/lib/types'
 
-    const user = await siUser()
+const onCreateStudyActionArgsSchema = z.object({
+    memberId: z.string(),
+    studyInfo: studyProposalSchema,
+})
+
+export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
+    const userId = getUserIdFromActionContext()
 
     const member = await db
         .selectFrom('member')
@@ -23,46 +26,27 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
 
     const studyId = uuidv7()
 
-    // storeStudyDocumentFile({
-    //     studyId,
-    //     file: study.irbDocument,
-    // }, file)
-
-    const repoPath = generateRepositoryPath({
-        memberIdentifier: member.identifier,
-        studyId,
-        studyTitle: studyInfo.title,
-    })
-
-    //    const irbDocumentFile = studyInfo.irbDocument ? study.irbDocument.name : ''
-    // TODO: Add agreement document
-
-    let repoUrl = ''
-
-    if (USING_CONTAINER_REGISTRY) {
-        repoUrl = await createAnalysisRepository(repoPath, {
-            title: strToAscii(studyInfo.title),
-            studyId,
-        })
-    } else {
-        const { accountId, region } = await getAWSInfo()
-        repoUrl = `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoPath}`
-    }
     let irbDocPath = ''
     if (studyInfo.irbDocument) {
-        irbDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.IRB,
             studyInfo.irbDocument,
         )
+        irbDocPath = studyInfo.irbDocument.name
     }
 
     let descriptionDocPath = ''
     if (studyInfo.descriptionDocument) {
-        descriptionDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.DESCRIPTION,
             studyInfo.descriptionDocument,
         )
+        descriptionDocPath = studyInfo.descriptionDocument.name
     }
+
+    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberIdentifier: member.identifier })
 
     await db
         .insertInto('study')
@@ -72,20 +56,68 @@ export const onCreateStudyAction = async (memberId: string, studyInfo: StudyProp
             piName: studyInfo.piName,
             descriptionDocPath,
             irbDocPath,
-            // irbProtocols: irbDocumentFile,
-            //TODO: add study lead
-            // TODO:add agreement document
+            // TODO: add study lead
+            // TODO: add agreement document
             memberId,
-            researcherId: user.id,
-            containerLocation: repoUrl,
+            researcherId: userId,
+            containerLocation,
+            status: 'PENDING-REVIEW',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const studyJobId = await onStudyJobCreateAction(studyId)
+    const studyJob = await db
+        .insertInto('studyJob')
+        .values({
+            studyId: studyId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: studyJob.id,
+            status: 'INITIATED',
+        })
+        .executeTakeFirstOrThrow()
+
+    const manifest = new CodeReviewManifest(studyJob.id, 'r')
+
+    for (const codeFile of studyInfo.codeFiles) {
+        manifest.files.push(codeFile)
+        await storeStudyCodeFile(
+            {
+                memberIdentifier: member.identifier,
+                studyId,
+                studyJobId: studyJob.id,
+            },
+            codeFile,
+        )
+    }
+
+    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+
+    await storeStudyCodeFile(
+        {
+            memberIdentifier: member.identifier,
+            studyId,
+            studyJobId: studyJob.id,
+        },
+        manifestFile,
+    )
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: userId,
+            status: 'CODE-SUBMITTED',
+            studyJobId: studyJob.id,
+        })
+        .execute()
 
     return {
         studyId: studyId,
-        studyJobId: studyJobId,
+        studyJobId: studyJob.id,
     }
-}
+}, onCreateStudyActionArgsSchema)

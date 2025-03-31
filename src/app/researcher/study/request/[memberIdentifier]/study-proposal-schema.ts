@@ -45,25 +45,31 @@ export const studyProposalSchema = z.object({
                 message: 'Only .doc, .docx, and .pdf files are allowed for IRB document',
             },
         ),
-
-    // TODO: Need database column for this attribute
-    // agreementDocument: z
-    //     .instanceof(File, { message: 'Agreement document is required' })
-    //     .refine((file) => file.size > 0, { message: 'Agreement document cannot be empty' })
-    //     .refine((file) => file.size < 10 * 1024 * 1024, {
-    //         message: 'Agreement document size must be less than 10MB',
-    //     })
-    //     .refine(
-    //         (file) =>
-    //             [
-    //                 'application/msword',
-    //                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    //                 'application/pdf',
-    //             ].includes(file.type),
-    //         {
-    //             message: 'Only .doc, .docx, and .pdf files are allowed for agreement document',
-    //         },
-    //     ),
+    agreementDocument: z
+        .union([z.instanceof(File, { message: 'Agreement document is required' }), z.null()])
+        .refine((file) => file && file.size > 0, { message: 'Agreement document cannot be empty' })
+        .refine((file) => file && file.size < 10 * 1024 * 1024, {
+            message: 'Agreement document size must be less than 10MB',
+        })
+        .refine(
+            (file) =>
+                file &&
+                [
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/pdf',
+                ].includes(file.type),
+            {
+                message: 'Only .doc, .docx, and .pdf files are allowed for Agreement document',
+            },
+        ),
+    codeFiles: z
+        .array(z.instanceof(File))
+        .min(1, { message: 'At least one code file is required.' })
+        .max(10, { message: 'No more than 10 code files are allowed.' })
+        .refine((files) => files.some((file) => !['.R', '.r', 'rmd'].includes(file.type)), {
+            message: 'Only .R, .r, and .rmd files are allowed for code files.',
+        }),
 })
 
 export type StudyProposalFormValues = z.infer<typeof studyProposalSchema>

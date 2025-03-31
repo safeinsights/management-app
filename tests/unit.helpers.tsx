@@ -10,6 +10,8 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
+import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
+import { Mock, vi } from 'vitest'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -24,7 +26,7 @@ const createTestQueryClient = () =>
         },
     })
 
-export function renderWithProviders(ui: ReactElement) {
+export function renderWithProviders(ui: ReactElement, options?: Parameters<typeof render>[1]) {
     const testQueryClient = createTestQueryClient()
 
     return render(
@@ -33,6 +35,7 @@ export function renderWithProviders(ui: ReactElement) {
                 <ModalsProvider>{ui}</ModalsProvider>
             </MantineProvider>
         </QueryClientProvider>,
+        options,
     )
 }
 
@@ -114,7 +117,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId1',
-            name: 'User One',
+            firstName: 'User One',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -124,7 +127,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .values({
             isResearcher: false,
             clerkId: 'testClerkId2',
-            name: 'User Two',
+            firstName: 'User Two',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -236,4 +239,43 @@ export const mockApiMember = async (opts: { identifier: string } = { identifier:
         )}`,
     )
     return member
+}
+
+type MockSession = {
+    //userId: string
+    clerkUserId: string
+    org_slug: string
+}
+export type ClerkMocks = ReturnType<typeof mockClerkSession>
+
+export const mockClerkSession = (values: MockSession) => {
+    const client = clerkClient as unknown as Mock
+    const user = currentClerkUser as unknown as Mock
+    const auth = clerkAuth as unknown as Mock
+
+    user.mockResolvedValue({
+        id: values.clerkUserId,
+        banned: false,
+    })
+    console.log('mocking clerk session', values)
+    const clientMocks = {
+        organizations: {
+            getOrganization: vi.fn(async (orgSlug: string) => ({
+                slug: orgSlug,
+            })),
+            createOrganization: vi.fn(async (org: object) => org),
+            createOrganizationMembership: vi.fn(async () => ({ id: '1234' })),
+        },
+        users: {
+            createUser: vi.fn(async () => ({ id: '1234' })),
+        },
+    }
+    client.mockResolvedValue(clientMocks)
+
+    auth.mockImplementation(() => ({
+        sessionClaims: { org_slug: values.org_slug },
+        userId: values.clerkUserId,
+    }))
+
+    return { client: clientMocks, user, auth }
 }

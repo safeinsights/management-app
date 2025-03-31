@@ -1,25 +1,16 @@
-import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts'
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
+import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { ECRClient, CreateRepositoryCommand, SetRepositoryPolicyCommand } from '@aws-sdk/client-ecr'
+import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyJob, pathForStudyJobResults, pathForStudyJobCode } from '@/lib/paths'
-import { strToAscii, slugify } from '@/lib/string'
+import { pathForStudyJobCode } from '@/lib/paths'
+import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import {
-    CodeManifest,
-    isMinimalStudyRunInfo,
-    MinimalJobInfo,
-    MinimalJobResultsInfo,
-    MinimalStudyInfo,
-} from '@/lib/types'
-import { getECRPolicy } from './aws-ecr-policy'
-
-export type { PresignedPost }
+import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -52,8 +43,15 @@ const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
-export function generateRepositoryPath(opts: { memberIdentifier: string; studyId: string; studyTitle: string }) {
-    return `si/analysis/${opts.memberIdentifier}/${opts.studyId}/${slugify(opts.studyTitle)}`
+const awsEnvironmentId = () => {
+    return process.env.ENVIRONMENT_ID || 'dev'
+}
+
+// we currently use a single ECR, but in the future we may use a different one for each member and/or study
+export async function codeBuildRepositoryUrl(_info: MinimalStudyInfo) {
+    const repoName = process.env.CODE_BUILD_ECR_NAME || `si/analysis/code-builds/${awsEnvironmentId()}`
+    const { accountId, region } = await getAWSInfo()
+    return `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoName}`
 }
 
 export const getAWSInfo = async () => {
@@ -76,29 +74,6 @@ export const getAWSInfo = async () => {
     }
 }
 
-export async function createAnalysisRepository(repositoryName: string, tags: Record<string, string> = {}) {
-    const ecrClient = getECRClient()
-    const { accountId } = await getAWSInfo()
-    const resp = await ecrClient.send(
-        new CreateRepositoryCommand({
-            repositoryName,
-            tags: objectToAWSTags({ ...tags, Target: 'si:analysis' }),
-        }),
-    )
-    if (!resp?.repository?.repositoryUri) {
-        throw new Error('Failed to create repository')
-    }
-
-    await ecrClient.send(
-        new SetRepositoryPolicyCommand({
-            repositoryName,
-            registryId: resp.repository.registryId,
-            policyText: JSON.stringify(getECRPolicy(accountId)),
-        }),
-    )
-    return resp.repository.repositoryUri
-}
-
 const calculateChecksum = async (body: ReadableStream) => {
     const hash = createHash('sha256')
     const reader = body.getReader()
@@ -112,7 +87,7 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeStudyFile = async (
+export const storeS3File = async (
     info: MinimalStudyInfo | MinimalJobResultsInfo,
     body: ReadableStream,
     Key: string,
@@ -123,7 +98,7 @@ export const storeStudyFile = async (
         client: getS3Client(), // jobId: info.studyJobId//
         tags: objectToAWSTags({
             studyId: info.studyId,
-            ...(isMinimalStudyRunInfo(info) ? { studyJobId: info.studyJobId } : {}),
+            ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),
         }),
         params: {
             Bucket: s3BucketName(),
@@ -135,53 +110,45 @@ export const storeStudyFile = async (
     await uploader.done()
 }
 
-export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
-    const resp = await getS3Client().send(
-        new GetObjectCommand({
-            Bucket: s3BucketName(),
-            Key: `${pathForStudyJob(info)}/code/${path}`,
-        }),
-    )
-    if (!resp.Body) throw new Error('no body received from s3')
-
-    const stream = resp.Body as Readable
-    const chunks: Buffer[] = []
-
-    for await (const chunk of stream) {
-        chunks.push(Buffer.from(chunk))
-    }
-
-    return Buffer.concat(chunks).toString('utf-8')
-}
-
-export async function fetchCodeManifest(info: MinimalJobInfo) {
-    const body = await fetchCodeFile(info, 'manifest.json')
-    return JSON.parse(body) as CodeManifest
-}
-
-export async function urlForResults(info: MinimalJobResultsInfo) {
-    const path = pathForStudyJobResults(info)
-    const url = await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key: path }), {
+export async function signedUrlForFile(Key: string) {
+    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
-    return url
 }
 
-export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
-    const bucket = s3BucketName()
-    const prefix = pathForStudyJobCode(info)
-    const psPost = await createPresignedPost(getS3Client(), {
-        Bucket: bucket,
-        Conditions: [['starts-with', '$key', prefix]],
-        Expires: 3600, // seconds, == one hour
-        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
-    })
-    return psPost
+export async function fetchS3File(Key: string) {
+    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key }))
+    if (!result.Body) throw new Error(`no file received from s3 for path ${Key}`)
+    return result.Body as Readable
 }
 
-export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
-    const path = pathForStudyJobResults(info)
-    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
-    if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
-    return result.Body
+export async function triggerBuildImageForJob(info: MinimalJobInfo) {
+    const codebuild = new CodeBuildClient({})
+
+    const result = await codebuild.send(
+        new StartBuildCommand({
+            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
+            environmentVariablesOverride: [
+                {
+                    name: 'ON_START_PAYLOAD',
+                    value: JSON.stringify({
+                        jobId: info.studyJobId,
+                        status: 'JOB-PACKAGING',
+                    }),
+                },
+                {
+                    name: 'ON_SUCCESS_PAYLOAD',
+                    value: JSON.stringify({
+                        jobId: info.studyJobId,
+                        status: 'JOB-READY',
+                    }),
+                },
+                { name: 'S3_PATH', value: pathForStudyJobCode(info) },
+                { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
+                { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
+                { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
+            ],
+        }),
+    )
+    if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }

@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { requestingMember, wrapApiMemberAction } from '@/server/wrappers'
-import { attachResultsToStudyJob } from '@/server/results'
+import { storeStudyResultsFile } from '@/server/storage'
 
 export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const member = requestingMember()
@@ -33,13 +33,22 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
         }
 
-        await attachResultsToStudyJob(
+        await storeStudyResultsFile(
             {
                 ...info,
                 memberIdentifier: member.identifier,
+                resultsType: 'ENCRYPTED',
             },
             contents,
         )
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                status: 'RUN-COMPLETE',
+                studyJobId: info.studyJobId,
+            })
+            .execute()
 
         return NextResponse.json({ status: 'success' }, { status: 200 })
     } catch (e) {
