@@ -9,6 +9,7 @@ import { PhoneNumberResource } from '@clerk/types'
 import { GenerateBackupCodes } from '../backup-codes'
 import logger from '@/lib/logger'
 
+
 export default function ManageSMSMFA() {
     const { isLoaded, user } = useUser()
     const [phoneNumber, setPhoneNumber] = React.useState('')
@@ -55,10 +56,10 @@ export default function ManageSMSMFA() {
             await phoneResource.prepareVerification()
             setPhoneResourceToVerify(phoneResource)
             setCodeSent(true)
-        } catch (err) {
+        } catch (err) { // err is implicitly 'unknown'
             logger.error({ err, message: 'Error sending code' })
-            const clerkError = err.errors?.[0]
-            setError(clerkError?.longMessage || clerkError?.message || 'Failed to send verification code. Please check the number and try again.')
+            // Set a generic error message for the user
+            setError('Failed to send verification code. Please try again later.')
         } finally {
             setIsSendingCode(false)
         }
@@ -85,10 +86,10 @@ export default function ManageSMSMFA() {
             } else {
                 setError('Verification failed. Please try again.')
             }
-        } catch (err) {
+        } catch (err) { // err is implicitly 'unknown'
             logger.error({ err, message: 'Error verifying code' })
-            const clerkError = err.errors?.[0]
-            setError(clerkError?.longMessage || clerkError?.message || 'Invalid verification code. Please try again.')
+            // Set a generic error message for the user
+            setError('Invalid verification code. Please try again.')
             setVerificationSuccess(false)
         } finally {
             setIsVerifying(false)
