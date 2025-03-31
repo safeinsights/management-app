@@ -7,10 +7,12 @@ import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member.
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
-import { ActionIcon, Box, Button, Flex, Group, Modal } from '@mantine/core'
+import { ActionIcon, Box, Button, ButtonGroup, Flex, Group, Modal } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
 import { EditMemberForm } from '@/components/member/edit-member-form'
+import { ButtonLink } from '@/components/links'
+import { ButtonGroupSection } from '@mantine/core'
 
 export function MembersAdminTable() {
     const { data = [] } = useQuery({
@@ -66,7 +68,12 @@ const AddMember: FC = () => {
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
                 <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
-            <Button onClick={open}>Add new organization</Button>
+            <ButtonGroup>
+                <ButtonGroupSection>
+                    <ButtonLink href='/admin/invite'>Invite Users</ButtonLink>
+                </ButtonGroupSection>
+                <Button onClick={open}>Add new organization</Button>
+            </ButtonGroup>
         </Flex>
     )
 }
