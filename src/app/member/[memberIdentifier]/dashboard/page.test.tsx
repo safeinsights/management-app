@@ -5,14 +5,15 @@ import MemberDashboardPage from './page'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
-import { SiUser, siUser } from '@/server/db/queries'
+import { SiUser } from '@/server/db/queries'
+import { currentUser } from '@clerk/nextjs/server'
 
 vi.mock('@/server/actions/member.actions', () => ({
     getMemberFromIdentifierAction: vi.fn(),
 }))
 
-vi.mock('@/server/db/queries', () => ({
-    siUser: vi.fn(),
+vi.mock('@clerk/nextjs/server', () => ({
+    currentUser: vi.fn(),
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
@@ -47,8 +48,8 @@ describe('Member Dashboard', () => {
 
         vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
-        vi.mocked(siUser).mockResolvedValue({
-            fullName: 'Test User',
+        vi.mocked(currentUser).mockResolvedValue({
+            firstName: 'Test User',
         } as SiUser)
 
         renderWithProviders(await MemberDashboardPage(props))

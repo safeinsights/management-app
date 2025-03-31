@@ -49,7 +49,7 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
                 <Group gap="xl" justify="flex-end">
                     {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <Button disabled={!studyProposalForm.isValid} type="submit" variant="filled" color="#291bc4">
+                    <Button disabled={!studyProposalForm.isValid} type="submit" variant="filled">
                         Submit
                     </Button>
                 </Group>
