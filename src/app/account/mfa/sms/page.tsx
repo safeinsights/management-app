@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useUser, useClerk } from '@clerk/nextjs'
-import { Button, Group, Stack, Title, Container, Text, TextInput } from '@mantine/core'
-import { savePhoneNumberAction, verifyPhoneNumberCodeAction } from '@/server/actions/clerk-sms-actions'
+import { Button, Group, Stack, Title, Container, Text, TextInput, Code } from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { BackupCodeResource, PhoneNumberResource } from '@clerk/types'
@@ -84,7 +83,7 @@ const ManageAvailablePhoneNumbers = () => {
         (phone) => phone.verification.status === 'verified' && !phone.reservedForSecondFactor,
     )
 
-    if (availableForMfaPhones.length) {
+    if (availableForMfaPhones.length === 0) {
         return <Text>There are currently no verified phone numbers available to be reserved for MFA.</Text>
     }
 
@@ -94,7 +93,7 @@ const ManageAvailablePhoneNumbers = () => {
 
             <ul>
                 {availableForMfaPhones.map((phone) => (
-                    <Flex component="li" key={phone.id} gap="sm" align="center">
+                    <Group component="li" key={phone.id} gap="sm" align="center">
                         <Text>{phone.phoneNumber}</Text>
                         <Button 
                             onClick={() => reservePhoneForMfa(phone)}
@@ -110,7 +109,7 @@ const ManageAvailablePhoneNumbers = () => {
                                 Remove from account
                             </Button>
                         )}
-                    </Flex>
+                    </Group>
                 ))}
             </ul>
         </>
@@ -155,7 +154,7 @@ function GenerateBackupCodes() {
     return (
         <ol>
             {backupCodes.codes.map((code, index) => (
-                <li key={index}>{code}</li>
+                <li key={index}><Code fz="lg">{code}</Code></li>
             ))}
         </ol>
     )
@@ -169,38 +168,83 @@ export default function ManageSMSMFA() {
     const [verificationCode, setVerificationCode] = React.useState('')
     const [error, setError] = React.useState('')
     const [verificationSuccess, setVerificationSuccess] = React.useState(false)
+    const [codeSent, setCodeSent] = React.useState(false)
+    const [isSendingCode, setIsSendingCode] = React.useState(false)
+    const [isVerifying, setIsVerifying] = React.useState(false)
+    const [phoneResourceToVerify, setPhoneResourceToVerify] = React.useState<PhoneNumberResource | null>(null)
 
     // Determine if there's an existing phone record
     const existingPhone = user && user.phoneNumbers && user.phoneNumbers[0]
     const prefilledPhone = existingPhone ? existingPhone.phoneNumber : phoneNumber
     const isPhoneEditable = !existingPhone
 
-    async function handleVerify() {
-        // (Assumes user.id is available)
-        const phoneToUse = prefilledPhone
+    async function handleSendCode() {
+        if (!user) return
+
+        const phoneToUse = existingPhone ? existingPhone.phoneNumber : phoneNumber
         if (!phoneToUse) {
             setError('Please enter a valid phone number')
             return
         }
-        // If there's no phone stored, first call the action to save it.
-        if (!existingPhone) {
-            const res = await savePhoneNumberAction({ userId: user.id, phoneNumber: phoneToUse })
-            if (!res.success) {
-                setError(`Error saving phone number: ${res.error}`)
-                return
+
+        setIsSendingCode(true)
+        setError('')
+        setCodeSent(false)
+        setPhoneResourceToVerify(null)
+
+        try {
+            let phoneResource: PhoneNumberResource | undefined = existingPhone
+
+            // If no existing phone, create one using the client SDK
+            if (!phoneResource && isPhoneEditable) {
+                phoneResource = await user.createPhoneNumber({ phoneNumber: phoneToUse })
             }
+
+            if (!phoneResource) {
+                throw new Error("Could not find or create phone number resource.")
+            }
+
+            // Prepare the verification (this sends the code via Clerk)
+            await phoneResource.prepareVerification()
+            setPhoneResourceToVerify(phoneResource)
+            setCodeSent(true)
+        } catch (err: any) {
+            console.error('Error sending code:', err)
+            const clerkError = err.errors?.[0]
+            setError(clerkError?.longMessage || clerkError?.message || 'Failed to send verification code. Please check the number and try again.')
+        } finally {
+            setIsSendingCode(false)
         }
-        // Attempt to verify with the entered code.
-        const verifyRes = await verifyPhoneNumberCodeAction({
-            userId: user.id,
-            phoneNumber: phoneToUse,
-            code: verificationCode,
-        })
-        if (verifyRes.success && verifyRes.user.phoneNumbers[0].verification.status === 'verified') {
-            setVerificationSuccess(true)
-            setError('')
-        } else {
-            setError('try again')
+    }
+
+    async function handleVerify() {
+        if (!user || !phoneResourceToVerify || !verificationCode) {
+            setError('Verification code is required.')
+            return
+        }
+
+        setIsVerifying(true)
+        setError('')
+
+        try {
+            const verifiedPhoneResource = await phoneResourceToVerify.attemptVerification({ code: verificationCode })
+
+            if (verifiedPhoneResource.verification.status === 'verified') {
+                await verifiedPhoneResource.setReservedForSecondFactor({ reserved: true })
+                await verifiedPhoneResource.makeDefaultSecondFactor()
+
+                setVerificationSuccess(true)
+                await user.reload()
+            } else {
+                setError('Verification failed. Please try again.')
+            }
+        } catch (err: any) {
+            console.error('Error verifying code:', err)
+            const clerkError = err.errors?.[0]
+            setError(clerkError?.longMessage || clerkError?.message || 'Invalid verification code. Please try again.')
+            setVerificationSuccess(false)
+        } finally {
+            setIsVerifying(false)
         }
     }
 
@@ -215,32 +259,58 @@ export default function ManageSMSMFA() {
             <Panel title="SMS Verification">
                 {error && <Text color="red" align="center" mb="md">{error}</Text>}
                 <Stack gap="lg">
-                    <TextInput
-                        label="Phone Number"
-                        value={prefilledPhone}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        disabled={!isPhoneEditable}
-                    />
-                    <TextInput
-                        label="Verification Code"
-                        placeholder="Enter 6-digit code"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                        maxLength={6}
-                    />
-                    <Button
-                        onClick={handleVerify}
-                        miw={150} mih={40}
-                    >
-                        Verify
-                    </Button>
+                    <Text size="md" mb="md">
+                        Enter your preferred phone number and click 'Send Code.' Once you receive the code, simply enter it below to complete the process.
+                    </Text>
+                    {!verificationSuccess && (
+                        <Group align="flex-end" gap="md">
+                            <TextInput
+                                label="Phone Number"
+                                placeholder="Enter phone number with country code"
+                                value={prefilledPhone}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                disabled={!isPhoneEditable || codeSent || isSendingCode}
+                                style={{ flexGrow: 1 }}
+                            />
+                            <Button
+                                onClick={handleSendCode}
+                                disabled={codeSent || isSendingCode || (!isPhoneEditable && !phoneNumber) || !!existingPhone}
+                                loading={isSendingCode}
+                                miw={120}
+                            >
+                                {codeSent ? 'Code Sent' : 'Send Code'}
+                            </Button>
+                        </Group>
+                    )}
+
+                    {codeSent && !verificationSuccess && (
+                        <>
+                            <TextInput
+                                label="Verification Code"
+                                placeholder="Enter 6-digit code"
+                                value={verificationCode}
+                                onChange={(e) => setVerificationCode(e.target.value)}
+                                maxLength={6}
+                                disabled={isVerifying}
+                            />
+                            <Button
+                                onClick={handleVerify}
+                                disabled={!verificationCode || verificationCode.length !== 6 || isVerifying}
+                                loading={isVerifying}
+                                miw={150} mih={40}
+                            >
+                                Verify Code
+                            </Button>
+                        </>
+                    )}
 
                     {verificationSuccess && (
                         <Stack gap="lg">
+                            <Text color="green" align="center">Phone number verified and enabled for MFA!</Text>
+                            <Title order={3} align="center">Save Your Backup Codes</Title>
+                            <Text align="center">Store these codes securely. They are needed if you lose access to your phone.</Text>
                             <GenerateBackupCodes />
-                            <Button onClick={() => {/* complete final action */}}>
-                                Done
-                            </Button>
+                            <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
                         </Stack>
                     )}
                 </Stack>
