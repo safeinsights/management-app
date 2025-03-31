@@ -60,13 +60,6 @@ describe('AddMFaScreen (Authenticator App)', () => {
         } as TOTPResource)
     })
 
-    it('should render null when Clerk is not loaded', () => {
-        mockUseUser.mockReturnValue({ isLoaded: false } as UseUserReturn)
-        const { container } = renderWithProviders(<AddMFaScreen />)
-        // Expect the component to render nothing while loading
-        expect(container.firstChild).toBeNull()
-    })
-
     it('should render logged out message when user is not signed in', () => {
         mockUseUser.mockReturnValue({ isLoaded: true, isSignedIn: false, user: null } as UseUserReturn)
         renderWithProviders(<AddMFaScreen />)

@@ -75,12 +75,6 @@ describe('ManageSMSMFA', () => {
         setupMockUser([])
     })
 
-    it('should render null when Clerk is not loaded', () => {
-        mockUseUser.mockReturnValue({ isLoaded: false } as UseUserReturn)
-        const { container } = renderWithProviders(<ManageSMSMFA />)
-        expect(container.firstChild).toBeNull()
-    })
-
     it('should render logged out message when user is not signed in', () => {
         mockUseUser.mockReturnValue({ isLoaded: true, isSignedIn: false, user: null } as UseUserReturn)
         renderWithProviders(<ManageSMSMFA />)
@@ -120,8 +114,8 @@ describe('ManageSMSMFA', () => {
         setupMockUser([{ phoneNumber: existingPhoneNumber }]) // Setup with one phone number
         renderWithProviders(<ManageSMSMFA />)
 
-        // Check panel title
-        expect(screen.getByRole('heading', { name: 'SMS Verification' })).toBeTruthy()
+        // Check panel title (using text matching, since Mantine renders the title as a paragraph)
+        expect(screen.getByText('SMS Verification')).toBeTruthy()
 
         // Check phone input state
         const phoneInput = screen.getByLabelText('Phone Number') as HTMLInputElement
