@@ -46,15 +46,18 @@ async function fetchSecret<T extends Record<string, unknown>>(envKey: string): P
     } catch (e) {
         throw new Error(`failed to parse AWS secrets: ${e}`)
     }
-    return {} as any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
-export async function getConfigValue(key: string): Promise<string> {
+export async function getConfigValue(key: string, throwIfNotFound?: true): Promise<string>
+export async function getConfigValue(key: string, throwIfNotFound?: false): Promise<string | null>
+export async function getConfigValue(key: string, throwIfNotFound = true): Promise<string | null> {
+    //    export async function getConfigValue(key: string): Promise<string> {
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
     const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN')
-    if (!secret[key]) throw new Error(`failed to find ${key} in config`)
+    if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
+
     return secret[key]
 }
 

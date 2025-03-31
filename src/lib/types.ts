@@ -33,6 +33,11 @@ export type CodeManifest = {
     size: number
 }
 
+export enum StudyDocumentType {
+    'IRB' = 'IRB',
+    'DESCRIPTION' = 'DESCRIPTION',
+}
+
 export const minimalStudyInfoSchema = z.object({
     memberIdentifier: z.string(),
     studyId: z.string(),

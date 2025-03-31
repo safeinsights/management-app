@@ -6,9 +6,9 @@ import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
-import { sendWelcomeEmail } from '@/lib/mailgun'
+import { sendWelcomeEmail } from '@/server/mailgun'
 
-vi.mock('@/lib/mailgun', () => ({
+vi.mock('@/server/mailgun', () => ({
     sendWelcomeEmail: vi.fn(),
 }))
 

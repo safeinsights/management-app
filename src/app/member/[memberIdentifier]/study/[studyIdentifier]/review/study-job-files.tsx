@@ -19,7 +19,6 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
         return <Text>No files!</Text>
     }
 
-    // TODO figure out download endpoint
     const fileNames = Object.keys(data?.manifest.files || {})
 
     const fileChips = fileNames.map((fileName) => {
@@ -28,7 +27,7 @@ export const StudyJobFiles: FC<{ job: StudyJob }> = ({ job }) => {
                 color="#D4D1F3"
                 c="black"
                 component="a"
-                href={`analysis/${data.jobInfo?.memberIdentifier}/${data.jobInfo?.studyId}/${data.jobInfo?.studyJobId}/code`}
+                href={`/dl/code/${data.jobInfo?.studyJobId}/${fileName}`}
                 target="_blank"
                 rightSection={<Download />}
                 style={{ cursor: 'pointer' }}

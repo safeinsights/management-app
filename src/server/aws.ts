@@ -2,27 +2,15 @@ import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
-import { createPresignedPost, type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient } from '@aws-sdk/client-ecr'
-import { AWS_ACCOUNT_ENVIRONMENT, getUploadTmpDirectory, PROD_ENV, TEST_ENV, USING_S3_STORAGE } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyJob, pathForStudyJobCode, pathForStudyJobResults } from '@/lib/paths'
+import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import {
-    CodeManifest,
-    isMinimalStudyJobInfo,
-    MinimalJobInfo,
-    MinimalJobResultsInfo,
-    MinimalStudyInfo,
-} from '@/lib/types'
-
-import fs from 'fs'
-import path from 'path'
-
-export type { PresignedPost }
+import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -99,7 +87,7 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeStudyFile = async (
+export const storeS3File = async (
     info: MinimalStudyInfo | MinimalJobResultsInfo,
     body: ReadableStream,
     Key: string,
@@ -122,61 +110,16 @@ export const storeStudyFile = async (
     await uploader.done()
 }
 
-export async function fetchCodeFile(info: MinimalJobInfo, path: string) {
-    const resp = await getS3Client().send(
-        new GetObjectCommand({
-            Bucket: s3BucketName(),
-            Key: `${pathForStudyJob(info)}/code/${path}`,
-        }),
-    )
-    if (!resp.Body) throw new Error('no body received from s3')
-
-    const stream = resp.Body as Readable
-    const chunks: Buffer[] = []
-
-    for await (const chunk of stream) {
-        chunks.push(Buffer.from(chunk))
-    }
-
-    return Buffer.concat(chunks).toString('utf-8')
-}
-
-export async function fetchCodeManifest(info: MinimalJobInfo) {
-    if (USING_S3_STORAGE) {
-        const body = await fetchCodeFile(info, 'manifest.json')
-        return JSON.parse(body) as CodeManifest
-    } else {
-        if (PROD_ENV) throw new Error('This method is only available in development')
-        const dir = path.join(getUploadTmpDirectory(), pathForStudyJobCode(info), path.dirname('manifest.json'))
-        const buf = fs.readFileSync(path.join(dir, path.basename('manifest.json')))
-        return JSON.parse(buf.toString('utf-8'))
-    }
-}
-
-export async function urlForResults(info: MinimalJobResultsInfo) {
-    const path = pathForStudyJobResults(info)
-    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key: path }), {
+export async function signedUrlForFile(Key: string) {
+    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
 }
 
-export async function urlForStudyJobCodeUpload(info: MinimalJobInfo) {
-    const bucket = s3BucketName()
-    const prefix = pathForStudyJobCode(info)
-    const psPost = await createPresignedPost(getS3Client(), {
-        Bucket: bucket,
-        Conditions: [['starts-with', '$key', prefix]],
-        Expires: 3600, // seconds, == one hour
-        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
-    })
-    return psPost
-}
-
-export async function fetchStudyJobResults(info: MinimalJobResultsInfo) {
-    const path = pathForStudyJobResults(info)
-    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key: path }))
-    if (!result.Body) throw new Error(`no file received from s3 for job result ${info.studyJobId}`)
-    return result.Body
+export async function fetchS3File(Key: string) {
+    const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key }))
+    if (!result.Body) throw new Error(`no file received from s3 for path ${Key}`)
+    return result.Body as Readable
 }
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
@@ -184,7 +127,7 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
 
     const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: `MgmntAppContainerizer-${awsEnvironmentId()}`,
+            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',
