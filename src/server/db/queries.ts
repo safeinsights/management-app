@@ -1,6 +1,7 @@
 import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { AccessDeniedError, MinimalJobResultsInfo } from '@/lib/types'
+import { MinimalJobResultsInfo } from '@/lib/types'
+import { AccessDeniedError } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
 import { getOrgSlugFromActionContext } from '../actions/wrappers'

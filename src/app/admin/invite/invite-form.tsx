@@ -11,31 +11,32 @@ import { InviteUserFormValues, inviteUserSchema, zodResolver } from './admin-use
 import { randomString } from '@/lib/string'
 import { reportError } from '@/components/errors'
 
+const initialValues = () => ({
+    firstName: '',
+    lastName: '',
+    email: '',
+    organizationId: '',
+    password: randomString(8),
+    isReviewer: false,
+    isResearcher: false,
+})
+
 export function InviteForm() {
     const studyProposalForm = useForm<InviteUserFormValues>({
-        mode: 'uncontrolled',
+        mode: 'controlled',
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
-        initialValues: {
-            firstName: '',
-            lastName: '',
-            email: '',
-            organizationId: '',
-            password: randomString(8),
-            isReviewer: false,
-            isResearcher: false,
-        },
+        initialValues: initialValues(),
     })
 
     const { mutate: inviteUser, isPending } = useMutation({
         mutationFn: adminInviteUserAction,
-        onSettled(result, error) {
-            if (error) {
-                reportError(error)
-            } else if (result) {
-                notifications.show({ message: 'User invited successfully', color: 'green' })
-                studyProposalForm.reset()
-            }
+        onError(error) {
+            reportError(error)
+        },
+        onSuccess(info) {
+            notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
+            studyProposalForm.setValues(initialValues())
         },
     })
 
@@ -51,6 +52,7 @@ export function InviteForm() {
             <TextInput
                 withAsterisk
                 label="First Name"
+                autoFocus
                 placeholder="Enter first name"
                 mb="sm"
                 {...studyProposalForm.getInputProps('firstName')}

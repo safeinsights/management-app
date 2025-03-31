@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest'
-import { CLERK_ADMIN_ORG_SLUG } from '@/server/config'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { db } from '@/database'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { Member } from '@/schema/member'
