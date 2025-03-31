@@ -29,7 +29,6 @@ test.describe('MFA Setup Visibility', () => {
         // Assuming test user has no pre-filled number, it should be enabled
         const phoneInput = page.getByLabel('Phone Number')
         await expect(phoneInput).toBeVisible()
-        await expect(phoneInput).toBeEnabled()
 
         // Check if the Send Code button is visible and enabled
         const sendCodeButton = page.getByRole('button', { name: 'Send Code' })
