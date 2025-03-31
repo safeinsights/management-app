@@ -1,10 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import logger from '@/lib/logger'
 import debug from 'debug'
 
 const middlewareDebug = debug('app:middleware')
 
+const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 const isMemberRoute = createRouteMatcher(['/member(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
@@ -14,8 +15,25 @@ const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup'
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
+
+//.redirect(new URL('/home', request.url))
+
+type Roles = {
+    isAdmin: boolean
+    isMember: boolean
+    isResearcher: boolean
+}
+
+function redirectToRole(request: NextRequest, route: string, roles: Roles) {
+    middlewareDebug(`Blocking unauthorized ${route} route access: %o`, roles)
+    if (roles.isResearcher) {
+        return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
+    }
+    return NextResponse.redirect(new URL('/', request.url))
+}
+
 export default clerkMiddleware(async (auth, req) => {
-    const { userId, orgId, orgSlug, sessionClaims } = await auth()
+    const { userId, orgId, orgSlug } = await auth()
 
     if (!userId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
@@ -25,44 +43,25 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     // Define user roles
-    const userRoles = {
+    const userRoles: Roles = {
         isAdmin: orgSlug === CLERK_ADMIN_ORG_SLUG,
-        hasMFA: !!sessionClaims?.hasMFA,
         get isMember() {
-            return orgSlug && !this.isAdmin
+            return Boolean(orgSlug && !this.isAdmin)
         },
         get isResearcher() {
-            return !this.isAdmin && !this.isMember
+            return Boolean(!this.isAdmin && !this.isMember)
         },
     }
 
-    // middlewareDebug('Auth check: %o', {
-    //     organization: orgId,
-    //     role: orgRole,
-    //     userId,
-    //     ...userRoles,
-    // })
-
-    // TODO Redirect users to different URIs based on their role? ie:
-    //  member -> /member
-    //  researcher -> /researcher
-    //  admin -> /admin
-    //  or should this happen somewhere else
-
-    // Route protection
-    const routeProtection = {
-        member: isMemberRoute(req) && !userRoles.isMember && !userRoles.isAdmin,
-        researcher: isResearcherRoute(req) && !userRoles.isResearcher && !userRoles.isAdmin,
+    if (isAdminRoute(req) && !userRoles.isAdmin) {
+        return redirectToRole(req, 'admin', userRoles)
     }
 
-    if (routeProtection.member) {
-        logger.warn('Access denied: Member route requires member or admin access')
-        middlewareDebug('Blocking unauthorized member route access: %o', { userId, orgId, userRoles })
-        return new NextResponse(null, { status: 403 })
+    if (isMemberRoute(req) && !userRoles.isMember) {
+        return redirectToRole(req, 'member', userRoles)
     }
 
-    if (routeProtection.researcher) {
-        logger.warn('Access denied: Researcher route requires researcher or admin access')
+    if (isResearcherRoute(req) && !userRoles.isResearcher) {
         middlewareDebug('Blocking unauthorized researcher route access: %o', { userId, orgId, userRoles })
         return new NextResponse(null, { status: 403 })
     }
