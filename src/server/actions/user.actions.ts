@@ -6,8 +6,6 @@ import { currentUser, clerkClient } from '@clerk/nextjs/server'
 import { anonAction, userAction } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
-
-
 export const onUserSignInAction = anonAction(async () => {
     const user = await currentUser()
 
@@ -33,5 +31,5 @@ export const getMemberIdFromIdentifierAction = userAction(async (identifier) => 
 
 export const getIdentifierFromMemberIdAction = userAction(async (memberId) => {
     const result = await db.selectFrom('member').select('identifier').where('id', '=', memberId).executeTakeFirst()
-    return result.identifier
+    return result?.identifier
 })
