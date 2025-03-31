@@ -49,16 +49,6 @@ export default function ManageMFA() {
                     <Link href="/account/mfa/app">
                         <Button>Authenticator App Verification</Button>
                     </Link>
-
-                    {/* {user.phoneNumbers.length ? (
-                        <Link href="/account/mfa/sms">
-                            <Button>Add MFA using SMS</Button>
-                        </Link>
-                    ) : (
-                        <>
-                            <Button onClick={() => openUserProfile()}>SMS Verification</Button>
-                        </>
-                    )} */}
                 </Stack>
 
                 {/* Manage backup codes */}
