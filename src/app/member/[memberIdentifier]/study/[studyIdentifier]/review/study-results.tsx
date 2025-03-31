@@ -143,7 +143,7 @@ export const StudyResults: FC<{
                                     key={form.key('privateKey')}
                                 />
                                 <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
-                                    Validate
+                                    View Results
                                 </Button>
                             </Group>
                         </form>

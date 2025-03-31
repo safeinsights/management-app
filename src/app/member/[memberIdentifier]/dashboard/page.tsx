@@ -5,11 +5,11 @@ import { AlertNotFound } from '@/components/errors'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { Divider, Stack, Text, Title } from '@mantine/core'
 import { StudiesTable } from '@/app/member/[memberIdentifier]/dashboard/studies-table'
-import { siUser } from '@/server/db/queries'
+import { currentUser } from '@clerk/nextjs/server'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
-    const user = await siUser()
+    const user = await currentUser()
 
     const member = await getMemberFromIdentifierAction(memberIdentifier)
 
@@ -18,8 +18,8 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
     }
 
     return (
-        <Stack px="lg" bg="#F1F3F5">
-            <Title>Hi {user.fullName}!</Title>
+        <Stack p="md">
+            <Title>Hi {user?.firstName}!</Title>
             <Text>Welcome to SafeInsights</Text>
             <Text>
                 Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your

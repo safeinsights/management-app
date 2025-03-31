@@ -1,11 +1,12 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider } from '@mantine/core'
+import { Button, Divider, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { useClerk } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
+import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
@@ -19,9 +20,11 @@ export const NavbarItems: FC = () => {
     }
 
     return (
-        <>
+        <Stack gap="xs">
             <Button
-                size="md"
+                fullWidth
+                className={styles.hover}
+                justify="flex-start"
                 variant="transparent"
                 component={Link}
                 href={dashboardURL()}
@@ -31,15 +34,31 @@ export const NavbarItems: FC = () => {
                 Dashboard
             </Button>
 
-            <Button size="md" variant="transparent" onClick={() => openUserProfile()} c="white" leftSection={<Gear />}>
+            <Button
+                fullWidth
+                className={styles.hover}
+                justify="flex-start"
+                variant="transparent"
+                onClick={() => openUserProfile()}
+                c="white"
+                leftSection={<Gear />}
+            >
                 Settings
             </Button>
 
             <Divider color="#D4D1F3" />
 
-            <Button size="md" variant="transparent" onClick={() => signOut()} c="white" leftSection={<SignOut />}>
+            <Button
+                fullWidth
+                className={styles.hover}
+                justify="flex-start"
+                variant="transparent"
+                onClick={() => signOut()}
+                c="white"
+                leftSection={<SignOut />}
+            >
                 Logout
             </Button>
-        </>
+        </Stack>
     )
 }

@@ -1,24 +1,15 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Alert, Button, Container, Flex, Group, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
+import { Alert, Button, Flex, Group, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { humanizeStatus } from '@/lib/status'
-import type { AllStatus } from '@/lib/types'
 import { useUser } from '@clerk/nextjs'
+import { Study } from '@/schema/study'
 
-interface Study {
-    id: string
-    title: string
-    piName: string
-    status: AllStatus
-    memberId: string
-    createdAt: Date
-}
-
-export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
+export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => {
     const { user } = useUser()
 
     const rows = studies.map((study) => (
@@ -57,63 +48,59 @@ export const StudiesTable: FC<{ studies: Study[] }> = ({ studies }) => {
     ))
 
     return (
-        <>
-            <Container fluid>
-                <Title>Hi, {user?.firstName}</Title>
-                <Stack>
-                    <Text mt="md">Welcome to SafeInsights</Text>
-                    <Flex w="50%" wrap="wrap">
-                        <Text>
-                            We&apos;re so glad to have you. This space is intended to help you submit your proposed
-                            studies and associated code, as well as accessing your analysis results—all while ensuring
-                            strict data privacy and security. Your work plays a vital role in advancing educational
-                            research, and w&apos;re committed to making this process as seamless as possible. We&apos;re
-                            continuously refining the experience and value your feedback in shaping a more effective
-                            research environment.
-                        </Text>
-                    </Flex>
-                </Stack>
-            </Container>
+        <Stack p="md">
+            <Title>Hi {user?.firstName}!</Title>
+            <Stack>
+                <Text mt="md">Welcome to SafeInsights</Text>
 
-            <Paper m="xl" shadow="xs" p="xl">
-                <Group justify="space-between">
-                    <Title>Proposed Studies</Title>
-                    <Flex justify="flex-end">
-                        <Link href="/researcher/study/request/openstax">
-                            <Button mt={30} mb={30}>
-                                <Plus size={15} style={{ marginRight: '4px' }} /> Propose New Study
-                            </Button>
-                        </Link>
-                    </Flex>
-                </Group>
-                <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
-                    {!rows.length && (
-                        <Table.Caption>
-                            <Alert variant="transparent">
-                                You haven&apos;t started a study yet
-                                <Stack>
-                                    <Link
-                                        style={{ textDecoration: 'underline' }}
-                                        href="/researcher/study/request/openstax"
-                                    >
-                                        Propose New Study
-                                    </Link>
-                                </Stack>
-                            </Alert>
-                        </Table.Caption>
-                    )}
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th>Study Name</Table.Th>
-                            <Table.Th>Submitted On</Table.Th>
-                            <Table.Th>Submitted To</Table.Th>
-                            <Table.Th>Status</Table.Th>
-                            <Table.Th>Study Details</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>{rows}</Table.Tbody>
-                </Table>
+                <Text>
+                    We&apos;re so glad to have you. This space is intended to help you submit your proposed studies and
+                    associated code, as well as accessing your analysis results—all while ensuring strict data privacy
+                    and security. Your work plays a vital role in advancing educational research, and w&apos;re
+                    committed to making this process as seamless as possible. We&apos;re continuously refining the
+                    experience and value your feedback in shaping a more effective research environment.
+                </Text>
+            </Stack>
+
+            <Paper shadow="xs" p="xl">
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={3}>Proposed Studies</Title>
+                        <Flex justify="flex-end">
+                            <Link href="/researcher/study/request/openstax">
+                                <Button leftSection={<Plus />}>Propose New Study</Button>
+                            </Link>
+                        </Flex>
+                    </Group>
+                    <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
+                        {!rows.length && (
+                            <Table.Caption>
+                                <Alert variant="transparent">
+                                    You haven&apos;t started a study yet
+                                    <Stack>
+                                        <Link
+                                            style={{ textDecoration: 'underline' }}
+                                            href="/researcher/study/request/openstax"
+                                        >
+                                            Propose New Study
+                                        </Link>
+                                    </Stack>
+                                </Alert>
+                            </Table.Caption>
+                        )}
+                        <Table.Thead>
+                            <Table.Tr>
+                                <Table.Th>Study Name</Table.Th>
+                                <Table.Th>Submitted On</Table.Th>
+                                <Table.Th>Submitted To</Table.Th>
+                                <Table.Th>Status</Table.Th>
+                                <Table.Th>Study Details</Table.Th>
+                            </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>{rows}</Table.Tbody>
+                    </Table>
+                </Stack>
             </Paper>
-        </>
+        </Stack>
     )
 }
