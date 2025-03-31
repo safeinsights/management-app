@@ -66,7 +66,7 @@ export const ViewCSV: FC<JobResultsProps> = ({ job }) => {
                     rightSection={<Download />}
                     href={resultsDownloadURL({ id: job.id, resultsPath: job.resultsPath })}
                 >
-                    Download Results
+                    Download {job.resultsPath}
                 </ButtonLink>
             </Group>
 

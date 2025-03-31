@@ -21,17 +21,21 @@ import { SanitizedError } from '@/lib/errors'
 
 const approveStudyJobResultsActionSchema = z.object({
     jobInfo: minimalJobInfoSchema,
-    jobResults: z.array(z.string()),
+    jobResults: z.array(
+        z.object({
+            path: z.string(),
+            contents: z.instanceof(ArrayBuffer),
+        }),
+    ),
 })
 
-// FIXME: we should probably send the file directly into the action
-// vs relying on it always being CSV string
 export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
-    const blob = new Blob(jobResults, { type: 'text/csv' })
+    // FIXME: handle more than a single result.  will require a db schema change
+    const result = jobResults[0]
 
-    const resultsFile = new File([blob], 'job_results.csv')
+    const resultsFile = new File([result.contents], result.path)
 
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
