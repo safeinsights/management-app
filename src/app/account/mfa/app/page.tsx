@@ -38,7 +38,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
             code: '',
         },
         validate: {
-            code: (c: string) => /^\d{6}$/.test(c) ? null : 'Code must be six digits',
+            code: (c: string) => (/^\d{6}$/.test(c) ? null : 'Code must be six digits'),
         },
         validateInputOnChange: true,
     })
@@ -64,7 +64,9 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     return (
         <>
             <Text size="md" mb={60} ta="center">
-                Open your preferred authenticator app and scan this QR code.<br/>Once setup, enter the code from the app into the field below to complete the process.
+                Open your preferred authenticator app and scan this QR code.
+                <br />
+                Once setup, enter the code from the app into the field below to complete the process.
             </Text>
             <Stack gap="md" mb={60} align="center">
                 {totp && displayFormat === 'qr' && (
@@ -88,7 +90,9 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                 )}
                 {/* <Button onClick={() => setStep('add')}>Re-generate</Button> */}
             </Stack>
-            <Text mt={60} size="md" ta="center">Enter a generated code</Text>
+            <Text mt={60} size="md" ta="center">
+                Enter a generated code
+            </Text>
             <form onSubmit={form.onSubmit(verifyTotp)}>
                 <Box mb="lg" maw="30%" mx="auto">
                     <TextInput
@@ -97,7 +101,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                         name="code"
                         placeholder="000000"
                         styles={(_theme) => ({ input: { textAlign: 'center' } })}
-                        {...(function() {
+                        {...(function () {
                             const { error, ...rest } = form.getInputProps('code')
                             return rest
                         })()}
@@ -107,11 +111,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                     </Text>
                 </Box>
                 <Group gap="lg" justify="center">
-                    <Button 
-                        type="submit" 
-                        disabled={!/^\d{6}$/.test(form.values.code)}
-                        miw={150} mih={40}
-                    >
+                    <Button type="submit" disabled={!/^\d{6}$/.test(form.values.code)} miw={150} mih={40}>
                         Verify Code
                     </Button>
                 </Group>
@@ -120,13 +120,12 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     )
 }
 
-
 function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     const { user } = useUser()
     const form = useForm({
         initialValues: { code: '' },
         validate: {
-            code: (c: string) => /^\d{6}$/.test(c) ? null : 'Code must be six digits',
+            code: (c: string) => (/^\d{6}$/.test(c) ? null : 'Code must be six digits'),
         },
         validateInputOnChange: true,
     })
@@ -149,7 +148,7 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
                     name="code"
                     label="Enter the code from your authentication app"
                     placeholder="000 000"
-                    {...(function() {
+                    {...(function () {
                         const { error, ...rest } = form.getInputProps('code')
                         return rest
                     })()}

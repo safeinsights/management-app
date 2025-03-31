@@ -35,7 +35,6 @@ export default function ManageMFA() {
     return (
         <Container>
             <Panel title="Set up Two-Step Verification">
-
                 <Stack gap="lg">
                     <Text size="md">
                         To enhance the security of your account, we’re enforcing two-factor verification at
@@ -45,7 +44,7 @@ export default function ManageMFA() {
                         Feel free to opt in to use either SMS verification OR Authenticator App verification.
                     </Text>
                     <Link href="/account/mfa/sms">
-                            <Button>SMS Verification</Button>
+                        <Button>SMS Verification</Button>
                     </Link>
                     <Link href="/account/mfa/app">
                         <Button>Authenticator App Verification</Button>

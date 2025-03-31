@@ -1,14 +1,13 @@
 'use client'
 
 import React from 'react'
-import { useUser} from '@clerk/nextjs'
-import { Button, Group, Stack, Title, Container, Text, TextInput} from '@mantine/core'
+import { useUser } from '@clerk/nextjs'
+import { Button, Group, Stack, Title, Container, Text, TextInput } from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
 import { GenerateBackupCodes } from '../backup-codes'
 import logger from '@/lib/logger'
-
 
 export default function ManageSMSMFA() {
     const { isLoaded, user } = useUser()
@@ -49,14 +48,15 @@ export default function ManageSMSMFA() {
             }
 
             if (!phoneResource) {
-                throw new Error("Could not find or create phone number resource.")
+                throw new Error('Could not find or create phone number resource.')
             }
 
             // Prepare the verification (this sends the code via Clerk)
             await phoneResource.prepareVerification()
             setPhoneResourceToVerify(phoneResource)
             setCodeSent(true)
-        } catch (err) { // err is implicitly 'unknown'
+        } catch (err) {
+            // err is implicitly 'unknown'
             logger.error({ err, message: 'Error sending code' })
             // Set a generic error message for the user
             setError('Failed to send verification code. Please try again later.')
@@ -86,7 +86,8 @@ export default function ManageSMSMFA() {
             } else {
                 setError('Verification failed. Please try again.')
             }
-        } catch (err) { // err is implicitly 'unknown'
+        } catch (err) {
+            // err is implicitly 'unknown'
             logger.error({ err, message: 'Error verifying code' })
             // Set a generic error message for the user
             setError('Invalid verification code. Please try again.')
@@ -105,10 +106,15 @@ export default function ManageSMSMFA() {
     return (
         <Container>
             <Panel title="SMS Verification">
-                {error && <Text color="red" ta="center" mb="md">{error}</Text>}
+                {error && (
+                    <Text color="red" ta="center" mb="md">
+                        {error}
+                    </Text>
+                )}
                 <Stack gap="lg">
                     <Text size="md" mb="md">
-                        Enter your preferred phone number and click &apos;Send Code.&apos; Once you receive the code, simply enter it below to complete the process.
+                        Enter your preferred phone number and click &apos;Send Code.&apos; Once you receive the code,
+                        simply enter it below to complete the process.
                     </Text>
                     {!verificationSuccess && (
                         <Group align="flex-end" gap="md">
@@ -122,7 +128,9 @@ export default function ManageSMSMFA() {
                             />
                             <Button
                                 onClick={handleSendCode}
-                                disabled={codeSent || isSendingCode || (!isPhoneEditable && !phoneNumber) || !!existingPhone}
+                                disabled={
+                                    codeSent || isSendingCode || (!isPhoneEditable && !phoneNumber) || !!existingPhone
+                                }
                                 loading={isSendingCode}
                                 miw={120}
                             >
@@ -144,9 +152,12 @@ export default function ManageSMSMFA() {
                             />
                             <Button
                                 onClick={handleVerify}
-                                disabled={!codeSent || !verificationCode || verificationCode.length !== 6 || isVerifying} // Disable until code sent and valid code entered, or while verifying
+                                disabled={
+                                    !codeSent || !verificationCode || verificationCode.length !== 6 || isVerifying
+                                } // Disable until code sent and valid code entered, or while verifying
                                 loading={isVerifying}
-                                miw={150} mih={40}
+                                miw={150}
+                                mih={40}
                             >
                                 Verify Code
                             </Button>
@@ -155,9 +166,15 @@ export default function ManageSMSMFA() {
 
                     {verificationSuccess && (
                         <Stack gap="lg">
-                            <Text color="green" ta="center">Phone number verified and enabled for MFA!</Text>
-                            <Title order={3} ta="center">Save Your Backup Codes</Title>
-                            <Text ta="center">Store these codes securely. They are needed if you lose access to your phone.</Text>
+                            <Text color="green" ta="center">
+                                Phone number verified and enabled for MFA!
+                            </Text>
+                            <Title order={3} ta="center">
+                                Save Your Backup Codes
+                            </Title>
+                            <Text ta="center">
+                                Store these codes securely. They are needed if you lose access to your phone.
+                            </Text>
                             <GenerateBackupCodes />
                             <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
                         </Stack>

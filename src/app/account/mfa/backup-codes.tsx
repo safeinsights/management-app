@@ -40,7 +40,9 @@ export function GenerateBackupCodes() {
     return (
         <ol>
             {backupCodes.codes.map((code, index) => (
-                <li key={index}><Code fz="lg">{code}</Code></li>
+                <li key={index}>
+                    <Code fz="lg">{code}</Code>
+                </li>
             ))}
         </ol>
     )
