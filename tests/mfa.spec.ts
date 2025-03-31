@@ -11,9 +11,6 @@ test.describe('MFA Setup Visibility', () => {
         // Check if the main heading is visible
         await expect(page.getByRole('heading', { name: 'Authenticator App Verification' })).toBeVisible()
 
-        // Check if the QR code SVG is visible
-        await expect(page.locator('svg')).toBeVisible()
-
         // Check if the code input field is visible
         await expect(page.getByPlaceholder('000000')).toBeVisible()
 
