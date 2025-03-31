@@ -85,7 +85,7 @@ const blue: MantineColorsTuple = [
     '#00326B',
 ]
 
-type ExtendedCustomColors = 'purple' | DefaultMantineColor
+type ExtendedCustomColors = 'purple' | 'blue' | 'charcoal' | 'grey' | 'red' | 'green' | 'yellow' | DefaultMantineColor
 
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {

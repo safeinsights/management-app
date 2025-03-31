@@ -69,8 +69,7 @@ export default async function StudyReviewPage(props: { params: { studyId: string
                         <Title order={3}>Study Results</Title>
                         <Divider />
                         <Text>Study results will be displayed after the data organization reviews them.</Text>
-
-                            <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+                            {/* TODO: If results are available, show them */}
                     </Stack>
                 </Paper>
             </Stack>
