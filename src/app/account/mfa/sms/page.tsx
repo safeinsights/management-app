@@ -2,10 +2,10 @@
 
 import React from 'react'
 import { useUser} from '@clerk/nextjs'
-import { Button, Group, Stack, Title, Container, Text, TextInput, Code } from '@mantine/core'
+import { Button, Group, Stack, Title, Container, Text, TextInput} from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
-import { BackupCodeResource, PhoneNumberResource } from '@clerk/types'
+import { PhoneNumberResource } from '@clerk/types'
 import { GenerateBackupCodes } from '../backup-codes'
 
 export default function ManageSMSMFA() {
