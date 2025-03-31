@@ -17,7 +17,7 @@ export const UserNav = () => {
         } else if (auth.isMember) {
             router.push(`/member/${auth.orgSlug}/dashboard`) // Redirect to the Member dashboard
         } else if (auth.isAdmin) {
-            router.push('/admin/members') // Redirect to the Admin dashboard
+            router.push('/admin/organization') // Redirect to the Admin dashboard
         }
     }, [auth, router])
 
