@@ -172,7 +172,7 @@ export async function retrieveStudyFile(
         }
 
         // Create a readable stream directly from S3 response
-        const stream = result.Body as any as ReadableStream
+        const stream = result.Body as ReadableStream
 
         return {
             body: stream,

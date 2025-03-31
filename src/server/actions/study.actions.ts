@@ -2,7 +2,6 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
-import { siUser } from '@/server/db/queries'
 import { getOrgSlugFromActionContext, memberAction, z, userAction, actionContext } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -85,13 +84,13 @@ export const getStudyAction = userAction(async (studyId) => {
 
         // security, check user has access to record
         .$if(Boolean(ctx?.orgSlug), (qb) =>
-        qb.innerJoin('member', (join) =>
-            join
-                .on('member.identifier', '=', getOrgSlugFromActionContext())
-                .onRef('member.id', '=', 'study.memberId'),
-        ),
-    )
-    .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+            qb.innerJoin('member', (join) =>
+                join
+                    .on('member.identifier', '=', getOrgSlugFromActionContext())
+                    .onRef('member.id', '=', 'study.memberId'),
+            ),
+        )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
 
         .select([
             'study.id',

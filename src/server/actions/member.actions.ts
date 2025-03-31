@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { memberSchema } from '@/schema/member'
 
-import { adminAction, memberAction, userAction, z } from './wrappers'
+import { adminAction, userAction, z } from './wrappers'
 
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
