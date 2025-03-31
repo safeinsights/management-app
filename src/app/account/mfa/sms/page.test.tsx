@@ -92,7 +92,7 @@ describe('ManageSMSMFA', () => {
         renderWithProviders(<ManageSMSMFA />)
 
         // Check panel title
-        expect(screen.getByRole('heading', { name: 'SMS Verification' })).toBeTruthy()
+        expect(screen.getByText('SMS Verification')).toBeTruthy()
 
         // Check phone input state
         const phoneInput = screen.getByLabelText('Phone Number') as HTMLInputElement

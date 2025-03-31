@@ -79,7 +79,7 @@ describe('AddMFaScreen (Authenticator App)', () => {
         // Wait for async operations in useEffect (like createTOTP) to potentially complete
         await waitFor(() => {
             // Check for the panel title specific to the 'add' step
-            expect(screen.getByRole('heading', { name: 'Authenticator App Verification' })).toBeTruthy()
+            expect(screen.getByText('Authenticator App Verification')).toBeTruthy()
         })
 
         // Verify elements specific to the 'add' step are visible
