@@ -129,26 +129,23 @@ export default function ManageSMSMFA() {
                         </Group>
                     )}
 
-                    {codeSent && !verificationSuccess && (
-                        <>
-                            <TextInput
-                                label="Verification Code"
-                                placeholder="Enter 6-digit code"
-                                value={verificationCode}
-                                onChange={(e) => setVerificationCode(e.target.value)}
-                                maxLength={6}
-                                disabled={isVerifying}
-                            />
-                            <Button
-                                onClick={handleVerify}
-                                disabled={!verificationCode || verificationCode.length !== 6 || isVerifying}
-                                loading={isVerifying}
-                                miw={150} mih={40}
-                            >
-                                Verify Code
-                            </Button>
-                        </>
-                    )}
+                    {/* Verification code input - always visible but disabled initially */}
+                    <TextInput
+                        label="Verification Code"
+                        placeholder="Enter 6-digit code"
+                        value={verificationCode}
+                        onChange={(e) => setVerificationCode(e.target.value)}
+                        maxLength={6}
+                        disabled={!codeSent || isVerifying} // Disable until code is sent or while verifying
+                    />
+                    <Button
+                        onClick={handleVerify}
+                        disabled={!codeSent || !verificationCode || verificationCode.length !== 6 || isVerifying} // Disable until code sent and valid code entered, or while verifying
+                        loading={isVerifying}
+                        miw={150} mih={40}
+                    >
+                        Verify Code
+                    </Button>
 
                     {verificationSuccess && (
                         <Stack gap="lg">
