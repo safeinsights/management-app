@@ -178,7 +178,7 @@ export const onFetchStudyJobsAction = userAction(async (studyId) => {
 }, z.string())
 
 export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {
-    checkUserAllowedJobView(jobId)
+    await checkUserAllowedJobView(jobId)
 
     const job = await queryJobResult(jobId)
 
