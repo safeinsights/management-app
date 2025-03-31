@@ -11,20 +11,22 @@ import { InviteUserFormValues, inviteUserSchema, zodResolver } from './admin-use
 import { randomString } from '@/lib/string'
 import { reportError } from '@/components/errors'
 
+const initialValues = () =>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    organizationId: '',
+    password: randomString(8),
+    isReviewer: false,
+    isResearcher: false,
+})
+
 export function InviteForm() {
     const studyProposalForm = useForm<InviteUserFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
-        initialValues: {
-            firstName: '',
-            lastName: '',
-            email: '',
-            organizationId: '',
-            password: randomString(8),
-            isReviewer: false,
-            isResearcher: false,
-        },
+        initialValues: initialValues(),
     })
 
     const { mutate: inviteUser, isPending } = useMutation({
@@ -34,7 +36,7 @@ export function InviteForm() {
                 reportError(error)
             } else if (result) {
                 notifications.show({ message: 'User invited successfully', color: 'green' })
-                studyProposalForm.reset()
+                studyProposalForm.setValues(initialValues())
             }
         },
     })
