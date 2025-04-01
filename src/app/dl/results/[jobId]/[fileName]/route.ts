@@ -3,8 +3,8 @@ import { urlOrPathToResultsFile } from '@/server/storage'
 import { jobInfoForJobId } from '@/server/db/queries'
 import { MinimalJobResultsInfo } from '@/lib/types'
 
-export const GET = async (_: Request, { params }: { params: { jobId: string; fileName: string } }) => {
-    const { jobId, fileName } = params
+export const GET = async (_: Request, { params }: {params: Promise<{jobId: string; fileName: string }> }) => {
+    const { jobId, fileName } = await params
 
     if (!jobId || !fileName) {
         return NextResponse.json({ error: 'no job id or file name provided' }, { status: 400 })
