@@ -3,6 +3,8 @@
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import React, { useState, useMemo } from 'react'
+import { z } from 'zod'
+import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
 import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
@@ -33,13 +35,15 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
         return null
     }, [totp])
 
+    const schema = z.object({
+        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
+    })
+
     const form = useForm({
         initialValues: {
             code: '',
         },
-        validate: {
-            code: (c: string) => (/^\d{6}$/.test(c) ? null : 'Code must be six digits'),
-        },
+        validate: zodResolver(schema),
         validateInputOnChange: true,
     })
 
@@ -122,11 +126,13 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
 
 function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     const { user } = useUser()
+    const schema = z.object({
+        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
+    })
+
     const form = useForm({
         initialValues: { code: '' },
-        validate: {
-            code: (c: string) => (/^\d{6}$/.test(c) ? null : 'Code must be six digits'),
-        },
+        validate: zodResolver(schema),
         validateInputOnChange: true,
     })
 
