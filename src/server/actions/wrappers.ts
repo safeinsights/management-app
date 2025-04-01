@@ -35,10 +35,12 @@ export async function getUserIdFromActionContext(): Promise<string> {
     return ctx.userId ?? ''
 }
 
-export async function getOrgSlugFromActionContext(): Promise<string> {
+export async function getOrgSlugFromActionContext(throwIfNotFound?: true): Promise<string>
+export async function getOrgSlugFromActionContext(throwIfNotFound?: false): Promise<string | null>
+export async function getOrgSlugFromActionContext(throwIfNotFound = true): Promise<string | null> {
     const ctx = await actionContext()
-    if (!ctx.orgSlug) throw new Error('user is not a member of organization?')
-    return ctx.orgSlug
+    if (!ctx.orgSlug && throwIfNotFound) throw new Error('user is not a member of organization?')
+    return ctx.orgSlug || null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
