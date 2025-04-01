@@ -1,8 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import { Readable } from 'stream'
-import { storeS3File, fetchS3File, signedUrlForFile, retrieveStudyFile } from './aws'
-import { sanitizeFileName } from '@/lib/util'
+import { storeS3File, fetchS3File, signedUrlForFile } from './aws'
 import { MinimalStudyInfo, MinimalJobInfo, MinimalJobResultsInfo, CodeManifest, StudyDocumentType } from '@/lib/types'
 import { pathForStudyJobResults, pathForStudyDocuments, pathForStudyJobCodeFile } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
@@ -53,6 +52,14 @@ export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo): Promi
     return urlOrContentForFile(filePath)
 }
 
+export async function urlOrContentForStudyDocumentFile(
+    info: MinimalStudyInfo,
+    fileType: StudyDocumentType,
+    fileName: string,
+) {
+    return urlOrContentForFile(pathForStudyDocuments(info, fileType, fileName))
+}
+
 export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {
     return await fetchFile(pathForStudyJobCodeFile(info, filePath))
 }
@@ -70,71 +77,6 @@ async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
         fs.mkdirSync(dirName, { recursive: true })
         const buffer = await file.arrayBuffer()
         await fs.promises.writeFile(path.join(dirName, path.basename(filePath)), Buffer.from(buffer))
-    }
-}
-
-async function retrieveFile(
-    filePath: string,
-    info: MinimalStudyInfo,
-): Promise<{ body: ReadableStream; contentType: string }> {
-    const fullPath = filePath
-
-    if (USING_S3_STORAGE) {
-        // Implement S3 file retrieval
-        const result = await retrieveStudyFile(info, fullPath)
-        return result
-    } else {
-        // Local file retrieval
-        // Try multiple path variations
-        const pathVariations = [
-            path.join(getUploadTmpDirectory(), fullPath),
-            path.join(getUploadTmpDirectory(), 'studies', info.memberIdentifier, info.studyId, 'docs', fullPath),
-            path.join(getUploadTmpDirectory(), 'studies', info.memberIdentifier, info.studyId, fullPath),
-            // Handle case where document type might be in the path
-            path.join(
-                getUploadTmpDirectory(),
-                'studies',
-                info.memberIdentifier,
-                info.studyId,
-                'docs',
-                path.basename(fullPath),
-            ),
-        ]
-
-        let localPath: string | undefined
-        for (const variation of pathVariations) {
-            if (fs.existsSync(variation)) {
-                localPath = variation
-                break
-            }
-        }
-
-        if (!localPath) {
-            // Log all tried paths for debugging
-            logger.error(`File not found. Tried paths: ${pathVariations.join(', ')}. 
-                Full path: ${fullPath}, 
-                Upload tmp directory: ${getUploadTmpDirectory()}, 
-                Member Identifier: ${info.memberIdentifier}, 
-                Study ID: ${info.studyId}`)
-            throw new Error(`File not found: ${fullPath}`)
-        }
-
-        const stream = fs.createReadStream(localPath)
-        return {
-            body: stream as unknown as ReadableStream,
-            contentType: 'application/octet-stream',
-        }
-    }
-}
-
-export async function retrieveStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, file: string) {
-    const fileResult = await retrieveFile(pathForStudyDocuments(info, fileType, file), info)
-
-    // Return an object with file content and metadata for download
-    return {
-        body: fileResult.body,
-        filename: sanitizeFileName(path.basename(file)),
-        contentType: fileResult.contentType,
     }
 }
 

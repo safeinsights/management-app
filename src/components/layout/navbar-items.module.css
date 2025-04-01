@@ -1,5 +1,5 @@
 .hover {
     &:hover {
-        background-color: var(--mantine-color-blue-7)
+        background-color: var(--mantine-color-blue-7);
     }
 }

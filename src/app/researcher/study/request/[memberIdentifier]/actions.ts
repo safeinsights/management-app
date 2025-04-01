@@ -4,10 +4,9 @@ import { codeBuildRepositoryUrl } from '@/server/aws'
 import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-
 import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { CodeReviewManifest } from '@/lib/code-manifest'
-import { z, getUserIdFromActionContext, researcherAction } from '@/server/actions/wrappers'
+import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
@@ -26,31 +25,26 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     const studyId = uuidv7()
 
-    let irbDocPath = ''
     if (studyInfo.irbDocument) {
         await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
             StudyDocumentType.IRB,
             studyInfo.irbDocument,
         )
-        irbDocPath = studyInfo.irbDocument.name
     }
 
-    let descriptionDocPath = ''
     if (studyInfo.descriptionDocument) {
         await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
             StudyDocumentType.DESCRIPTION,
             studyInfo.descriptionDocument,
         )
-        descriptionDocPath = studyInfo.descriptionDocument.name
     }
 
-
-    let agreementDocPath = ''
     if (studyInfo.agreementDocument) {
-        agreementDocPath = await storeStudyDocumentFile(
+        await storeStudyDocumentFile(
             { studyId, memberIdentifier: member.identifier },
+            StudyDocumentType.AGREEMENT,
             studyInfo.agreementDocument,
         )
     }
@@ -62,10 +56,10 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             id: studyId,
             title: studyInfo.title,
             piName: studyInfo.piName,
-            descriptionDocPath,
-            irbDocPath,
+            descriptionDocPath: studyInfo.descriptionDocument?.name,
+            irbDocPath: studyInfo.irbDocument?.name,
+            agreementDocPath: studyInfo.agreementDocument?.name,
             // TODO: add study lead
-            agreementDocPath,
             memberId,
             researcherId: userId,
             containerLocation,

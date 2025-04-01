@@ -152,34 +152,3 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     )
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
-
-export async function retrieveStudyFile(
-    info: MinimalStudyInfo,
-    filePath: string,
-): Promise<{ body: ReadableStream; contentType: string }> {
-    const bucket = s3BucketName()
-
-    try {
-        const result = await getS3Client().send(
-            new GetObjectCommand({
-                Bucket: bucket,
-                Key: filePath,
-            }),
-        )
-
-        if (!result.Body) {
-            throw new Error(`No file found at path: ${filePath}`)
-        }
-
-        // Create a readable stream directly from S3 response
-        const stream = result.Body as ReadableStream
-
-        return {
-            body: stream,
-            contentType: result.ContentType || 'application/octet-stream',
-        }
-    } catch (error) {
-        console.error(`Error retrieving study file from S3: ${filePath}`, error)
-        throw new Error(`Failed to retrieve study file: ${filePath}`)
-    }
-}

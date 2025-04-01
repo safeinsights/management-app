@@ -5,7 +5,6 @@ import { memberSchema } from '@/schema/member'
 import { findOrCreateClerkOrganization } from '../clerk'
 import { adminAction, userAction, z } from './wrappers'
 
-
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
     if (!('id' in member)) {

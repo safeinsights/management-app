@@ -36,7 +36,7 @@ export default async function StudyReviewPage(props: {
 
     // FIXME: why aren't we combining these two into a single query
     const latestJob = await latestJobForStudyAction(study.id)
-    const latestJobStatus = latestJob?.id && (await jobStatusForJobAction(latestJob?.id))
+    const latestJobStatus = await jobStatusForJobAction(latestJob?.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -58,28 +58,14 @@ export default async function StudyReviewPage(props: {
                         <Title order={3}>Study Proposal</Title>
                         <StudyReviewButtons study={study} memberIdentifier={memberIdentifier} />
                     </Group>
-                    <Stack mt="md">
-                        {studyIdentifier && (
-                            <StudyDetails
-                                params={{
-                                    memberIdentifier,
-                                    studyIdentifier: studyIdentifier,
-                                }}
-                            />
-                        )}
-                    </Stack>
+                    <Stack mt="md">{studyIdentifier && <StudyDetails studyIdentifier={study.id} />}</Stack>
                 </Stack>
             </Paper>
 
             <Paper bg="white" p="xl">
                 <Stack mt="md">
                     <Title order={3}>Study Code</Title>
-                    <StudyCodeDetails
-                        params={{
-                            memberIdentifier,
-                            studyIdentifier: studyIdentifier,
-                        }}
-                    />
+                    <StudyCodeDetails job={latestJob} />
                 </Stack>
             </Paper>
 

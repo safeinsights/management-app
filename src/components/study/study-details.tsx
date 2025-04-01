@@ -1,26 +1,13 @@
-import { use } from 'react'
-import { Divider, Grid, GridCol, Stack, Text, Badge } from '@mantine/core'
+import { FC, use } from 'react'
+import { Badge, Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/user.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { dataForStudyDocumentsAction } from '@/server/actions/study-job.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
+import { StudyDocumentType } from '@/lib/types'
+import { studyDocumentURL } from '@/lib/paths'
 
-// TODO Call this StudyDetails?
-export function StudyDetails(props: {
-    params: {
-        memberIdentifier: string
-        studyIdentifier: string
-    }
-}) {
-    const { memberIdentifier, studyIdentifier } = props.params
-
-    const member = use(getMemberIdFromIdentifierAction(memberIdentifier))
-
-    if (!member) {
-        return <AlertNotFound title="Member was not found" message="no such member exists" />
-    }
-
+export const StudyDetails: FC<{ studyIdentifier: string }> = ({ studyIdentifier }) => {
     const study = use(getStudyAction(studyIdentifier))
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
@@ -57,7 +44,11 @@ export function StudyDetails(props: {
                                     color="#D4D1F3"
                                     c="black"
                                     component="a"
-                                    href={`/dl/study/${documents.studyInfo.memberIdentifier}/${studyIdentifier}/docs/${study.descriptionDocPath}`}
+                                    href={studyDocumentURL(
+                                        study.id,
+                                        StudyDocumentType.DESCRIPTION,
+                                        study.descriptionDocPath,
+                                    )}
                                     target="_blank"
                                     rightSection={<Download />}
                                     style={{ cursor: 'pointer' }}
@@ -73,7 +64,7 @@ export function StudyDetails(props: {
                                     color="#D4D1F3"
                                     c="black"
                                     component="a"
-                                    href={`/dl/study/${documents.studyInfo.memberIdentifier}/${studyIdentifier}/docs/${study.irbDocPath}`}
+                                    href={studyDocumentURL(study.id, StudyDocumentType.IRB, study.irbDocPath)}
                                     target="_blank"
                                     rightSection={<Download />}
                                     style={{ cursor: 'pointer' }}
@@ -89,7 +80,11 @@ export function StudyDetails(props: {
                                     color="#D4D1F3"
                                     c="black"
                                     component="a"
-                                    href={`/dl/study/${documents.studyInfo.memberIdentifier}/${studyIdentifier}/docs/${study.agreementDocPath}`}
+                                    href={studyDocumentURL(
+                                        study.id,
+                                        StudyDocumentType.AGREEMENT,
+                                        study.agreementDocPath,
+                                    )}
                                     target="_blank"
                                     rightSection={<Download />}
                                     style={{ cursor: 'pointer' }}

@@ -12,7 +12,6 @@ import { actionContext, getUserIdFromActionContext, memberAction, userAction, z 
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { SanitizedError } from '@/lib/errors'
 
 const approveStudyJobResultsActionSchema = z.object({
@@ -176,7 +175,6 @@ export const jobStatusForJobAction = userAction(async (jobId) => {
 
     const result = await db
         .selectFrom('jobStatusChange')
-
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -186,7 +184,6 @@ export const jobStatusForJobAction = userAction(async (jobId) => {
             ),
         )
         .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
-
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .orderBy('jobStatusChange.id', 'desc')

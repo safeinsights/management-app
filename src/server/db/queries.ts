@@ -17,7 +17,6 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
                 .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
         )
         .select(['member.identifier as memberIdentifier', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
-
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -169,4 +168,13 @@ export const jobInfoForJobId = async (jobId: string) => {
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
+}
+
+export const studyInfoForStudyId = async (studyId: string) => {
+    return await db
+        .selectFrom('study')
+        .innerJoin('member', 'study.memberId', 'member.id')
+        .select(['study.id as studyId', 'member.identifier as memberIdentifier'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
 }

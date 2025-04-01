@@ -21,6 +21,7 @@ const mockStudy: Study = {
     id: faker.string.uuid(),
     irbDocPath: faker.datatype.boolean() ? faker.system.filePath() : null,
     irbProtocols: faker.datatype.boolean() ? faker.lorem.sentence() : null,
+    agreementDocPath: faker.datatype.boolean() ? faker.lorem.sentence() : null,
     memberId: faker.string.uuid(),
     outputMimeType: faker.datatype.boolean() ? faker.system.mimeType() : null,
     piName: faker.person.fullName(),

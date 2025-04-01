@@ -116,6 +116,7 @@ export const getStudyAction = userAction(async (studyId) => {
             'study.title',
             'study.descriptionDocPath',
             'study.irbDocPath',
+            'study.reviewerId',
             'study.agreementDocPath',
         ])
         .select('user.fullName as researcherName')

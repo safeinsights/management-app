@@ -18,3 +18,8 @@ export const pathForStudyJobResults = (parts: MinimalJobResultsInfo) =>
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
+
+export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileName: string) =>
+    `/dl/study-documents/${studyId}/${type}/${fileName}`
+
+export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
