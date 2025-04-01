@@ -101,7 +101,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                 <Box mb="lg" maw="30%" mx="auto">
                     <TextInput
                         autoFocus
-                        maxLength={8}
+                        maxLength={6}
                         name="code"
                         placeholder="000000"
                         styles={(_theme) => ({ input: { textAlign: 'center' } })}
