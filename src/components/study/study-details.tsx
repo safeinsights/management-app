@@ -2,7 +2,6 @@ import { FC, use } from 'react'
 import { Badge, Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { dataForStudyDocumentsAction } from '@/server/actions/study-job.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
@@ -11,11 +10,6 @@ export const StudyDetails: FC<{ studyIdentifier: string }> = ({ studyIdentifier 
     const study = use(getStudyAction(studyIdentifier))
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    const documents = use(dataForStudyDocumentsAction(studyIdentifier))
-    if (!documents) {
-        return <AlertNotFound title="Documents were not found" message="no such documents exists" />
     }
 
     return (

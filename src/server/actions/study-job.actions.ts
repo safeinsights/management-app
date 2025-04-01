@@ -109,56 +109,6 @@ export const dataForJobAction = userAction(async (studyJobIdentifier) => {
     return { jobInfo, manifest }
 }, z.string())
 
-export const dataForStudyDocumentsAction = userAction(async (studyId: string) => {
-    // Fetch study information
-    const studyInfo = await db
-        .selectFrom('study')
-        .innerJoin('member', 'study.memberId', 'member.id')
-        .select([
-            'study.id as studyId',
-            'study.title as studyTitle',
-            'study.descriptionDocPath',
-            'study.irbDocPath',
-            'study.agreementDocPath',
-            'member.identifier as memberIdentifier',
-        ])
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
-
-    if (!studyInfo) {
-        return null
-    }
-
-    // Prepare document list
-    const documents = []
-
-    if (studyInfo.descriptionDocPath) {
-        documents.push({
-            name: studyInfo.descriptionDocPath || 'Description Document',
-            path: studyInfo.descriptionDocPath,
-        })
-    }
-
-    if (studyInfo.irbDocPath) {
-        documents.push({
-            name: studyInfo.irbDocPath || 'IRB Document',
-            path: studyInfo.irbDocPath,
-        })
-    }
-
-    if (studyInfo.agreementDocPath) {
-        documents.push({
-            name: studyInfo.agreementDocPath || 'Agreement Document',
-            path: studyInfo.agreementDocPath,
-        })
-    }
-
-    return {
-        studyInfo,
-        documents,
-    }
-}, z.string()) // TODO why z.string() for all the validation?
-
 export const latestJobForStudyAction = userAction(async (studyId) => {
     const latestJob = await latestJobForStudy(studyId)
 
