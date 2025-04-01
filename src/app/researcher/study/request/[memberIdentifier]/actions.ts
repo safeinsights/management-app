@@ -16,7 +16,7 @@ const onCreateStudyActionArgsSchema = z.object({
 })
 
 export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     const member = await db
         .selectFrom('member')

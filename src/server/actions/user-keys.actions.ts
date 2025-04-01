@@ -6,7 +6,7 @@ import { getMemberUserPublicKey } from '@/server/db/queries'
 import { ensureUserIsMemberOfOrg } from '../mutations'
 
 export const getMemberUserFingerprintAction = userAction(async () => {
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     const result = await db
         .selectFrom('userPublicKey')
@@ -18,7 +18,7 @@ export const getMemberUserFingerprintAction = userAction(async () => {
 })
 
 export const getMemberUserPublicKeyAction = userAction(async () => {
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     return await getMemberUserPublicKey(userId)
 })
@@ -26,7 +26,7 @@ export const getMemberUserPublicKeyAction = userAction(async () => {
 const setMemberUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuffer), fingerprint: z.string() })
 
 export const setMemberUserPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     // during MVP, we have several users who were setup in clerk without invites
     // those accounts are not associated with any organization

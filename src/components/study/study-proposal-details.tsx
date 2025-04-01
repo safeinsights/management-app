@@ -25,6 +25,8 @@ export function StudyProposalDetails(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
+    console.log(study)
+
     const documents = use(dataForStudyDocumentsAction(studyIdentifier))
     if (!documents) {
         return <AlertNotFound title="Documents were not found" message="no such documents exists" />

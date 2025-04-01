@@ -257,7 +257,6 @@ export const mockClerkSession = (values: MockSession) => {
         id: values.clerkUserId,
         banned: false,
     })
-    console.log('mocking clerk session', values)
     const clientMocks = {
         organizations: {
             getOrganization: vi.fn(async (orgSlug: string) => ({

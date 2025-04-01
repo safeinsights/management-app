@@ -32,8 +32,8 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
 }
 
 export async function ensureUserIsMemberOfOrg() {
-    const userId = getUserIdFromActionContext()
-    const identifier = getOrgSlugFromActionContext()
+    const userId = await getUserIdFromActionContext()
+    const identifier = await getOrgSlugFromActionContext()
     const found = await db
         .selectFrom('memberUser')
         .innerJoin('member', (join) =>

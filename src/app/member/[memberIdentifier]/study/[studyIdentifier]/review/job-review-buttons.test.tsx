@@ -62,6 +62,7 @@ const mockRejectedStudyJob: StudyJob = {
 }
 
 describe('Study Results Approve/Reject buttons', () => {
+    const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
     vi.mocked(dataForJobAction).mockResolvedValue({
         manifest: {
             jobId: '',
@@ -90,7 +91,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 tree: { label: '', value: '', size: 0, children: [] },
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText('Reject')).toBeNull()
         expect(screen.queryByText('Approve')).toBeNull()
     })
@@ -112,7 +113,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByRole('button', { name: 'Approve' })).toBeDefined()
         expect(screen.queryByRole('button', { name: 'Reject' })).toBeDefined()
     })
@@ -134,7 +135,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText(/approved on/i)).toBeDefined()
     })
 
@@ -155,7 +156,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText(/rejected on/i)).toBeDefined()
     })
 })

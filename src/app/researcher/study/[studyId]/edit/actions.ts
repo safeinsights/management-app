@@ -7,6 +7,8 @@ import { pick } from 'remeda'
 
 export const onUpdateStudyAction = userAction(
     async ({ studyId, study }) => {
+        const userId = await getUserIdFromActionContext()
+
         const studyDataSources = [
             ...(study.eventCapture ? ['eventCapture'] : []),
             ...(study.highlights ? ['highlights'] : []),
@@ -23,7 +25,7 @@ export const onUpdateStudyAction = userAction(
             })
             .where('id', '=', studyId)
             // security: only allow updating studies that belong to the current user
-            .where('researcherId', '=', getUserIdFromActionContext())
+            .where('researcherId', '=', userId)
             .execute()
     },
     z.object({

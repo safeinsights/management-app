@@ -13,7 +13,12 @@ import {
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
+type FileEntry = {
+    path: string
+    contents: ArrayBuffer
+}
+
+export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: FileEntry[] }) => {
     const router = useRouter()
 
     const jobInfo = useQuery({
