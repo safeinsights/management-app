@@ -114,8 +114,10 @@ export const getStudyAction = userAction(async (studyId) => {
             'study.researcherId',
             'study.status',
             'study.title',
+            'study.descriptionDocPath',
+            'study.irbDocPath',
+            'study.agreementDocPath',
         ])
-
         .select('user.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()

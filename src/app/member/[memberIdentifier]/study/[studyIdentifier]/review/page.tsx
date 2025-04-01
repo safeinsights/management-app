@@ -5,7 +5,7 @@ import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
 import { StudyReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-review-buttons'
-import { StudyProposalDetails } from '@/components/study/study-proposal-details'
+import { StudyDetails } from '@/components/study/study-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
 import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
@@ -60,7 +60,7 @@ export default async function StudyReviewPage(props: {
                     </Group>
                     <Stack mt="md">
                         {studyIdentifier && (
-                            <StudyProposalDetails
+                            <StudyDetails
                                 params={{
                                     memberIdentifier,
                                     studyIdentifier: studyIdentifier,
@@ -74,12 +74,12 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xl">
                 <Stack mt="md">
                     <Title order={3}>Study Code</Title>
-                        <StudyCodeDetails
-                            params={{
-                                memberIdentifier,
-                                studyIdentifier: studyIdentifier,
-                            }}
-                        />
+                    <StudyCodeDetails
+                        params={{
+                            memberIdentifier,
+                            studyIdentifier: studyIdentifier,
+                        }}
+                    />
                 </Stack>
             </Paper>
 
@@ -87,7 +87,7 @@ export default async function StudyReviewPage(props: {
                 <Stack mt="md">
                     <Title order={3}>Study Results</Title>
                     <Divider />
-                        <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
+                    <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
                 </Stack>
             </Paper>
         </Stack>
