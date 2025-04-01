@@ -2,6 +2,7 @@ import { db } from '@/database'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { faker } from '@faker-js/faker'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
 import { render } from '@testing-library/react'
@@ -41,20 +42,18 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 
 export * from './common.helpers'
 
-export const insertTestStudyData = async (opts: { memberId: string }) => {
-    const researcher = await db
-        .selectFrom('user')
-        .select('id')
-        .where('isResearcher', '=', true)
-        .executeTakeFirstOrThrow()
-
+export const insertTestStudyData = async ({ memberId, researcherId }: { memberId: string; researcherId?: string }) => {
+    if (!researcherId) {
+        const user = await insertTestUser({ memberId })
+        researcherId = user.id
+    }
     const study = await db
         .insertInto('study')
         .values({
-            memberId: opts.memberId,
+            memberId: memberId,
             containerLocation: 'test-container',
             title: 'my 1st study',
-            researcherId: researcher.id,
+            researcherId: researcherId,
             piName: 'test',
             irbProtocols: 'https://www.google.com',
             status: 'APPROVED',
@@ -74,7 +73,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .executeTakeFirstOrThrow()
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'INITIATED', studyJobId: job0.id, userId: researcher.id })
+        .values({ status: 'INITIATED', studyJobId: job0.id, userId: researcherId })
         .execute()
 
     const job1 = await db
@@ -87,7 +86,7 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .executeTakeFirstOrThrow()
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'JOB-RUNNING', studyJobId: job1.id, userId: researcher.id })
+        .values({ status: 'JOB-RUNNING', studyJobId: job1.id, userId: researcherId })
         .execute()
 
     const job2 = await db
@@ -100,92 +99,92 @@ export const insertTestStudyData = async (opts: { memberId: string }) => {
         .executeTakeFirstOrThrow()
     await db
         .insertInto('jobStatusChange')
-        .values({ status: 'JOB-READY', studyJobId: job2.id, userId: researcher.id })
+        .values({ status: 'JOB-READY', studyJobId: job2.id, userId: researcherId })
         .execute()
 
     return {
-        memberId: opts.memberId,
+        memberId: memberId,
         studyId: study.id,
         jobIds: [job0.id, job1.id, job2.id],
     }
 }
 
-export const insertTestJobKeyData = async (opts: { memberId: string }) => {
-    // Set users
-    const user1 = await db
+export const insertTestUser = async ({
+    memberId,
+    isResearcher = true,
+    isReviewer = true,
+}: {
+    memberId: string
+    isResearcher?: boolean
+    isReviewer?: boolean
+}) => {
+    const user = await db
         .insertInto('user')
         .values({
-            isResearcher: false,
-            clerkId: 'testClerkId1',
-            firstName: 'User One',
+            isResearcher,
+            clerkId: faker.string.alpha(10),
+            firstName: faker.person.firstName(),
+            lastName: faker.person.lastName(),
+            email: faker.internet.email(),
         })
-        .returning('id')
-        .executeTakeFirstOrThrow()
-
-    const user2 = await db
-        .insertInto('user')
-        .values({
-            isResearcher: false,
-            clerkId: 'testClerkId2',
-            firstName: 'User Two',
-        })
-        .returning('id')
+        .returningAll()
         .executeTakeFirstOrThrow()
 
     // Add users as memberUsers
     await db
         .insertInto('memberUser')
         .values({
-            memberId: opts.memberId,
-            userId: user1.id,
+            memberId,
+            userId: user.id,
             isAdmin: false,
-            isReviewer: true,
+            isReviewer,
         })
         .execute()
 
-    await db
-        .insertInto('memberUser')
-        .values({
-            memberId: opts.memberId,
-            userId: user2.id,
-            isAdmin: false,
-            isReviewer: true,
-        })
-        .execute()
+    if (isReviewer) {
+        await db
+            .insertInto('userPublicKey')
+            .values({
+                userId: user.id,
+                publicKey: Buffer.from('testPublicKey1'),
+                fingerprint: 'testFingerprint1',
+            })
+            .execute()
+    }
 
-    // Give memberUsers a public key
-    await db
-        .insertInto('userPublicKey')
-        .values({
-            userId: user1.id,
-            publicKey: Buffer.from('testPublicKey1'),
-            fingerprint: 'testFingerprint1',
-        })
-        .execute()
+    // const user2 = await db
+    //     .insertInto('user')
+    //     .values({
+    //         isResearcher: false,
+    //         clerkId: faker.string.alpha(10),
+    //         firstName: 'User Two',
+    //     })
+    //     .returningAll()
+    //     .executeTakeFirstOrThrow()
+    // await db
+    //     .insertInto('memberUser')
+    //     .values({
+    //         memberId: opts.memberId,
+    //         userId: user2.id,
+    //         isAdmin: false,
+    //         isReviewer: false, // n.b. user2 is not a reviewer
+    //     })
+    //     .execute()
 
-    await db
-        .insertInto('userPublicKey')
-        .values({
-            userId: user2.id,
-            publicKey: Buffer.from('testPublicKey2'),
-            fingerprint: 'testFingerprint2',
-        })
-        .execute()
+    return user
+}
 
-    // Create a study for the member
-    const researcher = await db
-        .selectFrom('user')
-        .select('id')
-        .where('isResearcher', '=', true)
-        .executeTakeFirstOrThrow()
+export const insertTestJobKeyData = async ({ memberId }: { memberId: string }) => {
+    const user1 = await insertTestUser({ memberId })
+    const user2 = await insertTestUser({ memberId, isReviewer: false })
 
     const study = await db
         .insertInto('study')
         .values({
-            memberId: opts.memberId,
+            memberId: memberId,
             containerLocation: 'test-container',
             title: 'my 1st study',
-            researcherId: researcher.id,
+            researcherId: user1.id,
             piName: 'test',
             status: 'PENDING-REVIEW',
             dataSources: ['all'],
@@ -204,7 +203,7 @@ export const insertTestJobKeyData = async (opts: { memberId: string }) => {
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    return job.id
+    return { study, job, user1, user2 }
 }
 
 export async function createTempDir() {
@@ -213,7 +212,7 @@ export async function createTempDir() {
     return await fs.promises.mkdtemp(tmpdir)
 }
 
-export const mockApiMember = async (opts: { identifier: string } = { identifier: 'testy-mctest-face' }) => {
+export const insertTestMember = async (opts: { identifier: string } = { identifier: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
@@ -277,4 +276,15 @@ export const mockClerkSession = (values: MockSession) => {
     }))
 
     return { client: clientMocks, user, auth }
+}
+
+export async function mockSessionWithTestData(memberIdentifier = faker.string.alpha(10)) {
+    const member = await insertTestMember({ identifier: memberIdentifier })
+    const user = await insertTestUser({ memberId: member.id })
+
+    mockClerkSession({
+        clerkUserId: user.clerkId,
+        org_slug: member.identifier,
+    })
+    return { member, user }
 }

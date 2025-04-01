@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember, readTestSupportFile } from '@/tests/unit.helpers'
+import { insertTestStudyData, insertTestMember, readTestSupportFile } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -21,7 +21,7 @@ test('jwt with invalid iss is rejected', async () => {
 })
 
 test('jwt with expired token is rejected', async () => {
-    const member = await mockApiMember({ identifier: 'testy-mctestface' })
+    const member = await insertTestMember()
     const privateKey = await readTestSupportFile('private_key.pem')
     const token = jwt.sign({ iss: member.identifier }, privateKey, { algorithm: 'RS256', expiresIn: -30 })
     const hdr = await headers()
@@ -32,7 +32,7 @@ test('jwt with expired token is rejected', async () => {
 })
 
 test('return study jobs', async () => {
-    const member = await mockApiMember({ identifier: 'testy-mctestface' })
+    const member = await insertTestMember()
 
     const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
 
