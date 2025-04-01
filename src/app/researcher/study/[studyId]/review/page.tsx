@@ -1,4 +1,4 @@
-import { Paper, Stack, Title } from '@mantine/core'
+import { Paper, Stack, Title, Divider } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
@@ -48,6 +48,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <Paper bg="white" p="xl">
                 <Stack>
                     <Title order={3}>Study Code</Title>
+                    <Divider my="md" c="dimmed" />
                     {job && <StudyCodeDetails job={job} />}
                 </Stack>
             </Paper>
@@ -55,6 +56,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <Paper bg="white" p="xl">
                 <Stack>
                     <Title order={3}>Study Results</Title>
+                    <Divider my="md" c="dimmed" />
                     <ViewCSV job={job} />
                 </Stack>
             </Paper>

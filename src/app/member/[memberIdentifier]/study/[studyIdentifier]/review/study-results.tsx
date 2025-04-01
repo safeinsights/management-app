@@ -143,7 +143,7 @@ export const StudyResults: FC<{
     }
 
     return (
-        <Paper bg="white">
+        <Paper bg="white" p="xl">
             <Stack>
                 <Group justify="space-between">
                     {decryptedResults?.length && (
@@ -153,8 +153,6 @@ export const StudyResults: FC<{
                         </>
                     )}
                 </Group>
-
-                <Divider />
                 {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
                 <Stack>
                     {jobStatus === 'RUN-COMPLETE' && !decryptedResults?.length && (
