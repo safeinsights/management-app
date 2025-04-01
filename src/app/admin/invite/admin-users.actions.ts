@@ -6,16 +6,27 @@ import { inviteUserSchema } from './admin-users.schema'
 import { adminAction } from '@/server/actions/wrappers'
 import { sendWelcomeEmail } from '@/server/mailgun'
 import { findOrCreateClerkOrganization } from '@/server/clerk'
+import { isClerkApiError, SanitizedError } from '@/lib/errors'
 
 export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()
+    let clerkUserId = ''
 
-    const clerkUser = await client.users.createUser({
-        firstName: invite.firstName,
-        lastName: invite.lastName,
-        emailAddress: [invite.email],
-        password: invite.password,
-    })
+    try {
+        const clerkUser = await client.users.createUser({
+            firstName: invite.firstName,
+            lastName: invite.lastName,
+            emailAddress: [invite.email],
+            password: invite.password,
+        })
+        clerkUserId = clerkUser.id
+    } catch (error) {
+        if (isClerkApiError(error)) {
+            // the user is an admin, they can see the clerk error
+            throw new SanitizedError(error.errors[0].message)
+        }
+        throw error
+    }
 
     if (invite.isReviewer) {
         const org = await db
@@ -28,7 +39,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
 
         await client.organizations.createOrganizationMembership({
             organizationId: clerkOrg.id,
-            userId: clerkUser.id,
+            userId: clerkUserId,
             role: 'org:member',
         })
     }
@@ -37,17 +48,17 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         const existingUser = await trx
             .selectFrom('user')
             .select('id')
-            .where('clerkId', '=', clerkUser.id)
+            .where('clerkId', '=', clerkUserId)
             .executeTakeFirst()
 
         if (existingUser) {
-            throw new Error(`User with clerkId ${clerkUser.id} already exists`)
+            throw new Error(`User with clerkId ${clerkUserId} already exists`)
         }
 
         const siUser = await trx
             .insertInto('user')
             .values({
-                clerkId: clerkUser.id,
+                clerkId: clerkUserId,
                 firstName: invite.firstName,
                 lastName: invite.lastName,
                 email: invite.email,
@@ -73,7 +84,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         // Return the created user record.
         return {
             ...invite,
-            clerkId: clerkUser.id,
+            clerkId: clerkUserId,
             userId: siUser.id,
         }
     })

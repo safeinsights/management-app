@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest'
-import { CLERK_ADMIN_ORG_SLUG } from '@/server/config'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
