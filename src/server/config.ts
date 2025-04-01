@@ -1,7 +1,5 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
 
-export const CLERK_ADMIN_ORG_SLUG = 'safe-insights'
-
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
 export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')

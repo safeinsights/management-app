@@ -119,7 +119,7 @@ describe('reportError', () => {
         reportError(errorMsg)
         expect(notificationsShowSpy).toHaveBeenCalledWith({
             color: 'red',
-            title: 'An error occured',
+            title: 'An error occurred',
             message: errorMsg,
         })
     })
@@ -140,7 +140,7 @@ describe('ErrorAlert Component', () => {
     it('renders the error message and default title', () => {
         renderWithProviders(<ErrorAlert error="Test error" />)
         expect(screen.getByText('Test error')).toBeDefined()
-        expect(screen.getByText('An error occured')).toBeDefined()
+        expect(screen.getByText('An error occurred')).toBeDefined()
     })
 
     it('renders error when error is an Error instance', () => {
