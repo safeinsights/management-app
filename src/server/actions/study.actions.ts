@@ -11,10 +11,12 @@ import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
+    const slug = await getOrgSlugFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
+            join.on('member.identifier', '=', slug).onRef('study.memberId', '=', 'member.id'),
         )
         .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
@@ -77,13 +79,15 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 })
 
 export const getStudyAction = memberAction(async (studyId) => {
+    const slug = await getOrgSlugFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
 
         // security, check user has access to record
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
+            join.on('member.identifier', '=', slug).onRef('member.id', '=', 'study.memberId'),
         )
 
         .select([
@@ -111,7 +115,8 @@ export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
+    const slug = await getOrgSlugFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
@@ -131,7 +136,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
-                memberIdentifier: getOrgSlugFromActionContext(),
+                memberIdentifier: slug,
             })
         } else {
             status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
@@ -156,7 +161,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {

@@ -39,6 +39,25 @@ async function fingerPrintPublicKeyFromPrivateKey(privateKey: CryptoKey) {
     return await fingerprintKeyData(pk)
 }
 
+type FileEntry = {
+    path: string
+    contents: ArrayBuffer
+}
+
+async function extractFilesFromReader(reader: ResultsReader) {
+    await reader['decode']()
+
+    const generator = reader['entries']()
+    const entries: FileEntry[] = []
+    for await (const entry of generator) {
+        entries.push({
+            path: entry.path,
+            contents: entry.contents,
+        })
+    }
+    return entries
+}
+
 interface StudyResultsFormValues {
     privateKey: string
 }
@@ -48,7 +67,8 @@ export const StudyResults: FC<{
     fingerprint: string | undefined
     jobStatus: StudyJobStatus | null
 }> = ({ latestJob, fingerprint, jobStatus }) => {
-    const [decryptedResults, setDecryptedResults] = useState<string[]>()
+    const [decryptedResults, setDecryptedResults] = useState<FileEntry[]>()
+    const [plainTextResults, setPlainTextResults] = useState<string[]>()
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -76,13 +96,13 @@ export const StudyResults: FC<{
             const fingerprint = await fingerPrintPublicKeyFromPrivateKey(key)
 
             const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
-            return await reader.decryptZip()
+            return await extractFilesFromReader(reader)
         },
-        onSuccess: async (data: string[]) => {
+        onSuccess: async (data: FileEntry[]) => {
             setDecryptedResults(data)
+            setPlainTextResults(data.map((entry) => new TextDecoder().decode(entry.contents)))
         },
-        onError: async (error) => {
-            console.error(error)
+        onError: async () => {
             form.setFieldError('privateKey', 'Invalid private key, please double check the key and try again.')
         },
     })
@@ -126,13 +146,15 @@ export const StudyResults: FC<{
         <Paper bg="white" p="xl">
             <Stack>
                 <Group justify="space-between">
-                    <Title order={4}>Study Results</Title>
                     {decryptedResults?.length && (
-                        <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
+                        <>
+                            <Title order={4}>Study Results</Title>
+                            <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
+                        </>
                     )}
                 </Group>
                 <Divider />
-                <Stack>{decryptedResults}</Stack>
+                {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
                 <Stack>
                     {jobStatus === 'RUN-COMPLETE' && !decryptedResults?.length && (
                         <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
