@@ -53,4 +53,5 @@ export async function ensureUserIsMemberOfOrg() {
             }))
             .executeTakeFirstOrThrow()
     }
+    return { identifier }
 }

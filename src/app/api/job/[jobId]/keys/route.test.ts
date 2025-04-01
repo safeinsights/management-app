@@ -11,7 +11,7 @@ describe('get keys', () => {
         })
     })
 
-    it.only('does not work if requestor not a member', async () => {
+    it('does not work if requestor not a member', async () => {
         const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: 'jobId' }) })
 
         expect(response.status).toBe(401)

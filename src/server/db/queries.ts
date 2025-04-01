@@ -1,6 +1,6 @@
 import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { MinimalJobResultsInfo } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
@@ -151,4 +151,15 @@ export const jobInfoForJobId = async (jobId: string) => {
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
+}
+
+export async function getFirstOrganizationForUser(userId: string) {
+    return db
+        .selectFrom('member')
+        .select(['member.id', 'member.identifier', 'member.name'])
+        .innerJoin('memberUser', 'memberUser.memberId', 'member.id')
+        .where('memberUser.userId', '=', userId)
+        .where('member.identifier', '<>', CLERK_ADMIN_ORG_SLUG)
+        .limit(1)
+        .executeTakeFirst()
 }
