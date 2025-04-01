@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { Badge, Divider, Stack, Text } from '@mantine/core'
-import { dataForJobAction } from '@/server/actions/study-job.actions'
+import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from '@phosphor-icons/react/dist/ssr'
@@ -12,7 +12,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['studyJobFiles', job.id],
         enabled: !!job?.id,
-        queryFn: () => dataForJobAction(job.id),
+        queryFn: () => loadStudyJobAction(job.id),
     })
 
     if (isLoading) return <Text>Loading files...</Text>

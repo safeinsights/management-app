@@ -71,7 +71,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
-export const dataForJobAction = userAction(async (studyJobIdentifier) => {
+export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
     const userId = await getUserIdFromActionContext()
     const jobInfo = await db
         .selectFrom('studyJob')

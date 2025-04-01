@@ -3,11 +3,11 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import { Study, StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
-import { dataForJobAction } from '@/server/actions/study-job.actions'
+import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { screen } from '@testing-library/react'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
-    dataForJobAction: vi.fn(),
+    loadStudyJobAction: vi.fn(),
     approveStudyJobResultsAction: vi.fn(),
     rejectStudyJobResultsAction: vi.fn(),
 }))
@@ -64,7 +64,7 @@ const mockRejectedStudyJob: StudyJob = {
 
 describe('Study Results Approve/Reject buttons', () => {
     const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
-    vi.mocked(dataForJobAction).mockResolvedValue({
+    vi.mocked(loadStudyJobAction).mockResolvedValue({
         manifest: {
             jobId: '',
             language: 'r',
@@ -82,7 +82,7 @@ describe('Study Results Approve/Reject buttons', () => {
     })
 
     it('does not render when missing job info', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             jobInfo: undefined,
             manifest: {
                 jobId: '',
@@ -98,7 +98,7 @@ describe('Study Results Approve/Reject buttons', () => {
     })
 
     it('renders the approve/reject buttons when there is an unreviewed job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',
@@ -120,7 +120,7 @@ describe('Study Results Approve/Reject buttons', () => {
     })
 
     it('renders the approved timestamp for an approved job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',
@@ -141,7 +141,7 @@ describe('Study Results Approve/Reject buttons', () => {
     })
 
     it('renders the rejected timestamp for a rejected job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',

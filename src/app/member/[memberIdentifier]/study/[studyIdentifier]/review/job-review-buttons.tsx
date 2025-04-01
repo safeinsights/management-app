@@ -7,7 +7,7 @@ import { MinimalJobInfo } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import {
     approveStudyJobResultsAction,
-    dataForJobAction,
+    loadStudyJobAction,
     rejectStudyJobResultsAction,
 } from '@/server/actions/study-job.actions'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
@@ -24,7 +24,7 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
     const jobInfo = useQuery({
         queryKey: ['jobInfo', job.id],
         queryFn: () => {
-            return dataForJobAction(job.id)
+            return loadStudyJobAction(job.id)
         },
     }).data?.jobInfo
 
