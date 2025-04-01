@@ -57,6 +57,7 @@ export interface MemberUser {
 }
 
 export interface Study {
+    agreementDocPath: string | null
     approvedAt: Timestamp | null
     containerLocation: string
     createdAt: Generated<Timestamp>
