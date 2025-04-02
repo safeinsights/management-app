@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { urlOrPathToResultsFile } from '@/server/storage'
-import { jobInfoForJobId } from '@/server/db/queries'
+import { checkUserAllowedJobView, jobInfoForJobId } from '@/server/db/queries'
 import { MinimalJobResultsInfo } from '@/lib/types'
 
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
@@ -8,6 +8,12 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
 
     if (!jobId || !fileName) {
         return NextResponse.json({ error: 'no job id or file name provided' }, { status: 400 })
+    }
+
+    const canUserAccessJob = await checkUserAllowedJobView(jobId)
+
+    if (!canUserAccessJob) {
+        return NextResponse.json({ error: 'Not authorized to access file' }, { status: 403 })
     }
 
     const job = await jobInfoForJobId(jobId)

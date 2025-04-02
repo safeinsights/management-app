@@ -33,11 +33,9 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-
         // security, check that user is a member of the org that owns the study
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
-
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow(throwAccessDenied('job'))
 
@@ -51,11 +49,9 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-
         // security, check that user is a member of the org that owns the study
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
-
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('study'))
 
@@ -69,13 +65,11 @@ export const checkMemberAllowedStudyReview = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-
         // security, check that user is a member of the org that owns the study
         // and has the 'isReviewer' flag set
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
         .where('memberUser.isReviewer', '=', true)
-
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('review study'))
 
