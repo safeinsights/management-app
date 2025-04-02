@@ -152,25 +152,6 @@ export const insertTestUser = async ({
             .execute()
     }
 
-    // const user2 = await db
-    //     .insertInto('user')
-    //     .values({
-    //         isResearcher: false,
-    //         clerkId: faker.string.alpha(10),
-    //         firstName: 'User Two',
-    //     })
-    //     .returningAll()
-    //     .executeTakeFirstOrThrow()
-    // await db
-    //     .insertInto('memberUser')
-    //     .values({
-    //         memberId: opts.memberId,
-    //         userId: user2.id,
-    //         isAdmin: false,
-    //         isReviewer: false, // n.b. user2 is not a reviewer
-    //     })
-    //     .execute()
-
     return user
 }
 
