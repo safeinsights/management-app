@@ -27,6 +27,7 @@ import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
+import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -85,16 +86,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>{reviewerTeamName}</TableTd>
             <TableTd>
                 <Stack gap="xs">
-                    {humanizeStatus(study.status)}
-                    <Text
-                        fz={10}
-                        pl={8}
-                        c="dimmed"
-                        style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
-                        className="text-xs"
-                    >
-                        TBC
-                    </Text>
+                    <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
                 </Stack>
             </TableTd>
             <TableTd>
