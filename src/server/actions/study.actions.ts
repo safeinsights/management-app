@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 
-import { getOrgSlugFromActionContext, memberAction, z, userAction, getUserIdFromActionContext } from './wrappers'
+import { getOrgSlugFromActionContext, memberAction, z, userAction, getUserIdFromActionContext, researcherAction } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
@@ -79,13 +79,47 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const fetchStudiesForCurrentResearcherAction = userAction(async (userId: string) => {
+export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
     const result = await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
         .where('memberUser.userId', '=', userId)
         .where('memberUser.isReviewer', '=', true)
+        .leftJoin(
+            // Subquery to get the most recent study job for each study
+
+            (eb) =>
+                eb
+                    .selectFrom('studyJob')
+                    .select([
+                        'studyJob.studyId',
+                        'studyJob.id as latestStudyJobId',
+                        'studyJob.createdAt as studyJobCreatedAt',
+                    ])
+                    .distinctOn('studyId')
+                    .orderBy('studyId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestStudyJob'),
+            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
+        )
+        .leftJoin(
+            // Subquery to get the latest status change for the most recent study job
+
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select([
+                        'jobStatusChange.studyJobId',
+                        'jobStatusChange.status',
+                        'jobStatusChange.createdAt as statusCreatedAt',
+                    ])
+                    .distinctOn('studyJobId')
+                    .orderBy('studyJobId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestJobStatus'),
+            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
+        )
         .select([
             'study.id as studyId',
             'study.memberId',

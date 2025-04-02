@@ -41,7 +41,7 @@ export function AppLayout({ children }: Props) {
 
     return (
         <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
-            <Notifications position='top-right'/>
+            <Notifications position="top-right" />
 
             <AppShellNavbar bg={theme.colors.purple[8]}>
                 <Stack py="md">

@@ -7,8 +7,6 @@ import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
 
-
-
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
@@ -26,9 +24,9 @@ export const StudyProposalForm: FC<{
         return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
     }
 
-    const fileUpload = getFileUploadIcon(color,studyProposalForm.values.descriptionDocument?.name ?? '')
-    const irbFileUpload = getFileUploadIcon(color,studyProposalForm.values.irbDocument?.name ?? '')
-    const agreementFileUpload = getFileUploadIcon(color,studyProposalForm.values.agreementDocument?.name ?? '')
+    const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
+    const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
+    const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
     const { user } = useUser()
 
     return (
