@@ -7,6 +7,7 @@ import {
     memberAction,
     z,
     userAction,
+    researcherAction,
     actionContext,
     getUserIdFromActionContext,
 } from './wrappers'
@@ -83,6 +84,33 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
+})
+
+export const fetchReviewerTeamName = researcherAction(async (studyId: string) => {
+    const study = await db.selectFrom('study').where('id', '=', studyId).select('id').executeTakeFirst()
+
+    if (!study) {
+        console.error(`Study with ID ${studyId} does not exist`)
+        return null
+    }
+
+    const result = await db
+        .selectFrom('study')
+        .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
+        .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
+        .where('study.id', '=', studyId)
+        .where('memberUser.isReviewer', '=', true)
+        .select([
+            'study.id as studyId',
+            'study.memberId',
+            'memberUser.id as memberUserId',
+            'memberUser.isReviewer',
+            'member.name',
+            'member.identifier',
+        ])
+        .executeTakeFirst()
+
+    return result?.name || null
 })
 
 export const getStudyAction = userAction(async (studyId) => {

@@ -1,7 +1,8 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { useUser } from '@clerk/nextjs'
+import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
@@ -17,16 +18,15 @@ const getFileUploadIcon = (color: string, fileName?: string | null) => {
     return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
 }
 
+
+
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
-    const theme = useMantineTheme()
-    const fileUpload = getFileUploadIcon(theme.colors.purple[5], studyProposalForm.values.descriptionDocument?.name)
-    const irbFileUpload = getFileUploadIcon(theme.colors.purple[5], studyProposalForm.values.irbDocument?.name)
-    const agreementFileUpload = getFileUploadIcon(
-        theme.colors.purple[5],
-        studyProposalForm.values.agreementDocument?.name,
-    )
+    const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name)
+    const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name)
+    const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name)
+    const {user}  = useUser()
 
     return (
         <Paper p="md">
@@ -52,7 +52,7 @@ export const StudyProposalForm: FC<{
 
                 <Group gap="xl">
                     <Text>Study Lead</Text>
-                    <TextInput aria-label="Study Lead" disabled value="Researcher Name" />
+                    <TextInput aria-label="Study Lead" disabled value={user?.fullName} />
                 </Group>
 
                 <Group gap="xl">

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Button, Group, Stack } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
 import {
@@ -23,6 +24,13 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
             return await onCreateStudyAction({ memberId, studyInfo: formValues })
         },
         onSuccess() {
+            notifications.show({
+                title: 'Study Proposal Submitted',
+                message:
+                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                color: 'green',
+                position: 'top-right',
+            })
             router.push(`/researcher/dashboard`)
         },
     })
@@ -42,7 +50,11 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
 
     // TODO Can we make a stepper https://mantine.dev/core/stepper/
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values) => studyProposalForm.validate() && createStudy(values))}>
+        <form
+            onSubmit={studyProposalForm.onSubmit(
+                (values: StudyProposalFormValues) => studyProposalForm.validate() && createStudy(values),
+            )}
+        >
             <Stack>
                 <StudyProposalForm studyProposalForm={studyProposalForm} />
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} />

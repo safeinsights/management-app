@@ -5,12 +5,37 @@ import { Alert, Button, Flex, Group, Paper, Stack, Table, Text, Title, Tooltip }
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { humanizeStatus } from '@/lib/status'
 import { useUser } from '@clerk/nextjs'
 import { Study } from '@/schema/study'
+import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { fetchReviewerTeamName } from '@/server/actions/study.actions'
+import { useQuery } from '@tanstack/react-query'
 
 export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => {
     const { user } = useUser()
+
+    interface ReviewerInfo {
+        studyId: string
+        reviewer: string | null
+    }
+
+    const { data: reviewerNames } = useQuery({
+        queryKey: ['reviewerTeam', studies.map((study) => study.id).join(',')],
+        queryFn: async () => {
+            const reviewer: ReviewerInfo[] = await Promise.all(
+                studies
+                    .filter((study) => study.id)
+                    .map(async (study) => {
+                        const reviewerName = await fetchReviewerTeamName(study.id!)
+                        return {
+                            studyId: study.id!,
+                            reviewer: reviewerName,
+                        }
+                    }),
+            )
+            return reviewer
+        },
+    })
 
     const rows = studies.map((study) => (
         <Table.Tr key={study.id}>
@@ -24,19 +49,12 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
             <Table.Td>
                 <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </Table.Td>
-            <Table.Td>Review Team Name</Table.Td>
+            <Table.Td>
+                {reviewerNames?.find((reviewer: ReviewerInfo) => reviewer.studyId === study.id)?.reviewer}
+            </Table.Td>
             <Table.Td>
                 <Stack gap="xs">
-                    {humanizeStatus(study.status)}
-                    <Text
-                        fz={10}
-                        pl={8}
-                        c="dimmed"
-                        style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
-                        className="text-xs"
-                    >
-                        TBC
-                    </Text>
+                    <DisplayStudyStatus studyStatus={study.status!} jobStatus={study.latestJobStatus} />
                 </Stack>
             </Table.Td>
             <Table.Td>
@@ -51,14 +69,10 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
         <Stack p="md">
             <Title>Hi {user?.firstName}!</Title>
             <Stack>
-                <Text mt="md">Welcome to SafeInsights</Text>
-
                 <Text>
-                    We&apos;re so glad to have you. This space is intended to help you submit your proposed studies and
-                    associated code, as well as accessing your analysis results—all while ensuring strict data privacy
-                    and security. Your work plays a vital role in advancing educational research, and w&apos;re
-                    committed to making this process as seamless as possible. We&apos;re continuously refining the
-                    experience and value your feedback in shaping a more effective research environment.
+                    Welcome to SafeInsights! This is your dashboard. Here, you can submit new research proposals, view
+                    their status and access its details. We continuously iterate to improve your experience and welcome
+                    your feedback.
                 </Text>
             </Stack>
 
@@ -72,6 +86,7 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
                             </Link>
                         </Flex>
                     </Group>
+                    <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         {!rows.length && (
                             <Table.Caption>
@@ -90,7 +105,7 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
                         )}
                         <Table.Thead>
                             <Table.Tr>
-                                <Table.Th>Study Name</Table.Th>
+                                <Table.Th fw="semibold">Study Name</Table.Th>
                                 <Table.Th>Submitted On</Table.Th>
                                 <Table.Th>Submitted To</Table.Th>
                                 <Table.Th>Status</Table.Th>
@@ -103,4 +118,114 @@ export const StudiesTable: FC<{ studies: Partial<Study>[] }> = ({ studies }) => 
             </Paper>
         </Stack>
     )
+}
+
+export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus | null }> = ({
+    studyStatus,
+    jobStatus,
+}) => {
+    if (jobStatus === 'JOB-PACKAGING') {
+        return (
+            <Stack gap="0">
+                <Text size="xs" c="#64707C">
+                    Code
+                </Text>
+                <Text>Processing</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'JOB-ERRORED') {
+        return (
+            <Stack gap="0">
+                <Text
+                    size="xs"
+                    c="#64707C"
+                    pl={8}
+                    style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
+                >
+                    Code
+                </Text>
+                <Text>Errored</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RUN-COMPLETE') {
+        return (
+            <Stack gap="0">
+                <Text size="xs" c="#64707C">
+                    Results
+                </Text>
+                <Text>Under Review</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RESULTS-REJECTED') {
+        return (
+            <Stack gap="0">
+                <Text size="xs" c="#64707C">
+                    Results
+                </Text>
+                <Text>Rejected</Text>
+            </Stack>
+        )
+    }
+
+    if (jobStatus === 'RESULTS-APPROVED') {
+        return (
+            <Stack gap="0">
+                <Text
+                    size="xs"
+                    pl={8}
+                    c="#64707C"
+                    style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
+                >
+                    Results
+                </Text>
+                <Text>Approved</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'PENDING-REVIEW') {
+        return (
+            <Stack gap="0">
+                <Text size="xs" c="#64707C">
+                    Proposal
+                </Text>
+                <Text>Under Review</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'APPROVED') {
+        return (
+            <Stack gap="0">
+                <Text size="xs" c="#64707C">
+                    Proposal
+                </Text>
+                <Text>Approved</Text>
+            </Stack>
+        )
+    }
+
+    if (studyStatus === 'REJECTED') {
+        return (
+            <Stack gap="0">
+                <Text
+                    size="xs"
+                    c="#64707C"
+                    pl={8}
+                    style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
+                >
+                    Proposal
+                </Text>
+                <Text>Rejected</Text>
+            </Stack>
+        )
+    }
+
+    return null
 }
