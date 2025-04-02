@@ -1,5 +1,7 @@
-import type { Kysely } from 'kysely'
-import { DB } from '@/database/types'
+import type { Kysely, Selectable } from 'kysely'
+import { DB, MemberUser, User } from '@/database/types'
+import { db } from '@/database'
+import { v7 as uuidv7 } from 'uuid'
 
 export async function seed(db: Kysely<DB>): Promise<void> {
     const memberId = 'openstax'
@@ -21,60 +23,77 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         .executeTakeFirstOrThrow()
 
     // Test researcher
-    const researcher = await db
-        .insertInto('user')
-        .values({
-            clerkId: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
-            isResearcher: true,
-            firstName: 'Researchy',
-            lastName: 'McPerson',
-            email: 'researcher@me.com',
-        })
-        .returningAll()
-        .onConflict((oc) =>
-            oc.column('clerkId').doUpdateSet((eb) => ({
-                clerkId: eb.ref('excluded.clerkId'),
-            })),
-        )
-        .executeTakeFirstOrThrow()
+    const researcher = await findOrCreateUser({
+        clerkId: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
+        isResearcher: true,
+        firstName: 'Researchy',
+        lastName: 'McPerson',
+        fullName: 'Researchy McPerson',
+        email: 'researcher@me.com',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: uuidv7(),
+    })
 
     // Add researcher to memberUser
-    await db
-        .insertInto('memberUser')
-        .values({
-            memberId: member.id,
-            userId: researcher.id,
-            isAdmin: false,
-            isReviewer: false,
-        })
-        .execute()
+    await findOrCreateMemberUser({
+        id: uuidv7(),
+        memberId: member.id,
+        userId: researcher.id,
+        isAdmin: true,
+        isReviewer: true,
+        joinedAt: new Date(),
+    })
 
     // Test member/reviewer
-    const reviewer = await db
-        .insertInto('user')
-        .values({
-            clerkId: 'user_2srdGHaPWEGccVS6hzftdroHADi',
-            isResearcher: false,
-            firstName: 'Mr Member',
-            lastName: 'McMemberson',
-            email: 'member@me.com',
-        })
-        .returningAll()
-        .onConflict((oc) =>
-            oc.column('clerkId').doUpdateSet((eb) => ({
-                clerkId: eb.ref('excluded.clerkId'),
-            })),
-        )
-        .executeTakeFirstOrThrow()
+    const reviewer = await findOrCreateUser({
+        clerkId: 'user_2srdGHaPWEGccVS6hzftdroHADi',
+        isResearcher: false,
+        firstName: 'Mr Member',
+        lastName: 'McMemberson',
+        fullName: 'Mr Member McMemberson',
+        email: 'member@me.com',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        id: uuidv7(),
+    })
 
-    // Add member to memberUser
-    await db
-        .insertInto('memberUser')
-        .values({
-            memberId: member.id,
-            userId: reviewer.id,
-            isAdmin: true,
-            isReviewer: true,
-        })
-        .execute()
+    // Add reviewer to memberUser
+    await findOrCreateMemberUser({
+        id: uuidv7(),
+        memberId: member.id,
+        userId: reviewer.id,
+        isAdmin: true,
+        isReviewer: true,
+        joinedAt: new Date(),
+    })
+}
+
+const findOrCreateUser = async (values: Selectable<User>) => {
+    const user = await db
+        .selectFrom('user')
+        .select(['id', 'isResearcher'])
+        .where('clerkId', '=', values.clerkId)
+        .executeTakeFirst()
+
+    if (!user) {
+        return await db.insertInto('user').values(values).returningAll().executeTakeFirstOrThrow()
+    }
+
+    return user
+}
+
+const findOrCreateMemberUser = async (values: Selectable<MemberUser>) => {
+    const memberUser = await db
+        .selectFrom('memberUser')
+        .selectAll()
+        .where('memberId', '=', values.memberId)
+        .where('userId', '=', values.userId)
+        .executeTakeFirst()
+
+    if (!memberUser) {
+        return await db.insertInto('memberUser').values(values).returningAll().executeTakeFirstOrThrow()
+    }
+
+    return memberUser
 }
