@@ -8,15 +8,15 @@ import {
     Paper,
     Stack,
     Table,
+    TableCaption,
+    TableTbody,
+    TableTd,
+    TableTh,
+    TableThead,
+    TableTr,
     Text,
     Title,
     Tooltip,
-    TableTh,
-    TableTr,
-    TableTd,
-    TableCaption,
-    TableThead,
-    TableTbody,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import Link from 'next/link'
@@ -27,7 +27,6 @@ import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
-import { currentUser } from '@clerk/nextjs/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,8 +49,6 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
     const userId = await getUserIdFromActionContext()
-    const user = await currentUser()
-    console.log('user id: ', user?.id)
     let org: { identifier: string } | null = null
     // FIXME: it should be possible to remove this once we ensure all users have an org
     try {

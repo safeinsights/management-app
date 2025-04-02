@@ -1,6 +1,5 @@
 import type { Kysely } from 'kysely'
 import { DB } from '@/database/types'
-import { db } from '@/database'
 
 // test member clerk id: user_2srdGHaPWEGccVS6hzftdroHADi
 // test researcher clerk id: user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ
