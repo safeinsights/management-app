@@ -106,11 +106,12 @@ describe('Member Dashboard', () => {
     })
 
     it('renders the welcome text', async () => {
+        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+
         const props = {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
-
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
 
         vi.mocked(currentUser).mockResolvedValue({
             firstName: 'Test User',
@@ -126,6 +127,8 @@ describe('Member Dashboard', () => {
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
         vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+
         const props = {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
@@ -136,9 +139,12 @@ describe('Studies Table', () => {
 
     it('renders the table when studies exist', async () => {
         vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue(mockStudies)
+        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+
         const props = {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
+
         renderWithProviders(await MemberDashboardPage(props))
 
         await waitFor(() => {
