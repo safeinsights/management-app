@@ -1,8 +1,6 @@
 import type { Kysely } from 'kysely'
 import { DB } from '@/database/types'
 
-// test member clerk id: user_2srdGHaPWEGccVS6hzftdroHADi
-// test researcher clerk id: user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ
 export async function seed(db: Kysely<DB>): Promise<void> {
     const memberId = 'openstax'
     const member = await db
