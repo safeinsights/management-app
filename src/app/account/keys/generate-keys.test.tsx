@@ -50,18 +50,18 @@ describe('User keypair generation', () => {
 
         // Wait for state updates
         await waitFor(() => {
+            // Verify that setMemberUserPublicKey was called
+            expect(setMemberUserPublicKeyAction).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    publicKey: mockKeys.exportedPublicKey,
+                    fingerprint: mockKeys.fingerprint,
+                }),
+            )
+
             expect(screen.getByText('Private key')).toBeDefined()
         })
 
         // Simulate copy button click
         fireEvent.click(screen.getByRole('button', { name: /copy private key/i }))
-
-        // Verify that setMemberUserPublicKey was called
-        expect(setMemberUserPublicKeyAction).toHaveBeenCalledWith(
-            expect.objectContaining({
-                publicKey: mockKeys.exportedPublicKey,
-                fingerprint: mockKeys.fingerprint,
-            }),
-        )
     })
 })
