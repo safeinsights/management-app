@@ -2,6 +2,7 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
+
 import {
     getOrgSlugFromActionContext,
     memberAction,
@@ -107,20 +108,13 @@ export const fetchStudiesForCurrentResearcherAction = userAction(async (userId: 
 })
 
 export const getStudyAction = userAction(async (studyId) => {
-    const ctx = await actionContext()
+    const userId = await getUserIdFromActionContext()
 
     return await db
         .selectFrom('study')
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-
-        // security, check user has access to record
-        .$if(Boolean(ctx?.orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
-
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
         .select([
             'study.id',
             'study.approvedAt',

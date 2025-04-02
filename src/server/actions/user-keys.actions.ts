@@ -28,9 +28,9 @@ const setMemberUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuf
 export const setMemberUserPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
     const userId = await getUserIdFromActionContext()
 
-    // during MVP, we have several users who were setup in clerk without invites
+    // during MVP, we have several users who were set up in clerk without invites
     // those accounts are not associated with any organization
-    ensureUserIsMemberOfOrg()
+    await ensureUserIsMemberOfOrg()
 
     await db
         .insertInto('userPublicKey')

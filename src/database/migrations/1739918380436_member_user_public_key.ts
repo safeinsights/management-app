@@ -11,7 +11,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    db.schema
+    await db.schema
         .createIndex('member_user_public_key_fingerpring_indx')
         .on('member_user_public_key')
         .column('fingerprint')

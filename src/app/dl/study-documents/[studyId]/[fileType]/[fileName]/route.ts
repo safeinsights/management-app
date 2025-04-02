@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { studyInfoForStudyId } from '@/server/db/queries'
+import { checkUserAllowedStudyView, studyInfoForStudyId } from '@/server/db/queries'
 import { urlOrContentForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
 
@@ -8,6 +8,12 @@ export const GET = async (
     { params }: { params: Promise<{ studyId: string; fileType: string; fileName: string }> },
 ) => {
     const { studyId, fileType, fileName } = await params
+
+    const canUserAccessStudy = await checkUserAllowedStudyView(studyId)
+
+    if (!canUserAccessStudy) {
+        return NextResponse.json({ error: 'Not authorized to access file' }, { status: 403 })
+    }
 
     if (!studyId || !fileType || !fileName) {
         return NextResponse.json({ error: 'no parameters provided' }, { status: 400 })

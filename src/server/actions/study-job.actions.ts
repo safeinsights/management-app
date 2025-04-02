@@ -8,7 +8,7 @@ import {
     fetchStudyEncryptedResultsFile,
     storeStudyResultsFile,
 } from '@/server/storage'
-import { actionContext, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
+import { getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -121,19 +121,16 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
 
 export const jobStatusForJobAction = userAction(async (jobId) => {
     if (!jobId) return null
-    const ctx = await actionContext()
+    const userId = await getUserIdFromActionContext()
 
     const result = await db
         .selectFrom('jobStatusChange')
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .$if(Boolean(ctx?.orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .orderBy('jobStatusChange.id', 'desc')
