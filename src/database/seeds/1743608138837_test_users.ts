@@ -29,7 +29,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         isResearcher: true,
         firstName: 'Researchy',
         lastName: 'McPerson',
-        fullName: 'Researchy McPerson',
         email: 'researcher@me.com',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -52,7 +51,6 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         isResearcher: false,
         firstName: 'Mr Member',
         lastName: 'McMemberson',
-        fullName: 'Mr Member McMemberson',
         email: 'member@me.com',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -70,7 +68,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     })
 }
 
-const findOrCreateUser = async (values: Selectable<User>) => {
+const findOrCreateUser = async (values: Omit<Selectable<User>, 'fullName'>) => {
     const user = await db
         .selectFrom('user')
         .select(['id', 'isResearcher'])
