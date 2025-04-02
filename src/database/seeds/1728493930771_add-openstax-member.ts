@@ -75,8 +75,7 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         .values({
             memberId: member.id,
             userId: reviewer.id,
-            // TODO Just make this guy an admin? or have explicit admin account?
-            isAdmin: false,
+            isAdmin: true,
             isReviewer: true,
         })
         .execute()
