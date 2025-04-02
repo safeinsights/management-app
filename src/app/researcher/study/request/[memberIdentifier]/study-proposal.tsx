@@ -50,7 +50,7 @@ export const StudyProposalForm: FC<{
 
                 <Group gap="xl">
                     <Text>Study Lead</Text>
-                    <TextInput aria-label="Study Lead" disabled value={user?.fullName} />
+                    <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
                 </Group>
 
                 <Group gap="xl">
