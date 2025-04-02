@@ -2,7 +2,7 @@
 
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Divider, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
+import { Anchor, Button, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -153,7 +153,6 @@ export const StudyResults: FC<{
                         </>
                     )}
                 </Group>
-                <Divider />
                 {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
                 <Stack>
                     {jobStatus === 'RUN-COMPLETE' && !decryptedResults?.length && (

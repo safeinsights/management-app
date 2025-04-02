@@ -1,22 +1,17 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeManifest } from '@/lib/types'
-import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
-import { revalidatePath } from 'next/cache'
-import { minimalJobInfoSchema } from '@/lib/types'
-import { latestJobForStudy, queryJobResult, siUser, checkUserAllowedJobView } from '@/server/db/queries'
+import { CodeManifest, minimalJobInfoSchema } from '@/lib/types'
 import {
-    getUserIdFromActionContext,
-    getOrgSlugFromActionContext,
-    memberAction,
-    userAction,
-    actionContext,
-    z,
-} from './wrappers'
+    fetchCodeManifest,
+    fetchStudyApprovedResultsFile,
+    fetchStudyEncryptedResultsFile,
+    storeStudyResultsFile,
+} from '@/server/storage'
+import { getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
+import { revalidatePath } from 'next/cache'
+import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
-import { storeStudyResultsFile } from '@/server/storage'
 import { SanitizedError } from '@/lib/errors'
 
 const approveStudyJobResultsActionSchema = z.object({
@@ -76,7 +71,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
-export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
+export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
     const userId = await getUserIdFromActionContext()
     const jobInfo = await db
         .selectFrom('studyJob')
@@ -116,6 +111,7 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
     const latestJob = await latestJobForStudy(studyId)
+
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
@@ -123,19 +119,18 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const jobStatusForJobAction = memberAction(async (jobId) => {
+export const jobStatusForJobAction = userAction(async (jobId) => {
     if (!jobId) return null
-    const slug = await getOrgSlugFromActionContext()
+    const userId = await getUserIdFromActionContext()
+
     const result = await db
         .selectFrom('jobStatusChange')
-
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', slug).onRef('member.id', '=', 'study.memberId'),
-        )
-
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .orderBy('jobStatusChange.id', 'desc')
@@ -143,38 +138,6 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
         .executeTakeFirst()
 
     return result?.status || null
-}, z.string())
-
-export const onFetchStudyJobsAction = userAction(async (studyId) => {
-    const ctx = await actionContext()
-    const slug = ctx.orgSlug || ''
-
-    return await db
-        .selectFrom('studyJob')
-        .select('studyJob.id')
-
-        // security, check user has access to record. the user must:
-        //    be the researcher who created the study
-        //    OR the study is for the the user's current organization
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .$if(Boolean(ctx?.orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', slug).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
-
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['status', 'message', 'createdAt'])
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .orderBy('createdAt'),
-            ).as('statuses'),
-        ])
-        .where('studyId', '=', studyId)
-        .execute()
 }, z.string())
 
 export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {

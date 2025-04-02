@@ -4,7 +4,7 @@ import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { getUserIdFromActionContext } from '../actions/wrappers'
+import { actionContext, getUserIdFromActionContext } from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
     const results = await db
@@ -17,7 +17,6 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
                 .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
         )
         .select(['member.identifier as memberIdentifier', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
-
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -34,11 +33,9 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-
         // security, check that user is a member of the org that owns the study
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
-
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow(throwAccessDenied('job'))
 
@@ -52,11 +49,9 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-
         // security, check that user is a member of the org that owns the study
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
-
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('study'))
 
@@ -70,13 +65,11 @@ export const checkMemberAllowedStudyReview = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-
         // security, check that user is a member of the org that owns the study
         // and has the 'isReviewer' flag set
         .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('memberUser.userId', '=', userId)
         .where('memberUser.isReviewer', '=', true)
-
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('review study'))
 
@@ -127,10 +120,19 @@ export const getMemberUserPublicKeyByClerkId = async (clerkId: string) => {
 }
 
 export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
+    const ctx = await actionContext()
+
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
-
+        // security, check user has access to record
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .$if(Boolean(ctx?.orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join.on('member.identifier', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
+            ),
+        )
+        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
@@ -151,6 +153,15 @@ export const jobInfoForJobId = async (jobId: string) => {
         ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
+}
+
+export const studyInfoForStudyId = async (studyId: string) => {
+    return await db
+        .selectFrom('study')
+        .innerJoin('member', 'study.memberId', 'member.id')
+        .select(['study.id as studyId', 'member.identifier as memberIdentifier'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
 }
 
 export async function getFirstOrganizationForUser(userId: string) {
