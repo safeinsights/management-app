@@ -21,9 +21,9 @@ const getFileUploadIcon = (color: string, fileName?: string | null) => {
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
-    const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name)
-    const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name)
-    const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name)
+    const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name ?? '')
+    const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name ?? '')
+    const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name ?? '')
     const { user } = useUser()
 
     return (
