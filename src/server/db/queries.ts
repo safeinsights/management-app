@@ -1,10 +1,10 @@
 import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { MinimalJobResultsInfo } from '@/lib/types'
-import { AccessDeniedError } from '@/lib/errors'
+import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
+import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { actionContext } from '../actions/wrappers'
+import { actionContext, getUserIdFromActionContext } from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
     const results = await db
@@ -25,69 +25,60 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
     return { ...results, resultsType: results.resultsPath ? 'APPROVED' : 'ENCRYPTED' } as MinimalJobResultsInfo
 }
 
-export const checkUserAllowedJobView = async (jobId?: string, memberIdentifier?: string) => {
-    const ctx = await actionContext()
-    const slug = memberIdentifier || ctx.orgSlug || ''
-
+export const checkUserAllowedJobView = async (jobId?: string) => {
     if (!jobId) throw new AccessDeniedError(`not allowed access to study`)
+    const userId = await getUserIdFromActionContext()
 
-    const found = await db
+    await db
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
 
-        .$if(Boolean(memberIdentifier), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', slug).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
 
         .where('studyJob.id', '=', jobId)
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(throwAccessDenied('job'))
 
-    if (!found) throw new AccessDeniedError(`not allowed access to study`)
     return true
 }
 
-export const checkUserAllowedStudyView = async (studyId?: string, memberIdentifier?: string) => {
-    const ctx = await actionContext()
-    const slug = memberIdentifier || ctx.orgSlug || ''
+export const checkUserAllowedStudyView = async (studyId?: string) => {
     if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
+    const userId = await getUserIdFromActionContext()
 
-    const found = await db
+    await db
         .selectFrom('study')
         .select('study.id')
 
-        .$if(Boolean(slug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', slug).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
 
         .where('study.id', '=', studyId)
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(throwAccessDenied('study'))
 
-    if (!found) throw new AccessDeniedError(`not allowed access to study`)
     return true
 }
 
-export const checkMemberAllowedStudyReview = async (studyId?: string, memberIdentifier?: string) => {
-    const ctx = await actionContext()
-    const slug = memberIdentifier || ctx.orgSlug || ''
-
+export const checkMemberAllowedStudyReview = async (studyId?: string) => {
     if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
-    const found = await db
+    const userId = await getUserIdFromActionContext()
+
+    await db
         .selectFrom('study')
         .select('study.id')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', slug).onRef('study.memberId', '=', 'member.id'),
-        )
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
 
-    if (!found) throw new AccessDeniedError(`not allowed access to study`)
+        // security, check that user is a member of the org that owns the study
+        // and has the 'isReviewer' flag set
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
+        .where('memberUser.isReviewer', '=', true)
+
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow(throwAccessDenied('review study'))
+
     return true
 }
 
@@ -176,5 +167,16 @@ export const studyInfoForStudyId = async (studyId: string) => {
         .innerJoin('member', 'study.memberId', 'member.id')
         .select(['study.id as studyId', 'member.identifier as memberIdentifier'])
         .where('study.id', '=', studyId)
+        .executeTakeFirst()
+}
+
+export async function getFirstOrganizationForUser(userId: string) {
+    return db
+        .selectFrom('member')
+        .select(['member.id', 'member.identifier', 'member.name'])
+        .innerJoin('memberUser', 'memberUser.memberId', 'member.id')
+        .where('memberUser.userId', '=', userId)
+        .where('member.identifier', '<>', CLERK_ADMIN_ORG_SLUG)
+        .limit(1)
         .executeTakeFirst()
 }

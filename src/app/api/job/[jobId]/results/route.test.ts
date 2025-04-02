@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, mockApiMember } from '@/tests/unit.helpers'
+import { insertTestStudyData, insertTestMember } from '@/tests/unit.helpers'
 import fs from 'fs'
 import path from 'path'
 import { db } from '@/database'
@@ -8,7 +8,7 @@ import { pathForStudyJobResults } from '@/lib/paths'
 import { getUploadTmpDirectory } from '@/server/config'
 
 test('handling upload', async () => {
-    const member = await mockApiMember({ identifier: 'testy-mctestface' })
+    const member = await insertTestMember()
 
     const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
 
