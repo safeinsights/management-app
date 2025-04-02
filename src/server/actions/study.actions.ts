@@ -8,7 +8,6 @@ import {
     memberAction,
     z,
     userAction,
-    researcherAction,
     actionContext,
     getUserIdFromActionContext,
 } from './wrappers'

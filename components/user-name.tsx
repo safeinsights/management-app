@@ -1,7 +1,5 @@
 'use client'
 
-import { Text } from '@mantine/core'
-
 import { useUser } from '@clerk/nextjs'
 
 export function UserName() {
