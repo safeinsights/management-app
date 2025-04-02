@@ -19,17 +19,14 @@ import {
     Title,
     Tooltip,
 } from '@mantine/core'
-import { currentUser } from '@clerk/nextjs/server'
 import { UserName } from '../../../../../components/user-name'
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { DisplayStudyStatus } from './display-study-status'
 
-
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
-    const user = await currentUser()
 
     const member = await getMemberFromIdentifierAction(memberIdentifier)
 
