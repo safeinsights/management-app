@@ -3,7 +3,14 @@
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 
-import { getOrgSlugFromActionContext, memberAction, z, userAction, getUserIdFromActionContext, researcherAction } from './wrappers'
+import {
+    getOrgSlugFromActionContext,
+    memberAction,
+    z,
+    userAction,
+    getUserIdFromActionContext,
+    researcherAction,
+} from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
@@ -80,7 +87,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 })
 
 export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
-    const result = await db
+    const studies = await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
@@ -88,7 +95,6 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
         .where('memberUser.isReviewer', '=', true)
         .leftJoin(
             // Subquery to get the most recent study job for each study
-
             (eb) =>
                 eb
                     .selectFrom('studyJob')
@@ -105,7 +111,6 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
         )
         .leftJoin(
             // Subquery to get the latest status change for the most recent study job
-
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
@@ -121,16 +126,20 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
             (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
         )
         .select([
-            'study.id as studyId',
-            'study.memberId',
-            'memberUser.id as memberUserId',
-            'memberUser.isReviewer',
-            'member.name',
-            'member.identifier',
+            'study.id',
+            'study.title',
+            'study.piName',
+            'study.status',
+            'study.createdAt',
+            'member.name as reviewerTeamName',
+            'latestJobStatus.status as latestJobStatus',
         ])
-        .executeTakeFirst()
+        .orderBy('study.createdAt', 'desc')
+        .execute()
 
-    return result?.name || null
+    return {
+        studies,
+    }
 })
 
 export const getStudyAction = userAction(async (studyId) => {

@@ -56,19 +56,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     } catch {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
-
-    const studies = await db
-        .selectFrom('study')
-        .select(['study.id', 'title', 'piName', 'status', 'study.memberId', 'createdAt'])
-
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
-
-        .orderBy('createdAt', 'desc')
-        .execute()
-
-    const reviewerTeamName = await fetchStudiesForCurrentResearcherAction(userId)
+    const { studies } = await fetchStudiesForCurrentResearcherAction(userId)
 
     const rows = studies.map((study) => (
         <TableTr key={study.id}>
@@ -82,7 +70,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>
                 <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </TableTd>
-            <TableTd>{reviewerTeamName}</TableTd>
+            <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
                 <Stack gap="xs">
                     <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
