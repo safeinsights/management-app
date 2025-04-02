@@ -10,6 +10,7 @@ import { currentUser } from '@clerk/nextjs/server'
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
     const user = await currentUser()
+    console.log('user id', user?.id)
 
     const member = await getMemberFromIdentifierAction(memberIdentifier)
 

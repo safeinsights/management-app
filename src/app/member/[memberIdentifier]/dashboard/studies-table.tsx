@@ -1,43 +1,51 @@
-'use client'
+'use server'
 
 import React, { FC } from 'react'
 import { Member } from '@/schema/member'
-import { Anchor, Paper, Stack, Table, Text, Title, Tooltip } from '@mantine/core'
+import {
+    Anchor,
+    Paper,
+    Stack,
+    Table,
+    TableCaption,
+    TableTbody,
+    TableTd,
+    TableTh,
+    TableThead,
+    TableTr,
+    Text,
+    Title,
+    Tooltip,
+} from '@mantine/core'
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
-import { useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
-export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
-    const { data: studies = [] } = useQuery({
-        queryKey: ['studiesForMember', member.identifier],
-        queryFn: () => {
-            return fetchStudiesForCurrentMemberAction()
-        },
-    })
+export const StudiesTable: FC<{ member: Member }> = async ({ member }) => {
+    const studies = await fetchStudiesForCurrentMemberAction()
 
     const rows = studies.map((study) => (
-        <Table.Tr key={study.id}>
-            <Table.Td>
+        <TableTr key={study.id}>
+            <TableTd>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
                         {study.title}
                     </Text>
                 </Tooltip>
-            </Table.Td>
-            <Table.Td>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Table.Td>
-            <Table.Td>{study.researcherName}</Table.Td>
-            <Table.Td>{study.reviewerName}</Table.Td>
-            <Table.Td>
+            </TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+            <TableTd>{study.researcherName}</TableTd>
+            <TableTd>{study.reviewerName}</TableTd>
+            <TableTd>
                 <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
-            </Table.Td>
-            <Table.Td>
+            </TableTd>
+            <TableTd>
                 <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
                     View
                 </Anchor>
-            </Table.Td>
-        </Table.Tr>
+            </TableTd>
+        </TableTr>
     ))
 
     return (
@@ -47,29 +55,29 @@ export const StudiesTable: FC<{ member: Member }> = ({ member }) => {
 
                 <Table layout="fixed" highlightOnHover withRowBorders>
                     {!rows.length && (
-                        <Table.Caption>
+                        <TableCaption>
                             <Text>You have no studies to review.</Text>
-                        </Table.Caption>
+                        </TableCaption>
                     )}
 
-                    <Table.Thead>
-                        <Table.Tr bg="#F1F3F5">
-                            <Table.Th fw={600}>Study Name</Table.Th>
-                            <Table.Th fw={600}>Submitted On</Table.Th>
-                            <Table.Th fw={600}>Researcher</Table.Th>
-                            <Table.Th fw={600}>Reviewed By</Table.Th>
-                            <Table.Th fw={600}>Status</Table.Th>
-                            <Table.Th fw={600}>Details</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>{rows}</Table.Tbody>
+                    <TableThead>
+                        <TableTr bg="#F1F3F5">
+                            <TableTh fw={600}>Study Name</TableTh>
+                            <TableTh fw={600}>Submitted On</TableTh>
+                            <TableTh fw={600}>Researcher</TableTh>
+                            <TableTh fw={600}>Reviewed By</TableTh>
+                            <TableTh fw={600}>Status</TableTh>
+                            <TableTh fw={600}>Details</TableTh>
+                        </TableTr>
+                    </TableThead>
+                    <TableTbody>{rows}</TableTbody>
                 </Table>
             </Stack>
         </Paper>
     )
 }
 
-export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus | null }> = ({
+export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus | null }> = async ({
     studyStatus,
     jobStatus,
 }) => {
