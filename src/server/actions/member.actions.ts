@@ -44,7 +44,3 @@ export const deleteMemberAction = adminAction(async (identifier) => {
 export const getMemberFromIdentifierAction = userAction(async (identifier) => {
     return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
 }, z.string())
-
-export const getMemberIdFromIdentifierAction = userAction(async (identifier) => {
-    return await db.selectFrom('member').select('id').where('identifier', '=', identifier).executeTakeFirst()
-}, z.string())

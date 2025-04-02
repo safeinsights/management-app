@@ -4,7 +4,6 @@ import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
 import { ViewCSV } from './results'
 import { StudyDetails } from '@/components/study/study-details'
-import { getIdentifierFromMemberIdAction } from '@/server/actions/user.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
@@ -17,13 +16,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    const memberIdentifier = await getIdentifierFromMemberIdAction(study.memberId)
-
-    // TODO Figure out redirects vs showing errors
-    if (!memberIdentifier) {
-        return <AlertNotFound title="Missing member ID" message="no member found" />
     }
 
     const job = await latestJobForStudy(studyId)

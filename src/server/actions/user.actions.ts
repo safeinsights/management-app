@@ -1,9 +1,7 @@
 'use server'
 
-import { db } from '@/database'
-import { z } from 'zod'
-import { currentUser, clerkClient } from '@clerk/nextjs/server'
-import { anonAction, userAction } from './wrappers'
+import { clerkClient, currentUser } from '@clerk/nextjs/server'
+import { anonAction } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 export const onUserSignInAction = anonAction(async () => {
@@ -23,13 +21,4 @@ export const onUserSignInAction = anonAction(async () => {
             userId: siUserId,
         },
     })
-})
-
-export const getMemberIdFromIdentifierAction = userAction(async (identifier) => {
-    return await db.selectFrom('member').select('id').where('identifier', '=', identifier).executeTakeFirst()
-}, z.string())
-
-export const getIdentifierFromMemberIdAction = userAction(async (memberId) => {
-    const result = await db.selectFrom('member').select('identifier').where('id', '=', memberId).executeTakeFirst()
-    return result?.identifier
 })
