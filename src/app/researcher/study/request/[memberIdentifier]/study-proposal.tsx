@@ -18,15 +18,13 @@ const getFileUploadIcon = (color: string, fileName?: string | null) => {
     return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
 }
 
-
-
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
     const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name)
     const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name)
     const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name)
-    const {user}  = useUser()
+    const { user } = useUser()
 
     return (
         <Paper p="md">
