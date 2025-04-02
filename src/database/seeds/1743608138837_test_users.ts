@@ -4,6 +4,7 @@ import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 
 export async function seed(db: Kysely<DB>): Promise<void> {
+    if (process.env.NO_TESTING_DATA) return;
     const memberId = 'openstax'
     const member = await db
         .insertInto('member')
