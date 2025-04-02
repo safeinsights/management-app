@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Badge, Divider, Stack, Text } from '@mantine/core'
+import { Badge, Stack, Text } from '@mantine/core'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@tanstack/react-query'
