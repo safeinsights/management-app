@@ -27,12 +27,8 @@ export const GenerateKeys: FC = () => {
             privateKey: privateKeyPem,
             fingerprint,
         })
-    }
 
-    const saveKeys = async () => {
-        if (keys?.binaryPublicKey && keys.fingerprint) {
-            await setMemberUserPublicKeyAction({ publicKey: keys.binaryPublicKey, fingerprint: keys.fingerprint })
-        }
+        await setMemberUserPublicKeyAction({ publicKey: exportedPublicKey, fingerprint: fingerprint })
     }
 
     if (keys) {
@@ -64,11 +60,9 @@ export const GenerateKeys: FC = () => {
                                 <CopyButton value={keys.privateKey}>
                                     {({ copied, copy }) => (
                                         <Button
-                                            color={copied ? 'teal' : 'blue'}
                                             disabled={copied}
                                             onClick={() => {
                                                 copy()
-                                                saveKeys()
                                             }}
                                         >
                                             {copied ? 'Copied private key!' : 'Copy private key'}

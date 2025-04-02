@@ -1,15 +1,14 @@
 import type { Kysely } from 'kysely'
-import { DB } from '@/database/types'
 
-export async function seed(db: Kysely<DB>): Promise<void> {
-    const memberId = 'openstax'
-    const member = await db
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function seed(db: Kysely<any>): Promise<void> {
+    await db
         .insertInto('member')
         .values({
-            identifier: memberId,
+            identifier: 'openstax',
             name: 'OpenStax',
             email: 'contact@safeinsights.org',
-            publicKey: 'BAD KEY, UPDATE ME',
+            public_key: 'BAD KEY, UPDATE ME',
         })
         .onConflict((oc) =>
             oc.column('identifier').doUpdateSet((eb) => ({
@@ -17,66 +16,21 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                 name: eb.ref('excluded.name'),
             })),
         )
-        .returningAll()
-        .executeTakeFirstOrThrow()
-
-    // Insert test researcher & member
-    // TODO Add admin if we have one?
-    // Test researcher
-    const researcher = await db
-        .insertInto('user')
-        .values({
-            clerkId: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
-            isResearcher: true,
-            firstName: 'Researchy',
-            lastName: 'McPerson',
-            email: 'researcher@me.com',
-        })
-        .returningAll()
-        .onConflict((oc) =>
-            oc.column('clerkId').doUpdateSet((eb) => ({
-                clerkId: eb.ref('excluded.clerkId'),
-            })),
-        )
-        .executeTakeFirstOrThrow()
-
-    // Add researcher to memberUser
-    await db
-        .insertInto('memberUser')
-        .values({
-            memberId: member.id,
-            userId: researcher.id,
-            isAdmin: false,
-            isReviewer: false,
-        })
+        .returning('id')
         .execute()
 
-    // Test member/reviewer
-    const reviewer = await db
+    await db
         .insertInto('user')
         .values({
-            clerkId: 'user_2srdGHaPWEGccVS6hzftdroHADi',
-            isResearcher: false,
-            firstName: 'Mr Member',
-            lastName: 'McMemberson',
-            email: 'member@me.com',
+            clerk_id: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
+            is_researcher: true,
+            first_name: 'Test Researcher User',
         })
-        .returningAll()
+        .returning('id')
         .onConflict((oc) =>
-            oc.column('clerkId').doUpdateSet((eb) => ({
-                clerkId: eb.ref('excluded.clerkId'),
+            oc.column('clerk_id').doUpdateSet((eb) => ({
+                clerk_id: eb.ref('excluded.clerk_id'),
             })),
         )
-        .executeTakeFirstOrThrow()
-
-    // Add member to memberUser
-    await db
-        .insertInto('memberUser')
-        .values({
-            memberId: member.id,
-            userId: reviewer.id,
-            isAdmin: true,
-            isReviewer: true,
-        })
         .execute()
 }
