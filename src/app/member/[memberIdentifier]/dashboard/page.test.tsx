@@ -22,6 +22,7 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForCurrentMemberAction: vi.fn(),
 }))
 
+// TODO Extract out into a helper function that we can re-use
 const mockMember: Member = {
     id: faker.string.uuid(),
     identifier: 'test-member',
@@ -32,6 +33,7 @@ const mockMember: Member = {
     updatedAt: new Date(),
 }
 
+// TODO Extract out into a helper function that we can re-use
 const mockStudies = [
     {
         id: 'study-1',
