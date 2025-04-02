@@ -29,7 +29,6 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
                 message:
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
-                position: 'top-right',
             })
             router.push(`/researcher/dashboard`)
         },

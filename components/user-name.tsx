@@ -9,5 +9,5 @@ export function UserName() {
     if (!user) {
         return null
     }
-    return <Text span>{user.fullName}</Text>
+    return <span>{user.fullName}</span>
 }

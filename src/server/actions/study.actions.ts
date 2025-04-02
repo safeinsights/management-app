@@ -86,19 +86,12 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const fetchReviewerTeamName = researcherAction(async (studyId: string) => {
-    const study = await db.selectFrom('study').where('id', '=', studyId).select('id').executeTakeFirst()
-
-    if (!study) {
-        console.error(`Study with ID ${studyId} does not exist`)
-        return null
-    }
-
+export const fetchStudiesForCurrentResearcherAction = userAction(async (userId: string) => {
     const result = await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
-        .where('study.id', '=', studyId)
+        .where('memberUser.userId', '=', userId)
         .where('memberUser.isReviewer', '=', true)
         .select([
             'study.id as studyId',

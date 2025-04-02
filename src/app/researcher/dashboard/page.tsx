@@ -27,6 +27,7 @@ import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
+import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,6 +69,8 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
         .orderBy('createdAt', 'desc')
         .execute()
 
+    const reviewerTeamName = await fetchStudiesForCurrentResearcherAction(userId)
+
     const rows = studies.map((study) => (
         <TableTr key={study.id}>
             <TableTd>
@@ -80,7 +83,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>
                 <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </TableTd>
-            <TableTd>Review Team Name</TableTd>
+            <TableTd>{reviewerTeamName}</TableTd>
             <TableTd>
                 <Stack gap="xs">
                     {humanizeStatus(study.status)}

@@ -2,28 +2,33 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
 
-const getFileUploadIcon = (color: string, fileName?: string | null) => {
-    if (!fileName) return <UploadSimple size={14} color={color} weight="fill" />
-    const Icons: [RegExp, React.ReactNode][] = [
-        [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
-        [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
-        [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
-    ]
-    const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-    return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
-}
+
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
-    const fileUpload = getFileUploadIcon(studyProposalForm.values.descriptionDocument?.name ?? '')
-    const irbFileUpload = getFileUploadIcon(studyProposalForm.values.irbDocument?.name ?? '')
-    const agreementFileUpload = getFileUploadIcon(studyProposalForm.values.agreementDocument?.name ?? '')
+    const theme = useMantineTheme()
+    const color = theme.colors.purple[6]
+
+    const getFileUploadIcon = (color: string, fileName?: string | null) => {
+        if (!fileName) return <UploadSimple size={14} color={color} weight="fill" />
+        const Icons: [RegExp, React.ReactNode][] = [
+            [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
+            [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
+            [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
+        ]
+        const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
+        return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
+    }
+
+    const fileUpload = getFileUploadIcon(color,studyProposalForm.values.descriptionDocument?.name ?? '')
+    const irbFileUpload = getFileUploadIcon(color,studyProposalForm.values.irbDocument?.name ?? '')
+    const agreementFileUpload = getFileUploadIcon(color,studyProposalForm.values.agreementDocument?.name ?? '')
     const { user } = useUser()
 
     return (
