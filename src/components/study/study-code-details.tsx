@@ -48,7 +48,6 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
 
     return (
         <Stack>
-            <Divider />
             <Text>View the code files that you uploaded to run against the dataset.</Text>
             {job && <Stack>{fileChips}</Stack>}
         </Stack>
