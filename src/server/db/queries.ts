@@ -2,7 +2,7 @@ import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
-import { wasCalledFromAPI } from '../context'
+import { actionContext, wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
 import { getUserIdFromActionContext } from '../actions/wrappers'
 
