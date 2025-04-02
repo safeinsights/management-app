@@ -68,10 +68,6 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             <Text size="xs" c="dimmed">
                                 .R, .r, .rmd only
                             </Text>
-                            <Divider orientation="vertical" size="xs" />
-                            <Text size="xs" c="dimmed">
-                                10MB max
-                            </Text>
                         </Group>
                     </Stack>
                 </Dropzone>
