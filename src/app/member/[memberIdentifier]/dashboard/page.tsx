@@ -24,7 +24,6 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { DisplayStudyStatus } from './display-study-status'
 import { UserName } from '@/components/user-name'
-import { theme } from '@/theme'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
@@ -53,11 +52,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </TableTd>
             <TableTd>
-                <Anchor
-                    component={Link}
-                    href={`/member/${member.identifier}/study/${study.id}/review`}
-                    c={theme.colors.blue[7]}
-                >
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>
@@ -77,8 +72,11 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
             <Paper shadow="xs" p="xl">
                 <Stack>
                     <Title order={3}>Review Studies</Title>
-                    <Divider c={theme.colors.charcoal[1]} />
-                    <Text>Review all the studies submitted to your organization. Studies that need your attention will be labeled ‘Needs review’.</Text>
+                    <Divider c="charcoal.1" />
+                    <Text>
+                        Review all the studies submitted to your organization. Studies that need your attention will be
+                        labeled ‘Needs review’.
+                    </Text>
                     <Table layout="fixed" highlightOnHover withRowBorders>
                         {!rows.length && (
                             <TableCaption>

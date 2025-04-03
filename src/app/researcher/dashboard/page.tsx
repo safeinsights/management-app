@@ -28,7 +28,6 @@ import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
 import { UserName } from '@/components/user-name'
-import { theme } from '@/theme'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +78,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 </Stack>
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} c={theme.colors.blue[7]}>
+                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>
@@ -109,7 +108,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                             </Link>
                         </Flex>
                     </Group>
-                    <Divider c={theme.colors.charcoal[1]} />
+                    <Divider c="charcoal.1" />
                     <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         <NoStudiesCaption visible={!studies.length} slug={org.identifier} />
