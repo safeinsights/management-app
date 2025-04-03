@@ -34,11 +34,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             (eb) =>
                 eb
                     .selectFrom('studyJob')
-                    .select([
-                        'studyJob.studyId',
-                        'studyJob.id as latestStudyJobId',
-                        'studyJob.createdAt as studyJobCreatedAt',
-                    ])
+                    .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
                     .distinctOn('studyId')
                     .orderBy('studyId')
                     .orderBy('createdAt', 'desc')
@@ -60,7 +56,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc')
                     .as('latestJobStatus'),
-            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
+            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
         )
 
         .select([
@@ -81,6 +77,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'reviewerUser.fullName as reviewerName',
             'member.identifier as memberIdentifier',
             'latestJobStatus.status as latestJobStatus',
+            'latestStudyJob.jobId as latestStudyJobId',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
@@ -98,11 +95,7 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
             (eb) =>
                 eb
                     .selectFrom('studyJob')
-                    .select([
-                        'studyJob.studyId',
-                        'studyJob.id as latestStudyJobId',
-                        'studyJob.createdAt as studyJobCreatedAt',
-                    ])
+                    .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
                     .distinctOn('studyId')
                     .orderBy('studyId')
                     .orderBy('createdAt', 'desc')
@@ -123,7 +116,7 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc')
                     .as('latestJobStatus'),
-            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
+            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
         )
         .select([
             'study.id',
@@ -133,6 +126,7 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
             'study.createdAt',
             'member.name as reviewerTeamName',
             'latestJobStatus.status as latestJobStatus',
+            'latestStudyJob.jobId as latestStudyJobId',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()

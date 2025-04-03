@@ -72,7 +72,11 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
                 <Stack gap="xs">
-                    <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
+                    <DisplayStudyStatus
+                        studyStatus={study.status}
+                        jobStatus={study.latestJobStatus}
+                        jobId={study.latestStudyJobId}
+                    />
                 </Stack>
             </TableTd>
             <TableTd>

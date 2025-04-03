@@ -49,7 +49,11 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
             <TableTd>{study.researcherName}</TableTd>
             <TableTd>{study.reviewerName}</TableTd>
             <TableTd>
-                <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
+                <DisplayStudyStatus
+                    studyStatus={study.status}
+                    jobStatus={study.latestJobStatus}
+                    jobId={study.latestStudyJobId}
+                />
             </TableTd>
             <TableTd>
                 <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
