@@ -7,7 +7,6 @@ import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
 import { sendWelcomeEmail } from '@/server/mailgun'
-import { SanitizedError } from '@/lib/errors'
 
 vi.mock('@/server/mailgun', () => ({
     sendWelcomeEmail: vi.fn(),
@@ -101,7 +100,9 @@ describe('invite user Actions', async () => {
         clerkMocks?.client.users.createUser.mockImplementation(() =>
             Promise.reject({ errors: [{ code: 'no-user', message: 'failed' }] }),
         )
-        await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(expect.objectContaining({ message: 'failed' }))
+        await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(
+            expect.objectContaining({ message: 'failed' }),
+        )
     })
 
     it('throws an error when clerk createUser fails', async () => {
