@@ -53,7 +53,11 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`} style={{color: theme.colors.blue[7]}}>
+                <Anchor
+                    component={Link}
+                    href={`/member/${member.identifier}/study/${study.id}/review`}
+                    c={theme.colors.blue[7]}
+                >
                     View
                 </Anchor>
             </TableTd>
@@ -66,8 +70,8 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 Hi <UserName />!
             </Title>
             <Text>
-                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to your
-                organization, view their status and know when you need to take action. We continuously iterate to
+                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to
+                your organization, view their status and know when you need to take action. We continuously iterate to
                 improve your experience and welcome your feedback.
             </Text>
             <Paper shadow="xs" p="xl">

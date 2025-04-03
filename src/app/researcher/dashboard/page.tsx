@@ -78,7 +78,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 </Stack>
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} style={{color: theme.colors.blue[7]}}>
+                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} c={theme.colors.blue[7]}>
                     View
                 </Anchor>
             </TableTd>
