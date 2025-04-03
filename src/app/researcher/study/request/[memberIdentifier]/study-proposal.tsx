@@ -46,7 +46,7 @@ export const StudyProposalForm: FC<{
 
     return (
         <Paper p="md">
-            <Title order={4} c="purple">
+            <Title order={4}>
                 Study Proposal
             </Title>
             <Divider my="sm" mt="sm" mb="md" />
