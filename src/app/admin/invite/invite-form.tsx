@@ -76,8 +76,14 @@ export function InviteForm() {
                 </Text>
                 <Flex direction="column" gap="sm">
                     <Flex gap="md">
-                        <Checkbox label="Reviewer" {...studyProposalForm.getInputProps('isReviewer', { type: 'checkbox' })} />
-                        <Checkbox label="Researcher" {...studyProposalForm.getInputProps('isResearcher', { type: 'checkbox' })} />
+                        <Checkbox
+                            label="Reviewer"
+                            {...studyProposalForm.getInputProps('isReviewer', { type: 'checkbox' })}
+                        />
+                        <Checkbox
+                            label="Researcher"
+                            {...studyProposalForm.getInputProps('isResearcher', { type: 'checkbox' })}
+                        />
                     </Flex>
                     <Input.Error>{studyProposalForm.errors.role}</Input.Error>
                 </Flex>
