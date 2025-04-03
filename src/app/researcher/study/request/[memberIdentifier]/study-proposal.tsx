@@ -37,8 +37,7 @@ export const StudyProposalForm: FC<{
             <Divider my="sm" mt="sm" mb="md" />
             <Text>
                 This section is key to your proposal, as it defines the analysis that will generate the results you’re
-                intending to obtain from the Member’s data. Upload any necessary files to support your analysis. In this
-                iteration, we currently support .r and .rmd files.
+                intending to obtain from the Member’s data. Upload any necessary files to support your analysis.
             </Text>
             <Stack gap="lg" mt="md">
                 {/* TODO flesh out with UX/do when hifi-s ready */}
@@ -58,7 +57,11 @@ export const StudyProposalForm: FC<{
 
                 <Group gap="xl">
                     <Text>Principal Investigator</Text>
-                    <TextInput aria-label="Principal Investigator" placeholder="Full Name"{...studyProposalForm.getInputProps('piName')} />
+                    <TextInput
+                        aria-label="Principal Investigator"
+                        placeholder="Full Name"
+                        {...studyProposalForm.getInputProps('piName')}
+                    />
                 </Group>
 
                 <Group>
