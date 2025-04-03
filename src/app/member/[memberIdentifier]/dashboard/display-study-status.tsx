@@ -1,97 +1,79 @@
 import React, { FC } from 'react'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { Stack, Text } from '@mantine/core'
+import { StudyStatus, StudyJobStatus } from '@/database/types'
+import { AllStatus } from '@/lib/types'
+import { Stack, Text, Popover, PopoverTarget, PopoverDropdown, Flex } from '@mantine/core'
+import { Info } from '@phosphor-icons/react/dist/ssr'
+import { CopyingInput } from '@/components/copying-input'
 
-export const DisplayStudyStatus: FC<{ studyStatus: StudyStatus; jobStatus: StudyJobStatus | null }> = ({
-    studyStatus,
-    jobStatus,
-}) => {
-    if (jobStatus === 'JOB-PACKAGING') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Code
+type PopOverComponent = React.FC<{ jobId?: string | null }>
+
+const JobIdPopover: PopOverComponent = ({ jobId }) => {
+    if (!jobId) return null
+
+    return (
+        <Popover width={200} position="bottom" withArrow shadow="md">
+            <PopoverTarget>
+                <Info color="blue" />
+            </PopoverTarget>
+            <PopoverDropdown miw={'350px'}>
+                <Text size="xs" fw="bold">
+                    Job ID to share with support
                 </Text>
-                <Text>Processing</Text>
-            </Stack>
-        )
+                <CopyingInput value={jobId} tooltipLabel="Copy JobId" />
+            </PopoverDropdown>
+        </Popover>
+    )
+}
+
+type StatusLabels = {
+    type: 'Code' | 'Results' | 'Proposal'
+    label: string
+    InfoComponent?: PopOverComponent
+}
+
+const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
+    APPROVED: { type: 'Proposal', label: 'Approved' },
+    REJECTED: { type: 'Proposal', label: 'Rejected' },
+    'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
+    'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
+    'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
+    'RESULTS-REJECTED': { type: 'Results', label: 'Rejected' },
+    'RESULTS-APPROVED': { type: 'Results', label: 'Approved' },
+    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
+}
+
+const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
+    return (
+        <Stack gap="0">
+            <Text size="xs" c="#64707C">
+                {type}
+            </Text>
+            {InfoComponent && jobId ? (
+                <Flex align="center" gap="xs">
+                    <Text>{label}</Text>
+                    <InfoComponent jobId={jobId} />
+                </Flex>
+            ) : (
+                <Text>{label}</Text>
+            )}
+        </Stack>
+    )
+}
+
+export const DisplayStudyStatus: FC<{
+    studyStatus: StudyStatus
+    jobStatus: StudyJobStatus | null
+    jobId?: string | null
+}> = ({ studyStatus, jobStatus, jobId }) => {
+    if (jobStatus) {
+        const props = StatusLabels[jobStatus] || null
+        if (props) {
+            return <StatusBlock {...props} jobId={jobId} />
+        }
     }
-
-    if (jobStatus === 'JOB-ERRORED') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Code
-                </Text>
-                <Text>Errored</Text>
-            </Stack>
-        )
-    }
-
-    if (jobStatus === 'RUN-COMPLETE') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Results
-                </Text>
-                <Text>Under Review</Text>
-            </Stack>
-        )
-    }
-
-    if (jobStatus === 'RESULTS-REJECTED') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Results
-                </Text>
-                <Text>Rejected</Text>
-            </Stack>
-        )
-    }
-
-    if (jobStatus === 'RESULTS-APPROVED') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Results
-                </Text>
-                <Text>Approved</Text>
-            </Stack>
-        )
-    }
-
-    if (studyStatus === 'PENDING-REVIEW') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Proposal
-                </Text>
-                <Text>Under Review</Text>
-            </Stack>
-        )
-    }
-
-    if (studyStatus === 'APPROVED') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Proposal
-                </Text>
-                <Text>Approved</Text>
-            </Stack>
-        )
-    }
-
-    if (studyStatus === 'REJECTED') {
-        return (
-            <Stack gap="0">
-                <Text size="xs" c="#64707C">
-                    Proposal
-                </Text>
-                <Text>Rejected</Text>
-            </Stack>
-        )
+    const props = StatusLabels[studyStatus] || null
+    if (props) {
+        return <StatusBlock {...props} jobId={jobId} />
     }
 
     return null

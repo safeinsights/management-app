@@ -48,6 +48,7 @@ const mockStudies = [
         title: 'Study Title 1',
         researcherName: 'Person A',
         latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
+        latestStudyJobId: 'job-1',
         memberIdentifier: 'test-member',
     },
     {
