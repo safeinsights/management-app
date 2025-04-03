@@ -20,12 +20,12 @@ import {
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { UserName } from '../../../../components/user-name'
 import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
+import { UserName } from '@/components/user-name'
 
 export const dynamic = 'force-dynamic'
 

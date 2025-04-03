@@ -19,11 +19,11 @@ import {
     Title,
     Tooltip,
 } from '@mantine/core'
-import { UserName } from '../../../../../components/user-name'
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { DisplayStudyStatus } from './display-study-status'
+import { UserName } from '@/components/user-name'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
