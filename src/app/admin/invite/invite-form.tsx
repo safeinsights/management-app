@@ -36,13 +36,12 @@ export function InviteForm() {
         },
         onSuccess(info) {
             notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
-            // Keep the selected organization, reset other fields and validation state
+            // Keep the selected organization, reset other fields using initialValues
             const currentOrgId = studyProposalForm.values.organizationId
-            studyProposalForm.reset() // Reset values and validation state to initial
-            studyProposalForm.setFieldValue('organizationId', currentOrgId) // Restore organization
-            studyProposalForm.setFieldValue('password', randomString(8)) // Generate a new random password
-            studyProposalForm.setFieldValue('isReviewer', false) // Explicitly clear reviewer role
-            studyProposalForm.setFieldValue('isResearcher', false) // Explicitly clear researcher role
+            const newInitialValues = initialValues()
+            newInitialValues.organizationId = currentOrgId // Restore the organization
+            studyProposalForm.setValues(newInitialValues)
+            studyProposalForm.clearErrors() // Clear validation state explicitly
         },
     })
 
