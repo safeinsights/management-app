@@ -91,6 +91,10 @@ describe('invite user Actions', async () => {
                 {
                     id: 'existing-user',
                     emailAddresses: [{ emailAddress: userInvite.email, id: 'email_id' }],
+                    firstName: userInvite.firstName,
+                    lastName: userInvite.lastName,
+                    createdAt: new Date().getTime(),
+                    updatedAt: new Date().getTime(),
                 },
             ],
             total_count: 1,
