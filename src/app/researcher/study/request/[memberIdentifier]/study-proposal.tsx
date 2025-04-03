@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Button, Group, Stack } from '@mantine/core'
+import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
@@ -52,12 +52,16 @@ export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
         },
     })
 
-    // TODO Can we make a stepper https://mantine.dev/core/stepper/
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
             <Stack>
                 <StudyProposalForm studyProposalForm={studyProposalForm} />
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                <Group justify="center">
+                    {studyProposalForm.errors['totalFileSize'] && (
+                        <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                    )}
+                </Group>
                 <Group gap="xl" justify="flex-end">
                     {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
                     <CancelButton isDirty={studyProposalForm.isDirty()} />

@@ -56,7 +56,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>
@@ -69,15 +69,18 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 Hi <UserName />!
             </Title>
             <Text>
-                Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your
-                organization, view their status and know when you need to take action. We continuously iterate to
+                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to
+                your organization, view their status and know when you need to take action. We continuously iterate to
                 improve your experience and welcome your feedback.
             </Text>
-            <Divider />
             <Paper shadow="xs" p="xl">
                 <Stack>
                     <Title order={3}>Review Studies</Title>
-
+                    <Divider c="charcoal.1" />
+                    <Text>
+                        Review all the studies submitted to your organization. Studies that need your attention will be
+                        labeled ‘Needs review’.
+                    </Text>
                     <Table layout="fixed" highlightOnHover withRowBorders>
                         {!rows.length && (
                             <TableCaption>

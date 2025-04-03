@@ -1,7 +1,9 @@
 import * as React from 'react'
 import {
     Alert,
+    Anchor,
     Button,
+    Divider,
     Flex,
     Group,
     Paper,
@@ -80,9 +82,9 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 </Stack>
             </TableTd>
             <TableTd>
-                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${study.id}/review`}>
+                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} c="blue.7">
                     View
-                </Link>
+                </Anchor>
             </TableTd>
         </TableTr>
     ))
@@ -110,6 +112,8 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                             </Link>
                         </Flex>
                     </Group>
+                    <Divider c="charcoal.1" />
+                    <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         <NoStudiesCaption visible={!studies.length} slug={org.identifier} />
                         <TableThead>

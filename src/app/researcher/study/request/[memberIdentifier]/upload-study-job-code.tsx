@@ -1,7 +1,7 @@
 'use client'
 import { FC, useState } from 'react'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CheckCircle, Upload, UploadSimple, X as PhosphorX } from '@phosphor-icons/react/dist/ssr'
+import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme } from '@mantine/core'
+import { CheckCircle, Upload, UploadSimple, X as PhosphorX, Trash } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
@@ -12,7 +12,14 @@ import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberI
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
 }) => {
+    const theme = useMantineTheme()
     const [files, setFiles] = useState<FileWithPath[]>([])
+
+    const removeFile = (fileToRemove: FileWithPath) => {
+        const updatedFiles = files.filter((file) => file.name !== fileToRemove.name)
+        setFiles(updatedFiles)
+        studyProposalForm.setFieldValue('codeFiles', updatedFiles)
+    }
 
     return (
         <Paper p="md">
@@ -20,68 +27,78 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
                 This section is key to your proposal, as it defines the analysis that will generate the results
-                you&apos;re intending to obtain from the Member&apos;s data. Upload any necessary files to support your
-                analysis. In this iteration, we currently support .r and .rmd files.
+                you&apos;re intending to obtain from the organization&apos;s data.{' '}
+                <strong>Important Requirements:</strong> In this iteration, we currently support <strong>.R</strong> or{' '}
+                <strong>.Rmd</strong> formats. One file must be named <strong>main.r</strong> or else execution will
+                fail.
             </Text>
 
-            <Group justify="space-evenly" gap="xl">
-                <Dropzone
-                    name="codeFiles"
-                    onDrop={(files) => {
-                        setFiles((previousFiles) => uniqueBy([...previousFiles, ...files], (file) => file.name))
-                        studyProposalForm.setFieldValue('codeFiles', files)
-                    }}
-                    onReject={(rejections) =>
-                        notifications.show({
-                            color: 'red',
-                            title: 'Rejected files',
-                            message: rejections
-                                .map(
-                                    (rej) =>
-                                        `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
-                                )
-                                .join('\n'),
-                        })
-                    }
-                    multiple={true}
-                    maxFiles={10}
-                    accept={{
-                        'text/plain': ['.r', '.R', '.rmd'],
-                        'application/x-r': ['.r', '.R'],
-                        'text/x-r': ['.r', '.R'],
-                        'text/markdown': ['.rmd'],
-                    }}
-                >
-                    <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                        <Text fw="bold">Upload File</Text>
-                        <Dropzone.Accept>
-                            <Upload />
-                        </Dropzone.Accept>
-                        <Dropzone.Reject>
-                            <PhosphorX />
-                        </Dropzone.Reject>
-                        <Dropzone.Idle>
-                            <UploadSimple />
-                        </Dropzone.Idle>
-                        <Text size="md">Drop your files or browse</Text>
-                        <Group>
+            <Grid>
+                <GridCol span={4}>
+                    <Dropzone
+                        name="codeFiles"
+                        onDrop={(files) => {
+                            setFiles((previousFiles) => uniqueBy([...previousFiles, ...files], (file) => file.name))
+                            studyProposalForm.setFieldValue('codeFiles', files)
+                        }}
+                        onReject={(rejections) =>
+                            notifications.show({
+                                color: 'red',
+                                title: 'Rejected files',
+                                message: rejections
+                                    .map(
+                                        (rej) =>
+                                            `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
+                                    )
+                                    .join('\n'),
+                            })
+                        }
+                        multiple={true}
+                        maxFiles={10}
+                        accept={{
+                            'application/x-r': ['.r', '.R'],
+                            'text/x-r': ['.r', '.R'],
+                            'text/markdown': ['.rmd'],
+                        }}
+                    >
+                        <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
+                            <Text fw="bold">Upload File</Text>
+                            <Dropzone.Accept>
+                                <Upload />
+                            </Dropzone.Accept>
+                            <Dropzone.Reject>
+                                <PhosphorX />
+                            </Dropzone.Reject>
+                            <Dropzone.Idle>
+                                <UploadSimple />
+                            </Dropzone.Idle>
+                            <Text size="md">Drop your files or browse</Text>
                             <Text size="xs" c="dimmed">
-                                .R, .r, .rmd only
+                                .R and .Rmd only
                             </Text>
-                        </Group>
-                    </Stack>
-                </Dropzone>
-                <Divider orientation="vertical" />
-                <Stack>
+                        </Stack>
+                    </Dropzone>
+                    <Divider orientation="vertical" />
+                </GridCol>
+
+                <GridCol span={6}>
                     {files.map((file) => (
-                        <Group key={file.name}>
-                            <CheckCircle weight="fill" color="#2F9844" />
-                            <Text>{file.name}</Text>
+                        <Group key={file.name} gap="md" w="100%">
+                            <Group>
+                                <CheckCircle weight="fill" color="#2F9844" />
+                                <Text>{file.name}</Text>
+                            </Group>
+                            <Trash
+                                onClick={() => removeFile(file)}
+                                style={{ cursor: 'pointer' }}
+                                color={theme.colors.grey[2]}
+                                weight="bold"
+                            />
                         </Group>
                     ))}
-                </Stack>
-            </Group>
-            {studyProposalForm.errors.codeFiles && <Text c="red">{studyProposalForm.errors.codeFiles}</Text>}
+                    {studyProposalForm.errors.codeFiles && <Text c="red">{studyProposalForm.errors.codeFiles}</Text>}
+                </GridCol>
+            </Grid>
         </Paper>
     )
 }
