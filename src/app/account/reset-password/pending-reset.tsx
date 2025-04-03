@@ -5,7 +5,8 @@ import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { isClerkApiError, reportError } from '../errors'
+import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
+import { useMutation } from '@tanstack/react-query'
 
 interface VerificationFormValues {
     code: string
@@ -32,35 +33,40 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
         },
     })
 
-    const onSubmitVerification = async (values: VerificationFormValues) => {
-        if (!isLoaded || !pendingReset) return
-
-        try {
-            const result = await pendingReset.attemptFirstFactor({
+    const { isPending, mutate: onSubmitVerification } = useMutation({
+        async mutationFn(form: VerificationFormValues) {
+            if (!isLoaded || !pendingReset) return
+            return await pendingReset.attemptFirstFactor({
                 strategy: 'reset_password_email_code',
-                code: values.code,
-                password: values.password,
+                code: form.code,
+                password: form.password,
             })
-
-            if (result.status === 'complete') {
-                await setActive({ session: result.createdSessionId })
+        },
+        onError(error: unknown) {
+            if (isClerkApiError(error)) {
+                const { code, message } = extractClerkCodeAndMessage(error)
+                verificationForm.setErrors({
+                    // clerk seems to send verification_expired for all code verification errors
+                    [`${code == 'verification_expired' ? 'code' : 'password'}`]: message,
+                })
+            } else {
+                verificationForm.setErrors({
+                    code: errorToString(error),
+                })
+            }
+        },
+        async onSuccess(info?: SignInResource) {
+            if (setActive && info?.status == 'complete') {
+                await setActive({ session: info.createdSessionId })
                 router.push('/')
+            } else {
+                // clerk did not throw an error but also did not return a signIn object
+                verificationForm.setErrors({
+                    password: 'An unknown error occurred, please try again later.',
+                })
             }
-        } catch (err: unknown) {
-            reportError(err, 'failed to reset password')
-            if (isClerkApiError(err)) {
-                const codeError = err.errors?.find((error) => error.meta?.paramName === 'code')
-                if (codeError) {
-                    verificationForm.setFieldError('code', codeError.longMessage)
-                }
-
-                const passwordError = err.errors?.find((error) => error.meta?.paramName === 'password')
-                if (passwordError) {
-                    verificationForm.setFieldError('password', passwordError.longMessage)
-                }
-            }
-        }
-    }
+        },
+    })
 
     return (
         <Stack>
@@ -89,7 +95,9 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                         mt={10}
                     />
                     <Stack align="center" mt={15}>
-                        <Button type="submit">Reset Password</Button>
+                        <Button type="submit" loading={isPending}>
+                            Reset Password
+                        </Button>
                         <Anchor onClick={onBack}>Back to Email Entry</Anchor>
                     </Stack>
                 </Paper>

@@ -1,8 +1,8 @@
-import { SignIn } from '@/components/signin/index'
+import { SignIn } from './signin'
 import { pageStyles } from '@/styles/common'
 import { Container } from '@/styles/generated/jsx'
 
-export default function Home() {
+export default function SigninPage() {
     return (
         <div className={pageStyles}>
             <Container>

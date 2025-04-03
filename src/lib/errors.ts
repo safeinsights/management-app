@@ -29,6 +29,11 @@ export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse 
     )
 }
 
+export function extractClerkCodeAndMessage(error: ClerkAPIErrorResponse) {
+    const err = error.errors[0]
+    return { code: err.code, message: err.longMessage || err.message }
+}
+
 export type ErrorResponse = {
     isError: true
     errorMessage: string

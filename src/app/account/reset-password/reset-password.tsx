@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { Loader } from '@mantine/core'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { PendingReset } from './reset-password/pending-reset'
-import { ResetForm } from './reset-password/reset-form'
+import { PendingReset } from './pending-reset'
+import { ResetForm } from './reset-form'
 
 export function ResetPassword() {
     const { isLoaded } = useSignIn()

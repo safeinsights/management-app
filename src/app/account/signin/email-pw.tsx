@@ -1,12 +1,12 @@
-import { Panel } from '../panel'
+import { Panel } from '@/components/panel'
 import { Flex, Button, TextInput, PasswordInput, Stack } from '@mantine/core'
 import { isNotEmpty, isEmail, useForm } from '@mantine/form'
-import { isClerkApiError, reportError } from '../errors'
+import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
-import { Link } from '../links'
+import { Link } from '@/components/links'
 import { type MFAState, isUsingPhoneMFA } from './logic'
 
-export const SignInForm: React.FC<{
+export const EmailPWForm: React.FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => void
 }> = ({ mfa, onComplete }) => {

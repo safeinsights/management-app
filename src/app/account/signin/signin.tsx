@@ -6,8 +6,9 @@ import { Loader } from '@mantine/core'
 import { type MFAState } from './logic'
 import { SigninComplete } from './complete'
 import { RequestMFA } from './mfa'
-import { SignInForm } from './signin'
+import { EmailPWForm } from './email-pw'
 import { onUserSignInAction } from '@/server/actions/user.actions'
+import { reportError } from '@/components/errors'
 
 export function SignIn() {
     const { isLoaded } = useSignIn()
@@ -19,7 +20,9 @@ export function SignIn() {
 
     const setPending = (pending: MFAState) => {
         if (pending === false) {
-            onUserSignInAction().then(() => setState(pending))
+            onUserSignInAction()
+                .then(() => setState(pending))
+                .catch(reportError)
         } else {
             setState(pending)
         }
@@ -28,7 +31,7 @@ export function SignIn() {
     return (
         <>
             <SigninComplete />
-            <SignInForm onComplete={setPending} mfa={state} />
+            <EmailPWForm onComplete={setPending} mfa={state} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
         </>
     )
