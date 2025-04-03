@@ -1,6 +1,7 @@
 import * as React from 'react'
 import {
     Alert,
+    Anchor,
     Button,
     Flex,
     Group,
@@ -77,9 +78,9 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 </Stack>
             </TableTd>
             <TableTd>
-                <Link style={{ textDecoration: 'underline', color: theme.colors.purple[7] }} href={`/researcher/study/${study.id}/review`}>
+                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} style={{color: theme.colors.blue[7]}}>
                     View
-                </Link>
+                </Anchor>
             </TableTd>
         </TableTr>
     ))

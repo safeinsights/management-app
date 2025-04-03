@@ -24,6 +24,7 @@ import dayjs from 'dayjs'
 import Link from 'next/link'
 import { DisplayStudyStatus } from './display-study-status'
 import { UserName } from '@/components/user-name'
+import { theme } from '@/theme'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
@@ -52,7 +53,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`}>
+                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`} style={{color: theme.colors.blue[7]}}>
                     View
                 </Anchor>
             </TableTd>
