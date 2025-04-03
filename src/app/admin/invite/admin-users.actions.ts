@@ -16,7 +16,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
     const existingUsers = await client.users.getUserList({
         emailAddress: [invite.email],
     })
-    if (existingUsers.length > 0) {
+    if (existingUsers.data.length > 0) {
         throw new SanitizedError(`A user with the email address '${invite.email}' already exists.`)
     }
 
