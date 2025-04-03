@@ -34,7 +34,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             </Text>
 
             <Grid>
-                <GridCol span={4} md={6}>
+                <GridCol span={4}>
                     <Dropzone
                         name="codeFiles"
                         onDrop={(files) => {
@@ -74,35 +74,29 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 <UploadSimple />
                             </Dropzone.Idle>
                             <Text size="md">Drop your files or browse</Text>
-                            <Group>
-                                <Text size="xs" c="dimmed">
-                                    .R and .Rmd only
-                                </Text>
-                                <Divider orientation="vertical" size="xs" />
-                                <Text size="xs" c="dimmed">
-                                    10MB max
-                                </Text>
-                            </Group>
+                            <Text size="xs" c="dimmed">
+                                .R and .Rmd only
+                            </Text>
                         </Stack>
                     </Dropzone>
                     <Divider orientation="vertical" />
                 </GridCol>
 
-                <GridCol span={6} md={6}>
-                        {files.map((file) => (
-                            <Group key={file.name} gap="md" w="100%">
-                                <Group>
-                                    <CheckCircle weight="fill" color="#2F9844" />
-                                    <Text>{file.name}</Text>
-                                </Group>
-                                <Trash
-                                    onClick={() => removeFile(file)}
-                                    style={{ cursor: 'pointer' }}
-                                    color={theme.colors.grey[2]}
-                                    weight="bold"
-                                />
+                <GridCol span={6}>
+                    {files.map((file) => (
+                        <Group key={file.name} gap="md" w="100%">
+                            <Group>
+                                <CheckCircle weight="fill" color="#2F9844" />
+                                <Text>{file.name}</Text>
                             </Group>
-                        ))}
+                            <Trash
+                                onClick={() => removeFile(file)}
+                                style={{ cursor: 'pointer' }}
+                                color={theme.colors.grey[2]}
+                                weight="bold"
+                            />
+                        </Group>
+                    ))}
                     {studyProposalForm.errors.codeFiles && <Text c="red">{studyProposalForm.errors.codeFiles}</Text>}
                 </GridCol>
             </Grid>

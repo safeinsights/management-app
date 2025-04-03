@@ -2,23 +2,59 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import * as React from 'react'
+import React, { useState, useMemo } from 'react'
+import { z } from 'zod'
+import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
 import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
-import { Button, TextInput, Text, Flex, Container } from '@mantine/core'
+import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
+import logger from '@/lib/logger'
 
 type AddTotpSteps = 'add' | 'verify' | 'backupcodes' | 'success'
 
 type DisplayFormat = 'qr' | 'uri'
 
-function AddTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     const { user } = useUser()
-    const [totp, setTOTP] = React.useState<TOTPResource | undefined>(undefined)
-    const [displayFormat, setDisplayFormat] = React.useState<DisplayFormat>('qr')
+    const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
+    const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
+    const secret = useMemo(() => {
+        if (totp?.uri) {
+            try {
+                const url = new URL(totp.uri)
+                return url.searchParams.get('secret')
+            } catch (err) {
+                logger.error({ err, message: 'Error parsing TOTP URI' })
+                return null
+            }
+        }
+        return null
+    }, [totp])
+
+    const schema = z.object({
+        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
+    })
+
+    const form = useForm({
+        initialValues: {
+            code: '',
+        },
+        validate: zodResolver(schema),
+        validateInputOnChange: true,
+    })
+
+    const verifyTotp = async (values: { code: string }) => {
+        try {
+            await user?.verifyTOTP({ code: values.code })
+            setStep('backupcodes')
+        } catch (err: unknown) {
+            form.setErrors({ code: errorToString(err) || 'Invalid Code' })
+        }
+    }
 
     React.useEffect(() => {
         void user
@@ -30,53 +66,79 @@ function AddTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateActi
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <Panel title="Add MFA">
-            <Flex gap="md" mb="lg" align={'flex-end'}>
+        <>
+            <Text size="md" mb={60} ta="center">
+                Open your preferred authenticator app and scan this QR code.
+                <br />
+                Once setup, enter the code from the app into the field below to complete the process.
+            </Text>
+            <Stack gap="md" mb={60} align="center">
                 {totp && displayFormat === 'qr' && (
                     <>
-                        <div>
-                            <QRCodeSVG value={totp?.uri || ''} size={200} />
-                        </div>
-                        <Button onClick={() => setDisplayFormat('uri')}>Use URI instead</Button>
+                        <QRCodeSVG value={totp?.uri || ''} size={200} />
+                        {secret && (
+                            <Text mt="sm" size="xs">
+                                {secret}
+                            </Text>
+                        )}
+                        {/* <Button onClick={() => setDisplayFormat('uri')}>Use URI instead</Button> */}
                     </>
                 )}
-
                 {totp && displayFormat === 'uri' && (
                     <>
                         <div>
-                            <p>{totp.uri}</p>
+                            <Text>{totp.uri}</Text>
                         </div>
                         <Button onClick={() => setDisplayFormat('qr')}>Use QR Code instead</Button>
                     </>
                 )}
-
-                <Button onClick={() => setStep('add')}>Re generate</Button>
-            </Flex>
-            <p>Once you have set up your authentication app, verify your code</p>
-            <Button onClick={() => setStep('verify')}>Verify</Button>
-        </Panel>
+                {/* <Button onClick={() => setStep('add')}>Re-generate</Button> */}
+            </Stack>
+            <Text mt={60} size="md" ta="center">
+                Enter a generated code
+            </Text>
+            <form onSubmit={form.onSubmit(verifyTotp)}>
+                <Box mb="lg" maw="30%" mx="auto">
+                    <TextInput
+                        autoFocus
+                        maxLength={6}
+                        name="code"
+                        placeholder="000000"
+                        styles={(_theme) => ({ input: { textAlign: 'center' } })}
+                        {...(function () {
+                            const { error, ...rest } = form.getInputProps('code')
+                            return rest
+                        })()}
+                    />
+                    <Text c="red" size="xs" ta="center">
+                        {form.errors.code || '\u00A0'}
+                    </Text>
+                </Box>
+                <Group gap="lg" justify="center">
+                    <Button type="submit" disabled={!/^\d{6}$/.test(form.values.code)} miw={150} mih={40}>
+                        Verify Code
+                    </Button>
+                </Group>
+            </form>
+        </>
     )
 }
 
-function VerifyTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     const { user } = useUser()
-
-    const form = useForm({
-        mode: 'uncontrolled',
-        initialValues: {
-            code: '',
-        },
-        validate: {
-            code: (c: string) => {
-                // Verify exactly 6 digits (0-9), nothing else
-                return /^\d{6}$/.test(c) ? null : 'Code must be six digits'
-            },
-        },
+    const schema = z.object({
+        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
     })
 
-    const verifyTotp = async (e: { code: string }) => {
+    const form = useForm({
+        initialValues: { code: '' },
+        validate: zodResolver(schema),
+        validateInputOnChange: true,
+    })
+
+    const verifyTotp = async (values: { code: string }) => {
         try {
-            await user?.verifyTOTP({ code: e.code })
+            await user?.verifyTOTP({ code: values.code })
             setStep('backupcodes')
         } catch (err: unknown) {
             form.setErrors({ code: errorToString(err) || 'Invalid Code' })
@@ -84,47 +146,53 @@ function VerifyTotpScreen({ setStep }: { setStep: React.Dispatch<React.SetStateA
     }
 
     return (
-        <Panel gap="lg" maw={400} title="Verify MFA code">
-            <form onSubmit={form.onSubmit(verifyTotp)}>
+        <form onSubmit={form.onSubmit(verifyTotp)}>
+            <Box mb="lg">
                 <TextInput
-                    mb="lg"
                     autoFocus
                     maxLength={8}
                     name="code"
                     label="Enter the code from your authentication app"
                     placeholder="000 000"
-                    {...form.getInputProps('code')}
+                    {...(function () {
+                        const { error, ...rest } = form.getInputProps('code')
+                        return rest
+                    })()}
                 />
-                <Flex gap="lg" justify={'center'}>
-                    <Button variant="light" onClick={() => setStep('add')}>
-                        Retry
-                    </Button>
-                    <Button type="submit">Verify code</Button>
-                </Flex>
-            </form>
-        </Panel>
+                <Text c="red" size="xs">
+                    {form.errors.code || '\u00A0'}
+                </Text>
+            </Box>
+            <Group gap="lg" justify="center">
+                <Button variant="light" onClick={() => setStep('add')}>
+                    Retry
+                </Button>
+                <Button type="submit" miw={150} mih={40}>
+                    Verify code
+                </Button>
+            </Group>
+        </form>
     )
 }
 
-function BackupCodeScreen({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function BackupCodeScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
     return (
-        <Panel title="Verification was a success!">
+        <Stack gap="lg">
             <Text>
-                Save this list of backup codes somewhere safe in case you need to access your account in an emergency
+                Save this list of backup codes somewhere safe in case you need to access your account in an emergency.
             </Text>
             <GenerateBackupCodes />
             <Button onClick={() => setStep('success')}>Finish</Button>
-        </Panel>
+        </Stack>
     )
 }
 
-function SuccessScreen() {
+function SuccessScreenContent() {
     return (
-        <Panel title="Success!">
+        <Stack gap="lg">
             <Text>You have successfully added TOTP MFA with an authentication application.</Text>
-
             <ButtonLink href="/">Return to homepage</ButtonLink>
-        </Panel>
+        </Stack>
     )
 }
 
@@ -135,15 +203,35 @@ export default function AddMFaScreen() {
     if (!isLoaded) return null
 
     if (!user) {
-        return <p>You must be logged in to access this page</p>
+        return <Text>You must be logged in to access this page</Text>
+    }
+
+    let panelTitle = ''
+    switch (step) {
+        case 'add':
+            panelTitle = 'Authenticator App Verification'
+            break
+        case 'verify':
+            panelTitle = 'Verify Your Code'
+            break
+        case 'backupcodes':
+            panelTitle = 'Backup Codes'
+            break
+        case 'success':
+            panelTitle = 'Success!'
+            break
+        default:
+            panelTitle = ''
     }
 
     return (
         <Container>
-            {step === 'add' && <AddTotpScreen setStep={setStep} />}
-            {step === 'verify' && <VerifyTotpScreen setStep={setStep} />}
-            {step === 'backupcodes' && <BackupCodeScreen setStep={setStep} />}
-            {step === 'success' && <SuccessScreen />}
+            <Panel title={panelTitle}>
+                {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
+                {step === 'verify' && <VerifyTotpScreenContent setStep={setStep} />}
+                {step === 'backupcodes' && <BackupCodeScreenContent setStep={setStep} />}
+                {step === 'success' && <SuccessScreenContent />}
+            </Panel>
         </Container>
     )
 }

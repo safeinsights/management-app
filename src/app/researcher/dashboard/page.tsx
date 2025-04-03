@@ -58,7 +58,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     } catch {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
-    const { studies } = await fetchStudiesForCurrentResearcherAction(userId)
+    const studies = await fetchStudiesForCurrentResearcherAction(userId)
 
     const rows = studies.map((study) => (
         <TableTr key={study.id}>

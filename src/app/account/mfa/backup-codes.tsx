@@ -1,16 +1,17 @@
-import * as React from 'react'
+import React, { useState, useEffect } from 'react'
 import { BackupCodeResource } from '@clerk/types'
 import { reportError } from '@/components/errors'
+import { Code } from '@mantine/core'
 import { useUser } from '@clerk/nextjs'
 
 // Generate and display backup codes
 export function GenerateBackupCodes() {
     const { user } = useUser()
-    const [backupCodes, setBackupCodes] = React.useState<BackupCodeResource | undefined>(undefined)
+    const [backupCodes, setBackupCodes] = useState<BackupCodeResource | undefined>(undefined)
 
-    const [loading, setLoading] = React.useState(false)
+    const [loading, setLoading] = useState(false)
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (backupCodes) {
             return
         }
@@ -39,7 +40,9 @@ export function GenerateBackupCodes() {
     return (
         <ol>
             {backupCodes.codes.map((code, index) => (
-                <li key={index}>{code}</li>
+                <li key={index}>
+                    <Code fz="lg">{code}</Code>
+                </li>
             ))}
         </ol>
     )

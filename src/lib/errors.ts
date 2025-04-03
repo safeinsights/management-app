@@ -8,15 +8,17 @@ export class SanitizedError extends Error {
     }
 }
 
-type ClerkAPIErrorResponse = {
-    errors: Array<{
-        meta?: {
-            paramName: string
-        }
-        code: string
-        message: string
-        longMessage: string
-    }>
+export type ClerkAPIErrorObject = {
+    code: string
+    message: string
+    longMessage?: string
+    meta?: {
+        paramName: string
+    }
+}
+
+export type ClerkAPIErrorResponse = {
+    errors: [ClerkAPIErrorObject, ...ClerkAPIErrorObject[]]
 }
 
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
@@ -27,6 +29,11 @@ export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse 
             Array.isArray(error.errors) &&
             error.errors?.[0].code,
     )
+}
+
+export function extractClerkCodeAndMessage(error: ClerkAPIErrorResponse) {
+    const err = error.errors[0]
+    return { code: err.code, message: err.longMessage || err.message }
 }
 
 export type ErrorResponse = {
@@ -92,7 +99,7 @@ export const errorToString = (error: unknown) => {
     }
 
     if (isClerkApiError(error)) {
-        return error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
+        return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
     }
 
     if (error instanceof Error) {

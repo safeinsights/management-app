@@ -14,10 +14,6 @@ vi.mock('@/server/actions/member.actions', () => ({
     getMemberFromIdentifierAction: vi.fn(),
 }))
 
-vi.mock('@clerk/nextjs', () => ({
-    useUser: vi.fn(),
-}))
-
 vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForCurrentMemberAction: vi.fn(),
 }))
@@ -95,6 +91,7 @@ const mockStudies = [
         memberIdentifier: 'test-member',
     },
 ]
+
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
         user: {

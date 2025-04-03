@@ -5,10 +5,6 @@ import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 import { UserName } from '@/components/user-name'
 
-vi.mock('@clerk/nextjs', () => ({
-    useUser: vi.fn(),
-}))
-
 describe('Username', () => {
     it('displays the users first name when logged in', async () => {
         vi.mocked(useUser).mockReturnValue({

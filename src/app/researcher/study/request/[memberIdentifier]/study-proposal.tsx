@@ -1,151 +1,70 @@
 'use client'
 
-import React, { FC } from 'react'
-import { useUser } from '@clerk/nextjs'
+import React from 'react'
+import { Button, Group, Stack } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { CancelButton } from '@/components/cancel-button'
+import { useForm } from '@mantine/form'
 import {
-    Anchor,
-    Divider,
-    FileInput,
-    Flex,
-    Group,
-    Paper,
-    Table,
-    Text,
-    TextInput,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
-import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
-import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
+    StudyProposalFormValues,
+    studyProposalSchema,
+    zodResolver,
+} from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
+import { StudyProposalForm } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form'
+import { UploadStudyJobCode } from '@/app/researcher/study/request/[memberIdentifier]/upload-study-job-code'
+import { useMutation } from '@tanstack/react-query'
+import { onCreateStudyAction } from '@/app/researcher/study/request/[memberIdentifier]/actions'
+import { useRouter } from 'next/navigation'
 
-export const StudyProposalForm: FC<{
-    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
-}> = ({ studyProposalForm }) => {
-    const theme = useMantineTheme()
-    const color = theme.colors.purple[6]
+export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
+    const router = useRouter()
 
-    const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimple size={14} color={color} weight="fill" />
-        const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
-        ]
-        const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
-    }
+    const { mutate: createStudy } = useMutation({
+        mutationFn: async (formValues: StudyProposalFormValues) => {
+            return await onCreateStudyAction({ memberId, studyInfo: formValues })
+        },
+        onSuccess() {
+            notifications.show({
+                title: 'Study Proposal Submitted',
+                message:
+                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                color: 'green',
+            })
+            router.push(`/researcher/dashboard`)
+        },
+        onError(error) {
+            // TODO server action max filesize error doesn't propagate through here...
+            console.error(error)
+            notifications.show({ message: String(error), color: 'red' })
+        },
+    })
 
-    const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
-    const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
-    const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
-
-    const { user } = useUser()
+    const studyProposalForm = useForm<StudyProposalFormValues>({
+        validate: zodResolver(studyProposalSchema),
+        validateInputOnBlur: true,
+        initialValues: {
+            title: '',
+            piName: '',
+            irbDocument: null,
+            descriptionDocument: null,
+            agreementDocument: null,
+            codeFiles: [],
+        },
+    })
 
     return (
-        <Paper p="md">
-            <Title order={4}>Study Proposal</Title>
-            <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="md">
-                This section is here to help you submit your study proposal. Consider providing as much detail as
-                possible to ensure the Reviewer has all the information needed to make an informed decision.
-            </Text>
-            <Flex>
-                <Table variant="vertical" withRowBorders={false}>
-                    <Table.Tbody>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">Study Title</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <TextInput
-                                    aria-label="Study Title"
-                                    placeholder="Enter a title (max. 50 characters)"
-                                    {...studyProposalForm.getInputProps('title')}
-                                />
-                            </Table.Td>
-                            <Table.Td style={{ width: '70%' }}></Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">Study Lead</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
-                            </Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">Principal Investigator</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <TextInput
-                                    aria-label="Principal Investigator"
-                                    placeholder="Full Name"
-                                    {...studyProposalForm.getInputProps('piName')}
-                                />
-                            </Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">Study Description</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <Group gap="md">
-                                    {fileUpload}
-                                    <FileInput
-                                        name="descriptionDocument"
-                                        component={Anchor}
-                                        aria-label="Upload Study Description Document"
-                                        placeholder="Upload Document"
-                                        clearable
-                                        accept=".doc,.docx,.pdf"
-                                        {...studyProposalForm.getInputProps('descriptionDocument')}
-                                    />
-                                </Group>
-                            </Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">IRB Approval</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <Group gap="md">
-                                    {irbFileUpload}
-                                    <FileInput
-                                        {...studyProposalForm.getInputProps('irbDocument')}
-                                        name="irbDocument"
-                                        component={Anchor}
-                                        aria-label="Upload IRB Document"
-                                        placeholder="Upload Document"
-                                        clearable
-                                        accept=".doc,.docx,.pdf"
-                                    />
-                                </Group>
-                            </Table.Td>
-                        </Table.Tr>
-                        <Table.Tr>
-                            <Table.Th style={{ width: '10%' }} bg="white">
-                                <Text fw="bold">Agreement</Text>
-                            </Table.Th>
-                            <Table.Td>
-                                <Group gap="md">
-                                    {agreementFileUpload}
-                                    <FileInput
-                                        name="agreementDocument"
-                                        component={Anchor}
-                                        aria-label="Upload Agreement Document"
-                                        placeholder="Upload Document"
-                                        clearable
-                                        accept=".doc,.docx,.pdf"
-                                        {...studyProposalForm.getInputProps('agreementDocument')}
-                                    />
-                                </Group>
-                            </Table.Td>
-                        </Table.Tr>
-                    </Table.Tbody>
-                </Table>
-            </Flex>
-        </Paper>
+        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+            <Stack>
+                <StudyProposalForm studyProposalForm={studyProposalForm} />
+                <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                <Group gap="xl" justify="flex-end">
+                    {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <Button disabled={!studyProposalForm.isValid} type="submit" variant="filled">
+                        Submit
+                    </Button>
+                </Group>
+            </Stack>
+        </form>
     )
 }

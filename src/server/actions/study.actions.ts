@@ -5,11 +5,11 @@ import { revalidatePath } from 'next/cache'
 
 import {
     getOrgSlugFromActionContext,
-    memberAction,
-    z,
-    userAction,
     getUserIdFromActionContext,
+    memberAction,
     researcherAction,
+    userAction,
+    z,
 } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -87,7 +87,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 })
 
 export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
-    const studies = await db
+    return await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
@@ -136,10 +136,6 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async (us
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
-
-    return {
-        studies,
-    }
 })
 
 export const getStudyAction = userAction(async (studyId) => {
