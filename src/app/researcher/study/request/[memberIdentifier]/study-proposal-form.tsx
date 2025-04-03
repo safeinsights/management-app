@@ -6,7 +6,6 @@ import {
     Anchor,
     Divider,
     FileInput,
-    Flex,
     Group,
     Paper,
     Table,
@@ -50,7 +49,6 @@ export const StudyProposalForm: FC<{
                 This section is here to help you submit your study proposal. Consider providing as much detail as
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
             </Text>
-            <Flex>
                 <Table variant="vertical" withRowBorders={false}>
                     <Table.Tbody>
                         <Table.Tr>
@@ -145,7 +143,6 @@ export const StudyProposalForm: FC<{
                         </Table.Tr>
                     </Table.Tbody>
                 </Table>
-            </Flex>
         </Paper>
     )
 }
