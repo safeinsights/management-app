@@ -65,11 +65,10 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 Hi <UserName />!
             </Title>
             <Text>
-                Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your
+                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to your
                 organization, view their status and know when you need to take action. We continuously iterate to
                 improve your experience and welcome your feedback.
             </Text>
-            <Divider />
             <Paper shadow="xs" p="xl">
                 <Stack>
                     <Title order={3}>Review Studies</Title>
