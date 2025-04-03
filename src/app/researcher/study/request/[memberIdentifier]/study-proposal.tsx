@@ -58,7 +58,7 @@ export const StudyProposalForm: FC<{
 
                 <Group gap="xl">
                     <Text>Principal Investigator</Text>
-                    <TextInput aria-label="Principal Investigator" {...studyProposalForm.getInputProps('piName')} />
+                    <TextInput aria-label="Principal Investigator" placeholder="Full Name"{...studyProposalForm.getInputProps('piName')} />
                 </Group>
 
                 <Group>
