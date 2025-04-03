@@ -1,4 +1,4 @@
-import { ResetPassword } from '@/components/reset-password'
+import { ResetPassword } from './reset-password'
 import { pageStyles } from '@/styles/common'
 import { Container } from '@/styles/generated/jsx'
 
