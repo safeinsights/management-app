@@ -77,7 +77,8 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
             <Paper shadow="xs" p="xl">
                 <Stack>
                     <Title order={3}>Review Studies</Title>
-
+                    <Divider c={theme.colors.charcoal[1]} />
+                    <Text>Review all the studies submitted to your organization. Studies that need your attention will be labeled ‘Needs review’.</Text>
                     <Table layout="fixed" highlightOnHover withRowBorders>
                         {!rows.length && (
                             <TableCaption>
