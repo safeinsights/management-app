@@ -3,13 +3,13 @@
 import React from 'react'
 import { Flex, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberIdFromIdentifierAction } from '@/server/actions/member.actions'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposalFormSteps } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form-steps'
+import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 
 export default async function MemberHomePage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const params = await props.params
-    const member = await getMemberIdFromIdentifierAction(params.memberIdentifier)
+    const member = await getMemberFromIdentifierAction(params.memberIdentifier)
 
     if (!member) {
         return (

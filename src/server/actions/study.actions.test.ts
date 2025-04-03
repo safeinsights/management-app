@@ -1,8 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { insertTestStudyData, mockClerkSession, mockApiMember } from '@/tests/unit.helpers'
-
+import { describe, expect, it, vi } from 'vitest'
+import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { approveStudyProposalAction } from './study.actions'
-
 import { jobStatusForJobAction } from './study-job.actions'
 import { triggerBuildImageForJob } from '@/server/aws'
 
@@ -14,19 +12,12 @@ vi.mock('@/server/aws', () => ({
 }))
 
 describe('Study Actions', () => {
-    beforeEach(() => {
-        mockClerkSession({
-            clerkUserId: 'user-id',
-            org_slug: 'testy-mctestface',
-        })
-    })
-
     it('successfully approves a study proposal', async () => {
-        const member = await mockApiMember({ identifier: 'testy-mctestface' })
+        const { user, member } = await mockSessionWithTestData()
         const {
             studyId,
             jobIds: [jobId],
-        } = await insertTestStudyData({ memberId: member.id })
+        } = await insertTestStudyData({ memberId: member.id, researcherId: user.id })
         await approveStudyProposalAction(studyId)
         const status = await jobStatusForJobAction(jobId)
         expect(status).toBe('CODE-APPROVED')

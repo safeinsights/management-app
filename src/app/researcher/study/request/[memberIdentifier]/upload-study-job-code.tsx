@@ -45,7 +45,12 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     }
                     multiple={true}
                     maxFiles={10}
-                    accept={['.r', '.rmd', '.R']}
+                    accept={{
+                        'text/plain': ['.r', '.R', '.rmd'],
+                        'application/x-r': ['.r', '.R'],
+                        'text/x-r': ['.r', '.R'],
+                        'text/markdown': ['.rmd'],
+                    }}
                 >
                     <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
                         <Text fw="bold">Upload File</Text>

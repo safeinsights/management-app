@@ -4,6 +4,7 @@ import { db } from '@/database'
 import { PROD_ENV } from '@/server/config'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
+import { findOrCreateOrgMembership } from '@/server/mutations'
 
 const CLERK_MEMBER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
@@ -27,11 +28,12 @@ async function setupUsers() {
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
-        await findOrCreateSiUserId(clerkId, {
+        const userId = await findOrCreateSiUserId(clerkId, {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
             isResearcher: true,
         })
+        findOrCreateOrgMembership({ userId, identifier: 'openstax', isReviewer: false })
     }
 
     for (const clerkId of CLERK_MEMBER_TEST_IDS) {
@@ -45,21 +47,7 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        const exists = await db
-            .selectFrom('memberUser')
-            .select('id')
-            .where('userId', '=', userId)
-            .where('memberId', '=', member.id)
-            .executeTakeFirst()
-
-        if (exists) {
-            db.updateTable('memberUser').set({ isReviewer: true }).where('id', '=', exists.id).execute()
-        } else {
-            await db
-                .insertInto('memberUser')
-                .values({ userId, memberId: member.id, isReviewer: true, isAdmin: false })
-                .execute()
-        }
+        findOrCreateOrgMembership({ userId, identifier: 'openstax' })
     }
 }
 

@@ -2,8 +2,8 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
+import { getOrgSlugFromActionContext, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
-import { getOrgSlugFromActionContext, getUserIdFromActionContext, memberAction, z } from './wrappers'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
@@ -11,10 +11,12 @@ import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
+    const slug = await getOrgSlugFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('study.memberId', '=', 'member.id'),
+            join.on('member.identifier', '=', slug).onRef('study.memberId', '=', 'member.id'),
         )
         .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
@@ -76,16 +78,14 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const getStudyAction = memberAction(async (studyId) => {
+export const getStudyAction = userAction(async (studyId) => {
+    const userId = await getUserIdFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-
-        // security, check user has access to record
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
         .select([
             'study.id',
             'study.approvedAt',
@@ -100,8 +100,11 @@ export const getStudyAction = memberAction(async (studyId) => {
             'study.researcherId',
             'study.status',
             'study.title',
+            'study.descriptionDocPath',
+            'study.irbDocPath',
+            'study.reviewerId',
+            'study.agreementDocPath',
         ])
-
         .select('user.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()
@@ -111,7 +114,8 @@ export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction
 
 export const approveStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
+    const slug = await getOrgSlugFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {
@@ -131,7 +135,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
-                memberIdentifier: getOrgSlugFromActionContext(),
+                memberIdentifier: slug,
             })
         } else {
             status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
@@ -156,7 +160,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
     await checkMemberAllowedStudyReview(studyId)
-    const userId = getUserIdFromActionContext()
+    const userId = await getUserIdFromActionContext()
 
     // Start a transaction to ensure atomicity
     await db.transaction().execute(async (trx) => {

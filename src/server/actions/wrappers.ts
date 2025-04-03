@@ -10,25 +10,37 @@ export { z } from 'zod'
 
 export type ActionContext = {
     userId?: string | null
-    user?: SiUser | null
     orgSlug?: string | null
+    user?: SiUser | null
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
-export function actionContext() {
-    return localStorageContext.getStore()
+export async function actionContext() {
+    const ctx = localStorageContext.getStore()
+    if (!ctx) {
+        const user = await siUser()
+        const { sessionClaims } = await clerkAuth()
+        return {
+            user: user,
+            userId: user.id,
+            orgSlug: sessionClaims?.org_slug as string | undefined,
+        }
+    }
+    return ctx as ActionContext
 }
 
-export function getUserIdFromActionContext(): string {
-    const store = localStorageContext.getStore()
-    return store?.userId ?? ''
+export async function getUserIdFromActionContext(): Promise<string> {
+    const ctx = await actionContext()
+    return ctx.userId ?? ''
 }
 
-export function getOrgSlugFromActionContext(): string {
-    const store = localStorageContext.getStore()
-    if (!store?.orgSlug) throw new Error('user is not a member of organization?')
-    return store?.orgSlug
+export async function getOrgSlugFromActionContext(throwIfNotFound?: true): Promise<string>
+export async function getOrgSlugFromActionContext(throwIfNotFound?: false): Promise<string | null>
+export async function getOrgSlugFromActionContext(throwIfNotFound = true): Promise<string | null> {
+    const ctx = await actionContext()
+    if (!ctx.orgSlug && throwIfNotFound) throw new Error('user is not a member of organization?')
+    return ctx.orgSlug || null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,9 +93,9 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
 export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const store = localStorageContext.getStore()
-        if (store?.orgSlug !== CLERK_ADMIN_ORG_SLUG) {
-            logger.error('Current orgSlug in adminAction:', store?.orgSlug)
+        const ctx = await actionContext()
+        if (ctx?.orgSlug !== CLERK_ADMIN_ORG_SLUG) {
+            logger.error('Current orgSlug in adminAction:', ctx?.orgSlug)
             throw new AccessDeniedError('Only admins are allowed to perform this action')
         }
         return await func(arg)
@@ -94,13 +106,13 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
 export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const store = localStorageContext.getStore()
+        const ctx = await actionContext()
 
-        if (!store?.userId) {
+        if (!ctx.userId) {
             throw new AccessDeniedError('Only researchers are allowed to perform this action')
         }
         // TODO: check siUser's isResearcher vs clerk session
-        if (!store.orgSlug) {
+        if (!ctx.orgSlug) {
             return func(arg)
         }
         throw new AccessDeniedError('Only researchers are allowed to perform this action')
@@ -111,8 +123,9 @@ export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(fun
 export function memberAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const store = localStorageContext.getStore()
-        if (!store?.orgSlug) {
+        const ctx = await actionContext()
+
+        if (!ctx.orgSlug) {
             throw new AccessDeniedError('Only members are allowed to perform this action')
         }
 

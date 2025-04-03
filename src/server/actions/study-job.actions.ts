@@ -1,30 +1,36 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeManifest } from '@/lib/types'
-import { fetchCodeManifest, fetchStudyApprovedResultsFile, fetchStudyEncryptedResultsFile } from '@/server/storage'
-
+import { CodeManifest, minimalJobInfoSchema } from '@/lib/types'
+import {
+    fetchCodeManifest,
+    fetchStudyApprovedResultsFile,
+    fetchStudyEncryptedResultsFile,
+    storeStudyResultsFile,
+} from '@/server/storage'
+import { getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
 import { revalidatePath } from 'next/cache'
-import { minimalJobInfoSchema } from '@/lib/types'
-import { latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
-import { getUserIdFromActionContext, getOrgSlugFromActionContext, memberAction, z } from './wrappers'
+import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
-import { storeStudyResultsFile } from '@/server/storage'
+import { SanitizedError } from '@/lib/errors'
 
 const approveStudyJobResultsActionSchema = z.object({
     jobInfo: minimalJobInfoSchema,
-    jobResults: z.array(z.string()),
+    jobResults: z.array(
+        z.object({
+            path: z.string(),
+            contents: z.instanceof(ArrayBuffer),
+        }),
+    ),
 })
 
-// FIXME: we should probably send the file directly into the action
-// vs relying on it always being CSV string
 export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
-    const blob = new Blob(jobResults, { type: 'text/csv' })
+    // FIXME: handle more than a single result.  will require a db schema change
+    const result = jobResults[0]
 
-    const resultsFile = new File([blob], 'job_results.csv')
+    const resultsFile = new File([result.contents], result.path)
 
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
@@ -65,15 +71,14 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
-export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
+export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
+    const userId = await getUserIdFromActionContext()
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('member', 'study.memberId', 'member.id')
         .innerJoin('memberUser', (join) =>
-            join
-                .on('memberUser.userId', '=', getUserIdFromActionContext())
-                .onRef('memberUser.memberId', '=', 'study.memberId'),
+            join.on('memberUser.userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
         )
         .select([
             'studyJob.id as studyJobId',
@@ -104,8 +109,9 @@ export const dataForJobAction = memberAction(async (studyJobIdentifier) => {
     return { jobInfo, manifest }
 }, z.string())
 
-export const latestJobForStudyAction = memberAction(async (studyId) => {
+export const latestJobForStudyAction = userAction(async (studyId) => {
     const latestJob = await latestJobForStudy(studyId)
+
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
@@ -113,19 +119,18 @@ export const latestJobForStudyAction = memberAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const jobStatusForJobAction = memberAction(async (jobId) => {
+export const jobStatusForJobAction = userAction(async (jobId) => {
     if (!jobId) return null
+    const userId = await getUserIdFromActionContext()
 
     const result = await db
         .selectFrom('jobStatusChange')
-
         // security, check user has access to record
         .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+        .where('memberUser.userId', '=', userId)
         .select('jobStatusChange.status')
         .where('jobStatusChange.studyJobId', '=', jobId)
         .orderBy('jobStatusChange.id', 'desc')
@@ -135,44 +140,22 @@ export const jobStatusForJobAction = memberAction(async (jobId) => {
     return result?.status || null
 }, z.string())
 
-export const onFetchStudyJobsAction = memberAction(async (studyId) => {
-    return await db
-        .selectFrom('studyJob')
-        .select('studyJob.id')
+export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {
+    await checkUserAllowedJobView(jobId)
 
-        // security, check user has access to record
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', getOrgSlugFromActionContext()).onRef('member.id', '=', 'study.memberId'),
-        )
-
-        .select((eb) => [
-            jsonArrayFrom(
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select(['status', 'message', 'createdAt'])
-                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                    .orderBy('createdAt'),
-            ).as('statuses'),
-        ])
-        .where('studyId', '=', studyId)
-        .execute()
-}, z.string())
-
-export const fetchJobResultsCsvAction = memberAction(async (jobId: string): Promise<string> => {
     const job = await queryJobResult(jobId)
+
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
     const body = await fetchStudyApprovedResultsFile(job)
     return body.text()
-    //Buffer.from(body).toString('utf-8')
 }, z.string())
 
 export const fetchJobResultsEncryptedZipAction = memberAction(async (jobId: string) => {
     const job = await queryJobResult(jobId)
     if (!job) {
-        throw new Error(`Job ${jobId} not found or does not have results`)
+        throw new SanitizedError(`Job ${jobId} not found or does not have results`)
     }
 
     return await fetchStudyEncryptedResultsFile(job)

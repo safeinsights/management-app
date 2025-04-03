@@ -1,3 +1,5 @@
+# This file is for a smoke screen test as there are no data dependencies and pushes a CSV.
+
 library(httr)  # For sending files to an API
 library(readr) # For writing CSV files
 library(jsonlite)

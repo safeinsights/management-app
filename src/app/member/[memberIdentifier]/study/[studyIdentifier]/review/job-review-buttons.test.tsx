@@ -3,11 +3,11 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
 import { Study, StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
-import { dataForJobAction } from '@/server/actions/study-job.actions'
+import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { screen } from '@testing-library/react'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
-    dataForJobAction: vi.fn(),
+    loadStudyJobAction: vi.fn(),
     approveStudyJobResultsAction: vi.fn(),
     rejectStudyJobResultsAction: vi.fn(),
 }))
@@ -21,6 +21,7 @@ const mockStudy: Study = {
     id: faker.string.uuid(),
     irbDocPath: faker.datatype.boolean() ? faker.system.filePath() : null,
     irbProtocols: faker.datatype.boolean() ? faker.lorem.sentence() : null,
+    agreementDocPath: faker.datatype.boolean() ? faker.lorem.sentence() : null,
     memberId: faker.string.uuid(),
     outputMimeType: faker.datatype.boolean() ? faker.system.mimeType() : null,
     piName: faker.person.fullName(),
@@ -62,7 +63,8 @@ const mockRejectedStudyJob: StudyJob = {
 }
 
 describe('Study Results Approve/Reject buttons', () => {
-    vi.mocked(dataForJobAction).mockResolvedValue({
+    const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
+    vi.mocked(loadStudyJobAction).mockResolvedValue({
         manifest: {
             jobId: '',
             language: 'r',
@@ -80,7 +82,7 @@ describe('Study Results Approve/Reject buttons', () => {
     })
 
     it('does not render when missing job info', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             jobInfo: undefined,
             manifest: {
                 jobId: '',
@@ -90,13 +92,13 @@ describe('Study Results Approve/Reject buttons', () => {
                 tree: { label: '', value: '', size: 0, children: [] },
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText('Reject')).toBeNull()
         expect(screen.queryByText('Approve')).toBeNull()
     })
 
     it('renders the approve/reject buttons when there is an unreviewed job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',
@@ -112,13 +114,13 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByRole('button', { name: 'Approve' })).toBeDefined()
         expect(screen.queryByRole('button', { name: 'Reject' })).toBeDefined()
     })
 
     it('renders the approved timestamp for an approved job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',
@@ -134,12 +136,12 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText(/approved on/i)).toBeDefined()
     })
 
     it('renders the rejected timestamp for a rejected job', async () => {
-        vi.mocked(dataForJobAction).mockResolvedValue({
+        vi.mocked(loadStudyJobAction).mockResolvedValue({
             manifest: {
                 jobId: '',
                 language: 'r',
@@ -155,7 +157,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 memberIdentifier: 'test-org',
             },
         })
-        renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={['123asdf']} />)
+        renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={testResults} />)
         expect(screen.queryByText(/rejected on/i)).toBeDefined()
     })
 })

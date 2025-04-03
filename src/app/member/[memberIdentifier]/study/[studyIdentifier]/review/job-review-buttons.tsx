@@ -7,19 +7,24 @@ import { MinimalJobInfo } from '@/lib/types'
 import { useRouter } from 'next/navigation'
 import {
     approveStudyJobResultsAction,
-    dataForJobAction,
+    loadStudyJobAction,
     rejectStudyJobResultsAction,
 } from '@/server/actions/study-job.actions'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: string[] }) => {
+type FileEntry = {
+    path: string
+    contents: ArrayBuffer
+}
+
+export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: FileEntry[] }) => {
     const router = useRouter()
 
     const jobInfo = useQuery({
         queryKey: ['jobInfo', job.id],
         queryFn: () => {
-            return dataForJobAction(job.id)
+            return loadStudyJobAction(job.id)
         },
     }).data?.jobInfo
 

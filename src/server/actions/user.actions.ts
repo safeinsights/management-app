@@ -1,6 +1,6 @@
 'use server'
 
-import { currentUser, clerkClient } from '@clerk/nextjs/server'
+import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { anonAction } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
