@@ -36,7 +36,12 @@ export function InviteForm() {
         },
         onSuccess(info) {
             notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
-            studyProposalForm.setValues(initialValues())
+            // Keep the selected organization selected, set other fields to initialValues, then reset form
+            studyProposalForm.setInitialValues({
+                ...initialValues(),
+                organizationId: studyProposalForm.values.organizationId,
+            })
+            studyProposalForm.reset()
         },
     })
 
@@ -70,8 +75,14 @@ export function InviteForm() {
                 </Text>
                 <Flex direction="column" gap="sm">
                     <Flex gap="md">
-                        <Checkbox label="Reviewer" {...studyProposalForm.getInputProps('isReviewer')} />
-                        <Checkbox label="Researcher" {...studyProposalForm.getInputProps('isResearcher')} />
+                        <Checkbox
+                            label="Reviewer"
+                            {...studyProposalForm.getInputProps('isReviewer', { type: 'checkbox' })}
+                        />
+                        <Checkbox
+                            label="Researcher"
+                            {...studyProposalForm.getInputProps('isResearcher', { type: 'checkbox' })}
+                        />
                     </Flex>
                     <Input.Error>{studyProposalForm.errors.role}</Input.Error>
                 </Flex>
