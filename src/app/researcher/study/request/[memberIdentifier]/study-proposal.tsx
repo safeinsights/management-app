@@ -9,13 +9,10 @@ import {
     Flex,
     Group,
     Paper,
-    Stack,
     Table,
     Text,
     TextInput,
     Title,
-    Grid,
-    GridCol,
     useMantineTheme,
 } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
@@ -42,13 +39,12 @@ export const StudyProposalForm: FC<{
     const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
     const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
     const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
+
     const { user } = useUser()
 
     return (
         <Paper p="md">
-            <Title order={4}>
-                Study Proposal
-            </Title>
+            <Title order={4}>Study Proposal</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
                 This section is here to help you submit your study proposal. Consider providing as much detail as
@@ -58,20 +54,20 @@ export const StudyProposalForm: FC<{
                 <Table variant="vertical" withRowBorders={false}>
                     <Table.Tbody>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">Study Title</Text>
                             </Table.Th>
-                            <Table.Td >
+                            <Table.Td>
                                 <TextInput
                                     aria-label="Study Title"
                                     placeholder="Enter a title (max. 50 characters)"
                                     {...studyProposalForm.getInputProps('title')}
                                 />
                             </Table.Td>
-                            <Table.Td style={{ width: '70%'}}></Table.Td>
+                            <Table.Td style={{ width: '70%' }}></Table.Td>
                         </Table.Tr>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">Study Lead</Text>
                             </Table.Th>
                             <Table.Td>
@@ -79,7 +75,7 @@ export const StudyProposalForm: FC<{
                             </Table.Td>
                         </Table.Tr>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">Principal Investigator</Text>
                             </Table.Th>
                             <Table.Td>
@@ -91,7 +87,7 @@ export const StudyProposalForm: FC<{
                             </Table.Td>
                         </Table.Tr>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">Study Description</Text>
                             </Table.Th>
                             <Table.Td>
@@ -110,26 +106,26 @@ export const StudyProposalForm: FC<{
                             </Table.Td>
                         </Table.Tr>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">IRB Approval</Text>
                             </Table.Th>
                             <Table.Td>
                                 <Group gap="md">
                                     {irbFileUpload}
                                     <FileInput
+                                        {...studyProposalForm.getInputProps('irbDocument')}
                                         name="irbDocument"
                                         component={Anchor}
                                         aria-label="Upload IRB Document"
                                         placeholder="Upload Document"
                                         clearable
                                         accept=".doc,.docx,.pdf"
-                                        {...studyProposalForm.getInputProps('irbDocument')}
                                     />
                                 </Group>
                             </Table.Td>
                         </Table.Tr>
                         <Table.Tr>
-                            <Table.Th style={{ width: '10%'}} bg="white">
+                            <Table.Th style={{ width: '10%' }} bg="white">
                                 <Text fw="bold">Agreement</Text>
                             </Table.Th>
                             <Table.Td>
