@@ -100,9 +100,7 @@ describe('errorToString', () => {
                 },
             ],
         }
-        expect(errorToString(clerkError)).toBe(
-            'Username error: The username is invalid.\nPassword error: The password is too weak.',
-        )
+        expect(errorToString(clerkError)).toBe('The username is invalid.\nThe password is too weak.')
     })
 
     it('returns the Error instance string if error is an instance of Error', () => {

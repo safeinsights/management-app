@@ -150,11 +150,10 @@ describe('errorToString', () => {
                 {
                     code: 'CLERK_ERR',
                     message: 'Error occurred',
-                    longMessage: 'Detailed clerk error info',
                 },
             ],
         }
-        expect(errorToString(clerkError)).toBe('Error occurred: Detailed clerk error info')
+        expect(errorToString(clerkError)).toBe('Error occurred')
     })
 
     it('handles generic Error instances', () => {
