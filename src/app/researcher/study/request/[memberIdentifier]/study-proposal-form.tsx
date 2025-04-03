@@ -11,7 +11,6 @@ import {
     GridCol,
     Stack,
     Paper,
-    Table,
     Text,
     TextInput,
     Title,
