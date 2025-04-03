@@ -24,7 +24,7 @@ export const studyProposalSchema = z.object({
                     'text/plain',
                 ].includes(file.type),
             {
-                message: 'Only .doc, .docx, .pdf, and .txt files are allowed for description',
+                message: 'Only .doc, .docx, and .pdf files are allowed for description',
             },
         ),
     irbDocument: z
