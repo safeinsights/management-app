@@ -87,7 +87,12 @@ describe('invite user Actions', async () => {
     it('throws SanitizedError when email already exists', async () => {
         // Mock getUserList to return an existing user
         clerkMocks?.client.users.getUserList.mockResolvedValue({
-            data: [{ id: 'existing-user' }],
+            data: [
+                {
+                    id: 'existing-user',
+                    emailAddresses: [{ emailAddress: userInvite.email, id: 'email_id' }],
+                },
+            ],
             total_count: 1,
         })
 
