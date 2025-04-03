@@ -6,7 +6,7 @@ import { Loader } from '@mantine/core'
 import { type MFAState } from './logic'
 import { SigninComplete } from './complete'
 import { RequestMFA } from './mfa'
-import { EmailPWForm } from './email-pw'
+import { EmailPasswordForm } from './email-password-form'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { reportError } from '@/components/errors'
 
@@ -31,7 +31,7 @@ export function SignIn() {
     return (
         <>
             <SigninComplete />
-            <EmailPWForm onComplete={setPending} mfa={state} />
+            <EmailPasswordForm onComplete={setPending} mfa={state} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
         </>
     )

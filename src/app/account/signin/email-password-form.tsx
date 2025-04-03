@@ -6,7 +6,7 @@ import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, isUsingPhoneMFA } from './logic'
 
-export const EmailPWForm: React.FC<{
+export const EmailPasswordForm: React.FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => void
 }> = ({ mfa, onComplete }) => {
