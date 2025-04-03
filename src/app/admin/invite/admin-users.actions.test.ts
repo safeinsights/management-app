@@ -86,7 +86,10 @@ describe('invite user Actions', async () => {
 
     it('throws SanitizedError when email already exists', async () => {
         // Mock getUserList to return an existing user
-        clerkMocks?.client.users.getUserList.mockResolvedValue({ data: [{ id: 'existing-user' }] })
+        clerkMocks?.client.users.getUserList.mockResolvedValue({
+            data: [{ id: 'existing-user' }],
+            total_count: 1,
+        })
 
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(
             expect.objectContaining({
@@ -101,7 +104,9 @@ describe('invite user Actions', async () => {
             Promise.reject({ errors: [{ code: 'no-user', message: 'failed' }] }),
         )
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(
-            expect.objectContaining({ message: 'failed' }),
+            expect.objectContaining({
+                message: JSON.stringify({ isSanitizedError: true, sanitizedErrorMessage: 'failed' }),
+            }),
         )
     })
 
