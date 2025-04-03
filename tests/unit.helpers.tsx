@@ -247,6 +247,7 @@ export const mockClerkSession = (values: MockSession) => {
         },
         users: {
             createUser: vi.fn(async () => ({ id: '1234' })),
+            getUserList: vi.fn(async () => ({ data: [] })), // Add mock for getUserList
         },
     }
     client.mockResolvedValue(clientMocks)

@@ -20,6 +20,10 @@ describe('invite user Actions', async () => {
             clerkUserId: 'user-id',
             org_slug: CLERK_ADMIN_ORG_SLUG,
         })
+        // Ensure the default mock for getUserList returns an empty array
+        clerkMocks?.client.users.getUserList.mockResolvedValue({ data: [] })
+        // Ensure the default mock for createUser succeeds
+        clerkMocks?.client.users.createUser.mockResolvedValue({ id: '1234' })
     })
 
     async function userRecordCount() {
@@ -81,11 +85,23 @@ describe('invite user Actions', async () => {
         expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email, `${user.firstName} ${user.lastName}`)
     })
 
+    it('throws SanitizedError when email already exists', async () => {
+        // Mock getUserList to return an existing user
+        clerkMocks?.client.users.getUserList.mockResolvedValue({ data: [{ id: 'existing-user' }] })
+
+        await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(
+            expect.objectContaining({
+                message: expect.stringContaining(`A user with the email address '${userInvite.email}' already exists.`),
+            }),
+        )
+        expect(clerkMocks?.client.users.createUser).not.toHaveBeenCalled()
+    })
+
     it('throws an error when user insert fails', async () => {
         clerkMocks?.client.users.createUser.mockImplementation(() =>
             Promise.reject({ errors: [{ code: 'no-user', message: 'failed' }] }),
         )
-        await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(expect.any(SanitizedError))
+        await expect(adminInviteUserAction(userInvite)).rejects.toThrowError(expect.objectContaining({ message: 'failed' }))
     })
 
     it('throws an error when clerk createUser fails', async () => {
@@ -93,6 +109,7 @@ describe('invite user Actions', async () => {
 
         ;(clerk.clerkClient as Mock).mockImplementation(() => ({
             users: {
+                getUserList: vi.fn().mockResolvedValue({ data: [] }), // Ensure this doesn't fail first
                 createUser: vi.fn(() => Promise.reject(new Error())),
             },
         }))
