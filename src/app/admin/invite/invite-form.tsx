@@ -36,7 +36,13 @@ export function InviteForm() {
         },
         onSuccess(info) {
             notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
-            studyProposalForm.setValues(initialValues())
+            // Keep the selected organization, reset other fields and validation state
+            const currentOrgId = studyProposalForm.values.organizationId
+            studyProposalForm.reset() // Reset values and validation state to initial
+            studyProposalForm.setFieldValue('organizationId', currentOrgId) // Restore organization
+            studyProposalForm.setFieldValue('password', randomString(8)) // Generate a new random password
+            studyProposalForm.setFieldValue('isReviewer', false) // Explicitly clear reviewer role
+            studyProposalForm.setFieldValue('isResearcher', false) // Explicitly clear researcher role
         },
     })
 
@@ -70,8 +76,8 @@ export function InviteForm() {
                 </Text>
                 <Flex direction="column" gap="sm">
                     <Flex gap="md">
-                        <Checkbox label="Reviewer" {...studyProposalForm.getInputProps('isReviewer')} />
-                        <Checkbox label="Researcher" {...studyProposalForm.getInputProps('isResearcher')} />
+                        <Checkbox label="Reviewer" {...studyProposalForm.getInputProps('isReviewer', { type: 'checkbox' })} />
+                        <Checkbox label="Researcher" {...studyProposalForm.getInputProps('isResearcher', { type: 'checkbox' })} />
                     </Flex>
                     <Input.Error>{studyProposalForm.errors.role}</Input.Error>
                 </Flex>
