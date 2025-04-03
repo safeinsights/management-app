@@ -25,8 +25,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId,
-                    studyTitle: study?.title,
-                    current: 'Proposal Request',
+                    current: 'Study Details',
                 }}
             />
 
