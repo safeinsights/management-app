@@ -71,7 +71,7 @@ export const StudyProposalForm: FC<{
                             aria-label="Upload Study Description Document"
                             placeholder="Upload Document"
                             clearable
-                            accept=".doc,.docx,.txt,.pdf"
+                            accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('descriptionDocument')}
                         />
                         <Text size="xs" c="dimmed">
@@ -91,7 +91,7 @@ export const StudyProposalForm: FC<{
                             aria-label="Upload IRB Document"
                             placeholder="Upload Document"
                             clearable
-                            accept=".doc,.docx,.txt,.pdf"
+                            accept=".doc,.docx,.pdf"
                             key={studyProposalForm.key('irbDocument')}
                             {...studyProposalForm.getInputProps('irbDocument')}
                         />
@@ -111,7 +111,7 @@ export const StudyProposalForm: FC<{
                             component={Anchor}
                             placeholder="Upload Document"
                             clearable
-                            accept=".doc,.docx,.txt,.pdf"
+                            accept=".doc,.docx,.pdf"
                             key={studyProposalForm.key('agreementDocument')}
                             {...studyProposalForm.getInputProps('agreementDocument')}
                         />

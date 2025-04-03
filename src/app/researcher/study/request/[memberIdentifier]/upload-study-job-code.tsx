@@ -1,7 +1,7 @@
 'use client'
 import { FC, useState } from 'react'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { CheckCircle, Upload, UploadSimple, X as PhosphorX } from '@phosphor-icons/react/dist/ssr'
+import { Divider, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { CheckCircle, Upload, UploadSimple, X as PhosphorX, Trash } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
@@ -12,7 +12,15 @@ import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberI
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
 }) => {
+
+    const theme = useMantineTheme()
     const [files, setFiles] = useState<FileWithPath[]>([])
+
+    const removeFile = (fileToRemove: FileWithPath) => {
+        const updatedFiles = files.filter(file => file.name !== fileToRemove.name)
+        setFiles(updatedFiles)
+        studyProposalForm.setFieldValue('codeFiles', updatedFiles)
+    }
 
     return (
         <Paper p="md">
@@ -78,9 +86,17 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Divider orientation="vertical" />
                 <Stack>
                     {files.map((file) => (
-                        <Group key={file.name}>
-                            <CheckCircle weight="fill" color="#2F9844" />
-                            <Text>{file.name}</Text>
+                        <Group key={file.name} justify="space-between" w="100%">
+                            <Group>
+                                <CheckCircle weight="fill" color="#2F9844" />
+                                <Text>{file.name}</Text>
+                            </Group>
+                            <Trash 
+                                onClick={() => removeFile(file)} 
+                                style={{ cursor: 'pointer' }} 
+                                color={theme.colors.grey[2]}
+                                weight="bold" 
+                            />
                         </Group>
                     ))}
                 </Stack>
