@@ -3,6 +3,7 @@ import {
     Alert,
     Anchor,
     Button,
+    Divider,
     Flex,
     Group,
     Paper,
@@ -108,6 +109,8 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                             </Link>
                         </Flex>
                     </Group>
+                    <Divider c={theme.colors.charcoal[1]} />
+                    <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         <NoStudiesCaption visible={!studies.length} slug={org.identifier} />
                         <TableThead>
