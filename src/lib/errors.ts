@@ -8,15 +8,17 @@ export class SanitizedError extends Error {
     }
 }
 
-type ClerkAPIErrorResponse = {
-    errors: Array<{
-        meta?: {
-            paramName: string
-        }
-        code: string
-        message: string
-        longMessage: string
-    }>
+export type ClerkAPIErrorObject = {
+    code: string
+    message: string
+    longMessage?: string
+    meta?: {
+        paramName: string
+    }
+}
+
+export type ClerkAPIErrorResponse = {
+    errors: [ClerkAPIErrorObject, ...ClerkAPIErrorObject[]]
 }
 
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
