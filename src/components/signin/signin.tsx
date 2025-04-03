@@ -1,5 +1,5 @@
 import { Panel } from '../panel'
-import { Flex, Button, TextInput, PasswordInput } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Stack } from '@mantine/core'
 import { isNotEmpty, isEmail, useForm } from '@mantine/form'
 import { isClerkApiError, reportError } from '../errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
@@ -76,10 +76,11 @@ export const SignInForm: React.FC<{
                 />
                 <Flex align="center" mt={15} gap="md">
                     <Button type="submit">Login</Button>
-                    <Flex direction="column">
-                        <Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>
+                    <Stack>
+                        {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
+                        {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
                         <Link href="/account/reset-password">Forgot password?</Link>
-                    </Flex>
+                    </Stack>
                 </Flex>
             </Panel>
         </form>
