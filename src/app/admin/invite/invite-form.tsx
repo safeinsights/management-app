@@ -36,10 +36,12 @@ export function InviteForm() {
         },
         onSuccess(info) {
             notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
-            // Keep the selected organization, reset other fields using initialValues
-            const oldOrgId = studyProposalForm.values.organizationId
+            // Keep the selected organization selected, set other fields to initialValues, then reset form
+            studyProposalForm.setInitialValues({
+                ...initialValues(),
+                organizationId: studyProposalForm.values.organizationId,
+            })
             studyProposalForm.reset()
-            studyProposalForm.setFieldValue('organizationId', oldOrgId)
         },
     })
 
