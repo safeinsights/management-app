@@ -4,7 +4,7 @@ import React from 'react'
 import { Flex, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { StudyProposalFormSteps } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form-steps'
+import { StudyProposal } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 
 export default async function MemberHomePage(props: { params: Promise<{ memberIdentifier: string }> }) {
@@ -28,7 +28,7 @@ export default async function MemberHomePage(props: { params: Promise<{ memberId
                     <Title mb="lg" mt="lg">
                         Propose A Study
                     </Title>
-                    <StudyProposalFormSteps memberId={member.id} />
+                    <StudyProposal memberId={member.id} />
                 </Stack>
             </Flex>
         </>

@@ -7,10 +7,6 @@ import { useUser } from '@clerk/nextjs'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { setMemberUserPublicKeyAction } from '@/server/actions/user-keys.actions'
 
-vi.mock('@clerk/nextjs', () => ({
-    useUser: vi.fn(),
-}))
-
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
 }))
