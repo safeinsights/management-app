@@ -1,32 +1,38 @@
-import { test, visitClerkProtectedPage } from './e2e.helpers'
+import { test, expect, visitClerkProtectedPage } from './e2e.helpers'
 
-test.describe('MFA authentication', async () => {
-    test('adds using app', async ({ page }) => {
+test.describe('MFA Setup Visibility', () => {
+    // Use the same worker
+    test.describe.configure({ mode: 'serial' })
+
+    test('renders the sms and authenticator buttons', async ({ page }) => {
+        // Visit the main MFA page first
         await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
-
-        await page.getByRole('button', { name: 'authenticator' }).click()
-
-        await page.getByRole('button', { name: 'verify' }).click()
-
-        await page.getByLabel('code').fill('123456')
-
-        await page.getByRole('button', { name: 'verify' }).click()
-
-        await page.waitForSelector(`text=incorrect`)
-
-        await page.getByRole('button', { name: 'retry' }).click()
+        await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Authenticator App Verification' })).toBeVisible()
     })
 
-    test('adds using sms', async ({ page }) => {
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
-        await page.getByRole('button', { name: 'sms' }).click()
+    test('checks Authenticator App page elements', async ({ page }) => {
+        // Go DIRECTLY to the authenticator app page
+        await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'member' })
 
-        await page.getByRole('button', { name: 'user profile' }).click()
+        // Check if the code input field is visible
+        await expect(page.getByPlaceholder('000000')).toBeVisible()
 
-        await page.waitForSelector('text=add phone number')
+        // Check if the Verify Code button is visible and initially disabled (as no code is entered)
+        const verifyButton = page.getByRole('button', { name: 'Verify Code' })
+        await expect(verifyButton).toBeVisible()
+        await expect(verifyButton).toBeDisabled()
+    })
 
-        await page.getByLabel('close modal').click()
+    test('checks SMS page elements', async ({ page }) => {
+        // Navigate to the SMS setup page
+        await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'member' })
 
-        await page.getByRole('button', { name: 'homepage' }).click()
+        // Check if the Phone Number input is visible
+        await page.getByLabel('Phone Number').fill('+15555550101')
+        await page.getByRole('button', { name: /send code/i }).click()
+
+        await page.getByLabel('Input Code').fill('424242')
+        await page.getByRole('button', { name: /verify code/i }).click()
     })
 })

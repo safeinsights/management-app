@@ -15,6 +15,7 @@ import { UploadStudyJobCode } from '@/app/researcher/study/request/[memberIdenti
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from '@/app/researcher/study/request/[memberIdentifier]/actions'
 import { useRouter } from 'next/navigation'
+import { notifications } from '@mantine/notifications'
 
 export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberId }) => {
     const router = useRouter()
@@ -31,6 +32,11 @@ export const StudyProposalFormSteps: React.FC<{ memberId: string }> = ({ memberI
                 color: 'green',
             })
             router.push(`/researcher/dashboard`)
+        },
+        onError(error) {
+            // TODO server action max filesize error doesn't propagate through here...
+            console.error(error)
+            notifications.show({ message: String(error), color: 'red' })
         },
     })
 

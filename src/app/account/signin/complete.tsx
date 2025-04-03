@@ -1,7 +1,7 @@
 import { useUser } from '@clerk/nextjs'
-import { Panel } from '../panel'
+import { Panel } from '@/components/panel'
 import { Flex, Title, Text } from '@mantine/core'
-import { Link } from '../links'
+import { Link } from '@/components/links'
 
 export const SigninComplete = () => {
     const { user } = useUser()

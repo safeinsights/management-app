@@ -5,7 +5,8 @@ import { isEmail, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { isClerkApiError, reportError } from '../errors'
+import { errorToString } from '@/lib/errors'
+import { useMutation } from '@tanstack/react-query'
 
 interface ResetFormValues {
     email: string
@@ -16,7 +17,7 @@ interface ResetFormProps {
 }
 
 export function ResetForm({ onComplete }: ResetFormProps) {
-    const { isLoaded, signIn } = useSignIn()
+    const { signIn } = useSignIn()
     const router = useRouter()
 
     const emailForm = useForm<ResetFormValues>({
@@ -28,25 +29,30 @@ export function ResetForm({ onComplete }: ResetFormProps) {
         },
     })
 
-    const onSubmitEmail = async (values: ResetFormValues) => {
-        if (!isLoaded) return
-
-        try {
-            const reset = await signIn.create({
+    const { isPending, mutate: onSubmitEmail } = useMutation({
+        async mutationFn(form: ResetFormValues) {
+            if (!signIn) return
+            return await signIn.create({
                 strategy: 'reset_password_email_code',
-                identifier: values.email,
+                identifier: form.email,
             })
-            onComplete(reset)
-        } catch (err: unknown) {
-            reportError(err, 'failed to initiate password reset')
-            if (isClerkApiError(err)) {
-                const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
-                if (emailError) {
-                    emailForm.setFieldError('email', emailError.longMessage)
-                }
+        },
+        onError(error: unknown) {
+            emailForm.setErrors({
+                email: errorToString(error),
+            })
+        },
+        onSuccess(info?: SignInResource) {
+            if (info) {
+                onComplete(info)
+            } else {
+                // clerk did not throw an error but also did not return a signIn object
+                emailForm.setErrors({
+                    email: 'An unknown error occurred, please try again later.',
+                })
             }
-        }
-    }
+        },
+    })
 
     return (
         <Stack>
@@ -67,7 +73,9 @@ export function ResetForm({ onComplete }: ResetFormProps) {
                         aria-label="Email"
                     />
                     <Stack align="center" mt={15}>
-                        <Button type="submit">Send Reset Code</Button>
+                        <Button type="submit" loading={isPending}>
+                            Send Reset Code
+                        </Button>
                         <Anchor onClick={() => router.push('/')}>Back to Login</Anchor>
                     </Stack>
                 </Paper>

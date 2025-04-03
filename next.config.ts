@@ -10,6 +10,11 @@ const nextConfig: NextConfig = async (phase: string) => {
         assetPrefix: isDev ? undefined : '/assets/',
         output: 'standalone',
         transpilePackages: ['si-encryption'],
+        experimental: {
+            serverActions: {
+                bodySizeLimit: '10mb',
+            },
+        },
     }
     return nextConfig
 }
