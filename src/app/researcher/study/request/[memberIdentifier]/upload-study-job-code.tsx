@@ -12,12 +12,11 @@ import { StudyProposalFormValues } from '@/app/researcher/study/request/[memberI
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
 }) => {
-
     const theme = useMantineTheme()
     const [files, setFiles] = useState<FileWithPath[]>([])
 
     const removeFile = (fileToRemove: FileWithPath) => {
-        const updatedFiles = files.filter(file => file.name !== fileToRemove.name)
+        const updatedFiles = files.filter((file) => file.name !== fileToRemove.name)
         setFiles(updatedFiles)
         studyProposalForm.setFieldValue('codeFiles', updatedFiles)
     }
@@ -27,9 +26,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
-                This section is key to your proposal, as it defines the analysis that will generate the results
-                you&apos;re intending to obtain from the Member&apos;s data. Upload any necessary files to support your
-                analysis. In this iteration, we currently support .r and .rmd files.
+                This section is key to your proposal, as it defines the analysis that will generate the results you&apos;re
+                intending to obtain from the organization&apos;s data. <strong>Important Requirements:</strong> In this
+                iteration, we currently support <strong>.R</strong> or <strong>.Rmd</strong> formats. One file must be
+                named <strong>main.r</strong> or else execution will fail.
             </Text>
 
             <Group justify="space-evenly" gap="xl">
@@ -91,11 +91,11 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 <CheckCircle weight="fill" color="#2F9844" />
                                 <Text>{file.name}</Text>
                             </Group>
-                            <Trash 
-                                onClick={() => removeFile(file)} 
-                                style={{ cursor: 'pointer' }} 
+                            <Trash
+                                onClick={() => removeFile(file)}
+                                style={{ cursor: 'pointer' }}
                                 color={theme.colors.grey[2]}
-                                weight="bold" 
+                                weight="bold"
                             />
                         </Group>
                     ))}
