@@ -26,6 +26,7 @@ import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
 import { UserName } from '@/components/user-name'
+import { theme } from '@/theme'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +77,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 </Stack>
             </TableTd>
             <TableTd>
-                <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/${study.id}/review`}>
+                <Link style={{ textDecoration: 'underline', color: theme.colors.purple[7] }} href={`/researcher/study/${study.id}/review`}>
                     View
                 </Link>
             </TableTd>
