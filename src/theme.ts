@@ -106,4 +106,5 @@ export const theme = createTheme({
     },
     primaryShade: 5,
     primaryColor: 'purple',
+    columnWidth: '20%',
 })
