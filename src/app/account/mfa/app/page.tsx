@@ -110,7 +110,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                             return rest
                         })()}
                     />
-                    <Text color="red" size="xs" ta="center">
+                    <Text c="red" size="xs" ta="center">
                         {form.errors.code || '\u00A0'}
                     </Text>
                 </Box>
@@ -159,7 +159,7 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
                         return rest
                     })()}
                 />
-                <Text color="red" size="xs">
+                <Text c="red" size="xs">
                     {form.errors.code || '\u00A0'}
                 </Text>
             </Box>

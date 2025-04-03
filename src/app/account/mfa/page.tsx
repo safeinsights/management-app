@@ -6,6 +6,8 @@ import { Link } from '@/components/links'
 import { Container, Button, Stack, Text } from '@mantine/core'
 import { GenerateBackupCodes } from './backup-codes'
 import { Panel } from '@/components/panel'
+import { notifications } from '@mantine/notifications'
+import { redirect } from 'next/navigation'
 
 const HasMFA = () => {
     return (
@@ -27,7 +29,8 @@ export default function ManageMFA() {
     if (!isLoaded) return null
 
     if (!user) {
-        return <p>You must be logged in to access this page</p>
+        notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
+        return redirect('/')
     }
 
     if (user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')) return <HasMFA />

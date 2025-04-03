@@ -92,7 +92,7 @@ export const errorToString = (error: unknown) => {
     }
 
     if (isClerkApiError(error)) {
-        return error.errors.map((e) => `${e.message}: ${e.longMessage}`).join('\n')
+        return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
     }
 
     if (error instanceof Error) {

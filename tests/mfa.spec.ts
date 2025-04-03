@@ -4,6 +4,13 @@ test.describe('MFA Setup Visibility', () => {
     // Use the same worker
     test.describe.configure({ mode: 'serial' })
 
+    test('renders the sms and authenticator buttons', async ({ page }) => {
+        // Visit the main MFA page first
+        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Authenticator App Verification' })).toBeVisible()
+    })
+
     test('checks Authenticator App page elements', async ({ page }) => {
         // Go DIRECTLY to the authenticator app page
         await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'member' })
@@ -18,20 +25,14 @@ test.describe('MFA Setup Visibility', () => {
     })
 
     test('checks SMS page elements', async ({ page }) => {
-        // Visit the main MFA page first
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
-
         // Navigate to the SMS setup page
-        await page.getByRole('link', { name: 'SMS Verification' }).click()
-        await page.waitForURL('**/account/mfa/sms') // Wait for navigation
+        await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'member' })
 
         // Check if the Phone Number input is visible
-        // Assuming test user has no pre-filled number, it should be enabled
-        const phoneInput = page.getByLabel('Phone Number')
-        await expect(phoneInput).toBeVisible()
+        await page.getByLabel('Phone Number').fill('+15555550101')
+        await page.getByRole('button', { name: /send code/i }).click()
 
-        // Check if the Send Code button is visible and enabled
-        const sendCodeButton = page.getByRole('button', { name: 'Send Code' })
-        await expect(sendCodeButton).toBeVisible()
+        await page.getByLabel('Input Code').fill('424242')
+        await page.getByRole('button', { name: /verify code/i }).click()
     })
 })
