@@ -90,15 +90,17 @@ describe('errorToString', () => {
                     meta: { paramName: 'username' },
                     code: 'ERR_USERNAME',
                     message: 'Username error',
+                    longMessage: 'The username is invalid.',
                 },
                 {
                     meta: { paramName: 'password' },
                     code: 'ERR_PASSWORD',
                     message: 'Password error',
+                    longMessage: 'The password is too weak.',
                 },
             ],
         }
-        expect(errorToString(clerkError)).toBe('Username error\nPassword error')
+        expect(errorToString(clerkError)).toBe('The username is invalid.\nThe password is too weak.')
     })
 
     it('returns the Error instance string if error is an instance of Error', () => {
