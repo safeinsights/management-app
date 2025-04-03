@@ -7,5 +7,5 @@ export function UserName() {
     if (!user) {
         return null
     }
-    return <span>{user.firstName}</span>
+    return <span>{user?.firstName}</span>
 }
