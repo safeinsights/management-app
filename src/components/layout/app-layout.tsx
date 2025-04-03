@@ -9,6 +9,7 @@ import {
     Group,
     Stack,
     Text,
+    useMantineTheme,
 } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
@@ -26,6 +27,7 @@ type Props = {
 export function AppLayout({ children }: Props) {
     const { isSignedIn } = useAuth()
     const pathname = usePathname()
+    const theme = useMantineTheme()
 
     // If user isn't signed in, don't render the whole layout
     if (!isSignedIn) {
@@ -39,10 +41,9 @@ export function AppLayout({ children }: Props) {
 
     return (
         <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
-            <Notifications />
+            <Notifications position="top-right" />
 
-            {/* TODO use siPurple.5 or whatever shade we want, blocked by UX */}
-            <AppShellNavbar bg="#100A4C">
+            <AppShellNavbar bg={theme.colors.purple[8]}>
                 <Stack py="md">
                     <AppShellSection>
                         <Link href="/">
@@ -55,7 +56,7 @@ export function AppLayout({ children }: Props) {
                 </Stack>
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
-            <AppShellFooter p="md" bg="#353068">
+            <AppShellFooter p="md" bg={theme.colors.purple[9]}>
                 <Group justify="center" c="white">
                     <Text>© 2025 - SafeInsights</Text>
                     {/* TODO Temporary for dev mode only? admins? */}

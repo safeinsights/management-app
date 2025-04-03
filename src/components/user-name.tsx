@@ -1,7 +1,5 @@
 'use client'
 
-import { Text } from '@mantine/core'
-
 import { useUser } from '@clerk/nextjs'
 
 export function UserName() {
@@ -9,5 +7,5 @@ export function UserName() {
     if (!user) {
         return null
     }
-    return <Text span>{user.fullName}</Text>
+    return <span>{user.firstName}</span>
 }

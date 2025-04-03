@@ -2,7 +2,15 @@
 
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
-import { getOrgSlugFromActionContext, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
+
+import {
+    getOrgSlugFromActionContext,
+    getUserIdFromActionContext,
+    memberAction,
+    researcherAction,
+    userAction,
+    z,
+} from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
@@ -72,6 +80,58 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'researcherUser.fullName as researcherName',
             'reviewerUser.fullName as reviewerName',
             'member.identifier as memberIdentifier',
+            'latestJobStatus.status as latestJobStatus',
+        ])
+        .orderBy('study.createdAt', 'desc')
+        .execute()
+})
+
+export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
+    return await db
+        .selectFrom('study')
+        .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
+        .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
+        .where('memberUser.userId', '=', userId)
+        .where('memberUser.isReviewer', '=', true)
+        .leftJoin(
+            // Subquery to get the most recent study job for each study
+            (eb) =>
+                eb
+                    .selectFrom('studyJob')
+                    .select([
+                        'studyJob.studyId',
+                        'studyJob.id as latestStudyJobId',
+                        'studyJob.createdAt as studyJobCreatedAt',
+                    ])
+                    .distinctOn('studyId')
+                    .orderBy('studyId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestStudyJob'),
+            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
+        )
+        .leftJoin(
+            // Subquery to get the latest status change for the most recent study job
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select([
+                        'jobStatusChange.studyJobId',
+                        'jobStatusChange.status',
+                        'jobStatusChange.createdAt as statusCreatedAt',
+                    ])
+                    .distinctOn('studyJobId')
+                    .orderBy('studyJobId')
+                    .orderBy('createdAt', 'desc')
+                    .as('latestJobStatus'),
+            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.latestStudyJobId'),
+        )
+        .select([
+            'study.id',
+            'study.title',
+            'study.piName',
+            'study.status',
+            'study.createdAt',
+            'member.name as reviewerTeamName',
             'latestJobStatus.status as latestJobStatus',
         ])
         .orderBy('study.createdAt', 'desc')

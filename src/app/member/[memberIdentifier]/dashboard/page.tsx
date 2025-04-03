@@ -19,15 +19,14 @@ import {
     Title,
     Tooltip,
 } from '@mantine/core'
-import { currentUser } from '@clerk/nextjs/server'
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { DisplayStudyStatus } from './display-study-status'
+import { UserName } from '@/components/user-name'
 
 export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
     const { memberIdentifier } = await props.params
-    const user = await currentUser()
 
     const member = await getMemberFromIdentifierAction(memberIdentifier)
 
@@ -62,8 +61,9 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
 
     return (
         <Stack p="md">
-            <Title>Hi {user?.firstName}!</Title>
-            <Text>Welcome to SafeInsights</Text>
+            <Title>
+                Hi <UserName />!
+            </Title>
             <Text>
                 Welcome to your SafeInsights dashboard! Here you can find study proposals submitted to your
                 organization, view their status and know when you need to take action. We continuously iterate to

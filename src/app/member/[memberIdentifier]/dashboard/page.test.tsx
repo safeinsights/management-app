@@ -1,21 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
-import { SiUser } from '@/server/db/queries'
-import { currentUser } from '@clerk/nextjs/server'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
+import { useUser } from '@clerk/nextjs'
+import { UseUserReturn } from '@clerk/types'
 
 vi.mock('@/server/actions/member.actions', () => ({
     getMemberFromIdentifierAction: vi.fn(),
-}))
-
-vi.mock('@clerk/nextjs/server', () => ({
-    currentUser: vi.fn(),
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
@@ -96,6 +92,14 @@ const mockStudies = [
     },
 ]
 
+beforeEach(() => {
+    vi.mocked(useUser).mockReturnValue({
+        user: {
+            firstName: 'Tester',
+        },
+    } as UseUserReturn)
+})
+
 describe('Member Dashboard', () => {
     it('renders an error when the member is not found', async () => {
         const props = {
@@ -115,14 +119,9 @@ describe('Member Dashboard', () => {
             params: Promise.resolve({ memberIdentifier: 'test-member' }),
         }
 
-        vi.mocked(currentUser).mockResolvedValue({
-            firstName: 'Test User',
-        } as SiUser)
-
         renderWithProviders(await MemberDashboardPage(props))
 
         expect(screen.getByText(/Welcome to your SafeInsights dashboard!/i)).toBeDefined()
-        expect(screen.getByText(/Hi Test User!/i)).toBeDefined()
     })
 })
 

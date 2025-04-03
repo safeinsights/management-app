@@ -1,5 +1,4 @@
 import * as React from 'react'
-import { db } from '@/database'
 import {
     Alert,
     Button,
@@ -21,11 +20,12 @@ import {
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { humanizeStatus } from '@/lib/status'
-import { UserName } from '../../../../components/user-name'
 import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
+import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
+import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
+import { UserName } from '@/components/user-name'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,17 +55,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     } catch {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
-
-    const studies = await db
-        .selectFrom('study')
-        .select(['study.id', 'title', 'piName', 'status', 'study.memberId', 'createdAt'])
-
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
-
-        .orderBy('createdAt', 'desc')
-        .execute()
+    const studies = await fetchStudiesForCurrentResearcherAction(userId)
 
     const rows = studies.map((study) => (
         <TableTr key={study.id}>
@@ -79,19 +69,10 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>
                 <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
             </TableTd>
-            <TableTd>Review Team Name</TableTd>
+            <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
                 <Stack gap="xs">
-                    {humanizeStatus(study.status)}
-                    <Text
-                        fz={10}
-                        pl={8}
-                        c="dimmed"
-                        style={{ width: '65px', backgroundColor: '#D9D9D9', textAlign: 'left', borderRadius: '2px' }}
-                        className="text-xs"
-                    >
-                        TBC
-                    </Text>
+                    <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
                 </Stack>
             </TableTd>
             <TableTd>
@@ -108,14 +89,10 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 Hi <UserName />!
             </Title>
             <Stack>
-                <Text mt="md">Welcome to SafeInsights</Text>
-
                 <Text>
-                    We&apos;re so glad to have you. This space is intended to help you submit your proposed studies and
-                    associated code, as well as accessing your analysis results—all while ensuring strict data privacy
-                    and security. Your work plays a vital role in advancing educational research, and w&apos;re
-                    committed to making this process as seamless as possible. We&apos;re continuously refining the
-                    experience and value your feedback in shaping a more effective research environment.
+                    <strong>Welcome to SafeInsights!</strong> This is your dashboard. Here, you can submit new research
+                    proposals, view their status and access its details. We continuously iterate to improve your
+                    experience and welcome your feedback.
                 </Text>
             </Stack>
 
