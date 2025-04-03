@@ -36,8 +36,8 @@ export const StudyProposalForm: FC<{
             </Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text>
-                This section is key to your proposal, as it defines the analysis that will generate the results you’re
-                intending to obtain from the Member’s data. Upload any necessary files to support your analysis.
+                This section is here to help you submit your study proposal. Consider providing as much detail as
+                possible to ensure the Reviewer has all the information needed to make an informed decision.
             </Text>
             <Stack gap="lg" mt="md">
                 {/* TODO flesh out with UX/do when hifi-s ready */}
