@@ -107,15 +107,10 @@ export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(fun
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const ctx = await actionContext()
-
-        if (!ctx.userId) {
+        if (!ctx.userId || !ctx.user?.isResearcher) {
             throw new AccessDeniedError('Only researchers are allowed to perform this action')
         }
-        // TODO: check siUser's isResearcher vs clerk session
-        if (!ctx.orgSlug) {
-            return func(arg)
-        }
-        throw new AccessDeniedError('Only researchers are allowed to perform this action')
+        return await func(arg)
     }
     return userAction(wrappedFunction, schema) as F
 }
