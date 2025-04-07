@@ -1,6 +1,8 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
 import { getConfigValue, PROD_ENV } from './config'
+import { getUsersByRoleAndMemberId } from '@/server/db/queries'
+import dayjs from 'dayjs'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 
@@ -48,5 +50,49 @@ export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
         })
     } catch (error) {
         logger.error.log('Welcome email error: ', error)
+    }
+}
+
+// TODO Who receives this email? all users in an org?
+// Variables:
+//  userFullName
+//  studyName
+//  researcherFullName
+//  submittedOn
+export const sendStudyProposalEmails = async (
+    memberId: string,
+    studyName: string,
+    researcherFullName: string,
+    studyId: string,
+) => {
+    const [mg, domain] = await mailGunConfig()
+
+    if (!mg) {
+        return
+    }
+
+    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
+
+    for (const reviewer of reviewersToNotify) {
+        const email = reviewer.email
+        if (!email) continue
+
+        try {
+            await mg.messages.create(domain, {
+                from: SI_EMAIL,
+                to: email,
+                subject: 'SafeInsights - New study proposal',
+                template: 'new research proposal',
+                'h:X-Mailgun-Variables': JSON.stringify({
+                    userFullName: reviewer.fullName,
+                    studyName,
+                    researcherFullName,
+                    submittedOn: dayjs().format('MM/DD/YYYY'),
+                    // TODO link to study details page with studyId
+                }),
+            })
+        } catch (error) {
+            logger.error.log('Study proposal email error: ', error)
+        }
     }
 }

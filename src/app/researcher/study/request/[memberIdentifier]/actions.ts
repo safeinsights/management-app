@@ -8,6 +8,8 @@ import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { StudyDocumentType } from '@/lib/types'
+import { currentUser } from '@clerk/nextjs/server'
+import { sendStudyProposalEmails } from '@/server/mailgun'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberId: z.string(),
@@ -16,6 +18,8 @@ const onCreateStudyActionArgsSchema = z.object({
 
 export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
+    const user = await currentUser()
+    if (!user) return
 
     const member = await db
         .selectFrom('member')
@@ -117,6 +121,8 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             studyJobId: studyJob.id,
         })
         .execute()
+
+    await sendStudyProposalEmails(memberId, studyInfo.title, user.fullName || '', studyId)
 
     return {
         studyId: studyId,
