@@ -12,7 +12,7 @@ export const RequireReviewerKeys = () => {
         if (!pathname.startsWith('/account/keys')) {
             return
         }
-        getReviewerPublicKeyAction().then(key => {
+        getReviewerPublicKeyAction().then((key) => {
             if (!key) {
                 router.push('/account/keys')
             }

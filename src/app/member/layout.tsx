@@ -1,19 +1,16 @@
-'use server'
-
 import React, { ReactNode } from 'react'
-import { AppLayout } from '@/components/layout/app-layout'
+import { UserLayout } from '@/components/layout/user-layout'
 import { RequireReviewerKeys } from '@/components/require-reviewer-keys'
 
-export default async function MemberLayout({
+export default function MemberLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
-
     return (
-        <AppLayout>
+        <UserLayout>
             <RequireReviewerKeys />
             {children}
-        </AppLayout>
+        </UserLayout>
     )
 }

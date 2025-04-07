@@ -19,7 +19,7 @@ describe('get keys', () => {
     })
 
     it('if data not present, return empty array', async () => {
-        await insertTestMember({ identifier: 'testy-mctestface' })
+        await insertTestMember()
 
         const response = await apiHandler.GET(req, {
             params: Promise.resolve({ jobId: '00000000-0000-0000-0000-000000000000' }),
@@ -30,7 +30,7 @@ describe('get keys', () => {
     })
 
     it('getting keys', async () => {
-        const member = await insertTestMember({ identifier: 'testy-mctestface' })
+        const member = await insertTestMember()
 
         const { job } = await insertTestJobKeyData({ memberId: member?.id || '' })
 
