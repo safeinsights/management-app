@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { JobReviewButtons } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/job-review-buttons'
+import { JobReviewButtons } from './job-review-buttons'
 import { Study, StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
