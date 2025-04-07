@@ -15,11 +15,12 @@ import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { OrganizationSwitcher, useUser } from '@clerk/nextjs'
+import { OrganizationSwitcher } from '@clerk/nextjs'
 import { ReactNode } from 'react'
 import { NavbarItems } from '@/components/layout/navbar-items'
 import { ClerkProvider } from '@clerk/nextjs'
 import { RequireMFA } from '../require-mfa'
+import { RequireUser } from '../require-user'
 
 type Props = {
     children: ReactNode
@@ -27,8 +28,6 @@ type Props = {
 
 export function UserLayout({ children }: Props) {
     const theme = useMantineTheme()
-    const { isSignedIn } = useUser()
-    if (!isSignedIn) return null
 
     return (
         <ClerkProvider>
@@ -55,6 +54,7 @@ export function UserLayout({ children }: Props) {
                     </Group>
                 </AppShellFooter>
             </AppShell>
+            <RequireUser />
             <RequireMFA />
         </ClerkProvider>
     )
