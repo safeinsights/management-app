@@ -2,8 +2,8 @@
 
 import { generateSignedUrlForUpload } from '@/server/aws'
 
-export const uploadStudyDocumentFile = async (key: string) => {
-    const preSignedURL = await generateSignedUrlForUpload(key)
+export const getSignedURL = async (key: string) => {
+    return await generateSignedUrlForUpload(key)
 }
 
 export const deleteS3File = async (key: string) => {

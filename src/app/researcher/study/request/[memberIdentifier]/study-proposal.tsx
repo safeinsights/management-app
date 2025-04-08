@@ -15,14 +15,12 @@ import { UploadStudyJobCode } from '@/app/researcher/study/request/[memberIdenti
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from '@/app/researcher/study/request/[memberIdentifier]/actions'
 import { useRouter } from 'next/navigation'
-import { deleteS3File } from '@/server/actions/s3.actions'
 import { pathForStudyDocuments } from '@/lib/paths'
-import { v7 as uuidv7 } from 'uuid'
 import { StudyDocumentType } from '@/lib/types'
+import { getSignedURL } from '@/server/actions/s3.actions'
 
 export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
     const router = useRouter()
-    const studyId = uuidv7()
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         validate: zodResolver(studyProposalSchema),
@@ -39,8 +37,24 @@ export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
 
     const { mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // do uploads here
-            return await onCreateStudyAction({ memberId, studyInfo: formValues })
+            const { studyId, studyJobId } = await onCreateStudyAction({ memberId, studyInfo: formValues })
+            if (formValues.irbDocument?.name) {
+                const url = await getSignedURL(
+                    pathForStudyDocuments(
+                        { studyId, memberIdentifier: memberId },
+                        StudyDocumentType.IRB,
+                        formValues.irbDocument.name,
+                    ),
+                )
+
+                const fileUpload = await fetch(url, {
+                    method: 'PUT',
+                    body: formValues.irbDocument,
+                })
+
+                console.log(fileUpload)
+            }
+            // do uploads here if study creation was successful?
         },
         onSuccess() {
             notifications.show({
@@ -57,55 +71,48 @@ export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
         },
     })
 
-    const removeAllFiles = async () => {
-        const values = studyProposalForm.getValues()
-        if (values.irbDocument) {
-            await deleteS3File(
-                pathForStudyDocuments(
-                    { studyId, memberIdentifier: memberId },
-                    StudyDocumentType.IRB,
-                    values.irbDocument?.name,
-                ),
-            )
-        }
+    // const removeAllFiles = async () => {
+    //     const values = studyProposalForm.getValues()
+    //     if (values.irbDocument) {
+    //         await deleteS3File(
+    //             pathForStudyDocuments(
+    //                 { studyId, memberIdentifier: memberId },
+    //                 StudyDocumentType.IRB,
+    //                 values.irbDocument?.name,
+    //             ),
+    //         )
+    //     }
+    //
+    //     if (values.descriptionDocument) {
+    //         await deleteS3File(
+    //             pathForStudyDocuments(
+    //                 { studyId, memberIdentifier: memberId },
+    //                 StudyDocumentType.IRB,
+    //                 values.descriptionDocument?.name,
+    //             ),
+    //         )
+    //     }
+    //
+    //     if (values.agreementDocument) {
+    //         await deleteS3File(
+    //             pathForStudyDocuments(
+    //                 { studyId, memberIdentifier: memberId },
+    //                 StudyDocumentType.IRB,
+    //                 values.agreementDocument?.name,
+    //             ),
+    //         )
+    //     }
+    // }
 
-        if (values.descriptionDocument) {
-            await deleteS3File(
-                pathForStudyDocuments(
-                    { studyId, memberIdentifier: memberId },
-                    StudyDocumentType.IRB,
-                    values.descriptionDocument?.name,
-                ),
-            )
-        }
-
-        if (values.agreementDocument) {
-            await deleteS3File(
-                pathForStudyDocuments(
-                    { studyId, memberIdentifier: memberId },
-                    StudyDocumentType.IRB,
-                    values.agreementDocument?.name,
-                ),
-            )
-        }
-
-        // for (const codeFile of values.codeFiles) {
-        //     await deleteS3File(
-        //         pathForStudyCode(
-        //             { studyId, memberIdentifier: memberId },
-        //             StudyDocumentType.IRB,
-        //             values.agreementDocument?.name,
-        //         ),
-        //     )
-        // }
-
-        const files = [
-            values.agreementDocument,
-            values.descriptionDocument,
-            values.irbDocument,
-            ...values.codeFiles,
-        ].filter((file) => file !== null)
-    }
+    // for (const codeFile of values.codeFiles) {
+    //     await deleteS3File(
+    //         pathForStudyCode(
+    //             { studyId, memberIdentifier: memberId },
+    //             StudyDocumentType.IRB,
+    //             values.agreementDocument?.name,
+    //         ),
+    //     )
+    // }
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
