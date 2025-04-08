@@ -194,14 +194,14 @@ export async function createTempDir() {
     return await fs.promises.mkdtemp(tmpdir)
 }
 
-export const insertTestMember = async (opts: { identifier: string } = { identifier: faker.string.alpha(10) }) => {
+export const insertTestMember = async (opts: { slug: string } = { slug: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
     const member = await db
         .insertInto('member')
         .values({
-            identifier: opts.identifier,
+            slug: opts.slug,
             name: 'test',
             email: 'none@test.com',
             publicKey,
@@ -213,7 +213,7 @@ export const insertTestMember = async (opts: { identifier: string } = { identifi
         'Authorization',
         `Bearer ${jwt.sign(
             {
-                iss: opts.identifier,
+                iss: opts.slug,
             },
             privateKey,
             { algorithm: 'RS256' },
@@ -272,13 +272,13 @@ export const mockClerkSession = (values: MockSession) => {
     return { client: clientMocks, auth, useUserReturn }
 }
 
-export async function mockSessionWithTestData(memberIdentifier = faker.string.alpha(10)) {
-    const member = await insertTestMember({ identifier: memberIdentifier })
+export async function mockSessionWithTestData(memberSlug = faker.string.alpha(10)) {
+    const member = await insertTestMember({ slug: memberSlug })
     const user = await insertTestUser({ memberId: member.id })
 
     const mocks = mockClerkSession({
         clerkUserId: user.clerkId,
-        org_slug: member.identifier,
+        org_slug: member.slug,
     })
     return { member, user, ...mocks }
 }

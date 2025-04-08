@@ -10,7 +10,7 @@ export class DebugRequest {
 
     constructor(public path = '') {
         this.program
-            .option('-m, --member <member>', 'member identifier')
+            .option('-m, --member <member>', 'member slug')
             .option('-o, --origin <origin>', 'base URL to send the request to')
             .option('-k, --key <path>', 'Path to the private key file')
     }

@@ -20,7 +20,7 @@ async function setupUsers() {
     const member = await db
         .selectFrom('member')
         .select(['id', 'publicKey'])
-        .where('identifier', '=', 'openstax')
+        .where('slug', '=', 'openstax')
         .executeTakeFirstOrThrow()
 
     if (member.publicKey.length < 1000) {
@@ -33,7 +33,7 @@ async function setupUsers() {
             lastName: 'Test Researcher User',
             isResearcher: true,
         })
-        findOrCreateOrgMembership({ userId, identifier: 'openstax', isReviewer: false })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false })
     }
 
     for (const clerkId of CLERK_MEMBER_TEST_IDS) {
@@ -47,7 +47,7 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        findOrCreateOrgMembership({ userId, identifier: 'openstax' })
+        findOrCreateOrgMembership({ userId, slug: 'openstax' })
     }
 }
 

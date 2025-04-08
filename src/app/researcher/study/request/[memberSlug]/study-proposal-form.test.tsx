@@ -8,7 +8,7 @@ describe('Member Start Page Form', () => {
     it('submits form', async () => {
         // TODO Fix this form
         // const { getByLabelText, getByRole, container } = renderWithProviders(
-        //     <StudyProposalForm memberId="1234" memberIdentifier="hello-world" />,
+        //     <StudyProposalForm memberId="1234" memberSlug="hello-world" />,
         // )
         // let title = '2srt'
         //

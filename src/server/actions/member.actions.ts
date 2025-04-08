@@ -25,7 +25,7 @@ export const upsertMemberAction = adminAction(async (member) => {
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    await findOrCreateClerkOrganization({ slug: member.identifier, name: member.name })
+    await findOrCreateClerkOrganization({ slug: member.slug, name: member.name })
 
     return results
 }, memberSchema)
@@ -38,12 +38,12 @@ export const fetchMembersAction = adminAction(async () => {
     return await db.selectFrom('member').selectAll('member').execute()
 })
 
-export const deleteMemberAction = adminAction(async (identifier) => {
-    await db.deleteFrom('member').where('identifier', '=', identifier).execute()
+export const deleteMemberAction = adminAction(async (slug) => {
+    await db.deleteFrom('member').where('slug', '=', slug).execute()
 }, z.string())
 
-export const getMemberFromIdentifierAction = userAction(async (identifier) => {
-    return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
+export const getMemberFromSlugAction = userAction(async (slug) => {
+    return await db.selectFrom('member').selectAll().where('slug', '=', slug).executeTakeFirst()
 }, z.string())
 
 export const getReviewerPublicKeyAction = memberAction(async () => {

@@ -39,7 +39,7 @@ export enum StudyDocumentType {
 }
 
 export const minimalStudyInfoSchema = z.object({
-    memberIdentifier: z.string(),
+    memberSlug: z.string(),
     studyId: z.string(),
 })
 export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
