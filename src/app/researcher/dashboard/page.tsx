@@ -22,7 +22,6 @@ import {
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { getUserIdFromActionContext } from '@/server/actions/wrappers'
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
@@ -49,7 +48,6 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    const userId = await getUserIdFromActionContext()
     let org: { identifier: string } | null = null
     // FIXME: it should be possible to remove this once we ensure all users have an org
     try {
@@ -57,7 +55,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     } catch {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
-    const studies = await fetchStudiesForCurrentResearcherAction(userId)
+    const studies = await fetchStudiesForCurrentResearcherAction()
 
     const rows = studies.map((study) => (
         <TableTr key={study.id}>

@@ -83,7 +83,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 
 export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
     const userId = await getUserIdFromActionContext()
-    console.log({ userId })
+
     return await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
@@ -140,7 +140,9 @@ export const getStudyAction = userAction(async (studyId) => {
     return await db
         .selectFrom('study')
 
-        .innerJoin('memberUser', (join) => join.on('userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'))
+        .innerJoin('memberUser', (join) =>
+            join.on('userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
+        )
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
 
         .where('memberUser.userId', '=', userId)

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
-import { insertTestMember, insertTestStudyData, insertTestUser, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    insertTestMember,
+    insertTestStudyData,
+    insertTestUser,
+    mockClerkSession,
+    mockSessionWithTestData,
+} from '@/tests/unit.helpers'
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { jobStatusForJobAction } from './study-job.actions'
 import { triggerBuildImageForJob } from '@/server/aws'
@@ -37,7 +43,6 @@ describe('Study Actions', () => {
 
         mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherMember.identifier })
         await expect(getStudyAction(studyId)).resolves.toBeUndefined()
-
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
@@ -48,12 +53,11 @@ describe('Study Actions', () => {
 
         const { studyId } = await insertTestStudyData({ memberId: member.id, researcherId: user.id })
 
-        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toEqual(expect.arrayContaining([
-            expect.objectContaining({  id: studyId }),
-        ]))
+        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toEqual(
+            expect.arrayContaining([expect.objectContaining({ id: studyId })]),
+        )
 
         mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherMember.identifier })
         await expect(fetchStudiesForCurrentResearcherAction()).resolves.toHaveLength(0)
-
     })
 })
