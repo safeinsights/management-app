@@ -6,7 +6,7 @@ import { EditMemberForm } from '@/components/member/edit-member-form'
 
 const mockMember: Member = {
     id: '1',
-    identifier: 'test',
+    slug: 'test',
     name: 'test',
     email: 'junk@asdf.com',
     publicKey: 'junk',
@@ -18,24 +18,24 @@ describe('EditMemberForm', () => {
     it('renders form fields correctly', () => {
         renderWithProviders(<EditMemberForm member={mockMember} />)
 
-        const identifierInput = screen.getByPlaceholderText('Enter identifier')
+        const slugInput = screen.getByPlaceholderText('Enter slug')
         const inputs = screen.getAllByRole('textbox')
 
-        expect(identifierInput).toBeDefined()
-        expect(inputs.length).toBe(4) // identifier, name, email, public key
+        expect(slugInput).toBeDefined()
+        expect(inputs.length).toBe(4) // slug, name, email, public key
     })
 
-    it('disables the identifier field if member has an id', () => {
+    it('disables the slug field if member has an id', () => {
         renderWithProviders(<EditMemberForm member={{ ...mockMember, id: '123' }} />)
-        const identifierInput = screen.getByPlaceholderText('Enter identifier')
-        expect(identifierInput).toHaveProperty('disabled')
+        const slugInput = screen.getByPlaceholderText('Enter slug')
+        expect(slugInput).toHaveProperty('disabled')
     })
 
     it('populates form fields with member data', () => {
         renderWithProviders(<EditMemberForm member={mockMember} />)
 
-        const identifierInput = screen.getByPlaceholderText('Enter identifier') as HTMLInputElement
-        expect(identifierInput.value).toBe(mockMember.identifier)
+        const slugInput = screen.getByPlaceholderText('Enter slug') as HTMLInputElement
+        expect(slugInput.value).toBe(mockMember.slug)
 
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
         const [, nameInput, emailInput, publicKeyInput] = inputs
@@ -49,14 +49,14 @@ describe('EditMemberForm', () => {
         renderWithProviders(<EditMemberForm member={mockMember} />)
 
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
-        const [identifierInput, nameInput, emailInput, publicKeyInput] = inputs
+        const [slugInput, nameInput, emailInput, publicKeyInput] = inputs
 
-        fireEvent.change(identifierInput, { target: { value: 'new-identifier' } })
+        fireEvent.change(slugInput, { target: { value: 'new-slug' } })
         fireEvent.change(nameInput, { target: { value: 'New Name' } })
         fireEvent.change(emailInput, { target: { value: 'new@example.com' } })
         fireEvent.change(publicKeyInput, { target: { value: 'new-key' } })
 
-        expect(identifierInput.value).toBe('new-identifier')
+        expect(slugInput.value).toBe('new-slug')
         expect(nameInput.value).toBe('New Name')
         expect(emailInput.value).toBe('new@example.com')
         expect(publicKeyInput.value).toBe('new-key')

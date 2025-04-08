@@ -32,13 +32,13 @@ export const EditMemberForm: FC<{
     return (
         <form onSubmit={form.onSubmit((values) => upsertMember(values))}>
             <TextInput
-                label="Identifier"
-                placeholder="Enter identifier"
+                label="Slug"
+                placeholder="Enter slug"
                 data-autofocus
-                name="identifier"
-                key={form.key('identifier')}
+                name="slug"
+                key={form.key('slug')}
                 disabled={'id' in member && !!member.id}
-                {...form.getInputProps('identifier')}
+                {...form.getInputProps('slug')}
                 required
             />
 

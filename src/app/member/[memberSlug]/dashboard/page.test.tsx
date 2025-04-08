@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import MemberDashboardPage from './page'
-import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 import { faker } from '@faker-js/faker'
 import { Member } from '@/schema/member'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
@@ -21,7 +21,7 @@ vi.mock('@/server/actions/study.actions', () => ({
 // TODO Extract out into a helper function that we can re-use
 const mockMember: Member = {
     id: faker.string.uuid(),
-    identifier: 'test-member',
+    slug: 'test-member',
     name: faker.company.name(),
     email: faker.internet.email(),
     publicKey: 'fake-key',
@@ -49,7 +49,7 @@ const mockStudies = [
         researcherName: 'Person A',
         latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
         latestStudyJobId: 'job-1',
-        memberIdentifier: 'test-member',
+        memberSlug: 'test-member',
     },
     {
         id: 'study-2',
@@ -69,7 +69,7 @@ const mockStudies = [
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
         latestJobStatus: 'RUN-COMPLETE' as StudyJobStatus,
-        memberIdentifier: 'test-member',
+        memberSlug: 'test-member',
     },
     {
         id: 'study-3',
@@ -89,7 +89,7 @@ const mockStudies = [
         researcherName: 'Person C',
         latestStudyJobId: null,
         latestJobStatus: null,
-        memberIdentifier: 'test-member',
+        memberSlug: 'test-member',
     },
 ]
 
@@ -104,7 +104,7 @@ beforeEach(() => {
 describe('Member Dashboard', () => {
     it('renders an error when the member is not found', async () => {
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
 
         renderWithProviders(await MemberDashboardPage(props))
@@ -114,10 +114,10 @@ describe('Member Dashboard', () => {
 
     it('renders the welcome text', async () => {
         vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
 
         renderWithProviders(await MemberDashboardPage(props))
@@ -129,10 +129,10 @@ describe('Member Dashboard', () => {
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
         vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
         renderWithProviders(await MemberDashboardPage(props))
 
@@ -141,10 +141,10 @@ describe('Studies Table', () => {
 
     it('renders the table when studies exist', async () => {
         vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue(mockStudies)
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
 
         renderWithProviders(await MemberDashboardPage(props))

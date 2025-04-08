@@ -77,7 +77,7 @@ describe('Study Results Approve/Reject buttons', () => {
             createdAt: new Date(),
             studyJobId: mockApprovedStudyJob.id,
             studyTitle: mockStudy.title,
-            memberIdentifier: 'test-org',
+            memberSlug: 'test-org',
         },
     })
 
@@ -111,7 +111,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 createdAt: new Date(),
                 studyJobId: mockApprovedStudyJob.id,
                 studyTitle: mockStudy.title,
-                memberIdentifier: 'test-org',
+                memberSlug: 'test-org',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={testResults} />)
@@ -133,7 +133,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 createdAt: new Date(),
                 studyJobId: mockApprovedStudyJob.id,
                 studyTitle: mockStudy.title,
-                memberIdentifier: 'test-org',
+                memberSlug: 'test-org',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
@@ -154,7 +154,7 @@ describe('Study Results Approve/Reject buttons', () => {
                 createdAt: new Date(),
                 studyJobId: mockRejectedStudyJob.id,
                 studyTitle: mockStudy.title,
-                memberIdentifier: 'test-org',
+                memberSlug: 'test-org',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={testResults} />)

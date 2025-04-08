@@ -16,7 +16,7 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
                 .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                 .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
         )
-        .select(['member.identifier as memberIdentifier', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
+        .select(['member.slug as memberSlug', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -128,7 +128,7 @@ export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) 
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .$if(Boolean(ctx?.orgSlug), (qb) =>
             qb.innerJoin('member', (join) =>
-                join.on('member.identifier', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
+                join.on('member.slug', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
             ),
         )
         .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
@@ -146,7 +146,7 @@ export const jobInfoForJobId = async (jobId: string) => {
         .select([
             'studyId',
             'studyJob.id as studyJobId',
-            'member.identifier as memberIdentifier',
+            'member.slug as memberSlug',
             'studyJob.resultsPath',
             'studyJob.resultFormat',
         ])
@@ -158,7 +158,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
     return await db
         .selectFrom('study')
         .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['study.id as studyId', 'member.identifier as memberIdentifier'])
+        .select(['study.id as studyId', 'member.slug as memberSlug'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
@@ -166,10 +166,10 @@ export const studyInfoForStudyId = async (studyId: string) => {
 export async function getFirstOrganizationForUser(userId: string) {
     return db
         .selectFrom('member')
-        .select(['member.id', 'member.identifier', 'member.name'])
+        .select(['member.id', 'member.slug', 'member.name'])
         .innerJoin('memberUser', 'memberUser.memberId', 'member.id')
         .where('memberUser.userId', '=', userId)
-        .where('member.identifier', '<>', CLERK_ADMIN_ORG_SLUG)
+        .where('member.slug', '<>', CLERK_ADMIN_ORG_SLUG)
         .limit(1)
         .executeTakeFirst()
 }

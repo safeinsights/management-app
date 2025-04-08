@@ -4,8 +4,8 @@ import { checkUserAllowedJobView, checkUserAllowedStudyView, checkMemberAllowedS
 import { AccessDeniedError } from '@/lib/errors'
 
 async function insertRecords() {
-    const member1 = await insertTestMember({ identifier: 'test-member-1' })
-    const member2 = await insertTestMember({ identifier: 'test-member-2' })
+    const member1 = await insertTestMember({ slug: 'test-member-1' })
+    const member2 = await insertTestMember({ slug: 'test-member-2' })
     const {
         user1: member1User1,
         user2: member1User2,
@@ -36,7 +36,7 @@ async function insertRecords() {
 describe('checkUserAllowedJobView', () => {
     it('allows the user when they are a member of the study owning the job', async () => {
         const { job1, member1User1, member1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.identifier })
+        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.slug })
         await expect(checkUserAllowedJobView(job1.id)).resolves.toBe(true)
     })
 
@@ -46,7 +46,7 @@ describe('checkUserAllowedJobView', () => {
 
     it('throws AccessDeniedError when the user is not a member of the study owning the job', async () => {
         const { member2User1, job1, member2 } = await insertRecords()
-        mockClerkSession({ clerkUserId: member2User1.clerkId, org_slug: member2.identifier })
+        mockClerkSession({ clerkUserId: member2User1.clerkId, org_slug: member2.slug })
         await expect(checkUserAllowedJobView(job1.id)).rejects.toThrow(AccessDeniedError)
     })
 })
@@ -54,7 +54,7 @@ describe('checkUserAllowedJobView', () => {
 describe('checkUserAllowedStudyView', () => {
     it('allows the user when they are a member of the study', async () => {
         const { study1, member1, member1User1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.identifier })
+        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.slug })
         await expect(checkUserAllowedStudyView(study1.id)).resolves.toBe(true)
     })
 
@@ -72,7 +72,7 @@ describe('checkUserAllowedStudyView', () => {
 describe('checkMemberAllowedStudyReview', () => {
     it('allows the user when they are a reviewer for the study', async () => {
         const { study1, member1, member1User1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.identifier })
+        mockClerkSession({ clerkUserId: member1User1.clerkId, org_slug: member1.slug })
         await expect(checkMemberAllowedStudyReview(study1.id)).resolves.toBe(true)
     })
 
@@ -82,7 +82,7 @@ describe('checkMemberAllowedStudyReview', () => {
 
     it('throws AccessDeniedError when the user is not a reviewer for the study', async () => {
         const { study1, member1, member1User2 } = await insertRecords()
-        mockClerkSession({ clerkUserId: member1User2.clerkId, org_slug: member1.identifier })
+        mockClerkSession({ clerkUserId: member1User2.clerkId, org_slug: member1.slug })
         await expect(checkMemberAllowedStudyReview(study1.id)).rejects.toThrow(AccessDeniedError)
     })
 })

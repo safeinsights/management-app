@@ -35,14 +35,14 @@ export function MembersAdminTable() {
             <DataTable
                 withTableBorder
                 withColumnBorders
-                idAccessor="identifier"
+                idAccessor="slug"
                 noRecordsText="No organisations yet, add some using button below"
                 noRecordsIcon={<Users />}
                 records={sortedMembers}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
                 columns={[
-                    { accessor: 'identifier', sortable: true },
+                    { accessor: 'slug', sortable: true },
                     { accessor: 'name', sortable: true },
                     { accessor: 'email', sortable: true, textAlign: 'right' },
                     {
@@ -97,7 +97,7 @@ const MemberRow: FC<{ member: Member }> = ({ member }) => {
             <ActionIcon size="sm" variant="subtle" color="blue" onClick={open}>
                 <Pencil />
             </ActionIcon>
-            <SuretyGuard onConfirmed={() => deleteMember(member.identifier)}>
+            <SuretyGuard onConfirmed={() => deleteMember(member.slug)}>
                 <Trash />
             </SuretyGuard>
         </Group>

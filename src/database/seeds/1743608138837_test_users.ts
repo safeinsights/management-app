@@ -12,14 +12,14 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     const member = await db
         .insertInto('member')
         .values({
-            identifier: memberId,
+            slug: memberId,
             name: 'OpenStax',
             email: 'contact@safeinsights.org',
             publicKey: 'BAD KEY, UPDATE ME',
         })
         .onConflict((oc) =>
-            oc.column('identifier').doUpdateSet((eb) => ({
-                identifier: eb.ref('excluded.identifier'),
+            oc.column('slug').doUpdateSet((eb) => ({
+                slug: eb.ref('excluded.slug'),
                 name: eb.ref('excluded.name'),
             })),
         )

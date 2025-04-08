@@ -49,8 +49,8 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
 
     //    await attachApprovedResultsToStudyJob(info, resultsFile)
 
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
@@ -67,8 +67,8 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
 export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
@@ -85,7 +85,7 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
-            'member.identifier as memberIdentifier',
+            'member.slug as memberSlug',
         ])
         .where('studyJob.id', '=', studyJobIdentifier)
         .executeTakeFirst()

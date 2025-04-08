@@ -23,9 +23,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 
     return await db
         .selectFrom('study')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', slug).onRef('study.memberId', '=', 'member.id'),
-        )
+        .innerJoin('member', (join) => join.on('member.slug', '=', slug).onRef('study.memberId', '=', 'member.id'))
         .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .leftJoin(
@@ -75,7 +73,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'study.title',
             'researcherUser.fullName as researcherName',
             'reviewerUser.fullName as reviewerName',
-            'member.identifier as memberIdentifier',
+            'member.slug as memberSlug',
             'latestJobStatus.status as latestJobStatus',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
@@ -189,7 +187,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
-                memberIdentifier: slug,
+                memberSlug: slug,
             })
         } else {
             status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
@@ -209,7 +207,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
+    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
@@ -242,5 +240,5 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
+    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())

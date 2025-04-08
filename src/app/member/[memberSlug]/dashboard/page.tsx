@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 import {
     Anchor,
     Divider,
@@ -22,13 +22,13 @@ import {
 import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
 import dayjs from 'dayjs'
 import Link from 'next/link'
-import { DisplayStudyStatus } from './display-study-status'
 import { UserName } from '@/components/user-name'
+import { DisplayStudyStatus } from '@/components/study/display-study-status'
 
-export default async function MemberDashboardPage(props: { params: Promise<{ memberIdentifier: string }> }) {
-    const { memberIdentifier } = await props.params
+export default async function MemberDashboardPage(props: { params: Promise<{ memberSlug: string }> }) {
+    const { memberSlug } = await props.params
 
-    const member = await getMemberFromIdentifierAction(memberIdentifier)
+    const member = await getMemberFromSlugAction(memberSlug)
 
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
@@ -56,7 +56,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/member/${member.identifier}/study/${study.id}/review`} c="blue.7">
+                <Anchor component={Link} href={`/member/${member.slug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>
