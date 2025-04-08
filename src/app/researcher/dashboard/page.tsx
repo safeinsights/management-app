@@ -28,6 +28,7 @@ import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
 import { UserName } from '@/components/user-name'
+import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +52,7 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
     const userId = await getUserIdFromActionContext()
     let org: { identifier: string } | null = null
+
     // FIXME: it should be possible to remove this once we ensure all users have an org
     try {
         org = await ensureUserIsMemberOfOrg()

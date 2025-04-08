@@ -145,6 +145,7 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
 
     const job = await queryJobResult(jobId)
 
+    // TODO This throws on basic render, should we just return null here instead of throwing?
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
