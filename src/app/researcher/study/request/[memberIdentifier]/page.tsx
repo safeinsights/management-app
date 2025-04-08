@@ -4,7 +4,7 @@ import React from 'react'
 import { Flex, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { StudyProposal } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal'
+import { StudyProposal } from './study-proposal'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 
 export default async function MemberHomePage(props: { params: Promise<{ memberIdentifier: string }> }) {

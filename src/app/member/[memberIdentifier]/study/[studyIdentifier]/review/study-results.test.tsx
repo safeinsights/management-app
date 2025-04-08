@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
-import { StudyResults } from '@/app/member/[memberIdentifier]/study/[studyIdentifier]/review/study-results'
+import { StudyResults } from './study-results'
 import { StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
