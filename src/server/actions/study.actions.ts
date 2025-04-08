@@ -241,6 +241,9 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
             .executeTakeFirstOrThrow()
     })
 
+    // Send proposal approved email
+    // await sendStudyProposalRejectedEmail()
+
     logger.info('Study Rejected', {
         reviewerId: userId,
         studyId: studyId,

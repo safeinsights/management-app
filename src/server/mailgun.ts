@@ -92,7 +92,7 @@ export const sendStudyProposalEmails = async (
     }
 }
 
-export const sendStudyProposalApprovedEmail = async (memberId: string, researcherFullName: string, studyId: string) => {
+export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
@@ -111,6 +111,39 @@ export const sendStudyProposalApprovedEmail = async (memberId: string, researche
                 to: email,
                 subject: 'SafeInsights - Study Proposal Approved',
                 template: 'research proposal approved',
+                'h:X-Mailgun-Variables': JSON.stringify({
+                    userFullName: researcher.fullName,
+                    studyName: studyDetails?.title,
+                    researcherFullName: studyDetails?.researcherName,
+                    submittedTo: member?.name,
+                    studyURL: `${BASE_URL}/member/${member?.identifier}/study/${studyId}/review`,
+                }),
+            })
+        } catch (error) {
+            logger.error.log('Study proposal email error: ', error)
+        }
+    }
+}
+
+export const sendStudyProposalRejectedEmail = async (memberId: string, studyId: string) => {
+    const [mg, domain] = await mailGunConfig()
+    if (!mg) return
+
+    const studyDetails = await getStudyAction(studyId)
+    const member = await getMemberFromIdentifierAction(memberId)
+
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+
+    for (const researcher of researchersToNotify) {
+        const email = researcher.email
+        if (!email) continue
+
+        try {
+            await mg.messages.create(domain, {
+                from: SI_EMAIL,
+                to: email,
+                subject: 'SafeInsights - Study Proposal Approved',
+                template: 'research proposal rejected',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
                     studyName: studyDetails?.title,
