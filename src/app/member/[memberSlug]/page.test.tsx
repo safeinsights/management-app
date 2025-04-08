@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 import { Member } from '@/schema/member'
 import ManageMemberPage from './page'
 
 // Mock the server action
 vi.mock('@/server/actions/member.actions', () => ({
-    getMemberFromIdentifierAction: vi.fn(),
+    getMemberFromSlugAction: vi.fn(),
 }))
 
 const mockMember: Member = {
     id: '1',
-    identifier: 'test-member',
+    slug: 'test-member',
     name: 'Test Member',
     email: 'test@example.com',
     publicKey: 'test-key',
@@ -21,10 +21,10 @@ const mockMember: Member = {
 
 describe('ManageMemberPage', () => {
     it('renders member details when member is found', async () => {
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
 
         const { container } = renderWithProviders(await ManageMemberPage(props))
@@ -38,10 +38,10 @@ describe('ManageMemberPage', () => {
     })
 
     it('renders not found alert when member does not exist', async () => {
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(undefined)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(undefined)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'non-existent' }),
+            params: Promise.resolve({ memberSlug: 'non-existent' }),
         }
 
         const { container } = renderWithProviders(await ManageMemberPage(props))
@@ -56,36 +56,36 @@ describe('ManageMemberPage', () => {
     })
 
     it('passes correct member data to EditMemberForm', async () => {
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier: 'test-member' }),
+            params: Promise.resolve({ memberSlug: 'test-member' }),
         }
 
         const { container } = renderWithProviders(await ManageMemberPage(props))
 
-        const identifier = container.querySelector('input[name="identifier"]') as HTMLInputElement
+        const slug = container.querySelector('input[name="slug"]') as HTMLInputElement
         const name = container.querySelector('input[name="name"]') as HTMLInputElement
         const email = container.querySelector('input[name="email"]') as HTMLInputElement
         const publicKey = container.querySelector('textarea[name="publicKey"]') as HTMLInputElement
 
-        expect(identifier.value).toBe(mockMember.identifier)
+        expect(slug.value).toBe(mockMember.slug)
         expect(name.value).toBe(mockMember.name)
         expect(email.value).toBe(mockMember.email)
         expect(publicKey.value).toBe(mockMember.publicKey)
     })
 
-    it('calls getMemberFromIdentifier with correct identifier', async () => {
-        const memberIdentifier = 'test-member'
-        vi.mocked(getMemberFromIdentifierAction).mockResolvedValue(mockMember)
+    it('calls getMemberFromSlug with correct slug', async () => {
+        const memberSlug = 'test-member'
+        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
 
         const props = {
-            params: Promise.resolve({ memberIdentifier }),
+            params: Promise.resolve({ memberSlug }),
         }
 
         await ManageMemberPage(props)
 
-        expect(getMemberFromIdentifierAction).toHaveBeenCalledWith(memberIdentifier)
-        expect(getMemberFromIdentifierAction).toHaveBeenCalledTimes(1)
+        expect(getMemberFromSlugAction).toHaveBeenCalledWith(memberSlug)
+        expect(getMemberFromSlugAction).toHaveBeenCalledTimes(1)
     })
 })

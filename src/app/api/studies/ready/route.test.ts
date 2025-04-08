@@ -12,7 +12,7 @@ test('missing JWT is rejected', async () => {
 
 test('jwt with invalid iss is rejected', async () => {
     const privateKey = await readTestSupportFile('invalid_private_key.pem')
-    const token = jwt.sign({ iss: 'unknown-member-identifier' }, privateKey, { algorithm: 'RS256' })
+    const token = jwt.sign({ iss: 'unknown-member-slug' }, privateKey, { algorithm: 'RS256' })
     const hdr = await headers()
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
@@ -23,7 +23,7 @@ test('jwt with invalid iss is rejected', async () => {
 test('jwt with expired token is rejected', async () => {
     const member = await insertTestMember()
     const privateKey = await readTestSupportFile('private_key.pem')
-    const token = jwt.sign({ iss: member.identifier }, privateKey, { algorithm: 'RS256', expiresIn: -30 })
+    const token = jwt.sign({ iss: member.slug }, privateKey, { algorithm: 'RS256', expiresIn: -30 })
     const hdr = await headers()
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()

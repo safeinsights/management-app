@@ -16,16 +16,12 @@ export const memberFromAuthToken = async (): Promise<Member | null> => {
     try {
         const values = jwt.decode(token, { json: true })
 
-        const memberIdentifier = values?.iss
-        if (!memberIdentifier) {
+        const memberSlug = values?.iss
+        if (!memberSlug) {
             return null
         }
 
-        const member = await db
-            .selectFrom('member')
-            .selectAll()
-            .where('identifier', '=', memberIdentifier)
-            .executeTakeFirst()
+        const member = await db.selectFrom('member').selectAll().where('slug', '=', memberSlug).executeTakeFirst()
         if (!member) {
             return null
         }

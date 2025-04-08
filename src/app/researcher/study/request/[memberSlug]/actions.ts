@@ -17,25 +17,17 @@ const onCreateStudyActionArgsSchema = z.object({
 export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
 
-    const member = await db
-        .selectFrom('member')
-        .select('identifier')
-        .where('id', '=', memberId)
-        .executeTakeFirstOrThrow()
+    const member = await db.selectFrom('member').select('slug').where('id', '=', memberId).executeTakeFirstOrThrow()
 
     const studyId = uuidv7()
 
     if (studyInfo.irbDocument) {
-        await storeStudyDocumentFile(
-            { studyId, memberIdentifier: member.identifier },
-            StudyDocumentType.IRB,
-            studyInfo.irbDocument,
-        )
+        await storeStudyDocumentFile({ studyId, memberSlug: member.slug }, StudyDocumentType.IRB, studyInfo.irbDocument)
     }
 
     if (studyInfo.descriptionDocument) {
         await storeStudyDocumentFile(
-            { studyId, memberIdentifier: member.identifier },
+            { studyId, memberSlug: member.slug },
             StudyDocumentType.DESCRIPTION,
             studyInfo.descriptionDocument,
         )
@@ -43,13 +35,13 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     if (studyInfo.agreementDocument) {
         await storeStudyDocumentFile(
-            { studyId, memberIdentifier: member.identifier },
+            { studyId, memberSlug: member.slug },
             StudyDocumentType.AGREEMENT,
             studyInfo.agreementDocument,
         )
     }
 
-    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberIdentifier: member.identifier })
+    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberSlug: member.slug })
     await db
         .insertInto('study')
         .values({
@@ -90,7 +82,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         manifest.files.push(codeFile)
         await storeStudyCodeFile(
             {
-                memberIdentifier: member.identifier,
+                memberSlug: member.slug,
                 studyId,
                 studyJobId: studyJob.id,
             },
@@ -102,7 +94,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
 
     await storeStudyCodeFile(
         {
-            memberIdentifier: member.identifier,
+            memberSlug: member.slug,
             studyId,
             studyJobId: studyJob.id,
         },

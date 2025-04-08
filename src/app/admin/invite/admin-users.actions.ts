@@ -31,11 +31,11 @@ export const adminInviteUserAction = adminAction(async (invite) => {
     if (invite.isReviewer) {
         const org = await db
             .selectFrom('member')
-            .select(['identifier', 'name'])
+            .select(['member.slug', 'name'])
             .where('id', '=', invite.organizationId)
             .executeTakeFirstOrThrow()
 
-        const clerkOrg = await findOrCreateClerkOrganization({ slug: org.identifier, name: org.name })
+        const clerkOrg = await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
 
         await client.organizations.createOrganizationMembership({
             organizationId: clerkOrg.id,
