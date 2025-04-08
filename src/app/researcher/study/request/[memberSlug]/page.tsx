@@ -13,8 +13,7 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
 
     if (!member) {
         return (
-            <AlertNotFound title="Member not found" message={`Member with identifier ${params.memberSlug} not found`} />
-        )
+            <AlertNotFound title="Member not found" message={`Member with slug ${params.memberSlug} not found`} />
     }
 
     return (
