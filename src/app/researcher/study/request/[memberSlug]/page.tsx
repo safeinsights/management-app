@@ -12,8 +12,7 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
     const member = await getMemberFromSlugAction(params.memberSlug)
 
     if (!member) {
-        return (
-            <AlertNotFound title="Member not found" message={`Member with slug ${params.memberSlug} not found`} />
+        return <AlertNotFound title="Member not found" message={`Member with slug ${params.memberSlug} not found`} />
     }
 
     return (
