@@ -12,7 +12,7 @@ const nextConfig: NextConfig = async (phase: string) => {
         transpilePackages: ['si-encryption'],
         experimental: {
             serverActions: {
-                bodySizeLimit: '10mb',
+                bodySizeLimit: '6mb',
             },
         },
     }

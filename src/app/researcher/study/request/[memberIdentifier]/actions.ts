@@ -84,30 +84,31 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         })
         .executeTakeFirstOrThrow()
 
-    const manifest = new CodeReviewManifest(studyJob.id, 'r')
-
-    for (const codeFile of studyInfo.codeFiles) {
-        manifest.files.push(codeFile)
-        await storeStudyCodeFile(
-            {
-                memberIdentifier: member.identifier,
-                studyId,
-                studyJobId: studyJob.id,
-            },
-            codeFile,
-        )
-    }
-
-    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-
-    await storeStudyCodeFile(
-        {
-            memberIdentifier: member.identifier,
-            studyId,
-            studyJobId: studyJob.id,
-        },
-        manifestFile,
-    )
+    // TODO Store in submit handler now
+    // const manifest = new CodeReviewManifest(studyJob.id, 'r')
+    //
+    // for (const codeFile of studyInfo.codeFiles) {
+    //     manifest.files.push(codeFile)
+    //     await storeStudyCodeFile(
+    //         {
+    //             memberIdentifier: member.identifier,
+    //             studyId,
+    //             studyJobId: studyJob.id,
+    //         },
+    //         codeFile,
+    //     )
+    // }
+    //
+    // const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+    //
+    // await storeStudyCodeFile(
+    //     {
+    //         memberIdentifier: member.identifier,
+    //         studyId,
+    //         studyJobId: studyJob.id,
+    //     },
+    //     manifestFile,
+    // )
 
     await db
         .insertInto('jobStatusChange')

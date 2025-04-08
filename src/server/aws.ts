@@ -1,5 +1,5 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -120,6 +120,26 @@ export async function fetchS3File(Key: string) {
     const result = await getS3Client().send(new GetObjectCommand({ Bucket: s3BucketName(), Key }))
     if (!result.Body) throw new Error(`no file received from s3 for path ${Key}`)
     return result.Body as Readable
+}
+
+export async function deleteS3File(Key: string) {
+    await getS3Client().send(
+        new DeleteObjectCommand({
+            Bucket: s3BucketName(),
+            Key,
+        }),
+    )
+}
+
+export const generateSignedUrlForUpload = async (key: string) => {
+    return await getSignedUrl(
+        getS3Client(),
+        new PutObjectCommand({
+            Bucket: s3BucketName(),
+            Key: key,
+        }),
+        { expiresIn: 3600 },
+    )
 }
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
