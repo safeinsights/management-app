@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
 import { Member } from '@/schema/member'
-import ManageMemberPage from '@/app/member/[memberIdentifier]/page'
+import ManageMemberPage from './page'
 
 // Mock the server action
 vi.mock('@/server/actions/member.actions', () => ({

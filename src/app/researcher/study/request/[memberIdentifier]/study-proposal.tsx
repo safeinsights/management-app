@@ -5,15 +5,11 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import {
-    StudyProposalFormValues,
-    studyProposalSchema,
-    zodResolver,
-} from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-schema'
-import { StudyProposalForm } from '@/app/researcher/study/request/[memberIdentifier]/study-proposal-form'
-import { UploadStudyJobCode } from '@/app/researcher/study/request/[memberIdentifier]/upload-study-job-code'
+import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-proposal-schema'
+import { StudyProposalForm } from './study-proposal-form'
+import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
-import { onCreateStudyAction } from '@/app/researcher/study/request/[memberIdentifier]/actions'
+import { onCreateStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 
 export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {

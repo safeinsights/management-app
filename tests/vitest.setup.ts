@@ -1,8 +1,9 @@
 import 'dotenv/config' // read .env file before other imports, to match Next.js default
-import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
+import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
+import { ClerkProvider, useClerk } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
 
 const Headers = new Map()
@@ -49,6 +50,13 @@ beforeEach(async () => {
     testTransaction.start()
     tmpDir = await createTempDir()
     process.env.UPLOAD_TMP_DIRECTORY = tmpDir
+    ;(useClerk as Mock).mockImplementation(() => ({
+        signOut: vi.fn(),
+        openUserProfile: vi.fn(),
+    }))
+    ;(ClerkProvider as Mock).mockImplementation(({ children }: { children: React.ReactNode }) => {
+        return children
+    })
 })
 
 afterEach(async () => {

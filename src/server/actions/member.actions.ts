@@ -3,7 +3,8 @@
 import { db } from '@/database'
 import { memberSchema } from '@/schema/member'
 import { findOrCreateClerkOrganization } from '../clerk'
-import { adminAction, userAction, z } from './wrappers'
+import { adminAction, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
+import { getMemberUserPublicKeyByUserId } from '../db/queries'
 
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
@@ -44,3 +45,7 @@ export const deleteMemberAction = adminAction(async (identifier) => {
 export const getMemberFromIdentifierAction = userAction(async (identifier) => {
     return await db.selectFrom('member').selectAll().where('identifier', '=', identifier).executeTakeFirst()
 }, z.string())
+
+export const getReviewerPublicKeyAction = memberAction(async () => {
+    return getMemberUserPublicKeyByUserId(await getUserIdFromActionContext())
+})

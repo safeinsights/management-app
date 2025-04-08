@@ -11,6 +11,7 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
+import { useClerk, useAuth, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { Mock, vi } from 'vitest'
 
@@ -232,11 +233,12 @@ export const mockClerkSession = (values: MockSession) => {
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
-
-    user.mockResolvedValue({
+    const userProperties = {
         id: values.clerkUserId,
         banned: false,
-    })
+        twoFactorEnabled: true,
+    }
+    user.mockResolvedValue(userProperties)
     const clientMocks = {
         organizations: {
             getOrganization: vi.fn(async (orgSlug: string) => ({
@@ -249,23 +251,34 @@ export const mockClerkSession = (values: MockSession) => {
             createUser: vi.fn(async () => ({ id: '1234' })),
         },
     }
+    const useUserReturn = {
+        isSignedIn: true,
+        isLoaded: true,
+        user: userProperties,
+    }
+    ;(useUser as Mock).mockReturnValue(useUserReturn)
     client.mockResolvedValue(clientMocks)
-
+    ;(useClerk as Mock).mockReturnValue({
+        isLoaded: true,
+    })
+    ;(useAuth as Mock).mockReturnValue({
+        isLoaded: true,
+    })
     auth.mockImplementation(() => ({
         sessionClaims: { org_slug: values.org_slug },
         userId: values.clerkUserId,
     }))
 
-    return { client: clientMocks, user, auth }
+    return { client: clientMocks, auth, useUserReturn }
 }
 
 export async function mockSessionWithTestData(memberIdentifier = faker.string.alpha(10)) {
     const member = await insertTestMember({ identifier: memberIdentifier })
     const user = await insertTestUser({ memberId: member.id })
 
-    mockClerkSession({
+    const mocks = mockClerkSession({
         clerkUserId: user.clerkId,
         org_slug: member.identifier,
     })
-    return { member, user }
+    return { member, user, ...mocks }
 }
