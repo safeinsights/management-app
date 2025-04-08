@@ -10,6 +10,9 @@ export const RequireUser = () => {
     const router = useRouter()
 
     useLayoutEffect(() => {
+        if (pathname.startsWith('/account')) {
+            return
+        }
         if (isSignedIn === false) {
             router.push('/account/signin')
         }

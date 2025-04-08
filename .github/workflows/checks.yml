@@ -111,5 +111,8 @@ jobs:
               run: npm ci
             - name: Test build
               run: |
+                  unset DATABASE_URL
+                  unset NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+                  unset CLERK_SECRET_KEY
                   echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
                   npm run build

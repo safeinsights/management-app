@@ -1,18 +1,21 @@
 import { it, expect, type Mock } from 'vitest'
-import { useUser as origUseUser } from '@clerk/nextjs'
+import { useUser, useAuth } from '@clerk/nextjs'
 import ResearcherLayout from './layout'
 import { render, screen } from '@testing-library/react'
 import { TestingProviders } from '@/tests/providers'
+import router from 'next-router-mock'
 
-const useUser = origUseUser as unknown as Mock
+it('redirects if user is not found', async () => {
+    ;(useAuth as Mock).mockImplementation(() => ({ isLoaded: true, userId: null }))
+    ;(useUser as Mock).mockImplementation(() => ({ user: null, isSignedIn: false }))
 
-it('renders null if user is null', async () => {
-    useUser.mockResolvedValue({ user: null })
     render(
         <ResearcherLayout>
             <div>Test</div>
         </ResearcherLayout>,
         { wrapper: TestingProviders },
     )
-    expect(screen.queryByText('Test')).toBeNull()
+
+    expect(screen.queryByText('Test')).not.toBeNull()
+    expect(router.asPath).toEqual('/account/signin')
 })

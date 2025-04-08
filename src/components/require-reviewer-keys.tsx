@@ -9,9 +9,10 @@ export const RequireReviewerKeys = () => {
     const router = useRouter()
 
     useLayoutEffect(() => {
-        if (!pathname.startsWith('/account/keys')) {
+        if (pathname.startsWith('/account')) {
             return
         }
+
         getReviewerPublicKeyAction().then((key) => {
             if (!key) {
                 router.push('/account/keys')
