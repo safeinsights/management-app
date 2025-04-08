@@ -11,7 +11,7 @@ import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 
 vi.mock('@/server/actions/member.actions', () => ({
-    getMemberFromIdentifierAction: vi.fn(),
+    getMemberFromSlugAction: vi.fn(),
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
