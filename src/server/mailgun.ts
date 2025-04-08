@@ -4,7 +4,7 @@ import { getConfigValue, PROD_ENV } from './config'
 import { getUsersByRoleAndMemberId } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberFromIdAction } from '@/server/actions/member.actions'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 const BASE_URL = `https://${process.env.DOMAIN_NAME}`
@@ -52,7 +52,7 @@ export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
             }),
         })
     } catch (error) {
-        logger.error.log('Welcome email error: ', error)
+        logger.error.log('sendWelcomeEmail error: ', error)
     }
 }
 
@@ -66,7 +66,7 @@ export const sendStudyProposalEmails = async (
     if (!mg) return
 
     const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
-    const member = await getMemberFromIdentifierAction(memberId)
+    const member = await getMemberFromIdAction(memberId)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -83,11 +83,11 @@ export const sendStudyProposalEmails = async (
                     studyName,
                     researcherFullName,
                     submittedOn: dayjs().format('MM/DD/YYYY'),
-                    studyURL: `${BASE_URL}/member/${member?.identifier}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
-            logger.error.log('Study proposal email error: ', error)
+            logger.error.log('sendStudyProposalEmails error: ', error)
         }
     }
 }
@@ -97,7 +97,7 @@ export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: 
     if (!mg) return
 
     const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdentifierAction(memberId)
+    const member = await getMemberFromIdAction(memberId)
 
     const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
 
@@ -116,11 +116,11 @@ export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: 
                     studyName: studyDetails?.title,
                     researcherFullName: studyDetails?.researcherName,
                     submittedTo: member?.name,
-                    studyURL: `${BASE_URL}/member/${member?.identifier}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
-            logger.error.log('Study proposal email error: ', error)
+            logger.error.log('sendStudyProposalApprovedEmail error: ', error)
         }
     }
 }
@@ -130,7 +130,7 @@ export const sendStudyProposalRejectedEmail = async (memberId: string, studyId: 
     if (!mg) return
 
     const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdentifierAction(memberId)
+    const member = await getMemberFromIdAction(memberId)
 
     const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
 
@@ -142,18 +142,120 @@ export const sendStudyProposalRejectedEmail = async (memberId: string, studyId: 
             await mg.messages.create(domain, {
                 from: SI_EMAIL,
                 to: email,
-                subject: 'SafeInsights - Study Proposal Approved',
+                subject: 'SafeInsights - Study Proposal Rejected',
                 template: 'research proposal rejected',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
                     studyName: studyDetails?.title,
                     researcherFullName: studyDetails?.researcherName,
                     submittedTo: member?.name,
-                    studyURL: `${BASE_URL}/member/${member?.identifier}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
-            logger.error.log('Study proposal email error: ', error)
+            logger.error.log('sendStudyProposalRejectedEmail error: ', error)
+        }
+    }
+}
+
+export const sendResultsReadyForReviewEmail = async (
+    memberId: string,
+    studyName: string,
+    researcherFullName: string,
+    studyId: string,
+) => {
+    const [mg, domain] = await mailGunConfig()
+    if (!mg) return
+
+    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
+    const member = await getMemberFromIdAction(memberId)
+
+    for (const reviewer of reviewersToNotify) {
+        const email = reviewer.email
+        if (!email) continue
+
+        try {
+            await mg.messages.create(domain, {
+                from: SI_EMAIL,
+                to: email,
+                subject: 'SafeInsights - New study proposal',
+                template: 'encrypted results ready for review',
+                'h:X-Mailgun-Variables': JSON.stringify({
+                    userFullName: reviewer.fullName,
+                    studyName,
+                    researcherFullName,
+                    submittedOn: dayjs().format('MM/DD/YYYY'),
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
+                }),
+            })
+        } catch (error) {
+            logger.error.log('sendResultsReadyForReviewEmail error: ', error)
+        }
+    }
+}
+
+export const sendStudyResultsApprovedEmail = async (memberId: string, studyId: string) => {
+    const [mg, domain] = await mailGunConfig()
+    if (!mg) return
+
+    const studyDetails = await getStudyAction(studyId)
+    const member = await getMemberFromIdAction(memberId)
+
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+
+    for (const researcher of researchersToNotify) {
+        const email = researcher.email
+        if (!email) continue
+
+        try {
+            await mg.messages.create(domain, {
+                from: SI_EMAIL,
+                to: email,
+                subject: 'SafeInsights - Study Results',
+                template: 'study results approved',
+                'h:X-Mailgun-Variables': JSON.stringify({
+                    userFullName: researcher.fullName,
+                    studyName: studyDetails?.title,
+                    researcherFullName: studyDetails?.researcherName,
+                    submittedTo: member?.name,
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
+                }),
+            })
+        } catch (error) {
+            logger.error.log('sendStudyResultsApprovedEmail error: ', error)
+        }
+    }
+}
+
+export const sendStudyResultsRejectedEmail = async (memberId: string, studyId: string) => {
+    const [mg, domain] = await mailGunConfig()
+    if (!mg) return
+
+    const studyDetails = await getStudyAction(studyId)
+    const member = await getMemberFromIdAction(memberId)
+
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+
+    for (const researcher of researchersToNotify) {
+        const email = researcher.email
+        if (!email) continue
+
+        try {
+            await mg.messages.create(domain, {
+                from: SI_EMAIL,
+                to: email,
+                subject: 'SafeInsights - Study Results',
+                template: 'study results rejected',
+                'h:X-Mailgun-Variables': JSON.stringify({
+                    userFullName: researcher.fullName,
+                    studyName: studyDetails?.title,
+                    researcherFullName: studyDetails?.researcherName,
+                    submittedTo: member?.name,
+                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
+                }),
+            })
+        } catch (error) {
+            logger.error.log('sendStudyResultsRejectedEmail error: ', error)
         }
     }
 }

@@ -42,6 +42,10 @@ export const deleteMemberAction = adminAction(async (slug) => {
     await db.deleteFrom('member').where('slug', '=', slug).execute()
 }, z.string())
 
+export const getMemberFromIdAction = userAction(async (id) => {
+    return await db.selectFrom('member').selectAll().where('id', '=', id).executeTakeFirst()
+}, z.string())
+
 export const getMemberFromSlugAction = userAction(async (slug) => {
     return await db.selectFrom('member').selectAll().where('slug', '=', slug).executeTakeFirst()
 }, z.string())
