@@ -44,20 +44,20 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
     })
     if (!jobInfo) return null
 
-    if (job.approvedAt) {
+    if (jobInfo.jobStatus === 'RESULTS-APPROVED') {
         return (
             <Group c="#12B886" gap="0">
                 <CheckCircle weight="fill" />
-                <Text>Approved on {dayjs(job.approvedAt).format('MMM DD, YYYY')}</Text>
+                <Text>Approved on {dayjs(jobInfo.jobStatusCreatedAt).format('MMM DD, YYYY')}</Text>
             </Group>
         )
     }
 
-    if (job.rejectedAt) {
+    if (jobInfo.jobStatus === 'RESULTS-REJECTED') {
         return (
             <Group c="#FA5252" gap="0">
                 <XCircle weight="fill" />
-                <Text>Rejected on {dayjs(job.rejectedAt).format('MMM DD, YYYY')}</Text>
+                <Text>Rejected on {dayjs(jobInfo.jobStatusCreatedAt).format('MMM DD, YYYY')}</Text>
             </Group>
         )
     }

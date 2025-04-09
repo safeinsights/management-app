@@ -36,11 +36,7 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
 
     const user = await siUser(false)
 
-    await db
-        .updateTable('studyJob')
-        .set({ resultsPath: resultsFile.name, rejectedAt: null, approvedAt: new Date() })
-        .where('id', '=', info.studyJobId)
-        .execute()
+    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).execute()
 
     await db
         .insertInto('jobStatusChange')
@@ -59,12 +55,6 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
     await db
-        .updateTable('studyJob')
-        .set({ approvedAt: null, rejectedAt: new Date() })
-        .where('id', '=', info.studyJobId)
-        .execute()
-
-    await db
         .insertInto('jobStatusChange')
         .values({
             userId: (await siUser()).id,
@@ -81,6 +71,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
 export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
     const userId = await getUserIdFromActionContext()
+
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -88,14 +79,22 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
         .innerJoin('memberUser', (join) =>
             join.on('memberUser.userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
         )
+        .leftJoin('jobStatusChange', (join) =>
+            join
+                .on('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .on('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED']),
+        )
         .select([
             'studyJob.id as studyJobId',
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
             'member.slug as memberSlug',
+            'jobStatusChange.status as jobStatus',
+            'jobStatusChange.createdAt as jobStatusCreatedAt',
         ])
         .where('studyJob.id', '=', studyJobIdentifier)
+        .orderBy('jobStatusChange.createdAt', 'desc')
         .executeTakeFirst()
 
     let manifest: CodeManifest = {
