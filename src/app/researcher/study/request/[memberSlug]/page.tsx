@@ -23,7 +23,7 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
                     <Title mb="lg" mt="lg">
                         Propose A Study
                     </Title>
-                    <StudyProposal memberId={member.id} />
+                    <StudyProposal memberSlug={params.memberSlug} />
                 </Stack>
             </Flex>
         </>

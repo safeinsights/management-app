@@ -37,11 +37,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             const { studyId, studyJobId } = await onCreateStudyAction({ memberSlug, studyInfo: formValues })
             if (formValues.irbDocument?.name) {
                 const url = await getSignedURL(
-                    pathForStudyDocuments(
-                        { studyId, memberSlug: memberSlug },
-                        StudyDocumentType.IRB,
-                        formValues.irbDocument.name,
-                    ),
+                    pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB, formValues.irbDocument.name),
                 )
 
                 const fileUpload = await fetch(url, {
