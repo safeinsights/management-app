@@ -23,14 +23,11 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
 
     return await db
         .selectFrom('study')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', slug).onRef('study.memberId', '=', 'member.id'),
-        )
+        .innerJoin('member', (join) => join.on('member.slug', '=', slug).onRef('study.memberId', '=', 'member.id'))
         .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .leftJoin(
             // Subquery to get the most recent study job for each study
-
             (eb) =>
                 eb
                     .selectFrom('studyJob')
@@ -43,7 +40,6 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         )
         .leftJoin(
             // Subquery to get the latest status change for the most recent study job
-
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
@@ -75,7 +71,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'study.title',
             'researcherUser.fullName as researcherName',
             'reviewerUser.fullName as reviewerName',
-            'member.identifier as memberIdentifier',
+            'member.slug as memberSlug',
             'latestJobStatus.status as latestJobStatus',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
@@ -83,13 +79,17 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
+export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
+    const userId = await getUserIdFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
+        .innerJoin('user', (join) => join.on('user.isResearcher', '=', true).onRef('memberUser.userId', '=', 'user.id'))
+
         .where('memberUser.userId', '=', userId)
-        .where('memberUser.isReviewer', '=', true)
+
         .leftJoin(
             // Subquery to get the most recent study job for each study
             (eb) =>
@@ -137,8 +137,12 @@ export const getStudyAction = userAction(async (studyId) => {
 
     return await db
         .selectFrom('study')
-        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+
+        .innerJoin('memberUser', (join) =>
+            join.on('userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
+        )
+        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+
         .where('memberUser.userId', '=', userId)
         .select([
             'study.id',
@@ -159,7 +163,7 @@ export const getStudyAction = userAction(async (studyId) => {
             'study.reviewerId',
             'study.agreementDocPath',
         ])
-        .select('user.fullName as researcherName')
+        .select('researcher.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }, z.string())
@@ -189,7 +193,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
-                memberIdentifier: slug,
+                memberSlug: slug,
             })
         } else {
             status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
@@ -209,7 +213,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
+    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
@@ -242,5 +246,5 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberIdentifier]/study/${studyId}`, 'page')
+    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())

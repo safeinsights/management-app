@@ -3,7 +3,6 @@
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
-import { ClerkProvider } from '@clerk/nextjs'
 
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
@@ -51,9 +50,7 @@ export const Providers: FC<Props> = ({ children }) => {
     return (
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme}>
-                <ClerkProvider>
-                    <ModalsProvider>{children}</ModalsProvider>
-                </ClerkProvider>
+                <ModalsProvider>{children}</ModalsProvider>
             </MantineProvider>
         </QueryClientProvider>
     )

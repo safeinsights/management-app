@@ -8,6 +8,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
     const { studyId } = await props.params
     await checkUserAllowedStudyView(studyId)

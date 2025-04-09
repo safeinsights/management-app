@@ -1,25 +1,16 @@
-'use server'
-
 import React, { ReactNode } from 'react'
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
-import { getMemberUserPublicKeyByClerkId } from '@/server/db/queries'
+import { UserLayout } from '@/components/layout/user-layout'
+import { RequireReviewerKeys } from '@/components/require-reviewer-keys'
 
-export default async function MemberLayout({
+export default function MemberLayout({
     children,
 }: Readonly<{
     children: ReactNode
 }>) {
-    const { userId: clerkUserId } = await auth()
-
-    if (!clerkUserId) {
-        redirect('/')
-    }
-
-    const publicKey = await getMemberUserPublicKeyByClerkId(clerkUserId)
-    if (!publicKey) {
-        redirect('/account/keys')
-    }
-
-    return <>{children}</>
+    return (
+        <UserLayout>
+            <RequireReviewerKeys />
+            {children}
+        </UserLayout>
+    )
 }

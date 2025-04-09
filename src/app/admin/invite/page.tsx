@@ -4,6 +4,8 @@ import { InviteForm } from './invite-form'
 import { QueryClient, HydrationBoundary, dehydrate } from '@tanstack/react-query'
 import { fetchMembersAction } from '@/server/actions/member.actions'
 
+export const dynamic = 'force-dynamic'
+
 export default async function InvitePage() {
     const queryClient = new QueryClient()
     await queryClient.prefetchQuery({

@@ -3,12 +3,7 @@ import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { db } from '@/database'
 import { mockClerkSession } from '@/tests/unit.helpers'
 import { Member } from '@/schema/member'
-import {
-    deleteMemberAction,
-    fetchMembersAction,
-    getMemberFromIdentifierAction,
-    upsertMemberAction,
-} from './member.actions'
+import { deleteMemberAction, fetchMembersAction, getMemberFromSlugAction, upsertMemberAction } from './member.actions'
 
 describe('Member Actions', () => {
     beforeEach(() => {
@@ -18,7 +13,7 @@ describe('Member Actions', () => {
         })
     })
     const newMember = {
-        identifier: 'new-org',
+        slug: 'new-org',
         name: 'A Testing Org',
         email: 'new-org@example.com',
         publicKey: 'no-such-key',
@@ -33,7 +28,7 @@ describe('Member Actions', () => {
             const member = await db
                 .selectFrom('member')
                 .selectAll()
-                .where('identifier', '=', newMember.identifier)
+                .where('slug', '=', newMember.slug)
                 .executeTakeFirst()
             expect(member).toMatchObject(newMember)
         })
@@ -51,26 +46,26 @@ describe('Member Actions', () => {
     describe('fetchMembersAction', () => {
         it('returns members', async () => {
             const result = await fetchMembersAction()
-            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ identifier: 'new-org' })]))
+            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
         })
     })
 
     describe('deleteMemberAction', () => {
-        it('deletes member by identifier', async () => {
-            await deleteMemberAction(newMember.identifier)
+        it('deletes member by slug', async () => {
+            await deleteMemberAction(newMember.slug)
             const result = await fetchMembersAction()
-            expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ identifier: 'new-org' })]))
+            expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
         })
     })
 
-    describe('getMemberFromIdentifier', () => {
+    describe('getMemberFromSlug', () => {
         it('returns member when found', async () => {
-            const result = await getMemberFromIdentifierAction(newMember.identifier)
+            const result = await getMemberFromSlugAction(newMember.slug)
             expect(result).toMatchObject(newMember)
         })
 
         it('returns undefined when member not found', async () => {
-            const result = await getMemberFromIdentifierAction('non-existent')
+            const result = await getMemberFromSlugAction('non-existent')
             expect(result).toBeUndefined()
         })
     })

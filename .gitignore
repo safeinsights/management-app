@@ -19,3 +19,6 @@ tests/coverage/
 playwright-report/
 src/styles/generated
 ./tests/fixtures/temp/large-file
+
+# clerk configuration (can include secrets)
+/.clerk/

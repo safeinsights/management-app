@@ -47,10 +47,8 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
         })
         .execute()
 
-    //    await attachApprovedResultsToStudyJob(info, resultsFile)
-
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
@@ -67,12 +65,13 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberIdentifier]/study/${info.studyId}/review`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
 export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
     const userId = await getUserIdFromActionContext()
+
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -80,12 +79,19 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
         .innerJoin('memberUser', (join) =>
             join.on('memberUser.userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
         )
+        .leftJoin('jobStatusChange', (join) =>
+            join
+                .on('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .on('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED']),
+        )
         .select([
             'studyJob.id as studyJobId',
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
-            'member.identifier as memberIdentifier',
+            'member.slug as memberSlug',
+            'jobStatusChange.status as jobStatus',
+            'jobStatusChange.createdAt as jobStatusCreatedAt',
         ])
         .where('studyJob.id', '=', studyJobIdentifier)
         .executeTakeFirst()

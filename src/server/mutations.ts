@@ -34,30 +34,28 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
 
 export async function findOrCreateOrgMembership({
     userId,
-    identifier,
+    slug,
     isReviewer = true,
 }: {
     userId: string
-    identifier: string
+    slug: string
     isReviewer?: boolean
 }) {
     let org = await db
         .selectFrom('memberUser')
-        .innerJoin('member', (join) =>
-            join.on('member.identifier', '=', identifier).onRef('member.id', '=', 'memberUser.memberId'),
-        )
-        .select(['member.id', 'member.identifier', 'member.name'])
+        .innerJoin('member', (join) => join.on('member.slug', '=', slug).onRef('member.id', '=', 'memberUser.memberId'))
+        .select(['member.id', 'member.slug', 'member.name'])
         .where('memberUser.userId', '=', userId)
         .executeTakeFirst()
 
     if (!org) {
         org = await db
             .selectFrom('member')
-            .select(['member.id', 'member.identifier', 'member.name'])
-            .where('identifier', '=', identifier)
+            .select(['member.id', 'member.slug', 'member.name'])
+            .where('member.slug', '=', slug)
             .executeTakeFirst()
         if (!org) {
-            throw new Error(`No organization found with identifier ${identifier}`)
+            throw new Error(`No organization found with slug ${slug}`)
         }
         await db
             .insertInto('memberUser')
@@ -74,13 +72,13 @@ export async function findOrCreateOrgMembership({
 
 export async function ensureUserIsMemberOfOrg() {
     const userId = await getUserIdFromActionContext()
-    const identifier = await getOrgSlugFromActionContext(false)
-    if (!identifier) {
+    const slug = await getOrgSlugFromActionContext(false)
+    if (!slug) {
         const org = await getFirstOrganizationForUser(userId)
         if (!org) {
             throw new Error(`No organization found for user`)
         }
         return org
     }
-    return await findOrCreateOrgMembership({ userId, identifier })
+    return await findOrCreateOrgMembership({ userId, slug })
 }

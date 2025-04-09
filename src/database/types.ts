@@ -30,9 +30,9 @@ export interface Member {
   createdAt: Generated<Timestamp>;
   email: string;
   id: Generated<string>;
-  identifier: string;
   name: string;
   publicKey: string;
+  slug: string;
   updatedAt: Generated<Timestamp>;
 }
 
@@ -66,10 +66,8 @@ export interface Study {
 }
 
 export interface StudyJob {
-  approvedAt: Timestamp | null;
   createdAt: Generated<Timestamp>;
   id: Generated<string>;
-  rejectedAt: Timestamp | null;
   resultFormat: ResultFormat | null;
   resultsPath: string | null;
   studyId: string;
