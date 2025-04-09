@@ -5,16 +5,17 @@ import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 
 const onCreateStudyActionArgsSchema = z.object({
-    memberId: z.string(),
+    memberSlug: z.string(),
     studyInfo: studyProposalSchema,
 })
 
-export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
+export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
 
-    const member = await db.selectFrom('member').select('slug').where('id', '=', memberId).executeTakeFirstOrThrow()
+    const member = await getMemberFromSlugAction(memberSlug)
 
     const studyId = uuidv7()
 
@@ -54,7 +55,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             irbDocPath: studyInfo.irbDocument?.name,
             agreementDocPath: studyInfo.agreementDocument?.name,
             // TODO: add study lead
-            memberId,
+            memberId: member.id,
             researcherId: userId,
             containerLocation,
             status: 'PENDING-REVIEW',

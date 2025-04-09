@@ -5,7 +5,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import { StudyProposalFormValues, studyProposalSchema, zodResolver } from './study-proposal-schema'
+import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
@@ -14,8 +14,9 @@ import { useRouter } from 'next/navigation'
 import { pathForStudyDocuments } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { getSignedURL } from '@/server/actions/s3.actions'
+import { zodResolver } from 'mantine-form-zod-resolver'
 
-export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
+export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
     const router = useRouter()
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
@@ -33,11 +34,11 @@ export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
 
     const { mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            const { studyId, studyJobId } = await onCreateStudyAction({ memberId, studyInfo: formValues })
+            const { studyId, studyJobId } = await onCreateStudyAction({ memberSlug, studyInfo: formValues })
             if (formValues.irbDocument?.name) {
                 const url = await getSignedURL(
                     pathForStudyDocuments(
-                        { studyId, memberIdentifier: memberId },
+                        { studyId, memberSlug: memberSlug },
                         StudyDocumentType.IRB,
                         formValues.irbDocument.name,
                     ),

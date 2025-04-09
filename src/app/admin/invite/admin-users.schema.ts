@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-export { zodResolver } from 'mantine-form-zod-resolver'
-
 export const inviteUserSchema = z
     .object({
         firstName: z.string().nonempty('is required'),
