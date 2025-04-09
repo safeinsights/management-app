@@ -36,7 +36,11 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
 
     const user = await siUser(false)
 
-    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).execute()
+    await db
+        .updateTable('studyJob')
+        .set({ resultsPath: resultsFile.name, rejectedAt: null, approvedAt: new Date() })
+        .where('id', '=', info.studyJobId)
+        .execute()
 
     await db
         .insertInto('jobStatusChange')
@@ -47,14 +51,18 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
         })
         .execute()
 
-    //    await attachApprovedResultsToStudyJob(info, resultsFile)
-
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
     await checkMemberAllowedStudyReview(info.studyId)
+
+    await db
+        .updateTable('studyJob')
+        .set({ approvedAt: null, rejectedAt: new Date() })
+        .where('id', '=', info.studyJobId)
+        .execute()
 
     await db
         .insertInto('jobStatusChange')
