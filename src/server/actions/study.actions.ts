@@ -204,7 +204,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
     })
 
     // Send proposal approved email
-    // await sendStudyProposalApprovedEmail()
+    await sendStudyProposalApprovedEmail(studyId)
 
     logger.info('Study Approved', {
         reviewerId: userId,
@@ -240,7 +240,7 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
     })
 
     // Send proposal approved email
-    // await sendStudyProposalRejectedEmail()
+    await sendStudyProposalRejectedEmail(studyId)
 
     logger.info('Study Rejected', {
         reviewerId: userId,

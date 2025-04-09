@@ -34,6 +34,16 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     return [_mg, domain]
 }
 
+const getStudyAndMember = async (studyId: string) => {
+    const study = await getStudyAction(studyId)
+    // TODO DISCUSS in general, do we want to throw? or return undefined if no study found inside getStudyAction?
+    if (!study) throw new Error('Study not found')
+    const member = await getMemberFromIdAction(study.memberId)
+    if (!member) throw new Error('Member not found')
+
+    return { study, member }
+}
+
 export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
@@ -56,17 +66,12 @@ export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
     }
 }
 
-export const sendStudyProposalEmails = async (
-    memberId: string,
-    studyName: string,
-    researcherFullName: string,
-    studyId: string,
-) => {
+export const sendStudyProposalEmails = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
     const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -80,8 +85,8 @@ export const sendStudyProposalEmails = async (
                 template: 'new research proposal',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: reviewer.fullName,
-                    studyName,
-                    researcherFullName,
+                    studyName: study.title,
+                    researcherFullName: study.researcherName,
                     submittedOn: dayjs().format('MM/DD/YYYY'),
                     studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
@@ -92,14 +97,13 @@ export const sendStudyProposalEmails = async (
     }
 }
 
-export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: string) => {
+export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', member.id)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -113,9 +117,9 @@ export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: 
                 template: 'research proposal approved',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
-                    studyName: studyDetails?.title,
-                    researcherFullName: studyDetails?.researcherName,
-                    submittedTo: member?.name,
+                    studyName: study.title,
+                    researcherFullName: study.researcherName,
+                    submittedTo: member.name,
                     studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
             })
@@ -125,14 +129,13 @@ export const sendStudyProposalApprovedEmail = async (memberId: string, studyId: 
     }
 }
 
-export const sendStudyProposalRejectedEmail = async (memberId: string, studyId: string) => {
+export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', member.id)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -146,10 +149,10 @@ export const sendStudyProposalRejectedEmail = async (memberId: string, studyId: 
                 template: 'research proposal rejected',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
-                    studyName: studyDetails?.title,
-                    researcherFullName: studyDetails?.researcherName,
-                    submittedTo: member?.name,
-                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
+                    studyName: study.title,
+                    researcherFullName: study.researcherName,
+                    submittedTo: member.name,
+                    studyURL: `${BASE_URL}/member/${member.slug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
@@ -168,7 +171,7 @@ export const sendResultsReadyForReviewEmail = async (
     if (!mg) return
 
     const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -194,14 +197,13 @@ export const sendResultsReadyForReviewEmail = async (
     }
 }
 
-export const sendStudyResultsApprovedEmail = async (memberId: string, studyId: string) => {
+export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', member.id)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -215,9 +217,9 @@ export const sendStudyResultsApprovedEmail = async (memberId: string, studyId: s
                 template: 'study results approved',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
-                    studyName: studyDetails?.title,
-                    researcherFullName: studyDetails?.researcherName,
-                    submittedTo: member?.name,
+                    studyName: study.title,
+                    researcherFullName: study.researcherName,
+                    submittedTo: member.name,
                     studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),
             })
@@ -227,14 +229,13 @@ export const sendStudyResultsApprovedEmail = async (memberId: string, studyId: s
     }
 }
 
-export const sendStudyResultsRejectedEmail = async (memberId: string, studyId: string) => {
+export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const studyDetails = await getStudyAction(studyId)
-    const member = await getMemberFromIdAction(memberId)
+    const { study, member } = await getStudyAndMember(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', memberId)
+    const researchersToNotify = await getUsersByRoleAndMemberId('researcher', member.id)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -248,10 +249,10 @@ export const sendStudyResultsRejectedEmail = async (memberId: string, studyId: s
                 template: 'study results rejected',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: researcher.fullName,
-                    studyName: studyDetails?.title,
-                    researcherFullName: studyDetails?.researcherName,
-                    submittedTo: member?.name,
-                    studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
+                    studyName: study.title,
+                    researcherFullName: study.researcherName,
+                    submittedTo: member.name,
+                    dashboardURL: `${BASE_URL}/researcher/dashboard`,
                 }),
             })
         } catch (error) {
