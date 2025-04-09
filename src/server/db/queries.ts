@@ -4,7 +4,7 @@ import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
-import { actionContext, getUserIdFromActionContext } from '../actions/wrappers'
+import { getUserIdFromActionContext } from '../actions/wrappers'
 
 export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
     const results = await db
@@ -119,19 +119,13 @@ export const getMemberUserPublicKeyByUserId = async (userId: string) => {
 }
 
 export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
-    const ctx = await actionContext()
-
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .$if(Boolean(ctx?.orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.slug', '=', ctx.orgSlug!).onRef('member.id', '=', 'study.memberId'),
-            ),
-        )
-        .$if(Boolean(ctx?.userId && !ctx?.orgSlug), (qb) => qb.where('study.researcherId', '=', ctx?.userId || ''))
+        // security, check that user is a member of the org that owns the study
+        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
@@ -172,4 +166,23 @@ export async function getFirstOrganizationForUser(userId: string) {
         .where('member.slug', '<>', CLERK_ADMIN_ORG_SLUG)
         .limit(1)
         .executeTakeFirst()
+}
+
+export const getUsersByRoleAndMemberId = async (role: 'researcher' | 'reviewer', memberId: string) => {
+    let query = db
+        .selectFrom('user')
+        .innerJoin('memberUser', 'user.id', 'memberUser.userId')
+        .innerJoin('member', 'memberUser.memberId', 'member.id')
+        .selectAll()
+        .where('memberUser.memberId', '=', memberId)
+
+    if (role === 'researcher') {
+        query = query.where('user.isResearcher', '=', true)
+    }
+
+    if (role === 'reviewer') {
+        query = query.where('memberUser.isReviewer', '=', true)
+    }
+
+    return await query.execute()
 }
