@@ -35,6 +35,7 @@ Open [http://localhost:4000](http://localhost:4000) with your browser to access 
 
 Other useful commands:
 
+- `docker system prune -a` or `docker builder prune` clear your docker cache in case of emergency
 - `docker compose build` will rebuild the docker image, needs to be run after packages are installed
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
