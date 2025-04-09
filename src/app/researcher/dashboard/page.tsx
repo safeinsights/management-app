@@ -25,8 +25,8 @@ import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
-import { DisplayStudyStatus } from '../../member/[memberIdentifier]/dashboard/display-study-status'
 import { UserName } from '@/components/user-name'
+import { DisplayStudyStatus } from '@/components/study/display-study-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +48,7 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    let org: { identifier: string } | null = null
+    let org: { slug: string } | null = null
     // FIXME: it should be possible to remove this once we ensure all users have an org
     try {
         org = await ensureUserIsMemberOfOrg()
@@ -105,7 +105,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Group justify="space-between">
                         <Title order={3}>Proposed Studies</Title>
                         <Flex justify="flex-end">
-                            <Link href={`/researcher/study/request/${org.identifier}`}>
+                            <Link href={`/researcher/study/request/${org.slug}`}>
                                 <Button leftSection={<Plus />}>Propose New Study</Button>
                             </Link>
                         </Flex>
@@ -113,7 +113,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Divider c="charcoal.1" />
                     <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
-                        <NoStudiesCaption visible={!studies.length} slug={org.identifier} />
+                        <NoStudiesCaption visible={!studies.length} slug={org.slug} />
                         <TableThead>
                             <TableTr>
                                 <TableTh>Study Name</TableTh>

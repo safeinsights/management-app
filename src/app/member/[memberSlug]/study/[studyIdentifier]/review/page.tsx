@@ -2,7 +2,7 @@
 
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromIdentifierAction } from '@/server/actions/member.actions'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
@@ -15,7 +15,7 @@ import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actio
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
-        memberIdentifier: string
+        memberSlug: string
         studyIdentifier: string
     }>
 }) {
@@ -23,9 +23,9 @@ export default async function StudyReviewPage(props: {
 
     const params = await props.params
 
-    const { memberIdentifier, studyIdentifier } = params
+    const { memberSlug, studyIdentifier } = params
 
-    const member = await getMemberFromIdentifierAction(memberIdentifier)
+    const member = await getMemberFromSlugAction(memberSlug)
     if (!member) {
         return <AlertNotFound title="Member was not found" message="no such member exists" />
     }
@@ -45,7 +45,7 @@ export default async function StudyReviewPage(props: {
             <Stack mt="xl" gap="lg">
                 <MemberBreadcrumbs
                     crumbs={{
-                        memberIdentifier,
+                        memberSlug: memberSlug,
                         current: 'Study Details',
                     }}
                 />
@@ -57,7 +57,7 @@ export default async function StudyReviewPage(props: {
                 <Stack>
                     <Group justify="space-between">
                         <Title order={3}>Study Proposal</Title>
-                        <StudyReviewButtons study={study} memberIdentifier={memberIdentifier} />
+                        <StudyReviewButtons study={study} memberSlug={memberSlug} />
                     </Group>
                     <Stack mt="md">{studyIdentifier && <StudyDetails studyIdentifier={study.id} />}</Stack>
                 </Stack>

@@ -14,13 +14,10 @@ import {
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const StudyReviewButtons: FC<{ study: SelectedStudy; memberIdentifier: string }> = ({
-    study,
-    memberIdentifier,
-}) => {
+export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }> = ({ study, memberSlug }) => {
     const router = useRouter()
 
-    const backPath = `/member/${memberIdentifier}/dashboard`
+    const backPath = `/member/${memberSlug}/dashboard`
 
     const { mutate: updateStudy, isPending } = useMutation({
         mutationFn: (status: StudyStatus) => {

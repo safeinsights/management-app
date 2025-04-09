@@ -36,7 +36,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
         await storeStudyResultsFile(
             {
                 ...info,
-                memberIdentifier: member.identifier,
+                memberSlug: member.slug,
                 resultsType: 'ENCRYPTED',
             },
             contents,

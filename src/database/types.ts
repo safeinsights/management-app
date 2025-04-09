@@ -30,9 +30,9 @@ export interface Member {
   createdAt: Generated<Timestamp>;
   email: string;
   id: Generated<string>;
-  identifier: string;
   name: string;
   publicKey: string;
+  slug: string;
   updatedAt: Generated<Timestamp>;
 }
 

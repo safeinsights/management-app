@@ -29,7 +29,7 @@ test('handling upload', async () => {
     const filePath = path.join(
         getUploadTmpDirectory(),
         pathForStudyJobResults({
-            memberIdentifier: member.identifier,
+            memberSlug: member.slug,
             studyId,
             studyJobId: jobIds[0],
             resultsType: 'ENCRYPTED',
