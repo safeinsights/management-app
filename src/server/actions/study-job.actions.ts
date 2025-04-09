@@ -94,7 +94,6 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
             'jobStatusChange.createdAt as jobStatusCreatedAt',
         ])
         .where('studyJob.id', '=', studyJobIdentifier)
-        .orderBy('jobStatusChange.createdAt', 'desc')
         .executeTakeFirst()
 
     let manifest: CodeManifest = {
