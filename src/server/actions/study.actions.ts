@@ -28,7 +28,6 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .leftJoin(
             // Subquery to get the most recent study job for each study
-
             (eb) =>
                 eb
                     .selectFrom('studyJob')
@@ -41,7 +40,6 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         )
         .leftJoin(
             // Subquery to get the latest status change for the most recent study job
-
             (eb) =>
                 eb
                     .selectFrom('jobStatusChange')
@@ -81,13 +79,17 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
         .execute()
 })
 
-export const fetchStudiesForCurrentResearcherAction = researcherAction(async (userId: string) => {
+export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
+    const userId = await getUserIdFromActionContext()
+
     return await db
         .selectFrom('study')
         .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
         .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
+        .innerJoin('user', (join) => join.on('user.isResearcher', '=', true).onRef('memberUser.userId', '=', 'user.id'))
+
         .where('memberUser.userId', '=', userId)
-        .where('memberUser.isReviewer', '=', true)
+
         .leftJoin(
             // Subquery to get the most recent study job for each study
             (eb) =>
@@ -135,8 +137,12 @@ export const getStudyAction = userAction(async (studyId) => {
 
     return await db
         .selectFrom('study')
-        .innerJoin('user', (join) => join.onRef('study.researcherId', '=', 'user.id'))
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+
+        .innerJoin('memberUser', (join) =>
+            join.on('userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
+        )
+        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+
         .where('memberUser.userId', '=', userId)
         .select([
             'study.id',
@@ -157,7 +163,7 @@ export const getStudyAction = userAction(async (studyId) => {
             'study.reviewerId',
             'study.agreementDocPath',
         ])
-        .select('user.fullName as researcherName')
+        .select('researcher.fullName as researcherName')
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }, z.string())
