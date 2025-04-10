@@ -33,6 +33,11 @@ services:
             - E2E_CLERK_ADMIN_EMAIL=$E2E_CLERK_ADMIN_EMAIL
             - E2E_CLERK_ADMIN_PASSWORD=$E2E_CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
+            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+            - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+        env_file:
+            - ./.env
         build:
             context: .
             dockerfile: ./Dockerfile.dev

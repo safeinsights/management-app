@@ -4,42 +4,20 @@ import { codeBuildRepositoryUrl } from '@/server/aws'
 import { studyProposalSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { storeStudyCodeFile, storeStudyDocumentFile } from '@/server/storage'
-import { CodeReviewManifest } from '@/lib/code-manifest'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
-import { StudyDocumentType } from '@/lib/types'
+import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 
 const onCreateStudyActionArgsSchema = z.object({
-    memberId: z.string(),
+    memberSlug: z.string(),
     studyInfo: studyProposalSchema,
 })
 
-export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo }) => {
+export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
 
-    const member = await db.selectFrom('member').select('slug').where('id', '=', memberId).executeTakeFirstOrThrow()
+    const member = await getMemberFromSlugAction(memberSlug)
 
     const studyId = uuidv7()
-
-    if (studyInfo.irbDocument) {
-        await storeStudyDocumentFile({ studyId, memberSlug: member.slug }, StudyDocumentType.IRB, studyInfo.irbDocument)
-    }
-
-    if (studyInfo.descriptionDocument) {
-        await storeStudyDocumentFile(
-            { studyId, memberSlug: member.slug },
-            StudyDocumentType.DESCRIPTION,
-            studyInfo.descriptionDocument,
-        )
-    }
-
-    if (studyInfo.agreementDocument) {
-        await storeStudyDocumentFile(
-            { studyId, memberSlug: member.slug },
-            StudyDocumentType.AGREEMENT,
-            studyInfo.agreementDocument,
-        )
-    }
 
     const containerLocation = await codeBuildRepositoryUrl({ studyId, memberSlug: member.slug })
     await db
@@ -52,7 +30,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
             irbDocPath: studyInfo.irbDocument?.name,
             agreementDocPath: studyInfo.agreementDocument?.name,
             // TODO: add study lead
-            memberId,
+            memberId: member.id,
             researcherId: userId,
             containerLocation,
             status: 'PENDING-REVIEW',
@@ -76,30 +54,31 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         })
         .executeTakeFirstOrThrow()
 
-    const manifest = new CodeReviewManifest(studyJob.id, 'r')
-
-    for (const codeFile of studyInfo.codeFiles) {
-        manifest.files.push(codeFile)
-        await storeStudyCodeFile(
-            {
-                memberSlug: member.slug,
-                studyId,
-                studyJobId: studyJob.id,
-            },
-            codeFile,
-        )
-    }
-
-    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-
-    await storeStudyCodeFile(
-        {
-            memberSlug: member.slug,
-            studyId,
-            studyJobId: studyJob.id,
-        },
-        manifestFile,
-    )
+    // TODO Store in submit handler now
+    // const manifest = new CodeReviewManifest(studyJob.id, 'r')
+    //
+    // for (const codeFile of studyInfo.codeFiles) {
+    //     manifest.files.push(codeFile)
+    //     await storeStudyCodeFile(
+    //         {
+    //             memberIdentifier: member.slug,
+    //             studyId,
+    //             studyJobId: studyJob.id,
+    //         },
+    //         codeFile,
+    //     )
+    // }
+    //
+    // const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+    //
+    // await storeStudyCodeFile(
+    //     {
+    //         memberIdentifier: member.slug,
+    //         studyId,
+    //         studyJobId: studyJob.id,
+    //     },
+    //     manifestFile,
+    // )
 
     await db
         .insertInto('jobStatusChange')

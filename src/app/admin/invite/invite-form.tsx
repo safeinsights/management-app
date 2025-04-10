@@ -7,9 +7,10 @@ import { notifications } from '@mantine/notifications'
 import { OrganizationSelect } from './organization-select'
 import Link from 'next/link'
 import { adminInviteUserAction } from './admin-users.actions'
-import { InviteUserFormValues, inviteUserSchema, zodResolver } from './admin-users.schema'
+import { InviteUserFormValues, inviteUserSchema } from './admin-users.schema'
 import { randomString } from '@/lib/string'
 import { reportError } from '@/components/errors'
+import { zodResolver } from 'mantine-form-zod-resolver'
 
 const initialValues = () => ({
     firstName: '',

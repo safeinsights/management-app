@@ -3,7 +3,7 @@ import fs from 'fs'
 import { Readable } from 'stream'
 import { storeS3File, fetchS3File, signedUrlForFile } from './aws'
 import { MinimalStudyInfo, MinimalJobInfo, MinimalJobResultsInfo, CodeManifest, StudyDocumentType } from '@/lib/types'
-import { pathForStudyJobResults, pathForStudyDocuments, pathForStudyJobCodeFile } from '@/lib/paths'
+import { pathForStudyJobResults, pathForStudyDocumentFile, pathForStudyJobCodeFile } from '@/lib/paths'
 import { USING_S3_STORAGE, getUploadTmpDirectory } from './config'
 import logger from '@/lib/logger'
 
@@ -57,7 +57,7 @@ export async function urlOrContentForStudyDocumentFile(
     fileType: StudyDocumentType,
     fileName: string,
 ) {
-    return urlOrContentForFile(pathForStudyDocuments(info, fileType, fileName))
+    return urlOrContentForFile(pathForStudyDocumentFile(info, fileType, fileName))
 }
 
 export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {
@@ -89,5 +89,5 @@ export async function storeStudyResultsFile(info: MinimalJobResultsInfo, file: F
 }
 
 export async function storeStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, file: File) {
-    await storeFile(pathForStudyDocuments(info, fileType, file.name), info, file)
+    await storeFile(pathForStudyDocumentFile(info, fileType, file.name), info, file)
 }

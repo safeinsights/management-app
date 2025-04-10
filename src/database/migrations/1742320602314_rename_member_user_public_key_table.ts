@@ -1,7 +1,6 @@
 import { sql, type Kysely } from 'kysely'
-import { type DB } from '@/database/types'
 
-export async function up(db: Kysely<DB>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.alterTable('member_user_public_key').renameTo('user_public_key').execute()
 
     await db.schema.alterTable('user_public_key').renameColumn('value', 'public_key').execute()
@@ -13,6 +12,6 @@ export async function up(db: Kysely<DB>): Promise<void> {
         .execute()
 }
 
-export async function down(db: Kysely<DB>): Promise<void> {
+export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.alterTable('user_public_key').renameTo('member_user_public_key').execute()
 }

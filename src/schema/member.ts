@@ -2,8 +2,6 @@ import { z } from 'zod'
 import { Selectable } from 'kysely'
 import { Member as DefinedMember } from '@/database/types'
 
-export { zodResolver } from 'mantine-form-zod-resolver'
-
 export const memberSchema = z.object({
     slug: z.string().regex(/^[a-z][a-z\-]*[a-z]$/, { message: 'Invalid slug, all lowercase, only dashes' }),
     name: z.string().min(1, { message: 'Name must be provided' }),
