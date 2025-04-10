@@ -19,31 +19,6 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
 
     const studyId = uuidv7()
 
-    // TODO Store these with s3 URLs
-    // if (studyInfo.irbDocument) {
-    //     await storeStudyDocumentFile(
-    //         { studyId, memberIdentifier: member.identifier },
-    //         StudyDocumentType.IRB,
-    //         studyInfo.irbDocument,
-    //     )
-    // }
-    //
-    // if (studyInfo.descriptionDocument) {
-    //     await storeStudyDocumentFile(
-    //         { studyId, memberIdentifier: member.identifier },
-    //         StudyDocumentType.DESCRIPTION,
-    //         studyInfo.descriptionDocument,
-    //     )
-    // }
-    //
-    // if (studyInfo.agreementDocument) {
-    //     await storeStudyDocumentFile(
-    //         { studyId, memberIdentifier: member.identifier },
-    //         StudyDocumentType.AGREEMENT,
-    //         studyInfo.agreementDocument,
-    //     )
-    // }
-
     const containerLocation = await codeBuildRepositoryUrl({ studyId, memberSlug: member.slug })
     await db
         .insertInto('study')

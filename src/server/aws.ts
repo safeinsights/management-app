@@ -1,5 +1,5 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -11,6 +11,7 @@ import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -36,7 +37,7 @@ export const getS3Client = () =>
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
-const s3BucketName = () => {
+export const s3BucketName = () => {
     if (!process.env.BUCKET_NAME) {
         throw new Error('BUCKET_NAME env var not set')
     }
@@ -122,25 +123,14 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
-export async function deleteS3File(Key: string) {
-    await getS3Client().send(
-        new DeleteObjectCommand({
-            Bucket: s3BucketName(),
-            Key,
-        }),
-    )
-}
-
-export const generateSignedUrlForUpload = async (key: string) => {
-    return await getSignedUrl(
-        getS3Client(),
-        new PutObjectCommand({
-            Bucket: s3BucketName(),
-            Key: key,
-        }),
-        { expiresIn: 3600 },
-    )
-}
+// export async function deleteS3File(Key: string) {
+//     await getS3Client().send(
+//         new DeleteObjectCommand({
+//             Bucket: s3BucketName(),
+//             Key,
+//         }),
+//     )
+// }
 
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
