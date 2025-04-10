@@ -44,6 +44,7 @@ export const deleteMemberAction = adminAction(async (slug) => {
 }, z.string())
 
 export const getMemberFromSlugAction = userAction(async (slug) => {
+    console.log('SLUG: ', slug)
     return await db
         .selectFrom('member')
         .selectAll()

@@ -8,7 +8,7 @@ import { useForm } from '@mantine/form'
 import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { pathForStudyDocuments } from '@/lib/paths'
@@ -30,6 +30,16 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             agreementDocument: null,
             codeFiles: [],
         },
+    })
+
+    useQuery({
+        queryFn: async () => {
+            const url = await getSignedURL(
+                pathForStudyDocuments({ studyId: '1', memberSlug }, StudyDocumentType.IRB, 'irb-document.pdf'),
+            )
+            console.log('Signed URL', url)
+        },
+        queryKey: ['test'],
     })
 
     const { mutate: createStudy } = useMutation({
