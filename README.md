@@ -42,6 +42,14 @@ Other useful commands:
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
 - `npx kysely migrate:make your_migration_name` Creates a migration file, we should use `snake_case` for migration names
 
+### Database Visualization with DBGate
+
+When running the application using `docker compose up`, a DBGate instance is also started. DBGate provides a web-based interface for visualizing and interacting with the PostgreSQL database used by the application.
+
+You can access DBGate in your browser at: [http://localhost:3000](http://localhost:3000)
+
+The connection details for the development database (`mgmnt_dev`) are pre-configured.
+
 ### Enclave API Routes
 
 - Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
