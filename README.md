@@ -88,7 +88,6 @@ The origin will default to http://localhost:4000 and member to `openstax`, the v
 
 **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
-
 ### Testing with Playwright
 
 To run playwright tests locally, you'll need to install playwright:

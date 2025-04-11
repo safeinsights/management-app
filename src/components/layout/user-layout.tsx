@@ -13,9 +13,7 @@ export async function UserLayout({ children }: Props) {
 
     return (
         <ClerkProvider publishableKey={key}>
-            <AppShell>
-                {children}
-            </AppShell>
+            <AppShell>{children}</AppShell>
         </ClerkProvider>
     )
 }
