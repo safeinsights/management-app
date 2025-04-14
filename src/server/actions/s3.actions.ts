@@ -17,7 +17,6 @@ export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJo
     })
 }, minimalJobInfoSchema)
 
-// TODO Can this be more generic? or do we need to call a new URL for each path :thinking:
 export const signedUrlForStudyFileUploadAction = userAction(
     async ({ studyInfo, documentType, filename }) => {
         return await createPresignedPost(getS3Client(), {
