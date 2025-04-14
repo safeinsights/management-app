@@ -10,20 +10,34 @@ export const GET = wrapApiMemberAction(async () => {
     }
 
     const jobs = await db
-        .selectFrom('jobStatusChange')
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+        .selectFrom('studyJob')
         .innerJoin('study', (join) => join.on('memberId', '=', member.id).onRef('study.id', '=', 'studyJob.studyId'))
+        .innerJoin(
+            // join to the latest status change
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .orderBy('studyJobId', 'desc')
+                    .orderBy('id', 'desc')
+                    .distinctOn('studyJobId')
+                    .select(['jobStatusChange.studyJobId', 'status'])
+                    .as('latestStatusChange'),
+            (join) =>
+                join
+                    // and only select rows where the latest is READY or RUNNING
+                    .on('latestStatusChange.status', 'in', ['JOB-READY', 'JOB-RUNNING'])
+                    .onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
+        )
         .select([
             'studyJob.id as jobId',
             'studyId',
-            'jobStatusChange.createdAt as requestedAt',
+            'studyJob.createdAt as requestedAt',
+            'latestStatusChange.status',
             'study.title',
-            'jobStatusChange.status',
             'study.dataSources',
             'study.outputMimeType',
             sql<string>`concat(study.container_location, ':', study_job.id )`.as('containerLocation'),
         ])
-        .where('jobStatusChange.status', 'in', ['JOB-READY', 'JOB-RUNNING'])
         .execute()
 
     return Response.json({ jobs })
