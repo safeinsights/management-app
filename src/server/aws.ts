@@ -6,11 +6,18 @@ import { Upload } from '@aws-sdk/lib-storage'
 import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyJobCode } from '@/lib/paths'
+import { pathForStudyDocumentFile, pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
+import {
+    isMinimalStudyJobInfo,
+    MinimalJobInfo,
+    MinimalJobResultsInfo,
+    MinimalStudyInfo,
+    StudyDocumentType,
+} from '@/lib/types'
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -123,15 +130,6 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
-// export async function deleteS3File(Key: string) {
-//     await getS3Client().send(
-//         new DeleteObjectCommand({
-//             Bucket: s3BucketName(),
-//             Key,
-//         }),
-//     )
-// }
-
 export async function triggerBuildImageForJob(info: MinimalJobInfo) {
     const codebuild = new CodeBuildClient({})
 
@@ -161,4 +159,32 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
         }),
     )
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
+}
+
+export const signedUrlForCodeUpload = async (jobInfo: MinimalJobInfo) => {
+    const prefix = pathForStudyJobCode(jobInfo)
+
+    return await createPresignedPost(getS3Client(), {
+        Bucket: s3BucketName(),
+        Conditions: [['starts-with', '$key', prefix]],
+        Expires: 3600,
+        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}
+
+// TODO Can this be more generic? or do we need to call a new URL for each path :thinking:
+export const signedUrlForStudyFileUpload = async (
+    studyInfo: MinimalStudyInfo,
+    documentType: StudyDocumentType,
+    filename: string,
+) => {
+    return await createPresignedPost(getS3Client(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Key: pathForStudyDocumentFile(studyInfo, documentType, filename),
+    })
+}
+
+export const deleteS3File = async (key: string) => {
+    await deleteS3File(key)
 }
