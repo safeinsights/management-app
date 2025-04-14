@@ -16,9 +16,10 @@ It’s responsible for:
 
 Note: For developing locally without docker compose, you will need to install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it.
 
-Copy the .env.sample file to .env replacing the XXX strings with values obtained from your one of your teammates.
+You can configure test accounts in one of two ways:
 
-When testing you can either use the accounts from the .env file or you can sign up for a Clerk account using either an authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info mean that no SMS or email is sent and `424242` can be used to authenticate.
+1. Recommended: Copy the .env.sample file to .env, replacing the XXX strings with values obtained from your one of your teammates. This will set up the app with a sandbox Clerk backend, and provide credentials for test users. When testing, copy the `E2E_CLERK_<ACCOUNT_TYPE>_EMAIL` and `...PASSWORD` values to log in as one of the test users. Use `424242` for MFA.
+2. Workaround: Sign up for a Clerk account using either an authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info mean that no SMS or email is sent and `424242` can be used to authenticate.
 
 You can use Docker compose to run the app and a PostgreSQL database by using:
 
