@@ -11,7 +11,6 @@ import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
-import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -21,6 +20,7 @@ export function objectToAWSTags(tags: Record<string, string>) {
     }))
 }
 
+// TODO Remove ecrCLient unused?
 let _ecrClient: ECRClient | null = null
 export const getECRClient = () =>
     _ecrClient ||

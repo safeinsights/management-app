@@ -15,6 +15,54 @@ import { StudyDocumentType } from '@/lib/types'
 import { signedUrlForCodeUpload, signedUrlForStudyFileUpload } from '@/server/actions/s3.actions'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
+import { PresignedPost } from '@aws-sdk/s3-presigned-post'
+
+async function uploadFile(file: File, upload: PresignedPost) {
+    const body = new FormData()
+    for (const [key, value] of Object.entries(upload.fields)) {
+        body.append(key, value)
+    }
+    body.append('file', file)
+
+    const response = await fetch(upload.url, {
+        method: 'POST',
+        body,
+    })
+
+    console.log('Response: ', response, 'Body: ', body)
+
+    if (!response.ok) {
+        notifications.show({
+            color: 'red',
+            title: 'failed to upload file',
+            message: await response.text(),
+        })
+    }
+
+    return response.ok
+}
+
+async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId) {
+    const manifest = new CodeReviewManifest(studyJobId, 'r')
+    const body = new FormData()
+    for (const [key, value] of Object.entries(upload.fields)) {
+        body.append(key, value)
+    }
+    for (const codeFile of files) {
+        manifest.files.push(codeFile)
+        body.append('file', codeFile)
+    }
+
+    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+    body.append(manifestFile.name, manifestFile)
+
+    const codeUpload = await fetch(upload.url, {
+        method: 'POST',
+        body: body,
+    })
+
+    console.log(codeUpload)
+}
 
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
     const router = useRouter()
@@ -35,78 +83,50 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
     const { mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             const { studyId, studyJobId } = await onCreateStudyAction({ memberSlug, studyInfo: formValues })
-            if (formValues.irbDocument?.name) {
-                const { url, fields } = await signedUrlForStudyFileUpload(
-                    { studyId, memberSlug },
-                    StudyDocumentType.IRB,
-                    formValues.irbDocument.name,
-                )
 
-                console.log('fields?', fields)
+            try {
+                if (formValues.irbDocument) {
+                    const upload = await signedUrlForStudyFileUpload(
+                        { studyId, memberSlug },
+                        StudyDocumentType.IRB,
+                        formValues.irbDocument.name,
+                    )
 
-                const fileUpload = await fetch(url, {
-                    method: 'POST',
-                    body: formValues.irbDocument,
+                    await uploadFile(formValues.irbDocument, upload)
+                }
+
+                if (formValues.agreementDocument?.name) {
+                    const upload = await signedUrlForStudyFileUpload(
+                        { studyId, memberSlug },
+                        StudyDocumentType.AGREEMENT,
+                        formValues.agreementDocument.name,
+                    )
+
+                    await uploadFile(formValues.agreementDocument, upload)
+                }
+
+                if (formValues.descriptionDocument?.name) {
+                    const upload = await signedUrlForStudyFileUpload(
+                        { studyId, memberSlug },
+                        StudyDocumentType.DESCRIPTION,
+                        formValues.descriptionDocument.name,
+                    )
+
+                    await uploadFile(formValues.descriptionDocument, upload)
+                }
+
+                const studyCodeUpload = await signedUrlForCodeUpload({
+                    memberSlug,
+                    studyId,
+                    studyJobId,
                 })
 
-                console.log(fileUpload)
+                await uploadCodeFiles(formValues.codeFiles, studyCodeUpload, studyJobId)
+            } catch (error) {
+                // IF something goes wrong with study file uploads,
+                //  do we want to roll back and delete the study?
+                notifications.show({ message: String(error), color: 'red' })
             }
-
-            if (formValues.agreementDocument?.name) {
-                const { url, fields } = await signedUrlForStudyFileUpload(
-                    { studyId, memberSlug },
-                    StudyDocumentType.AGREEMENT,
-                    formValues.agreementDocument.name,
-                )
-
-                const fileUpload = await fetch(url, {
-                    method: 'POST',
-                    body: formValues.agreementDocument,
-                })
-
-                console.log(fileUpload)
-            }
-
-            if (formValues.descriptionDocument?.name) {
-                const { url, fields } = await signedUrlForStudyFileUpload(
-                    { studyId, memberSlug },
-                    StudyDocumentType.DESCRIPTION,
-                    formValues.descriptionDocument.name,
-                )
-
-                const fileUpload = await fetch(url, {
-                    method: 'POST',
-                    body: formValues.descriptionDocument,
-                })
-
-                console.log(fileUpload)
-            }
-
-            const { url: codeUploadUrl, fields: codeUploadFields } = await signedUrlForCodeUpload({
-                memberSlug,
-                studyId,
-                studyJobId,
-            })
-
-            const manifest = new CodeReviewManifest(studyJobId, 'r')
-            const body = new FormData()
-            for (const [key, value] of Object.entries(codeUploadFields)) {
-                body.append(key, value)
-            }
-            for (const codeFile of formValues.codeFiles) {
-                manifest.files.push(codeFile)
-                body.append(codeFile.name, codeFile)
-            }
-
-            const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-            body.append(manifestFile.name, manifestFile)
-
-            const codeUpload = await fetch(codeUploadUrl, {
-                method: 'POST',
-                body: body,
-            })
-
-            console.log(codeUpload)
         },
         onSuccess() {
             notifications.show({
