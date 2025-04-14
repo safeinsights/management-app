@@ -15,7 +15,7 @@ import { StudyDocumentType } from '@/lib/types'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
-import { signedUrlForCodeUpload, signedUrlForStudyFileUpload } from '@/server/aws'
+import { signedUrlForCodeUploadAction, signedUrlForStudyFileUploadAction } from '@/server/actions/s3.actions'
 
 // TODO @nathan, should we talk about local vs s3 storage?
 //  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
@@ -84,36 +84,36 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
             try {
                 if (formValues.irbDocument) {
-                    const upload = await signedUrlForStudyFileUpload(
-                        { studyId, memberSlug },
-                        StudyDocumentType.IRB,
-                        formValues.irbDocument.name,
-                    )
+                    const upload = await signedUrlForStudyFileUploadAction({
+                        studyInfo: { studyId, memberSlug },
+                        documentType: StudyDocumentType.IRB,
+                        filename: formValues.irbDocument.name,
+                    })
 
                     await uploadFile(formValues.irbDocument, upload)
                 }
 
                 if (formValues.agreementDocument?.name) {
-                    const upload = await signedUrlForStudyFileUpload(
-                        { studyId, memberSlug },
-                        StudyDocumentType.AGREEMENT,
-                        formValues.agreementDocument.name,
-                    )
+                    const upload = await signedUrlForStudyFileUploadAction({
+                        studyInfo: { studyId, memberSlug },
+                        documentType: StudyDocumentType.AGREEMENT,
+                        filename: formValues.agreementDocument.name,
+                    })
 
                     await uploadFile(formValues.agreementDocument, upload)
                 }
 
                 if (formValues.descriptionDocument?.name) {
-                    const upload = await signedUrlForStudyFileUpload(
-                        { studyId, memberSlug },
-                        StudyDocumentType.DESCRIPTION,
-                        formValues.descriptionDocument.name,
-                    )
+                    const upload = await signedUrlForStudyFileUploadAction({
+                        studyInfo: { studyId, memberSlug },
+                        documentType: StudyDocumentType.DESCRIPTION,
+                        filename: formValues.descriptionDocument.name,
+                    })
 
                     await uploadFile(formValues.descriptionDocument, upload)
                 }
 
-                const studyCodeUpload = await signedUrlForCodeUpload({
+                const studyCodeUpload = await signedUrlForCodeUploadAction({
                     memberSlug,
                     studyId,
                     studyJobId,
@@ -140,49 +140,6 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             notifications.show({ message: String(error), color: 'red' })
         },
     })
-
-    // const removeAllFiles = async () => {
-    //     const values = studyProposalForm.getValues()
-    //     if (values.irbDocument) {
-    //         await deleteS3File(
-    //             pathForStudyDocuments(
-    //                 { studyId, memberIdentifier: memberId },
-    //                 StudyDocumentType.IRB,
-    //                 values.irbDocument?.name,
-    //             ),
-    //         )
-    //     }
-    //
-    //     if (values.descriptionDocument) {
-    //         await deleteS3File(
-    //             pathForStudyDocuments(
-    //                 { studyId, memberIdentifier: memberId },
-    //                 StudyDocumentType.IRB,
-    //                 values.descriptionDocument?.name,
-    //             ),
-    //         )
-    //     }
-    //
-    //     if (values.agreementDocument) {
-    //         await deleteS3File(
-    //             pathForStudyDocuments(
-    //                 { studyId, memberIdentifier: memberId },
-    //                 StudyDocumentType.IRB,
-    //                 values.agreementDocument?.name,
-    //             ),
-    //         )
-    //     }
-    // }
-
-    // for (const codeFile of values.codeFiles) {
-    //     await deleteS3File(
-    //         pathForStudyCode(
-    //             { studyId, memberIdentifier: memberId },
-    //             StudyDocumentType.IRB,
-    //             values.agreementDocument?.name,
-    //         ),
-    //     )
-    // }
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
