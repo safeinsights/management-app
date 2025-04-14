@@ -70,8 +70,8 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
     const { study, member } = await getStudyAndMember(studyId)
+    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', member.id)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -161,17 +161,12 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     }
 }
 
-export const sendResultsReadyForReviewEmail = async (
-    memberId: string,
-    studyName: string,
-    researcherFullName: string,
-    studyId: string,
-) => {
+export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', memberId)
     const { study, member } = await getStudyAndMember(studyId)
+    const reviewersToNotify = await getUsersByRoleAndMemberId('reviewer', member.id)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -185,8 +180,7 @@ export const sendResultsReadyForReviewEmail = async (
                 template: 'encrypted results ready for review',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: reviewer.fullName,
-                    studyName,
-                    researcherFullName,
+                    studyName: study.title,
                     submittedOn: dayjs().format('MM/DD/YYYY'),
                     studyURL: `${BASE_URL}/member/${member?.slug}/study/${studyId}/review`,
                 }),

@@ -114,7 +114,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberId, studyInfo
         })
         .execute()
 
-    await sendStudyProposalEmails(memberId, studyInfo.title, user.fullName || '', studyId)
+    await sendStudyProposalEmails(studyId)
 
     return {
         studyId: studyId,
