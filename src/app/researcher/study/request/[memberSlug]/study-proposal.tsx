@@ -12,11 +12,13 @@ import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { StudyDocumentType } from '@/lib/types'
-import { signedUrlForCodeUpload, signedUrlForStudyFileUpload } from '@/server/actions/s3.actions'
+import { signedUrlForCodeUploadAction, signedUrlForStudyFileUploadAction } from '@/server/actions/s3.actions'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 
+// TODO @nathan, should we talk about local vs s3 storage?
+//  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
     for (const [key, value] of Object.entries(upload.fields)) {
@@ -82,7 +84,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
             try {
                 if (formValues.irbDocument) {
-                    const upload = await signedUrlForStudyFileUpload(
+                    const upload = await signedUrlForStudyFileUploadAction(
                         { studyId, memberSlug },
                         StudyDocumentType.IRB,
                         formValues.irbDocument.name,
@@ -92,7 +94,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 }
 
                 if (formValues.agreementDocument?.name) {
-                    const upload = await signedUrlForStudyFileUpload(
+                    const upload = await signedUrlForStudyFileUploadAction(
                         { studyId, memberSlug },
                         StudyDocumentType.AGREEMENT,
                         formValues.agreementDocument.name,
@@ -102,7 +104,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 }
 
                 if (formValues.descriptionDocument?.name) {
-                    const upload = await signedUrlForStudyFileUpload(
+                    const upload = await signedUrlForStudyFileUploadAction(
                         { studyId, memberSlug },
                         StudyDocumentType.DESCRIPTION,
                         formValues.descriptionDocument.name,
@@ -111,7 +113,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                     await uploadFile(formValues.descriptionDocument, upload)
                 }
 
-                const studyCodeUpload = await signedUrlForCodeUpload({
+                const studyCodeUpload = await signedUrlForCodeUploadAction({
                     memberSlug,
                     studyId,
                     studyJobId,
