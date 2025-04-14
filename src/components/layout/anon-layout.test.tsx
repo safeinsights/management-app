@@ -6,7 +6,7 @@ import { TestingProviders } from '@/tests/providers'
 
 it('renders without a user', async () => {
     render(
-        <AnonLayout>
+        <AnonLayout clerkPublishableKey="1234">
             <div>hello world</div>
         </AnonLayout>,
         { wrapper: TestingProviders },
