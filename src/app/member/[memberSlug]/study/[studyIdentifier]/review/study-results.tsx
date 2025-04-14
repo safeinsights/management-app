@@ -174,7 +174,7 @@ export const StudyResults: FC<{
                 </Stack>
                 {jobStatus === 'RESULTS-APPROVED' ? (
                     <Stack>
-                        <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
+                        <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}/${latestJob.resultsPath}`}>
                             View results here
                         </Anchor>
                     </Stack>
