@@ -5,13 +5,16 @@ import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, isUsingPhoneMFA } from './logic'
+import { FC } from 'react'
+import { useRouter } from 'next/navigation'
 
-export const EmailPasswordForm: React.FC<{
+export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => void
 }> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
+    const router = useRouter()
 
     const form = useForm({
         initialValues: {
@@ -36,6 +39,7 @@ export const EmailPasswordForm: React.FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
+                router.push('/')
             }
             if (attempt.status === 'needs_second_factor') {
                 const usingSMS = isUsingPhoneMFA(attempt)
@@ -45,7 +49,7 @@ export const EmailPasswordForm: React.FC<{
                 onComplete({ signIn: attempt, usingSMS })
             }
         } catch (err: unknown) {
-            reportError(err, 'failed signin')
+            reportError(err, 'Failed Signin Attempt')
             if (isClerkApiError(err)) {
                 const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
                 if (emailError) {

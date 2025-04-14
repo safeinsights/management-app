@@ -16,7 +16,7 @@ export const onUserSignInAction = anonAction(async () => {
     })
     const client = await clerkClient()
 
-    await client.users.updateUserMetadata(user.id, {
+    return await client.users.updateUserMetadata(user.id, {
         publicMetadata: {
             userId: siUserId,
         },
