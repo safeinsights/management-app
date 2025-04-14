@@ -71,13 +71,7 @@ export default async function StudyReviewPage(props: {
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xl">
-                <Stack mt="md">
-                    <Title order={3}>Study Results</Title>
-                    <Divider />
-                    <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
-                </Stack>
-            </Paper>
+            <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
         </Stack>
     )
 }

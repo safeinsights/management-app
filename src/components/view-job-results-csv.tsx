@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 
-import { Alert, Flex, Group, LoadingOverlay, Stack, Title } from '@mantine/core'
+import { Alert, Divider, Flex, Group, LoadingOverlay, Stack, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
@@ -16,7 +16,7 @@ type JobResultsProps = {
     job?: { id: string; resultsPath?: string | null }
 }
 
-export const ViewCSV: FC<JobResultsProps> = ({ job }) => {
+export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     const {
         data: csv,
         isLoading,
@@ -60,7 +60,8 @@ export const ViewCSV: FC<JobResultsProps> = ({ job }) => {
     return (
         <Stack mt="xl">
             <Group justify="space-between">
-                <Title order={3}>CSV Results</Title>
+                <Title order={3}>Study Results</Title>
+                <Divider />
                 <ButtonLink
                     target="_blank"
                     rightSection={<Download />}
@@ -70,9 +71,7 @@ export const ViewCSV: FC<JobResultsProps> = ({ job }) => {
                 </ButtonLink>
             </Group>
 
-            <div style={{ width: 'calc(100vw - 350px)' }}>
-                <DataTable records={csv.data} columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))} />
-            </div>
+            <DataTable records={csv.data} columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))} />
         </Stack>
     )
 }
