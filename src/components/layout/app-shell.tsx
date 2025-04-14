@@ -9,7 +9,6 @@ import {
     Group,
     Stack,
     Text,
-    useMantineTheme,
 } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
@@ -25,14 +24,13 @@ type Props = {
     children: ReactNode
 }
 export function AppShell({ children }: Props) {
-    const theme = useMantineTheme()
     return (
         <MantineAppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
             <RequireUser />
             <RequireMFA />
 
             <Notifications position="top-right" />
-            <AppShellNavbar bg={theme.colors.purple[8]}>
+            <AppShellNavbar bg="purple.8">
                 <Stack py="md">
                     <AppShellSection>
                         <Link href="/">
@@ -45,7 +43,7 @@ export function AppShell({ children }: Props) {
                 </Stack>
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
-            <AppShellFooter p="md" bg={theme.colors.purple[9]}>
+            <AppShellFooter p="md" bg="purple.9">
                 <Group justify="center" c="white">
                     <Text>© 2025 - SafeInsights</Text>
                     {/* TODO Temporary for dev mode only? admins? */}
