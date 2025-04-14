@@ -47,7 +47,17 @@ export function AppShell({ children }: Props) {
                 <Group justify="center" c="white">
                     <Text>© 2025 - SafeInsights</Text>
                     {/* TODO Temporary for dev mode only? admins? */}
-                    <OrganizationSwitcher afterSelectOrganizationUrl="/" />
+                    <OrganizationSwitcher
+                        afterSelectOrganizationUrl="/"
+                        appearance={{
+                            elements: {
+                                organizationSwitcherTrigger: {
+                                    color: 'white !important',
+                                    '& span': { color: 'white !important' },
+                                },
+                            },
+                        }}
+                    />
                 </Group>
             </AppShellFooter>
         </MantineAppShell>
