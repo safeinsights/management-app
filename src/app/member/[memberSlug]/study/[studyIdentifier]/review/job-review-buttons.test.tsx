@@ -38,8 +38,6 @@ const mockUnreviewedStudyJob: StudyJob = {
     resultFormat: 'SI_V1_ENCRYPT',
     resultsPath: faker.system.filePath(),
     studyId: mockStudy.id,
-    approvedAt: null,
-    rejectedAt: null,
 }
 
 const mockApprovedStudyJob: StudyJob = {
@@ -48,8 +46,6 @@ const mockApprovedStudyJob: StudyJob = {
     resultFormat: 'SI_V1_ENCRYPT',
     resultsPath: faker.system.filePath(),
     studyId: mockStudy.id,
-    approvedAt: new Date(),
-    rejectedAt: null,
 }
 
 const mockRejectedStudyJob: StudyJob = {
@@ -58,8 +54,6 @@ const mockRejectedStudyJob: StudyJob = {
     resultFormat: 'SI_V1_ENCRYPT',
     resultsPath: faker.system.filePath(),
     studyId: mockStudy.id,
-    approvedAt: null,
-    rejectedAt: new Date(),
 }
 
 describe('Study Results Approve/Reject buttons', () => {
@@ -78,6 +72,8 @@ describe('Study Results Approve/Reject buttons', () => {
             studyJobId: mockApprovedStudyJob.id,
             studyTitle: mockStudy.title,
             memberSlug: 'test-org',
+            jobStatusCreatedAt: new Date(),
+            jobStatus: 'CODE-APPROVED',
         },
     })
 
@@ -112,6 +108,8 @@ describe('Study Results Approve/Reject buttons', () => {
                 studyJobId: mockApprovedStudyJob.id,
                 studyTitle: mockStudy.title,
                 memberSlug: 'test-org',
+                jobStatusCreatedAt: new Date(),
+                jobStatus: 'CODE-APPROVED',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockUnreviewedStudyJob} decryptedResults={testResults} />)
@@ -134,6 +132,8 @@ describe('Study Results Approve/Reject buttons', () => {
                 studyJobId: mockApprovedStudyJob.id,
                 studyTitle: mockStudy.title,
                 memberSlug: 'test-org',
+                jobStatusCreatedAt: new Date(),
+                jobStatus: 'RESULTS-APPROVED',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockApprovedStudyJob} decryptedResults={testResults} />)
@@ -155,6 +155,8 @@ describe('Study Results Approve/Reject buttons', () => {
                 studyJobId: mockRejectedStudyJob.id,
                 studyTitle: mockStudy.title,
                 memberSlug: 'test-org',
+                jobStatusCreatedAt: new Date(),
+                jobStatus: 'RESULTS-REJECTED',
             },
         })
         renderWithProviders(<JobReviewButtons job={mockRejectedStudyJob} decryptedResults={testResults} />)

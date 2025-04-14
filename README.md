@@ -35,11 +35,20 @@ Open [http://localhost:4000](http://localhost:4000) with your browser to access 
 
 Other useful commands:
 
+- `docker system prune -a` or `docker builder prune` clear your docker cache in case of emergency
 - `docker compose build` will rebuild the docker image, needs to be run after packages are installed
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
 - `npx kysely migrate:make your_migration_name` Creates a migration file, we should use `snake_case` for migration names
+
+### Database Visualization with DBGate
+
+When running the application using `docker compose up`, a DBGate instance is also started. DBGate provides a web-based interface for visualizing and interacting with the PostgreSQL database used by the application.
+
+You can access DBGate in your browser at: [http://localhost:3000](http://localhost:3000)
+
+The connection details for the development database (`mgmnt_dev`) are pre-configured.
 
 ### Enclave API Routes
 
