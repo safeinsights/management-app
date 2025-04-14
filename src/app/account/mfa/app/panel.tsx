@@ -6,7 +6,6 @@ import React, { useState, useMemo } from 'react'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
-import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
 import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
@@ -183,7 +182,7 @@ function BackupCodeScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
             <Text>
                 Save this list of backup codes somewhere safe in case you need to access your account in an emergency.
             </Text>
-            <GenerateBackupCodes />
+            {/*<GenerateBackupCodes />*/}
             <Button onClick={() => setStep('success')}>Finish</Button>
         </Stack>
     )
