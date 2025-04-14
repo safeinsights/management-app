@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestStudyData, insertTestMember } from '@/tests/unit.helpers'
 import fs from 'fs'
@@ -6,6 +6,11 @@ import path from 'path'
 import { db } from '@/database'
 import { pathForStudyJobResults } from '@/lib/paths'
 import { getUploadTmpDirectory } from '@/server/config'
+import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
+
+vi.mock('@/server/mailgun', () => ({
+    sendResultsReadyForReviewEmail: vi.fn(),
+}))
 
 test('handling upload', async () => {
     const member = await insertTestMember()
@@ -25,6 +30,7 @@ test('handling upload', async () => {
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
 
     expect(resp.ok).toBe(true)
+    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
 
     const filePath = path.join(
         getUploadTmpDirectory(),

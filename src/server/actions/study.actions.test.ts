@@ -9,12 +9,17 @@ import {
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { jobStatusForJobAction } from './study-job.actions'
 import { triggerBuildImageForJob } from '@/server/aws'
+import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
 
 vi.mock('@/server/config', () => ({
     USING_S3_STORAGE: true,
 }))
 vi.mock('@/server/aws', () => ({
     triggerBuildImageForJob: vi.fn(),
+}))
+
+vi.mock('@/server/mailgun', () => ({
+    sendStudyProposalApprovedEmail: vi.fn(),
 }))
 
 describe('Study Actions', () => {
@@ -27,6 +32,7 @@ describe('Study Actions', () => {
         await approveStudyProposalAction(studyId)
         const status = await jobStatusForJobAction(jobId)
         expect(status).toBe('CODE-APPROVED')
+        expect(sendStudyProposalApprovedEmail).toHaveBeenCalled()
         expect(triggerBuildImageForJob).toHaveBeenCalledWith(expect.objectContaining({ studyJobId: jobId }))
     })
 
