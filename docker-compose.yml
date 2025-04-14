@@ -15,6 +15,24 @@ services:
             retries: 5
             start_period: 30s
             timeout: 10s
+    dbgate:
+        image: dbgate/dbgate
+        restart: always
+        container_name: dbgate
+        networks:
+            - mgmnt-app
+        ports:
+            - '3000:3000'
+        volumes:
+            - dbgate-data:/root/.dbgate
+        environment:
+            CONNECTIONS: bma
+            LABEL_bma: Postgres
+            SERVER_bma: postgres
+            USER_bma: mgmnt
+            PASSWORD_bma: mgmntpass
+            PORT_bma: 5432
+            ENGINE_bma: postgres@dbgate-plugin-postgres
     mgmnt-app:
         container_name: mgmnt-app
         depends_on:
@@ -60,3 +78,4 @@ networks:
 volumes:
     pgdata:
     node_modules:
+    dbgate-data:
