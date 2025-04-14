@@ -29,8 +29,6 @@ async function uploadFile(file: File, upload: PresignedPost) {
         body,
     })
 
-    console.log('Response: ', response, 'Body: ', body)
-
     if (!response.ok) {
         notifications.show({
             color: 'red',
@@ -42,7 +40,7 @@ async function uploadFile(file: File, upload: PresignedPost) {
     return response.ok
 }
 
-async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId) {
+async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
     const manifest = new CodeReviewManifest(studyJobId, 'r')
     const body = new FormData()
     for (const [key, value] of Object.entries(upload.fields)) {
@@ -56,12 +54,10 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId)
     const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
     body.append(manifestFile.name, manifestFile)
 
-    const codeUpload = await fetch(upload.url, {
+    await fetch(upload.url, {
         method: 'POST',
         body: body,
     })
-
-    console.log(codeUpload)
 }
 
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
