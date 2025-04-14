@@ -81,7 +81,7 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
         )
         .leftJoin('jobStatusChange', (join) =>
             join
-                .on('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                 .on('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED']),
         )
         .select([
