@@ -20,13 +20,14 @@ import { ClerkProvider } from '@clerk/nextjs'
 
 type Props = {
     children: ReactNode
+    clerkPublishableKey: string
 }
 
-export function AnonLayout({ children }: Props) {
+export function AnonLayout({ children, clerkPublishableKey }: Props) {
     const theme = useMantineTheme()
 
     return (
-        <ClerkProvider>
+        <ClerkProvider publishableKey={clerkPublishableKey}>
             <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
                 <Notifications position="top-right" />
                 <AppShellNavbar bg={theme.colors.purple[8]}>

@@ -1,10 +1,9 @@
 import { Panel } from '@/components/panel'
-import { Flex, Text, Button, TextInput, Loader } from '@mantine/core'
+import { Button, Flex, Loader, Text, TextInput } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn, useUser } from '@clerk/nextjs'
 import { useMutation } from '@tanstack/react-query'
 import type { SignInResource } from '@clerk/types'
-
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
 import { useRouter } from 'next/navigation'
@@ -12,6 +11,7 @@ import { useRouter } from 'next/navigation'
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
     const router = useRouter()
+    const { isSignedIn } = useUser()
 
     const form = useForm({
         initialValues: {
@@ -50,6 +50,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         },
     })
 
+    if (isSignedIn) return null
     if (!mfa) return null
     if (!isLoaded) return <Loader />
 
