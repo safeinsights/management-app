@@ -19,5 +19,5 @@ export function ResetPassword() {
         return <PendingReset pendingReset={pendingReset} onBack={() => setPendingReset(null)} />
     }
 
-    return <ResetForm onComplete={(reset) => setPendingReset(reset)} />
+    return <ResetForm onCompleteAction={(reset) => setPendingReset(reset)} />
 }

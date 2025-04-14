@@ -2,16 +2,16 @@
 
 import { useState } from 'react'
 import { useSignIn } from '@clerk/nextjs'
-import { Loader } from '@mantine/core'
+import { Container, Loader } from '@mantine/core'
 import { type MFAState } from './logic'
-import { SigninComplete } from './complete'
 import { RequestMFA } from './mfa'
-import { EmailPasswordForm } from './email-password-form'
+import { SignInForm } from './sign-in-form'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { reportError } from '@/components/errors'
 
 export function SignIn() {
     const { isLoaded } = useSignIn()
+
     const [state, setState] = useState<MFAState>(false)
 
     if (!isLoaded) {
@@ -21,7 +21,9 @@ export function SignIn() {
     const setPending = (pending: MFAState) => {
         if (pending === false) {
             onUserSignInAction()
-                .then(() => setState(pending))
+                .then(() => {
+                    setState(pending)
+                })
                 .catch(reportError)
         } else {
             setState(pending)
@@ -29,10 +31,9 @@ export function SignIn() {
     }
 
     return (
-        <>
-            <SigninComplete />
-            <EmailPasswordForm onComplete={setPending} mfa={state} />
+        <Container>
+            <SignInForm onComplete={setPending} mfa={state} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
-        </>
+        </Container>
     )
 }

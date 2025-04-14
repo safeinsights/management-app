@@ -21,7 +21,7 @@ test.describe('user sign in', async () => {
             await page.getByLabel('code').fill(CLERK_MFA_CODE)
             await page.getByRole('button', { name: 'login' }).click()
 
-            await page.waitForSelector('text=success')
+            await page.waitForURL('/')
         })
     }
 })
