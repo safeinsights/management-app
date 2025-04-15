@@ -39,14 +39,16 @@ services:
         ports:
             - "127.0.0.1:4566:4566"            # LocalStack Gateway
             - "127.0.0.1:4510-4559:4510-4559"  # external services port range
-        env_file:
-            - .env.localstack
         environment:
             # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
             - DEBUG=${DEBUG:-0}
+            - SERVICES=s3,sts,codebuild,ecr
+            - BUCKET_NAMES=mgmt-app-local
         volumes:
             - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
             - "/var/run/docker.sock:/var/run/docker.sock"
+        networks:
+            - mgmnt-app
     mgmnt-app:
         container_name: mgmnt-app
         depends_on:

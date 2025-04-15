@@ -3,7 +3,6 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJobCode } from '@/lib/paths'
@@ -20,20 +19,12 @@ export function objectToAWSTags(tags: Record<string, string>) {
     }))
 }
 
-// TODO Remove ecrCLient unused?
-let _ecrClient: ECRClient | null = null
-export const getECRClient = () =>
-    _ecrClient ||
-    (_ecrClient = new ECRClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
-    }))
-
 let _s3Client: S3Client | null = null
 export const getS3Client = () =>
     _s3Client ||
     (_s3Client = new S3Client({
         region: process.env.AWS_REGION || 'us-east-1',
+        endpoint: process.env.AWS_ENDPOINT || undefined,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 

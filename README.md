@@ -34,7 +34,28 @@ For developing locally without docker compose, you will need to install PostgreS
 Otherwise, you can use Docker compose to run the app and a PostgreSQL database by using: `docker compose up`
 Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
-Other useful commands:
+#### Local AWS development setup:
+
+- Add this to your `~/.aws/config`
+```bash
+[profile localstack]
+output = json
+endpoint_url = http://localstack:4566
+region = us-east-1
+```
+
+- Add this to your `~/.aws/credentials`
+```bash
+[localstack]
+aws_access_key_id=test
+aws_secret_access_key=test
+```
+
+- Run these commands to set up your local bucket and confirm it was created
+`aws --endpoint-url=http://localhost:4566 s3 mb s3://mgmt-app-local --profile localstack`
+`aws --endpoint-url=http://localhost:4566 s3 ls --profile localstack   `
+
+- Other useful commands:
 
 - `docker system prune -a` or `docker builder prune` clear your docker cache in case of emergency
 - `docker compose build` will rebuild the docker image, needs to be run after packages are installed
@@ -114,9 +135,3 @@ If there are playwright failures on GitHub actions, the trace file will be store
 
 - [phosphor icons](https://phosphoricons.com/)
 - [mantine](https://mantine.dev)
-
-### Running Tests
-
-### Currently Implemented
-
-### TODOs
