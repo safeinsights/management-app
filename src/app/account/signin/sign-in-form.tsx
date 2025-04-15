@@ -4,7 +4,7 @@ import { isNotEmpty, isEmail, useForm } from '@mantine/form'
 import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
-import { type MFAState, isUsingPhoneMFA } from './logic'
+import { type MFAState, signInToMFAState } from './logic'
 import { FC } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -42,11 +42,8 @@ export const SignInForm: FC<{
                 router.push('/')
             }
             if (attempt.status === 'needs_second_factor') {
-                const usingSMS = isUsingPhoneMFA(attempt)
-                if (usingSMS) {
-                    await attempt.prepareSecondFactor({ strategy: 'phone_code' })
-                }
-                onComplete({ signIn: attempt, usingSMS })
+                const state = await signInToMFAState(attempt)
+                onComplete(state)
             }
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
