@@ -14,6 +14,9 @@ export async function UserLayout({ children }: Props) {
     return (
         <ClerkProvider
             publishableKey={key}
+            // Workaround/hack: Use Clerk's localization feature to rename the default
+            // "Personal account" text in the OrganizationSwitcher to "Researcher Account"
+            // for better contextual clarity in our use case.
             localization={{
                 organizationSwitcher: {
                     personalWorkspace: 'Researcher Account',
