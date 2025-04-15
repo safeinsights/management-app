@@ -2,20 +2,7 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import {
-    Anchor,
-    Divider,
-    FileInput,
-    Group,
-    Grid,
-    GridCol,
-    Stack,
-    Paper,
-    Text,
-    TextInput,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
+import { Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
