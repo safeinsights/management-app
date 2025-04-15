@@ -5,7 +5,7 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import { StudyProposalFormValues, studyProposalFormSchema } from './study-proposal-form-schema'
+import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
@@ -17,7 +17,7 @@ import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { signedUrlForCodeUploadAction, signedUrlForStudyFileUploadAction } from '@/server/actions/s3.actions'
 import logger from '@/lib/logger'
-import { map, mapKeys, omit } from 'remeda'
+import { omit } from 'remeda'
 
 // TODO @nathan, should we talk about local vs s3 storage?
 //  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
@@ -68,6 +68,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
     const router = useRouter()
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
+        mode: 'uncontrolled',
         validate: zodResolver(studyProposalFormSchema),
         validateInputOnBlur: true,
         initialValues: {
@@ -90,14 +91,17 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 'codeFiles',
             ])
 
-            // Got me thinking, why store docpath we could basically enforce a structure in s3 like:
+            // Has me thinking, why store docpath we could basically enforce a structure in s3 like:
             // study/studyId/agreementDocument/doc.pdf (if we enforced the name to be generic,
-            // we wouldn't have to store it.) idk how important this is to users
+            // we wouldn't have to store it.) idk how important this is to users to have their own filenames
+            // would be nice to have something for a filename they could download like:
+            // <StudyTitle>AgreementDocument.pdf
+            // <StudyTitle>IRBDocument.pdf... etc
             const valuesWithFilenames = {
                 ...valuesWithoutFiles,
-                descriptionDocPath: formValues.descriptionDocument?.name,
-                agreementDocPath: formValues.agreementDocument?.name,
-                irbDocPath: formValues.irbDocument?.name,
+                descriptionDocPath: formValues.descriptionDocument?.name || '',
+                agreementDocPath: formValues.agreementDocument?.name || '',
+                irbDocPath: formValues.irbDocument?.name || '',
             }
 
             const { studyId, studyJobId } = await onCreateStudyAction({

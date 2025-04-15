@@ -1,7 +1,7 @@
 'use server'
 
 import { codeBuildRepositoryUrl } from '@/server/aws'
-import { studyProposalApiSchema, studyProposalFormSchema } from './study-proposal-form-schema'
+import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
