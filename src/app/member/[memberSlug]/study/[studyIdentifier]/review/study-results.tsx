@@ -150,12 +150,10 @@ export const StudyResults: FC<{
         <Paper bg="white" p="xl">
             <Stack>
                 <Group justify="space-between">
-                    {decryptedResults?.length && (
-                        <>
-                            <Title order={4}>Study Results</Title>
-                            <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
-                        </>
-                    )}
+                    <>
+                        <Title order={4}>Study Results</Title>
+                        <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
+                    </>
                 </Group>
                 {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
                 <Stack>

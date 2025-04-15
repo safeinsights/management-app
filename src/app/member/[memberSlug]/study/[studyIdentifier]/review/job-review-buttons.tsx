@@ -18,7 +18,13 @@ type FileEntry = {
     contents: ArrayBuffer
 }
 
-export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: FileEntry[] }) => {
+export const JobReviewButtons = ({
+    job,
+    decryptedResults,
+}: {
+    job: StudyJob
+    decryptedResults: FileEntry[] | undefined
+}) => {
     const router = useRouter()
 
     const jobInfo = useQuery({
@@ -30,6 +36,8 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     const { mutate: updateStudyJob } = useMutation({
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
+            if (!decryptedResults) return
+
             if (status === 'RESULTS-APPROVED') {
                 await approveStudyJobResultsAction({ jobInfo, jobResults: decryptedResults })
             }
@@ -42,6 +50,7 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
             router.push('/')
         },
     })
+
     if (!jobInfo) return null
 
     if (jobInfo.jobStatus === 'RESULTS-APPROVED') {
