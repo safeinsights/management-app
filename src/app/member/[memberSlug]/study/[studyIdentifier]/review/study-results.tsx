@@ -107,6 +107,16 @@ export const StudyResults: FC<{
         },
     })
 
+    const onSubmit = (values: StudyResultsFormValues) => {
+        decryptResults({ privateKey: values.privateKey })
+    }
+
+    const handleError = (errors: typeof form.errors) => {
+        if (errors.privateKey) {
+            notifications.show({ message: 'Invalid private key', color: 'red' })
+        }
+    }
+
     if (!latestJob) {
         return (
             <Paper bg="white" p="xl">
@@ -132,14 +142,8 @@ export const StudyResults: FC<{
         )
     }
 
-    const onSubmit = (values: StudyResultsFormValues) => {
-        decryptResults({ privateKey: values.privateKey })
-    }
-
-    const handleError = (errors: typeof form.errors) => {
-        if (errors.privateKey) {
-            notifications.show({ message: 'Invalid private key', color: 'red' })
-        }
+    if (!jobStatus || !['RESULTS-APPROVED', 'RUN-COMPLETE'].includes(jobStatus)) {
+        return null // nothing to display
     }
 
     return (
@@ -172,11 +176,7 @@ export const StudyResults: FC<{
                         </form>
                     )}
                 </Stack>
-                {jobStatus === 'RESULTS-APPROVED' ? (
-                    <ViewJobResultsCSV job={latestJob} />
-                ) : (
-                    <Text>Results are not available.</Text>
-                )}
+                {jobStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={latestJob} />}
             </Stack>
         </Paper>
     )
