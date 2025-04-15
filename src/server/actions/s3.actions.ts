@@ -1,10 +1,12 @@
 'use server'
 
 import { getS3Client, s3BucketName } from '@/server/aws'
-import { MinimalJobInfo, minimalJobInfoSchema, minimalStudyInfoSchema, StudyDocumentType } from '@/lib/types'
-import { pathForStudyDocumentFile, pathForStudyJobCode } from '@/lib/paths'
+import { MinimalJobInfo, minimalJobInfoSchema } from '@/lib/types'
+import { pathForStudyJobCode } from '@/lib/paths'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 import { userAction, z } from '@/server/actions/wrappers'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 
 export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJobInfo) => {
     const prefix = pathForStudyJobCode(jobInfo)
@@ -17,17 +19,17 @@ export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJo
     })
 }, minimalJobInfoSchema)
 
-export const signedUrlForStudyFileUploadAction = userAction(
-    async ({ studyInfo, documentType, filename }) => {
-        return await createPresignedPost(getS3Client(), {
-            Bucket: s3BucketName(),
-            Expires: 3600,
-            Key: pathForStudyDocumentFile(studyInfo, documentType, filename),
-        })
-    },
-    z.object({
-        studyInfo: minimalStudyInfoSchema,
-        documentType: z.nativeEnum(StudyDocumentType),
-        filename: z.string(),
-    }),
-)
+export const signedUrlForStudyFileUploadAction = userAction(async (path: string) => {
+    return await createPresignedPost(getS3Client(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Conditions: [['starts-with', '$key', path]],
+        Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}, z.string())
+
+export const signedUrlForDeletingStudyFiles = userAction(async (Key: string) => {
+    return await getSignedUrl(getS3Client(), new DeleteObjectCommand({ Bucket: s3BucketName(), Key }), {
+        expiresIn: 3600,
+    })
+}, z.string())

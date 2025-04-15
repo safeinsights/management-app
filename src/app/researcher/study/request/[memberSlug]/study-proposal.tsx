@@ -15,9 +15,13 @@ import { StudyDocumentType } from '@/lib/types'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
-import { signedUrlForCodeUploadAction, signedUrlForStudyFileUploadAction } from '@/server/actions/s3.actions'
-import logger from '@/lib/logger'
+import {
+    signedUrlForCodeUploadAction,
+    signedUrlForDeletingStudyFiles,
+    signedUrlForStudyFileUploadAction,
+} from '@/server/actions/s3.actions'
 import { omit } from 'remeda'
+import { pathForStudy, pathForStudyDocuments } from '@/lib/paths'
 
 // TODO @nathan, should we talk about local vs s3 storage?
 //  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
@@ -36,7 +40,7 @@ async function uploadFile(file: File, upload: PresignedPost) {
     if (!response.ok) {
         notifications.show({
             color: 'red',
-            title: 'failed to upload file',
+            title: 'Failed to upload file',
             message: await response.text(),
         })
     }
@@ -46,22 +50,13 @@ async function uploadFile(file: File, upload: PresignedPost) {
 
 async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
     const manifest = new CodeReviewManifest(studyJobId, 'r')
-    const body = new FormData()
-    for (const [key, value] of Object.entries(upload.fields)) {
-        body.append(key, value)
-    }
     for (const codeFile of files) {
         manifest.files.push(codeFile)
-        body.append('file', codeFile)
+        await uploadFile(codeFile, upload)
     }
 
     const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    body.append(manifestFile.name, manifestFile)
-
-    await fetch(upload.url, {
-        method: 'POST',
-        body: body,
-    })
+    return await uploadFile(manifestFile, upload)
 }
 
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
@@ -70,7 +65,6 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(studyProposalFormSchema),
-        validateInputOnBlur: true,
         initialValues: {
             title: '',
             piName: '',
@@ -81,7 +75,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         },
     })
 
-    const { mutate: createStudy } = useMutation({
+    const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             // Don't send any actual files to the server action, because they can't handle the file sizes
             const valuesWithoutFiles = omit(formValues, [
@@ -91,12 +85,6 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 'codeFiles',
             ])
 
-            // Has me thinking, why store docpath we could basically enforce a structure in s3 like:
-            // study/studyId/agreementDocument/doc.pdf (if we enforced the name to be generic,
-            // we wouldn't have to store it.) idk how important this is to users to have their own filenames
-            // would be nice to have something for a filename they could download like:
-            // <StudyTitle>AgreementDocument.pdf
-            // <StudyTitle>IRBDocument.pdf... etc
             const valuesWithFilenames = {
                 ...valuesWithoutFiles,
                 descriptionDocPath: formValues.descriptionDocument?.name || '',
@@ -109,51 +97,40 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 studyInfo: valuesWithFilenames,
             })
 
-            // TODO retry N times https://stackoverflow.com/a/13239999
-            try {
-                if (formValues.irbDocument) {
-                    const upload = await signedUrlForStudyFileUploadAction({
-                        studyInfo: { studyId, memberSlug },
-                        documentType: StudyDocumentType.IRB,
-                        filename: formValues.irbDocument.name,
-                    })
+            if (formValues.irbDocument) {
+                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB)
+                const upload = await signedUrlForStudyFileUploadAction(path)
 
-                    await uploadFile(formValues.irbDocument, upload)
-                }
-
-                if (formValues.agreementDocument?.name) {
-                    const upload = await signedUrlForStudyFileUploadAction({
-                        studyInfo: { studyId, memberSlug },
-                        documentType: StudyDocumentType.AGREEMENT,
-                        filename: formValues.agreementDocument.name,
-                    })
-
-                    await uploadFile(formValues.agreementDocument, upload)
-                }
-
-                if (formValues.descriptionDocument?.name) {
-                    const upload = await signedUrlForStudyFileUploadAction({
-                        studyInfo: { studyId, memberSlug },
-                        documentType: StudyDocumentType.DESCRIPTION,
-                        filename: formValues.descriptionDocument.name,
-                    })
-
-                    await uploadFile(formValues.descriptionDocument, upload)
-                }
-
-                const studyCodeUpload = await signedUrlForCodeUploadAction({
-                    memberSlug,
-                    studyId,
-                    studyJobId,
-                })
-
-                await uploadCodeFiles(formValues.codeFiles, studyCodeUpload, studyJobId)
-            } catch (error) {
-                // roll back the study if uploads failed and let the user try again
-                await onDeleteStudyAction({ studyId, studyJobId })
-                notifications.show({ message: 'Something went wrong uploading your files.', color: 'red' })
-                logger.error(error)
+                const ok = await uploadFile(formValues.irbDocument, upload)
+                if (!ok) return { studyId, studyJobId }
             }
+
+            if (formValues.agreementDocument?.name) {
+                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.AGREEMENT)
+                const upload = await signedUrlForStudyFileUploadAction(path)
+
+                const ok = await uploadFile(formValues.agreementDocument, upload)
+                if (!ok) return { studyId, studyJobId }
+            }
+
+            if (formValues.descriptionDocument?.name) {
+                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION)
+                const upload = await signedUrlForStudyFileUploadAction(path)
+
+                const ok = await uploadFile(formValues.descriptionDocument, upload)
+                if (!ok) return { studyId, studyJobId }
+            }
+
+            const studyCodeUpload = await signedUrlForCodeUploadAction({
+                memberSlug,
+                studyId,
+                studyJobId,
+            })
+
+            const ok = await uploadCodeFiles(formValues.codeFiles, studyCodeUpload, studyJobId)
+            if (!ok) return { studyId, studyJobId }
+
+            return { studyId, studyJobId }
         },
         onSuccess() {
             notifications.show({
@@ -164,9 +141,13 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             })
             router.push(`/researcher/dashboard`)
         },
-        onError(error) {
+        onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
-            notifications.show({ message: String(error), color: 'red' })
+            if (!context) return
+            const deletePath = pathForStudy({ memberSlug: memberSlug, studyId: context.studyId })
+            const deleteStudyFilesURL = await signedUrlForDeletingStudyFiles(deletePath)
+            await fetch(deleteStudyFilesURL)
+            await onDeleteStudyAction({ studyId: context.studyId, studyJobId: context.studyJobId })
         },
     })
 
@@ -183,7 +164,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 <Group gap="xl" justify="flex-end">
                     {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <Button disabled={!studyProposalForm.isValid} type="submit" variant="filled">
+                    <Button disabled={!studyProposalForm.isValid || isPending} type="submit" variant="filled">
                         Submit
                     </Button>
                 </Group>
