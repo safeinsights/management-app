@@ -1,15 +1,12 @@
 import { z } from 'zod'
 
-export const studyProposalSchema = z
+export const studyProposalFormSchema = z
     .object({
         title: z
             .string()
             .min(5, { message: 'Title must be at least 5 characters long' })
             .max(50, { message: 'Title must be less than 50 characters long' }),
         piName: z.string().min(1, { message: 'Principal Investigator name must be present' }).max(100).trim(),
-        descriptionDocPath: z.string().optional(),
-        irbDocPath: z.string().optional(),
-        agreementDocPath: z.string().optional(),
         descriptionDocument: z
             .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
             .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
@@ -90,4 +87,15 @@ export const studyProposalSchema = z
         }
     })
 
-export type StudyProposalFormValues = z.infer<typeof studyProposalSchema>
+export type StudyProposalFormValues = z.infer<typeof studyProposalFormSchema>
+
+export const studyProposalApiSchema = z.object({
+    title: z
+        .string()
+        .min(5, { message: 'Title must be at least 5 characters long' })
+        .max(50, { message: 'Title must be less than 50 characters long' }),
+    piName: z.string().min(1, { message: 'Principal Investigator name must be present' }).max(100).trim(),
+    descriptionDocPath: z.string(),
+    irbDocPath: z.string(),
+    agreementDocPath: z.string(),
+})

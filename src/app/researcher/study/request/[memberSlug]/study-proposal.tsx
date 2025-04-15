@@ -5,17 +5,19 @@ import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import { StudyProposalFormValues, studyProposalSchema } from './study-proposal-schema'
+import { StudyProposalFormValues, studyProposalFormSchema } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
-import { onCreateStudyAction } from './actions'
+import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { StudyDocumentType } from '@/lib/types'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { signedUrlForCodeUploadAction, signedUrlForStudyFileUploadAction } from '@/server/actions/s3.actions'
+import logger from '@/lib/logger'
+import { map, mapKeys, omit } from 'remeda'
 
 // TODO @nathan, should we talk about local vs s3 storage?
 //  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
@@ -66,7 +68,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
     const router = useRouter()
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
-        validate: zodResolver(studyProposalSchema),
+        validate: zodResolver(studyProposalFormSchema),
         validateInputOnBlur: true,
         initialValues: {
             title: '',
@@ -80,8 +82,30 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
     const { mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            const { studyId, studyJobId } = await onCreateStudyAction({ memberSlug, studyInfo: formValues })
+            // Don't send any actual files to the server action, because they can't handle the file sizes
+            const valuesWithoutFiles = omit(formValues, [
+                'agreementDocument',
+                'descriptionDocument',
+                'irbDocument',
+                'codeFiles',
+            ])
 
+            // Got me thinking, why store docpath we could basically enforce a structure in s3 like:
+            // study/studyId/agreementDocument/doc.pdf (if we enforced the name to be generic,
+            // we wouldn't have to store it.) idk how important this is to users
+            const valuesWithFilenames = {
+                ...valuesWithoutFiles,
+                descriptionDocPath: formValues.descriptionDocument?.name,
+                agreementDocPath: formValues.agreementDocument?.name,
+                irbDocPath: formValues.irbDocument?.name,
+            }
+
+            const { studyId, studyJobId } = await onCreateStudyAction({
+                memberSlug,
+                studyInfo: valuesWithFilenames,
+            })
+
+            // TODO retry N times https://stackoverflow.com/a/13239999
             try {
                 if (formValues.irbDocument) {
                     const upload = await signedUrlForStudyFileUploadAction({
@@ -121,9 +145,10 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
                 await uploadCodeFiles(formValues.codeFiles, studyCodeUpload, studyJobId)
             } catch (error) {
-                // IF something goes wrong with study file uploads,
-                //  do we want to roll back and delete the study?
-                notifications.show({ message: String(error), color: 'red' })
+                // roll back the study if uploads failed and let the user try again
+                await onDeleteStudyAction({ studyId, studyJobId })
+                notifications.show({ message: 'Something went wrong uploading your files.', color: 'red' })
+                logger.error(error)
             }
         },
         onSuccess() {

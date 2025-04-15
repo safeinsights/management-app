@@ -1,7 +1,7 @@
 'use server'
 
 import { codeBuildRepositoryUrl } from '@/server/aws'
-import { studyProposalSchema } from './study-proposal-schema'
+import { studyProposalApiSchema, studyProposalFormSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
@@ -9,7 +9,7 @@ import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberSlug: z.string(),
-    studyInfo: studyProposalSchema,
+    studyInfo: studyProposalApiSchema,
 })
 
 export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyInfo }) => {
@@ -26,10 +26,9 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
             id: studyId,
             title: studyInfo.title,
             piName: studyInfo.piName,
-            descriptionDocPath: studyInfo.descriptionDocument?.name,
-            irbDocPath: studyInfo.irbDocument?.name,
-            agreementDocPath: studyInfo.agreementDocument?.name,
-            // TODO: add study lead
+            descriptionDocPath: studyInfo.descriptionDocPath,
+            irbDocPath: studyInfo.irbDocPath,
+            agreementDocPath: studyInfo.agreementDocPath,
             memberId: member.id,
             researcherId: userId,
             containerLocation,
@@ -68,3 +67,15 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
         studyJobId: studyJob.id,
     }
 }, onCreateStudyActionArgsSchema)
+
+export const onDeleteStudyAction = researcherAction(
+    async ({ studyId, studyJobId }) => {
+        await db.deleteFrom('jobStatusChange').where('studyJobId', '=', studyJobId).execute()
+        await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
+        await db.deleteFrom('study').where('id', '=', studyId).execute()
+    },
+    z.object({
+        studyId: z.string(),
+        studyJobId: z.string(),
+    }),
+)
