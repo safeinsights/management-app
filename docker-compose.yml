@@ -39,6 +39,8 @@ services:
         ports:
             - "127.0.0.1:4566:4566"            # LocalStack Gateway
             - "127.0.0.1:4510-4559:4510-4559"  # external services port range
+        env_file:
+            - .env.localstack
         environment:
             # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
             - DEBUG=${DEBUG:-0}
