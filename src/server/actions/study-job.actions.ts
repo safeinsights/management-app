@@ -69,7 +69,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
-export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
+export const loadStudyJobAction = userAction(async (studyJobId) => {
     const userId = await getUserIdFromActionContext()
 
     const jobInfo = await db
@@ -81,7 +81,7 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
         )
         .leftJoin('jobStatusChange', (join) =>
             join
-                .on('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                 .on('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED']),
         )
         .select([
@@ -93,7 +93,7 @@ export const loadStudyJobAction = userAction(async (studyJobIdentifier) => {
             'jobStatusChange.status as jobStatus',
             'jobStatusChange.createdAt as jobStatusCreatedAt',
         ])
-        .where('studyJob.id', '=', studyJobIdentifier)
+        .where('studyJob.id', '=', studyJobId)
         .executeTakeFirst()
 
     let manifest: CodeManifest = {

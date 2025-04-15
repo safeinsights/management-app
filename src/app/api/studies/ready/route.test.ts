@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
+import { db } from '@/database'
 import { insertTestStudyData, insertTestMember, readTestSupportFile } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
@@ -33,7 +34,6 @@ test('jwt with expired token is rejected', async () => {
 
 test('return study jobs', async () => {
     const member = await insertTestMember()
-
     const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
 
     const resp = await apiHandler.GET()
@@ -59,11 +59,33 @@ test('return study jobs', async () => {
             }),
         ]),
     })
+
     expect(json).not.toEqual({
         jobs: expect.arrayContaining([
             expect.objectContaining({
                 jobId: jobIds[0],
             }),
         ]),
+    })
+})
+
+test('studies are not included once finished', async () => {
+    const member = await insertTestMember()
+    const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: jobIds[1],
+            status: 'RUN-COMPLETE',
+            message: 'A OK',
+        })
+        .execute()
+
+    const resp = await apiHandler.GET()
+    const json = await resp.json()
+
+    expect(json).not.toEqual({
+        jobs: expect.arrayContaining([{ jobId: jobIds[1] }]),
     })
 })
