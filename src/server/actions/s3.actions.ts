@@ -28,7 +28,7 @@ export const signedUrlForStudyFileUploadAction = userAction(async (path: string)
     })
 }, z.string())
 
-export const signedUrlForDeletingStudyFiles = userAction(async (Key: string) => {
+export const signedUrlForDeletingStudyFilesAction = userAction(async (Key: string) => {
     return await getSignedUrl(getS3Client(), new DeleteObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })

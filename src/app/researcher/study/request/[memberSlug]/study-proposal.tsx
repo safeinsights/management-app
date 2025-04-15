@@ -17,7 +17,7 @@ import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import {
     signedUrlForCodeUploadAction,
-    signedUrlForDeletingStudyFiles,
+    signedUrlForDeletingStudyFilesAction,
     signedUrlForStudyFileUploadAction,
 } from '@/server/actions/s3.actions'
 import { omit } from 'remeda'
@@ -145,7 +145,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             console.error(error)
             if (!context) return
             const deletePath = pathForStudy({ memberSlug: memberSlug, studyId: context.studyId })
-            const deleteStudyFilesURL = await signedUrlForDeletingStudyFiles(deletePath)
+            const deleteStudyFilesURL = await signedUrlForDeletingStudyFilesAction(deletePath)
             await fetch(deleteStudyFilesURL)
             await onDeleteStudyAction({ studyId: context.studyId, studyJobId: context.studyJobId })
         },
