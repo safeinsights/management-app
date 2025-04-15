@@ -2,13 +2,13 @@
 
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Anchor, Button, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
+import { Button, Group, Paper, Stack, Text, Textarea, Title } from '@mantine/core'
 import { StudyJob } from '@/schema/study'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { JobReviewButtons } from './job-review-buttons'
-import Link from 'next/link'
+import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
 import { fingerprintKeyData, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import { StudyJobStatus } from '@/database/types'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
@@ -107,6 +107,16 @@ export const StudyResults: FC<{
         },
     })
 
+    const onSubmit = (values: StudyResultsFormValues) => {
+        decryptResults({ privateKey: values.privateKey })
+    }
+
+    const handleError = (errors: typeof form.errors) => {
+        if (errors.privateKey) {
+            notifications.show({ message: 'Invalid private key', color: 'red' })
+        }
+    }
+
     if (!latestJob) {
         return (
             <Paper bg="white" p="xl">
@@ -132,14 +142,8 @@ export const StudyResults: FC<{
         )
     }
 
-    const onSubmit = (values: StudyResultsFormValues) => {
-        decryptResults({ privateKey: values.privateKey })
-    }
-
-    const handleError = (errors: typeof form.errors) => {
-        if (errors.privateKey) {
-            notifications.show({ message: 'Invalid private key', color: 'red' })
-        }
+    if (!jobStatus || !['RESULTS-APPROVED', 'RUN-COMPLETE'].includes(jobStatus)) {
+        return null // nothing to display
     }
 
     return (
@@ -172,13 +176,7 @@ export const StudyResults: FC<{
                         </form>
                     )}
                 </Stack>
-                {jobStatus === 'RESULTS-APPROVED' ? (
-                    <Stack>
-                        <Anchor target="_blank" component={Link} href={`/dl/results/${latestJob.id}`}>
-                            View results here
-                        </Anchor>
-                    </Stack>
-                ) : null}
+                {jobStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={latestJob} />}
             </Stack>
         </Paper>
     )
