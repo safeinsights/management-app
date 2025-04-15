@@ -172,10 +172,8 @@ export const StudyResults: FC<{
                         </form>
                     )}
                 </Stack>
-                {jobStatus === 'RESULTS-APPROVED' ? (
+                {jobStatus === 'RESULTS-APPROVED' && (
                     <ViewJobResultsCSV job={latestJob} />
-                ) : (
-                    <Text>Results are not available.</Text>
                 )}
             </Stack>
         </Paper>
