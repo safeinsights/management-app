@@ -6,9 +6,7 @@ describe('MFA Utilities', () => {
     describe('isUsingPhoneMFA', () => {
         it('should return true when SMS is supported and TOTP is not', () => {
             const mockSignIn = {
-                supportedSecondFactors: [
-                    { strategy: 'phone_code' }
-                ]
+                supportedSecondFactors: [{ strategy: 'phone_code' }],
             } as SignInResource
 
             expect(isUsingPhoneMFA(mockSignIn)).toBe(true)
@@ -16,10 +14,7 @@ describe('MFA Utilities', () => {
 
         it('should return false when both SMS and TOTP are supported', () => {
             const mockSignIn = {
-                supportedSecondFactors: [
-                    { strategy: 'phone_code' },
-                    { strategy: 'totp' }
-                ]
+                supportedSecondFactors: [{ strategy: 'phone_code' }, { strategy: 'totp' }],
             } as SignInResource
 
             expect(isUsingPhoneMFA(mockSignIn)).toBe(false)
@@ -27,7 +22,7 @@ describe('MFA Utilities', () => {
 
         it('should return false when no second factors are supported', () => {
             const mockSignIn = {
-                supportedSecondFactors: []
+                supportedSecondFactors: [],
             } as unknown as SignInResource
 
             expect(isUsingPhoneMFA(mockSignIn)).toBe(false)
@@ -38,7 +33,7 @@ describe('MFA Utilities', () => {
         it('should prepare SMS factor and return proper state when SMS MFA is used', async () => {
             const mockSignIn = {
                 supportedSecondFactors: [{ strategy: 'phone_code' }],
-                prepareSecondFactor: vi.fn().mockResolvedValue(undefined)
+                prepareSecondFactor: vi.fn().mockResolvedValue(undefined),
             } as unknown as SignInResource
 
             const result = await signInToMFAState(mockSignIn)
@@ -49,11 +44,8 @@ describe('MFA Utilities', () => {
 
         it('should not prepare second factor when SMS MFA is not used', async () => {
             const mockSignIn = {
-                supportedSecondFactors: [
-                    { strategy: 'phone_code' },
-                    { strategy: 'totp' }
-                ],
-                prepareSecondFactor: vi.fn().mockResolvedValue(undefined)
+                supportedSecondFactors: [{ strategy: 'phone_code' }, { strategy: 'totp' }],
+                prepareSecondFactor: vi.fn().mockResolvedValue(undefined),
             } as unknown as SignInResource
 
             const result = await signInToMFAState(mockSignIn)
