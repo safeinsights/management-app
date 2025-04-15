@@ -45,80 +45,95 @@ export const StudyProposalForm: FC<{
 
     return (
         <Paper p="md">
-            <Title order={4}>Study Proposal</Title>
-            <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="md">
-                This section is here to help you submit your study proposal. Consider providing as much detail as
-                possible to ensure the Reviewer has all the information needed to make an informed decision.
-            </Text>
+            <Stack gap="lg">
+                <Title order={4}>Study Proposal</Title>
+                <Divider />
+                <Text>
+                    This section is here to help you submit your study proposal. Consider providing as much detail as
+                    possible to ensure the Reviewer has all the information needed to make an informed decision.
+                </Text>
 
-            <Grid>
-                <GridCol span="content">
-                    <Stack gap="xl">
-                        <Text fw="bold">Study Title</Text>
-                        <Text mt="md" fw="bold">
-                            Study Lead
+                <Stack gap="xl">
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Study Title
                         </Text>
-                        <Text mt="md" fw="bold">
-                            Principal Investigator
-                        </Text>
-                        <Text fw="bold">Study Description</Text>
-                        <Text fw="bold">IRB Document</Text>
-                        <Text fw="bold">Agreement Document</Text>
-                    </Stack>
-                </GridCol>
-                <GridCol span={3}>
-                    <Stack gap="xl">
                         <TextInput
+                            w={'30%'}
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
                         />
-                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Study Lead
+                        </Text>
+                        <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Principal Investigator
+                        </Text>
                         <TextInput
+                            w={'30%'}
                             aria-label="Principal Investigator"
                             placeholder="Full Name"
                             {...studyProposalForm.getInputProps('piName')}
                         />
-                        <Group gap="md">
-                            {fileUpload}
-                            <FileInput
-                                name="descriptionDocument"
-                                component={Anchor}
-                                aria-label="Upload Study Description Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('descriptionDocument')}
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {irbFileUpload}
-                            <FileInput
-                                {...studyProposalForm.getInputProps('irbDocument')}
-                                name="irbDocument"
-                                component={Anchor}
-                                aria-label="Upload IRB Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {agreementFileUpload}
-                            <FileInput
-                                name="agreementDocument"
-                                component={Anchor}
-                                aria-label="Upload Agreement Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('agreementDocument')}
-                            />
-                        </Group>
-                    </Stack>
-                </GridCol>
-            </Grid>
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Study Description
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            name="descriptionDocument"
+                            leftSection={fileUpload}
+                            aria-label="Upload Study Description Document"
+                            placeholder="Upload Study Description Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('descriptionDocument')}
+                        />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            IRB Document
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            leftSection={irbFileUpload}
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                            name="irbDocument"
+                            aria-label="Upload IRB Document"
+                            placeholder="Upload IRB Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                        />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Agreement Document
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            leftSection={agreementFileUpload}
+                            name="agreementDocument"
+                            aria-label="Upload Agreement Document"
+                            placeholder="Upload Agreement Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('agreementDocument')}
+                        />
+                    </Group>
+                </Stack>
+            </Stack>
         </Paper>
     )
 }
