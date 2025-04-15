@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
@@ -6,7 +7,10 @@ import { StudyJob } from '@/schema/study'
 import { faker } from '@faker-js/faker'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
 
-vi.mock('@/server/actions/study-job.actions')
+vi.mock('@/server/actions/study-job.actions', () => ({
+    fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
+    fetchJobResultsEncryptedZipAction: vi.fn(() => 'Encrypted Results'),
+}))
 
 const mockStudyJob: StudyJob = {
     createdAt: new Date(),
@@ -35,7 +39,9 @@ describe('Study Results Approve/Reject buttons', () => {
 
     it('renders the results if the job has been approved', async () => {
         renderWithProviders(<StudyResults latestJob={mockStudyJob} fingerprint="asdf" jobStatus="RESULTS-APPROVED" />)
-        expect(screen.getByRole('link', { name: /view results here/i })).toBeDefined()
+        await waitFor(() => {
+            expect(screen.getByRole('link', { name: /Download/i })).toBeDefined()
+        })
     })
 
     it('renders the form to unlock results', async () => {
