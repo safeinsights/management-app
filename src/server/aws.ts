@@ -24,7 +24,8 @@ export const getS3Client = () =>
     _s3Client ||
     (_s3Client = new S3Client({
         region: process.env.AWS_REGION || 'us-east-1',
-        endpoint: process.env.AWS_ENDPOINT || undefined,
+        forcePathStyle: true,
+        endpoint: process.env.AWS_ENDPOINT,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 

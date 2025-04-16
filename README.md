@@ -36,6 +36,7 @@ Open [http://localhost:4000](http://localhost:4000) with your browser to access 
 
 #### Local AWS development setup:
 
+# TODO Maybe not needed
 - Add this to your `~/.aws/config`
 ```bash
 [profile localstack]
@@ -50,10 +51,6 @@ region = us-east-1
 aws_access_key_id=test
 aws_secret_access_key=test
 ```
-
-- Run these commands to set up your local bucket and confirm it was created
-`aws --endpoint-url=http://localhost:4566 s3 mb s3://mgmt-app-local --profile localstack`
-`aws --endpoint-url=http://localhost:4566 s3 ls --profile localstack   `
 
 - Other useful commands:
 

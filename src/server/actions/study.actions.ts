@@ -187,17 +187,17 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         const latestJob = await latestJobForStudy(studyId, trx)
         if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
-        let status: StudyJobStatus = 'CODE-APPROVED'
+        const status: StudyJobStatus = 'CODE-APPROVED'
 
-        if (USING_S3_STORAGE) {
-            await triggerBuildImageForJob({
-                studyJobId: latestJob.id,
-                studyId,
-                memberSlug: slug,
-            })
-        } else {
-            status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
-        }
+        // if (USING_S3_STORAGE) {
+        await triggerBuildImageForJob({
+            studyJobId: latestJob.id,
+            studyId,
+            memberSlug: slug,
+        })
+        // } else {
+        //     status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
+        // }
         await trx
             .insertInto('jobStatusChange')
             .values({

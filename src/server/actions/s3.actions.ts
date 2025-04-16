@@ -6,11 +6,18 @@ import { pathForStudyJobCode } from '@/lib/paths'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 import { userAction, z } from '@/server/actions/wrappers'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 
 export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJobInfo) => {
     const prefix = pathForStudyJobCode(jobInfo)
-
+    // return await getSignedUrl(
+    //     getS3Client(),
+    //     new PutObjectCommand({
+    //         Bucket: s3BucketName(),
+    //         Key: prefix + '/${filename}',
+    //     }),
+    //     { expiresIn: 3600 },
+    // )
     return await createPresignedPost(getS3Client(), {
         Bucket: s3BucketName(),
         Conditions: [['starts-with', '$key', prefix]],
@@ -20,6 +27,15 @@ export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJo
 }, minimalJobInfoSchema)
 
 export const signedUrlForStudyFileUploadAction = userAction(async (path: string) => {
+    // return await getSignedUrl(
+    //     getS3Client(),
+    //     new PutObjectCommand({
+    //         Bucket: s3BucketName(),
+    //         Key: path + '/${filename}',
+    //     }),
+    //     { expiresIn: 3600 },
+    // )
+
     return await createPresignedPost(getS3Client(), {
         Bucket: s3BucketName(),
         Expires: 3600,

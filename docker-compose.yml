@@ -44,9 +44,12 @@ services:
             - DEBUG=${DEBUG:-0}
             - SERVICES=s3,sts,codebuild,ecr
             - BUCKET_NAMES=mgmt-app-local
+            - DISABLE_CORS_CHECKS=1
+            - DISABLE_CUSTOM_CORS_APIGATEWAY=1
         volumes:
             - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
             - "/var/run/docker.sock:/var/run/docker.sock"
+            - ./aws:/etc/localstack/init/ready.d
         networks:
             - mgmnt-app
     mgmnt-app:
