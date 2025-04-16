@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, PasswordInput, Anchor } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
@@ -7,6 +8,8 @@ import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
 import { useMutation } from '@tanstack/react-query'
+import { signInToMFAState, type MFAState } from '../signin/logic'
+import { RequestMFA } from '../signin/mfa'
 
 interface VerificationFormValues {
     code: string
@@ -20,6 +23,7 @@ interface PendingResetProps {
 
 export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
     const { isLoaded, setActive } = useSignIn()
+    const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
     const router = useRouter()
 
     const verificationForm = useForm<VerificationFormValues>({
@@ -36,6 +40,7 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
     const { isPending, mutate: onSubmitVerification } = useMutation({
         async mutationFn(form: VerificationFormValues) {
             if (!isLoaded || !pendingReset) return
+
             return await pendingReset.attemptFirstFactor({
                 strategy: 'reset_password_email_code',
                 code: form.code,
@@ -56,9 +61,19 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
             }
         },
         async onSuccess(info?: SignInResource) {
-            if (setActive && info?.status == 'complete') {
+            if (!setActive || !info) {
+                verificationForm.setErrors({
+                    password: 'An unknown error occurred, please try again later.',
+                })
+                return
+            }
+
+            if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 router.push('/')
+            } else if (info.status == 'needs_second_factor') {
+                const state = await signInToMFAState(info)
+                setNeedsMFA(state)
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 verificationForm.setErrors({
@@ -67,6 +82,8 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
             }
         },
     })
+
+    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
     return (
         <Stack>
