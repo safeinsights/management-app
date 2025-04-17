@@ -8,7 +8,7 @@ import {
     fetchStudyEncryptedResultsFile,
     storeStudyResultsFile,
 } from '@/server/storage'
-import { getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
+import { getUserIdFromActionContext, memberAction, userAction, actionContext, z } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -116,34 +116,13 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
 }, z.string())
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
-    const latestJob = await latestJobForStudy(studyId)
+    const latestJob = await latestJobForStudy(studyId, await actionContext())
 
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
         throw new Error(`No job found for study id: ${studyId}`)
     }
     return latestJob
-}, z.string())
-
-export const jobStatusForJobAction = userAction(async (jobId) => {
-    if (!jobId) return null
-    const userId = await getUserIdFromActionContext()
-
-    const result = await db
-        .selectFrom('jobStatusChange')
-        // security, check user has access to record
-        .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
-        .select('jobStatusChange.status')
-        .where('jobStatusChange.studyJobId', '=', jobId)
-        .orderBy('jobStatusChange.id', 'desc')
-        .limit(1)
-        .executeTakeFirst()
-
-    return result?.status || null
 }, z.string())
 
 export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {
