@@ -1,6 +1,6 @@
 'use server'
 
-import { getS3Client, s3BucketName } from '@/server/aws'
+import { getS3BrowserClient, getS3Client, s3BucketName } from '@/server/aws'
 import { MinimalJobInfo, minimalJobInfoSchema } from '@/lib/types'
 import { pathForStudyJobCode } from '@/lib/paths'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
@@ -11,7 +11,7 @@ import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJobInfo) => {
     const prefix = pathForStudyJobCode(jobInfo)
 
-    return await createPresignedPost(getS3Client(), {
+    return await createPresignedPost(getS3BrowserClient(), {
         Bucket: s3BucketName(),
         Conditions: [['starts-with', '$key', prefix]],
         Expires: 3600,
@@ -20,7 +20,7 @@ export const signedUrlForCodeUploadAction = userAction(async (jobInfo: MinimalJo
 }, minimalJobInfoSchema)
 
 export const signedUrlForStudyFileUploadAction = userAction(async (path: string) => {
-    return await createPresignedPost(getS3Client(), {
+    return await createPresignedPost(getS3BrowserClient(), {
         Bucket: s3BucketName(),
         Expires: 3600,
         Conditions: [['starts-with', '$key', path]],

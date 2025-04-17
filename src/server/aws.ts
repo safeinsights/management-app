@@ -29,6 +29,17 @@ export const getS3Client = () =>
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
+// For Presigned URLs and client calls
+let _s3BrowserClient: S3Client | null = null
+export const getS3BrowserClient = () =>
+    _s3BrowserClient ||
+    (_s3BrowserClient = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        forcePathStyle: true,
+        endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
+
 export const s3BucketName = () => {
     if (!process.env.BUCKET_NAME) {
         throw new Error('BUCKET_NAME env var not set')
@@ -104,7 +115,7 @@ export const storeS3File = async (
 }
 
 export async function signedUrlForFile(Key: string) {
-    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
+    return await getSignedUrl(getS3BrowserClient(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
 }

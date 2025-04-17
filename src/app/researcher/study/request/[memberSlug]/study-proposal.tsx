@@ -34,6 +34,7 @@ async function uploadFile(file: File, upload: PresignedPost) {
 
     const response = await fetch(upload.url, {
         method: 'POST',
+        // mode: 'no-cors',
         body,
     })
 

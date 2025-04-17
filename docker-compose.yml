@@ -36,8 +36,8 @@ services:
     minio:
         image: minio/minio:latest
         ports:
-            - "9000:9000"
-            - "9001:9001"
+            - '9000:9000'
+            - '9001:9001'
         volumes:
             - minio-data:/data
         environment:
@@ -45,13 +45,13 @@ services:
             MINIO_ROOT_PASSWORD: $MINIO_ROOT_PASSWORD
             MINIO_ACCESS_KEY: $MINIO_ROOT_USER
             MINIO_SECRET_KEY: $MINIO_ROOT_PASSWORD
-            MINIO_API_CORS_ALLOW_ORIGIN: "*"
+            MINIO_API_CORS_ALLOW_ORIGIN: '*'
         command: server /data --console-address :9001
         restart: unless-stopped
         networks:
             - mgmnt-app
         healthcheck:
-            test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+            test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
             interval: 30s
             timeout: 20s
             retries: 3
@@ -87,8 +87,8 @@ services:
             - E2E_CLERK_ADMIN_EMAIL=$E2E_CLERK_ADMIN_EMAIL
             - E2E_CLERK_ADMIN_PASSWORD=$E2E_CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
-#            - AWS_ACCESS_KEY_ID=$MINIO_ROOT_USER
-#            - AWS_SECRET_ACCESS_KEY=$MINIO_ROOT_PASSWORD
+            - S3_ENDPOINT=http://minio:9000
+            - S3_BROWSER_ENDPOINT=http://localhost:9000
         env_file:
             - ./.env
         build:

@@ -25,8 +25,6 @@ You can use Docker compose to run the app and a PostgreSQL database by using:
 
 `docker compose up`
 
-Other useful commands:
-
 ### Getting Started - Local Setup
 
 For developing locally without docker compose, you will need to install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it.
@@ -34,7 +32,7 @@ For developing locally without docker compose, you will need to install PostgreS
 Otherwise, you can use Docker compose to run the app and a PostgreSQL database by using: `docker compose up`
 Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
-- Other useful commands:
+Other useful commands:
 
 - `docker system prune -a` or `docker builder prune` clear your docker cache in case of emergency
 - `docker compose build` will rebuild the docker image, needs to be run after packages are installed
