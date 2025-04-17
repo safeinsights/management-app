@@ -6,7 +6,6 @@ import {
     AppShellMain,
     AppShellNavbar,
     AppShellSection,
-    Group,
     Stack,
     Text,
 } from '@mantine/core'
@@ -44,7 +43,9 @@ export function AppShell({ children }: Props) {
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
             <AppShellFooter p="md" bg="purple.9" bd="none">
-            <Text justify="left" c="white">© 2025 - SafeInsights, Rice University</Text>
+                <Text justify="left" c="white">
+                    © 2025 - SafeInsights, Rice University
+                </Text>
             </AppShellFooter>
         </MantineAppShell>
     )

@@ -41,7 +41,11 @@ export const MemberBreadcrumbs: FC<{
     if (current) {
         crumbs.push([current])
     }
-    return <PageBreadcrumbs crumbs={crumbs} />
+    return (
+        <Stack>
+            <PageBreadcrumbs crumbs={crumbs} /> <Divider />
+        </Stack>
+    )
 }
 
 export const ResearcherBreadcrumbs: FC<{
