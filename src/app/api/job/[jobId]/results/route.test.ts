@@ -20,7 +20,10 @@ test('handling upload', async () => {
     const { jobIds, studyId } = await insertTestStudyData({ memberId: member.id })
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
-
+    // eslint-disable-next-line
+    console.log('Response: ', resp)
+    // eslint-disable-next-line
+    console.trace()
     expect(resp.ok).toBe(true)
 
     const studyResultsFile = await fetchStudyResultsFile({
