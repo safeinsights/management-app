@@ -65,10 +65,10 @@ export const StudyProposalForm: FC<{
                     <FormLabel label="Principal Investigator" />
                     <TextInput
                         aria-label="Principal Investigator"
-                        placeholder="Full Name"
+                        placeholder="Full Name (max. 100 characters)"
                         {...studyProposalForm.getInputProps('piName')}
                         inputSize="50"
-                        maxLength={50}
+                        maxLength={100}
                     />
                 </Group>
                 <Group align="start">
