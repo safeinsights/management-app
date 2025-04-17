@@ -36,6 +36,15 @@ jobs:
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+            minio:
+                # fixme: let's not depend on external unofficial image
+                image: minio/minio:edge-cicd
+                ports:
+                    - 9000:9000
+                env:
+                    MINIO_ROOT_USER: minioadmin
+                    MINIO_ROOT_PASSWORD: minioadmin
+                options: --name=minio --health-cmd "curl http://localhost:9000/minio/health/live"
         permissions:
             pull-requests: write
             contents: write
@@ -59,12 +68,12 @@ jobs:
                   cache: 'npm'
             - name: Start MinIO
               run: |
-                  wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
-                  wget https://dl.min.io/client/mc/release/linux-amd64/mc
+                  wget -q https://dl.min.io/client/mc/release/linux-amd64/mc
                   chmod +x ./mc
                   ./mc alias set myminio http://minio:9000 minioadmin minioadmin
                   ./mc mb myminio/mgmt-app-local
                   ./mc anonymous set public myminio/mgmt-app-local
+                  wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
                   chmod +x minio
                   export MINIO_ROOT_USER=minioadmin
                   export MINIO_ROOT_PASSWORD=minioadmin
