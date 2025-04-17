@@ -3,7 +3,6 @@ FROM node:22-bookworm AS base
 WORKDIR /app
 
 COPY package.json package-lock.json panda.config.ts ./
-COPY aws/cors-config.json ./
 
 RUN npm install
 

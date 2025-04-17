@@ -34,24 +34,6 @@ For developing locally without docker compose, you will need to install PostgreS
 Otherwise, you can use Docker compose to run the app and a PostgreSQL database by using: `docker compose up`
 Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
-#### Local AWS development setup:
-
-# TODO Maybe not needed
-- Add this to your `~/.aws/config`
-```bash
-[profile localstack]
-output = json
-endpoint_url = http://localstack:4566
-region = us-east-1
-```
-
-- Add this to your `~/.aws/credentials`
-```bash
-[localstack]
-aws_access_key_id=test
-aws_secret_access_key=test
-```
-
 - Other useful commands:
 
 - `docker system prune -a` or `docker builder prune` clear your docker cache in case of emergency

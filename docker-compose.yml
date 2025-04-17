@@ -33,23 +33,40 @@ services:
             PASSWORD_bma: mgmntpass
             PORT_bma: 5432
             ENGINE_bma: postgres@dbgate-plugin-postgres
-    localstack:
-        container_name: "${LOCALSTACK_DOCKER_NAME:-localstack-main}"
-        image: localstack/localstack
+    minio:
+        image: minio/minio:latest
         ports:
-            - "127.0.0.1:4566:4566"            # LocalStack Gateway
-            - "127.0.0.1:4510-4559:4510-4559"  # external services port range
-        environment:
-            # LocalStack configuration: https://docs.localstack.cloud/references/configuration/
-            - DEBUG=${DEBUG:-0}
-            - SERVICES=s3,sts,codebuild,ecr
-            - BUCKET_NAMES=mgmt-app-local
-            - DISABLE_CORS_CHECKS=1
-            - DISABLE_CUSTOM_CORS_APIGATEWAY=1
+            - "9000:9000"
+            - "9001:9001"
         volumes:
-            - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
-            - "/var/run/docker.sock:/var/run/docker.sock"
-            - ./aws:/etc/localstack/init/ready.d
+            - minio-data:/data
+        environment:
+            MINIO_ROOT_USER: $MINIO_ROOT_USER
+            MINIO_ROOT_PASSWORD: $MINIO_ROOT_PASSWORD
+            MINIO_ACCESS_KEY: $MINIO_ROOT_USER
+            MINIO_SECRET_KEY: $MINIO_ROOT_PASSWORD
+            MINIO_API_CORS_ALLOW_ORIGIN: "*"
+        command: server /data --console-address :9001
+        restart: unless-stopped
+        networks:
+            - mgmnt-app
+        healthcheck:
+            test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+            interval: 30s
+            timeout: 20s
+            retries: 3
+    create-buckets:
+        image: minio/mc
+        depends_on:
+            minio:
+                condition: service_healthy
+        restart: on-failure
+        entrypoint: >
+            /bin/sh -c "
+            /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+            /usr/bin/mc mb myminio/$BUCKET_NAME;
+            /usr/bin/mc anonymous set public myminio/$BUCKET_NAME;
+            "
         networks:
             - mgmnt-app
     mgmnt-app:
@@ -70,9 +87,8 @@ services:
             - E2E_CLERK_ADMIN_EMAIL=$E2E_CLERK_ADMIN_EMAIL
             - E2E_CLERK_ADMIN_PASSWORD=$E2E_CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
-            - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-            - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-            - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+#            - AWS_ACCESS_KEY_ID=$MINIO_ROOT_USER
+#            - AWS_SECRET_ACCESS_KEY=$MINIO_ROOT_PASSWORD
         env_file:
             - ./.env
         build:
@@ -98,3 +114,4 @@ volumes:
     pgdata:
     node_modules:
     dbgate-data:
+    minio-data:

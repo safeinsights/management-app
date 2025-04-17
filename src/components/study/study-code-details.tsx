@@ -14,7 +14,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
         queryFn: () => loadStudyJobAction(job.id),
     })
 
-    console.log('job data', data)
+    console.log('job data', data, job)
     if (isLoading) return <Text>Loading files...</Text>
 
     if (!data || Object.keys(data?.manifest?.files || {}).length === 0) {
