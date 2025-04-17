@@ -23,36 +23,40 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const job = await latestJobForStudy(studyId)
 
     return (
-        <Stack>
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    studyId,
-                    current: 'Study Details',
-                }}
-            />
+        <>
+            <Stack p="xl">
+                <ResearcherBreadcrumbs
+                    crumbs={{
+                        studyId,
+                        current: 'Study Details',
+                    }}
+                />
+            </Stack>
+            <Title order={1}>Study Details</Title>
+            <Stack p="xl">
+                <Paper bg="white" p="xl">
+                    <Stack>
+                        <Title order={3}>Study Details</Title>
+                        <StudyDetails studyIdentifier={studyId} />
+                    </Stack>
+                </Paper>
 
-            <Paper bg="white" p="xl">
-                <Stack>
-                    <Title order={3}>Study Details</Title>
-                    <StudyDetails studyIdentifier={studyId} />
-                </Stack>
-            </Paper>
+                <Paper bg="white" p="xl">
+                    <Stack>
+                        <Title order={3}>Study Code</Title>
+                        <Divider c="dimmed" />
+                        {job && <StudyCodeDetails job={job} />}
+                    </Stack>
+                </Paper>
 
-            <Paper bg="white" p="xl">
-                <Stack>
-                    <Title order={3}>Study Code</Title>
-                    <Divider my="md" c="dimmed" />
-                    {job && <StudyCodeDetails job={job} />}
-                </Stack>
-            </Paper>
-
-            <Paper bg="white" p="xl">
-                <Stack>
-                    <Title order={3}>Study Results</Title>
-                    <Divider my="md" c="dimmed" />
-                    <ViewJobResultsCSV job={job} />
-                </Stack>
-            </Paper>
-        </Stack>
+                <Paper bg="white" p="xl">
+                    <Stack>
+                        <Title order={3}>Study Results</Title>
+                        <Divider c="dimmed" />
+                        <ViewJobResultsCSV job={job} />
+                    </Stack>
+                </Paper>
+            </Stack>
+        </>
     )
 }

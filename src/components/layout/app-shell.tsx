@@ -43,22 +43,8 @@ export function AppShell({ children }: Props) {
                 </Stack>
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
-            <AppShellFooter p="md" bg="purple.9">
-                <Group justify="center" c="white">
-                    <Text>© 2025 - SafeInsights</Text>
-                    {/* TODO Temporary for dev mode only? admins? */}
-                    <OrganizationSwitcher
-                        afterSelectOrganizationUrl="/"
-                        appearance={{
-                            elements: {
-                                organizationSwitcherTrigger: {
-                                    color: 'white !important',
-                                    '& span': { color: 'white !important' },
-                                },
-                            },
-                        }}
-                    />
-                </Group>
+            <AppShellFooter p="md" bg="purple.9" bd="none">
+            <Text justify="left" c="white">© 2025 - SafeInsights, Rice University</Text>
             </AppShellFooter>
         </MantineAppShell>
     )

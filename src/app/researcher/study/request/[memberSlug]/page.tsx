@@ -17,12 +17,12 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
 
     return (
         <>
-            <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
+            <Stack p="xl">
+                <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
+            </Stack>
+            <Title order={1}>Propose A Study</Title>
             <Flex align="center">
                 <Stack w="100%">
-                    <Title mb="lg" mt="lg">
-                        Propose A Study
-                    </Title>
                     <StudyProposal memberId={member.id} />
                 </Stack>
             </Flex>
