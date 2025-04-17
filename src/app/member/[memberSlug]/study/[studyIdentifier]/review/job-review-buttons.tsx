@@ -30,7 +30,7 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     const { mutate: updateStudyJob } = useMutation({
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
-            if (!decryptedResults) return
+            if (!decryptedResults?.length) return
 
             if (status === 'RESULTS-APPROVED') {
                 await approveStudyJobResultsAction({ jobInfo, jobResults: decryptedResults })
@@ -68,7 +68,7 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
     return (
         <Group>
             <Divider />
-            {decryptedResults?.length > 0 && (
+            {decryptedResults?.length && (
                 <DownloadLink
                     target="_blank"
                     filename={decryptedResults[0].path}
