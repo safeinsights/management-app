@@ -95,8 +95,6 @@ services:
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1
-        #        env_file:
-        #            - ./.env
         build:
             context: .
             dockerfile: ./Dockerfile.dev
