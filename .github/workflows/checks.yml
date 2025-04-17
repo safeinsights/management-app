@@ -64,7 +64,7 @@ jobs:
             E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
             E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
-            S3_ENDPOINT: 'http://minio:9000'
+            S3_ENDPOINT: 'http://localhost:9000'
             S3_BROWSER_ENDPOINT: 'http://localhost:9000'
             MINIO_ROOT_USER: 'minioadmin'
             MINIO_ROOT_PASSWORD: 'minioadmin'
