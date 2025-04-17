@@ -19,7 +19,11 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
 
     const backPath = `/member/${memberSlug}/dashboard`
 
-    const { mutate: updateStudy, isPending } = useMutation({
+    const {
+        mutate: updateStudy,
+        isPending,
+        isSuccess,
+    } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
                 return approveStudyProposalAction(study.id)
@@ -54,10 +58,10 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
 
     return (
         <Group>
-            <Button onClick={() => updateStudy('REJECTED')} loading={isPending} variant="outline">
+            <Button onClick={() => updateStudy('REJECTED')} disabled={isSuccess} loading={isPending} variant="outline">
                 Reject
             </Button>
-            <Button onClick={() => updateStudy('APPROVED')} loading={isPending}>
+            <Button onClick={() => updateStudy('APPROVED')} disabled={isSuccess} loading={isPending}>
                 Approve
             </Button>
         </Group>
