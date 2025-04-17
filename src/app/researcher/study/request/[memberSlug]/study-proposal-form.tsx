@@ -4,6 +4,7 @@ import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
 import {
     Anchor,
+    Divider,
     FileInput,
     Group,
     Grid,
@@ -43,8 +44,11 @@ export const StudyProposalForm: FC<{
     const { user } = useUser()
 
     return (
-        <Paper p="md">
-            <Title order={4}>Study Proposal</Title>
+        <Paper pt="sm" pl="xl" pr="lg" pb="md">
+            <Title order={4} pr="lg" pb="sm">
+                Study Proposal
+            </Title>
+            <Divider my="md" />
             <Text mb="md">
                 This section is here to help you submit your study proposal. Consider providing as much detail as
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
@@ -52,23 +56,23 @@ export const StudyProposalForm: FC<{
 
             <Grid>
                 <GridCol span="content">
-                    <Stack gap="xl">
-                        <Text fz="sm">Study Title</Text>
-                        <Text mt="xl" fz="sm">
+                    <Stack gap="xs">
+                        <Title order={5} fz="sm">Study Title</Title>
+                        <Title order={5} mt="md" fz="sm">
                             Study Lead
-                        </Text>
-                        <Text mt="sm" fz="sm">
+                        </Title>
+                        <Title order={5} mt="md" fz="sm">
                             Principal Investigator
-                        </Text>
-                        <Text mt="md" fw="semibold" fz="sm">
+                        </Title>
+                        <Title order={5} mt="md" fz="sm">
                             Study Description
-                        </Text>
-                        <Text mt="md" fz="sm">
+                        </Title>
+                        <Title order={5} mt="lg" fz="sm">
                             IRB Document
-                        </Text>
-                        <Text mt="xl" fz="sm">
+                        </Title>
+                        <Title order={5} mt="xl" fz="sm">
                             Agreement Document
-                        </Text>
+                        </Title>
                     </Stack>
                 </GridCol>
                 <GridCol span={3}>

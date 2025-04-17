@@ -22,8 +22,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     }
 
     return (
-        <Paper p="md">
-            <Title order={4}>Study Code</Title>
+        <Paper pt="sm" pl="xl" pr="lg" pb="md">
+            <Title order={4} pr="lg" pb="sm">
+                Study Code
+            </Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
                 This section is key to your proposal, as it defines the analysis that will generate the results
