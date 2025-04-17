@@ -57,9 +57,14 @@ jobs:
               with:
                   node-version: 22
                   cache: 'npm'
-            - name: Start MinIO (emulates S3)
+            - name: Start MinIO
               run: |
                   wget -q https://dl.min.io/server/minio/release/linux-amd64/minio
+                  wget https://dl.min.io/client/mc/release/linux-amd64/mc
+                  chmod +x ./mc
+                  ./mc alias set myminio http://minio:9000 minioadmin minioadmin
+                  ./mc mb myminio/mgmt-app-local
+                  ./mc anonymous set public myminio/mgmt-app-local
                   chmod +x minio
                   export MINIO_ROOT_USER=minioadmin
                   export MINIO_ROOT_PASSWORD=minioadmin
