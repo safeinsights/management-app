@@ -63,8 +63,8 @@ services:
         entrypoint: >
             /bin/sh -c "
             /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
-            /usr/bin/mc mb myminio/$BUCKET_NAME;
-            /usr/bin/mc anonymous set public myminio/$BUCKET_NAME;
+            /usr/bin/mc mb myminio/mgmt-app-local;
+            /usr/bin/mc anonymous set public myminio/mgmt-app-local;
             "
         networks:
             - mgmnt-app
@@ -92,8 +92,11 @@ services:
             - MINIO_ROOT_PASSWORD=minioadmin
             - AWS_ACCESS_KEY_ID=minioadmin
             - AWS_SECRET_ACCESS_KEY=minioadmin
-        env_file:
-            - ./.env
+            - BUCKET_NAME=mgmt-app-local
+            - AWS_ACCOUNT_ID=000000000000
+            - AWS_REGION=us-east-1
+        #        env_file:
+        #            - ./.env
         build:
             context: .
             dockerfile: ./Dockerfile.dev
