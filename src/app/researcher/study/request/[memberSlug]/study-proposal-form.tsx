@@ -54,7 +54,7 @@ export const StudyProposalForm: FC<{
                         placeholder="Enter a title (max. 50 characters)"
                         {...studyProposalForm.getInputProps('title')}
                         inputSize="50"
-                        maxLength="50"
+                        maxLength={50}
                     />
                 </Group>
                 <Group align="start">
@@ -68,7 +68,7 @@ export const StudyProposalForm: FC<{
                         placeholder="Full Name"
                         {...studyProposalForm.getInputProps('piName')}
                         inputSize="50"
-                        maxLength="50"
+                        maxLength={50}
                     />
                 </Group>
                 <Group align="start">
