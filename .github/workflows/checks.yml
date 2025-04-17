@@ -49,12 +49,6 @@ jobs:
                     MINIO_SECRET_KEY: minioadmin
             minio-mc:
                 image: minio/mc
-        #                entrypoint: >
-        #                    /bin/sh -c "
-        #                    /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
-        #                    /usr/bin/mc mb myminio/mgmt-app-local;
-        #                    /usr/bin/mc anonymous set public myminio/mgmt-app-local;
-        #                    "
         permissions:
             pull-requests: write
             contents: write
@@ -76,11 +70,17 @@ jobs:
               with:
                   node-version: 22
                   cache: 'npm'
+            - name: Download mc CLI
+              run: |
+                  curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
+                  chmod +x mc
+                  ./mc --version
             - name: Setup minio bucket
               run: |
-                  mc alias set myminio http://minio:9000 minioadmin minioadmin
-                  mc mb myminio/mgmt-app-local
-                  mc anonymous set public myminio/mgmt-app-local
+                  ./mc alias set myminio http://localhost:9000 minioadmin minioadmin
+                  ./mc mb myminio/mgmt-app-local
+                  ./mc anonymous set public myminio/mgmt-app-local
+
             - name: npm install
               run: npm ci
 
