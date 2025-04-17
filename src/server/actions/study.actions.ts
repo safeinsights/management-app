@@ -14,7 +14,7 @@ import {
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
-import { PROD_ENV } from '../config'
+import { DEV_ENV, PROD_ENV } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
@@ -191,14 +191,14 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 
         // TODO Is code build part of s3? do we wanna skip this on local/ci?
         //  maybe we want to use SIMULATE_IMAGE_BUILD ?? its unsed right now
-        if (PROD_ENV) {
+        if (DEV_ENV) {
+            status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
+        } else {
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
                 memberSlug: slug,
             })
-        } else {
-            status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
         }
         await trx
             .insertInto('jobStatusChange')
