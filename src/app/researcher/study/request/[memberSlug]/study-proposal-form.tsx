@@ -73,12 +73,16 @@ export const StudyProposalForm: FC<{
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
+                            inputSize="50"
+                            maxLength="50"
                         />
-                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} inputSize="50" />
                         <TextInput
                             aria-label="Principal Investigator"
                             placeholder="Full Name"
                             {...studyProposalForm.getInputProps('piName')}
+                            inputSize="50"
+                            maxLength="50"
                         />
                         <Group gap="md">
                             {fileUpload}
