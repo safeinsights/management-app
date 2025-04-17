@@ -50,7 +50,7 @@ export const StudyProposal: React.FC<{ memberId: string }> = ({ memberId }) => {
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stack pl="xl" pr="xl" pb="xl" gap="sm">
+            <Stack pt="lg" pl="xl" pr="xl" pb="xl" gap="sm">
                 <StudyProposalForm studyProposalForm={studyProposalForm} />
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} />
                 <Group justify="center">

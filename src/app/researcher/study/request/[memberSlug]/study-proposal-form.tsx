@@ -44,7 +44,7 @@ export const StudyProposalForm: FC<{
     const { user } = useUser()
 
     return (
-        <Paper pt="sm" pl="xl" pr="lg" pb="md">
+        <Paper pt="sm" pl="xl" pr="lg" pb="lg">
             <Title order={4} pr="lg" pb="sm">
                 Study Proposal
             </Title>
