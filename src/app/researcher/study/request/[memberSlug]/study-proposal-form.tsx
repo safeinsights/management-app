@@ -2,23 +2,18 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import {
-    Anchor,
-    Divider,
-    FileInput,
-    Group,
-    Grid,
-    GridCol,
-    Stack,
-    Paper,
-    Text,
-    TextInput,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
+import { Divider, FileInput, Group, Stack, Paper, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-schema'
+
+const FormLabel = ({ label }: { label: string }) => {
+    return (
+        <Text fw="bold" miw={200}>
+            {label}
+        </Text>
+    )
+}
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
@@ -51,75 +46,74 @@ export const StudyProposalForm: FC<{
                 This section is here to help you submit your study proposal. Consider providing as much detail as
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
             </Text>
-
-            <Grid>
-                <GridCol span="content">
-                    <Stack gap="xl">
-                        <Text fw="bold">Study Title</Text>
-                        <Text mt="md" fw="bold">
-                            Study Lead
-                        </Text>
-                        <Text mt="md" fw="bold">
-                            Principal Investigator
-                        </Text>
-                        <Text fw="bold">Study Description</Text>
-                        <Text fw="bold">IRB Document</Text>
-                        <Text fw="bold">Agreement Document</Text>
-                    </Stack>
-                </GridCol>
-                <GridCol span={3}>
-                    <Stack gap="xl">
-                        <TextInput
-                            aria-label="Study Title"
-                            placeholder="Enter a title (max. 50 characters)"
-                            {...studyProposalForm.getInputProps('title')}
-                            inputSize="50"
-                            maxLength="50"
+            <Stack gap="xl">
+                <Group align="start">
+                    <FormLabel label="Study Title" />
+                    <TextInput
+                        aria-label="Study Title"
+                        placeholder="Enter a title (max. 50 characters)"
+                        {...studyProposalForm.getInputProps('title')}
+                        inputSize="50"
+                        maxLength="50"
+                    />
+                </Group>
+                <Group align="start">
+                    <FormLabel label="Study Lead" />
+                    <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} inputSize="50" />
+                </Group>
+                <Group align="start">
+                    <FormLabel label="Principal Investigator" />
+                    <TextInput
+                        aria-label="Principal Investigator"
+                        placeholder="Full Name"
+                        {...studyProposalForm.getInputProps('piName')}
+                        inputSize="50"
+                        maxLength="50"
+                    />
+                </Group>
+                <Group align="start">
+                    <FormLabel label="Study Description" />
+                    <Group gap="md">
+                        {fileUpload}
+                        <FileInput
+                            name="descriptionDocument"
+                            aria-label="Upload Study Description Document"
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('descriptionDocument')}
                         />
-                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} inputSize="50" />
-                        <TextInput
-                            aria-label="Principal Investigator"
-                            placeholder="Full Name"
-                            {...studyProposalForm.getInputProps('piName')}
-                            inputSize="50"
-                            maxLength="50"
+                    </Group>
+                </Group>
+                <Group align="start">
+                    <FormLabel label="IRB Document" />
+                    <Group gap="md">
+                        {irbFileUpload}
+                        <FileInput
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                            name="irbDocument"
+                            aria-label="Upload IRB Document"
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
                         />
-                        <Group gap="md">
-                            {fileUpload}
-                            <FileInput
-                                name="descriptionDocument"
-                                aria-label="Upload Study Description Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('descriptionDocument')}
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {irbFileUpload}
-                            <FileInput
-                                {...studyProposalForm.getInputProps('irbDocument')}
-                                name="irbDocument"
-                                aria-label="Upload IRB Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {agreementFileUpload}
-                            <FileInput
-                                name="agreementDocument"
-                                aria-label="Upload Agreement Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('agreementDocument')}
-                            />
-                        </Group>
-                    </Stack>
-                </GridCol>
-            </Grid>
+                    </Group>
+                </Group>
+                <Group align="start">
+                    <FormLabel label="Agreement Document" />
+                    <Group gap="md">
+                        {agreementFileUpload}
+                        <FileInput
+                            name="agreementDocument"
+                            aria-label="Upload Agreement Document"
+                            placeholder="Upload Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('agreementDocument')}
+                        />
+                    </Group>
+                </Group>
+            </Stack>
         </Paper>
     )
 }
