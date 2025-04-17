@@ -99,7 +99,7 @@ export const storeS3File = async (
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
-        client: getS3Client(), // jobId: info.studyJobId//
+        client: getS3Client(),
         tags: objectToAWSTags({
             studyId: info.studyId,
             ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),

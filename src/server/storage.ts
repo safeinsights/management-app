@@ -59,3 +59,7 @@ async function storeFile(filePath: string, info: MinimalStudyInfo, file: File) {
 export async function storeStudyResultsFile(info: MinimalJobResultsInfo, file: File) {
     return await storeFile(pathForStudyJobResults(info), info, file)
 }
+
+export async function fetchStudyResultsFile(info: MinimalJobResultsInfo) {
+    return await fetchFile(pathForStudyJobResults(info))
+}

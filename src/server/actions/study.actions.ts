@@ -190,7 +190,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         let status: StudyJobStatus = 'CODE-APPROVED'
 
         // TODO Is code build part of s3? do we wanna skip this on local/ci?
-        //  maybe we want to use SIMULATE_IMAGE_BUILD ?? its unsed right now
+        //  maybe we want to use SIMULATE_IMAGE_BUILD ?? its unused right now
         if (DEV_ENV) {
             status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
         } else {
