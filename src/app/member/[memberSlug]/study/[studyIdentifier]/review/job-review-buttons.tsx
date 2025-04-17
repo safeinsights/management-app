@@ -18,13 +18,7 @@ type FileEntry = {
     contents: ArrayBuffer
 }
 
-export const JobReviewButtons = ({
-    job,
-    decryptedResults,
-}: {
-    job: StudyJob
-    decryptedResults: FileEntry[] | undefined
-}) => {
+export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults?: FileEntry[] }) => {
     const router = useRouter()
 
     const jobInfo = useQuery({
