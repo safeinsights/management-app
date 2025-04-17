@@ -23,8 +23,6 @@ import {
 import { omit } from 'remeda'
 import { pathForStudy, pathForStudyDocuments } from '@/lib/paths'
 
-// TODO @nathan, should we talk about local vs s3 storage?
-//  Could we just use s3 locally and not have to switch on USING_S3 to simplify?
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
     for (const [key, value] of Object.entries(upload.fields)) {
@@ -34,7 +32,6 @@ async function uploadFile(file: File, upload: PresignedPost) {
 
     const response = await fetch(upload.url, {
         method: 'POST',
-        // mode: 'no-cors',
         body,
     })
 

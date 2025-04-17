@@ -11,6 +11,7 @@ import { studyCodeURL } from '@/lib/paths'
 export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['studyJobFiles', job.id],
+        enabled: !!job.id,
         queryFn: () => loadStudyJobAction(job.id),
     })
 
