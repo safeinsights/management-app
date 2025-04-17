@@ -88,7 +88,6 @@ export const StudyProposalForm: FC<{
                             {fileUpload}
                             <FileInput
                                 name="descriptionDocument"
-                                component={Anchor}
                                 aria-label="Upload Study Description Document"
                                 placeholder="Upload Document"
                                 clearable
@@ -101,7 +100,6 @@ export const StudyProposalForm: FC<{
                             <FileInput
                                 {...studyProposalForm.getInputProps('irbDocument')}
                                 name="irbDocument"
-                                component={Anchor}
                                 aria-label="Upload IRB Document"
                                 placeholder="Upload Document"
                                 clearable
@@ -112,7 +110,6 @@ export const StudyProposalForm: FC<{
                             {agreementFileUpload}
                             <FileInput
                                 name="agreementDocument"
-                                component={Anchor}
                                 aria-label="Upload Agreement Document"
                                 placeholder="Upload Document"
                                 clearable
