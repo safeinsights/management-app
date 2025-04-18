@@ -4,8 +4,9 @@ import { useForm } from '@mantine/form'
 import { Button, Textarea, TextInput } from '@mantine/core'
 import { upsertMemberAction } from '@/server/actions/member.actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Member, memberSchema, NewMember, ValidatedMember, zodResolver } from '@/schema/member'
+import { Member, memberSchema, NewMember, ValidatedMember } from '@/schema/member'
 import { FC } from 'react'
+import { zodResolver } from 'mantine-form-zod-resolver'
 
 export const EditMemberForm: FC<{
     member: Member | NewMember

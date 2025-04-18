@@ -64,9 +64,8 @@ describe('Member Actions', () => {
             expect(result).toMatchObject(newMember)
         })
 
-        it('returns undefined when member not found', async () => {
-            const result = await getMemberFromSlugAction('non-existent')
-            expect(result).toBeUndefined()
+        it('throws when member not found', async () => {
+            await expect(getMemberFromSlugAction('non-existent')).rejects.toThrow('Member not found')
         })
     })
 })

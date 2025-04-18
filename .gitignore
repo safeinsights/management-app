@@ -22,3 +22,5 @@ src/styles/generated
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+volume/

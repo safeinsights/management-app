@@ -130,6 +130,8 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
 
     const job = await queryJobResult(jobId)
 
+    // TODO This keeps spitting out a bunch of errors in the logs,
+    //  should prob handle this a different way
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }

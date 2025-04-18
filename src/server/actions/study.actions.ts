@@ -14,7 +14,7 @@ import {
 import { latestJobForStudy } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
-import { USING_S3_STORAGE } from '../config'
+import { SIMULATE_IMAGE_BUILD } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
@@ -189,14 +189,15 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 
         let status: StudyJobStatus = 'CODE-APPROVED'
 
-        if (USING_S3_STORAGE) {
+        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
+        if (SIMULATE_IMAGE_BUILD) {
+            status = 'JOB-READY'
+        } else {
             await triggerBuildImageForJob({
                 studyJobId: latestJob.id,
                 studyId,
                 memberSlug: slug,
             })
-        } else {
-            status = 'JOB-READY' // if we're not using s3 then containers will never build so just mark it ready
         }
         await trx
             .insertInto('jobStatusChange')

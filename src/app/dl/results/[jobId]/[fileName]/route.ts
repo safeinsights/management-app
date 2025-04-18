@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { urlOrPathToResultsFile } from '@/server/storage'
+import { urlForResultsFile } from '@/server/storage'
 import { checkUserAllowedJobView, jobInfoForJobId } from '@/server/db/queries'
 import { MinimalJobResultsInfo } from '@/lib/types'
 
@@ -20,12 +20,10 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     if (!job.resultsPath) return NextResponse.json({ error: 'no job results' }, { status: 400 })
 
     const info = { ...job, resultsType: 'APPROVED' } as MinimalJobResultsInfo
-    const loc = await urlOrPathToResultsFile(info)
+    const url = await urlForResultsFile(info)
 
-    if (loc.content) {
-        return new NextResponse(loc.content)
-    } else if (loc.url) {
-        return NextResponse.redirect(loc.url)
+    if (url) {
+        return NextResponse.redirect(url)
     }
     return NextResponse.json({ error: 'invalid file' }, { status: 400 })
 }

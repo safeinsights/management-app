@@ -38,8 +38,6 @@ describe('ManageMemberPage', () => {
     })
 
     it('renders not found alert when member does not exist', async () => {
-        vi.mocked(getMemberFromSlugAction).mockResolvedValue(undefined)
-
         const props = {
             params: Promise.resolve({ memberSlug: 'non-existent' }),
         }
