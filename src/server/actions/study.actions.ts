@@ -189,7 +189,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
 
         let status: StudyJobStatus = 'CODE-APPROVED'
 
-        // if we're not using s3 then containers will never build so just mark it ready
+        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
         if (SIMULATE_IMAGE_BUILD) {
             status = 'JOB-READY'
         } else {
