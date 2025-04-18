@@ -39,6 +39,7 @@ Other useful commands:
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` runs migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` will delete the database, allowing it to be migrated freshly
 - `docker compose down -v --rmi all` "reset switch" (e.g. on DB errors) this command stops and removes Docker containers, networks, volumes, and all images used by the Docker Compose services.
+- `docker compose down -v` acts as a gentler & faster "reset switch". Unlike the previous command, it does not remove downloaded images but still deletes containers, networks, volumes. This means the images remain available and do not need to be downloaded again.
 - `npx kysely migrate:make your_migration_name` Creates a migration file, we should use `snake_case` for migration names
 
 ### Database Visualization with DBGate

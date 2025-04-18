@@ -25,7 +25,6 @@ export const dynamic = 'force-dynamic'
 
 export function ManageMFAPanel() {
     const { isLoaded, user } = useUser()
-    // const [showNewCodes, setShowNewCodes] = useState(false)
 
     if (!isLoaded) return null
 
@@ -54,20 +53,6 @@ export function ManageMFAPanel() {
                         <Button>Authenticator App Verification</Button>
                     </Link>
                 </Stack>
-
-                {/* Manage backup codes */}
-                {/*{user.backupCodeEnabled && user.twoFactorEnabled && (*/}
-                {/*    <Stack gap="sm" mt="lg">*/}
-                {/*        <Text size="md">Generate new backup codes?</Text>*/}
-                {/*        <Button onClick={() => setShowNewCodes(true)}>Generate</Button>*/}
-                {/*    </Stack>*/}
-                {/*)}*/}
-                {/*{showNewCodes && (*/}
-                {/*    <Stack gap="sm" mt="lg">*/}
-                {/*        <GenerateBackupCodes />*/}
-                {/*        <Button onClick={() => setShowNewCodes(false)}>Done</Button>*/}
-                {/*    </Stack>*/}
-                {/*)}*/}
             </Panel>
         </Container>
     )
