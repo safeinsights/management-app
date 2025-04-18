@@ -21,26 +21,21 @@ export async function fetchStudyEncryptedResultsFile(info: MinimalJobResultsInfo
     return await fetchFile(pathForStudyJobResults(info))
 }
 
-export type UrlOrContent = { url?: string; content?: Blob }
-async function urlOrContentForFile(filePath: string): Promise<UrlOrContent> {
-    return { url: await signedUrlForFile(filePath) }
+async function urlForFile(filePath: string): Promise<string> {
+    return await signedUrlForFile(filePath)
 }
 
-export async function urlOrContentForStudyJobCodeFile(info: MinimalJobInfo, fileName: string) {
-    return urlOrContentForFile(pathForStudyJobCodeFile(info, fileName))
+export async function urlForStudyJobCodeFile(info: MinimalJobInfo, fileName: string) {
+    return urlForFile(pathForStudyJobCodeFile(info, fileName))
 }
 
-export async function urlOrPathToResultsFile(info: MinimalJobResultsInfo): Promise<{ url?: string; content?: Blob }> {
+export async function urlForResultsFile(info: MinimalJobResultsInfo): Promise<string> {
     const filePath = pathForStudyJobResults(info)
-    return urlOrContentForFile(filePath)
+    return urlForFile(filePath)
 }
 
-export async function urlOrContentForStudyDocumentFile(
-    info: MinimalStudyInfo,
-    fileType: StudyDocumentType,
-    fileName: string,
-) {
-    return urlOrContentForFile(pathForStudyDocumentFile(info, fileType, fileName))
+export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: StudyDocumentType, fileName: string) {
+    return urlForFile(pathForStudyDocumentFile(info, fileType, fileName))
 }
 
 export async function fetchStudyCodeFile(info: MinimalJobInfo, filePath: string) {

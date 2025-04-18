@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkUserAllowedStudyView, studyInfoForStudyId } from '@/server/db/queries'
-import { urlOrContentForStudyDocumentFile } from '@/server/storage'
+import { urlForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
 
 export const GET = async (
@@ -28,11 +28,11 @@ export const GET = async (
     if (!study) {
         return NextResponse.json({ error: 'Study not found' }, { status: 400 })
     }
-    const loc = await urlOrContentForStudyDocumentFile(study, fileType as StudyDocumentType, fileName)
-    if (loc.content) {
-        return new NextResponse(loc.content)
-    } else if (loc.url) {
-        return NextResponse.redirect(loc.url)
+
+    const url = await urlForStudyDocumentFile(study, fileType as StudyDocumentType, fileName)
+    if (url) {
+        return NextResponse.redirect(url)
     }
+
     return NextResponse.json({ error: 'invalid file' }, { status: 400 })
 }
