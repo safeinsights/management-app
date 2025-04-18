@@ -3,8 +3,8 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { theme } from '../theme'
 
-const prevColor = theme.colors.blue[7]
-const currentColor = theme.colors.grey[5]
+const prevColor = theme.colors?.blue[7]
+const currentColor = theme.colors?.grey[5]
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
