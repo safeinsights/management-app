@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { insertTestJobKeyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { loadStudyJobAction } from './study-job.actions'
 
 vi.mock('@/server/storage', () => ({
@@ -9,7 +9,7 @@ vi.mock('@/server/storage', () => ({
 describe('Study Job Actions', () => {
     test('loadStudyJobAction', async () => {
         const { member } = await mockSessionWithTestData()
-        const { job, study } = await insertTestJobKeyData({ memberId: member.id })
+        const { job, study } = await insertTestStudyJobData({ member })
         const { jobInfo } = await loadStudyJobAction(job.id)
 
         expect(jobInfo).toMatchObject({

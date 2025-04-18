@@ -34,7 +34,7 @@ test('jwt with expired token is rejected', async () => {
 
 test('return study jobs', async () => {
     const member = await insertTestMember()
-    const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
+    const { jobIds } = await insertTestStudyData({ member })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()
@@ -71,7 +71,7 @@ test('return study jobs', async () => {
 
 test('studies are not included once finished', async () => {
     const member = await insertTestMember()
-    const { jobIds } = await insertTestStudyData({ memberId: member?.id || '' })
+    const { jobIds } = await insertTestStudyData({ member })
 
     await db
         .insertInto('jobStatusChange')

@@ -5,12 +5,10 @@ import { Button, Group, Stack, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ResultsReader } from 'si-encryption/job-results/reader'
-import type { StudyJob } from '@/schema/study'
-import type { StudyJobStatus } from '@/database/types'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileEntry } from 'si-encryption/job-results/types'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
-
+import type { StudyJobWithLastStatus } from '@/server/db/queries'
 export type { FileEntry }
 
 interface StudyResultsFormValues {
@@ -18,12 +16,11 @@ interface StudyResultsFormValues {
 }
 
 type Props = {
-    job: StudyJob
-    jobStatus: StudyJobStatus | null
+    job: NonNullable<StudyJobWithLastStatus>
     onApproval: (decryptedResults: FileEntry[]) => void
 }
 
-export const ViewUnapprovedResults: React.FC<Props> = ({ job, jobStatus, onApproval }) => {
+export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
     const [plainTextResults, setPlainTextResults] = useState<string[]>()
 
     const form = useForm({
@@ -41,7 +38,7 @@ export const ViewUnapprovedResults: React.FC<Props> = ({ job, jobStatus, onAppro
                 throw error
             }
         },
-        enabled: Boolean(job && jobStatus == 'RUN-COMPLETE'),
+        enabled: job.latestStatus == 'RUN-COMPLETE',
     })
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
@@ -77,7 +74,7 @@ export const ViewUnapprovedResults: React.FC<Props> = ({ job, jobStatus, onAppro
     return (
         <Stack>
             {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
-            {jobStatus === 'RUN-COMPLETE' && !plainTextResults?.length && (
+            {job.latestStatus === 'RUN-COMPLETE' && !plainTextResults?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>
                         <Textarea

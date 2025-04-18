@@ -23,6 +23,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
         mutate: updateStudy,
         isPending,
         isSuccess,
+        variables: pendingStatus,
     } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
@@ -58,10 +59,19 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
 
     return (
         <Group>
-            <Button onClick={() => updateStudy('REJECTED')} disabled={isSuccess} loading={isPending} variant="outline">
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'REJECTED'}
+                onClick={() => updateStudy('REJECTED')}
+                variant="outline"
+            >
                 Reject
             </Button>
-            <Button onClick={() => updateStudy('APPROVED')} disabled={isSuccess} loading={isPending}>
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'APPROVED'}
+                onClick={() => updateStudy('APPROVED')}
+            >
                 Approve
             </Button>
         </Group>
