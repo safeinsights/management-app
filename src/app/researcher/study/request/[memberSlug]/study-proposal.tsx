@@ -50,8 +50,6 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
     return await uploadFile(manifestFile, upload)
 }
 
-const EMPTY_FILE = new File([], '')
-
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
     const router = useRouter()
 
@@ -61,9 +59,9 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         initialValues: {
             title: '',
             piName: '',
-            irbDocument: EMPTY_FILE,
-            descriptionDocument: EMPTY_FILE,
-            agreementDocument: EMPTY_FILE,
+            irbDocument: null,
+            descriptionDocument: null,
+            agreementDocument: null,
             codeFiles: [],
         },
     })
@@ -80,9 +78,9 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
             const valuesWithFilenames = {
                 ...valuesWithoutFiles,
-                descriptionDocPath: formValues.descriptionDocument.name,
-                agreementDocPath: formValues.agreementDocument.name,
-                irbDocPath: formValues.irbDocument.name,
+                descriptionDocPath: formValues.descriptionDocument!.name,
+                agreementDocPath: formValues.agreementDocument!.name,
+                irbDocPath: formValues.irbDocument!.name,
             }
 
             const {
@@ -97,9 +95,9 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 studyInfo: valuesWithFilenames,
             })
 
-            await uploadFile(formValues.irbDocument, urlForIrbUpload)
-            await uploadFile(formValues.agreementDocument, urlForAgreementUpload)
-            await uploadFile(formValues.descriptionDocument, urlForDescriptionUpload)
+            await uploadFile(formValues.irbDocument!, urlForIrbUpload)
+            await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
+            await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
             await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
 
             return { studyId, studyJobId }
