@@ -184,7 +184,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             .where('id', '=', studyId)
             .execute()
 
-        const latestJob = await latestJobForStudy(studyId, trx)
+        const latestJob = await latestJobForStudy(studyId, { orgSlug: slug, userId }, trx)
         if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
         let status: StudyJobStatus = 'CODE-APPROVED'
@@ -229,7 +229,7 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
             .where('id', '=', studyId)
             .execute()
 
-        const latestJob = await latestJobForStudy(studyId, trx)
+        const latestJob = await latestJobForStudy(studyId, { userId }, trx)
         if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
         await trx

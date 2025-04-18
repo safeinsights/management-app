@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { insertTestMember, insertTestJobKeyData, mockClerkSession } from '@/tests/unit.helpers'
+import { insertTestMember, insertTestStudyJobUsers, mockClerkSession } from '@/tests/unit.helpers'
 import { checkUserAllowedJobView, checkUserAllowedStudyView, checkMemberAllowedStudyReview } from './queries'
 import { AccessDeniedError } from '@/lib/errors'
 
@@ -11,13 +11,13 @@ async function insertRecords() {
         user2: member1User2,
         job: job1,
         study: study1,
-    } = await insertTestJobKeyData({ memberId: member1.id })
+    } = await insertTestStudyJobUsers({ member: member1 })
     const {
         user1: member2User1,
         user2: member2User2,
         job: job2,
         study: study2,
-    } = await insertTestJobKeyData({ memberId: member2.id })
+    } = await insertTestStudyJobUsers({ member: member2 })
 
     return {
         study1,

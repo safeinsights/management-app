@@ -2,20 +2,18 @@
 
 import React, { FC, useState } from 'react'
 import { Group, Paper, Stack, Text, Title } from '@mantine/core'
-import type { StudyJob } from '@/schema/study'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
-import { StudyJobStatus } from '@/database/types'
 import { ViewUnapprovedResults, type FileEntry } from './view-unapproved-results'
+import type { StudyJobWithLastStatus } from '@/server/db/queries'
 
 export const StudyResults: FC<{
-    latestJob: StudyJob | null
+    job: StudyJobWithLastStatus | null
     fingerprint: string | undefined
-    jobStatus: StudyJobStatus | null
-}> = ({ latestJob, fingerprint, jobStatus }) => {
+}> = ({ job, fingerprint }) => {
     const [decryptedResults, setDecryptedResults] = useState<FileEntry[]>()
 
-    if (!latestJob) {
+    if (!job) {
         return (
             <Paper bg="white" p="xl">
                 <Text>Study results are not available yet</Text>
@@ -32,15 +30,7 @@ export const StudyResults: FC<{
         )
     }
 
-    if (jobStatus === 'RESULTS-REJECTED') {
-        return (
-            <Paper bg="white" p="xl">
-                <Title order={4}>Latest results rejected</Title>
-            </Paper>
-        )
-    }
-
-    if (!jobStatus || !['RESULTS-APPROVED', 'RUN-COMPLETE'].includes(jobStatus)) {
+    if (!['RESULTS-APPROVED', 'RUN-COMPLETE', 'RESULTS-REJECTED'].includes(job.latestStatus)) {
         return null // nothing to display
     }
 
@@ -49,10 +39,10 @@ export const StudyResults: FC<{
             <Stack>
                 <Group justify="space-between">
                     <Title order={4}>Study Results</Title>
-                    <JobReviewButtons job={latestJob} decryptedResults={decryptedResults} />
+                    <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
-                <ViewUnapprovedResults job={latestJob} jobStatus={jobStatus} onApproval={setDecryptedResults} />
-                {jobStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={latestJob} />}
+                <ViewUnapprovedResults job={job} onApproval={setDecryptedResults} />
+                {job.latestStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={job} />}
             </Stack>
         </Paper>
     )

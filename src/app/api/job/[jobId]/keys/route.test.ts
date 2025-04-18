@@ -1,6 +1,6 @@
 import { expect, describe, it, beforeEach } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestJobKeyData, insertTestMember } from '@/tests/unit.helpers'
+import { insertTestStudyJobUsers, insertTestMember } from '@/tests/unit.helpers'
 
 describe('get keys', () => {
     let req: Request
@@ -30,9 +30,7 @@ describe('get keys', () => {
     })
 
     it('getting keys', async () => {
-        const member = await insertTestMember()
-
-        const { job } = await insertTestJobKeyData({ memberId: member?.id || '' })
+        const { job } = await insertTestStudyJobUsers()
 
         const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: job.id }) })
 

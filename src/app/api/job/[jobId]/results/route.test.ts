@@ -17,7 +17,7 @@ test('handling upload', async () => {
         body: formData,
     })
 
-    const { jobIds, studyId } = await insertTestStudyData({ memberId: member.id })
+    const { jobIds, studyId } = await insertTestStudyData({ member })
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
     expect(resp.ok).toBe(true)
