@@ -44,9 +44,11 @@ export const StudyProposalForm: FC<{
     const { user } = useUser()
 
     return (
-        <Paper p="md">
-            <Title order={4}>Study Proposal</Title>
-            <Divider my="sm" mt="sm" mb="md" />
+        <Paper pt="sm" pl="xl" pr="lg" pb="lg">
+            <Title order={4} pr="lg" pb="sm">
+                Study Proposal
+            </Title>
+            <Divider my="md" />
             <Text mb="md">
                 This section is here to help you submit your study proposal. Consider providing as much detail as
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
@@ -54,17 +56,23 @@ export const StudyProposalForm: FC<{
 
             <Grid>
                 <GridCol span="content">
-                    <Stack gap="xl">
-                        <Text fw="bold">Study Title</Text>
-                        <Text mt="md" fw="bold">
+                    <Stack gap="xs">
+                        <Title order={5} fz="sm">Study Title</Title>
+                        <Title order={5} mt="md" fz="sm">
                             Study Lead
-                        </Text>
-                        <Text mt="md" fw="bold">
+                        </Title>
+                        <Title order={5} mt="md" fz="sm">
                             Principal Investigator
-                        </Text>
-                        <Text fw="bold">Study Description</Text>
-                        <Text fw="bold">IRB Document</Text>
-                        <Text fw="bold">Agreement Document</Text>
+                        </Title>
+                        <Title order={5} mt="md" fz="sm">
+                            Study Description
+                        </Title>
+                        <Title order={5} mt="lg" fz="sm">
+                            IRB Document
+                        </Title>
+                        <Title order={5} mt="xl" fz="sm">
+                            Agreement Document
+                        </Title>
                     </Stack>
                 </GridCol>
                 <GridCol span={3}>
@@ -80,42 +88,58 @@ export const StudyProposalForm: FC<{
                             placeholder="Full Name"
                             {...studyProposalForm.getInputProps('piName')}
                         />
-                        <Group gap="md">
-                            {fileUpload}
-                            <FileInput
-                                name="descriptionDocument"
-                                component={Anchor}
-                                aria-label="Upload Study Description Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('descriptionDocument')}
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {irbFileUpload}
-                            <FileInput
-                                {...studyProposalForm.getInputProps('irbDocument')}
-                                name="irbDocument"
-                                component={Anchor}
-                                aria-label="Upload IRB Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                            />
-                        </Group>
-                        <Group gap="md">
-                            {agreementFileUpload}
-                            <FileInput
-                                name="agreementDocument"
-                                component={Anchor}
-                                aria-label="Upload Agreement Document"
-                                placeholder="Upload Document"
-                                clearable
-                                accept=".doc,.docx,.pdf"
-                                {...studyProposalForm.getInputProps('agreementDocument')}
-                            />
-                        </Group>
+                        <Stack gap="xs">
+                            <Group gap="md">
+                                {fileUpload}
+                                <FileInput
+                                    name="descriptionDocument"
+                                    component={Anchor}
+                                    c="purple.5"
+                                    aria-label="Upload Study Description Document"
+                                    placeholder="Upload Document"
+                                    clearable
+                                    accept=".doc,.docx,.pdf"
+                                    {...studyProposalForm.getInputProps('descriptionDocument')}
+                                />
+                            </Group>
+                            <Text fz="xs" c="grey.5">
+                                Accepted formats: .doc, .docx, .pdf
+                            </Text>
+                        </Stack>
+                        <Stack gap="xs">
+                            <Group gap="md">
+                                {irbFileUpload}
+                                <FileInput
+                                    {...studyProposalForm.getInputProps('irbDocument')}
+                                    name="irbDocument"
+                                    component={Anchor}
+                                    aria-label="Upload IRB Document"
+                                    placeholder="Upload Document"
+                                    clearable
+                                    accept=".doc,.docx,.pdf"
+                                />
+                            </Group>
+                            <Text fz="xs" c="grey.5">
+                                Accepted formats: .doc, .docx, .pdf
+                            </Text>
+                        </Stack>
+                        <Stack gap="xs">
+                            <Group gap="md">
+                                {agreementFileUpload}
+                                <FileInput
+                                    name="agreementDocument"
+                                    component={Anchor}
+                                    aria-label="Upload Agreement Document"
+                                    placeholder="Upload Document"
+                                    clearable
+                                    accept=".doc,.docx,.pdf"
+                                    {...studyProposalForm.getInputProps('agreementDocument')}
+                                />
+                            </Group>
+                            <Text fz="xs" c="grey.5">
+                                Accepted formats: .doc, .docx, .pdf
+                            </Text>
+                        </Stack>
                     </Stack>
                 </GridCol>
             </Grid>

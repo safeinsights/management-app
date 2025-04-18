@@ -22,8 +22,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     }
 
     return (
-        <Paper p="md">
-            <Title order={4}>Study Code</Title>
+        <Paper pt="sm" pl="xl" pr="lg" pb="md">
+            <Title order={4} pr="lg" pb="sm">
+                Study Code
+            </Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
                 This section is key to your proposal, as it defines the analysis that will generate the results
@@ -72,16 +74,20 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             <Dropzone.Idle>
                                 <UploadSimple />
                             </Dropzone.Idle>
-                            <Text size="md">Drop your files or browse</Text>
+                            <Group gap="xs">
+                                <Text size="md">Drop your files or</Text>
+                                <Text td="underline" c="purple.5" fw="bold">
+                                    Browse
+                                </Text>
+                            </Group>
                             <Text size="xs" c="dimmed">
                                 .R and .Rmd only
                             </Text>
                         </Stack>
                     </Dropzone>
-                    <Divider orientation="vertical" />
                 </GridCol>
-
                 <GridCol span={6}>
+                    <Divider orientation="vertical" />
                     {files.map((file) => (
                         <Group key={file.name} gap="md" w="100%">
                             <Group>

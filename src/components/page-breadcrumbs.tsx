@@ -1,6 +1,10 @@
-import { Breadcrumbs, Anchor, Text } from '@mantine/core'
+import { Breadcrumbs, Anchor, Text, Divider, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { FC } from 'react'
+import { theme } from '../theme'
+
+const prevColor = theme.colors.blue[7]
+const currentColor = theme.colors.grey[5]
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
@@ -9,11 +13,11 @@ export const PageBreadcrumbs: FC<{
         <Breadcrumbs separator=">">
             {crumbs.map(([title, href], index) =>
                 href ? (
-                    <Anchor component={Link} href={href} key={index}>
+                    <Anchor c={prevColor} component={Link} href={href} key={index}>
                         {title}
                     </Anchor>
                 ) : (
-                    <Text c="#7A8794" key={index}>
+                    <Text c={currentColor} key={index}>
                         {title}
                     </Text>
                 ),
@@ -37,7 +41,11 @@ export const MemberBreadcrumbs: FC<{
     if (current) {
         crumbs.push([current])
     }
-    return <PageBreadcrumbs crumbs={crumbs} />
+    return (
+        <Stack>
+            <PageBreadcrumbs crumbs={crumbs} /> <Divider />
+        </Stack>
+    )
 }
 
 export const ResearcherBreadcrumbs: FC<{
@@ -54,5 +62,9 @@ export const ResearcherBreadcrumbs: FC<{
     if (current) {
         crumbs.push([current])
     }
-    return <PageBreadcrumbs crumbs={crumbs} />
+    return (
+        <Stack>
+            <PageBreadcrumbs crumbs={crumbs} /> <Divider />
+        </Stack>
+    )
 }

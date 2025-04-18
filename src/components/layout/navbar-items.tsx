@@ -1,10 +1,10 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider, Stack } from '@mantine/core'
+import { Button, Divider, Stack, Group } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
-import { useClerk } from '@clerk/nextjs'
+import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
@@ -45,9 +45,22 @@ export const NavbarItems: FC = () => {
             >
                 Settings
             </Button>
-
             <Divider color="#D4D1F3" />
-
+            <Group justify="left" pl="xs" c="white">
+                {/* TODO Temporary for dev mode only? admins? */}
+                <OrganizationSwitcher
+                    afterSelectOrganizationUrl="/"
+                    appearance={{
+                        elements: {
+                            organizationSwitcherTrigger: {
+                                color: 'white !important',
+                                '& span': { color: 'white !important' },
+                                padding: 0,
+                            },
+                        },
+                    }}
+                />
+            </Group>
             <Button
                 fullWidth
                 className={styles.hover}

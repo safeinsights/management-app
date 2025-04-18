@@ -6,7 +6,6 @@ import {
     AppShellMain,
     AppShellNavbar,
     AppShellSection,
-    Group,
     Stack,
     Text,
 } from '@mantine/core'
@@ -14,7 +13,6 @@ import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
-import { OrganizationSwitcher } from '@clerk/nextjs'
 import { ReactNode } from 'react'
 import { NavbarItems } from '@/components/layout/navbar-items'
 import { RequireMFA } from '../require-mfa'
@@ -43,22 +41,10 @@ export function AppShell({ children }: Props) {
                 </Stack>
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
-            <AppShellFooter p="md" bg="purple.9">
-                <Group justify="center" c="white">
-                    <Text>© 2025 - SafeInsights</Text>
-                    {/* TODO Temporary for dev mode only? admins? */}
-                    <OrganizationSwitcher
-                        afterSelectOrganizationUrl="/"
-                        appearance={{
-                            elements: {
-                                organizationSwitcherTrigger: {
-                                    color: 'white !important',
-                                    '& span': { color: 'white !important' },
-                                },
-                            },
-                        }}
-                    />
-                </Group>
+            <AppShellFooter p="md" bg="purple.9" bd="none">
+                <Text ta="left" c="#FFFFFF">
+                    © 2025 - SafeInsights, Rice University
+                </Text>
             </AppShellFooter>
         </MantineAppShell>
     )

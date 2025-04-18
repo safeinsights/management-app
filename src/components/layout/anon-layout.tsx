@@ -40,10 +40,9 @@ export function AnonLayout({ children, clerkPublishableKey }: Props) {
                     </Stack>
                 </AppShellNavbar>
                 <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
-                <AppShellFooter p="md" bg={theme.colors.purple[9]}>
-                    <Group justify="center" c="white">
-                        <Text>© 2025 - SafeInsights</Text>
-                        {/* TODO Temporary for dev mode only? admins? */}
+                <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">
+                    <Group justify="left" c="white">
+                        <Text c="white">© 2025 - SafeInsights, Rice University</Text>
                     </Group>
                 </AppShellFooter>
             </AppShell>
