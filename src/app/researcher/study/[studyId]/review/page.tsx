@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
     const { studyId } = await props.params
+
     await checkUserAllowedStudyView(studyId)
 
     const study = await getStudyAction(studyId)

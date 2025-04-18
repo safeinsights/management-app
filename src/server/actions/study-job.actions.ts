@@ -13,6 +13,7 @@ import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
 import { SanitizedError } from '@/lib/errors'
+import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailgun'
 
 const approveStudyJobResultsActionSchema = z.object({
     jobInfo: minimalJobInfoSchema,
@@ -27,7 +28,7 @@ const approveStudyJobResultsActionSchema = z.object({
 export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
     await checkMemberAllowedStudyReview(info.studyId)
 
-    // FIXME: handle more than a single result.  will require a db schema change
+    // FIXME: handle more than a single result. will require a db schema change
     const result = jobResults[0]
 
     const resultsFile = new File([result.contents], result.path)
@@ -47,6 +48,8 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
         })
         .execute()
 
+    await sendStudyResultsApprovedEmail(info.studyId)
+
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
@@ -63,7 +66,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
         })
         .executeTakeFirstOrThrow()
 
-    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+    await sendStudyResultsRejectedEmail(info.studyId)
 
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
     revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
@@ -151,6 +154,7 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
 
     const job = await queryJobResult(jobId)
 
+    // TODO This throws on basic render, should we just return null here instead of throwing?
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }

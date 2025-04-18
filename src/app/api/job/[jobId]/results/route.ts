@@ -1,3 +1,5 @@
+import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
+
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
@@ -49,6 +51,8 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
                 studyJobId: info.studyJobId,
             })
             .execute()
+
+        await sendResultsReadyForReviewEmail(info.studyId)
 
         return NextResponse.json({ status: 'success' }, { status: 200 })
     } catch (e) {

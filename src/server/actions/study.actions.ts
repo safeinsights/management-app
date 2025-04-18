@@ -17,6 +17,7 @@ import { StudyJobStatus } from '@/database/types'
 import { USING_S3_STORAGE } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
+import { sendStudyProposalApprovedEmail, sendStudyProposalRejectedEmail } from '@/server/mailgun'
 
 export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
     const slug = await getOrgSlugFromActionContext()
@@ -208,6 +209,9 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
             .executeTakeFirstOrThrow()
     })
 
+    // Send proposal approved email
+    await sendStudyProposalApprovedEmail(studyId)
+
     logger.info('Study Approved', {
         reviewerId: userId,
         studyId: studyId,
@@ -240,6 +244,9 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
             })
             .executeTakeFirstOrThrow()
     })
+
+    // Send proposal approved email
+    await sendStudyProposalRejectedEmail(studyId)
 
     logger.info('Study Rejected', {
         reviewerId: userId,
