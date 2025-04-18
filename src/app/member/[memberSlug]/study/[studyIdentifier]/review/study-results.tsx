@@ -5,7 +5,6 @@ import { Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
 import { ViewUnapprovedResults, type FileEntry } from './view-unapproved-results'
-import dayjs from 'dayjs'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 
 export const StudyResults: FC<{
@@ -31,17 +30,7 @@ export const StudyResults: FC<{
         )
     }
 
-    if (job.latestStatus === 'RESULTS-REJECTED') {
-        return (
-            <Paper bg="white" p="xl">
-                <Title order={4}>
-                    Latest results rejected on {dayjs(job.latestStatusChangeOccuredAt).format('MMM DD, YYYY')}
-                </Title>
-            </Paper>
-        )
-    }
-
-    if (!['RESULTS-APPROVED', 'RUN-COMPLETE'].includes(job.latestStatus)) {
+    if (!['RESULTS-APPROVED', 'RUN-COMPLETE', 'RESULTS-REJECTED'].includes(job.latestStatus)) {
         return null // nothing to display
     }
 
