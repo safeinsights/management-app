@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
-        <Text fz="lg" fw={500}>
+        <Text component='div' fz="lg" fw={500}>
             {title}:
         </Text>
-        <Text fz="md" tt="uppercase" fw={700}>
+        <Text component='div' fz="md" fw={700}>
             {value}
         </Text>
     </>
