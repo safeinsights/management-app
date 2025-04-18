@@ -24,7 +24,12 @@ export const JobReviewButtons = ({
     const router = useRouter()
     const { memberSlug } = useParams<{ memberSlug: string }>()
 
-    const { mutate: updateStudyJob } = useMutation({
+    const {
+        mutate: updateStudyJob,
+        isPending,
+        isSuccess,
+        variables: { status: pendingStatus } = {},
+    } = useMutation({
         mutationFn: async ({ status }: { status: StudyJobStatus }) => {
             if (!decryptedResults?.length) return
 
@@ -76,10 +81,21 @@ export const JobReviewButtons = ({
                 />
             )}
             <Divider />
-            <Button onClick={() => updateStudyJob({ status: 'RESULTS-REJECTED' })} variant="outline">
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
+                onClick={() => updateStudyJob({ status: 'RESULTS-REJECTED' })}
+                variant="outline"
+            >
                 Reject
             </Button>
-            <Button onClick={() => updateStudyJob({ status: 'RESULTS-APPROVED' })}>Approve</Button>
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'RESULTS-APPROVED'}
+                onClick={() => updateStudyJob({ status: 'RESULTS-APPROVED' })}
+            >
+                Approve
+            </Button>
         </Group>
     )
 }
