@@ -25,8 +25,6 @@ You can use Docker compose to run the app and a PostgreSQL database by using:
 
 `docker compose up`
 
-Other useful commands:
-
 ### Getting Started - Local Setup
 
 For developing locally without docker compose, you will need to install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it.
@@ -115,9 +113,3 @@ If there are playwright failures on GitHub actions, the trace file will be store
 
 - [phosphor icons](https://phosphoricons.com/)
 - [mantine](https://mantine.dev)
-
-### Running Tests
-
-### Currently Implemented
-
-### TODOs

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkUserAllowedJobView, jobInfoForJobId } from '@/server/db/queries'
-import { urlOrContentForStudyJobCodeFile } from '@/server/storage'
+import { urlForStudyJobCodeFile } from '@/server/storage'
 
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
     const { jobId, fileName } = await params
@@ -17,12 +17,10 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
 
     const job = await jobInfoForJobId(jobId)
 
-    const loc = await urlOrContentForStudyJobCodeFile(job, fileName)
+    const url = await urlForStudyJobCodeFile(job, fileName)
 
-    if (loc.content) {
-        return new NextResponse(loc.content)
-    } else if (loc.url) {
-        return NextResponse.redirect(loc.url)
+    if (url) {
+        return NextResponse.redirect(url)
     }
 
     return NextResponse.json({ error: 'invalid file' }, { status: 400 })

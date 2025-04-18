@@ -3,7 +3,6 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJobCode } from '@/lib/paths'
@@ -20,20 +19,24 @@ export function objectToAWSTags(tags: Record<string, string>) {
     }))
 }
 
-// TODO Remove ecrCLient unused?
-let _ecrClient: ECRClient | null = null
-export const getECRClient = () =>
-    _ecrClient ||
-    (_ecrClient = new ECRClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
-    }))
-
 let _s3Client: S3Client | null = null
 export const getS3Client = () =>
     _s3Client ||
     (_s3Client = new S3Client({
         region: process.env.AWS_REGION || 'us-east-1',
+        forcePathStyle: true,
+        endpoint: process.env.S3_ENDPOINT,
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
+
+// For Presigned URLs and client calls
+let _s3BrowserClient: S3Client | null = null
+export const getS3BrowserClient = () =>
+    _s3BrowserClient ||
+    (_s3BrowserClient = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        forcePathStyle: true,
+        endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
@@ -96,7 +99,7 @@ export const storeS3File = async (
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
-        client: getS3Client(), // jobId: info.studyJobId//
+        client: getS3Client(),
         tags: objectToAWSTags({
             studyId: info.studyId,
             ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),
@@ -112,7 +115,7 @@ export const storeS3File = async (
 }
 
 export async function signedUrlForFile(Key: string) {
-    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
+    return await getSignedUrl(getS3BrowserClient(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
 }
