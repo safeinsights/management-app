@@ -1,24 +1,24 @@
-import { StudyJob } from '@/schema/study'
-import { Button, Group, Text } from '@mantine/core'
-import React from 'react'
+import { DownloadLink } from '@/components/links'
 import { StudyJobStatus } from '@/database/types'
-import { useMutation, useQuery } from '@tanstack/react-query'
 import { MinimalJobInfo } from '@/lib/types'
-import { useRouter } from 'next/navigation'
+import { StudyJob } from '@/schema/study'
 import {
     approveStudyJobResultsAction,
     loadStudyJobAction,
     rejectStudyJobResultsAction,
 } from '@/server/actions/study-job.actions'
+import { Button, Divider, Group, Text } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import dayjs from 'dayjs'
+import { useRouter } from 'next/navigation'
 
 type FileEntry = {
     path: string
     contents: ArrayBuffer
 }
 
-export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults: FileEntry[] }) => {
+export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; decryptedResults?: FileEntry[] }) => {
     const router = useRouter()
 
     const jobInfo = useQuery({
@@ -30,6 +30,8 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     const { mutate: updateStudyJob } = useMutation({
         mutationFn: async ({ jobInfo, status }: { jobInfo: MinimalJobInfo; status: StudyJobStatus }) => {
+            if (!decryptedResults?.length) return
+
             if (status === 'RESULTS-APPROVED') {
                 await approveStudyJobResultsAction({ jobInfo, jobResults: decryptedResults })
             }
@@ -42,6 +44,7 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
             router.push('/')
         },
     })
+
     if (!jobInfo) return null
 
     if (jobInfo.jobStatus === 'RESULTS-APPROVED') {
@@ -64,6 +67,15 @@ export const JobReviewButtons = ({ job, decryptedResults }: { job: StudyJob; dec
 
     return (
         <Group>
+            <Divider />
+            {decryptedResults?.length && (
+                <DownloadLink
+                    target="_blank"
+                    filename={decryptedResults[0].path}
+                    content={decryptedResults[0].contents}
+                />
+            )}
+            <Divider />
             <Button onClick={() => updateStudyJob({ jobInfo: jobInfo, status: 'RESULTS-REJECTED' })} variant="outline">
                 Reject
             </Button>

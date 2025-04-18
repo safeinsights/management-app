@@ -118,11 +118,6 @@ export function ManageSMSMFAPanel() {
                     {user?.hasVerifiedPhoneNumber && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
-                            {/*<Title order={3}>Save Your Backup Codes</Title>*/}
-                            {/*<Text ta="center">*/}
-                            {/*    Store these codes securely. They are needed if you lose access to your phone.*/}
-                            {/*</Text>*/}
-                            {/*<GenerateBackupCodes />*/}
                             <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
                         </Stack>
                     )}
