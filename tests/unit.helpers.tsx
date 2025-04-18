@@ -341,33 +341,3 @@ export async function mockSessionWithTestData(memberSlug = faker.string.alpha(10
     })
     return { member, user, ...mocks }
 }
-
-// export const mockStudyJob = (latestStatus: StudyJobStatus) => ({
-//     createdAt: new Date(),
-//     id: faker.string.uuid(),
-//     resultFormat: 'SI_V1_ENCRYPT',
-//     resultsPath: faker.system.filePath(),
-//     studyId: faker.string.uuid(),
-//     latestStatus,
-//     latestStatusChangeOccuredAt: new Date(),
-// } as StudyJobWithLastStatus)
-
-// export const mockStudy = (status: StudyStatus) => ({
-//     approvedAt: faker.datatype.boolean() ? faker.date.past() : null,
-//     containerLocation: faker.system.directoryPath(),
-//     createdAt: faker.date.past(),
-//     dataSources: faker.helpers.arrayElements(['source1', 'source2', 'source3']),
-//     descriptionDocPath: faker.datatype.boolean() ? faker.system.filePath() : null,
-//     id: faker.string.uuid(),
-//     irbDocPath: faker.datatype.boolean() ? faker.system.filePath() : null,
-//     irbProtocols: faker.datatype.boolean() ? faker.lorem.sentence() : null,
-//     agreementDocPath: faker.datatype.boolean() ? faker.lorem.sentence() : null,
-//     memberId: faker.string.uuid(),
-//     outputMimeType: faker.datatype.boolean() ? faker.system.mimeType() : null,
-//     piName: faker.person.fullName(),
-//     rejectedAt: faker.datatype.boolean() ? faker.date.past() : null,
-//     researcherId: faker.string.uuid(),
-//     status,
-//     title: faker.lorem.sentence(),
-//     reviewerId: faker.string.uuid(),
-// } as Study)

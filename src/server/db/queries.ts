@@ -124,10 +124,6 @@ export const latestJobForStudy = async (
     { orgSlug, userId }: { orgSlug?: null | string; userId?: null | string } = {},
     conn: DBExecutor = db,
 ) => {
-    // if (!orgSlug && !userId) {
-    //     throw new AccessDeniedError('must provide user or org slug')
-    // }
-
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
