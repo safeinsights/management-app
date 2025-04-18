@@ -2,6 +2,7 @@ import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { CodeManifest, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { pathForStudyDocumentFile, pathForStudyJobCodeFile, pathForStudyJobResults } from '@/lib/paths'
 
+// TODO Move these into s3.ts later
 async function fetchFile(filePath: string) {
     const stream = await fetchS3File(filePath)
     const chunks: Uint8Array[] = []
