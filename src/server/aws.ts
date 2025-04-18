@@ -1,5 +1,5 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -10,6 +10,7 @@ import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -116,6 +117,32 @@ export const storeS3File = async (
 
 export async function signedUrlForFile(Key: string) {
     return await getSignedUrl(getS3BrowserClient(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
+        expiresIn: 3600,
+    })
+}
+
+export const signedUrlForCodeUpload = async (jobInfo: MinimalJobInfo) => {
+    const prefix = pathForStudyJobCode(jobInfo)
+
+    return await createPresignedPost(getS3BrowserClient(), {
+        Bucket: s3BucketName(),
+        Conditions: [['starts-with', '$key', prefix]],
+        Expires: 3600,
+        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}
+
+export const signedUrlForStudyFileUpload = async (path: string) => {
+    return await createPresignedPost(getS3BrowserClient(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Conditions: [['starts-with', '$key', path]],
+        Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}
+
+export const signedUrlForStudyDelete = async (Key: string) => {
+    return await getSignedUrl(getS3Client(), new DeleteObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
 }

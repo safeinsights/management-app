@@ -11,17 +11,10 @@ import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
-import { StudyDocumentType } from '@/lib/types'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
-import {
-    signedUrlForCodeUploadAction,
-    signedUrlForDeletingStudyFilesAction,
-    signedUrlForStudyFileUploadAction,
-} from '@/server/actions/s3.actions'
 import { omit } from 'remeda'
-import { pathForStudy, pathForStudyDocuments } from '@/lib/paths'
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -57,6 +50,8 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
     return await uploadFile(manifestFile, upload)
 }
 
+const EMPTY_FILE = new File([], '')
+
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
     const router = useRouter()
 
@@ -66,9 +61,9 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         initialValues: {
             title: '',
             piName: '',
-            irbDocument: null,
-            descriptionDocument: null,
-            agreementDocument: null,
+            irbDocument: EMPTY_FILE,
+            descriptionDocument: EMPTY_FILE,
+            agreementDocument: EMPTY_FILE,
             codeFiles: [],
         },
     })
@@ -85,48 +80,27 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
             const valuesWithFilenames = {
                 ...valuesWithoutFiles,
-                descriptionDocPath: formValues.descriptionDocument?.name || '',
-                agreementDocPath: formValues.agreementDocument?.name || '',
-                irbDocPath: formValues.irbDocument?.name || '',
+                descriptionDocPath: formValues.descriptionDocument.name,
+                agreementDocPath: formValues.agreementDocument.name,
+                irbDocPath: formValues.irbDocument.name,
             }
 
-            const { studyId, studyJobId } = await onCreateStudyAction({
+            const {
+                studyId,
+                studyJobId,
+                urlForCodeUpload,
+                urlForAgreementUpload,
+                urlForIrbUpload,
+                urlForDescriptionUpload,
+            } = await onCreateStudyAction({
                 memberSlug,
                 studyInfo: valuesWithFilenames,
             })
 
-            if (formValues.irbDocument) {
-                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB)
-                const upload = await signedUrlForStudyFileUploadAction(path)
-
-                const ok = await uploadFile(formValues.irbDocument, upload)
-                if (!ok) return { studyId, studyJobId }
-            }
-
-            if (formValues.agreementDocument?.name) {
-                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.AGREEMENT)
-                const upload = await signedUrlForStudyFileUploadAction(path)
-
-                const ok = await uploadFile(formValues.agreementDocument, upload)
-                if (!ok) return { studyId, studyJobId }
-            }
-
-            if (formValues.descriptionDocument?.name) {
-                const path = pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION)
-                const upload = await signedUrlForStudyFileUploadAction(path)
-
-                const ok = await uploadFile(formValues.descriptionDocument, upload)
-                if (!ok) return { studyId, studyJobId }
-            }
-
-            const studyCodeUpload = await signedUrlForCodeUploadAction({
-                memberSlug,
-                studyId,
-                studyJobId,
-            })
-
-            const ok = await uploadCodeFiles(formValues.codeFiles, studyCodeUpload, studyJobId)
-            if (!ok) return { studyId, studyJobId }
+            await uploadFile(formValues.irbDocument, urlForIrbUpload)
+            await uploadFile(formValues.agreementDocument, urlForAgreementUpload)
+            await uploadFile(formValues.descriptionDocument, urlForDescriptionUpload)
+            await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
 
             return { studyId, studyJobId }
         },
@@ -142,10 +116,14 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
             if (!context) return
-            const deletePath = pathForStudy({ memberSlug: memberSlug, studyId: context.studyId })
-            const deleteStudyFilesURL = await signedUrlForDeletingStudyFilesAction(deletePath)
+
+            const deleteStudyFilesURL = await onDeleteStudyAction({
+                memberSlug: memberSlug,
+                studyId: context.studyId,
+                studyJobId: context.studyJobId,
+            })
+
             await fetch(deleteStudyFilesURL)
-            await onDeleteStudyAction({ studyId: context.studyId, studyJobId: context.studyJobId })
         },
     })
 

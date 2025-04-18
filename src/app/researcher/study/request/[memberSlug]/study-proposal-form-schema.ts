@@ -8,7 +8,7 @@ export const studyProposalFormSchema = z
             .max(50, { message: 'Title must be less than 50 characters long' }),
         piName: z.string().min(1, { message: 'Principal Investigator name must be present' }).max(100).trim(),
         descriptionDocument: z
-            .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
+            .instanceof(File, { message: 'Study description document is required' })
             .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
             .refine((file) => file && file.size < 10 * 1024 * 1024, {
                 message: 'Description file size must be less than 10MB',
@@ -27,7 +27,7 @@ export const studyProposalFormSchema = z
                 },
             ),
         irbDocument: z
-            .union([z.instanceof(File, { message: 'IRB document is required' }), z.null()])
+            .instanceof(File, { message: 'IRB document is required' })
             .refine((file) => file && file.size > 0, { message: 'IRB document cannot be empty' })
             .refine((file) => file && file.size < 10 * 1024 * 1024, {
                 message: 'IRB document size must be less than 10MB',
@@ -45,7 +45,7 @@ export const studyProposalFormSchema = z
                 },
             ),
         agreementDocument: z
-            .union([z.instanceof(File, { message: 'Agreement document is required' }), z.null()])
+            .instanceof(File, { message: 'Agreement document is required' })
             .refine((file) => file && file.size > 0, { message: 'Agreement document cannot be empty' })
             .refine((file) => file && file.size < 10 * 1024 * 1024, {
                 message: 'Agreement document size must be less than 10MB',

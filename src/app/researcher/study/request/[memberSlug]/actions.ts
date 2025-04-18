@@ -1,12 +1,18 @@
 'use server'
 
-import { codeBuildRepositoryUrl, getS3BrowserClient, s3BucketName } from '@/server/aws'
+import {
+    codeBuildRepositoryUrl,
+    signedUrlForCodeUpload,
+    signedUrlForStudyDelete,
+    signedUrlForStudyFileUpload,
+} from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { getUserIdFromActionContext, researcherAction, userAction, z } from '@/server/actions/wrappers'
+import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { getMemberFromSlugAction } from '@/server/actions/member.actions'
-import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
+import { pathForStudy, pathForStudyDocuments } from '@/lib/paths'
+import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberSlug: z.string(),
@@ -63,19 +69,45 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
         })
         .execute()
 
+    // s3 signed urls for client to upload
+    const urlForCodeUpload = await signedUrlForCodeUpload({
+        memberSlug,
+        studyId,
+        studyJobId: studyJob.id,
+    })
+
+    const urlForAgreementUpload = await signedUrlForStudyFileUpload(
+        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.AGREEMENT),
+    )
+
+    const urlForIrbUpload = await signedUrlForStudyFileUpload(
+        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB),
+    )
+
+    const urlForDescriptionUpload = await signedUrlForStudyFileUpload(
+        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION),
+    )
+
     return {
         studyId: studyId,
         studyJobId: studyJob.id,
+        urlForCodeUpload,
+        urlForAgreementUpload,
+        urlForIrbUpload,
+        urlForDescriptionUpload,
     }
 }, onCreateStudyActionArgsSchema)
 
 export const onDeleteStudyAction = researcherAction(
-    async ({ studyId, studyJobId }) => {
+    async ({ memberSlug, studyId, studyJobId }) => {
         await db.deleteFrom('jobStatusChange').where('studyJobId', '=', studyJobId).execute()
         await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
         await db.deleteFrom('study').where('id', '=', studyId).execute()
+
+        return await signedUrlForStudyDelete(pathForStudy({ memberSlug, studyId }))
     },
     z.object({
+        memberSlug: z.string(),
         studyId: z.string(),
         studyJobId: z.string(),
     }),
