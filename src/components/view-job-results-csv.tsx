@@ -13,7 +13,7 @@ import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
 import { ButtonLink } from '@/components/links'
 
 type JobResultsProps = {
-    job?: { id: string; resultsPath?: string | null }
+    job: { id: string; resultsPath?: string | null }
 }
 
 export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
@@ -23,10 +23,10 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         isError,
         error,
     } = useQuery({
-        enabled: !!job?.id,
-        queryKey: ['job-results', job?.id],
+        enabled: !!job.id,
+        queryKey: ['job-results', job.id],
         queryFn: async () => {
-            const csv = await fetchJobResultsCsvAction(job?.id || '')
+            const csv = await fetchJobResultsCsvAction(job.id || '')
             return Papa.parse<Record<string, string | number>>(csv, {
                 header: true,
                 complete: (results) => {
@@ -39,7 +39,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         },
     })
 
-    if (!job?.id || !job?.resultsPath) {
+    if (!job.resultsPath) {
         return (
             <Flex justify={'center'} w="100%" mt="xl">
                 <Alert variant="light" color="blue" title={'Results not available'} icon={<Notification />}>

@@ -6,7 +6,7 @@ import { db } from '@/database'
 test('updating status', async () => {
     const { member, user } = await mockSessionWithTestData()
 
-    const { jobIds } = await insertTestStudyData({ memberId: member.id, researcherId: user.id })
+    const { jobIds } = await insertTestStudyData({ member, researcherId: user.id })
 
     const req = new Request('http://localhost', {
         method: 'PUT',

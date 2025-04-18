@@ -42,7 +42,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 <Stack>
                     <Title order={3}>Study Code</Title>
                     <Divider my="md" c="dimmed" />
-                    {job && <StudyCodeDetails job={job} />}
+                    {<StudyCodeDetails job={job} />}
                 </Stack>
             </Paper>
 
