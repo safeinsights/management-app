@@ -16,6 +16,8 @@ import { StudyDocumentType } from '@/lib/types'
 import { getSignedURL } from '@/server/actions/s3.actions'
 import { zodResolver } from 'mantine-form-zod-resolver'
 
+const EMPTY_FILE = new File([new ArrayBuffer], '')
+
 export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
     const router = useRouter()
 
@@ -25,9 +27,9 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         initialValues: {
             title: '',
             piName: '',
-            irbDocument: null,
-            descriptionDocument: null,
-            agreementDocument: null,
+            irbDocument: EMPTY_FILE,
+            descriptionDocument: EMPTY_FILE,
+            agreementDocument: EMPTY_FILE,
             codeFiles: [],
         },
     })

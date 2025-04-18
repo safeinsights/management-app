@@ -1,15 +1,17 @@
 'use server'
 
-import { codeBuildRepositoryUrl } from '@/server/aws'
-import { studyProposalSchema } from './study-proposal-schema'
+import { codeBuildRepositoryUrl, generateSignedUrlForUpload } from '@/server/aws'
+import { studyProposalSaveSchema } from './study-proposal-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { getMemberFromSlugAction } from '@/server/actions/member.actions'
+import { pathForStudyDocuments } from '@/lib/paths'
+import { MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberSlug: z.string(),
-    studyInfo: studyProposalSchema,
+    studyInfo: studyProposalSaveSchema,
 })
 
 export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyInfo }) => {
@@ -79,6 +81,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
         })
         .executeTakeFirstOrThrow()
 
+
     // TODO Store in submit handler now
     // const manifest = new CodeReviewManifest(studyJob.id, 'r')
     //
@@ -114,8 +117,24 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
         })
         .execute()
 
+    const docInfo: MinimalStudyInfo = {
+        studyId,
+        memberSlug: member.slug,
+    }
+
     return {
         studyId: studyId,
         studyJobId: studyJob.id,
+        urls: {
+            description: generateSignedUrlForUpload(pathForStudyDocuments(docInfo, StudyDocumentType.DESCRIPTION, studyInfo.descriptionDocPath)),
+            irb: generateSignedUrlForUpload(pathForStudyDocuments(docInfo, StudyDocumentType.IRB, studyInfo.irbDocPath)),
+            agreement: generateSignedUrlForUpload(pathForStudyDocuments(docInfo, StudyDocumentType.AGREEMENT, studyInfo.agreementDocPath)),
+            code: generateSignedUrlForUpload(pathForStudyDocuments(docInfo, StudyDocumentType.CODE, 'manifest.json')),
+    //                 { studyId, memberIdentifier: memberId },
+    //                 StudyDocumentType.IRB,
+    //                 values.irbDocument?.name,
+    //             ),
+    //         )
+        }
     }
 }, onCreateStudyActionArgsSchema)

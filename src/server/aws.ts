@@ -131,6 +131,28 @@ export async function deleteS3File(Key: string) {
     )
 }
 
+export async function urlForStudyRunCodeUpload(info: MinimalJobInfo) {
+    const bucket = s3BucketName()
+    const prefix = pathForStudyJobCode(info)
+    return await getSignedUrl(
+        getS3Client(),
+        new PutObjectCommand({
+            //    const psPost = await createPresignedPost(getS3Client(), {
+            Bucket: bucket,
+
+            //Conditions: [['starts-with', '$key', prefix]],
+            //        Expires: 3600, // seconds, == one hour
+            Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+
+        }), {
+            expiresIn: 3600,
+            // ?? howto
+            Conditions: [['starts-with', '$key', prefix]],
+
+    })
+
+
+
 export const generateSignedUrlForUpload = async (key: string) => {
     return await getSignedUrl(
         getS3Client(),
