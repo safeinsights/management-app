@@ -97,12 +97,12 @@ export const theme = createTheme({
     fontFamily: 'Open Sans',
     headings: {
         fontFamily: 'Open Sans',
-        fontWeight: 700,
+        fontWeight: '700',
     },
     fontWeights: {
-        normal: 400,
-        semiBold: 600,
-        bold: 700,
+        normal: '400',
+        semiBold: '600',
+        bold: '700',
     },
     colors: {
         charcoal,
@@ -131,7 +131,7 @@ export const theme = createTheme({
             styles: (theme: MantineTheme, params: { order: number }) => ({
                 root: {
                     padding: params.order === 1 ? '20px 80px 20px 40px' : theme.spacing.xs,
-                    fontWeight: params.order === 5 ? 600 : 700,
+                    fontWeight: params.order === 5 ? '600' : '700',
                 },
             }),
         },
