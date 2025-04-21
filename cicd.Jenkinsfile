@@ -5,7 +5,6 @@ pipeline {
         stage("Deploy") {
             steps {
                 sh """
-                    printenv
 
                     read AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<< \$(
                     aws sts assume-role \
@@ -24,6 +23,8 @@ pipeline {
                     aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
                     cd cicd
                     unzip -o *.zip
+
+                    printenv
 
                     ./deploy
                 """
