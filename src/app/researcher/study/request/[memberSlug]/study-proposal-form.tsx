@@ -2,25 +2,10 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import {
-    Anchor,
-    Button,
-    Divider,
-    FileInput,
-    Group,
-    Grid,
-    GridCol,
-    Stack,
-    Paper,
-    Text,
-    TextInput,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
-import { FileDoc, FilePdf, FileText, UploadSimple, XCircle } from '@phosphor-icons/react/dist/ssr'
+import { Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-schema'
-import { theme } from '@/theme'
+import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
@@ -56,131 +41,87 @@ export const StudyProposalForm: FC<{
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
             </Text>
 
-            <Grid>
-                <GridCol span="content">
-                    <Stack gap="xs">
-                        <Title order={5} fz="sm">
+                <Stack gap="xl">
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
                             Study Title
-                        </Title>
-                        <Title order={5} mt="md" fz="sm">
-                            Study Lead
-                        </Title>
-                        <Title order={5} mt="sm" fz="sm">
-                            Principal Investigator
-                        </Title>
-                        <Title order={5} mt="sm" fz="sm">
-                            Study Description
-                        </Title>
-                        <Title order={5} mt="xl" fz="sm">
-                            IRB Document
-                        </Title>
-                        <Title order={5} mt="xl" fz="sm">
-                            Agreement Document
-                        </Title>
-                    </Stack>
-                </GridCol>
-                <GridCol span={3}>
-                    <Stack gap="lg">
+                        </Text>
                         <TextInput
+                            w={'30%'}
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
                         />
-                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Study Lead
+                        </Text>
+                        <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Principal Investigator
+                        </Text>
                         <TextInput
+                            w={'30%'}
                             aria-label="Principal Investigator"
                             placeholder="Full Name"
                             {...studyProposalForm.getInputProps('piName')}
                         />
-                        <Stack gap="xs">
-                            <Group gap="md">
-                                {fileUpload}
-                                <FileInput
-                                    name="descriptionDocument"
-                                    component={Anchor}
-                                    c="purple.5"
-                                    aria-label="Upload Study Description Document"
-                                    placeholder="Upload Document"
-                                    clearable
-                                    clearButtonProps={{
-                                        children: <XCircle size={16} color={theme.colors.grey[2]} weight="fill" />,
-                                        unstyled: true,
-                                        hover: {
-                                            background: 'transparent',
-                                        },
-                                      }}
-                                    styles={{
-                                        input: {
-                                          color: theme.colors.blue[7],
-                                          fontSize: 'inherit',
-                                        },
-                                      }}
-                                    accept=".doc,.docx,.pdf"
-                                    {...studyProposalForm.getInputProps('descriptionDocument')}
-                                />
-                                {/* <Button
-                                variant="transparent"
-                                    onClick={() =>
-                                        studyProposalForm.setFieldValue('descriptionDocument', null)
-                                    }
-                                >
-                                    <XCircle size={16} color={theme.colors.grey[2]} weight="fill" />
-                                </Button> */}
-                            </Group>
-                            <Text fz="xs" c="grey.5">
-                                Accepted formats: .doc, .docx, .pdf
-                            </Text>
-                        </Stack>
-                        <Stack gap="xs">
-                            <Group gap="lg">
-                                {/* {irbFileUpload} */}
-                                <FileInput
-                                    {...studyProposalForm.getInputProps('irbDocument')}
-                                    name="irbDocument"
-                                    aria-label="Upload IRB Document"
-                                    placeholder="Upload Document"
-                                    leftSection={irbFileUpload}
-                                    clearable
-                                    styles={{
-                                        input: {
-                                          color: theme.colors.blue[7],
-                                          marginleft: '0px',
-                                          fontSize: '14px',
-                                        },
-                                      }}
-                                    accept=".doc,.docx,.pdf"
-                                />
-                            </Group>
-                            <Text fz="xs" c="grey.5">
-                                Accepted formats: .doc, .docx, .pdf
-                            </Text>
-                        </Stack>
-                        <Stack gap="xs" mt="xs">
-                            <Group gap="md">
-                                <FileInput
-                                    name="agreementDocument"
-                                    aria-label="Upload Agreement Document"
-                                    placeholder="Upload Document"
-                                    leftSection={agreementFileUpload}
-                                    clearable
-                                    styles={{
-                                        input: {
-                                          color: theme.colors.blue[7],
-                                          marginleft: '0px',
-                                          fontSize: '14px',
-                                        },
-                                      }}
-                                    accept=".doc,.docx,.pdf"
-                                    {...studyProposalForm.getInputProps('agreementDocument')}
-                                />
-                            </Group>
-                            <Text fz="xs" c="grey.5">
-                                Accepted formats: .doc, .docx, .pdf
-                            </Text>
-                        </Stack>
-                    </Stack>
-                </GridCol>
-            </Grid>
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Study Description
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            name="descriptionDocument"
+                            leftSection={fileUpload}
+                            aria-label="Upload Study Description Document"
+                            placeholder="Upload Study Description Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('descriptionDocument')}
+                        />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            IRB Document
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            leftSection={irbFileUpload}
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                            name="irbDocument"
+                            aria-label="Upload IRB Document"
+                            placeholder="Upload IRB Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                        />
+                    </Group>
+
+                    <Group align="flex-start">
+                        <Text w={'20%'} fw="bold">
+                            Agreement Document
+                        </Text>
+                        <FileInput
+                            w={'30%'}
+                            leftSection={agreementFileUpload}
+                            name="agreementDocument"
+                            aria-label="Upload Agreement Document"
+                            placeholder="Upload Agreement Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('agreementDocument')}
+                        />
+                    </Group>
+                </Stack>
+            </Stack>
         </Paper>
     )
 }

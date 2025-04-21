@@ -23,7 +23,7 @@
         "pre:push": "run-s lint:fix typecheck",
         "typecheck": "cd src && tsc --noEmit",
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
-        "checks": "run-p -c typecheck lint",
+        "checks": "run-p -c typecheck lint validate-actions",
         "test:e2e": "playwright test",
         "test:unit": "vitest --coverage",
         "test": "run-p -c test:*",

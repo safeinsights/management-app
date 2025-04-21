@@ -41,13 +41,13 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                     </Stack>
                 </Paper>
 
-                <Paper bg="white" p="xl">
-                    <Stack>
-                        <Title order={4}>Study Code</Title>
-                        <Divider c="dimmed" />
-                        {job && <StudyCodeDetails job={job} />}
-                    </Stack>
-                </Paper>
+            <Paper bg="white" p="xl">
+                <Stack>
+                    <Title order={4}>Study Code</Title>
+                    <Divider c="dimmed" />
+                    <StudyCodeDetails job={job} />
+                </Stack>
+            </Paper>
 
                 <Paper bg="white" p="xl">
                     <Stack>

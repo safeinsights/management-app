@@ -6,7 +6,7 @@ import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-schema'
+import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 // TODO use me in other file
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
