@@ -115,13 +115,11 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             console.error(error)
             if (!context) return
 
-            const deleteStudyFilesURL = await onDeleteStudyAction({
+            await onDeleteStudyAction({
                 memberSlug: memberSlug,
                 studyId: context.studyId,
                 studyJobId: context.studyJobId,
             })
-
-            await fetch(deleteStudyFilesURL)
         },
     })
 

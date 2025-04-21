@@ -2,8 +2,8 @@
 
 import {
     codeBuildRepositoryUrl,
+    deleteFolderContents,
     signedUrlForCodeUpload,
-    signedUrlForStudyDelete,
     signedUrlForStudyFileUpload,
 } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
@@ -11,7 +11,7 @@ import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { getMemberFromSlugAction } from '@/server/actions/member.actions'
-import { pathForStudy, pathForStudyDocuments } from '@/lib/paths'
+import { pathForStudyDocuments } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
@@ -104,7 +104,8 @@ export const onDeleteStudyAction = researcherAction(
         await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
         await db.deleteFrom('study').where('id', '=', studyId).execute()
 
-        return await signedUrlForStudyDelete(pathForStudy({ memberSlug, studyId }))
+        // Clean up the files from s3
+        await deleteFolderContents(`studies/${memberSlug}/${studyId}`)
     },
     z.object({
         memberSlug: z.string(),

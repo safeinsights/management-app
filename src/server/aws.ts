@@ -1,5 +1,5 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -141,10 +141,27 @@ export const signedUrlForStudyFileUpload = async (path: string) => {
     })
 }
 
-export const signedUrlForStudyDelete = async (Key: string) => {
-    return await getSignedUrl(getS3Client(), new DeleteObjectCommand({ Bucket: s3BucketName(), Key }), {
-        expiresIn: 3600,
+export const deleteFolderContents = async (folderPath: string) => {
+    const listCommand = new ListObjectsV2Command({
+        Bucket: s3BucketName(),
+        Prefix: folderPath,
     })
+
+    const listedObjects = await getS3Client().send(listCommand)
+
+    if (!listedObjects.Contents) {
+        console.error('No objects found in the folder.')
+        return
+    }
+
+    const objectsToDelete = listedObjects.Contents.map(({ Key }) => ({ Key }))
+
+    const deleteCommand = new DeleteObjectsCommand({
+        Bucket: s3BucketName(),
+        Delete: { Objects: objectsToDelete },
+    })
+
+    await getS3Client().send(deleteCommand)
 }
 
 export async function fetchS3File(Key: string) {
