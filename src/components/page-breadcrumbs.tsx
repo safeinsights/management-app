@@ -3,8 +3,6 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { theme } from '../theme'
 
-const prevColor = theme.colors?.blue[7]
-const currentColor = theme.colors?.grey[5]
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
@@ -13,11 +11,11 @@ export const PageBreadcrumbs: FC<{
         <Breadcrumbs separator=">">
             {crumbs.map(([title, href], index) =>
                 href ? (
-                    <Anchor c={prevColor} component={Link} href={href} key={index}>
+                    <Anchor c={theme.colors?.blue[7]} component={Link} href={href} key={index}>
                         {title}
                     </Anchor>
                 ) : (
-                    <Text c={currentColor} key={index}>
+                    <Text c={theme.colors?.grey[5]} key={index}>
                         {title}
                     </Text>
                 ),

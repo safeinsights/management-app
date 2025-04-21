@@ -121,6 +121,9 @@ export const theme = createTheme({
         },
 
         FileInput: {
+            defaultProps: {
+                color: blue[7],
+            },
             styles: {
                 placeholder: {
                     color: purple[5],
