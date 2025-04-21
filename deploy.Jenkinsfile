@@ -1,0 +1,31 @@
+pipeline {
+    agent { label "jenkins" }
+
+    stages {
+        stage("Deploy") {
+            steps {
+                sh """
+                    aws sts get-caller-identity
+                    read AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN <<< \$(
+                    aws sts assume-role \
+                        --role-arn arn:aws:iam::872515273917:role/SafeInsights-DevDeploy \
+                        --role-session-name Session \
+                        --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
+                        --output text
+                    )
+
+                    export AWS_ACCESS_KEY_ID
+                    export AWS_SECRET_ACCESS_KEY
+                    export AWS_SESSION_TOKEN
+                    aws sts get-caller-identity
+
+                    aws s3 sync s3://si-mgmt-app-build/scripts ./scripts
+                    unzip scripts/*.zip
+                    ./deploy
+
+                    npx tsx cicd/management-app/scripts/deploy.ts -e Dev -r $GIT_COMMIT
+                """
+            }
+        }
+    }
+}
