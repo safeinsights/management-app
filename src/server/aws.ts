@@ -121,18 +121,7 @@ export async function signedUrlForFile(Key: string) {
     })
 }
 
-export const signedUrlForCodeUpload = async (jobInfo: MinimalJobInfo) => {
-    const prefix = pathForStudyJobCode(jobInfo)
-
-    return await createPresignedPost(getS3BrowserClient(), {
-        Bucket: s3BucketName(),
-        Conditions: [['starts-with', '$key', prefix]],
-        Expires: 3600,
-        Key: prefix + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
-    })
-}
-
-export const signedUrlForStudyFileUpload = async (path: string) => {
+export const signedUrlForStudyUpload = async (path: string) => {
     return await createPresignedPost(getS3BrowserClient(), {
         Bucket: s3BucketName(),
         Expires: 3600,
@@ -155,6 +144,10 @@ export const deleteFolderContents = async (folderPath: string) => {
     }
 
     const objectsToDelete = listedObjects.Contents.map(({ Key }) => ({ Key }))
+
+    if (objectsToDelete.length > 20) {
+        throw new Error('cowardly refusing to delete more than 10 files at once')
+    }
 
     const deleteCommand = new DeleteObjectsCommand({
         Bucket: s3BucketName(),

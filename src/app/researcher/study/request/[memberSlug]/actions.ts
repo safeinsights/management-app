@@ -1,17 +1,12 @@
 'use server'
 
-import {
-    codeBuildRepositoryUrl,
-    deleteFolderContents,
-    signedUrlForCodeUpload,
-    signedUrlForStudyFileUpload,
-} from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { getMemberFromSlugAction } from '@/server/actions/member.actions'
-import { pathForStudyDocuments } from '@/lib/paths'
+import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 
 const onCreateStudyActionArgsSchema = z.object({
@@ -69,22 +64,24 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
         })
         .execute()
 
-    // s3 signed urls for client to upload
-    const urlForCodeUpload = await signedUrlForCodeUpload({
+    const studyJobCodePath = pathForStudyJobCode({
         memberSlug,
         studyId,
         studyJobId: studyJob.id,
     })
 
-    const urlForAgreementUpload = await signedUrlForStudyFileUpload(
+    // s3 signed urls for client to upload
+    const urlForCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+
+    const urlForAgreementUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.AGREEMENT),
     )
 
-    const urlForIrbUpload = await signedUrlForStudyFileUpload(
+    const urlForIrbUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB),
     )
 
-    const urlForDescriptionUpload = await signedUrlForStudyFileUpload(
+    const urlForDescriptionUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION),
     )
 
