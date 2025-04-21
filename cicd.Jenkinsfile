@@ -24,9 +24,8 @@ pipeline {
                     aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
                     cd cicd
                     unzip *.zip
-                    npm install
 
-                    node deploy.mjs --environment Dev --releaseSha=${COMMIT_SHA} --prNumber=${CHANGE_ID}
+                    ./deploy
                 """
             }
         }
