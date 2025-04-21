@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
-        <Text component='div' fz="lg" fw={500}>
+        <Text component="div" fz="lg" fw={500}>
             {title}:
         </Text>
-        <Text component='div' fz="md" fw={700}>
+        <Text component="div" fz="md" fw={700}>
             {value}
         </Text>
     </>
@@ -19,10 +19,20 @@ export default function AboutPage() {
             <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
                 <Stat
                     title="Release SHA"
-                    value={process.env.RELEASE_SHA ? <Flex gap="md" align={'center'}>
-                                                         {process.env.RELEASE_SHA}
-                                                         <a href={`https://github.com/safeinsights/management-app/commit/${process.env.RELEASE_SHA}`}><Eye /></a>
-                                                     </Flex> : 'not deployed'}
+                    value={
+                        process.env.RELEASE_SHA ? (
+                            <Flex gap="md" align={'center'}>
+                                {process.env.RELEASE_SHA}
+                                <a
+                                    href={`https://github.com/safeinsights/management-app/commit/${process.env.RELEASE_SHA}`}
+                                >
+                                    <Eye />
+                                </a>
+                            </Flex>
+                        ) : (
+                            'not deployed'
+                        )
+                    }
                 />
 
                 <Divider my="md" />
