@@ -2,8 +2,8 @@
 
 import React from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Link } from '@/components/links'
-import { Button, Container, Stack, Text } from '@mantine/core'
+import { ButtonLink, Link } from '@/components/links'
+import { Container, Group, Stack, Text } from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
@@ -46,12 +46,14 @@ export function ManageMFAPanel() {
                     <Text size="md" mb="md">
                         Feel free to opt in to use either SMS verification OR Authenticator App verification.
                     </Text>
-                    <Link href="/account/mfa/sms">
-                        <Button>SMS Verification</Button>
-                    </Link>
-                    <Link href="/account/mfa/app">
-                        <Button>Authenticator App Verification</Button>
-                    </Link>
+                    <Group gap="md">
+                        <ButtonLink href="/account/mfa/sms" m={1}>
+                            SMS Verification
+                        </ButtonLink>
+                        <ButtonLink href="/account/mfa/app" m={1}>
+                            Authenticator App Verification
+                        </ButtonLink>
+                    </Group>
                 </Stack>
             </Panel>
         </Container>
