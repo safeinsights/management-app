@@ -1,7 +1,7 @@
 'use server'
 
 import React from 'react'
-import { Flex, Stack, Title } from '@mantine/core'
+import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'

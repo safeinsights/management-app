@@ -1,4 +1,4 @@
-import { createTheme, DefaultMantineColor, MantineColorsTuple, MantineTheme } from '@mantine/core'
+import { createTheme, DefaultMantineColor, MantineColorsTuple } from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -98,11 +98,6 @@ export const theme = createTheme({
     headings: {
         fontFamily: 'Open Sans',
         fontWeight: '700',
-    },
-    fontWeights: {
-        normal: '400',
-        semiBold: '600',
-        bold: '700',
     },
     colors: {
         charcoal,

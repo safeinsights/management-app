@@ -1,7 +1,6 @@
-import { Breadcrumbs, Anchor, Text, Divider, Stack } from '@mantine/core'
+import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
 import { FC } from 'react'
-import { theme } from '../theme'
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
