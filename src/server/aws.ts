@@ -30,7 +30,7 @@ export const getS3Client = () =>
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
-// For Presigned URLs and client calls
+// For Pre-signed URLs and client calls
 let _s3BrowserClient: S3Client | null = null
 export const getS3BrowserClient = () =>
     _s3BrowserClient ||
