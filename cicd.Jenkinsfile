@@ -26,7 +26,7 @@ pipeline {
                     unzip *.zip
                     npm install
 
-                    node deploy.mjs --environment Dev --releaseSha=$COMMIT_SHA --prNumber=$CHANGE_ID
+                    node deploy.mjs --environment Dev --releaseSha=${COMMIT_SHA} --prNumber=${CHANGE_ID}
                 """
             }
         }
