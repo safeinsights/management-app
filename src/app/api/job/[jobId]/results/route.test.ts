@@ -1,11 +1,8 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyData, insertTestMember } from '@/tests/unit.helpers'
-import fs from 'fs'
-import path from 'path'
+import { insertTestMember, insertTestStudyData } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { pathForStudyJobResults } from '@/lib/paths'
-import { getUploadTmpDirectory } from '@/server/config'
+import { fetchStudyResultsFile } from '@/server/storage'
 
 test('handling upload', async () => {
     const member = await insertTestMember()
@@ -23,26 +20,23 @@ test('handling upload', async () => {
     const { jobIds, studyId } = await insertTestStudyData({ member })
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
-
     expect(resp.ok).toBe(true)
 
-    const filePath = path.join(
-        getUploadTmpDirectory(),
-        pathForStudyJobResults({
-            memberSlug: member.slug,
-            studyId,
-            studyJobId: jobIds[0],
-            resultsType: 'ENCRYPTED',
-        }),
-    )
+    const studyResultsFile = await fetchStudyResultsFile({
+        memberSlug: member.slug,
+        studyId,
+        studyJobId: jobIds[0],
+        resultsType: 'ENCRYPTED',
+    })
 
-    expect(fs.existsSync(filePath)).toBeTruthy()
+    expect(studyResultsFile).toBeTruthy()
 
     const sr = await db
         .selectFrom('studyJob')
         .select('resultsPath')
         .where('id', '=', jobIds[0])
         .executeTakeFirstOrThrow()
+
     // we don't store the path in the database until results are approved
     expect(sr.resultsPath).toBeNull()
 })

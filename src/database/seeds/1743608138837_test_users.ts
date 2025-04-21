@@ -8,11 +8,10 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     // dynamic require to keep build smaller and not import if NO_TESTING_DATA
     const { v7: uuidv7 } = await import('uuid')
 
-    const memberId = 'openstax'
     const member = await db
         .insertInto('member')
         .values({
-            slug: memberId,
+            slug: 'openstax',
             name: 'OpenStax',
             email: 'contact@safeinsights.org',
             publicKey: 'BAD KEY, UPDATE ME',

@@ -1,9 +1,8 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { ECRClient } from '@aws-sdk/client-ecr'
 import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJobCode } from '@/lib/paths'
@@ -11,6 +10,7 @@ import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -20,23 +20,28 @@ export function objectToAWSTags(tags: Record<string, string>) {
     }))
 }
 
-let _ecrClient: ECRClient | null = null
-export const getECRClient = () =>
-    _ecrClient ||
-    (_ecrClient = new ECRClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
-    }))
-
 let _s3Client: S3Client | null = null
 export const getS3Client = () =>
     _s3Client ||
     (_s3Client = new S3Client({
         region: process.env.AWS_REGION || 'us-east-1',
+        forcePathStyle: true,
+        endpoint: process.env.S3_ENDPOINT,
         credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
     }))
 
-const s3BucketName = () => {
+// For Pre-signed URLs and client calls
+let _s3BrowserClient: S3Client | null = null
+export const getS3BrowserClient = () =>
+    _s3BrowserClient ||
+    (_s3BrowserClient = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        forcePathStyle: true,
+        endpoint: process.env.S3_BROWSER_ENDPOINT || process.env.S3_ENDPOINT,
+        credentials: process.env.AWS_PROFILE ? fromIni({ profile: process.env.AWS_PROFILE }) : undefined,
+    }))
+
+export const s3BucketName = () => {
     if (!process.env.BUCKET_NAME) {
         throw new Error('BUCKET_NAME env var not set')
     }
@@ -95,7 +100,7 @@ export const storeS3File = async (
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
-        client: getS3Client(), // jobId: info.studyJobId//
+        client: getS3Client(),
         tags: objectToAWSTags({
             studyId: info.studyId,
             ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),
@@ -111,9 +116,45 @@ export const storeS3File = async (
 }
 
 export async function signedUrlForFile(Key: string) {
-    return await getSignedUrl(getS3Client(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
+    return await getSignedUrl(getS3BrowserClient(), new GetObjectCommand({ Bucket: s3BucketName(), Key }), {
         expiresIn: 3600,
     })
+}
+
+export const signedUrlForStudyUpload = async (path: string) => {
+    return await createPresignedPost(getS3BrowserClient(), {
+        Bucket: s3BucketName(),
+        Expires: 3600,
+        Conditions: [['starts-with', '$key', path]],
+        Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
+    })
+}
+
+export const deleteFolderContents = async (folderPath: string) => {
+    const listCommand = new ListObjectsV2Command({
+        Bucket: s3BucketName(),
+        Prefix: folderPath,
+    })
+
+    const listedObjects = await getS3Client().send(listCommand)
+
+    if (!listedObjects.Contents) {
+        console.error('No objects found in the folder.')
+        return
+    }
+
+    const objectsToDelete = listedObjects.Contents.map(({ Key }) => ({ Key }))
+
+    if (objectsToDelete.length > 20) {
+        throw new Error('cowardly refusing to delete more than 10 files at once')
+    }
+
+    const deleteCommand = new DeleteObjectsCommand({
+        Bucket: s3BucketName(),
+        Delete: { Objects: objectsToDelete },
+    })
+
+    await getS3Client().send(deleteCommand)
 }
 
 export async function fetchS3File(Key: string) {
