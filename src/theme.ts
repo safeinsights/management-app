@@ -1,4 +1,4 @@
-import { createTheme, DefaultMantineColor, MantineColorsTuple, MantineTheme } from '@mantine/core'
+import { createTheme, DefaultMantineColor, MantineColorsTuple, MantineTheme} from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -119,25 +119,14 @@ export const theme = createTheme({
                 color: charcoal[9],
             },
         },
-
-        FileInput: {
-            defaultProps: {
-                color: blue[7],
-            },
-            styles: {
-                placeholder: {
-                    color: purple[5],
-                },
-            },
-        },
-        Title: {
-            styles: (theme: MantineTheme, params: { order: number }) => ({
-                root: {
-                    padding: params.order === 1 ? '20px 80px 20px 40px' : theme.spacing.xs,
-                    fontWeight: params.order === 5 ? '600' : '700',
-                },
-            }),
-        },
+        // Title: {
+        //     styles: (theme: MantineTheme, params: { order: number }) => ({
+        //         root: {
+        //             padding: params.order === 1 ? '20px 80px 20px 40px' : theme.spacing.xs,
+        //             fontWeight: params.order === 5 ? '600' : '700',
+        //         },
+        //     }),
+        // },
     },
     primaryShade: 5,
     primaryColor: 'purple',

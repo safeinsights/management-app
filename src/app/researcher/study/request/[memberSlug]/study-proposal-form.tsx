@@ -7,6 +7,14 @@ import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
+const FormLabel = ({ label }: { label: string }) => {
+    return (
+        <Text w={'20%'} fw="bold">
+            {label}
+        </Text>
+    )
+}
+
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
@@ -41,86 +49,73 @@ export const StudyProposalForm: FC<{
                 possible to ensure the Reviewer has all the information needed to make an informed decision.
             </Text>
 
-                <Stack gap="xl">
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            Study Title
-                        </Text>
-                        <TextInput
-                            w={'30%'}
-                            aria-label="Study Title"
-                            placeholder="Enter a title (max. 50 characters)"
-                            {...studyProposalForm.getInputProps('title')}
-                        />
-                    </Group>
+            <Stack gap="xl">
+                <Group align="flex-start">
+                    <FormLabel label="Study Title" />
+                    <TextInput
+                        w={'30%'}
+                        aria-label="Study Title"
+                        placeholder="Enter a title (max. 50 characters)"
+                        {...studyProposalForm.getInputProps('title')}
+                    />
+                </Group>
 
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            Study Lead
-                        </Text>
-                        <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
-                    </Group>
+                <Group align="flex-start">
+                    <FormLabel label="Study Lead" />
+                    <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                </Group>
 
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            Principal Investigator
-                        </Text>
-                        <TextInput
-                            w={'30%'}
-                            aria-label="Principal Investigator"
-                            placeholder="Full Name"
-                            {...studyProposalForm.getInputProps('piName')}
-                        />
-                    </Group>
+                <Group align="flex-start">
+                  <FormLabel label="Principal Investigator" />
+                    <TextInput
+                        w={'30%'}
+                        aria-label="Principal Investigator"
+                        placeholder="Full Name"
+                        {...studyProposalForm.getInputProps('piName')}
+                    />
+                </Group>
 
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            Study Description
-                        </Text>
-                        <FileInput
-                            w={'30%'}
-                            name="descriptionDocument"
-                            leftSection={fileUpload}
-                            aria-label="Upload Study Description Document"
-                            placeholder="Upload Study Description Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                            {...studyProposalForm.getInputProps('descriptionDocument')}
-                        />
-                    </Group>
+                <Group align="flex-start">
+                    <FormLabel label="Study Description" />
+                    <FileInput
+                        w={'30%'}
+                        name="descriptionDocument"
+                        leftSection={fileUpload}
+                        aria-label="Upload Study Description Document"
+                        placeholder="Upload Study Description Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                        {...studyProposalForm.getInputProps('descriptionDocument')}
+                    />
+                </Group>
 
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            IRB Document
-                        </Text>
-                        <FileInput
-                            w={'30%'}
-                            leftSection={irbFileUpload}
-                            {...studyProposalForm.getInputProps('irbDocument')}
-                            name="irbDocument"
-                            aria-label="Upload IRB Document"
-                            placeholder="Upload IRB Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                        />
-                    </Group>
+                <Group align="flex-start">
+                    <FormLabel label="IRB Document" />
+                    <FileInput
+                        w={'30%'}
+                        leftSection={irbFileUpload}
+                        {...studyProposalForm.getInputProps('irbDocument')}
+                        name="irbDocument"
+                        aria-label="Upload IRB Document"
+                        placeholder="Upload IRB Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                    />
+                </Group>
 
-                    <Group align="flex-start">
-                        <Text w={'20%'} fw="bold">
-                            Agreement Document
-                        </Text>
-                        <FileInput
-                            w={'30%'}
-                            leftSection={agreementFileUpload}
-                            name="agreementDocument"
-                            aria-label="Upload Agreement Document"
-                            placeholder="Upload Agreement Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                            {...studyProposalForm.getInputProps('agreementDocument')}
-                        />
-                    </Group>
-                </Stack>
+                <Group align="flex-start">
+                    <FormLabel label="Agreement Document" />
+                    <FileInput
+                        w={'30%'}
+                        leftSection={agreementFileUpload}
+                        name="agreementDocument"
+                        aria-label="Upload Agreement Document"
+                        placeholder="Upload Agreement Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                        {...studyProposalForm.getInputProps('agreementDocument')}
+                    />
+                </Group>
             </Stack>
         </Paper>
     )

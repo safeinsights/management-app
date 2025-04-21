@@ -88,7 +88,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     ))
 
     return (
-        <>
+        <Stack p="md">
             <Title order={1}>
                 Hi <UserName />!
             </Title>
@@ -129,6 +129,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     </Stack>
                 </Paper>
             </Stack>
-        </>
+        </Stack>
     )
 }
