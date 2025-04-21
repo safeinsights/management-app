@@ -21,6 +21,8 @@ pipeline {
                     export AWS_SESSION_TOKEN
                     aws sts get-caller-identity
 
+                    [ -d ./cicd ] && find ./cicd -name '*.zip' -delete
+
                     aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
                     cd cicd
                     unzip *.zip
