@@ -125,7 +125,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stack pt="lg" pl="xl" pr="xl" pb="xl" gap="sm">
+            <Stack>
                 <StudyProposalForm studyProposalForm={studyProposalForm} />
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} />
                 <Group justify="center">

@@ -3,24 +3,26 @@ import Link from 'next/link'
 import { FC } from 'react'
 import { theme } from '../theme'
 
-
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
     return (
-        <Breadcrumbs separator=">">
-            {crumbs.map(([title, href], index) =>
-                href ? (
-                    <Anchor c={theme.colors?.blue[7]} component={Link} href={href} key={index}>
-                        {title}
-                    </Anchor>
-                ) : (
-                    <Text c={theme.colors?.grey[5]} key={index}>
-                        {title}
-                    </Text>
-                ),
-            )}
-        </Breadcrumbs>
+        <>
+            <Breadcrumbs separator=">">
+                {crumbs.map(([title, href], index) =>
+                    href ? (
+                        <Anchor c="blue.7" component={Link} href={href} key={index}>
+                            {title}
+                        </Anchor>
+                    ) : (
+                        <Text c="grey.5" key={index}>
+                            {title}
+                        </Text>
+                    ),
+                )}
+            </Breadcrumbs>
+            <Divider />
+        </>
     )
 }
 
@@ -39,11 +41,7 @@ export const MemberBreadcrumbs: FC<{
     if (current) {
         crumbs.push([current])
     }
-    return (
-        <Stack>
-            <PageBreadcrumbs crumbs={crumbs} /> <Divider />
-        </Stack>
-    )
+    return <PageBreadcrumbs crumbs={crumbs} />
 }
 
 export const ResearcherBreadcrumbs: FC<{
@@ -60,9 +58,5 @@ export const ResearcherBreadcrumbs: FC<{
     if (current) {
         crumbs.push([current])
     }
-    return (
-        <Stack>
-            <PageBreadcrumbs crumbs={crumbs} /> <Divider />
-        </Stack>
-    )
+    return <PageBreadcrumbs crumbs={crumbs} />
 }

@@ -9,9 +9,9 @@ import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 const FormLabel = ({ label }: { label: string }) => {
     return (
-        <Text w={'20%'} fw="bold">
+        <Title order={5} w={'10%'} fw="semibold">
             {label}
-        </Text>
+        </Title>
     )
 }
 
@@ -39,10 +39,8 @@ export const StudyProposalForm: FC<{
     const { user } = useUser()
 
     return (
-        <Paper pt="sm" pl="xl" pr="lg" pb="lg">
-            <Title order={4} pr="lg" pb="sm">
-                Study Proposal
-            </Title>
+        <Paper p="xl">
+            <Title order={4}>Study Proposal</Title>
             <Divider my="md" />
             <Text mb="md">
                 This section is here to help you submit your study proposal. Consider providing as much detail as
@@ -66,7 +64,7 @@ export const StudyProposalForm: FC<{
                 </Group>
 
                 <Group align="flex-start">
-                  <FormLabel label="Principal Investigator" />
+                    <FormLabel label="Principal Investigator" />
                     <TextInput
                         w={'30%'}
                         aria-label="Principal Investigator"

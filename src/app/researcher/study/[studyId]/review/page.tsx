@@ -24,16 +24,14 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     return (
         <>
-            <Stack p="xl">
+            <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs
                     crumbs={{
                         studyId,
                         current: 'Study Details',
                     }}
                 />
-            </Stack>
-            <Title order={1}>Study Details</Title>
-            <Stack p="xl">
+                <Title order={1}>Study Details</Title>
                 <Paper bg="white" p="xl">
                     <Stack>
                         <Title order={4}>Study Details</Title>
@@ -41,13 +39,13 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                     </Stack>
                 </Paper>
 
-            <Paper bg="white" p="xl">
-                <Stack>
-                    <Title order={4}>Study Code</Title>
-                    <Divider c="dimmed" />
-                    <StudyCodeDetails job={job} />
-                </Stack>
-            </Paper>
+                <Paper bg="white" p="xl">
+                    <Stack>
+                        <Title order={4}>Study Code</Title>
+                        <Divider c="dimmed" />
+                        <StudyCodeDetails job={job} />
+                    </Stack>
+                </Paper>
 
                 <Paper bg="white" p="xl">
                     <Stack>
