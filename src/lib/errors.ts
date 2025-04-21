@@ -110,3 +110,5 @@ export const errorToString = (error: unknown) => {
 // a utility function to throw an AccessDeniedError with a message
 // useful for passing into kysely's takeFirstOrThrow
 export const throwAccessDenied = (part: string) => () => new AccessDeniedError(`not allowed access to ${part}`)
+
+export const throwNotFound = (part: string) => () => new AccessDeniedError(`${part} was not found`)

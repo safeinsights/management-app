@@ -1,7 +1,7 @@
 import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
-import { AccessDeniedError, throwAccessDenied } from '@/lib/errors'
+import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../context'
 import { findOrCreateSiUserId } from './mutations'
 import { getUserIdFromActionContext } from '../actions/wrappers'
@@ -118,18 +118,45 @@ export const getMemberUserPublicKeyByUserId = async (userId: string) => {
     return result?.publicKey
 }
 
-export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
+export type StudyJobWithLastStatus = Awaited<ReturnType<typeof latestJobForStudy>>
+export const latestJobForStudy = async (
+    studyId: string,
+    { orgSlug, userId }: { orgSlug?: null | string; userId?: null | string } = {},
+    conn: DBExecutor = db,
+) => {
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
+
+        .$if(Boolean(orgSlug), (qb) =>
+            qb.innerJoin('member', (join) =>
+                join.on('member.slug', '=', orgSlug!).onRef('member.id', '=', 'study.memberId'),
+            ),
+        )
+        .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
+        .innerJoin(
+            // join to the latest status change
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .orderBy('studyJobId', 'desc')
+                    .orderBy('id', 'desc')
+                    .distinctOn('studyJobId')
+                    .select([
+                        'jobStatusChange.studyJobId',
+                        'createdAt as latestStatusChangeOccuredAt',
+                        'status as latestStatus',
+                    ])
+                    .as('latestStatusChange'),
+            (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
+        )
+        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccuredAt'])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(throwNotFound('job for study'))
 }
 
 export const jobInfoForJobId = async (jobId: string) => {

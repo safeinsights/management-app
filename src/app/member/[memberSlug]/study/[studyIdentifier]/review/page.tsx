@@ -10,7 +10,7 @@ import { StudyReviewButtons } from './study-review-buttons'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from './study-results'
-import { jobStatusForJobAction, latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
 import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
@@ -36,9 +36,7 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    // FIXME: why aren't we combining these two into a single query
     const latestJob = await latestJobForStudyAction(study.id)
-    const latestJobStatus = await jobStatusForJobAction(latestJob?.id)
 
     return (
         <Stack px="xl" gap="xl">
@@ -71,13 +69,7 @@ export default async function StudyReviewPage(props: {
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xl">
-                <Stack mt="md">
-                    <Title order={3}>Study Results</Title>
-                    <Divider />
-                    <StudyResults latestJob={latestJob} fingerprint={fingerprint} jobStatus={latestJobStatus} />
-                </Stack>
-            </Paper>
+            <StudyResults job={latestJob} fingerprint={fingerprint} />
         </Stack>
     )
 }

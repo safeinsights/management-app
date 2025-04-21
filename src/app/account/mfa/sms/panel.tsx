@@ -2,11 +2,10 @@
 
 import React, { useState } from 'react'
 import { useReverification, useUser } from '@clerk/nextjs'
-import { Button, Container, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Button, Container, Stack, Text, TextInput } from '@mantine/core'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
-import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
@@ -119,11 +118,6 @@ export function ManageSMSMFAPanel() {
                     {user?.hasVerifiedPhoneNumber && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
-                            <Title order={3}>Save Your Backup Codes</Title>
-                            <Text ta="center">
-                                Store these codes securely. They are needed if you lose access to your phone.
-                            </Text>
-                            <GenerateBackupCodes />
                             <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
                         </Stack>
                     )}

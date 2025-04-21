@@ -74,7 +74,7 @@ export const GenerateKeys: FC = () => {
                                 This Private Key is unique to you. Please store your private key securely, such as in
                                 your password manager.{' '}
                                 <Text fw="bold" component="span">
-                                    It is important to note that safeInsights does not store your private key.
+                                    It is important to note that SafeInsights does not store your private key.
                                 </Text>{' '}
                                 If lost, you cannot access encrypted results and will need to generate a new Private
                                 Key.

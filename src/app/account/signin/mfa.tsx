@@ -1,15 +1,17 @@
 import { Panel } from '@/components/panel'
-import { Flex, Text, Button, TextInput, Loader } from '@mantine/core'
+import { Button, Flex, Loader, Text, TextInput } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
-import { useSignIn } from '@clerk/nextjs'
+import { useSignIn, useUser } from '@clerk/nextjs'
 import { useMutation } from '@tanstack/react-query'
 import type { SignInResource } from '@clerk/types'
-
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
+import { useRouter } from 'next/navigation'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
+    const router = useRouter()
+    const { isSignedIn } = useUser()
 
     const form = useForm({
         initialValues: {
@@ -25,7 +27,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async mutationFn(form: { code: string }) {
             if (!isLoaded || !mfa) return
 
-            return mfa.signIn.attemptSecondFactor({
+            return await mfa.signIn.attemptSecondFactor({
                 strategy: mfa.usingSMS ? 'phone_code' : 'totp',
                 code: form.code,
             })
@@ -38,6 +40,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
+                router.push('/')
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
@@ -47,6 +50,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         },
     })
 
+    if (isSignedIn) return null
     if (!mfa) return null
     if (!isLoaded) return <Loader />
 

@@ -37,6 +37,7 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
     APPROVED: { type: 'Proposal', label: 'Approved' },
     REJECTED: { type: 'Proposal', label: 'Rejected' },
     'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
+    'JOB-RUNNING': { type: 'Code', label: 'Running' },
     'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
     'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
     'RESULTS-REJECTED': { type: 'Results', label: 'Rejected' },

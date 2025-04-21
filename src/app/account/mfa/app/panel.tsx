@@ -6,7 +6,6 @@ import React, { useState, useMemo } from 'react'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
-import { GenerateBackupCodes } from '../backup-codes'
 import { useForm } from '@mantine/form'
 import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
@@ -14,7 +13,7 @@ import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
 
-type AddTotpSteps = 'add' | 'verify' | 'backupcodes' | 'success'
+type AddTotpSteps = 'add' | 'verify' | 'success'
 
 type DisplayFormat = 'qr' | 'uri'
 
@@ -52,7 +51,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     const verifyTotp = async (values: { code: string }) => {
         try {
             await user?.verifyTOTP({ code: values.code })
-            setStep('backupcodes')
+            setStep('success')
         } catch (err: unknown) {
             form.setErrors({ code: errorToString(err) || 'Invalid Code' })
         }
@@ -141,7 +140,7 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
     const verifyTotp = async (values: { code: string }) => {
         try {
             await user?.verifyTOTP({ code: values.code })
-            setStep('backupcodes')
+            setStep('success')
         } catch (err: unknown) {
             form.setErrors({ code: errorToString(err) || 'Invalid Code' })
         }
@@ -177,18 +176,6 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
     )
 }
 
-function BackupCodeScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
-    return (
-        <Stack gap="lg">
-            <Text>
-                Save this list of backup codes somewhere safe in case you need to access your account in an emergency.
-            </Text>
-            <GenerateBackupCodes />
-            <Button onClick={() => setStep('success')}>Finish</Button>
-        </Stack>
-    )
-}
-
 function SuccessScreenContent() {
     return (
         <Stack gap="lg">
@@ -216,9 +203,6 @@ export function AddMFAPanel() {
         case 'verify':
             panelTitle = 'Verify Your Code'
             break
-        case 'backupcodes':
-            panelTitle = 'Backup Codes'
-            break
         case 'success':
             panelTitle = 'Success!'
             break
@@ -231,7 +215,6 @@ export function AddMFAPanel() {
             <Panel title={panelTitle}>
                 {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
                 {step === 'verify' && <VerifyTotpScreenContent setStep={setStep} />}
-                {step === 'backupcodes' && <BackupCodeScreenContent setStep={setStep} />}
                 {step === 'success' && <SuccessScreenContent />}
             </Panel>
         </Container>

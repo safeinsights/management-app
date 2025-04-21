@@ -29,6 +29,7 @@ beforeAll(async () => {
                 const router = useRouter()
                 return router.asPath
             },
+            useParams: vi.fn(() => ({})),
             useSearchParams: () => {
                 const router = useRouter()
                 const path = router.query

@@ -13,10 +13,10 @@ interface ResetFormValues {
 }
 
 interface ResetFormProps {
-    onComplete: (_reset: SignInResource) => void
+    onCompleteAction: (_reset: SignInResource) => void
 }
 
-export function ResetForm({ onComplete }: ResetFormProps) {
+export function ResetForm({ onCompleteAction }: ResetFormProps) {
     const { signIn } = useSignIn()
     const router = useRouter()
 
@@ -44,7 +44,7 @@ export function ResetForm({ onComplete }: ResetFormProps) {
         },
         onSuccess(info?: SignInResource) {
             if (info) {
-                onComplete(info)
+                onCompleteAction(info)
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 emailForm.setErrors({
