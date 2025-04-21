@@ -19,8 +19,9 @@ pipeline {
                     export AWS_SESSION_TOKEN
                     aws sts get-caller-identity
 
-                    aws s3 sync s3://si-mgmt-app-build/scripts ./scripts
-                    unzip scripts/*.zip
+                    aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
+                    cd cicd
+                    unzip *.zip
                     ./deploy
                 """
             }
