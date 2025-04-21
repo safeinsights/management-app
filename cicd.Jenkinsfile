@@ -22,8 +22,6 @@ pipeline {
                     aws s3 sync s3://si-mgmt-app-build/scripts ./scripts
                     unzip scripts/*.zip
                     ./deploy
-
-                    npx tsx cicd/management-app/scripts/deploy.ts -e Dev -r $GIT_COMMIT
                 """
             }
         }
