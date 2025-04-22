@@ -13,7 +13,7 @@ export const PageBreadcrumbs: FC<{
                         {title}
                     </Anchor>
                 ) : (
-                    <Text c="#7A8794" key={index}>
+                    <Text c="grey.6" key={index}>
                         {title}
                     </Text>
                 ),

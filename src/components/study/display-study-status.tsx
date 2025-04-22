@@ -47,14 +47,14 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
 
 const styleStatus = (label: string) => {
     if ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1)
-        return '#C70000'
-    else return '#000000'
+        return 'red.8'
+    else return 'dark.8'
 }
 
 const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
     return (
         <Stack gap="0">
-            <Text size="xs" c="#64707C">
+            <Text size="xs" c="grey.7">
                 {type}
             </Text>
             {InfoComponent && jobId ? (
