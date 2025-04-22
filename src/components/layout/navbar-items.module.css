@@ -1,5 +1,10 @@
+.active,
 .hover {
     &:hover {
-        background-color: var(--mantine-color-blue-7);
+        background-color: var(--mantine-color-blue-6);
     }
+}
+
+.active {
+    background-color: var(--mantine-color-blue-7);
 }

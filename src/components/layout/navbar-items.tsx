@@ -3,14 +3,17 @@
 import { FC } from 'react'
 import { Button, Divider, Stack, Group } from '@mantine/core'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
+import clsx from 'clsx'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
     const { isMember, isResearcher, isAdmin } = useAuthInfo()
+    const pathname = usePathname()
 
     const dashboardURL = () => {
         if (isMember) return '/member/openstax/dashboard'
@@ -19,15 +22,19 @@ export const NavbarItems: FC = () => {
         return '/'
     }
 
+    const currentDashboardUrl = dashboardURL()
+
     return (
         <Stack gap="xs">
             <Button
                 fullWidth
-                className={styles.hover}
+                className={clsx(styles.hover, {
+                    [styles.active]: pathname === currentDashboardUrl,
+                })}
                 justify="flex-start"
                 variant="transparent"
                 component={Link}
-                href={dashboardURL()}
+                href={currentDashboardUrl}
                 c="white"
                 leftSection={<House />}
             >
