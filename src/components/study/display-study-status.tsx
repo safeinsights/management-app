@@ -1,11 +1,13 @@
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
-import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
+import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text, useMantineTheme } from '@mantine/core'
 import { Info } from '@phosphor-icons/react/dist/ssr'
 import React, { FC } from 'react'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
+
+const theme = useMantineTheme()
 
 const JobIdPopover: PopOverComponent = ({ jobId }) => {
     if (!jobId) return null
@@ -47,7 +49,7 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
 
 const styleStatus = (label: string) => {
     if ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1)
-        return 'red.8'
+        return theme.colors.red[10]
     else return 'dark.8'
 }
 
