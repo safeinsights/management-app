@@ -1,9 +1,9 @@
-import React, { FC } from 'react'
-import { StudyStatus, StudyJobStatus } from '@/database/types'
-import { AllStatus } from '@/lib/types'
-import { Stack, Text, Popover, PopoverTarget, PopoverDropdown, Flex, ActionIcon } from '@mantine/core'
-import { Info } from '@phosphor-icons/react/dist/ssr'
 import { CopyingInput } from '@/components/copying-input'
+import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { AllStatus } from '@/lib/types'
+import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
+import { Info } from '@phosphor-icons/react/dist/ssr'
+import React, { FC } from 'react'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
 
@@ -57,7 +57,15 @@ const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type,
                     <InfoComponent jobId={jobId} />
                 </Flex>
             ) : (
-                <Text>{label}</Text>
+                <Text
+                    c={
+                        [StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1
+                            ? '#C70000'
+                            : '#000000'
+                    }
+                >
+                    {label}
+                </Text>
             )}
         </Stack>
     )
