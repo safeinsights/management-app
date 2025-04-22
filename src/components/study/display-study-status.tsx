@@ -45,6 +45,12 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
     'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
 }
 
+const styleStatus = (label: string) => {
+    if ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1)
+        return '#C70000'
+    else return '#000000'
+}
+
 const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
     return (
         <Stack gap="0">
@@ -57,15 +63,7 @@ const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type,
                     <InfoComponent jobId={jobId} />
                 </Flex>
             ) : (
-                <Text
-                    c={
-                        [StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1
-                            ? '#C70000'
-                            : '#000000'
-                    }
-                >
-                    {label}
-                </Text>
+                <Text c={styleStatus(label)}>{label}</Text>
             )}
         </Stack>
     )
