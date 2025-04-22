@@ -1,7 +1,7 @@
 'use server'
 
 import React from 'react'
-import { Flex, Stack, Title } from '@mantine/core'
+import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
@@ -16,16 +16,10 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
     }
 
     return (
-        <>
+        <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
-            <Flex align="center">
-                <Stack w="100%">
-                    <Title mb="lg" mt="lg">
-                        Propose A Study
-                    </Title>
-                    <StudyProposal memberSlug={params.memberSlug} />
-                </Stack>
-            </Flex>
-        </>
+            <Title order={1}>Propose A Study</Title>
+            <StudyProposal memberSlug={params.memberSlug} />
+        </Stack>
     )
 }

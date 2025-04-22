@@ -23,33 +23,33 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const job = await latestJobForStudy(studyId)
 
     return (
-        <Stack>
+        <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId,
                     current: 'Study Details',
                 }}
             />
-
+            <Title order={1}>Study Details</Title>
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title order={3}>Study Details</Title>
+                    <Title order={4}>Study Details</Title>
                     <StudyDetails studyIdentifier={studyId} />
                 </Stack>
             </Paper>
 
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title order={3}>Study Code</Title>
-                    <Divider my="md" c="dimmed" />
-                    {<StudyCodeDetails job={job} />}
+                    <Title order={4}>Study Code</Title>
+                    <Divider c="dimmed" />
+                    <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
 
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title order={3}>Study Results</Title>
-                    <Divider my="md" c="dimmed" />
+                    <Title order={4}>Study Results</Title>
+                    <Divider c="dimmed" />
                     <ViewJobResultsCSV job={job} />
                 </Stack>
             </Paper>
