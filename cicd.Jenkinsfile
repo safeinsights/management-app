@@ -11,6 +11,9 @@ pipeline {
                     cd cicd
                     unzip -o *.zip
 
+                    printenv
+                    aws sts get-caller-identity
+
                     ./deploy
                 """
             }
