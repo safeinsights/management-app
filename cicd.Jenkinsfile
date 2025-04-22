@@ -5,15 +5,11 @@ pipeline {
         stage("Deploy") {
             steps {
                 sh """
-                    [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
 
+                    [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
                     aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
                     cd cicd
                     unzip -o *.zip
-
-                    printenv
-                    aws sts get-caller-identity
-
                     ./deploy
                 """
             }
