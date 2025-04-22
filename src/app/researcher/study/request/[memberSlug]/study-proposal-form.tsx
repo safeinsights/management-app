@@ -42,12 +42,11 @@ export const StudyProposalForm: FC<{
         <Paper p="xl">
             <Title order={4}>Study Proposal</Title>
             <Divider my="md" />
-            <Text mb="md">
-                This section is here to help you submit your study proposal. Consider providing as much detail as
-                possible to ensure the Reviewer has all the information needed to make an informed decision.
-            </Text>
-
             <Stack gap="xl">
+                <Text>
+                    This section is here to help you submit your study proposal. Consider providing as much detail as
+                    possible to ensure the Reviewer has all the information needed to make an informed decision.
+                </Text>
                 <Group align="flex-start">
                     <FormLabel label="Study Title" />
                     <TextInput

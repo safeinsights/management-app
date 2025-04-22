@@ -58,7 +58,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     const studies = await fetchStudiesForCurrentResearcherAction()
 
     const rows = studies.map((study) => (
-        <TableTr key={study.id}>
+        <TableTr fz="md" key={study.id}>
             <TableTd>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
@@ -66,18 +66,14 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     </Text>
                 </Tooltip>
             </TableTd>
-            <TableTd>
-                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
-            </TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
-                <Stack gap="xs">
-                    <DisplayStudyStatus
-                        studyStatus={study.status}
-                        jobStatus={study.latestJobStatus}
-                        jobId={study.latestStudyJobId}
-                    />
-                </Stack>
+                <DisplayStudyStatus
+                    studyStatus={study.status}
+                    jobStatus={study.latestJobStatus}
+                    jobId={study.latestStudyJobId}
+                />
             </TableTd>
             <TableTd>
                 <Anchor component={Link} href={`/researcher/study/${study.id}/review`}>
@@ -113,13 +109,13 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         <NoStudiesCaption visible={!studies.length} slug={org.slug} />
-                        <TableThead bg="charcoal.1">
+                        <TableThead fz="sm" bg="charcoal.1">
                             <TableTr>
-                                <TableTh fz="sm">Study Name</TableTh>
-                                <TableTh fz="sm">Submitted On</TableTh>
-                                <TableTh fz="sm">Submitted To</TableTh>
-                                <TableTh fz="sm">Status</TableTh>
-                                <TableTh fz="sm">Study Details</TableTh>
+                                <TableTh>Study Name</TableTh>
+                                <TableTh>Submitted On</TableTh>
+                                <TableTh>Submitted To</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh>Study Details</TableTh>
                             </TableTr>
                         </TableThead>
                         <TableTbody>{rows}</TableTbody>
