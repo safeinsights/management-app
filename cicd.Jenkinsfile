@@ -18,7 +18,7 @@ pipeline {
                     export AWS_SECRET_ACCESS_KEY
                     export AWS_SESSION_TOKEN
 
-                    [ -d ./cicd ] && find ./cicd -name '*.zip' -delete
+                    [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
 
                     aws s3 sync s3://si-mgmt-app-build/scripts ./cicd
                     cd cicd
