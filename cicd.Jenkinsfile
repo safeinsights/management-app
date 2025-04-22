@@ -24,8 +24,6 @@ pipeline {
                     cd cicd
                     unzip -o *.zip
 
-                    printenv
-
                     ./deploy
                 """
             }
