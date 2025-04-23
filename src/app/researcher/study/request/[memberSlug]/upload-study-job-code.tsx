@@ -6,7 +6,7 @@ import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-schema'
+import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 // TODO use me in other file
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
@@ -22,7 +22,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     }
 
     return (
-        <Paper p="md">
+        <Paper p="xl">
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
@@ -72,16 +72,20 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             <Dropzone.Idle>
                                 <UploadSimple />
                             </Dropzone.Idle>
-                            <Text size="md">Drop your files or browse</Text>
+                            <Group gap="xs">
+                                <Text size="md">Drop your files or</Text>
+                                <Text td="underline" c="purple.5" fw="bold">
+                                    Browse
+                                </Text>
+                            </Group>
                             <Text size="xs" c="dimmed">
                                 .R and .Rmd only
                             </Text>
                         </Stack>
                     </Dropzone>
-                    <Divider orientation="vertical" />
                 </GridCol>
-
                 <GridCol span={6}>
+                    <Divider orientation="vertical" />
                     {files.map((file) => (
                         <Group key={file.name} gap="md" w="100%">
                             <Group>

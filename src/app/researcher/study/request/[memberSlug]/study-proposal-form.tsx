@@ -2,16 +2,16 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Divider, FileInput, Group, Stack, Paper, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-schema'
+import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 const FormLabel = ({ label }: { label: string }) => {
     return (
-        <Text fw="bold" miw={200}>
+        <Title order={5} w={'10%'} fw="semibold">
             {label}
-        </Text>
+        </Title>
     )
 }
 
@@ -19,10 +19,10 @@ export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
     const theme = useMantineTheme()
-    const color = theme.colors.purple[6]
+    const color = theme.colors.blue[7]
 
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimple size={14} color={color} weight="fill" />
+        if (!fileName) return <UploadSimple size={14} color={theme.colors.purple[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [
             [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
             [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
@@ -39,79 +39,81 @@ export const StudyProposalForm: FC<{
     const { user } = useUser()
 
     return (
-        <Paper p="md">
+        <Paper p="xl">
             <Title order={4}>Study Proposal</Title>
-            <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="md">
-                This section is here to help you submit your study proposal. Consider providing as much detail as
-                possible to ensure the Reviewer has all the information needed to make an informed decision.
-            </Text>
+            <Divider my="md" />
             <Stack gap="xl">
-                <Group align="start">
+                <Text>
+                    This section is here to help you submit your study proposal. Consider providing as much detail as
+                    possible to ensure the Reviewer has all the information needed to make an informed decision.
+                </Text>
+                <Group align="flex-start">
                     <FormLabel label="Study Title" />
                     <TextInput
+                        w={'30%'}
                         aria-label="Study Title"
                         placeholder="Enter a title (max. 50 characters)"
                         {...studyProposalForm.getInputProps('title')}
-                        inputSize="50"
                         maxLength={50}
                     />
                 </Group>
-                <Group align="start">
+
+                <Group align="flex-start">
                     <FormLabel label="Study Lead" />
-                    <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} inputSize="50" />
+                    <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
                 </Group>
-                <Group align="start">
+
+                <Group align="flex-start">
                     <FormLabel label="Principal Investigator" />
                     <TextInput
+                        w={'30%'}
                         aria-label="Principal Investigator"
                         placeholder="Full Name (max. 100 characters)"
                         {...studyProposalForm.getInputProps('piName')}
-                        inputSize="50"
                         maxLength={100}
                     />
                 </Group>
-                <Group align="start">
+
+                <Group align="flex-start">
                     <FormLabel label="Study Description" />
-                    <Group gap="md">
-                        {fileUpload}
-                        <FileInput
-                            name="descriptionDocument"
-                            aria-label="Upload Study Description Document"
-                            placeholder="Upload Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                            {...studyProposalForm.getInputProps('descriptionDocument')}
-                        />
-                    </Group>
+                    <FileInput
+                        w={'30%'}
+                        name="descriptionDocument"
+                        leftSection={fileUpload}
+                        aria-label="Upload Study Description Document"
+                        placeholder="Upload Study Description Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                        {...studyProposalForm.getInputProps('descriptionDocument')}
+                    />
                 </Group>
-                <Group align="start">
+
+                <Group align="flex-start">
                     <FormLabel label="IRB Document" />
-                    <Group gap="md">
-                        {irbFileUpload}
-                        <FileInput
-                            {...studyProposalForm.getInputProps('irbDocument')}
-                            name="irbDocument"
-                            aria-label="Upload IRB Document"
-                            placeholder="Upload Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                        />
-                    </Group>
+                    <FileInput
+                        w={'30%'}
+                        leftSection={irbFileUpload}
+                        {...studyProposalForm.getInputProps('irbDocument')}
+                        name="irbDocument"
+                        aria-label="Upload IRB Document"
+                        placeholder="Upload IRB Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                    />
                 </Group>
-                <Group align="start">
+
+                <Group align="flex-start">
                     <FormLabel label="Agreement Document" />
-                    <Group gap="md">
-                        {agreementFileUpload}
-                        <FileInput
-                            name="agreementDocument"
-                            aria-label="Upload Agreement Document"
-                            placeholder="Upload Document"
-                            clearable
-                            accept=".doc,.docx,.pdf"
-                            {...studyProposalForm.getInputProps('agreementDocument')}
-                        />
-                    </Group>
+                    <FileInput
+                        w={'30%'}
+                        leftSection={agreementFileUpload}
+                        name="agreementDocument"
+                        aria-label="Upload Agreement Document"
+                        placeholder="Upload Agreement Document"
+                        clearable
+                        accept=".doc,.docx,.pdf"
+                        {...studyProposalForm.getInputProps('agreementDocument')}
+                    />
                 </Group>
             </Stack>
         </Paper>

@@ -1,4 +1,4 @@
-import { Breadcrumbs, Anchor, Text } from '@mantine/core'
+import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
 import { FC } from 'react'
 
@@ -6,19 +6,22 @@ export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
 }> = ({ crumbs }) => {
     return (
-        <Breadcrumbs separator=">">
-            {crumbs.map(([title, href], index) =>
-                href ? (
-                    <Anchor component={Link} href={href} key={index}>
-                        {title}
-                    </Anchor>
-                ) : (
-                    <Text c="#7A8794" key={index}>
-                        {title}
-                    </Text>
-                ),
-            )}
-        </Breadcrumbs>
+        <>
+            <Breadcrumbs separator=">">
+                {crumbs.map(([title, href], index) =>
+                    href ? (
+                        <Anchor c="blue.7" component={Link} href={href} key={index}>
+                            {title}
+                        </Anchor>
+                    ) : (
+                        <Text c="grey.5" key={index}>
+                            {title}
+                        </Text>
+                    ),
+                )}
+            </Breadcrumbs>
+            <Divider />
+        </>
     )
 }
 

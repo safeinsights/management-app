@@ -58,7 +58,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     const studies = await fetchStudiesForCurrentResearcherAction()
 
     const rows = studies.map((study) => (
-        <TableTr key={study.id}>
+        <TableTr fz="md" key={study.id}>
             <TableTd>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
@@ -66,21 +66,17 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     </Text>
                 </Tooltip>
             </TableTd>
-            <TableTd>
-                <Text>{dayjs(study.createdAt).format('MMM DD, YYYY')}</Text>
-            </TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
-                <Stack gap="xs">
-                    <DisplayStudyStatus
-                        studyStatus={study.status}
-                        jobStatus={study.latestJobStatus}
-                        jobId={study.latestStudyJobId}
-                    />
-                </Stack>
+                <DisplayStudyStatus
+                    studyStatus={study.status}
+                    jobStatus={study.latestJobStatus}
+                    jobId={study.latestStudyJobId}
+                />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/researcher/study/${study.id}/review`} c="blue.7">
+                <Anchor component={Link} href={`/researcher/study/${study.id}/review`}>
                     View
                 </Anchor>
             </TableTd>
@@ -88,18 +84,17 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     ))
 
     return (
-        <Stack p="md">
-            <Title>
+        <Stack p="xl">
+            <Title order={1}>
                 Hi <UserName />!
             </Title>
-            <Stack>
+            <Group gap="sm">
+                <Title order={4}>Welcome to SafeInsights!</Title>
                 <Text>
-                    <strong>Welcome to SafeInsights!</strong> This is your dashboard. Here, you can submit new research
-                    proposals, view their status and access its details. We continuously iterate to improve your
-                    experience and welcome your feedback.
+                    This is your dashboard. Here, you can submit new research proposals, view their status and access
+                    its details. We continuously iterate to improve your experience and welcome your feedback.
                 </Text>
-            </Stack>
-
+            </Group>
             <Paper shadow="xs" p="xl">
                 <Stack>
                     <Group justify="space-between">
@@ -114,7 +109,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped highlightOnHover>
                         <NoStudiesCaption visible={!studies.length} slug={org.slug} />
-                        <TableThead>
+                        <TableThead fz="sm" bg="charcoal.1">
                             <TableTr>
                                 <TableTh>Study Name</TableTh>
                                 <TableTh>Submitted On</TableTh>
