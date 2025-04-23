@@ -19,8 +19,9 @@ export const GenerateKeys: FC = () => {
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
+        const privateKeyLines = (privateKeyString.match(/.{1,64}/g) || []).join('\n')
 
-        const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyString}\n-----END PRIVATE KEY-----`
+        const privateKeyPem = `-----BEGIN PRIVATE KEY-----\n${privateKeyLines}\n-----END PRIVATE KEY-----`
 
         setKeys({
             binaryPublicKey: exportedPublicKey,

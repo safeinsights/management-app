@@ -95,6 +95,10 @@ declare module '@mantine/core' {
 
 export const theme = createTheme({
     fontFamily: 'Open Sans',
+    headings: {
+        fontFamily: 'Open Sans',
+        fontWeight: '700',
+    },
     colors: {
         charcoal,
         grey,
@@ -103,6 +107,13 @@ export const theme = createTheme({
         yellow,
         purple,
         blue,
+    },
+    components: {
+        TextInput: {
+            defaultProps: {
+                color: charcoal[9],
+            },
+        },
     },
     primaryShade: 5,
     primaryColor: 'purple',

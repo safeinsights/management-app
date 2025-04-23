@@ -29,7 +29,7 @@ test.describe('Studies', () => {
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
 
-        await expect(page.getByText('Drop your files or browse')).toBeVisible()
+        await expect(page.getByText('Upload File')).toBeVisible()
 
         //TODO: Test that will validate the upload without a main.r file
         //Test upload without main.r file
