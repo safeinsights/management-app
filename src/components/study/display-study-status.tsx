@@ -1,3 +1,4 @@
+'use client'
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
@@ -6,8 +7,6 @@ import { Info } from '@phosphor-icons/react/dist/ssr'
 import React, { FC } from 'react'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
-
-const theme = useMantineTheme()
 
 const JobIdPopover: PopOverComponent = ({ jobId }) => {
     if (!jobId) return null
@@ -47,13 +46,9 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
     'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
 }
 
-const styleStatus = (label: string) => {
-    if ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1)
-        return theme.colors.red[10]
-    else return 'dark.8'
-}
-
 const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
+    const theme = useMantineTheme()
+    const color = ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1) ? theme.colors.red[9]: "dark.8"
     return (
         <Stack gap="0">
             <Text size="xs" c="grey.7">
@@ -65,7 +60,7 @@ const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type,
                     <InfoComponent jobId={jobId} />
                 </Flex>
             ) : (
-                <Text c={styleStatus(label)}>{label}</Text>
+                <Text c={color}>{label}</Text>
             )}
         </Stack>
     )
