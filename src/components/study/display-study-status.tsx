@@ -1,8 +1,7 @@
-'use client'
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
-import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text, useMantineTheme } from '@mantine/core'
+import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
 import { Info } from '@phosphor-icons/react/dist/ssr'
 import React, { FC } from 'react'
 
@@ -47,8 +46,7 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
 }
 
 const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
-    const theme = useMantineTheme()
-    const color = ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1) ? theme.colors.red[9]: "dark.8"
+    const color = ([StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1) ? 'red.9': "dark.8"
     return (
         <Stack gap="0">
             <Text size="xs" c="grey.7">
