@@ -1,4 +1,29 @@
 import { z } from 'zod'
+import { capitalize } from 'remeda'
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE_STR = '10MB'
+
+const validateDocumentFile = (label: string) => {
+    return z
+        .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
+        .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
+        .refine((file) => file && file.size < MAX_FILE_SIZE, {
+            message: `${capitalize(label)} file size must be less than ${MAX_FILE_SIZE_STR}`,
+        })
+        .refine(
+            (file) =>
+                file &&
+                [
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'application/pdf',
+                    'text/plain',
+                ].includes(file.type),
+            {
+                message: `Only .doc, .docx, and .pdf files are allowed for ${label}`,
+            },
+        )
+}
 
 export const studyProposalFormSchema = z
     .object({
@@ -11,61 +36,9 @@ export const studyProposalFormSchema = z
             .min(1, { message: 'Principal Investigator name must be present' })
             .max(100, { message: 'Principal Investigator name must be 100 characters long or less' })
             .trim(),
-        descriptionDocument: z
-            .union([z.instanceof(File, { message: 'Study description document is required' }), z.null()])
-            .refine((file) => file && file.size > 0, { message: 'Study description document cannot be empty' })
-            .refine((file) => file && file.size < 10 * 1024 * 1024, {
-                message: 'Description file size must be less than 10MB',
-            })
-            .refine(
-                (file) =>
-                    file &&
-                    [
-                        'application/msword',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'application/pdf',
-                        'text/plain',
-                    ].includes(file.type),
-                {
-                    message: 'Only .doc, .docx, and .pdf files are allowed for description',
-                },
-            ),
-        irbDocument: z
-            .union([z.instanceof(File, { message: 'IRB document is required' }), z.null()])
-            .refine((file) => file && file.size > 0, { message: 'IRB document cannot be empty' })
-            .refine((file) => file && file.size < 10 * 1024 * 1024, {
-                message: 'IRB document size must be less than 10MB',
-            })
-            .refine(
-                (file) =>
-                    file &&
-                    [
-                        'application/msword',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'application/pdf',
-                    ].includes(file.type),
-                {
-                    message: 'Only .doc, .docx, and .pdf files are allowed for IRB document',
-                },
-            ),
-        agreementDocument: z
-            .union([z.instanceof(File, { message: 'Agreement document is required' }), z.null()])
-            .refine((file) => file && file.size > 0, { message: 'Agreement document cannot be empty' })
-            .refine((file) => file && file.size < 10 * 1024 * 1024, {
-                message: 'Agreement document size must be less than 10MB',
-            })
-            .refine(
-                (file) =>
-                    file &&
-                    [
-                        'application/msword',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'application/pdf',
-                    ].includes(file.type),
-                {
-                    message: 'Only .doc, .docx, and .pdf files are allowed for Agreement document',
-                },
-            ),
+        descriptionDocument: validateDocumentFile('description'),
+        irbDocument: validateDocumentFile('IRB'),
+        agreementDocument: validateDocumentFile('agreement'),
         codeFiles: z
             .array(z.instanceof(File))
             .min(1, { message: 'At least one code file is required.' })
