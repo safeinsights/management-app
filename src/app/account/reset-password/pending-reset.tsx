@@ -52,7 +52,8 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                 const { code, message } = extractClerkCodeAndMessage(error)
                 verificationForm.setErrors({
                     // clerk seems to send verification_expired for all code verification errors
-                    [`${code == 'verification_expired' ? 'code' : 'password'}`]: message,
+                    [`${code == 'verification_expired' || code == 'form_code_incorrect' ? 'code' : 'password'}`]:
+                        message == 'Incorrect code' ? 'Incorrect Verification Code' : message,
                 })
             } else {
                 verificationForm.setErrors({
