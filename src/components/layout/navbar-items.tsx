@@ -54,6 +54,9 @@ export const NavbarItems: FC = () => {
                                 color: 'white !important',
                                 '& span': { color: 'white !important' },
                                 padding: 0,
+                                '&:hover': {
+                                    backgroundColor: 'var(--mantine-color-blue-9)',
+                                },
                             },
                         },
                     }}
