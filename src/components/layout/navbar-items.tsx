@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
 import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
+import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
@@ -22,9 +23,7 @@ export const NavbarItems: FC = () => {
 
     const currentDashboardUrl = dashboardURL()
 
-    // Define common hover style
-    const hoverStyle = { '--nl-hover': 'var(--mantine-color-blue-6)' }
-
+    // Define common hover style using CSS variable
     return (
         <Stack gap="xs">
             <NavLink
@@ -36,7 +35,7 @@ export const NavbarItems: FC = () => {
                 c="white"
                 color="blue.7"
                 variant="filled"
-                style={hoverStyle}
+                className={styles.navLinkHover}
             />
 
             <NavLink
@@ -44,7 +43,7 @@ export const NavbarItems: FC = () => {
                 leftSection={<Gear />}
                 onClick={() => openUserProfile()}
                 c="white"
-                style={hoverStyle}
+                className={styles.navLinkHover}
             />
 
             <Divider color="#D4D1F3" />
@@ -67,7 +66,7 @@ export const NavbarItems: FC = () => {
                 leftSection={<SignOut />}
                 onClick={() => signOut()}
                 c="white"
-                style={hoverStyle}
+                className={styles.navLinkHover}
             />
         </Stack>
     )
