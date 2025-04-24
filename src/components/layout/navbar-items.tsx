@@ -8,6 +8,7 @@ import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
+
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
     const { isMember, isResearcher, isAdmin } = useAuthInfo()
@@ -20,7 +21,7 @@ export const NavbarItems: FC = () => {
     }
 
     return (
-        <Stack gap="xs">
+        <Stack p="sm" gap="sm">
             <Button
                 fullWidth
                 className={styles.hover}
@@ -45,7 +46,6 @@ export const NavbarItems: FC = () => {
             >
                 Settings
             </Button>
-            <Divider color="#D4D1F3" />
             <Group justify="left" pl="xs" c="white">
                 {/* TODO Temporary for dev mode only? admins? */}
                 <OrganizationSwitcher
@@ -61,6 +61,7 @@ export const NavbarItems: FC = () => {
                     }}
                 />
             </Group>
+            <Divider c="purple.0" mx="auto" w="90%" mt="xs" />
             <Button
                 fullWidth
                 className={styles.hover}
