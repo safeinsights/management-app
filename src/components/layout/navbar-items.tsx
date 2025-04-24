@@ -1,16 +1,18 @@
 'use client'
 
 import { FC } from 'react'
-import { Button, Divider, Stack, Group } from '@mantine/core'
+import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
-import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
+import { OrganizationSwitcher, useClerk } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
     const { isMember, isResearcher, isAdmin } = useAuthInfo()
+    const pathname = usePathname()
 
     const dashboardURL = () => {
         if (isMember) return '/member/openstax/dashboard'
@@ -20,33 +22,27 @@ export const NavbarItems: FC = () => {
     }
 
     return (
-        <Stack p="sm" gap="sm">
-            <Button
-                fullWidth
-                className={styles.hover}
-                justify="flex-start"
-                variant="transparent"
+        <Stack gap="sm">
+            <NavLink
+                label="Dashboard"
+                leftSection={<House />}
                 component={Link}
                 href={dashboardURL()}
+                active={pathname === dashboardURL()}
                 c="white"
-                leftSection={<House />}
-            >
-                Dashboard
-            </Button>
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkHover}
+            />
 
-            <Button
-                fullWidth
-                className={styles.hover}
-                justify="flex-start"
-                variant="transparent"
+            <NavLink
+                label="Settings"
+                leftSection={<Gear />}
                 onClick={() => openUserProfile()}
                 c="white"
-                leftSection={<Gear />}
-            >
-                Settings
-            </Button>
+                className={styles.navLinkHover}
+            />
             <Group justify="left" pl="xs" c="white">
-                {/* TODO Temporary for dev mode only? admins? */}
                 <OrganizationSwitcher
                     afterSelectOrganizationUrl="/"
                     appearance={{
@@ -55,23 +51,21 @@ export const NavbarItems: FC = () => {
                                 color: 'white !important',
                                 '& span': { color: 'white !important' },
                                 padding: 0,
+                                '&:hover': {
+                                    backgroundColor: 'var(--mantine-color-blue-9)',
+                                },
                             },
                         },
                     }}
                 />
             </Group>
-            <Divider c="purple.0" mx="auto" w="90%" mt="xs" />
-            <Button
-                fullWidth
-                className={styles.hover}
-                justify="flex-start"
-                variant="transparent"
+            <NavLink
+                label="Logout"
+                leftSection={<SignOut />}
                 onClick={() => signOut()}
                 c="white"
-                leftSection={<SignOut />}
-            >
-                Logout
-            </Button>
+                className={styles.navLinkHover}
+            />
         </Stack>
     )
 }
