@@ -1,7 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-import { Divider, Group, NavLink, Stack } from '@mantine/core'
+import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
