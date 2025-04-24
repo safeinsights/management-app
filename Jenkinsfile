@@ -6,7 +6,26 @@ pipeline {
         stage("Deploy") {
             steps {
                 script {
-                    env.COMMIT_MESSAGE = git.getCommitMessage(env.GIT_COMMIT)
+                    def commitMsg = sh(
+                        script: "git log -1 --format=%B ${env.GIT_COMMIT}",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Commit message:"
+                    echo commitMsg
+                    env.COMMIT_MESSAGE = commitMsg
+
+                    // try two common patterns: "Merge pull request #123" or any "#123"
+                    def prMatcher = (commitMsg =~ /Merge pull request #(\d+)/)
+
+                    if (prMatcher) {
+                        // the first capturing group is the number
+                        env.MERGED_PR_NUMBER = prMatcher[0][1]
+                        echo "Found merged PR number: ${env.MERGED_PR_NUMBER}"
+                    } else {
+                        echo "Not a merge commit"
+                    }
+
                 }
                 sh """
                     printenv
