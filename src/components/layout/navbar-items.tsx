@@ -1,11 +1,11 @@
 'use client'
 
 import { FC } from 'react'
-import { Stack, Group, NavLink } from '@mantine/core'
+import { Divider, Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
-import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
+import { OrganizationSwitcher, useClerk } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
@@ -21,17 +21,14 @@ export const NavbarItems: FC = () => {
         return '/'
     }
 
-    const currentDashboardUrl = dashboardURL()
-
-    // Define common hover style using CSS variable
     return (
-        <Stack p="sm" gap="sm">
+        <Stack gap="sm">
             <NavLink
                 label="Dashboard"
                 leftSection={<House />}
                 component={Link}
-                href={currentDashboardUrl}
-                active={pathname === currentDashboardUrl}
+                href={dashboardURL()}
+                active={pathname === dashboardURL()}
                 c="white"
                 color="blue.7"
                 variant="filled"
@@ -62,6 +59,7 @@ export const NavbarItems: FC = () => {
                     }}
                 />
             </Group>
+            <Divider color="purple.0" />
             <NavLink
                 label="Logout"
                 leftSection={<SignOut />}
