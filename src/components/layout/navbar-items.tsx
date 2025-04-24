@@ -20,7 +20,7 @@ export const NavbarItems: FC = () => {
     }
 
     return (
-        <Stack gap="xs">
+        <Stack p="sm" gap="sm">
             <Button
                 fullWidth
                 className={styles.hover}
@@ -45,7 +45,6 @@ export const NavbarItems: FC = () => {
             >
                 Settings
             </Button>
-            <Divider color="#D4D1F3" />
             <Group justify="left" pl="xs" c="white">
                 {/* TODO Temporary for dev mode only? admins? */}
                 <OrganizationSwitcher
@@ -61,6 +60,7 @@ export const NavbarItems: FC = () => {
                     }}
                 />
             </Group>
+            <Divider c="purple.0" mx="auto" w="90%" mt="xs" />
             <Button
                 fullWidth
                 className={styles.hover}
