@@ -59,7 +59,6 @@ export const NavbarItems: FC = () => {
                     }}
                 />
             </Group>
-            <Divider color="purple.0" />
             <NavLink
                 label="Logout"
                 leftSection={<SignOut />}
