@@ -4,10 +4,10 @@ pipeline {
 
     stages {
         stage("Deploy") {
-            environment {
-               COMMIT_MESSAGE=git.getCommitMessage(${env.GIT_COMMIT})
-            }
             steps {
+                script {
+                    env.COMMIT_MESSAGE = git.getCommitMessage(env.GIT_COMMIT)
+                }
                 sh """
                     printenv
                     [ -d ./cicd ] && find ./cicd -maxdepth 1 -name '*.zip' -delete
