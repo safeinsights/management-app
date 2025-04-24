@@ -5,7 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
 const middlewareDebug = debug('app:middleware')
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
-const isMemberRoute = createRouteMatcher(['/member(.*)'])
+const isOrganizationRoute = createRouteMatcher(['/organization(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
@@ -52,7 +52,7 @@ export default clerkMiddleware(async (auth, req) => {
         return redirectToRole(req, 'admin', userRoles)
     }
 
-    if (isMemberRoute(req) && !userRoles.isMember) {
+    if (isOrganizationRoute(req) && !userRoles.isMember) {
         return redirectToRole(req, 'member', userRoles)
     }
 
