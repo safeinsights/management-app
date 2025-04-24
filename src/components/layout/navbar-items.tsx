@@ -8,7 +8,6 @@ import { useClerk, OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
-
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
     const { isMember, isResearcher, isAdmin } = useAuthInfo()
