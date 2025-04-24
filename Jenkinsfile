@@ -1,8 +1,12 @@
+@Library('jenkins-shared-library@main') _
 pipeline {
     agent { label "jenkins" }
 
     stages {
         stage("Deploy") {
+            environment {
+               COMMIT_MESSAGE=git.getCommitMessage(${env.GIT_COMMIT})
+            }
             steps {
                 sh """
                     printenv
