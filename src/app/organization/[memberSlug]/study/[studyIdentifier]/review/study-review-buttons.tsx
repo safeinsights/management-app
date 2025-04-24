@@ -17,7 +17,7 @@ import dayjs from 'dayjs'
 export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }> = ({ study, memberSlug }) => {
     const router = useRouter()
 
-    const backPath = `/member/${memberSlug}/dashboard`
+    const backPath = `/organization/${memberSlug}/dashboard`
 
     const {
         mutate: updateStudy,

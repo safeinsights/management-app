@@ -33,9 +33,9 @@ export const MemberBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { memberSlug, studyIdentifier, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/member/${memberSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/organization/${memberSlug}/dashboard`]]
     if (studyTitle && studyIdentifier) {
-        crumbs.push([studyTitle, `/member/${memberSlug}/study/${studyIdentifier}/review`])
+        crumbs.push([studyTitle, `/organization/${memberSlug}/study/${studyIdentifier}/review`])
     }
     if (current) {
         crumbs.push([current])

@@ -15,7 +15,7 @@ export const NavbarItems: FC = () => {
     const pathname = usePathname()
 
     const dashboardURL = () => {
-        if (isMember) return '/member/openstax/dashboard'
+        if (isMember) return '/organization/openstax/dashboard'
         if (isResearcher) return '/researcher/dashboard'
         if (isAdmin) return '/admin/dashboard'
         return '/'

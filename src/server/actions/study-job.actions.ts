@@ -47,8 +47,8 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
         })
         .execute()
 
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
@@ -65,8 +65,8 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
 export const loadStudyJobAction = userAction(async (studyJobId) => {
