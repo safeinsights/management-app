@@ -214,7 +214,7 @@ export const approveStudyProposalAction = memberAction(async (studyId: string) =
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
+    revalidatePath(`/organization/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())
 
 export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
@@ -247,5 +247,5 @@ export const rejectStudyProposalAction = memberAction(async (studyId: string) =>
         studyId: studyId,
     })
 
-    revalidatePath(`/member/[memberSlug]/study/${studyId}`, 'page')
+    revalidatePath(`/organization/[memberSlug]/study/${studyId}`, 'page')
 }, z.string())

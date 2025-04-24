@@ -56,7 +56,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/member/${member.slug}/study/${study.id}/review`} c="blue.7">
+                <Anchor component={Link} href={`/organization/${member.slug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>
