@@ -25,7 +25,7 @@ export const NavbarItems: FC = () => {
 
     // Define common hover style using CSS variable
     return (
-        <Stack gap="xs">
+        <Stack p="sm" gap="sm">
             <NavLink
                 label="Dashboard"
                 leftSection={<House />}
@@ -45,8 +45,6 @@ export const NavbarItems: FC = () => {
                 c="white"
                 className={styles.navLinkHover}
             />
-
-            <Divider color="#D4D1F3" />
             <Group justify="left" pl="xs" c="white">
                 <OrganizationSwitcher
                     afterSelectOrganizationUrl="/"

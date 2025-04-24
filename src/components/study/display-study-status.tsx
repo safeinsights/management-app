@@ -1,9 +1,9 @@
-import React, { FC } from 'react'
-import { StudyStatus, StudyJobStatus } from '@/database/types'
-import { AllStatus } from '@/lib/types'
-import { Stack, Text, Popover, PopoverTarget, PopoverDropdown, Flex, ActionIcon } from '@mantine/core'
-import { Info } from '@phosphor-icons/react/dist/ssr'
 import { CopyingInput } from '@/components/copying-input'
+import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { AllStatus } from '@/lib/types'
+import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
+import { Info } from '@phosphor-icons/react/dist/ssr'
+import React, { FC } from 'react'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
 
@@ -46,9 +46,13 @@ const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
 }
 
 const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
+    const color =
+        [StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1
+            ? 'red.9'
+            : 'dark.8'
     return (
         <Stack gap="0">
-            <Text size="xs" c="#64707C">
+            <Text size="xs" c="grey.7">
                 {type}
             </Text>
             {InfoComponent && jobId ? (
@@ -57,7 +61,7 @@ const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type,
                     <InfoComponent jobId={jobId} />
                 </Flex>
             ) : (
-                <Text>{label}</Text>
+                <Text c={color}>{label}</Text>
             )}
         </Stack>
     )
