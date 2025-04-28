@@ -22,21 +22,13 @@ async function uploadFile(file: File, upload: PresignedPost) {
         body.append(key, value)
     }
     body.append('file', file)
-
     const response = await fetch(upload.url, {
         method: 'POST',
         body,
     })
-
     if (!response.ok) {
-        notifications.show({
-            color: 'red',
-            title: 'Failed to upload file',
-            message: await response.text(),
-        })
+        throw new Error(`failed to upload file ${await response.text()}`)
     }
-
-    return response.ok
 }
 
 async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
@@ -94,12 +86,10 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 memberSlug,
                 studyInfo: valuesWithFilenames,
             })
-
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
             await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
-
             return { studyId, studyJobId }
         },
         onSuccess() {
@@ -113,6 +103,11 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
+            notifications.show({
+                color: 'red',
+                title: 'Failed to upload file',
+                message: error.message,
+            })
             if (!context) return
 
             await onDeleteStudyAction({
