@@ -39,12 +39,10 @@ jobs:
             minio:
                 image: minio/minio:edge-cicd
                 ports:
-                    - '9198:9198'
-                    - '9199:9199'
+                    - 9198:9000
                 volumes:
                     - minio-data:/data
                 env:
-                    MINIO_OPTS: '--console-address :9199 --address :9198'
                     MINIO_ROOT_USER: si-local-minio
                     MINIO_ROOT_PASSWORD: si-local-minio
             minio-mc:
