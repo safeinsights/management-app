@@ -36,20 +36,19 @@ services:
     minio:
         image: minio/minio:latest
         ports:
-            - '9198:9000'
+            - '9198:9198'
             - '9199:9199'
         volumes:
             - minio-data:/data
         environment:
-            MINIO_OPTS: '--console-address :9199 --address :9198'
             MINIO_ROOT_USER: si-local-minio
             MINIO_ROOT_PASSWORD: si-local-minio
-        command: server /data --console-address :9198 --address :9199
+        command: server --console-address :9199 --address :9198 /data
         restart: unless-stopped
         networks:
             - mgmnt-app
         healthcheck:
-            test: ['CMD', 'curl', '-f', 'http://localhost:9199/minio/health/live']
+            test: ['CMD', 'curl', '-f', 'http://localhost:9198/minio/health/live']
             interval: 30s
             timeout: 20s
             retries: 3
