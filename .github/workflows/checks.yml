@@ -39,7 +39,7 @@ jobs:
             minio:
                 image: minio/minio:edge-cicd
                 ports:
-                    - '9198:9198'
+                    - '9198:9000'
                 volumes:
                     - minio-data:/data
                 env:
@@ -83,8 +83,8 @@ jobs:
                   ./mc --version
             - name: Setup minio bucket
               run: |
-                  ./mc alias set myminio http://localhost:9198 si-local-minio si-local-minio
-                  ./mc mb myminio/mgmt-app-local
+                  ./mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
+                  ./mc mb siminio/mgmt-app-local
 
             - name: npm install
               run: npm ci
