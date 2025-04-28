@@ -76,7 +76,9 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                         <Button type="submit" loading={isPending}>
                             Send Reset Code
                         </Button>
-                        <Anchor tabIndex={0} role="link" onClick={() => router.push('/')}>Back to Login</Anchor>
+                        <Anchor tabIndex={0} role="link" onClick={() => router.push('/')}>
+                            Back to Login
+                        </Anchor>
                     </Stack>
                 </Paper>
             </form>
