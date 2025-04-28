@@ -45,6 +45,9 @@ export const studyProposalFormSchema = z
             .max(10, { message: 'No more than 10 code files are allowed.' })
             .refine((files) => files.every((file) => /\.(R|r|rmd)$/.test(file.name)), {
                 message: 'Only .R, .r, and .rmd files are allowed for code files.',
+            })
+            .refine((files) => files.find((file) => file.name == 'main.r'), {
+                message: 'a file named main.r must be present.',
             }),
     })
     .superRefine((data, ctx) => {

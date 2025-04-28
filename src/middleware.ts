@@ -5,7 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
 const middlewareDebug = debug('app:middleware')
 
 const isAdminRoute = createRouteMatcher(['/admin(.*)'])
-const isOrganizationRoute = createRouteMatcher(['/organization(.*)'])
+const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
@@ -23,6 +23,9 @@ function redirectToRole(request: NextRequest, route: string, roles: Roles) {
     middlewareDebug(`Blocking unauthorized ${route} route access: %o`, roles)
     if (roles.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
+    }
+    if (roles.isMember) {
+        return NextResponse.redirect(new URL('/reviewer/dashboard', request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
 }
@@ -52,7 +55,7 @@ export default clerkMiddleware(async (auth, req) => {
         return redirectToRole(req, 'admin', userRoles)
     }
 
-    if (isOrganizationRoute(req) && !userRoles.isMember) {
+    if (isReviewerRoute(req) && !userRoles.isMember) {
         return redirectToRole(req, 'member', userRoles)
     }
 

@@ -1,5 +1,5 @@
 'use client'
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme } from '@mantine/core'
 import { CheckCircle, Upload, UploadSimple, X as PhosphorX, Trash } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
@@ -8,16 +8,13 @@ import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
-// TODO use me in other file
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
 }) => {
     const theme = useMantineTheme()
-    const [files, setFiles] = useState<FileWithPath[]>([])
 
     const removeFile = (fileToRemove: FileWithPath) => {
-        const updatedFiles = files.filter((file) => file.name !== fileToRemove.name)
-        setFiles(updatedFiles)
+        const updatedFiles = studyProposalForm.getValues().codeFiles.filter((file) => file.name !== fileToRemove.name)
         studyProposalForm.setFieldValue('codeFiles', updatedFiles)
     }
 
@@ -38,8 +35,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     <Dropzone
                         name="codeFiles"
                         onDrop={(files) => {
-                            setFiles((previousFiles) => uniqueBy([...previousFiles, ...files], (file) => file.name))
-                            studyProposalForm.setFieldValue('codeFiles', files)
+                            const { codeFiles: previousFiles } = studyProposalForm.getValues()
+                            const updatedFiles = uniqueBy([...previousFiles, ...files], (file) => file.name)
+                            studyProposalForm.setFieldValue('codeFiles', updatedFiles)
                         }}
                         onReject={(rejections) =>
                             notifications.show({
@@ -86,7 +84,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 </GridCol>
                 <GridCol span={6}>
                     <Divider orientation="vertical" />
-                    {files.map((file) => (
+                    {studyProposalForm.getValues().codeFiles.map((file) => (
                         <Group key={file.name} gap="md" w="100%">
                             <Group>
                                 <CheckCircle weight="fill" color="#2F9844" />

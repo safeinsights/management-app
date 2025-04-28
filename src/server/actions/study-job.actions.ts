@@ -50,8 +50,7 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
 
     await sendStudyResultsApprovedEmail(info.studyId)
 
-    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/reviewer/[memberSlug]/study/${info.studyId}`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
@@ -68,8 +67,7 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     await sendStudyResultsRejectedEmail(info.studyId)
 
-    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/reviewer/[memberSlug]/study/${info.studyId}`)
 }, minimalJobInfoSchema)
 
 export const loadStudyJobAction = userAction(async (studyJobId) => {
