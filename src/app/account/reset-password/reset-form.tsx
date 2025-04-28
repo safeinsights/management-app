@@ -1,12 +1,13 @@
 'use client'
 
-import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, Anchor } from '@mantine/core'
+import { Button, Group, Stack, Text, TextInput, Paper, CloseButton } from '@mantine/core'
 import { isEmail, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString } from '@/lib/errors'
 import { useMutation } from '@tanstack/react-query'
+import { Link } from '@/components/links'
 
 interface ResetFormValues {
     email: string
@@ -76,7 +77,7 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                         <Button type="submit" loading={isPending}>
                             Send Reset Code
                         </Button>
-                        <Anchor onClick={() => router.push('/')}>Back to Login</Anchor>
+                        <Link href="/account/signin">Back to Login</Link>
                     </Stack>
                 </Paper>
             </form>
