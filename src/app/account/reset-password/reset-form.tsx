@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, Anchor } from '@mantine/core'
+import { Button, Group, Stack, Text, TextInput, Paper, CloseButton } from '@mantine/core'
 import { isEmail, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
