@@ -7,6 +7,7 @@ import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString } from '@/lib/errors'
 import { useMutation } from '@tanstack/react-query'
+import { Link } from '@/components/links'
 
 interface ResetFormValues {
     email: string
@@ -76,9 +77,7 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                         <Button type="submit" loading={isPending}>
                             Send Reset Code
                         </Button>
-                        <Anchor tabIndex={0} role="link" onClick={() => router.push('/')}>
-                            Back to Login
-                        </Anchor>
+                        <Link href="/account/signin">Back to Login</Link>
                     </Stack>
                 </Paper>
             </form>
