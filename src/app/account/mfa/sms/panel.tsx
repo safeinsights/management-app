@@ -14,11 +14,16 @@ import { errorToString } from '@/lib/errors'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
+// and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
 export function ManageSMSMFAPanel() {
     const { isLoaded, user } = useUser()
     const [isVerifying, setIsVerifying] = useState(false)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
+    const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
+        phone.setReservedForSecondFactor({ reserved: true }),
+    )
+    const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
 
     const phoneForm = useForm({
         initialValues: {
@@ -65,21 +70,36 @@ export function ManageSMSMFAPanel() {
         }
     }
 
-    const verifyCode = async (values: typeof otpForm.values) => {
+    const verifyCodeAndSetMfa = async (values: typeof otpForm.values) => {
         if (!otpForm.isValid) return
+
+        if (!phoneObj) {
+            notifications.show({ message: 'No phone number found', color: 'red' })
+            return
+        }
 
         try {
             // Verify that the provided code matches the code sent to the user
-            const phoneVerifyAttempt = await phoneObj?.attemptVerification({ code: values.code })
+            const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
 
-            if (phoneVerifyAttempt?.verification.status === 'verified') {
+            if (phoneVerifyAttempt.verification.status === 'verified') {
                 notifications.show({ message: 'Verification successful', color: 'green' })
-                await user?.reload()
+                await user.reload()
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
         } catch (err) {
             otpForm.setFieldError('code', String(err))
+        }
+
+        // Set phone number as MFA
+        try {
+            await setReservedForSecondFactor(phoneObj)
+            await makeDefaultSecondFactor(phoneObj)
+            notifications.show({ message: 'MFA enabled', color: 'green' })
+            await user.reload()
+        } catch {
+            notifications.show({ message: 'Error setting phone number as MFA', color: 'red' })
         }
     }
 
@@ -105,7 +125,7 @@ export function ManageSMSMFAPanel() {
                     </form>
 
                     {isVerifying && (
-                        <form onSubmit={otpForm.onSubmit((values) => verifyCode(values))}>
+                        <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
                             <Stack>
                                 <Text>Enter the code sent to {phoneObj?.phoneNumber}</Text>
 
@@ -115,7 +135,7 @@ export function ManageSMSMFAPanel() {
                         </form>
                     )}
 
-                    {user?.hasVerifiedPhoneNumber && (
+                    {user?.hasVerifiedPhoneNumber && user?.twoFactorEnabled && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
                             <ButtonLink href="/">Done - Return to Homepage</ButtonLink>

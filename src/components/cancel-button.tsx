@@ -32,7 +32,7 @@ export function CancelButton({ isDirty }: { isDirty: boolean }) {
                 </Group>
             </Modal>
 
-            <Button type="button" variant="outline" color="#616161" onClick={handleCancel}>
+            <Button type="button" variant="outline" c="purple.5" onClick={handleCancel}>
                 Cancel
             </Button>
         </>

@@ -12,9 +12,6 @@ import { triggerBuildImageForJob } from '@/server/aws'
 import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
 import { latestJobForStudy } from '../db/queries'
 
-vi.mock('@/server/config', () => ({
-    USING_S3_STORAGE: true,
-}))
 vi.mock('@/server/aws', () => ({
     triggerBuildImageForJob: vi.fn(),
 }))

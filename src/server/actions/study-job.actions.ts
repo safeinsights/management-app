@@ -8,7 +8,7 @@ import {
     fetchStudyEncryptedResultsFile,
     storeStudyResultsFile,
 } from '@/server/storage'
-import { getUserIdFromActionContext, memberAction, userAction, actionContext, z } from './wrappers'
+import { actionContext, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkMemberAllowedStudyReview } from '../db/queries'
@@ -50,8 +50,8 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
 
     await sendStudyResultsApprovedEmail(info.studyId)
 
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = memberAction(async (info) => {
@@ -68,8 +68,8 @@ export const rejectStudyJobResultsAction = memberAction(async (info) => {
 
     await sendStudyResultsRejectedEmail(info.studyId)
 
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
-    revalidatePath(`/member/[memberSlug]/study/${info.studyId}/review`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/job/${info.studyJobId}`)
+    revalidatePath(`/organization/[memberSlug]/study/${info.studyId}/review`)
 }, minimalJobInfoSchema)
 
 export const loadStudyJobAction = userAction(async (studyJobId) => {
@@ -133,10 +133,10 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
 
     const job = await queryJobResult(jobId)
 
-    // TODO This throws on basic render, should we just return null here instead of throwing?
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
+
     const body = await fetchStudyApprovedResultsFile(job)
     return body.text()
 }, z.string())

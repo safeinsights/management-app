@@ -5,6 +5,7 @@ import { memberSchema } from '@/schema/member'
 import { findOrCreateClerkOrganization } from '../clerk'
 import { adminAction, getUserIdFromActionContext, memberAction, userAction, z } from './wrappers'
 import { getMemberUserPublicKeyByUserId } from '../db/queries'
+import { SanitizedError } from '@/lib/errors'
 
 export const upsertMemberAction = adminAction(async (member) => {
     // Check for duplicate organization name for new organizations only
@@ -47,7 +48,13 @@ export const getMemberFromIdAction = userAction(async (id) => {
 }, z.string())
 
 export const getMemberFromSlugAction = userAction(async (slug) => {
-    return await db.selectFrom('member').selectAll().where('slug', '=', slug).executeTakeFirst()
+    return await db
+        .selectFrom('member')
+        .selectAll()
+        .where('slug', '=', slug)
+        .executeTakeFirstOrThrow(() => {
+            throw new SanitizedError(`Member not found`)
+        })
 }, z.string())
 
 export const getReviewerPublicKeyAction = memberAction(async () => {
