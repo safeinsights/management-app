@@ -83,7 +83,7 @@ jobs:
                   ./mc --version
             - name: Setup minio bucket
               run: |
-                  ./mc alias set myminio http://localhost:9000 si-local-minio si-local-minio
+                  ./mc alias set myminio http://localhost:9198 si-local-minio si-local-minio
                   ./mc mb myminio/mgmt-app-local
 
             - name: npm install
