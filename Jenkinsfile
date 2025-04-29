@@ -4,6 +4,12 @@ pipeline {
 
     stages {
         stage("Deploy") {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'PR-*'
+                }
+            }
             steps {
                 script {
                     def commitMsg = sh(
