@@ -9,7 +9,7 @@ const compat = new FlatCompat({
 /** @type {import('eslint').Linter.Config[]} */
 export default [
     {
-        ignores: ['src/styles/generated/', 'src/database/types.ts'],
+        ignores: ['src/styles/generated/'],
     },
     ...compat.extends('next/core-web-vitals'),
     ...compat.extends('next/typescript'),

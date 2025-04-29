@@ -1,6 +1,7 @@
 import { db } from '@/database'
 import { getOrgSlugFromActionContext, getUserIdFromActionContext } from './actions/wrappers'
 import { getFirstOrganizationForUser } from './db/queries'
+import { currentUser, clerkClient } from '@clerk/nextjs/server'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -74,9 +75,22 @@ export async function ensureUserIsMemberOfOrg() {
     const userId = await getUserIdFromActionContext()
     const slug = await getOrgSlugFromActionContext(false)
     if (!slug) {
-        const org = await getFirstOrganizationForUser(userId)
+        let org = await getFirstOrganizationForUser(userId)
         if (!org) {
-            throw new Error(`No organization found for user`)
+            const clerkUser = await currentUser()
+            if (!clerkUser) throw new Error(`user is not signed into clerk`)
+            const client = await clerkClient()
+            const memberships = await client.users.getOrganizationMembershipList({ userId: clerkUser.id })
+            for (const membership of memberships.data) {
+                if (membership.organization.slug) {
+                    try {
+                        org = await findOrCreateOrgMembership({ userId, slug: membership.organization.slug })
+                    } catch {}
+                }
+            }
+            if (!org) {
+                throw new Error(`No organization found in Clerk for user`)
+            }
         }
         return org
     }
