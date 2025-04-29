@@ -57,7 +57,7 @@ services:
         depends_on:
             minio:
                 condition: service_healthy
-        restart: on-failure
+        restart: no # will fail if ran before
         entrypoint: >
             /bin/sh -c "
             /usr/bin/mc alias set siminio http://minio:9198 si-local-minio si-local-minio;
