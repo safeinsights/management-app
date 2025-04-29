@@ -1,5 +1,6 @@
 'use server'
 
+import { AccessDeniedError } from '@/lib/errors'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
@@ -18,6 +19,18 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
     const userId = await getUserIdFromActionContext()
 
     const member = await getMemberFromSlugAction(memberSlug)
+
+    // Verify researcher is a member of this organization
+    const memberUser = await db
+        .selectFrom('memberUser')
+        .select('id')
+        .where('userId', '=', userId)
+        .where('memberId', '=', member.id)
+        .executeTakeFirst()
+
+    if (!memberUser) {
+        throw new AccessDeniedError('You are not a member of this organization')
+    }
 
     const studyId = uuidv7()
 
