@@ -11,7 +11,7 @@ test.beforeEach(async ({}, testInfo) => {
 
 test.describe('Studies', () => {
     test('researcher creates a study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/openstax/dashboard' })
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
 
