@@ -43,7 +43,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
 
     if (study.status === 'APPROVED' && study.approvedAt) {
         return (
-            <Group gap="0.5rem">
+            <Group gap="xs">
                 <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
                 <Text fz="xs" fw={600} c="green.9">
                     Approved on {dayjs(study.approvedAt).format('MMM DD, YYYY')}
@@ -54,7 +54,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
 
     if (study.status === 'REJECTED' && study.rejectedAt) {
         return (
-            <Group gap="0.5rem">
+            <Group gap="xs">
                 <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
                 <Text fz="xs" fw={600} c="red.9">
                     Rejected on {dayjs(study.rejectedAt).format('MMM DD, YYYY')}
