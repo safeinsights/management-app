@@ -8,8 +8,8 @@ pipeline {
                 anyOf {
                     // 1) branch is exactly "main"
                     branch 'main'
-                    // 2) CHANGE_ID env var exists and is non-empty
-                    environment name: 'CHANGE_ID', value: '.+'
+
+                    branch 'PR-*'
                 }
             }
             steps {
