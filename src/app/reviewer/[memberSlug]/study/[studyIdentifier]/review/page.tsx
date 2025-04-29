@@ -47,7 +47,6 @@ export default async function StudyReviewPage(props: {
                         current: 'Study Details',
                     }}
                 />
-                <Divider />
             </Stack>
 
             <Title>Study details</Title>
