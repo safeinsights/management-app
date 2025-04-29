@@ -111,15 +111,45 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             })
             router.push(`/researcher/dashboard`)
         },
-        onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
-            console.error(error)
-            if (!context) return
+        onError: async (error: unknown, _variables, context: { studyId: string; studyJobId: string } | undefined) => {
+            console.error('Study proposal submission error:', error)
 
-            await onDeleteStudyAction({
-                memberSlug: memberSlug,
-                studyId: context.studyId,
-                studyJobId: context.studyJobId,
+            let title = 'Submission Failed'
+            let message = 'An unexpected error occurred.'
+            let needsCleanup = false
+
+            if (error instanceof Error && error.message.includes('You are not a member of this organization')) {
+                title = 'Access Denied'
+                message = 'You can only submit study proposals to organizations you are a member of.'
+                needsCleanup = false
+            } else if (context) {
+                message = 'An error occurred during file upload or processing. The draft proposal has been removed.'
+                needsCleanup = true
+            }
+
+            notifications.show({
+                title: title,
+                message: message,
+                color: 'red',
             })
+
+            if (needsCleanup && context) {
+                try {
+                    await onDeleteStudyAction({
+                        memberSlug: memberSlug,
+                        studyId: context.studyId,
+                        studyJobId: context.studyJobId,
+                    })
+                    console.log(`Cleaned up study ${context.studyId} and job ${context.studyJobId} after error.`)
+                } catch (cleanupError) {
+                    console.error('Failed to cleanup study/job after initial error:', cleanupError)
+                    notifications.show({
+                        title: 'Cleanup Failed',
+                        message: 'Failed to automatically clean up the draft proposal after an error. Please contact support.',
+                        color: 'red',
+                    })
+                }
+            }
         },
     })
 
