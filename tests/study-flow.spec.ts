@@ -64,7 +64,6 @@ test.describe('Studies', () => {
 
     test('member reviews and approves the study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'member', url: '/reviewer/openstax/dashboard' })
-        await page.getByText(/dashboard/i).click()
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
