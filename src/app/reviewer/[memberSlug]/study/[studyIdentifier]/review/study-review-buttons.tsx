@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Text } from '@mantine/core'
+import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -19,6 +19,8 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
     const router = useRouter()
 
     const backPath = `/reviewer/${memberSlug}/dashboard`
+
+    const theme = useMantineTheme()
 
     const {
         mutate: updateStudy,
