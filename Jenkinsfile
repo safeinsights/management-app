@@ -6,9 +6,7 @@ pipeline {
         stage("Deploy") {
             when {
                 anyOf {
-                    // 1) branch is exactly "main"
                     branch 'main'
-
                     branch 'PR-*'
                 }
             }
