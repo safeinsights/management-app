@@ -9,7 +9,7 @@ import { OrganizationSwitcher, useClerk } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 import { UserName } from '../user-name'
-import { UserProfileImage } from '../user-profile-img'
+import { UserAvatar } from '../user-avatar'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
@@ -74,7 +74,7 @@ export const NavbarItems: FC = () => {
                         Hi! <UserName />
                     </>
                 }
-                leftSection={UserProfileImage()}
+                leftSection={UserAvatar()}
                 rightSection={<CaretUp />}
                 c="white"
                 className={styles.navLinkProfileHover}

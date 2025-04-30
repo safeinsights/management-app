@@ -3,16 +3,15 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
-import { UserProfileImage } from '@/components/user-profile-img'
+import { UserAvatar } from '@/components/user-avatar'
 
-// Mock the Mantine Avatar component with proper TypeScript typing
 vi.mock('@mantine/core', () => ({
     Avatar: ({ src, alt }: { src?: string; alt?: string }) => (
         <img data-testid="avatar-component" src={src} alt={alt} />
     ),
 }))
 
-describe('UserProfileImage', () => {
+describe('UserAvatar', () => {
     it('displays the user profile image when logged in', async () => {
         vi.mocked(useUser).mockReturnValue({
             user: {
@@ -20,7 +19,7 @@ describe('UserProfileImage', () => {
             },
         } as UseUserReturn)
 
-        renderWithProviders(<UserProfileImage />)
+        renderWithProviders(<UserAvatar />)
 
         const avatar = screen.getByTestId('avatar-component')
         expect(avatar).toBeDefined()
@@ -33,7 +32,7 @@ describe('UserProfileImage', () => {
             user: null,
         } as UseUserReturn)
 
-        const { container } = render(<UserProfileImage />)
+        const { container } = render(<UserAvatar />)
 
         await waitFor(() => {
             expect(container.childElementCount).toEqual(0)

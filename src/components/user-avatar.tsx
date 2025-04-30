@@ -3,7 +3,7 @@
 import { useUser } from '@clerk/nextjs'
 import { Avatar } from '@mantine/core'
 
-export function UserProfileImage() {
+export function UserAvatar() {
     const { user } = useUser()
     if (!user) {
         return null
