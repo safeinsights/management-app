@@ -6,13 +6,14 @@ import { FC, useMemo, useState } from 'react'
 import { deleteMemberAction, fetchMembersAction } from '@/server/actions/member.actions'
 import { getNewMember, type Member } from '@/schema/member'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
-import { ActionIcon, Box, Button, ButtonGroup, Flex, Group, Modal } from '@mantine/core'
+import { Pencil, Trash, Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Button, Divider, Flex, Group, Modal, Paper, Stack, Text, Title } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
 import { EditMemberForm } from '@/components/member/edit-member-form'
-import { ButtonLink } from '@/components/links'
-import { ButtonGroupSection } from '@mantine/core'
+import Link from 'next/link'
+import { theme } from '@/theme'
+import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
 
 export function MembersAdminTable() {
     const { data = [] } = useQuery({
@@ -22,7 +23,7 @@ export function MembersAdminTable() {
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
         columnAccessor: 'name',
-        direction: 'desc',
+        direction: 'asc',
     })
 
     const sortedMembers = useMemo(() => {
@@ -31,32 +32,65 @@ export function MembersAdminTable() {
     }, [data, sortStatus])
 
     return (
-        <Flex direction={'column'}>
-            <DataTable
-                withTableBorder
-                withColumnBorders
-                idAccessor="slug"
-                noRecordsText="No organisations yet, add some using button below"
-                noRecordsIcon={<Users />}
-                records={sortedMembers}
-                sortStatus={sortStatus}
-                onSortStatusChange={setSortStatus}
-                columns={[
-                    { accessor: 'slug', sortable: true },
-                    { accessor: 'name', sortable: true },
-                    { accessor: 'email', sortable: true, textAlign: 'right' },
-                    {
-                        accessor: 'actions',
-                        width: 80,
-                        textAlign: 'center',
-                        title: <Box mr={6}>Edit</Box>,
-                        render: (member) => <MemberRow member={member} />,
-                    },
-                ]}
-            />
-
-            <AddMember />
-        </Flex>
+        <>
+            <Stack p="xl">
+                <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
+                <Title order={1}>Manage Team</Title>
+                <Paper shadow="xs" p="xl">
+                    <Stack>
+                        <Group justify="space-between">
+                            <Title order={3}>People</Title>
+                            <Flex justify="flex-end">
+                                <Link href="/admin/invite">
+                                    <Button leftSection={<Plus />}>Invite People</Button>
+                                </Link>
+                            </Flex>
+                        </Group>
+                        <Divider c="charcoal.1" />
+                        <DataTable
+                            withColumnBorders
+                            striped
+                            backgroundColor={theme.colors.charcoal[1]}
+                            idAccessor="slug"
+                            noRecordsText="No organisations yet, add some using button below"
+                            noRecordsIcon={<Users />}
+                            records={sortedMembers}
+                            sortStatus={sortStatus}
+                            onSortStatusChange={setSortStatus}
+                            columns={[
+                                { accessor: 'name', sortable: true },
+                                {
+                                    accessor: 'role',
+                                    sortable: false,
+                                    title: (
+                                        <Group gap="xs">
+                                            <Text>Role</Text>
+                                            <Info color={theme.colors.blue[7]} weight="fill" />
+                                        </Group>
+                                    ),
+                                },
+                                {
+                                    accessor: 'permission',
+                                    sortable: false,
+                                    textAlign: 'left',
+                                    title: (
+                                        <Group gap="xs">
+                                            <Text>Permission</Text>
+                                            <Info color={theme.colors.blue[7]} weight="fill" />
+                                        </Group>
+                                    ),
+                                },
+                                { accessor: 'last-active', sortable: false, textAlign: 'left' },
+                            ]}
+                            sortIcons={{
+                                sorted: <ArrowDown color={theme.colors.charcoal[7]} />,
+                                unsorted: <ArrowUp color={theme.colors.charcoal[7]} />,
+                            }}
+                        />
+                    </Stack>
+                </Paper>
+            </Stack>
+        </>
     )
 }
 
@@ -68,12 +102,6 @@ const AddMember: FC = () => {
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
                 <EditMemberForm member={getNewMember()} onCompleteAction={close} />
             </Modal>
-            <ButtonGroup>
-                <ButtonGroupSection>
-                    <ButtonLink href="/admin/invite">Invite Users</ButtonLink>
-                </ButtonGroupSection>
-                <Button onClick={open}>Add new organization</Button>
-            </ButtonGroup>
         </Flex>
     )
 }
