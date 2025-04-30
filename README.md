@@ -27,9 +27,15 @@ You can use Docker compose to run the app and a PostgreSQL database by using:
 
 ### Getting Started - Local Setup
 
-For developing locally without docker compose, you will need to install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it.
+For developing locally without docker compose, you will need to:
 
-Otherwise, you can use Docker compose to run the app and a PostgreSQL database by using: `docker compose up`
+- install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it. [Homebrew instructions](https://wiki.postgresql.org/wiki/Homebrew)
+- install minio and minio-mc [Homebrew instructions](https://min.io/docs/minio/macos/index.html) and provision it using:
+    - start server `./bin/local-minio`
+    - setup alias (\__only needed once_): `mc alias set siminio http://localhost:9198 si-local-minio si-local-minio`
+    - create bucket (\__only once_): `mc mb siminio/mgmt-app-local`
+
+You can use Docker compose to run the app and a PostgreSQL database by using: `docker compose up`
 Open [http://localhost:4000](http://localhost:4000) with your browser to access the app
 
 Other useful commands:

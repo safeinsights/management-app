@@ -9,6 +9,7 @@ import { getUserIdFromActionContext, researcherAction, z } from '@/server/action
 import { getMemberFromSlugAction } from '@/server/actions/member.actions'
 import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
+import { revalidatePath } from 'next/cache'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberSlug: z.string(),
@@ -97,6 +98,8 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
     const urlForDescriptionUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION),
     )
+
+    revalidatePath('/researcher/dashboard')
 
     return {
         studyId: studyId,

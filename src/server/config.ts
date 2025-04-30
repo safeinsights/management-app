@@ -8,10 +8,6 @@ export const PROD_ENV = process.env.NODE_ENV === 'production'
 
 export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 
-export const ALWAYS_CREATE_ECR = process.env.ALWAYS_CREATE_ECR === 't'
-
-export const USING_CONTAINER_REGISTRY = ALWAYS_CREATE_ECR || PROD_ENV
-
 export const SIMULATE_IMAGE_BUILD =
     process.env.SIMULATE_IMAGE_BUILD === 't' || (process.env.SIMULATE_IMAGE_BUILD != 'f' && DEV_ENV)
 

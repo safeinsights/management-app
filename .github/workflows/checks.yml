@@ -39,14 +39,12 @@ jobs:
             minio:
                 image: minio/minio:edge-cicd
                 ports:
-                    - '9000:9000'
+                    - 9198:9000
                 volumes:
                     - minio-data:/data
                 env:
-                    MINIO_ROOT_USER: minioadmin
-                    MINIO_ROOT_PASSWORD: minioadmin
-                    MINIO_ACCESS_KEY: minioadmin
-                    MINIO_SECRET_KEY: minioadmin
+                    MINIO_ROOT_USER: si-local-minio
+                    MINIO_ROOT_PASSWORD: si-local-minio
             minio-mc:
                 image: minio/mc
         permissions:
@@ -64,12 +62,12 @@ jobs:
             E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
             E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
             E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
-            S3_ENDPOINT: 'http://localhost:9000'
-            S3_BROWSER_ENDPOINT: 'http://localhost:9000'
-            MINIO_ROOT_USER: 'minioadmin'
-            MINIO_ROOT_PASSWORD: 'minioadmin'
-            AWS_ACCESS_KEY_ID: 'minioadmin'
-            AWS_SECRET_ACCESS_KEY: 'minioadmin'
+            S3_ENDPOINT: 'http://localhost:9198'
+            S3_BROWSER_ENDPOINT: 'http://localhost:9198'
+            MINIO_ROOT_USER: 'si-local-minio'
+            MINIO_ROOT_PASSWORD: 'si-local-minio'
+            AWS_ACCESS_KEY_ID: 'si-local-minio'
+            AWS_SECRET_ACCESS_KEY: 'si-local-minio'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
         steps:
@@ -85,9 +83,8 @@ jobs:
                   ./mc --version
             - name: Setup minio bucket
               run: |
-                  ./mc alias set myminio http://localhost:9000 minioadmin minioadmin
-                  ./mc mb myminio/mgmt-app-local
-                  ./mc anonymous set public myminio/mgmt-app-local
+                  ./mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
+                  ./mc mb siminio/mgmt-app-local
 
             - name: npm install
               run: npm ci

@@ -11,7 +11,7 @@ test.beforeEach(async ({}, testInfo) => {
 
 test.describe('Studies', () => {
     test('researcher creates a study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/' })
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
 
         await expect(page).toHaveTitle(/SafeInsights/)
 
@@ -63,8 +63,7 @@ test.describe('Studies', () => {
     })
 
     test('member reviews and approves the study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'member', url: '/' })
-        await page.getByText(/dashboard/i).click()
+        await visitClerkProtectedPage({ page, role: 'member', url: '/reviewer/openstax/dashboard' })
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 

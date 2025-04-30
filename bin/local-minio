@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export MINIO_ROOT_USER=si-local-minio
+export MINIO_ROOT_PASSWORD=si-local-minio
+
+DIR="./tmp/local-s3"; [ -d "$DIR" ] || mkdir -p "$DIR"
+
+minio server --console-address localhost:9199 --address localhost:9198 $DIR

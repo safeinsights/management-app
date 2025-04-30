@@ -22,21 +22,13 @@ async function uploadFile(file: File, upload: PresignedPost) {
         body.append(key, value)
     }
     body.append('file', file)
-
     const response = await fetch(upload.url, {
         method: 'POST',
         body,
     })
-
     if (!response.ok) {
-        notifications.show({
-            color: 'red',
-            title: 'Failed to upload file',
-            message: await response.text(),
-        })
+        throw new Error(`failed to upload file ${await response.text()}`)
     }
-
-    return response.ok
 }
 
 async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
@@ -94,12 +86,10 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 memberSlug,
                 studyInfo: valuesWithFilenames,
             })
-
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
             await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
-
             return { studyId, studyJobId }
         },
         onSuccess() {
@@ -114,25 +104,36 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
         onError: async (error: unknown, _variables, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error('Study proposal submission error:', error)
 
-            let title = 'Submission Failed'
-            let message = 'An unexpected error occurred.'
+            let title = 'Submission Failed' // Default title
+            let message = 'An unexpected error occurred.' // Default message
             let needsCleanup = false
+            let rawErrorMessage = error instanceof Error ? error.message : 'Unknown error details'; // Capture raw message
 
+            // Check for specific access denied error
             if (error instanceof Error && error.message.includes('You are not a member of this organization')) {
                 title = 'Access Denied'
                 message = 'You can only submit study proposals to organizations you are a member of.'
                 needsCleanup = false
             } else if (context) {
+                // Use the requested title for upload/processing errors
+                title = 'Failed to upload file'
                 message = 'An error occurred during file upload or processing. The draft proposal has been removed.'
                 needsCleanup = true
+            } else {
+                 // Generic error before context was available
+                 title = 'Submission Failed'
+                 // Use the raw error message if no specific message applies here
+                 message = `An unexpected error occurred: ${rawErrorMessage}`
+                 needsCleanup = false
             }
 
             notifications.show({
                 title: title,
-                message: message,
+                message: message, // Use the determined message
                 color: 'red',
             })
 
+            // Keep the cleanup logic and its error handling from 'mb'
             if (needsCleanup && context) {
                 try {
                     await onDeleteStudyAction({
