@@ -101,56 +101,20 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             })
             router.push(`/researcher/dashboard`)
         },
-        onError: async (error: unknown, _variables, context: { studyId: string; studyJobId: string } | undefined) => {
-            console.error('Study proposal submission error:', error)
-
-            let title = 'Submission Failed' // Default title
-            let message = 'An unexpected error occurred.' // Default message
-            let needsCleanup = false
-            let rawErrorMessage = error instanceof Error ? error.message : 'Unknown error details'; // Capture raw message
-
-            // Check for specific access denied error
-            if (error instanceof Error && error.message.includes('You are not a member of this organization')) {
-                title = 'Access Denied'
-                message = 'You can only submit study proposals to organizations you are a member of.'
-                needsCleanup = false
-            } else if (context) {
-                // Use the requested title for upload/processing errors
-                title = 'Failed to upload file'
-                message = 'An error occurred during file upload or processing. The draft proposal has been removed.'
-                needsCleanup = true
-            } else {
-                 // Generic error before context was available
-                 title = 'Submission Failed'
-                 // Use the raw error message if no specific message applies here
-                 message = `An unexpected error occurred: ${rawErrorMessage}`
-                 needsCleanup = false
-            }
-
+        onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
+            console.error(error)
             notifications.show({
-                title: title,
-                message: message, // Use the determined message
                 color: 'red',
+                title: 'Failed to upload file',
+                message: error.message,
             })
+            if (!context) return
 
-            // Keep the cleanup logic and its error handling from 'mb'
-            if (needsCleanup && context) {
-                try {
-                    await onDeleteStudyAction({
-                        memberSlug: memberSlug,
-                        studyId: context.studyId,
-                        studyJobId: context.studyJobId,
-                    })
-                    console.log(`Cleaned up study ${context.studyId} and job ${context.studyJobId} after error.`)
-                } catch (cleanupError) {
-                    console.error('Failed to cleanup study/job after initial error:', cleanupError)
-                    notifications.show({
-                        title: 'Cleanup Failed',
-                        message: 'Failed to automatically clean up the draft proposal after an error. Please contact support.',
-                        color: 'red',
-                    })
-                }
-            }
+            await onDeleteStudyAction({
+                memberSlug: memberSlug,
+                studyId: context.studyId,
+                studyJobId: context.studyJobId,
+            })
         },
     })
 
