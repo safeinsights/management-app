@@ -17,7 +17,8 @@ export default async function MemberHomePage(props: { params: Promise<{ memberSl
         return <AlertNotFound title="Member not found" message={`Member with slug ${params.memberSlug} not found`} />
     }
 
-    const user = await db.selectFrom('user').select('id').where('clerkId', '=', auth().userId!).executeTakeFirst()
+    const authResult = await auth()
+    const user = await db.selectFrom('user').select('id').where('clerkId', '=', authResult.userId).executeTakeFirst()
 
     if (!user) {
         return <AlertNotFound title="User Error" message="Internal user record not found." />
