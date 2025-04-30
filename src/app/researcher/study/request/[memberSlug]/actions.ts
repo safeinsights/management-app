@@ -10,6 +10,7 @@ import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { currentUser } from '@clerk/nextjs/server'
 import { sendStudyProposalEmails } from '@/server/mailgun'
+import { revalidatePath } from 'next/cache'
 
 const onCreateStudyActionArgsSchema = z.object({
     memberSlug: z.string(),
@@ -90,6 +91,8 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
     const urlForDescriptionUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION),
     )
+
+    revalidatePath('/researcher/dashboard')
 
     return {
         studyId: studyId,
