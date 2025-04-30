@@ -21,7 +21,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
 
     const member = await getMemberFromSlugAction(memberSlug)
 
-    // Verify researcher is a member of this organization
+    // Verify researcher is allowed to submit studies to this organization
     const memberUser = await db
         .selectFrom('memberUser')
         .select('id')
