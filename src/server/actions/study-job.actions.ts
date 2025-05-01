@@ -130,7 +130,8 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
 }, z.string())
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
-    const latestJob = await latestJobForStudy(studyId, await actionContext())
+    const ctx = await actionContext()
+    const latestJob = await latestJobForStudy(studyId, { orgSlug: ctx.org.slug, userId: ctx.user.id })
 
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
