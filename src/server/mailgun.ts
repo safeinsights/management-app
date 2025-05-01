@@ -177,7 +177,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
                 from: SI_EMAIL,
                 to: email,
                 subject: 'SafeInsights - New study proposal',
-                template: 'encrypted results ready for review',
+                template: 'vb - encrypted results ready for review',
                 'h:X-Mailgun-Variables': JSON.stringify({
                     userFullName: reviewer.fullName,
                     studyName: study.title,
