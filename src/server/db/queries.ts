@@ -78,7 +78,6 @@ export const checkUserAllowedStudyReview = async (studyId?: string) => {
 
 export type SiUser = ClerkUser & {
     id: string
-    isResearcher: boolean
 }
 
 export async function siUser(throwIfNotFound?: true): Promise<SiUser>
@@ -94,7 +93,6 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     return {
         ...clerkUser,
         id: userId,
-        isResearcher: true, // FIXME: we'll ned to update this once we have orgs orgship
     } as SiUser
 }
 

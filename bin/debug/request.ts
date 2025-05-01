@@ -11,7 +11,7 @@ export class DebugRequest {
     constructor(public path = '') {
         this.program
             .option('-o, --org <organizationSlug>', 'organization slug')
-            .option('-u, --url <origin>', 'base URL to send the request to')
+            .option('-u, --url <url>', 'base URL to send the request to')
             .option('-k, --key <path>', 'Path to the private key file')
     }
 
@@ -36,12 +36,12 @@ export class DebugRequest {
         return `Bearer ${token}`
     }
 
-    get origin() {
-        return this.program.opts().origin || 'http://localhost:4000'
+    get baseURL() {
+        return this.program.opts().url || 'http://localhost:4000'
     }
 
     async perform() {
-        const url = `${this.origin}/api/${this.path}`
+        const url = `${this.baseURL}/api/${this.path}`
         console.log(`Sending request to ${url}`)
         const response = await fetch(url, {
             method: this.method,

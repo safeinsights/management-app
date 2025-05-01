@@ -1,5 +1,5 @@
 import { db } from '@/database'
-import { getOrgSlugFromActionContext, getUserIdFromActionContext } from './actions/wrappers'
+import { getOrgInfoFromActionContext, getUserIdFromActionContext } from './actions/wrappers'
 import { getFirstOrganizationForUser } from './db/queries'
 import { currentUser, clerkClient } from '@clerk/nextjs/server'
 
@@ -70,8 +70,8 @@ export async function findOrCreateOrgMembership({
 
 export async function ensureUserIsMemberOfOrg() {
     const userId = await getUserIdFromActionContext()
-    const slug = await getOrgSlugFromActionContext(false)
-    if (!slug) {
+    const info = await getOrgInfoFromActionContext(false)
+    if (!info.slug) {
         let org = await getFirstOrganizationForUser(userId)
         if (!org) {
             const clerkUser = await currentUser()
@@ -91,5 +91,5 @@ export async function ensureUserIsMemberOfOrg() {
         }
         return org
     }
-    return await findOrCreateOrgMembership({ userId, slug })
+    return await findOrCreateOrgMembership({ userId, slug: info.slug })
 }
