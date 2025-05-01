@@ -4,7 +4,7 @@ import { db } from '@/database'
 import { PROD_ENV } from '@/server/config'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
-import { findOrCreateOrgOrgship } from '@/server/mutations'
+import { findOrCreateOrgMembership } from '@/server/mutations'
 
 const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
@@ -32,7 +32,7 @@ async function setupUsers() {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
         })
-        findOrCreateOrgOrgship({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
     }
 
     for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
@@ -46,7 +46,7 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        findOrCreateOrgOrgship({ userId, slug: 'openstax', isReviewer: true })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true })
     }
 }
 

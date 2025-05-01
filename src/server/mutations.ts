@@ -27,7 +27,7 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
     return user.id
 }
 
-export async function findOrCreateOrgOrgship({
+export async function findOrCreateOrgMembership({
     userId,
     slug,
     isResearcher = true,
@@ -81,7 +81,7 @@ export async function ensureUserIsMemberOfOrg() {
             for (const orgship of orgships.data) {
                 if (orgship.organization.slug) {
                     try {
-                        org = await findOrCreateOrgOrgship({ userId, slug: orgship.organization.slug })
+                        org = await findOrCreateOrgMembership({ userId, slug: orgship.organization.slug })
                     } catch {}
                 }
             }
@@ -91,5 +91,5 @@ export async function ensureUserIsMemberOfOrg() {
         }
         return org
     }
-    return await findOrCreateOrgOrgship({ userId, slug })
+    return await findOrCreateOrgMembership({ userId, slug })
 }

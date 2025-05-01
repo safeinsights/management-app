@@ -21,13 +21,6 @@ export function apiRequestingOrg() {
     return org
 }
 
-// export function requestingUser() {
-//     const user = localStorageContext.getStore()?.user
-//     if (!user) throw new AccessDeniedError('No user in context')
-
-//     return user
-// }
-
 export function wasCalledFromAPI() {
     return Boolean(localStorageContext.getStore())
 }
