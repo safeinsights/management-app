@@ -29,7 +29,7 @@ class FileSender extends DebugRequest {
         const form = new FormData()
         form.append('file', zip)
 
-        const response = await fetch(`${this.origin}/api/job/${jobId}/results`, {
+        const response = await fetch(`${this.baseURL}/api/job/${jobId}/results`, {
             method: 'POST',
             headers: { Authorization: this.authorization },
             body: form,

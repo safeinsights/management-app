@@ -36,12 +36,12 @@ export class DebugRequest {
         return `Bearer ${token}`
     }
 
-    get origin() {
+    get baseURL() {
         return this.program.opts().url || 'http://localhost:4000'
     }
 
     async perform() {
-        const url = `${this.origin}/api/${this.path}`
+        const url = `${this.baseURL}/api/${this.path}`
         console.log(`Sending request to ${url}`)
         const response = await fetch(url, {
             method: this.method,
