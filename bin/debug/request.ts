@@ -11,7 +11,7 @@ export class DebugRequest {
     constructor(public path = '') {
         this.program
             .option('-o, --org <organizationSlug>', 'organization slug')
-            .option('-u, --url <origin>', 'base URL to send the request to')
+            .option('-u, --url <url>', 'base URL to send the request to')
             .option('-k, --key <path>', 'Path to the private key file')
     }
 
@@ -37,7 +37,7 @@ export class DebugRequest {
     }
 
     get origin() {
-        return this.program.opts().origin || 'http://localhost:4000'
+        return this.program.opts().url || 'http://localhost:4000'
     }
 
     async perform() {
