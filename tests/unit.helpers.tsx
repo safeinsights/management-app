@@ -47,13 +47,7 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 
 export * from './common.helpers'
 
-export const insertTestStudyData = async ({
-    org,
-    researcherId,
-}: {
-    org: MinimalTestOrg
-    researcherId?: string
-}) => {
+export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalTestOrg; researcherId?: string }) => {
     if (!researcherId) {
         const user = await insertTestUser({ org })
         researcherId = user.id

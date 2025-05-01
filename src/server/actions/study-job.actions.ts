@@ -42,7 +42,11 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
     const user = await siUser(false)
-    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).executeTakeFirstOrThrow()
+    await db
+        .updateTable('studyJob')
+        .set({ resultsPath: resultsFile.name })
+        .where('id', '=', info.studyJobId)
+        .executeTakeFirstOrThrow()
 
     return
     await db
@@ -57,24 +61,27 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
     revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
 }, approveStudyJobResultsActionSchema)
 
-export const rejectStudyJobResultsAction = orgAction(async (info) => {
-    await checkUserAllowedStudyReview(info.studyId)
+export const rejectStudyJobResultsAction = orgAction(
+    async (info) => {
+        await checkUserAllowedStudyReview(info.studyId)
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: (await siUser()).id,
-            status: 'RESULTS-REJECTED',
-            studyJobId: info.studyJobId,
-        })
-        .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: (await siUser()).id,
+                status: 'RESULTS-REJECTED',
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
 
-    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+        // TODO Confirm / Make sure we delete files from S3 when rejecting?
 
-    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-}, minimalJobInfoSchema.extend({
-    orgSlug: z.string(),
-}))
+        revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+    },
+    minimalJobInfoSchema.extend({
+        orgSlug: z.string(),
+    }),
+)
 
 export const loadStudyJobAction = userAction(async (studyJobId) => {
     const userId = await getUserIdFromActionContext()

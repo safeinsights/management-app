@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache'
 
 import {
     checkMemberOfOrgWithSlug,
-    getOrgSlugFromActionContext,
     getUserIdFromActionContext,
     orgAction,
     researcherAction,
@@ -19,67 +18,69 @@ import { SIMULATE_IMAGE_BUILD } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
-export const fetchStudiesForOrgAction = orgAction(async ({ orgSlug }) => {
+export const fetchStudiesForOrgAction = orgAction(
+    async ({ orgSlug }) => {
+        return await db
+            .selectFrom('study')
+            .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
+            .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
+            .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
+            .leftJoin(
+                // Subquery to get the most recent study job for each study
+                (eb) =>
+                    eb
+                        .selectFrom('studyJob')
+                        .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
+                        .distinctOn('studyId')
+                        .orderBy('studyId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestStudyJob'),
+                (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
+            )
+            .leftJoin(
+                // Subquery to get the latest status change for the most recent study job
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select([
+                            'jobStatusChange.studyJobId',
+                            'jobStatusChange.status',
+                            'jobStatusChange.createdAt as statusCreatedAt',
+                        ])
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestJobStatus'),
+                (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
 
-    return await db
-        .selectFrom('study')
-        .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
-        .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
-        .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
-        .leftJoin(
-            // Subquery to get the most recent study job for each study
-            (eb) =>
-                eb
-                    .selectFrom('studyJob')
-                    .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
-                    .distinctOn('studyId')
-                    .orderBy('studyId')
-                    .orderBy('createdAt', 'desc')
-                    .as('latestStudyJob'),
-            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
-        )
-        .leftJoin(
-            // Subquery to get the latest status change for the most recent study job
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'jobStatusChange.status',
-                        'jobStatusChange.createdAt as statusCreatedAt',
-                    ])
-                    .distinctOn('studyJobId')
-                    .orderBy('studyJobId')
-                    .orderBy('createdAt', 'desc')
-                    .as('latestJobStatus'),
-            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-        )
-
-        .select([
-            'study.id',
-            'study.approvedAt',
-            'study.rejectedAt',
-            'study.containerLocation',
-            'study.createdAt',
-            'study.dataSources',
-            'study.irbProtocols',
-            'study.orgId',
-            'study.outputMimeType',
-            'study.piName',
-            'study.researcherId',
-            'study.status',
-            'study.title',
-            'researcherUser.fullName as researcherName',
-            'reviewerUser.fullName as reviewerName',
-            'org.slug as orgSlug',
-            'latestJobStatus.status as latestJobStatus',
-            'latestStudyJob.jobId as latestStudyJobId',
-        ])
-        .orderBy('study.createdAt', 'desc')
-        .execute()
-}, z.object({
-    orgSlug: z.string()
-}))
+            .select([
+                'study.id',
+                'study.approvedAt',
+                'study.rejectedAt',
+                'study.containerLocation',
+                'study.createdAt',
+                'study.dataSources',
+                'study.irbProtocols',
+                'study.orgId',
+                'study.outputMimeType',
+                'study.piName',
+                'study.researcherId',
+                'study.status',
+                'study.title',
+                'researcherUser.fullName as researcherName',
+                'reviewerUser.fullName as reviewerName',
+                'org.slug as orgSlug',
+                'latestJobStatus.status as latestJobStatus',
+                'latestStudyJob.jobId as latestStudyJobId',
+            ])
+            .orderBy('study.createdAt', 'desc')
+            .execute()
+    },
+    z.object({
+        orgSlug: z.string(),
+    }),
+)
 
 export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
     const userId = await getUserIdFromActionContext()
@@ -141,9 +142,7 @@ export const getStudyAction = userAction(async (studyId) => {
     return await db
         .selectFrom('study')
 
-        .innerJoin('orgUser', (join) =>
-            join.on('userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'),
-        )
+        .innerJoin('orgUser', (join) => join.on('userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'))
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
 
         .where('orgUser.userId', '=', userId)

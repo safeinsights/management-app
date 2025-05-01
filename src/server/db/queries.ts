@@ -130,9 +130,7 @@ export const latestJobForStudy = async (
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .$if(Boolean(orgSlug), (qb) =>
-            qb.innerJoin('org', (join) =>
-                join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId'),
-            ),
+            qb.innerJoin('org', (join) => join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId')),
         )
         .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
         .innerJoin(

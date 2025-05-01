@@ -129,7 +129,9 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const ctx = await actionContext()
         if (!ctx.orgSlug || ctx.orgSlug != arg?.orgSlug) {
-            throw new AccessDeniedError(`Only members of ${arg?.orgSlug || '(missing slug)'} are allowed to perform this action`)
+            throw new AccessDeniedError(
+                `Only members of ${arg?.orgSlug || '(missing slug)'} are allowed to perform this action`,
+            )
         }
         return await func(arg)
     }

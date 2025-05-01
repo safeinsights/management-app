@@ -10,7 +10,6 @@ import {
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { latestJobForStudy } from '../db/queries'
 
-
 describe('Study Actions', () => {
     it('successfully approves a study proposal', async () => {
         const { user, org } = await mockSessionWithTestData()

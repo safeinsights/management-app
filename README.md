@@ -58,7 +58,7 @@ The connection details for the development database (`mgmnt_dev`) are pre-config
 
 ### Enclave API Routes
 
-- Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the organization. The public key is stored in the organization admin panel 
+- Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the organization. The public key is stored in the organization admin panel
 
 To generate a public private key you can run:
 

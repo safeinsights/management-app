@@ -34,7 +34,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
         return <AlertNotFound title="Org was not found" message="no such org exists" />
     }
 
-
     const studies = await fetchStudiesForOrgAction({ orgSlug })
 
     const rows = studies.map((study) => (
