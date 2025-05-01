@@ -37,7 +37,6 @@ describe('Study Results Approve/Reject buttons', async () => {
             const latest = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
             expect(latest?.latestStatus).toEqual(statusChange)
         })
-
     }
 
     it('renders the approve/reject buttons when there is an unreviewed job', async () => {
@@ -55,7 +54,6 @@ describe('Study Results Approve/Reject buttons', async () => {
         await insertAndRender('REJECTED')
         expect(screen.queryByText(/rejected on/i)).toBeDefined()
     })
-
 
     it('can approve results', async () => {
         await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'RESULTS-APPROVED')
