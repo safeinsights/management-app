@@ -77,7 +77,7 @@ describe('invite user Actions', async () => {
         expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email, `${user.firstName} ${user.lastName}`)
     })
 
-    it.only('throws an error when user insert fails', async () => {
+    it('throws an error when user insert fails', async () => {
         clerkMocks?.client.users.createUser.mockImplementation(() =>
             Promise.reject({ errors: [{ code: 'no-user', message: 'failed' }] }),
         )
