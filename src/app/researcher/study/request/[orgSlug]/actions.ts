@@ -20,13 +20,16 @@ const onCreateStudyActionArgsSchema = z.object({
 export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
     const user = await currentUser()
-    if (!user) return
+    if (!user) {
+        throw new Error('No user')
+    }
 
     const org = await getOrgFromSlugAction(orgSlug)
 
     const studyId = uuidv7()
 
     const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: org.slug })
+
     await db
         .insertInto('study')
         .values({
