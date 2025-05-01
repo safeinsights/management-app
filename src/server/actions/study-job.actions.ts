@@ -41,22 +41,20 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
     const resultsFile = new File([result.contents], result.path)
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
-    const user = await siUser(false)
+    const user = await siUser()
     await db
         .updateTable('studyJob')
         .set({ resultsPath: resultsFile.name })
         .where('id', '=', info.studyJobId)
         .executeTakeFirstOrThrow()
-
     await db
         .insertInto('jobStatusChange')
         .values({
-            userId: user?.id,
+            userId: user.id,
             status: 'RESULTS-APPROVED',
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
-
     revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
 }, approveStudyJobResultsActionSchema)
 
