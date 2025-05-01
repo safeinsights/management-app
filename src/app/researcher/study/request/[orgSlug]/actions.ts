@@ -5,7 +5,7 @@ import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
-import { getMemberFromSlugAction } from '@/server/actions/member.actions'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { currentUser } from '@clerk/nextjs/server'
@@ -13,20 +13,20 @@ import { sendStudyProposalEmails } from '@/server/mailgun'
 import { revalidatePath } from 'next/cache'
 
 const onCreateStudyActionArgsSchema = z.object({
-    memberSlug: z.string(),
+    orgSlug: z.string(),
     studyInfo: studyProposalApiSchema,
 })
 
-export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyInfo }) => {
+export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
     const user = await currentUser()
     if (!user) return
 
-    const member = await getMemberFromSlugAction(memberSlug)
+    const org = await getOrgFromSlugAction(orgSlug)
 
     const studyId = uuidv7()
 
-    const containerLocation = await codeBuildRepositoryUrl({ studyId, memberSlug: member.slug })
+    const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: org.slug })
     await db
         .insertInto('study')
         .values({
@@ -36,7 +36,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
             descriptionDocPath: studyInfo.descriptionDocPath,
             irbDocPath: studyInfo.irbDocPath,
             agreementDocPath: studyInfo.agreementDocPath,
-            memberId: member.id,
+            orgId: org.id,
             researcherId: userId,
             containerLocation,
             status: 'PENDING-REVIEW',
@@ -72,7 +72,7 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
     await sendStudyProposalEmails(studyId)
 
     const studyJobCodePath = pathForStudyJobCode({
-        memberSlug,
+        orgSlug,
         studyId,
         studyJobId: studyJob.id,
     })
@@ -81,15 +81,15 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
     const urlForCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
 
     const urlForAgreementUpload = await signedUrlForStudyUpload(
-        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.AGREEMENT),
+        pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
     )
 
     const urlForIrbUpload = await signedUrlForStudyUpload(
-        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.IRB),
+        pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
     )
 
     const urlForDescriptionUpload = await signedUrlForStudyUpload(
-        pathForStudyDocuments({ studyId, memberSlug }, StudyDocumentType.DESCRIPTION),
+        pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
     )
 
     revalidatePath('/researcher/dashboard')
@@ -105,16 +105,16 @@ export const onCreateStudyAction = researcherAction(async ({ memberSlug, studyIn
 }, onCreateStudyActionArgsSchema)
 
 export const onDeleteStudyAction = researcherAction(
-    async ({ memberSlug, studyId, studyJobId }) => {
+    async ({ orgSlug, studyId, studyJobId }) => {
         await db.deleteFrom('jobStatusChange').where('studyJobId', '=', studyJobId).execute()
         await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
         await db.deleteFrom('study').where('id', '=', studyId).execute()
 
         // Clean up the files from s3
-        await deleteFolderContents(`studies/${memberSlug}/${studyId}`)
+        await deleteFolderContents(`studies/${orgSlug}/${studyId}`)
     },
     z.object({
-        memberSlug: z.string(),
+        orgSlug: z.string(),
         studyId: z.string(),
         studyJobId: z.string(),
     }),

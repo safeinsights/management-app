@@ -2,7 +2,7 @@
     "name": "management-app",
     "version": "0.0.1",
     "private": true,
-    "description": "The SafeInsights management app serves as an interface for researchers to submit and members to approve study proposals.",
+    "description": "The SafeInsights management app serves as an interface for researchers to submit and reviewers to approve study proposals.",
     "license": "AGPL-3.0-or-later",
     "author": "Nathan Stitt",
     "main": "index.js",

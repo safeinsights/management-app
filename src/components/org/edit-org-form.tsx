@@ -2,43 +2,43 @@
 
 import { useForm } from '@mantine/form'
 import { Button, Textarea, TextInput } from '@mantine/core'
-import { upsertMemberAction } from '@/server/actions/member.actions'
+import { upsertOrgAction } from '@/server/actions/org.actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Member, memberSchema, NewMember, ValidatedMember } from '@/schema/member'
+import { Org, orgSchema, NewOrg, ValidatedOrg } from '@/schema/org'
 import { FC } from 'react'
 import { zodResolver } from 'mantine-form-zod-resolver'
 
-export const EditMemberForm: FC<{
-    member: Member | NewMember
+export const EditOrgForm: FC<{
+    org: Org | NewOrg
     onCompleteAction?: () => void
-}> = ({ member, onCompleteAction }) => {
-    const form = useForm<ValidatedMember>({
-        validate: zodResolver(memberSchema),
-        initialValues: member,
+}> = ({ org, onCompleteAction }) => {
+    const form = useForm<ValidatedOrg>({
+        validate: zodResolver(orgSchema),
+        initialValues: org,
     })
 
     const queryClient = useQueryClient()
 
-    const { isPending, mutate: upsertMember } = useMutation({
-        mutationFn: async (data: ValidatedMember) => await upsertMemberAction(data),
+    const { isPending, mutate: upsertOrg } = useMutation({
+        mutationFn: async (data: ValidatedOrg) => await upsertOrgAction(data),
         onError: (error: unknown) => {
             reportError(error)
         },
         onSettled: async () => {
-            await queryClient.invalidateQueries({ queryKey: ['members'] })
+            await queryClient.invalidateQueries({ queryKey: ['orgs'] })
             onCompleteAction?.()
         },
     })
 
     return (
-        <form onSubmit={form.onSubmit((values) => upsertMember(values))}>
+        <form onSubmit={form.onSubmit((values) => upsertOrg(values))}>
             <TextInput
                 label="Slug"
                 placeholder="Enter slug"
                 data-autofocus
                 name="slug"
                 key={form.key('slug')}
-                disabled={'id' in member && !!member.id}
+                disabled={'id' in org && !!org.id}
                 {...form.getInputProps('slug')}
                 required
             />

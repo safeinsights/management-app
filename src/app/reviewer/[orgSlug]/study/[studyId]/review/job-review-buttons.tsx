@@ -22,7 +22,7 @@ export const JobReviewButtons = ({
     decryptedResults?: FileEntry[]
 }) => {
     const router = useRouter()
-    const { memberSlug } = useParams<{ memberSlug: string }>()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const {
         mutate: updateStudyJob,
@@ -36,11 +36,11 @@ export const JobReviewButtons = ({
             const jobInfo: MinimalJobInfo = {
                 studyId: job.studyId,
                 studyJobId: job.id,
-                memberSlug,
+                orgSlug: orgSlug,
             }
 
             if (status === 'RESULTS-APPROVED') {
-                await approveStudyJobResultsAction({ jobInfo, jobResults: decryptedResults })
+                await approveStudyJobResultsAction({ orgSlug, jobInfo, jobResults: decryptedResults })
             }
 
             if (status === 'RESULTS-REJECTED') {

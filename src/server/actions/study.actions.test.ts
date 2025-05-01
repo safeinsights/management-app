@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-    insertTestMember,
+    insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
     insertTestUser,
@@ -8,61 +8,47 @@ import {
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
-import { triggerBuildImageForJob } from '@/server/aws'
-import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
 import { latestJobForStudy } from '../db/queries'
-
-vi.mock('@/server/aws', () => ({
-    triggerBuildImageForJob: vi.fn(),
-}))
-
-vi.mock('@/server/mailgun', () => ({
-    sendStudyProposalApprovedEmail: vi.fn(),
-}))
+import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
 
 describe('Study Actions', () => {
     it('successfully approves a study proposal', async () => {
-        const { user, member } = await mockSessionWithTestData()
-
-        const { study } = await insertTestStudyJobData({ member, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
-        await approveStudyProposalAction(study.id)
-        const job = await latestJobForStudy(study.id, { orgSlug: member.slug, userId: user.id })
-        expect(job.latestStatus).toBe('CODE-APPROVED')
+        const { user, org } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(sendStudyProposalApprovedEmail).toHaveBeenCalled()
-
-        expect(triggerBuildImageForJob).toHaveBeenCalledWith(
-            expect.objectContaining({ studyId: study.id, studyJobId: job.id }),
-        )
+        const job = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: user.id })
+        expect(job.latestStatus).toBe('JOB-READY')
     })
 
-    it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
-        const { user, member } = await mockSessionWithTestData()
-        const otherMember = await insertTestMember()
-        const otherUser = await insertTestUser({ member: otherMember })
+    it('getStudyAction returns any study that belongs to an org that user is a org of', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        const otherOrg = await insertTestOrg()
+        const otherUser = await insertTestUser({ org: otherOrg })
 
-        const { studyId } = await insertTestStudyData({ member, researcherId: user.id })
+        const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
         await expect(getStudyAction(studyId)).resolves.toMatchObject({
             id: studyId,
         })
 
-        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherMember.slug })
+        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherOrg.slug })
         await expect(getStudyAction(studyId)).resolves.toBeUndefined()
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
-        const { user, member } = await mockSessionWithTestData()
-        expect(user.isResearcher).toBeTruthy()
-        const otherMember = await insertTestMember()
-        const otherUser = await insertTestUser({ member: otherMember })
+        const { user, org } = await mockSessionWithTestData()
 
-        const { studyId } = await insertTestStudyData({ member, researcherId: user.id })
+        const otherOrg = await insertTestOrg()
+        const otherUser = await insertTestUser({ org: otherOrg })
+
+        const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
         await expect(fetchStudiesForCurrentResearcherAction()).resolves.toEqual(
             expect.arrayContaining([expect.objectContaining({ id: studyId })]),
         )
 
-        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherMember.slug })
+        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherOrg.slug })
         await expect(fetchStudiesForCurrentResearcherAction()).resolves.toHaveLength(0)
     })
 })

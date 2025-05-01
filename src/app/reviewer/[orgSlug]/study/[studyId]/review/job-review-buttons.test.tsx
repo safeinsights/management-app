@@ -9,25 +9,31 @@ import { StudyJobStatus, StudyStatus } from '@/database/types'
 vi.spyOn(actions, 'approveStudyJobResultsAction')
 vi.spyOn(actions, 'rejectStudyJobResultsAction')
 
+vi.mock('@/server/storage', () => ({
+    storeStudyResultsFile: vi.fn(),
+}))
+
 describe('Study Results Approve/Reject buttons', async () => {
     const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
-        const { member } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ member, studyStatus })
+        const { org } = await mockSessionWithTestData()
+        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)
-        return { ...helpers, job, member }
+        return { ...helpers, job, org }
     }
 
     const clickNTest = async (btnLabel: string, action: Mock, statusChange: StudyJobStatus) => {
-        const { getByRole, job, member } = await insertAndRender('PENDING-REVIEW')
+        const { getByRole, job, org } = await insertAndRender('PENDING-REVIEW')
 
         expect(screen.queryByText(/approved on/i)).toBeNull()
+
         const btn = getByRole('button', { name: btnLabel })
         fireEvent.click(btn)
+
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
-            const latest = await latestJobForStudy(job.studyId, { orgSlug: member.slug })
+            const latest = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
             expect(latest?.latestStatus).toEqual(statusChange)
         })
     }
@@ -49,7 +55,7 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can approve results', async () => {
-        await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'RESULTS-APPROVED')
+        await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'JOB-READY')
     })
 
     it('can reject results', async () => {

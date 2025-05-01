@@ -5,7 +5,7 @@ import router from 'next-router-mock'
 import { beforeEach, expect, it, vi, type Mock } from 'vitest'
 import { RequireMFA } from './require-mfa'
 
-vi.mock('@/server/actions/member.actions', () => ({
+vi.mock('@/server/actions/org.actions', () => ({
     getReviewerPublicKeyAction: vi.fn(() => Promise.resolve(null)),
 }))
 

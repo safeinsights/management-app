@@ -2,9 +2,9 @@ import { headers } from 'next/headers'
 
 import { db } from '@/database'
 import jwt from 'jsonwebtoken'
-import { Member } from '@/schema/member'
+import { Org } from '@/schema/org'
 
-export const memberFromAuthToken = async (): Promise<Member | null> => {
+export const orgFromAuthToken = async (): Promise<Org | null> => {
     const authHeader = (await headers()).get('Authorization') || ''
 
     // Check if the Authorization header is present and well-formed
@@ -16,24 +16,24 @@ export const memberFromAuthToken = async (): Promise<Member | null> => {
     try {
         const values = jwt.decode(token, { json: true })
 
-        const memberSlug = values?.iss
-        if (!memberSlug) {
+        const orgSlug = values?.iss
+        if (!orgSlug) {
             return null
         }
 
-        const member = await db.selectFrom('member').selectAll().where('slug', '=', memberSlug).executeTakeFirst()
-        if (!member) {
+        const org = await db.selectFrom('org').selectAll().where('slug', '=', orgSlug).executeTakeFirst()
+        if (!org) {
             return null
         }
 
         // Verify and decode the JWT
-        const decodedToken = jwt.verify(token, member.publicKey, { algorithms: ['RS256'] })
+        const decodedToken = jwt.verify(token, org.publicKey, { algorithms: ['RS256'] })
 
         if (!decodedToken) {
             return null
         }
 
-        return member
+        return org
     } catch {
         return null
     }

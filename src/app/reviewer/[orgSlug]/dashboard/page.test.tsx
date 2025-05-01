@@ -1,27 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import MemberDashboardPage from './page'
-import { getMemberFromSlugAction } from '@/server/actions/member.actions'
+import OrgDashboardPage from './page'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { faker } from '@faker-js/faker'
-import { Member } from '@/schema/member'
+import { Org } from '@/schema/org'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 
-vi.mock('@/server/actions/member.actions', () => ({
-    getMemberFromSlugAction: vi.fn(),
+vi.mock('@/server/actions/org.actions', () => ({
+    getOrgFromSlugAction: vi.fn(),
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForCurrentMemberAction: vi.fn(),
+    fetchStudiesForOrgAction: vi.fn(),
 }))
 
 // TODO Extract out into a helper function that we can re-use
-const mockMember: Member = {
+const mockOrg: Org = {
     id: faker.string.uuid(),
-    slug: 'test-member',
+    slug: 'test-org',
     name: faker.company.name(),
     email: faker.internet.email(),
     publicKey: 'fake-key',
@@ -39,7 +39,7 @@ const mockStudies = [
         createdAt: new Date(),
         dataSources: [],
         irbProtocols: null,
-        memberId: 'member-1',
+        orgId: 'org-1',
         outputMimeType: null,
         piName: 'PI Name 1',
         researcherId: 'researcher-1',
@@ -49,7 +49,7 @@ const mockStudies = [
         researcherName: 'Person A',
         latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
         latestStudyJobId: 'job-1',
-        memberSlug: 'test-member',
+        orgSlug: 'test-org',
     },
     {
         id: 'study-2',
@@ -59,7 +59,7 @@ const mockStudies = [
         createdAt: new Date(),
         dataSources: [],
         irbProtocols: null,
-        memberId: 'member-2',
+        orgId: 'org-2',
         outputMimeType: null,
         piName: 'PI Name 2',
         researcherId: 'researcher-2',
@@ -69,7 +69,7 @@ const mockStudies = [
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
         latestJobStatus: 'RUN-COMPLETE' as StudyJobStatus,
-        memberSlug: 'test-member',
+        orgSlug: 'test-org',
     },
     {
         id: 'study-3',
@@ -79,7 +79,7 @@ const mockStudies = [
         createdAt: new Date(),
         dataSources: [],
         irbProtocols: null,
-        memberId: 'member-3',
+        orgId: 'org-3',
         outputMimeType: null,
         piName: 'PI Name 3',
         researcherId: 'researcher-3',
@@ -89,7 +89,7 @@ const mockStudies = [
         researcherName: 'Person C',
         latestStudyJobId: null,
         latestJobStatus: null,
-        memberSlug: 'test-member',
+        orgSlug: 'test-org',
     },
 ]
 
@@ -101,26 +101,26 @@ beforeEach(() => {
     } as UseUserReturn)
 })
 
-describe('Member Dashboard', () => {
-    it('renders an error when the member is not found', async () => {
+describe('Org Dashboard', () => {
+    it('renders an error when the org is not found', async () => {
         const props = {
-            params: Promise.resolve({ memberSlug: 'test-member' }),
+            params: Promise.resolve({ orgSlug: 'test-org' }),
         }
 
-        renderWithProviders(await MemberDashboardPage(props))
+        renderWithProviders(await OrgDashboardPage(props))
 
-        expect(screen.getByText(/Member was not found/i)).toBeDefined()
+        expect(screen.getByText(/Org was not found/i)).toBeDefined()
     })
 
     it('renders the welcome text', async () => {
-        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
-        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
+        vi.mocked(getOrgFromSlugAction).mockResolvedValue(mockOrg)
 
         const props = {
-            params: Promise.resolve({ memberSlug: 'test-member' }),
+            params: Promise.resolve({ orgSlug: 'test-org' }),
         }
 
-        renderWithProviders(await MemberDashboardPage(props))
+        renderWithProviders(await OrgDashboardPage(props))
 
         expect(screen.getByText(/Welcome to your SafeInsights dashboard!/i)).toBeDefined()
     })
@@ -128,26 +128,26 @@ describe('Member Dashboard', () => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue([])
-        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
+        vi.mocked(getOrgFromSlugAction).mockResolvedValue(mockOrg)
 
         const props = {
-            params: Promise.resolve({ memberSlug: 'test-member' }),
+            params: Promise.resolve({ orgSlug: 'test-org' }),
         }
-        renderWithProviders(await MemberDashboardPage(props))
+        renderWithProviders(await OrgDashboardPage(props))
 
         expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        vi.mocked(fetchStudiesForCurrentMemberAction).mockResolvedValue(mockStudies)
-        vi.mocked(getMemberFromSlugAction).mockResolvedValue(mockMember)
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValue(mockStudies)
+        vi.mocked(getOrgFromSlugAction).mockResolvedValue(mockOrg)
 
         const props = {
-            params: Promise.resolve({ memberSlug: 'test-member' }),
+            params: Promise.resolve({ orgSlug: 'test-org' }),
         }
 
-        renderWithProviders(await MemberDashboardPage(props))
+        renderWithProviders(await OrgDashboardPage(props))
 
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()

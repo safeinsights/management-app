@@ -2,8 +2,8 @@
 
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromSlugAction } from '@/server/actions/member.actions'
-import { MemberBreadcrumbs } from '@/components/page-breadcrumbs'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
+import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
 import { StudyReviewButtons } from './study-review-buttons'
@@ -11,26 +11,26 @@ import { StudyDetails } from '@/components/study/study-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from './study-results'
 import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
-import { getMemberUserFingerprintAction } from '@/server/actions/user-keys.actions'
+import { getReviewerFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
-        memberSlug: string
-        studyIdentifier: string
+        orgSlug: string
+        studyId: string
     }>
 }) {
-    const fingerprint = await getMemberUserFingerprintAction()
+    const fingerprint = await getReviewerFingerprintAction()
 
     const params = await props.params
 
-    const { memberSlug, studyIdentifier } = params
+    const { orgSlug, studyId } = params
 
-    const member = await getMemberFromSlugAction(memberSlug)
-    if (!member) {
-        return <AlertNotFound title="Member was not found" message="no such member exists" />
+    const org = await getOrgFromSlugAction(orgSlug)
+    if (!org) {
+        return <AlertNotFound title="Org was not found" message="no such org exists" />
     }
 
-    const study = await getStudyAction(studyIdentifier)
+    const study = await getStudyAction(studyId)
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
@@ -41,9 +41,9 @@ export default async function StudyReviewPage(props: {
     return (
         <Stack px="xl" gap="xl">
             <Stack mt="xl" gap="lg">
-                <MemberBreadcrumbs
+                <OrgBreadcrumbs
                     crumbs={{
-                        memberSlug: memberSlug,
+                        orgSlug: orgSlug,
                         current: 'Study Details',
                     }}
                 />
@@ -54,9 +54,9 @@ export default async function StudyReviewPage(props: {
                 <Stack>
                     <Group justify="space-between">
                         <Title order={3}>Study Proposal</Title>
-                        <StudyReviewButtons study={study} memberSlug={memberSlug} />
+                        <StudyReviewButtons study={study} />
                     </Group>
-                    <Stack mt="md">{studyIdentifier && <StudyDetails studyIdentifier={study.id} />}</Stack>
+                    <Stack mt="md">{studyId && <StudyDetails studyId={study.id} />}</Stack>
                 </Stack>
             </Paper>
 

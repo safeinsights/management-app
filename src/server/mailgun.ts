@@ -4,7 +4,7 @@ import { getConfigValue, PROD_ENV } from './config'
 import { getUsersByRoleAndMemberId } from '@/server/db/queries'
 import dayjs from 'dayjs'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { getMemberFromIdAction } from '@/server/actions/member.actions'
+import { getOrgFromIdAction } from '@/server/actions/org.actions'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 const BASE_URL = `https://${process.env.DOMAIN_NAME}`
@@ -38,7 +38,7 @@ const getStudyAndMember = async (studyId: string) => {
     const study = await getStudyAction(studyId)
     // TODO DISCUSS in general, do we want to throw? or return undefined if no study found inside getStudyAction?
     if (!study) throw new Error('Study not found')
-    const member = await getMemberFromIdAction(study.memberId)
+    const member = await getOrgFromIdAction(study.orgId)
     if (!member) throw new Error('Member not found')
 
     return { study, member }
