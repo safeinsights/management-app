@@ -8,13 +8,21 @@ import {
     fetchStudyEncryptedResultsFile,
     storeStudyResultsFile,
 } from '@/server/storage'
-import { getUserIdFromActionContext, memberAction, userAction, actionContext, z } from './wrappers'
+import {
+    z,
+    orgAction,
+    userAction,
+    actionContext,
+    checkMemberOfOrgWithSlug,
+    getUserIdFromActionContext,
+} from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
-import { checkMemberAllowedStudyReview } from '../db/queries'
+import { checkUserAllowedStudyReview } from '../db/queries'
 import { SanitizedError } from '@/lib/errors'
 
 const approveStudyJobResultsActionSchema = z.object({
+    orgSlug: z.string(),
     jobInfo: minimalJobInfoSchema,
     jobResults: z.array(
         z.object({
@@ -24,20 +32,23 @@ const approveStudyJobResultsActionSchema = z.object({
     ),
 })
 
-export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info, jobResults }) => {
-    await checkMemberAllowedStudyReview(info.studyId)
+export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobResults }) => {
+    await checkUserAllowedStudyReview(info.studyId)
 
     // FIXME: handle more than a single result.  will require a db schema change
     const result = jobResults[0]
 
     const resultsFile = new File([result.contents], result.path)
-
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
     const user = await siUser(false)
+    await db
+        .updateTable('studyJob')
+        .set({ resultsPath: resultsFile.name })
+        .where('id', '=', info.studyJobId)
+        .executeTakeFirstOrThrow()
 
-    await db.updateTable('studyJob').set({ resultsPath: resultsFile.name }).where('id', '=', info.studyJobId).execute()
-
+    return
     await db
         .insertInto('jobStatusChange')
         .values({
@@ -45,27 +56,32 @@ export const approveStudyJobResultsAction = memberAction(async ({ jobInfo: info,
             status: 'RESULTS-APPROVED',
             studyJobId: info.studyJobId,
         })
-        .execute()
-
-    revalidatePath(`/reviewer/[memberSlug]/study/${info.studyId}`)
-}, approveStudyJobResultsActionSchema)
-
-export const rejectStudyJobResultsAction = memberAction(async (info) => {
-    await checkMemberAllowedStudyReview(info.studyId)
-
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: (await siUser()).id,
-            status: 'RESULTS-REJECTED',
-            studyJobId: info.studyJobId,
-        })
         .executeTakeFirstOrThrow()
 
-    // TODO Confirm / Make sure we delete files from S3 when rejecting?
+    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+}, approveStudyJobResultsActionSchema)
 
-    revalidatePath(`/reviewer/[memberSlug]/study/${info.studyId}`)
-}, minimalJobInfoSchema)
+export const rejectStudyJobResultsAction = orgAction(
+    async (info) => {
+        await checkUserAllowedStudyReview(info.studyId)
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: (await siUser()).id,
+                status: 'RESULTS-REJECTED',
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
+
+        // TODO Confirm / Make sure we delete files from S3 when rejecting?
+
+        revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+    },
+    minimalJobInfoSchema.extend({
+        orgSlug: z.string(),
+    }),
+)
 
 export const loadStudyJobAction = userAction(async (studyJobId) => {
     const userId = await getUserIdFromActionContext()
@@ -73,9 +89,9 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
     const jobInfo = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', 'study.memberId', 'member.id')
-        .innerJoin('memberUser', (join) =>
-            join.on('memberUser.userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('org', 'study.orgId', 'org.id')
+        .innerJoin('orgUser', (join) =>
+            join.on('orgUser.userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'),
         )
         .leftJoin('jobStatusChange', (join) =>
             join
@@ -87,7 +103,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
-            'member.slug as memberSlug',
+            'org.slug as orgSlug',
             'jobStatusChange.status as jobStatus',
             'jobStatusChange.createdAt as jobStatusCreatedAt',
         ])
@@ -137,11 +153,20 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
     return body.text()
 }, z.string())
 
-export const fetchJobResultsEncryptedZipAction = memberAction(async (jobId: string) => {
-    const job = await queryJobResult(jobId)
-    if (!job) {
-        throw new SanitizedError(`Job ${jobId} not found or does not have results`)
-    }
+export const fetchJobResultsEncryptedZipAction = orgAction(
+    async ({ jobId, orgSlug }) => {
+        await checkMemberOfOrgWithSlug(orgSlug)
 
-    return await fetchStudyEncryptedResultsFile(job)
-}, z.string())
+        const job = await queryJobResult(jobId)
+
+        if (!job) {
+            throw new SanitizedError(`Job ${jobId} not found or does not have results`)
+        }
+
+        return await fetchStudyEncryptedResultsFile(job)
+    },
+    z.object({
+        jobId: z.string(),
+        orgSlug: z.string(),
+    }),
+)

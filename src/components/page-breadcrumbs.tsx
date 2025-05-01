@@ -25,17 +25,17 @@ export const PageBreadcrumbs: FC<{
     )
 }
 
-export const MemberBreadcrumbs: FC<{
+export const OrgBreadcrumbs: FC<{
     crumbs: {
-        memberSlug: string
+        orgSlug: string
         studyTitle?: string
-        studyIdentifier?: string
+        studyId?: string
         current?: string
     }
-}> = ({ crumbs: { memberSlug, studyIdentifier, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/reviewer/${memberSlug}/dashboard`]]
-    if (studyTitle && studyIdentifier) {
-        crumbs.push([studyTitle, `/reviewer/${memberSlug}/study/${studyIdentifier}/review`])
+}> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/reviewer/${orgSlug}/dashboard`]]
+    if (studyTitle && studyId) {
+        crumbs.push([studyTitle, `/reviewer/${orgSlug}/study/${studyId}/review`])
     }
     if (current) {
         crumbs.push([current])

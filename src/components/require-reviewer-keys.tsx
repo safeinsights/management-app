@@ -2,7 +2,7 @@
 
 import { useLayoutEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { getReviewerPublicKeyAction } from '@/server/actions/member.actions'
+import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
 
 export const RequireReviewerKeys = () => {
     const pathname = usePathname()

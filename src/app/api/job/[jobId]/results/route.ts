@@ -1,13 +1,13 @@
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
-import { requestingMember, wrapApiMemberAction } from '@/server/wrappers'
+import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
 import { storeStudyResultsFile } from '@/server/storage'
 
-export const POST = wrapApiMemberAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
-    const member = requestingMember()
+export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
+    const org = apiRequestingOrg()
     const { jobId } = await params
-    if (!jobId || !member) {
+    if (!jobId || !org) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
@@ -19,11 +19,11 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
             return NextResponse.json({ status: 'fail', error: 'no "file" entry in post data' }, { status: 500 })
         }
 
-        // join is a security check to ensure the job is owned by the member
+        // join is a security check to ensure the job is owned by the org
         const info = await db
             .selectFrom('studyJob')
             .innerJoin('study', (join) =>
-                join.onRef('study.id', '=', 'studyJob.studyId').on('study.memberId', '=', member.id),
+                join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id),
             )
             .select(['studyJob.id as studyJobId', 'studyId'])
             .where('studyJob.id', '=', jobId)
@@ -36,7 +36,7 @@ export const POST = wrapApiMemberAction(async (req: Request, { params }: { param
         await storeStudyResultsFile(
             {
                 ...info,
-                memberSlug: member.slug,
+                orgSlug: org.slug,
                 resultsType: 'ENCRYPTED',
             },
             contents,

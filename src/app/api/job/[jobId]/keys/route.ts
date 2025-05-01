@@ -1,16 +1,16 @@
 import { db } from '@/database'
-import { wrapApiMemberAction } from '@/server/wrappers'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
 import { NextResponse } from 'next/server'
 
-export const GET = wrapApiMemberAction(async (_req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
+export const GET = wrapApiOrgAction(async (_req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const jobId = (await params).jobId
 
     const publicKeys = await db
         .selectFrom('studyJob')
         .where('studyJob.id', '=', jobId)
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .innerJoin('userPublicKey', 'userPublicKey.userId', 'memberUser.userId')
+        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+        .innerJoin('userPublicKey', 'userPublicKey.userId', 'orgUser.userId')
         .select(['studyJob.id as jobId', 'userPublicKey.publicKey', 'userPublicKey.fingerprint'])
         .execute()
 

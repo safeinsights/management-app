@@ -157,17 +157,17 @@ export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(path.dirname(filename), 'support', file), 'utf8')
 }
 
-export type TestingRole = 'researcher' | 'member'
+export type TestingRole = 'researcher' | 'reviewer'
 export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
     researcher: {
         mfa: CLERK_MFA_CODE,
-        identifier: process.env.E2E_CLERK_RESEARCHER_EMAIL!,
-        password: process.env.E2E_CLERK_RESEARCHER_PASSWORD!,
+        identifier: process.env.CLERK_RESEARCHER_EMAIL!,
+        password: process.env.CLERK_RESEARCHER_PASSWORD!,
     },
-    member: {
+    reviewer: {
         mfa: CLERK_MFA_CODE,
-        identifier: process.env.E2E_CLERK_MEMBER_EMAIL!,
-        password: process.env.E2E_CLERK_MEMBER_PASSWORD!,
+        identifier: process.env.CLERK_REVIEWER_EMAIL!,
+        password: process.env.CLERK_REVIEWER_PASSWORD!,
     },
 }
 

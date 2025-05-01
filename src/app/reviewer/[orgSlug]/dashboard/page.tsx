@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { AlertNotFound } from '@/components/errors'
-import { getMemberFromSlugAction } from '@/server/actions/member.actions'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import {
     Anchor,
     Divider,
@@ -19,22 +19,22 @@ import {
     Title,
     Tooltip,
 } from '@mantine/core'
-import { fetchStudiesForCurrentMemberAction } from '@/server/actions/study.actions'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 
-export default async function MemberDashboardPage(props: { params: Promise<{ memberSlug: string }> }) {
-    const { memberSlug } = await props.params
+export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
+    const { orgSlug } = await props.params
 
-    const member = await getMemberFromSlugAction(memberSlug)
+    const org = await getOrgFromSlugAction(orgSlug)
 
-    if (!member) {
-        return <AlertNotFound title="Member was not found" message="no such member exists" />
+    if (!org) {
+        return <AlertNotFound title="Org was not found" message="no such org exists" />
     }
 
-    const studies = await fetchStudiesForCurrentMemberAction()
+    const studies = await fetchStudiesForOrgAction({ orgSlug })
 
     const rows = studies.map((study) => (
         <TableTr key={study.id}>
@@ -56,7 +56,7 @@ export default async function MemberDashboardPage(props: { params: Promise<{ mem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/reviewer/${member.slug}/study/${study.id}/review`} c="blue.7">
+                <Anchor component={Link} href={`/reviewer/${org.slug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Anchor>
             </TableTd>

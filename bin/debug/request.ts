@@ -10,8 +10,8 @@ export class DebugRequest {
 
     constructor(public path = '') {
         this.program
-            .option('-m, --member <member>', 'member slug')
-            .option('-o, --origin <origin>', 'base URL to send the request to')
+            .option('-o, --org <organizationSlug>', 'organization slug')
+            .option('-u, --url <origin>', 'base URL to send the request to')
             .option('-k, --key <path>', 'Path to the private key file')
     }
 
@@ -26,10 +26,10 @@ export class DebugRequest {
     }
 
     get authorization() {
-        const { member = 'openstax' } = this.program.opts()
+        const { org = 'openstax' } = this.program.opts()
         //const privateKey = fs.readFileSync(key, 'utf8')
         const payload = {
-            iss: member,
+            iss: org,
             exp: Math.floor(Date.now() / 1000) + 60 * 60, // Token expiration (1 hour)
         }
         const token = jwt.sign(payload, this.privateKey, { algorithm: 'RS256' })

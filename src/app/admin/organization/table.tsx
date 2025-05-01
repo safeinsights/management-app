@@ -3,28 +3,28 @@
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
-import { fetchMembersAction } from '@/server/actions/member.actions'
-import { type Member } from '@/schema/member'
+import { fetchOrgsAction } from '@/server/actions/org.actions'
+import { type Org } from '@/schema/org'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
 import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { Link } from '@/components/links'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
 
-export function MembersAdminTable() {
+export function OrgsAdminTable() {
     const theme = useMantineTheme()
     const { data = [] } = useQuery({
         queryKey: ['members'],
-        queryFn: fetchMembersAction,
+        queryFn: fetchOrgsAction,
     })
 
-    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Member>>({
+    const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
         direction: 'asc',
     })
 
     const sortedMembers = useMemo(() => {
-        const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Member))
+        const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
         return sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers
     }, [data, sortStatus])
 

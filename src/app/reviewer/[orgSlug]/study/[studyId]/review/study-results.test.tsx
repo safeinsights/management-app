@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { Member } from '@/schema/member'
-
+import { Org } from '@/schema/org'
 import {
     insertTestStudyJobData,
     mockSessionWithTestData,
@@ -8,34 +7,31 @@ import {
     readTestSupportFile,
 } from '@/tests/unit.helpers'
 import { fireEvent, waitFor } from '@testing-library/react'
-
 import { screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
-
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
-
     fetchJobResultsEncryptedZipAction: vi.fn(() => 'Encrypted Results'),
 }))
 
 describe('View Study Results', () => {
-    let member: Member
+    let org: Org
 
     beforeEach(async () => {
         const resp = await mockSessionWithTestData()
-        member = resp.member
+        org = resp.org
     })
 
     const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus, fingerPrint = '1234') => {
-        const { member } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ member, studyStatus, jobStatus })
+        const { org } = await mockSessionWithTestData()
+        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
         const helpers = renderWithProviders(<StudyResults job={job} fingerprint={fingerPrint} />)
-        return { ...helpers, job, member }
+        return { ...helpers, job, org }
     }
 
     it('shows appropriate message when user has no fingerprint', async () => {
@@ -77,7 +73,7 @@ describe('View Study Results', () => {
         vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
 
         const { latestJobithStatus: job } = await insertTestStudyJobData({
-            member,
+            org,
             jobStatus: 'RUN-COMPLETE',
         })
         renderWithProviders(<StudyResults job={job} fingerprint="asdf" />)

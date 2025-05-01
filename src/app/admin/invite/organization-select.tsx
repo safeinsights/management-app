@@ -1,15 +1,15 @@
 import { Text, Select, type SelectProps } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { fetchMembersForSelectAction } from '@/server/actions/member.actions'
+import { fetchOrgsForSelectAction } from '@/server/actions/org.actions'
 
 export const OrganizationSelect: React.FC<SelectProps> = (props) => {
     const {
-        data: members = [],
+        data: orgs = [],
         isLoading,
         error,
     } = useQuery({
-        queryKey: ['memberForSelect'],
-        queryFn: fetchMembersForSelectAction,
+        queryKey: ['orgForSelect'],
+        queryFn: fetchOrgsForSelectAction,
     })
 
     if (isLoading) {
@@ -20,7 +20,7 @@ export const OrganizationSelect: React.FC<SelectProps> = (props) => {
         return <div>Error loading organisations</div>
     }
 
-    if (!members.length) {
+    if (!orgs.length) {
         return <Text>No organisations available</Text>
     }
 
@@ -30,7 +30,7 @@ export const OrganizationSelect: React.FC<SelectProps> = (props) => {
             style={{ width: '100%' }}
             label="Select Organization"
             placeholder="Choose an organization"
-            data={members}
+            data={orgs}
             allowDeselect={false}
             searchable
             clearable={false}

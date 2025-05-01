@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server'
-import { localStorageContext } from './context'
-import { memberFromAuthToken } from './member-from-auth-token'
+import { localStorageContext } from './api-context'
+import { orgFromAuthToken } from './org-from-auth-token'
 
-export * from './context'
+export * from './api-context'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WrappedFunc = (..._: any[]) => Promise<any>
 
-export function wrapApiMemberAction<F extends WrappedFunc>(func: F): F {
+export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (...args: any[]): Promise<any> => {
         // if we're called nested inside the stack from an earlier call
         // we don't bother creating a new context
 
         const existingStore = localStorageContext.getStore()
-        if (existingStore?.member) {
+        if (existingStore?.org) {
             return await func(...args)
         }
 
-        const member = await memberFromAuthToken()
-        if (!member) {
+        const org = await orgFromAuthToken()
+        if (!org) {
             // return 404
             return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
                 status: 401,
@@ -30,7 +30,7 @@ export function wrapApiMemberAction<F extends WrappedFunc>(func: F): F {
         const result = await new Promise<ReturnType<F>>((resolve, reject) => {
             localStorageContext.run(
                 {
-                    member,
+                    org,
                 },
                 async () => {
                     try {

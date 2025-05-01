@@ -42,7 +42,7 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
     return await uploadFile(manifestFile, upload)
 }
 
-export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) => {
+export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
@@ -83,7 +83,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
                 urlForIrbUpload,
                 urlForDescriptionUpload,
             } = await onCreateStudyAction({
-                memberSlug,
+                orgSlug,
                 studyInfo: valuesWithFilenames,
             })
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
@@ -111,7 +111,7 @@ export const StudyProposal: React.FC<{ memberSlug: string }> = ({ memberSlug }) 
             if (!context) return
 
             await onDeleteStudyAction({
-                memberSlug: memberSlug,
+                orgSlug: orgSlug,
                 studyId: context.studyId,
                 studyJobId: context.studyJobId,
             })

@@ -45,27 +45,27 @@ describe('invite user Actions', async () => {
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
             email: faker.internet.email(),
-            organizationId: (await db.selectFrom('member').select('id').executeTakeFirstOrThrow()).id,
+            organizationId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
             password: randomString(10),
             isReviewer: true,
             isResearcher: false,
         }
     })
 
-    it('creates a new user and member_user record successfully', async () => {
+    it('creates a new user and org_user record successfully', async () => {
         const user = await adminInviteUserAction(userInvite)
         expect(user).toMatchObject({
             clerkId: '1234',
             userId: expect.any(String),
         })
-        const memberUser = await db
-            .selectFrom('memberUser')
+        const orgUser = await db
+            .selectFrom('orgUser')
             .select('id')
             .where('userId', '=', user.userId)
-            .where('memberId', '=', userInvite.organizationId)
+            .where('orgId', '=', userInvite.organizationId)
             .executeTakeFirst()
 
-        expect(memberUser).toBeTruthy()
+        expect(orgUser).toBeTruthy()
 
         expect(clerkMocks?.client.users.createUser).toHaveBeenCalledWith({
             firstName: userInvite.firstName,

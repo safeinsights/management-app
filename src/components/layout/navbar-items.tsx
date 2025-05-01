@@ -11,11 +11,11 @@ import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
     const { signOut, openUserProfile } = useClerk()
-    const { isMember, isResearcher, isAdmin } = useAuthInfo()
+    const { isReviewer, isResearcher, isAdmin } = useAuthInfo()
     const pathname = usePathname()
 
     const dashboardURL = () => {
-        if (isMember) return '/reviewer/openstax/dashboard'
+        if (isReviewer) return '/reviewer/openstax/dashboard'
         if (isResearcher) return '/researcher/dashboard'
         if (isAdmin) return '/admin/dashboard'
         return '/'
