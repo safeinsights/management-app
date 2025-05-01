@@ -16,21 +16,21 @@ import { getReviewerFingerprintAction } from '@/server/actions/user-keys.actions
 export default async function StudyReviewPage(props: {
     params: Promise<{
         orgSlug: string
-        studyIdentifier: string
+        studyId: string
     }>
 }) {
     const fingerprint = await getReviewerFingerprintAction()
 
     const params = await props.params
 
-    const { orgSlug, studyIdentifier } = params
+    const { orgSlug, studyId } = params
 
     const org = await getOrgFromSlugAction(orgSlug)
     if (!org) {
         return <AlertNotFound title="Org was not found" message="no such org exists" />
     }
 
-    const study = await getStudyAction(studyIdentifier)
+    const study = await getStudyAction(studyId)
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
@@ -56,7 +56,7 @@ export default async function StudyReviewPage(props: {
                         <Title order={3}>Study Proposal</Title>
                         <StudyReviewButtons study={study} />
                     </Group>
-                    <Stack mt="md">{studyIdentifier && <StudyDetails studyIdentifier={study.id} />}</Stack>
+                    <Stack mt="md">{studyId && <StudyDetails studyId={study.id} />}</Stack>
                 </Stack>
             </Paper>
 

@@ -29,13 +29,13 @@ export const OrgBreadcrumbs: FC<{
     crumbs: {
         orgSlug: string
         studyTitle?: string
-        studyIdentifier?: string
+        studyId?: string
         current?: string
     }
-}> = ({ crumbs: { orgSlug, studyIdentifier, studyTitle, current } }) => {
+}> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
     const crumbs: Array<[string, string?]> = [['Dashboard', `/reviewer/${orgSlug}/dashboard`]]
-    if (studyTitle && studyIdentifier) {
-        crumbs.push([studyTitle, `/reviewer/${orgSlug}/study/${studyIdentifier}/review`])
+    if (studyTitle && studyId) {
+        crumbs.push([studyTitle, `/reviewer/${orgSlug}/study/${studyId}/review`])
     }
     if (current) {
         crumbs.push([current])
