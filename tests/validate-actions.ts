@@ -2,7 +2,7 @@ import * as ts from 'typescript'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const WRAPPERS = ['adminAction', 'researcherAction', 'memberAction', 'userAction', 'anonAction']
+const WRAPPERS = ['adminAction', 'researcherAction', 'orgAction', 'userAction', 'anonAction']
 
 type ExportStatus = {
     name: string

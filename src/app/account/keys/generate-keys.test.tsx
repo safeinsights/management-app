@@ -5,14 +5,14 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { UseUserReturn } from '@clerk/types'
 import { useUser } from '@clerk/nextjs'
 import { generateKeyPair } from 'si-encryption/util/keypair'
-import { setMemberUserPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
 }))
 
 vi.mock('@/server/actions/user-keys.actions', () => ({
-    setMemberUserPublicKeyAction: vi.fn(),
+    setReviewerPublicKeyAction: vi.fn(),
 }))
 
 describe('User keypair generation', () => {
@@ -47,7 +47,7 @@ describe('User keypair generation', () => {
         // Wait for state updates
         await waitFor(() => {
             // Verify that setMemberUserPublicKey was called
-            expect(setMemberUserPublicKeyAction).toHaveBeenCalledWith(
+            expect(setReviewerPublicKeyAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     publicKey: mockKeys.exportedPublicKey,
                     fingerprint: mockKeys.fingerprint,

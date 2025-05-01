@@ -62,8 +62,8 @@ test.describe('Studies', () => {
         await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
     })
 
-    test('member reviews and approves the study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'member', url: '/reviewer/openstax/dashboard' })
+    test('reviewer reviews and approves the study', async ({ page, studyFeatures }) => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 

@@ -1,10 +1,10 @@
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
-import { Member } from '@/schema/member'
-import { EditMemberForm } from '@/components/member/edit-member-form'
+import { Org } from '@/schema/org'
+import { EditOrgForm } from '@/components/org/edit-org-form'
 
-const mockMember: Member = {
+const mockOrg: Org = {
     id: '1',
     slug: 'test',
     name: 'test',
@@ -14,9 +14,9 @@ const mockMember: Member = {
     updatedAt: new Date(),
 }
 
-describe('EditMemberForm', () => {
+describe('EditOrgForm', () => {
     it('renders form fields correctly', () => {
-        renderWithProviders(<EditMemberForm member={mockMember} />)
+        renderWithProviders(<EditOrgForm org={mockOrg} />)
 
         const slugInput = screen.getByPlaceholderText('Enter slug')
         const inputs = screen.getAllByRole('textbox')
@@ -25,28 +25,28 @@ describe('EditMemberForm', () => {
         expect(inputs.length).toBe(4) // slug, name, email, public key
     })
 
-    it('disables the slug field if member has an id', () => {
-        renderWithProviders(<EditMemberForm member={{ ...mockMember, id: '123' }} />)
+    it('disables the slug field if org has an id', () => {
+        renderWithProviders(<EditOrgForm org={{ ...mockOrg, id: '123' }} />)
         const slugInput = screen.getByPlaceholderText('Enter slug')
         expect(slugInput).toHaveProperty('disabled')
     })
 
-    it('populates form fields with member data', () => {
-        renderWithProviders(<EditMemberForm member={mockMember} />)
+    it('populates form fields with org data', () => {
+        renderWithProviders(<EditOrgForm org={mockOrg} />)
 
         const slugInput = screen.getByPlaceholderText('Enter slug') as HTMLInputElement
-        expect(slugInput.value).toBe(mockMember.slug)
+        expect(slugInput.value).toBe(mockOrg.slug)
 
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
         const [, nameInput, emailInput, publicKeyInput] = inputs
 
-        expect(nameInput.value).toBe(mockMember.name)
-        expect(emailInput.value).toBe(mockMember.email)
-        expect(publicKeyInput.value).toBe(mockMember.publicKey)
+        expect(nameInput.value).toBe(mockOrg.name)
+        expect(emailInput.value).toBe(mockOrg.email)
+        expect(publicKeyInput.value).toBe(mockOrg.publicKey)
     })
 
     it('allows updating form fields', () => {
-        renderWithProviders(<EditMemberForm member={mockMember} />)
+        renderWithProviders(<EditOrgForm org={mockOrg} />)
 
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
         const [slugInput, nameInput, emailInput, publicKeyInput] = inputs

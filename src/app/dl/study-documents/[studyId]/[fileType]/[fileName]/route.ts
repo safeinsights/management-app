@@ -23,7 +23,7 @@ export const GET = async (
         return NextResponse.json({ error: 'invalid filetype for study documents' }, { status: 400 })
     }
 
-    // Verify study exists and belongs to the member
+    // Verify study exists and belongs to the organization
     const study = await studyInfoForStudyId(studyId)
     if (!study) {
         return NextResponse.json({ error: 'Study not found' }, { status: 400 })

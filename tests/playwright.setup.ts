@@ -6,7 +6,7 @@ setup('global setup', async ({}) => {
 
     for (const role of ['RESEARCHER']) {
         for (const part of ['EMAIL', 'PASSWORD']) {
-            const env = `E2E_CLERK_${role}_${part}`
+            const env = `CLERK_${role}_${part}`
             if (!process.env[env]) {
                 throw new Error(`Please provide ${env} environment variables.`)
             }

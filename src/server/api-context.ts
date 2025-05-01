@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { AccessDeniedError } from '@/lib/errors'
 import { User } from '@/lib/types'
-import { Member } from '@/schema/member'
+import { Org } from '@/schema/org'
 
 export type ActionContext = {
-    member?: Member | null
+    org?: Org | null
     user?: User | null
 }
 
@@ -14,19 +14,19 @@ export function actionContext() {
     return localStorageContext.getStore()
 }
 
-export function requestingMember() {
-    const member = localStorageContext.getStore()?.member
-    if (!member) throw new AccessDeniedError('No member in context')
+export function apiRequestingOrg() {
+    const org = localStorageContext.getStore()?.org
+    if (!org) throw new AccessDeniedError('No org in context')
 
-    return member
+    return org
 }
 
-export function requestingUser() {
-    const user = localStorageContext.getStore()?.user
-    if (!user) throw new AccessDeniedError('No user in context')
+// export function requestingUser() {
+//     const user = localStorageContext.getStore()?.user
+//     if (!user) throw new AccessDeniedError('No user in context')
 
-    return user
-}
+//     return user
+// }
 
 export function wasCalledFromAPI() {
     return Boolean(localStorageContext.getStore())

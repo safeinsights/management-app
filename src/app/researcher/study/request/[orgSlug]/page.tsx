@@ -5,21 +5,21 @@ import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
-import { getMemberFromSlugAction } from '@/server/actions/member.actions'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
-export default async function MemberHomePage(props: { params: Promise<{ memberSlug: string }> }) {
+export default async function OrgHomePage(props: { params: Promise<{ orgSlug: string }> }) {
     const params = await props.params
-    const member = await getMemberFromSlugAction(params.memberSlug)
+    const org = await getOrgFromSlugAction(params.orgSlug)
 
-    if (!member) {
-        return <AlertNotFound title="Member not found" message={`Member with slug ${params.memberSlug} not found`} />
+    if (!org) {
+        return <AlertNotFound title="Org not found" message={`Org with slug ${params.orgSlug} not found`} />
     }
 
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
             <Title order={1}>Propose A Study</Title>
-            <StudyProposal memberSlug={params.memberSlug} />
+            <StudyProposal orgSlug={params.orgSlug} />
         </Stack>
     )
 }

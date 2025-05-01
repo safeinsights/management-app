@@ -2,7 +2,7 @@ import { db, type DBExecutor } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
-import { wasCalledFromAPI } from '../context'
+import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { getUserIdFromActionContext } from '../actions/wrappers'
 
@@ -10,13 +10,13 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
     const results = await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', 'study.memberId', 'member.id')
+        .innerJoin('org', 'study.orgId', 'org.id')
         .innerJoin('jobStatusChange', (st) =>
             st
                 .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                 .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
         )
-        .select(['member.slug as memberSlug', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
+        .select(['org.slug as orgSlug', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -33,9 +33,9 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
+        // security, check that user is a org of the org that owns the study
+        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+        .where('orgUser.userId', '=', userId)
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow(throwAccessDenied('job'))
 
@@ -49,27 +49,27 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a member of the org that owns the study
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
+        // security, check that user is a org of the org that owns the study
+        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+        .where('orgUser.userId', '=', userId)
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('study'))
 
     return true
 }
 
-export const checkMemberAllowedStudyReview = async (studyId?: string) => {
+export const checkUserAllowedStudyReview = async (studyId?: string) => {
     if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
     const userId = await getUserIdFromActionContext()
 
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a member of the org that owns the study
+        // security, check that user is a org of the org that owns the study
         // and has the 'isReviewer' flag set
-        .innerJoin('memberUser', 'memberUser.memberId', 'study.memberId')
-        .where('memberUser.userId', '=', userId)
-        .where('memberUser.isReviewer', '=', true)
+        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+        .where('orgUser.userId', '=', userId)
+        .where('orgUser.isReviewer', '=', true)
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(throwAccessDenied('review study'))
 
@@ -94,11 +94,11 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     return {
         ...clerkUser,
         id: userId,
-        isResearcher: true, // FIXME: we'll ned to update this once we have orgs membership
+        isResearcher: true, // FIXME: we'll ned to update this once we have orgs orgship
     } as SiUser
 }
 
-export const getMemberUserPublicKey = async (userId: string) => {
+export const getReviewerPublicKey = async (userId: string) => {
     const result = await db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.publicKey'])
@@ -108,7 +108,7 @@ export const getMemberUserPublicKey = async (userId: string) => {
     return result?.publicKey
 }
 
-export const getMemberUserPublicKeyByUserId = async (userId: string) => {
+export const getReviewerPublicKeyByUserId = async (userId: string) => {
     const result = await db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.publicKey'])
@@ -130,8 +130,8 @@ export const latestJobForStudy = async (
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .$if(Boolean(orgSlug), (qb) =>
-            qb.innerJoin('member', (join) =>
-                join.on('member.slug', '=', orgSlug!).onRef('member.id', '=', 'study.memberId'),
+            qb.innerJoin('org', (join) =>
+                join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId'),
             ),
         )
         .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
@@ -162,11 +162,11 @@ export const jobInfoForJobId = async (jobId: string) => {
     return await db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('member', 'member.id', 'study.memberId')
+        .innerJoin('org', 'org.id', 'study.orgId')
         .select([
             'studyId',
             'studyJob.id as studyJobId',
-            'member.slug as memberSlug',
+            'org.slug as orgSlug',
             'studyJob.resultsPath',
             'studyJob.resultFormat',
         ])
@@ -177,19 +177,19 @@ export const jobInfoForJobId = async (jobId: string) => {
 export const studyInfoForStudyId = async (studyId: string) => {
     return await db
         .selectFrom('study')
-        .innerJoin('member', 'study.memberId', 'member.id')
-        .select(['study.id as studyId', 'member.slug as memberSlug'])
+        .innerJoin('org', 'study.orgId', 'org.id')
+        .select(['study.id as studyId', 'org.slug as orgSlug'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
 
 export async function getFirstOrganizationForUser(userId: string) {
     return db
-        .selectFrom('member')
-        .select(['member.id', 'member.slug', 'member.name'])
-        .innerJoin('memberUser', 'memberUser.memberId', 'member.id')
-        .where('memberUser.userId', '=', userId)
-        .where('member.slug', '<>', CLERK_ADMIN_ORG_SLUG)
+        .selectFrom('org')
+        .select(['org.id', 'org.slug', 'org.name'])
+        .innerJoin('orgUser', 'orgUser.orgId', 'org.id')
+        .where('orgUser.userId', '=', userId)
+        .where('org.slug', '<>', CLERK_ADMIN_ORG_SLUG)
         .limit(1)
         .executeTakeFirst()
 }

@@ -8,8 +8,8 @@ vi.mock('@/server/storage', () => ({
 
 describe('Study Job Actions', () => {
     test('loadStudyJobAction', async () => {
-        const { member } = await mockSessionWithTestData()
-        const { job, study } = await insertTestStudyJobData({ member })
+        const { org } = await mockSessionWithTestData()
+        const { job, study } = await insertTestStudyJobData({ org })
         const { jobInfo } = await loadStudyJobAction(job.id)
 
         expect(jobInfo).toMatchObject({
@@ -17,7 +17,7 @@ describe('Study Job Actions', () => {
             studyId: study.id,
             createdAt: expect.any(Date),
             studyTitle: expect.any(String),
-            memberSlug: expect.any(String),
+            orgSlug: expect.any(String),
         })
     })
 })

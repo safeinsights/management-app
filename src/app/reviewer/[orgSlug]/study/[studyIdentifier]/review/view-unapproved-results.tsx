@@ -8,6 +8,7 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileEntry } from 'si-encryption/job-results/types'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { useParams } from 'next/navigation'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 export type { FileEntry }
 
@@ -22,6 +23,7 @@ type Props = {
 
 export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
     const [plainTextResults, setPlainTextResults] = useState<string[]>()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -32,7 +34,7 @@ export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
         queryKey: ['study-job', job.id],
         queryFn: async () => {
             try {
-                return await fetchJobResultsEncryptedZipAction(job.id)
+                return await fetchJobResultsEncryptedZipAction({ jobId: job.id, orgSlug })
             } catch (error) {
                 form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
                 throw error

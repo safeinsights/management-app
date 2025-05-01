@@ -4,26 +4,26 @@ import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 
 import {
+    checkMemberOfOrgWithSlug,
     getOrgSlugFromActionContext,
     getUserIdFromActionContext,
-    memberAction,
+    orgAction,
     researcherAction,
     userAction,
     z,
 } from './wrappers'
 import { latestJobForStudy } from '@/server/db/queries'
-import { checkMemberAllowedStudyReview } from '../db/queries'
+import { checkUserAllowedStudyReview } from '../db/queries'
 import { StudyJobStatus } from '@/database/types'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
 
-export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
-    const slug = await getOrgSlugFromActionContext()
+export const fetchStudiesForOrgAction = orgAction(async ({ orgSlug }) => {
 
     return await db
         .selectFrom('study')
-        .innerJoin('member', (join) => join.on('member.slug', '=', slug).onRef('study.memberId', '=', 'member.id'))
+        .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
         .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
         .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
         .leftJoin(
@@ -63,7 +63,7 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'study.createdAt',
             'study.dataSources',
             'study.irbProtocols',
-            'study.memberId',
+            'study.orgId',
             'study.outputMimeType',
             'study.piName',
             'study.researcherId',
@@ -71,24 +71,27 @@ export const fetchStudiesForCurrentMemberAction = memberAction(async () => {
             'study.title',
             'researcherUser.fullName as researcherName',
             'reviewerUser.fullName as reviewerName',
-            'member.slug as memberSlug',
+            'org.slug as orgSlug',
             'latestJobStatus.status as latestJobStatus',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
         .orderBy('study.createdAt', 'desc')
         .execute()
-})
+}, z.object({
+    orgSlug: z.string()
+}))
 
 export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
     const userId = await getUserIdFromActionContext()
 
     return await db
         .selectFrom('study')
-        .innerJoin('memberUser', (join) => join.onRef('memberUser.memberId', '=', 'study.memberId'))
-        .innerJoin('member', (join) => join.onRef('member.id', '=', 'memberUser.memberId'))
-        .innerJoin('user', (join) => join.on('user.isResearcher', '=', true).onRef('memberUser.userId', '=', 'user.id'))
+        .innerJoin('orgUser', (join) =>
+            join.onRef('orgUser.orgId', '=', 'study.orgId').on('orgUser.isResearcher', '=', true),
+        )
 
-        .where('memberUser.userId', '=', userId)
+        .innerJoin('org', (join) => join.onRef('org.id', '=', 'orgUser.orgId'))
+        .where('orgUser.userId', '=', userId)
 
         .leftJoin(
             // Subquery to get the most recent study job for each study
@@ -124,7 +127,7 @@ export const fetchStudiesForCurrentResearcherAction = researcherAction(async () 
             'study.piName',
             'study.status',
             'study.createdAt',
-            'member.name as reviewerTeamName',
+            'org.name as reviewerTeamName',
             'latestJobStatus.status as latestJobStatus',
             'latestStudyJob.jobId as latestStudyJobId',
         ])
@@ -138,12 +141,12 @@ export const getStudyAction = userAction(async (studyId) => {
     return await db
         .selectFrom('study')
 
-        .innerJoin('memberUser', (join) =>
-            join.on('userId', '=', userId).onRef('memberUser.memberId', '=', 'study.memberId'),
+        .innerJoin('orgUser', (join) =>
+            join.on('userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'),
         )
         .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
 
-        .where('memberUser.userId', '=', userId)
+        .where('orgUser.userId', '=', userId)
         .select([
             'study.id',
             'study.approvedAt',
@@ -152,7 +155,7 @@ export const getStudyAction = userAction(async (studyId) => {
             'study.createdAt',
             'study.dataSources',
             'study.irbProtocols',
-            'study.memberId',
+            'study.orgId',
             'study.outputMimeType',
             'study.piName',
             'study.researcherId',
@@ -170,82 +173,95 @@ export const getStudyAction = userAction(async (studyId) => {
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposalAction = memberAction(async (studyId: string) => {
-    await checkMemberAllowedStudyReview(studyId)
-    const userId = await getUserIdFromActionContext()
-    const slug = await getOrgSlugFromActionContext()
+export const approveStudyProposalAction = orgAction(
+    async ({ studyId, orgSlug }) => {
+        await checkUserAllowedStudyReview(studyId)
+        const userId = await getUserIdFromActionContext()
+        await checkMemberOfOrgWithSlug(orgSlug)
 
-    // Start a transaction to ensure atomicity
-    await db.transaction().execute(async (trx) => {
-        // Update the status of the study
-        await trx
-            .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
-            .where('id', '=', studyId)
-            .execute()
+        // Start a transaction to ensure atomicity
+        await db.transaction().execute(async (trx) => {
+            // Update the status of the study
+            await trx
+                .updateTable('study')
+                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
 
-        const latestJob = await latestJobForStudy(studyId, { orgSlug: slug, userId }, trx)
-        if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
+            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
-        let status: StudyJobStatus = 'CODE-APPROVED'
+            let status: StudyJobStatus = 'CODE-APPROVED'
 
-        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-        if (SIMULATE_IMAGE_BUILD) {
-            status = 'JOB-READY'
-        } else {
-            await triggerBuildImageForJob({
-                studyJobId: latestJob.id,
-                studyId,
-                memberSlug: slug,
-            })
-        }
-        await trx
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status,
-                studyJobId: latestJob.id,
-            })
-            .executeTakeFirstOrThrow()
-    })
+            // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
+            if (SIMULATE_IMAGE_BUILD) {
+                status = 'JOB-READY'
+            } else {
+                await triggerBuildImageForJob({
+                    studyJobId: latestJob.id,
+                    studyId,
+                    orgSlug: orgSlug,
+                })
+            }
+            await trx
+                .insertInto('jobStatusChange')
+                .values({
+                    userId,
+                    status,
+                    studyJobId: latestJob.id,
+                })
+                .executeTakeFirstOrThrow()
+        })
 
-    logger.info('Study Approved', {
-        reviewerId: userId,
-        studyId: studyId,
-    })
+        logger.info('Study Approved', {
+            reviewerId: userId,
+            studyId: studyId,
+        })
 
-    revalidatePath(`/reviewer/[memberSlug]/study/${studyId}`, 'page')
-}, z.string())
+        revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+    },
+    z.object({
+        studyId: z.string(),
+        orgSlug: z.string(),
+    }),
+)
 
-export const rejectStudyProposalAction = memberAction(async (studyId: string) => {
-    await checkMemberAllowedStudyReview(studyId)
-    const userId = await getUserIdFromActionContext()
+export const rejectStudyProposalAction = orgAction(
+    async ({ studyId, orgSlug }) => {
+        await checkUserAllowedStudyReview(studyId)
+        const userId = await getUserIdFromActionContext()
+        await checkMemberOfOrgWithSlug(orgSlug)
 
-    // Start a transaction to ensure atomicity
-    await db.transaction().execute(async (trx) => {
-        await trx
-            .updateTable('study')
-            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
-            .where('id', '=', studyId)
-            .execute()
+        // Start a transaction to ensure atomicity
+        await db.transaction().execute(async (trx) => {
+            await trx
+                .updateTable('study')
+                .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
 
-        const latestJob = await latestJobForStudy(studyId, { userId }, trx)
-        if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            const latestJob = await latestJobForStudy(studyId, { userId }, trx)
+            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
-        await trx
-            .insertInto('jobStatusChange')
-            .values({
-                userId: userId,
-                status: 'CODE-REJECTED',
-                studyJobId: latestJob.id,
-            })
-            .executeTakeFirstOrThrow()
-    })
+            await trx
+                .insertInto('jobStatusChange')
+                .values({
+                    userId: userId,
+                    status: 'CODE-REJECTED',
+                    studyJobId: latestJob.id,
+                })
+                .executeTakeFirstOrThrow()
+        })
 
-    logger.info('Study Rejected', {
-        reviewerId: userId,
-        studyId: studyId,
-    })
+        logger.info('Study Rejected', {
+            reviewerId: userId,
+            studyId: studyId,
+        })
 
-    revalidatePath(`/reviewer/[memberSlug]/study/${studyId}`, 'page')
-}, z.string())
+        revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+    },
+    z.object({
+        studyId: z.string(),
+        orgSlug: z.string(),
+    }),
+)

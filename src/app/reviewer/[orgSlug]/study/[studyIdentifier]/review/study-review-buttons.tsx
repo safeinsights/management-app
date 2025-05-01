@@ -3,7 +3,7 @@
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
@@ -14,10 +14,11 @@ import {
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
-export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }> = ({ study, memberSlug }) => {
+export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
 
-    const backPath = `/reviewer/${memberSlug}/dashboard`
+    const backPath = `/reviewer/${orgSlug}/dashboard`
 
     const theme = useMantineTheme()
 
@@ -29,10 +30,10 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy; memberSlug: string }
     } = useMutation({
         mutationFn: (status: StudyStatus) => {
             if (status === 'APPROVED') {
-                return approveStudyProposalAction(study.id)
+                return approveStudyProposalAction({ orgSlug, studyId: study.id })
             }
 
-            return rejectStudyProposalAction(study.id)
+            return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
         onSettled(error) {
             if (!error) {

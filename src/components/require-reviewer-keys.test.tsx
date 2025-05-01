@@ -4,9 +4,9 @@ import { render, act } from '@testing-library/react'
 import router from 'next-router-mock'
 import { beforeEach, expect, it, vi, type Mock } from 'vitest'
 import { RequireReviewerKeys } from './require-reviewer-keys'
-import { getReviewerPublicKeyAction } from '@/server/actions/member.actions'
+import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
 
-vi.mock('@/server/actions/member.actions', () => ({
+vi.mock('@/server/actions/org.actions', () => ({
     getReviewerPublicKeyAction: vi.fn(() => Promise.resolve(null)),
 }))
 
