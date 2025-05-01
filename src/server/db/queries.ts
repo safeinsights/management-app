@@ -193,20 +193,20 @@ export async function getFirstOrganizationForUser(userId: string) {
         .executeTakeFirst()
 }
 
-export const getUsersByRoleAndMemberId = async (role: 'researcher' | 'reviewer', memberId: string) => {
+export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
     let query = db
         .selectFrom('user')
-        .innerJoin('memberUser', 'user.id', 'memberUser.userId')
-        .innerJoin('member', 'memberUser.memberId', 'member.id')
+        .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+        .innerJoin('org', 'orgUser.orgId', 'org.id')
         .selectAll()
-        .where('memberUser.memberId', '=', memberId)
+        .where('orgUser.orgId', '=', orgId)
 
     if (role === 'researcher') {
-        query = query.where('user.isResearcher', '=', true)
+        query = query.where('orgUser.isResearcher', '=', true)
     }
 
     if (role === 'reviewer') {
-        query = query.where('memberUser.isReviewer', '=', true)
+        query = query.where('orgUser.isReviewer', '=', true)
     }
 
     return await query.execute()

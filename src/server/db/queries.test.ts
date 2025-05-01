@@ -6,7 +6,7 @@ import {
     checkUserAllowedStudyView,
     getFirstOrganizationForUser,
     getReviewerPublicKey,
-    getUsersByRoleAndMemberId,
+    getUsersByRoleAndOrgId,
     jobInfoForJobId,
     latestJobForStudy,
     studyInfoForStudyId,
@@ -172,20 +172,20 @@ describe('getFirstOrganizationForUser', () => {
 describe('getUsersByRoleAndMemberId', () => {
     it('returns users with role reviewer for a member', async () => {
         const { org1, org1User1 } = await insertRecords()
-        const users = await getUsersByRoleAndMemberId('reviewer', org1.id)
+        const users = await getUsersByRoleAndOrgId('reviewer', org1.id)
         expect(users).not.toBeNull()
         expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User1.id })]))
     })
 
     it('returns users with role researcher for a member', async () => {
         const { org1, org1User2 } = await insertRecords()
-        const users = await getUsersByRoleAndMemberId('researcher', org1.id)
+        const users = await getUsersByRoleAndOrgId('researcher', org1.id)
         expect(users).not.toBeNull()
         expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User2.id })]))
     })
 
     it('returns empty array when memberId is invalid', async () => {
-        const users = await getUsersByRoleAndMemberId('researcher', invalidUUID)
+        const users = await getUsersByRoleAndOrgId('researcher', invalidUUID)
         expect(users).toEqual([])
     })
 })
