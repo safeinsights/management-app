@@ -48,7 +48,6 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
         .where('id', '=', info.studyJobId)
         .executeTakeFirstOrThrow()
 
-    return
     await db
         .insertInto('jobStatusChange')
         .values({
