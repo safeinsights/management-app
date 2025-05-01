@@ -59,3 +59,15 @@ export const ResearcherBreadcrumbs: FC<{
     }
     return <PageBreadcrumbs crumbs={crumbs} />
 }
+
+export const AdminBreadcrumbs: FC<{
+    crumbs: {
+        current?: string
+    }
+}> = ({ crumbs: { current } }) => {
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`], ['Admin']]
+    if (current) {
+        crumbs.push([current])
+    }
+    return <PageBreadcrumbs crumbs={crumbs} />
+}
