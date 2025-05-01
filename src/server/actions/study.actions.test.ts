@@ -22,7 +22,7 @@ describe('Study Actions', () => {
     it('getStudyAction returns any study that belongs to an org that user is a org of', async () => {
         const { user, org } = await mockSessionWithTestData()
         const otherOrg = await insertTestOrg()
-        const otherUser = await insertTestUser({ org: otherOrg })
+        const { user: otherUser } = await insertTestUser({ org: otherOrg })
 
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
@@ -38,7 +38,7 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData()
 
         const otherOrg = await insertTestOrg()
-        const otherUser = await insertTestUser({ org: otherOrg })
+        const { user: otherUser } = await insertTestUser({ org: otherOrg })
 
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 

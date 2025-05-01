@@ -18,6 +18,7 @@ import { Mock, vi } from 'vitest'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { Org } from '@/schema/org'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -49,7 +50,7 @@ export * from './common.helpers'
 
 export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalTestOrg; researcherId?: string }) => {
     if (!researcherId) {
-        const user = await insertTestUser({ org })
+        const { user } = await insertTestUser({ org })
         researcherId = user.id
     }
     const study = await db
@@ -119,10 +120,12 @@ export const insertTestUser = async ({
     org,
     isResearcher = true,
     isReviewer = true,
+    isAdmin = false,
 }: {
     org: MinimalTestOrg
     isResearcher?: boolean
     isReviewer?: boolean
+    isAdmin?: boolean
 }) => {
     const user = await db
         .insertInto('user')
@@ -136,16 +139,17 @@ export const insertTestUser = async ({
         .executeTakeFirstOrThrow()
 
     // Add users as orgUsers
-    await db
+    const orgUser = await db
         .insertInto('orgUser')
         .values({
             orgId: org.id,
             userId: user.id,
             isResearcher,
-            isAdmin: false,
+            isAdmin,
             isReviewer,
         })
-        .execute()
+        .returningAll()
+        .executeTakeFirstOrThrow()
 
     if (isReviewer) {
         await db
@@ -158,7 +162,7 @@ export const insertTestUser = async ({
             .executeTakeFirstOrThrow()
     }
 
-    return user
+    return { user, orgUser }
 }
 
 type MinimalTestOrg = { slug: string; id: string }
@@ -178,7 +182,8 @@ export const insertTestStudyJobData = async ({
         org = await insertTestOrg()
     }
     if (!researcherId) {
-        researcherId = (await insertTestUser({ org: org })).id
+        const { user } = await insertTestUser({ org: org })
+        researcherId = user.id
     }
     const study = await db
         .insertInto('study')
@@ -230,8 +235,8 @@ export const insertTestStudyJobUsers = async ({ org }: { org?: MinimalTestOrg } 
     if (!org) {
         org = await insertTestOrg()
     }
-    const user1 = await insertTestUser({ org })
-    const user2 = await insertTestUser({ org, isReviewer: false })
+    const { user: user1 } = await insertTestUser({ org })
+    const { user: user2 } = await insertTestUser({ org, isReviewer: false })
 
     const { study, job } = await insertTestStudyJobData({ org })
 
@@ -248,17 +253,19 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
-    const org = await db
-        .insertInto('org')
-        .values({
-            slug: opts.slug,
-            name: 'test',
-            email: 'none@test.com',
-            publicKey,
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
-
+    const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll().executeTakeFirst()
+    const org =
+        existing ||
+        (await db
+            .insertInto('org')
+            .values({
+                slug: opts.slug,
+                name: 'test',
+                email: 'none@test.com',
+                publicKey,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow())
     ;(await headers()).set(
         'Authorization',
         `Bearer ${jwt.sign(
@@ -273,7 +280,6 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
 }
 
 type MockSession = {
-    //userId: string
     clerkUserId: string
     org_slug: string
 }
@@ -318,6 +324,7 @@ export const mockClerkSession = (values: MockSession) => {
         isLoaded: true,
     })
     auth.mockImplementation(() => ({
+        orgSlug: values.org_slug,
         sessionClaims: { org_slug: values.org_slug },
         userId: values.clerkUserId,
     }))
@@ -325,13 +332,22 @@ export const mockClerkSession = (values: MockSession) => {
     return { client: clientMocks, auth, useUserReturn }
 }
 
-export async function mockSessionWithTestData(orgSlug = faker.string.alpha(10)) {
-    const org = await insertTestOrg({ slug: orgSlug })
-    const user = await insertTestUser({ org: { id: org.id, slug: orgSlug } })
+type MockSessionWithTestDataOptions = {
+    orgSlug?: string
+    isResearcher?: boolean
+    isReviewer?: boolean
+    isAdmin?: boolean
+}
+
+export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
+    if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
+
+    const org = await insertTestOrg({ slug: options.orgSlug })
+    const { user, orgUser } = await insertTestUser({ org: { id: org.id, slug: options.orgSlug }, ...options })
 
     const mocks = mockClerkSession({
         clerkUserId: user.clerkId,
         org_slug: org.slug,
     })
-    return { org, user, ...mocks }
+    return { org, user, orgUser, ...mocks }
 }

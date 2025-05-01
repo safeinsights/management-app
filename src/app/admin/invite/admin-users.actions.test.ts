@@ -1,7 +1,6 @@
 import { db } from '@/database'
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { mockClerkSession, type ClerkMocks } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, type ClerkMocks } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
@@ -15,11 +14,8 @@ vi.mock('@/server/mailgun', () => ({
 
 describe('invite user Actions', async () => {
     let clerkMocks: ClerkMocks | null = null
-    beforeEach(() => {
-        clerkMocks = mockClerkSession({
-            clerkUserId: 'user-id',
-            org_slug: CLERK_ADMIN_ORG_SLUG,
-        })
+    beforeEach(async () => {
+        clerkMocks = await mockSessionWithTestData({ isAdmin: true })
     })
 
     async function userRecordCount() {
@@ -97,6 +93,6 @@ describe('invite user Actions', async () => {
             },
         }))
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError()
-        expect(beforeCount).toEqual((await userRecordCount()) - 1)
+        expect(beforeCount).toEqual(await userRecordCount())
     })
 })
