@@ -254,3 +254,7 @@ export const getStudyAndOrg = async (studyId: string) => {
 
     return res
 }
+
+export const getUserById = async (userId: string) => {
+    return await db.selectFrom('user').selectAll().where('id', '=', userId).executeTakeFirstOrThrow()
+}
