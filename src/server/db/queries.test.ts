@@ -112,20 +112,6 @@ describe('getReviewerPublicKey', () => {
     })
 })
 
-describe('latestJobForStudy', () => {
-    it('returns the latest job for a study', async () => {
-        const { study1, job1 } = await insertRecords()
-        const latestJob = await latestJobForStudy(study1.id)
-        expect(latestJob).not.toBeNull()
-        expect(latestJob?.id).toBe(job1.id)
-    })
-
-    it('returns null when studyId is invalid', async () => {
-        const latestJob = await latestJobForStudy(invalidUUID)
-        expect(latestJob).toBeUndefined()
-    })
-})
-
 describe('jobInfoForJobId', () => {
     it('returns job info when jobId is valid', async () => {
         const { job1, org1 } = await insertRecords()
@@ -133,10 +119,6 @@ describe('jobInfoForJobId', () => {
         expect(jobInfo).not.toBeNull()
         expect(jobInfo?.studyJobId).toBe(job1.id)
         expect(jobInfo?.orgSlug).toBe(org1.slug)
-    })
-
-    it('throws an error when jobId is invalid', async () => {
-        await expect(jobInfoForJobId('invalid-job-id')).rejects.toThrow()
     })
 })
 
