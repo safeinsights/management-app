@@ -255,7 +255,6 @@ export const rejectStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
-        // Send proposal approved email
         await sendStudyProposalRejectedEmail(studyId)
 
         logger.info('Study Rejected', {

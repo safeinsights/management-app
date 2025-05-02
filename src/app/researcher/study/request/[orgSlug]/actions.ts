@@ -8,7 +8,6 @@ import { getUserIdFromActionContext, researcherAction, z } from '@/server/action
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
-import { currentUser } from '@clerk/nextjs/server'
 import { sendStudyProposalEmails } from '@/server/mailgun'
 import { revalidatePath } from 'next/cache'
 
@@ -19,10 +18,6 @@ const onCreateStudyActionArgsSchema = z.object({
 
 export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo }) => {
     const userId = await getUserIdFromActionContext()
-    const user = await currentUser()
-    if (!user) {
-        throw new Error('No user')
-    }
 
     const org = await getOrgFromSlugAction(orgSlug)
 

@@ -194,20 +194,65 @@ export async function getFirstOrganizationForUser(userId: string) {
 }
 
 export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
-    let query = db
+    const query = db
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'orgUser.orgId', 'org.id')
         .selectAll()
-        .where('orgUser.orgId', '=', orgId)
+        .where((eb) => {
+            const filters = []
+            filters.push(eb('orgUser.orgId', '=', orgId))
 
-    if (role === 'researcher') {
-        query = query.where('orgUser.isResearcher', '=', true)
-    }
+            if (role === 'researcher') {
+                filters.push(eb('orgUser.isResearcher', '=', true))
+            }
 
-    if (role === 'reviewer') {
-        query = query.where('orgUser.isReviewer', '=', true)
-    }
+            if (role === 'reviewer') {
+                filters.push(eb('orgUser.isReviewer', '=', true))
+            }
+
+            return eb.and(filters)
+        })
 
     return await query.execute()
+}
+
+export const getStudyAndOrg = async (studyId: string) => {
+    const user = await siUser()
+
+    const res = await db
+        .selectFrom('study')
+        .innerJoin('orgUser', (join) => join.on('userId', '=', user.id).onRef('orgUser.orgId', '=', 'study.orgId'))
+        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .where('orgUser.userId', '=', user.id)
+        .select([
+            'study.id',
+            'study.approvedAt',
+            'study.rejectedAt',
+            'study.containerLocation',
+            'study.createdAt',
+            'study.dataSources',
+            'study.irbProtocols',
+            'study.orgId',
+            'study.outputMimeType',
+            'study.piName',
+            'study.researcherId',
+            'study.status',
+            'study.title',
+            'study.descriptionDocPath',
+            'study.irbDocPath',
+            'study.reviewerId',
+            'study.agreementDocPath',
+            'researcher.fullName as researcherName',
+            'org.slug as orgSlug',
+            'org.name as orgName',
+        ])
+        .selectAll('org')
+        .where('study.id', '=', studyId)
+        .executeTakeFirst()
+
+    if (!res) throw new Error('Study & Org not found')
+
+    return res
 }

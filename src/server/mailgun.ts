@@ -1,10 +1,8 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
 import { getConfigValue, PROD_ENV } from './config'
-import { getUsersByRoleAndOrgId } from '@/server/db/queries'
+import { getStudyAndOrg, getUsersByRoleAndOrgId } from '@/server/db/queries'
 import dayjs from 'dayjs'
-import { getStudyAction } from '@/server/actions/study.actions'
-import { getOrgFromIdAction } from '@/server/actions/org.actions'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 const BASE_URL = `https://${process.env.DOMAIN_NAME}`
@@ -34,16 +32,6 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     return [_mg, domain]
 }
 
-const getStudyAndOrg = async (studyId: string) => {
-    const study = await getStudyAction(studyId)
-    // TODO DISCUSS in general, do we want to throw? or return undefined if no study found inside getStudyAction?
-    if (!study) throw new Error('Study not found')
-    const org = await getOrgFromIdAction(study.orgId)
-    if (!org) throw new Error('Org not found')
-
-    return { study, org }
-}
-
 export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
@@ -70,8 +58,8 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
-    const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', org.id)
+    const study = await getStudyAndOrg(studyId)
+    const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', study.orgId)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -88,7 +76,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                    studyURL: `${BASE_URL}/organization/${org?.slug}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/organization/${study?.orgSlug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
@@ -101,9 +89,9 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrg(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', org.id)
+    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', study.orgId)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -119,7 +107,7 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
-                    submittedTo: org.name,
+                    submittedTo: study.orgName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
                 }),
             })
@@ -133,9 +121,9 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrg(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', org.id)
+    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', study.orgId)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -151,9 +139,9 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
-                    submittedTo: org.name,
+                    submittedTo: study.orgName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                    studyURL: `${BASE_URL}/organization/${org.slug}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
@@ -166,8 +154,8 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
-    const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', org.id)
+    const study = await getStudyAndOrg(studyId)
+    const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', study.orgId)
 
     for (const reviewer of reviewersToNotify) {
         const email = reviewer.email
@@ -184,7 +172,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                    studyURL: `${BASE_URL}/organization/${org?.slug}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
@@ -197,8 +185,8 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
-    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', org.id)
+    const study = await getStudyAndOrg(studyId)
+    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', study.orgId)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -214,9 +202,9 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
-                    submittedTo: org.name,
+                    submittedTo: study.orgName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                    studyURL: `${BASE_URL}/organization/${org?.slug}/study/${studyId}/review`,
+                    studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
                 }),
             })
         } catch (error) {
@@ -229,9 +217,9 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) return
 
-    const { study, org } = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrg(studyId)
 
-    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', org.id)
+    const researchersToNotify = await getUsersByRoleAndOrgId('researcher', study.orgId)
 
     for (const researcher of researchersToNotify) {
         const email = researcher.email
@@ -247,7 +235,7 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
                     fullName: researcher.fullName,
                     studyTitle: study.title,
                     submittedBy: study.researcherName,
-                    submittedTo: org.name,
+                    submittedTo: study.orgName,
                     submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
                 }),
             })
