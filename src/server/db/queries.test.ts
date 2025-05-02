@@ -1,6 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { insertTestOrg, insertTestStudyJobUsers, mockClerkSession } from '@/tests/unit.helpers'
-import { checkUserAllowedJobView, checkUserAllowedStudyView, checkUserAllowedStudyReview } from './queries'
+import {
+    checkUserAllowedJobView,
+    checkUserAllowedStudyReview,
+    checkUserAllowedStudyView,
+    getFirstOrganizationForUser,
+    getReviewerPublicKey,
+    getUsersByRoleAndOrgId,
+    jobInfoForJobId,
+    studyInfoForStudyId,
+} from './queries'
 import { AccessDeniedError } from '@/lib/errors'
 
 async function insertRecords() {
@@ -32,6 +41,8 @@ async function insertRecords() {
         org2User2,
     }
 }
+
+const invalidUUID = '00000000-0000-0000-0000-000000000000'
 
 describe('checkUserAllowedJobView', () => {
     it('allows the user when they are a org of the study owning the job', async () => {
@@ -84,5 +95,78 @@ describe('checkOrgAllowedStudyReview', () => {
         const { study1, org1, org1User2 } = await insertRecords()
         mockClerkSession({ clerkUserId: org1User2.clerkId, org_slug: org1.slug })
         await expect(checkUserAllowedStudyReview(study1.id)).rejects.toThrow(AccessDeniedError)
+    })
+})
+
+describe('getReviewerPublicKey', () => {
+    it('returns public key when userId is valid', async () => {
+        const { org1User1 } = await insertRecords()
+        const publicKey = await getReviewerPublicKey(org1User1.id)
+        expect(publicKey).not.toBeNull()
+    })
+
+    it('returns null when userId is invalid', async () => {
+        const publicKey = await getReviewerPublicKey(invalidUUID)
+        expect(publicKey).toBeUndefined()
+    })
+})
+
+describe('jobInfoForJobId', () => {
+    it('returns job info when jobId is valid', async () => {
+        const { job1, org1 } = await insertRecords()
+        const jobInfo = await jobInfoForJobId(job1.id)
+        expect(jobInfo).not.toBeNull()
+        expect(jobInfo?.studyJobId).toBe(job1.id)
+        expect(jobInfo?.orgSlug).toBe(org1.slug)
+    })
+})
+
+describe('studyInfoForStudyId', () => {
+    it('returns study info when studyId is valid', async () => {
+        const { study1, org1 } = await insertRecords()
+        const studyInfo = await studyInfoForStudyId(study1.id)
+        expect(studyInfo).not.toBeNull()
+        expect(studyInfo?.studyId).toBe(study1.id)
+        expect(studyInfo?.orgSlug).toBe(org1.slug)
+    })
+
+    it('returns null when studyId is invalid', async () => {
+        const studyInfo = await studyInfoForStudyId(invalidUUID)
+        expect(studyInfo).toBeUndefined()
+    })
+})
+
+describe('getFirstOrganizationForUser', () => {
+    it('returns the first organization for a user', async () => {
+        const { org1User1, org1 } = await insertRecords()
+        const organization = await getFirstOrganizationForUser(org1User1.id)
+        expect(organization).not.toBeNull()
+        expect(organization?.id).toBe(org1.id)
+    })
+
+    it('returns null when userId is invalid', async () => {
+        const organization = await getFirstOrganizationForUser(invalidUUID)
+        expect(organization).toBeUndefined()
+    })
+})
+
+describe('getUsersByRoleAndMemberId', () => {
+    it('returns users with role reviewer for a member', async () => {
+        const { org1, org1User1 } = await insertRecords()
+        const users = await getUsersByRoleAndOrgId('reviewer', org1.id)
+        expect(users).not.toBeNull()
+        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User1.id })]))
+    })
+
+    it('returns users with role researcher for a member', async () => {
+        const { org1, org1User2 } = await insertRecords()
+        const users = await getUsersByRoleAndOrgId('researcher', org1.id)
+        expect(users).not.toBeNull()
+        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User2.id })]))
+    })
+
+    it('returns empty array when memberId is invalid', async () => {
+        const users = await getUsersByRoleAndOrgId('researcher', invalidUUID)
+        expect(users).toEqual([])
     })
 })

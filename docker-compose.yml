@@ -87,6 +87,8 @@ services:
             - S3_BROWSER_ENDPOINT=http://localhost:9198
             - MINIO_ROOT_USER=si-local-minio
             - MINIO_ROOT_PASSWORD=si-local-minio
+            - AWS_ACCESS_KEY_ID=si-local-minio
+            - AWS_SECRET_ACCESS_KEY=si-local-minio
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1

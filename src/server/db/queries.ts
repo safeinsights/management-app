@@ -33,7 +33,7 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
         .where('studyJob.id', '=', jobId)
@@ -49,7 +49,7 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
         .where('study.id', '=', studyId)
@@ -65,7 +65,7 @@ export const checkUserAllowedStudyReview = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         // and has the 'isReviewer' flag set
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
@@ -127,6 +127,7 @@ export const latestJobForStudy = async (
         .selectAll('studyJob')
         // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
+
         .$if(Boolean(orgSlug), (qb) =>
             qb.innerJoin('org', (join) => join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId')),
         )
@@ -141,13 +142,13 @@ export const latestJobForStudy = async (
                     .distinctOn('studyJobId')
                     .select([
                         'jobStatusChange.studyJobId',
-                        'createdAt as latestStatusChangeOccuredAt',
+                        'createdAt as latestStatusChangeOccurredAt',
                         'status as latestStatus',
                     ])
                     .as('latestStatusChange'),
             (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
         )
-        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccuredAt'])
+        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccurredAt'])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
@@ -188,4 +189,72 @@ export async function getFirstOrganizationForUser(userId: string) {
         .where('org.slug', '<>', CLERK_ADMIN_ORG_SLUG)
         .limit(1)
         .executeTakeFirst()
+}
+
+export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
+    const query = db
+        .selectFrom('user')
+        .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+        .innerJoin('org', 'orgUser.orgId', 'org.id')
+        .selectAll()
+        .where((eb) => {
+            const filters = []
+            filters.push(eb('orgUser.orgId', '=', orgId))
+
+            if (role === 'researcher') {
+                filters.push(eb('orgUser.isResearcher', '=', true))
+            }
+
+            if (role === 'reviewer') {
+                filters.push(eb('orgUser.isReviewer', '=', true))
+            }
+
+            return eb.and(filters)
+        })
+
+    return await query.execute()
+}
+
+export const getStudyAndOrg = async (studyId: string) => {
+    const user = await siUser()
+
+    const res = await db
+        .selectFrom('study')
+        .innerJoin('orgUser', (join) => join.on('userId', '=', user.id).onRef('orgUser.orgId', '=', 'study.orgId'))
+        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .where('orgUser.userId', '=', user.id)
+        .select([
+            'study.id',
+            'study.approvedAt',
+            'study.rejectedAt',
+            'study.containerLocation',
+            'study.createdAt',
+            'study.dataSources',
+            'study.irbProtocols',
+            'study.orgId',
+            'study.outputMimeType',
+            'study.piName',
+            'study.researcherId',
+            'study.status',
+            'study.title',
+            'study.descriptionDocPath',
+            'study.irbDocPath',
+            'study.reviewerId',
+            'study.agreementDocPath',
+            'researcher.fullName as researcherName',
+            'org.slug as orgSlug',
+            'org.name as orgName',
+        ])
+        .selectAll('org')
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
+
+    if (!res) throw new Error('Study & Org not found')
+
+    return res
+}
+
+export const getUserById = async (userId: string) => {
+    return await db.selectFrom('user').selectAll().where('id', '=', userId).executeTakeFirstOrThrow()
 }

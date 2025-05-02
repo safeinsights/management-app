@@ -31,6 +31,10 @@ export const upsertOrgAction = adminAction(async (org) => {
     return results
 }, orgSchema)
 
+export const getOrgFromIdAction = userAction(async (id) => {
+    return await db.selectFrom('org').selectAll().where('id', '=', id).executeTakeFirst()
+}, z.string())
+
 export const fetchOrgsForSelectAction = adminAction(async () => {
     return await db.selectFrom('org').select(['id as value', 'name as label']).execute()
 })

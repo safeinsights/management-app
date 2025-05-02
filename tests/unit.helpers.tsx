@@ -282,6 +282,7 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
 type MockSession = {
     clerkUserId: string
     org_slug: string
+    imageUrl?: string
 }
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
@@ -293,6 +294,7 @@ export const mockClerkSession = (values: MockSession) => {
         id: values.clerkUserId,
         banned: false,
         twoFactorEnabled: true,
+        imageUrl: values.imageUrl,
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
