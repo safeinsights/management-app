@@ -100,6 +100,7 @@ function isActionsFile(filePath: string) {
     return filePath.endsWith('actions.ts')
 }
 
+const IS_SERVER = /['"]use server['"]/
 /**
  * Analyzes a single file: checks if it contains the "use server" directive,
  * then parses its AST to check for exported functions and if they are wrapped.
@@ -107,7 +108,7 @@ function isActionsFile(filePath: string) {
 function analyzeFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf8')
     let success = true
-    if (content.includes("'use server'") || content.includes('"use server"')) {
+    if (IS_SERVER.test(content)) {
         const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
         const exportedFunctions = checkExportedFunctions(sourceFile)
         if (exportedFunctions.length > 0) {
@@ -152,5 +153,5 @@ function analyzeDirectory(directoryPath: string): void {
 // Run the analysis.
 // Usage: ts-node checkServerActions.ts <path-to-nextjs-app>
 // If no directory is provided, it defaults to the current working directory.
-const targetDirectory = process.argv[2] || '.'
+const targetDirectory = process.argv[2] || 'src'
 analyzeDirectory(targetDirectory)
