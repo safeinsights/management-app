@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
     insertTestOrg,
     insertTestStudyData,
@@ -10,6 +10,10 @@ import {
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { latestJobForStudy } from '../db/queries'
 import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
+
+vi.mock('@/server/mailgun', () => ({
+    sendStudyProposalApprovedEmail: vi.fn(),
+}))
 
 describe('Study Actions', () => {
     it('successfully approves a study proposal', async () => {
