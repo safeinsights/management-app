@@ -33,7 +33,7 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
         .selectFrom('studyJob')
         .select('studyJob.id')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
         .where('studyJob.id', '=', jobId)
@@ -49,7 +49,7 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
         .where('study.id', '=', studyId)
@@ -65,7 +65,7 @@ export const checkUserAllowedStudyReview = async (studyId?: string) => {
     await db
         .selectFrom('study')
         .select('study.id')
-        // security, check that user is a org of the org that owns the study
+        // security, check that user is an org of the org that owns the study
         // and has the 'isReviewer' flag set
         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
         .where('orgUser.userId', '=', userId)
@@ -142,13 +142,13 @@ export const latestJobForStudy = async (
                     .distinctOn('studyJobId')
                     .select([
                         'jobStatusChange.studyJobId',
-                        'createdAt as latestStatusChangeOccuredAt',
+                        'createdAt as latestStatusChangeOccurredAt',
                         'status as latestStatus',
                     ])
                     .as('latestStatusChange'),
             (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
         )
-        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccuredAt'])
+        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccurredAt'])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
