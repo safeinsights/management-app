@@ -2,20 +2,18 @@ import { z } from 'zod'
 
 export const inviteUserSchema = z
     .object({
-        firstName: z.string().nonempty('is required'),
-        lastName: z.string().nonempty('is required'),
-        email: z.string().nonempty().email('This is not a valid email.'),
-        password: z.string().nonempty('password is required'),
-        isReviewer: z.boolean().optional(),
-        isResearcher: z.boolean().optional(),
+        email: z.string().nonempty().email('Invalid email address'),
+        password: z.string().nonempty(),
+        isReviewer: z.boolean(),
+        isResearcher: z.boolean(),
         organizationId: z.string().nonempty('organization must be selected'),
     })
     .superRefine((data, ctx) => {
         if (!data.isReviewer && !data.isResearcher) {
             ctx.addIssue({
-                path: ['role'],
+                path: ['isResearcher'], // Attach error to one of the fields for UI
                 code: z.ZodIssueCode.custom,
-                message: 'At least one role must be selected.',
+                message: 'At least one role (Reviewer or Researcher) must be selected.',
             })
         }
     })

@@ -29,7 +29,7 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     return [_mg, domain]
 }
 
-export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
+export const sendWelcomeEmail = async (emailTo: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
         return
@@ -42,7 +42,6 @@ export const sendWelcomeEmail = async (emailTo: string, fullName: string) => {
             subject: 'Get started with SafeInsights',
             template: 'welcome email',
             'h:X-Mailgun-Variables': JSON.stringify({
-                fullName,
                 resetPasswordLink: `https://${process.env.DOMAIN_NAME}/account/reset-password`,
             }),
         })

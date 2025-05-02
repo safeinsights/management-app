@@ -11,15 +11,20 @@ import { isClerkApiError, SanitizedError } from '@/lib/errors'
 export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()
     let clerkUserId = ''
+    let clerkFirstName = ''
+    let clerkLastName = ''
 
     try {
         const clerkUser = await client.users.createUser({
-            firstName: invite.firstName,
-            lastName: invite.lastName,
             emailAddress: [invite.email],
             password: invite.password,
+            firstName: '',
+            lastName: '',
         })
         clerkUserId = clerkUser.id
+
+        clerkFirstName = clerkUser.firstName ?? ''
+        clerkLastName = clerkUser.lastName ?? ''
     } catch (error) {
         if (isClerkApiError(error)) {
             // the user is an admin, they can see the clerk error
@@ -59,9 +64,9 @@ export const adminInviteUserAction = adminAction(async (invite) => {
             .insertInto('user')
             .values({
                 clerkId: clerkUserId,
-                firstName: invite.firstName,
-                lastName: invite.lastName,
                 email: invite.email,
+                firstName: clerkFirstName,
+                lastName: clerkLastName,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
@@ -78,8 +83,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const fullName = `${invite.firstName} ${invite.lastName}`
-        await sendWelcomeEmail(invite.email, fullName)
+        await sendWelcomeEmail(invite.email)
 
         // Return the created user record.
         return {

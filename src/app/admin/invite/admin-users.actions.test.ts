@@ -64,8 +64,6 @@ describe('invite user Actions', async () => {
         expect(orgUser).toBeTruthy()
 
         expect(clerkMocks?.client.users.createUser).toHaveBeenCalledWith({
-            firstName: userInvite.firstName,
-            lastName: userInvite.lastName,
             emailAddress: [userInvite.email],
             password: userInvite.password,
         })
@@ -74,7 +72,7 @@ describe('invite user Actions', async () => {
             expect.objectContaining({ userId: '1234' }),
         )
 
-        expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email, `${user.firstName} ${user.lastName}`)
+        expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email)
     })
 
     it('throws an error when user insert fails', async () => {
