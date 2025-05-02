@@ -6,10 +6,10 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
 import { Select, Flex, Text } from '@mantine/core'
-import { UserInitialsAvatar } from '@/components/user-avatar'
 import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUser } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { reportMutationError } from '@/components/errors'
+import { UserAvatar } from '@/components/user-avatar'
 
 type User = OrgUserReturn
 
@@ -101,7 +101,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     sortable: true,
                     render: (user: User) => (
                         <Flex align={'center'} gap="lg">
-                            <UserInitialsAvatar name={user.fullName} />
+                            <UserAvatar />
                             <Flex direction="column">
                                 <Text>{user.fullName}</Text>
                                 <Text size="sm" c="gray.6">
