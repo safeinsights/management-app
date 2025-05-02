@@ -56,7 +56,7 @@ export const JobReviewButtons = ({
         return (
             <Group c="#12B886" gap="0">
                 <CheckCircle weight="fill" />
-                <Text>Approved on {dayjs(job.latestStatusChangeOccuredAt).format('MMM DD, YYYY')}</Text>
+                <Text>Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}</Text>
             </Group>
         )
     }
@@ -65,7 +65,7 @@ export const JobReviewButtons = ({
         return (
             <Group c="#FA5252" gap="0">
                 <XCircle weight="fill" />
-                <Text>Rejected on {dayjs(job.latestStatusChangeOccuredAt).format('MMM DD, YYYY')}</Text>
+                <Text>Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}</Text>
             </Group>
         )
     }

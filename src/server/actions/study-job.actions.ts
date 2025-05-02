@@ -9,17 +9,18 @@ import {
     storeStudyResultsFile,
 } from '@/server/storage'
 import {
-    z,
-    orgAction,
-    userAction,
     actionContext,
     checkMemberOfOrgWithSlug,
     getUserIdFromActionContext,
+    orgAction,
+    userAction,
+    z,
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkUserAllowedStudyReview } from '../db/queries'
 import { SanitizedError } from '@/lib/errors'
+import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailgun'
 
 const approveStudyJobResultsActionSchema = z.object({
     orgSlug: z.string(),
@@ -35,7 +36,7 @@ const approveStudyJobResultsActionSchema = z.object({
 export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobResults }) => {
     await checkUserAllowedStudyReview(info.studyId)
 
-    // FIXME: handle more than a single result.  will require a db schema change
+    // FIXME: handle more than a single result. will require a db schema change
     const result = jobResults[0]
 
     const resultsFile = new File([result.contents], result.path)
@@ -47,6 +48,7 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
         .set({ resultsPath: resultsFile.name })
         .where('id', '=', info.studyJobId)
         .executeTakeFirstOrThrow()
+
     await db
         .insertInto('jobStatusChange')
         .values({
@@ -55,6 +57,8 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
+
+    await sendStudyResultsApprovedEmail(info.studyId)
     revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
 }, approveStudyJobResultsActionSchema)
 
@@ -72,6 +76,8 @@ export const rejectStudyJobResultsAction = orgAction(
             .executeTakeFirstOrThrow()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
+
+        await sendStudyResultsRejectedEmail(info.studyId)
 
         revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
     },
@@ -142,11 +148,10 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
 
     const job = await queryJobResult(jobId)
 
-    // TODO This keeps spitting out a bunch of errors in the logs,
-    //  should prob handle this a different way
     if (!job || job.resultsType != 'APPROVED') {
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
+
     const body = await fetchStudyApprovedResultsFile(job)
     return body.text()
 }, z.string())

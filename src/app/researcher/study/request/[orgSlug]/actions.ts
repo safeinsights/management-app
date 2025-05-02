@@ -8,6 +8,7 @@ import { getUserIdFromActionContext, researcherAction, z } from '@/server/action
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
+import { sendStudyProposalEmails } from '@/server/mailgun'
 import { revalidatePath } from 'next/cache'
 
 const onCreateStudyActionArgsSchema = z.object({
@@ -23,6 +24,7 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
     const studyId = uuidv7()
 
     const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: org.slug })
+
     await db
         .insertInto('study')
         .values({
@@ -64,6 +66,8 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
             studyJobId: studyJob.id,
         })
         .execute()
+
+    await sendStudyProposalEmails(studyId)
 
     const studyJobCodePath = pathForStudyJobCode({
         orgSlug,
