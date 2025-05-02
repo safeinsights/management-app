@@ -282,7 +282,7 @@ type MockSession = {
     //userId: string
     clerkUserId: string
     org_slug: string
-    profileImageUrl?: string
+    imageUrl?: string
 }
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
@@ -294,7 +294,7 @@ export const mockClerkSession = (values: MockSession) => {
         id: values.clerkUserId,
         banned: false,
         twoFactorEnabled: true,
-        profileImageUrl: values.profileImageUrl
+        imageUrl: values.imageUrl,
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {

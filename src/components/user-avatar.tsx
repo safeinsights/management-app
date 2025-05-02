@@ -8,5 +8,5 @@ export function UserAvatar() {
     if (!user) {
         return null
     }
-    return <Avatar src={user.profileImageUrl} alt="User profile" />
+    return <Avatar src={user.imageUrl} alt="User profile" />
 }
