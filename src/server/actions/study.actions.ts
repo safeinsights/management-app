@@ -17,6 +17,7 @@ import { StudyJobStatus } from '@/database/types'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { triggerBuildImageForJob } from '../aws'
 import logger from '@/lib/logger'
+import { sendStudyProposalApprovedEmail, sendStudyProposalRejectedEmail } from '@/server/mailgun'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -212,6 +213,8 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
+        await sendStudyProposalApprovedEmail(studyId)
+
         logger.info('Study Approved', {
             reviewerId: userId,
             studyId: studyId,
@@ -251,6 +254,8 @@ export const rejectStudyProposalAction = orgAction(
                 })
                 .executeTakeFirstOrThrow()
         })
+
+        await sendStudyProposalRejectedEmail(studyId)
 
         logger.info('Study Rejected', {
             reviewerId: userId,

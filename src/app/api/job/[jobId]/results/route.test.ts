@@ -1,8 +1,13 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { db } from '@/database'
+import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
 import { fetchStudyResultsFile } from '@/server/storage'
+
+vi.mock('@/server/mailgun', () => ({
+    sendResultsReadyForReviewEmail: vi.fn(),
+}))
 
 test('handling upload', async () => {
     const org = await insertTestOrg()
@@ -21,6 +26,7 @@ test('handling upload', async () => {
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
     expect(resp.ok).toBe(true)
+    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
 
     const studyResultsFile = await fetchStudyResultsFile({
         orgSlug: org.slug,
