@@ -8,7 +8,6 @@ import {
     getReviewerPublicKey,
     getUsersByRoleAndOrgId,
     jobInfoForJobId,
-    latestJobForStudy,
     studyInfoForStudyId,
 } from './queries'
 import { AccessDeniedError } from '@/lib/errors'
