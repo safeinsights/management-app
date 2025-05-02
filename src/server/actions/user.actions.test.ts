@@ -8,7 +8,7 @@ describe('User Actions', () => {
     describe('findOrCreateSiUserId', () => {
         it('returns existing user id when user exists', async () => {
             const org = await insertTestOrg()
-            const user = await insertTestUser({ org })
+            const { user } = await insertTestUser({ org })
 
             const foundUserId = await findOrCreateSiUserId(user.clerkId)
             expect(foundUserId).toBe(user.id)

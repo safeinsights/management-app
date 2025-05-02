@@ -9,10 +9,19 @@ import { db } from '@/database'
 
 export { z } from 'zod'
 
+export type ActionContextOrgInfo = {
+    id: number
+    slug: string
+    isResearcher: boolean
+    isAdmin: boolean
+    isReviewer: boolean
+}
+
+export type OptionalActionContextOrgInfo = Partial<ActionContextOrgInfo>
+
 export type ActionContext = {
-    userId?: string | null
-    orgSlug?: string | null
-    user?: SiUser | null
+    user: SiUser | Partial<SiUser>
+    org: OptionalActionContextOrgInfo
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
@@ -24,24 +33,27 @@ export async function actionContext() {
         const { sessionClaims } = await clerkAuth()
         return {
             user: user,
-            userId: user.id,
-            orgSlug: sessionClaims?.org_slug as string | undefined,
-        }
+            org: {
+                slug: sessionClaims?.org_slug as string | undefined,
+            },
+        } as ActionContext
     }
     return ctx as ActionContext
 }
 
 export async function getUserIdFromActionContext(): Promise<string> {
     const ctx = await actionContext()
-    return ctx.userId ?? ''
+    return ctx.user.id ?? ''
 }
 
-export async function getOrgSlugFromActionContext(throwIfNotFound?: true): Promise<string>
-export async function getOrgSlugFromActionContext(throwIfNotFound?: false): Promise<string | null>
-export async function getOrgSlugFromActionContext(throwIfNotFound = true): Promise<string | null> {
+export async function getOrgInfoFromActionContext(throwIfNotFound?: true): Promise<ActionContextOrgInfo>
+export async function getOrgInfoFromActionContext(throwIfNotFound?: false): Promise<OptionalActionContextOrgInfo>
+export async function getOrgInfoFromActionContext(
+    throwIfNotFound = true,
+): Promise<OptionalActionContextOrgInfo | ActionContextOrgInfo> {
     const ctx = await actionContext()
-    if (!ctx.orgSlug && throwIfNotFound) throw new Error('user is not a member of organization?')
-    return ctx.orgSlug || null
+    if (!ctx.org?.slug && throwIfNotFound) throw new AccessDeniedError('user is not a member of organization?')
+    return ctx.org
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,10 +80,11 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
         const result = await new Promise<ReturnType<F>>((resolve, reject) => {
             localStorageContext.run(
                 {
-                    orgSlug: sessionClaims?.org_slug as string | undefined,
-                    userId: user.id,
                     user: user,
-                },
+                    org: {
+                        slug: sessionClaims?.org_slug as string | undefined,
+                    },
+                } as ActionContext,
                 async () => {
                     try {
                         if (schema && arg != null) schema.parse(arg)
@@ -95,8 +108,10 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const ctx = await actionContext()
-        if (ctx?.orgSlug !== CLERK_ADMIN_ORG_SLUG) {
-            logger.error('Current orgSlug in adminAction:', ctx?.orgSlug)
+        const auth = await clerkAuth()
+        const { orgSlug } = auth || {}
+        if (orgSlug !== CLERK_ADMIN_ORG_SLUG) {
+            logger.error('Current orgSlug in adminAction:', ctx?.org.slug)
             throw new AccessDeniedError('Only admins are allowed to perform this action')
         }
         return await func(arg)
@@ -104,13 +119,30 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
     return userAction(wrappedFunction, schema) as F
 }
 
+// researcherAction is almost the same as orgAction, except orgSlug is optional
+// if i'ts not present it checks that the user is a researcher in at least one org
 export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const ctx = await actionContext()
-        if (!ctx.userId || !ctx.user?.isResearcher) {
-            throw new AccessDeniedError('Only researchers are allowed to perform this action')
-        }
+
+        const orgInfo = await db
+            .selectFrom('orgUser')
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
+            .where((eb) => {
+                const filters = []
+                filters.push(eb('orgUser.isResearcher', '=', true))
+                filters.push(eb('orgUser.userId', '=', ctx.user?.id || ''))
+                if (arg?.orgSlug) {
+                    filters.push(eb('org.slug', '=', arg.orgSlug))
+                }
+                return eb.and(filters)
+            })
+            .executeTakeFirstOrThrow(() => new AccessDeniedError(`user is not a researcher`))
+
+        Object.assign(ctx, { org: orgInfo })
+
         return await func(arg)
     }
     return userAction(wrappedFunction, schema) as F
@@ -127,41 +159,41 @@ export type OrgActionSchema = ZodObject<WithOrgSlug, UnknownKeysParam, ZodTypeAn
 export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
+        if (!arg.orgSlug) throw new AccessDeniedError(`'orgSlug' property not present`)
         const ctx = await actionContext()
-        if (!ctx.orgSlug || ctx.orgSlug != arg?.orgSlug) {
-            throw new AccessDeniedError(
-                `Only members of ${arg?.orgSlug || '(missing slug)'} are allowed to perform this action`,
+
+        const orgInfo = await db
+            .selectFrom('orgUser')
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
+            .where('org.slug', '=', arg.orgSlug as string) // we are wrapped by orgAction which ensures orgSlug is set
+            .where('orgUser.userId', '=', ctx.user?.id || '')
+            .executeTakeFirstOrThrow(
+                () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
             )
-        }
+
+        Object.assign(ctx, { org: orgInfo })
+
         return await func(arg)
     }
+
     return userAction(wrappedFunction, schema) as F
 }
 
 export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        if (!arg.orgSlug) {
-            throw new Error('')
+        const { org } = await actionContext()
+        if (!org.isAdmin) {
+            throw new AccessDeniedError(`user is not an admin of organization ${arg.orgSlug}`)
         }
-        const { orgSlug, userId } = await actionContext()
-
-        await db
-            .selectFrom('orgUser')
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .select('orgUser.id')
-            .where('org.slug', '=', orgSlug!) // we are wrapped by orgAction which ensures orgSlug is set
-            .where('orgUser.userId', '=', userId!)
-            .where('orgUser.isAdmin', '=', true)
-            .executeTakeFirstOrThrow(() => new AccessDeniedError(`user is not an organization admin`))
-
         return await func(arg)
     }
     return orgAction(wrappedFunction, schema) as F
 }
 
 export async function checkMemberOfOrgWithSlug(orgSlug: string) {
-    const userSlug = await getOrgSlugFromActionContext()
-    if (userSlug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
+    const org = await getOrgInfoFromActionContext()
+    if (org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
     return true
 }

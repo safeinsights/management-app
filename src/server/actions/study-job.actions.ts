@@ -42,24 +42,24 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
     const resultsFile = new File([result.contents], result.path)
     await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
 
-    const user = await siUser(false)
+    const user = await siUser()
     await db
         .updateTable('studyJob')
         .set({ resultsPath: resultsFile.name })
         .where('id', '=', info.studyJobId)
         .executeTakeFirstOrThrow()
 
-    await sendStudyResultsApprovedEmail(info.studyId)
-    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-
-    return await db
+    await db
         .insertInto('jobStatusChange')
         .values({
-            userId: user?.id,
+            userId: user.id,
             status: 'RESULTS-APPROVED',
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
+
+    await sendStudyResultsApprovedEmail(info.studyId)
+    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
 }, approveStudyJobResultsActionSchema)
 
 export const rejectStudyJobResultsAction = orgAction(
@@ -133,7 +133,8 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
 }, z.string())
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
-    const latestJob = await latestJobForStudy(studyId, await actionContext())
+    const ctx = await actionContext()
+    const latestJob = await latestJobForStudy(studyId, { orgSlug: ctx.org.slug, userId: ctx.user.id })
 
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {

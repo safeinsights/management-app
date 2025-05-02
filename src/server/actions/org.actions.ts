@@ -71,8 +71,6 @@ export const getUsersForOrgAction = orgAdminAction(
             .innerJoin('user', 'user.id', 'orgUser.userId')
             .select([
                 'user.id',
-                'user.firstName',
-                'user.lastName',
                 'user.fullName',
                 'user.createdAt',
                 'user.email',
