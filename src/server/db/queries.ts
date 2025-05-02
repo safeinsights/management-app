@@ -248,7 +248,7 @@ export const getStudyAndOrg = async (studyId: string) => {
         ])
         .selectAll('org')
         .where('study.id', '=', studyId)
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
 
     if (!res) throw new Error('Study & Org not found')
 
