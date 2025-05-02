@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
-import { wrapApiMemberAction } from '@/server/wrappers'
-import { requestingMember } from '@/server/context'
+import { wrapApiOrgAction } from '@/server/api-wrappers'
+import { apiRequestingOrg } from '@/server/api-context'
 
 const schema = z.object({
     message: z.string().optional(),
@@ -14,14 +14,14 @@ const schema = z.object({
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
-    const member = requestingMember()
+    const org = apiRequestingOrg()
     const { jobId } = await params
-    if (!jobId || !member) {
+    if (!jobId || !org) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
     const job = await db
         .selectFrom('studyJob')
-        .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('memberId', '=', member.id))
+        .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
         .where('studyJob.id', '=', jobId)
         .select('studyJob.id')
         .executeTakeFirst()
@@ -49,4 +49,4 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
     return new NextResponse('ok', { status: 200 })
 }
 
-export const PUT = wrapApiMemberAction(handler)
+export const PUT = wrapApiOrgAction(handler)

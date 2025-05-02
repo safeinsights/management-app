@@ -4,15 +4,15 @@ import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 export const useAuthInfo = () => {
     const { isLoaded, userId, orgSlug } = clerkUseAuth()
     const isAdmin = orgSlug == CLERK_ADMIN_ORG_SLUG
-    const isMember = orgSlug && !isAdmin
+    const isReviewer = orgSlug && !isAdmin
     const isResearcher = !orgSlug && !isAdmin
     return {
         isLoaded,
         userId,
         orgSlug,
-        isMember,
+        isReviewer,
         isAdmin,
         isResearcher,
-        role: isAdmin ? 'admin' : isMember ? 'member' : 'researcher',
+        role: isAdmin ? 'admin' : isReviewer ? 'reviewer' : 'researcher',
     }
 }

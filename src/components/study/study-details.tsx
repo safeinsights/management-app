@@ -6,8 +6,8 @@ import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
 
-export const StudyDetails: FC<{ studyIdentifier: string }> = ({ studyIdentifier }) => {
-    const study = use(getStudyAction(studyIdentifier))
+export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
+    const study = use(getStudyAction(studyId))
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }

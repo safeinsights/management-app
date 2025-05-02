@@ -30,8 +30,8 @@ export const adminInviteUserAction = adminAction(async (invite) => {
 
     if (invite.isReviewer) {
         const org = await db
-            .selectFrom('member')
-            .select(['member.slug', 'name'])
+            .selectFrom('org')
+            .select(['org.slug', 'name'])
             .where('id', '=', invite.organizationId)
             .executeTakeFirstOrThrow()
 
@@ -40,7 +40,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         await client.organizations.createOrganizationMembership({
             organizationId: clerkOrg.id,
             userId: clerkUserId,
-            role: 'org:member',
+            role: 'org:org',
         })
     }
 
@@ -62,16 +62,16 @@ export const adminInviteUserAction = adminAction(async (invite) => {
                 firstName: invite.firstName,
                 lastName: invite.lastName,
                 email: invite.email,
-                isResearcher: !!invite.isResearcher,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
 
         await trx
-            .insertInto('memberUser')
+            .insertInto('orgUser')
             .values({
                 userId: siUser.id,
-                memberId: invite.organizationId,
+                orgId: invite.organizationId,
+                isResearcher: !!invite.isResearcher,
                 isReviewer: !!invite.isReviewer,
                 isAdmin: false,
             })

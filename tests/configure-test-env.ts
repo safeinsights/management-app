@@ -6,7 +6,7 @@ import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 
-const CLERK_MEMBER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
+const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
 export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
     PROD_ENV ? [] : ['user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ', 'user_2oiQ37cyMUZuHnEwxjLmFJJY5kR'],
@@ -17,27 +17,26 @@ async function setupUsers() {
     const pubKey = Buffer.from(pemToArrayBuffer(pubKeyStr)) // db exp;ects nodejs buffer
     const fingerprint = await readTestSupportFile('public_key.sig')
 
-    const member = await db
-        .selectFrom('member')
+    const org = await db
+        .selectFrom('org')
         .select(['id', 'publicKey'])
         .where('slug', '=', 'openstax')
         .executeTakeFirstOrThrow()
 
-    if (member.publicKey.length < 1000) {
-        await db.updateTable('member').set({ publicKey: pubKeyStr }).where('id', '=', member.id).execute()
+    if (org.publicKey.length < 1000) {
+        await db.updateTable('org').set({ publicKey: pubKeyStr }).where('id', '=', org.id).execute()
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
         const userId = await findOrCreateSiUserId(clerkId, {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
-            isResearcher: true,
         })
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
     }
 
-    for (const clerkId of CLERK_MEMBER_TEST_IDS) {
-        const userId = await findOrCreateSiUserId(clerkId, { firstName: 'Test Member User' })
+    for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
+        const userId = await findOrCreateSiUserId(clerkId, { firstName: 'Test Org User' })
 
         const pkey = await db.selectFrom('userPublicKey').where('userId', '=', userId).executeTakeFirst()
 

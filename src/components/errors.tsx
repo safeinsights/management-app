@@ -19,6 +19,8 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     })
 }
 
+export const reportMutationError = (error: unknown) => reportError(error, 'update failed')
+
 type ErrorAlertProps = { error: string | Error } & AlertProps
 
 export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occurred', error }) => {

@@ -1,7 +1,6 @@
 import { db } from '@/database'
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { mockClerkSession, type ClerkMocks } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, type ClerkMocks } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
 import { randomString } from 'remeda'
@@ -15,11 +14,8 @@ vi.mock('@/server/mailgun', () => ({
 
 describe('invite user Actions', async () => {
     let clerkMocks: ClerkMocks | null = null
-    beforeEach(() => {
-        clerkMocks = mockClerkSession({
-            clerkUserId: 'user-id',
-            org_slug: CLERK_ADMIN_ORG_SLUG,
-        })
+    beforeEach(async () => {
+        clerkMocks = await mockSessionWithTestData({ isAdmin: true })
     })
 
     async function userRecordCount() {
@@ -45,27 +41,27 @@ describe('invite user Actions', async () => {
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
             email: faker.internet.email(),
-            organizationId: (await db.selectFrom('member').select('id').executeTakeFirstOrThrow()).id,
+            organizationId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
             password: randomString(10),
             isReviewer: true,
             isResearcher: false,
         }
     })
 
-    it('creates a new user and member_user record successfully', async () => {
+    it('creates a new user and org_user record successfully', async () => {
         const user = await adminInviteUserAction(userInvite)
         expect(user).toMatchObject({
             clerkId: '1234',
             userId: expect.any(String),
         })
-        const memberUser = await db
-            .selectFrom('memberUser')
+        const orgUser = await db
+            .selectFrom('orgUser')
             .select('id')
             .where('userId', '=', user.userId)
-            .where('memberId', '=', userInvite.organizationId)
+            .where('orgId', '=', userInvite.organizationId)
             .executeTakeFirst()
 
-        expect(memberUser).toBeTruthy()
+        expect(orgUser).toBeTruthy()
 
         expect(clerkMocks?.client.users.createUser).toHaveBeenCalledWith({
             firstName: userInvite.firstName,
@@ -97,6 +93,6 @@ describe('invite user Actions', async () => {
             },
         }))
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError()
-        expect(beforeCount).toEqual((await userRecordCount()) - 1)
+        expect(beforeCount).toEqual(await userRecordCount())
     })
 })

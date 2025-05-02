@@ -15,7 +15,7 @@ const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup'
 
 type Roles = {
     isAdmin: boolean
-    isMember: boolean
+    isReviewer: boolean
     isResearcher: boolean
 }
 
@@ -24,7 +24,7 @@ function redirectToRole(request: NextRequest, route: string, roles: Roles) {
     if (roles.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
-    if (roles.isMember) {
+    if (roles.isReviewer) {
         return NextResponse.redirect(new URL('/reviewer/dashboard', request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
@@ -43,11 +43,11 @@ export default clerkMiddleware(async (auth, req) => {
     // Define user roles
     const userRoles: Roles = {
         isAdmin: orgSlug === CLERK_ADMIN_ORG_SLUG,
-        get isMember() {
+        get isReviewer() {
             return Boolean(orgSlug && !this.isAdmin)
         },
         get isResearcher() {
-            return Boolean(!this.isAdmin && !this.isMember)
+            return Boolean(!this.isAdmin && !this.isReviewer)
         },
     }
 
@@ -55,8 +55,8 @@ export default clerkMiddleware(async (auth, req) => {
         return redirectToRole(req, 'admin', userRoles)
     }
 
-    if (isReviewerRoute(req) && !userRoles.isMember) {
-        return redirectToRole(req, 'member', userRoles)
+    if (isReviewerRoute(req) && !userRoles.isReviewer) {
+        return redirectToRole(req, 'reviewer', userRoles)
     }
 
     if (isResearcherRoute(req) && !userRoles.isResearcher) {
@@ -69,7 +69,7 @@ export default clerkMiddleware(async (auth, req) => {
 export const config = {
     matcher: [
         // as optimziation and for clarity, we always run for routes below:
-        '/(admin|dl|member|researcher)(.*)',
+        '/(admin|dl|reviewer|researcher|organization)(.*)',
         // This regex should also match the above urls, but it's hard to read
         // We want to run on everything except:
         //   Next.js internals

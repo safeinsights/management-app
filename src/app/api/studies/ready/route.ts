@@ -1,17 +1,17 @@
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db, sql } from '@/database'
-import { wrapApiMemberAction, requestingMember } from '@/server/wrappers'
+import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
 import { NextResponse } from 'next/server'
 
-export const GET = wrapApiMemberAction(async () => {
-    const member = requestingMember()
-    if (!member) {
+export const GET = wrapApiOrgAction(async () => {
+    const org = apiRequestingOrg()
+    if (!org) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
     const jobs = await db
         .selectFrom('studyJob')
-        .innerJoin('study', (join) => join.on('memberId', '=', member.id).onRef('study.id', '=', 'studyJob.studyId'))
+        .innerJoin('study', (join) => join.on('orgId', '=', org.id).onRef('study.id', '=', 'studyJob.studyId'))
         .innerJoin(
             // join to the latest status change
             (eb) =>

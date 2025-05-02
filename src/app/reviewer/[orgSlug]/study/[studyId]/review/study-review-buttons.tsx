@@ -1,0 +1,86 @@
+'use client'
+
+import React, { FC } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { Button, Group, Text, useMantineTheme } from '@mantine/core'
+import { useParams, useRouter } from 'next/navigation'
+import type { StudyStatus } from '@/database/types'
+import {
+    approveStudyProposalAction,
+    rejectStudyProposalAction,
+    type SelectedStudy,
+} from '@/server/actions/study.actions'
+
+import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import dayjs from 'dayjs'
+
+export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
+    const router = useRouter()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
+
+    const backPath = `/reviewer/${orgSlug}/dashboard`
+
+    const theme = useMantineTheme()
+
+    const {
+        mutate: updateStudy,
+        isPending,
+        isSuccess,
+        variables: pendingStatus,
+    } = useMutation({
+        mutationFn: (status: StudyStatus) => {
+            if (status === 'APPROVED') {
+                return approveStudyProposalAction({ orgSlug, studyId: study.id })
+            }
+
+            return rejectStudyProposalAction({ orgSlug, studyId: study.id })
+        },
+        onSettled(error) {
+            if (!error) {
+                router.push(backPath)
+            }
+        },
+    })
+
+    if (study.status === 'APPROVED' && study.approvedAt) {
+        return (
+            <Group gap="xs">
+                <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
+                <Text fz="xs" fw={600} c="green.9">
+                    Approved on {dayjs(study.approvedAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
+        )
+    }
+
+    if (study.status === 'REJECTED' && study.rejectedAt) {
+        return (
+            <Group gap="xs">
+                <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
+                <Text fz="xs" fw={600} c="red.9">
+                    Rejected on {dayjs(study.rejectedAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
+        )
+    }
+
+    return (
+        <Group>
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'REJECTED'}
+                onClick={() => updateStudy('REJECTED')}
+                variant="outline"
+            >
+                Reject
+            </Button>
+            <Button
+                disabled={isPending || isSuccess}
+                loading={isPending && pendingStatus == 'APPROVED'}
+                onClick={() => updateStudy('APPROVED')}
+            >
+                Approve
+            </Button>
+        </Group>
+    )
+}
