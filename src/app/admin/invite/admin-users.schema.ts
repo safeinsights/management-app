@@ -6,7 +6,7 @@ export const inviteUserSchema = z
         password: z.string().nonempty(),
         isReviewer: z.boolean(),
         isResearcher: z.boolean(),
-        organizationId: z.string().nonempty('organization must be selected'),
+        orgSlug: z.string().min(1),
     })
     .superRefine((data, ctx) => {
         if (!data.isReviewer && !data.isResearcher) {

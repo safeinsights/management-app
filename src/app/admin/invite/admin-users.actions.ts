@@ -11,8 +11,6 @@ import { isClerkApiError, SanitizedError } from '@/lib/errors'
 export const adminInviteUserAction = adminAction(async (invite) => {
     const client = await clerkClient()
     let clerkUserId = ''
-    let clerkFirstName = ''
-    let clerkLastName = ''
 
     try {
         const clerkUser = await client.users.createUser({
@@ -22,9 +20,6 @@ export const adminInviteUserAction = adminAction(async (invite) => {
             lastName: '',
         })
         clerkUserId = clerkUser.id
-
-        clerkFirstName = clerkUser.firstName ?? ''
-        clerkLastName = clerkUser.lastName ?? ''
     } catch (error) {
         if (isClerkApiError(error)) {
             // the user is an admin, they can see the clerk error
@@ -37,7 +32,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         const org = await db
             .selectFrom('org')
             .select(['org.slug', 'name'])
-            .where('id', '=', invite.organizationId)
+            .where('slug', '=', invite.orgSlug)
             .executeTakeFirstOrThrow()
 
         const clerkOrg = await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
@@ -45,51 +40,53 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         await client.organizations.createOrganizationMembership({
             organizationId: clerkOrg.id,
             userId: clerkUserId,
-            role: 'org:org',
+            role: 'org:member',
         })
     }
 
     return await db.transaction().execute(async (trx) => {
-        const existingUser = await trx
-            .selectFrom('user')
-            .select('id')
-            .where('clerkId', '=', clerkUserId)
-            .executeTakeFirst()
+        // Fetch the database org ID (UUID) using the provided slug
+        const dbOrg = await trx.selectFrom('org').select('id').where('slug', '=', invite.orgSlug).executeTakeFirst()
 
-        if (existingUser) {
-            throw new Error(`User with clerkId ${clerkUserId} already exists`)
+        if (!dbOrg) {
+            throw new Error(`Organization with slug ${invite.orgSlug} not found in the database.`)
         }
 
-        const siUser = await trx
-            .insertInto('user')
+        const pendingUser = await trx
+            .insertInto('pendingUser')
             .values({
-                clerkId: clerkUserId,
+                organizationId: dbOrg.id,
+                orgSlug: invite.orgSlug,
                 email: invite.email,
-                firstName: clerkFirstName,
-                lastName: clerkLastName,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        await trx
-            .insertInto('orgUser')
-            .values({
-                userId: siUser.id,
-                orgId: invite.organizationId,
                 isResearcher: !!invite.isResearcher,
                 isReviewer: !!invite.isReviewer,
-                isAdmin: false,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
 
         await sendWelcomeEmail(invite.email)
 
-        // Return the created user record.
         return {
-            ...invite,
             clerkId: clerkUserId,
-            userId: siUser.id,
+            pendingUserId: pendingUser.id,
+            email: invite.email,
         }
     })
 }, inviteUserSchema)
+
+export const getPendingOrgUsersAction = adminAction(async ({ orgSlug }: { orgSlug: string }) => {
+    // TODO: filter out already registered users/add a status column
+    return await db
+        .selectFrom('pendingUser')
+        .select(['id', 'email'])
+        .where('orgSlug', '=', orgSlug)
+        .orderBy('createdAt', 'desc')
+        .execute()
+})
+
+export const reInviteUserAction = adminAction(async ({ email }: { email: string }) => {
+    // TODO: filter out already registered users
+    // but for now, just resend the email.
+    await sendWelcomeEmail(email)
+    return { success: true }
+})

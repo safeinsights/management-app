@@ -9,6 +9,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
 import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
+// Comment out unused import
+// import { useAuth } from '@clerk/nextjs'
 import { InviteForm } from '@/app/admin/invite/invite-form'
 import { AppModal } from '@/components/modal'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -19,6 +21,12 @@ export function OrgsAdminTable() {
         queryKey: ['members'],
         queryFn: fetchOrgsAction,
     })
+
+    // const { isLoaded, orgId, orgSlug } = useAuth()
+
+    // TEMPORARY HARDCODING
+    // TODO: remove this
+    const hardcodedOrgSlug = 'openstax'
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
@@ -40,7 +48,8 @@ export function OrgsAdminTable() {
                 title="Invite others to join your team"
                 size="lg"
             >
-                <InviteForm onCompleteAction={closeInviteUser} />
+                {/* <InviteForm onCompleteAction={closeInviteUser} orgSlug={orgSlug || ''} /> */}
+                <InviteForm onCompleteAction={closeInviteUser} orgSlug={hardcodedOrgSlug} />
             </AppModal>
 
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
@@ -50,7 +59,9 @@ export function OrgsAdminTable() {
                     <Group justify="space-between">
                         <Title order={3}>People</Title>
                         <Flex justify="flex-end">
-                            <Button leftSection={<Plus />} onClick={openInviteUser}>
+                            {/* original button disable logic */}
+                            {/* disabled={!isLoaded || !orgSlug} */}
+                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!hardcodedOrgSlug}>
                                 Invite People
                             </Button>
                         </Flex>

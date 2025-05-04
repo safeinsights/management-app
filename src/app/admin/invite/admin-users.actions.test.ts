@@ -27,21 +27,20 @@ describe('invite user Actions', async () => {
     }
 
     let userInvite = {
-        firstName: '',
-        lastName: '',
         email: '',
         organizationId: '',
+        orgSlug: '',
         password: randomString(8),
         isReviewer: true,
         isResearcher: false,
     }
 
     beforeEach(async () => {
+        const orgInfo = await db.selectFrom('org').select(['id', 'slug']).executeTakeFirstOrThrow()
         userInvite = {
-            firstName: faker.person.firstName(),
-            lastName: faker.person.lastName(),
             email: faker.internet.email(),
-            organizationId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
+            organizationId: orgInfo.id,
+            orgSlug: orgInfo.slug,
             password: randomString(10),
             isReviewer: true,
             isResearcher: false,
@@ -57,7 +56,7 @@ describe('invite user Actions', async () => {
         const orgUser = await db
             .selectFrom('orgUser')
             .select('id')
-            .where('userId', '=', user.userId)
+            .where('userId', '=', user.pendingUserId)
             .where('orgId', '=', userInvite.organizationId)
             .executeTakeFirst()
 
