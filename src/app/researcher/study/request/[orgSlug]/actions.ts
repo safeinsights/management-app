@@ -1,6 +1,5 @@
 'use server'
 
-import { AccessDeniedError } from '@/lib/errors'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
