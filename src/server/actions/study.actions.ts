@@ -3,6 +3,14 @@
 import { db } from '@/database'
 import { revalidatePath } from 'next/cache'
 
+import { StudyJobStatus } from '@/database/types'
+import { audit } from '@/lib/audit'
+import logger from '@/lib/logger'
+import { latestJobForStudy } from '@/server/db/queries'
+import { sendStudyProposalApprovedEmail, sendStudyProposalRejectedEmail } from '@/server/mailgun'
+import { triggerBuildImageForJob } from '../aws'
+import { SIMULATE_IMAGE_BUILD } from '../config'
+import { checkUserAllowedStudyReview } from '../db/queries'
 import {
     checkMemberOfOrgWithSlug,
     getUserIdFromActionContext,
@@ -11,13 +19,6 @@ import {
     userAction,
     z,
 } from './wrappers'
-import { latestJobForStudy } from '@/server/db/queries'
-import { checkUserAllowedStudyReview } from '../db/queries'
-import { StudyJobStatus } from '@/database/types'
-import { SIMULATE_IMAGE_BUILD } from '../config'
-import { triggerBuildImageForJob } from '../aws'
-import logger from '@/lib/logger'
-import { sendStudyProposalApprovedEmail, sendStudyProposalRejectedEmail } from '@/server/mailgun'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -213,6 +214,7 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
+        await audit('APPROVED', userId, 'STUDY', studyId)
         await sendStudyProposalApprovedEmail(studyId)
 
         logger.info('Study Approved', {
@@ -255,6 +257,7 @@ export const rejectStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
+        await audit('REJECTED', userId, 'STUDY', studyId)
         await sendStudyProposalRejectedEmail(studyId)
 
         logger.info('Study Rejected', {
