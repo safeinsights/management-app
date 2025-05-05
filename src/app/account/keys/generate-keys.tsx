@@ -3,7 +3,7 @@
 import { Button, Container, CopyButton, Group, Modal, Paper, ScrollArea, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
-import { setMemberUserPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useUser } from '@clerk/nextjs'
 import Link from 'next/link'
 import { useDisclosure } from '@mantine/hooks'
@@ -29,7 +29,7 @@ export const GenerateKeys: FC = () => {
             fingerprint,
         })
 
-        await setMemberUserPublicKeyAction({ publicKey: exportedPublicKey, fingerprint: fingerprint })
+        await setReviewerPublicKeyAction({ publicKey: exportedPublicKey, fingerprint: fingerprint })
     }
 
     if (keys) {

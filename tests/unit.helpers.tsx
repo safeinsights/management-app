@@ -17,7 +17,8 @@ import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from 
 import { Mock, vi } from 'vitest'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import { Member } from '@/schema/member'
+import { Org } from '@/schema/org'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -47,21 +48,15 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 
 export * from './common.helpers'
 
-export const insertTestStudyData = async ({
-    member,
-    researcherId,
-}: {
-    member: MinimalTestMember
-    researcherId?: string
-}) => {
+export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalTestOrg; researcherId?: string }) => {
     if (!researcherId) {
-        const user = await insertTestUser({ member })
+        const { user } = await insertTestUser({ org })
         researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
-            memberId: member.id,
+            orgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
@@ -114,7 +109,7 @@ export const insertTestStudyData = async ({
         .execute()
 
     return {
-        memberId: member.id,
+        orgId: org.id,
         studyId: study.id,
         jobs: [job0, job1, job2],
         jobIds: [job0.id, job1.id, job2.id],
@@ -122,18 +117,19 @@ export const insertTestStudyData = async ({
 }
 
 export const insertTestUser = async ({
-    member,
+    org,
     isResearcher = true,
     isReviewer = true,
+    isAdmin = false,
 }: {
-    member: MinimalTestMember
+    org: MinimalTestOrg
     isResearcher?: boolean
     isReviewer?: boolean
+    isAdmin?: boolean
 }) => {
     const user = await db
         .insertInto('user')
         .values({
-            isResearcher,
             clerkId: faker.string.alpha(10),
             firstName: faker.person.firstName(),
             lastName: faker.person.lastName(),
@@ -142,16 +138,18 @@ export const insertTestUser = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    // Add users as memberUsers
-    await db
-        .insertInto('memberUser')
+    // Add users as orgUsers
+    const orgUser = await db
+        .insertInto('orgUser')
         .values({
-            memberId: member.id,
+            orgId: org.id,
             userId: user.id,
-            isAdmin: false,
+            isResearcher,
+            isAdmin,
             isReviewer,
         })
-        .execute()
+        .returningAll()
+        .executeTakeFirstOrThrow()
 
     if (isReviewer) {
         await db
@@ -161,35 +159,36 @@ export const insertTestUser = async ({
                 publicKey: Buffer.from('testPublicKey1'),
                 fingerprint: 'testFingerprint1',
             })
-            .execute()
+            .executeTakeFirstOrThrow()
     }
 
-    return user
+    return { user, orgUser }
 }
 
-type MinimalTestMember = { slug: string; id: string }
+type MinimalTestOrg = { slug: string; id: string }
 
 export const insertTestStudyJobData = async ({
-    member,
+    org,
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
 }: {
-    member?: MinimalTestMember
+    org?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
 } = {}) => {
-    if (!member) {
-        member = await insertTestMember()
+    if (!org) {
+        org = await insertTestOrg()
     }
     if (!researcherId) {
-        researcherId = (await insertTestUser({ member: member })).id
+        const { user } = await insertTestUser({ org: org })
+        researcherId = user.id
     }
     const study = await db
         .insertInto('study')
         .values({
-            memberId: member.id,
+            orgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
@@ -222,7 +221,7 @@ export const insertTestStudyJobData = async ({
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const latestJobithStatus = await latestJobForStudy(study.id, { orgSlug: member.slug, userId: researcherId })
+    const latestJobithStatus = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: researcherId })
 
     return {
         study,
@@ -232,14 +231,14 @@ export const insertTestStudyJobData = async ({
     }
 }
 
-export const insertTestStudyJobUsers = async ({ member }: { member?: MinimalTestMember } = {}) => {
-    if (!member) {
-        member = await insertTestMember()
+export const insertTestStudyJobUsers = async ({ org }: { org?: MinimalTestOrg } = {}) => {
+    if (!org) {
+        org = await insertTestOrg()
     }
-    const user1 = await insertTestUser({ member })
-    const user2 = await insertTestUser({ member, isReviewer: false })
+    const { user: user1 } = await insertTestUser({ org })
+    const { user: user2 } = await insertTestUser({ org, isReviewer: false })
 
-    const { study, job } = await insertTestStudyJobData({ member })
+    const { study, job } = await insertTestStudyJobData({ org })
 
     return { study, job, user1, user2 }
 }
@@ -250,21 +249,23 @@ export async function createTempDir() {
     return await fs.promises.mkdtemp(tmpdir)
 }
 
-export const insertTestMember = async (opts: { slug: string } = { slug: faker.string.alpha(10) }) => {
+export const insertTestOrg = async (opts: { slug: string } = { slug: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
-    const member = await db
-        .insertInto('member')
-        .values({
-            slug: opts.slug,
-            name: 'test',
-            email: 'none@test.com',
-            publicKey,
-        })
-        .returningAll()
-        .executeTakeFirstOrThrow()
-
+    const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll().executeTakeFirst()
+    const org =
+        existing ||
+        (await db
+            .insertInto('org')
+            .values({
+                slug: opts.slug,
+                name: 'test',
+                email: 'none@test.com',
+                publicKey,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow())
     ;(await headers()).set(
         'Authorization',
         `Bearer ${jwt.sign(
@@ -275,13 +276,13 @@ export const insertTestMember = async (opts: { slug: string } = { slug: faker.st
             { algorithm: 'RS256' },
         )}`,
     )
-    return member as Member
+    return org as Org
 }
 
 type MockSession = {
-    //userId: string
     clerkUserId: string
     org_slug: string
+    imageUrl?: string
 }
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
@@ -293,6 +294,7 @@ export const mockClerkSession = (values: MockSession) => {
         id: values.clerkUserId,
         banned: false,
         twoFactorEnabled: true,
+        imageUrl: values.imageUrl,
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -313,7 +315,7 @@ export const mockClerkSession = (values: MockSession) => {
         user: userProperties,
     }
     ;(useParams as Mock).mockReturnValue({
-        memberSlug: values.org_slug,
+        orgSlug: values.org_slug,
     })
     ;(useUser as Mock).mockReturnValue(useUserReturn)
     client.mockResolvedValue(clientMocks)
@@ -324,6 +326,7 @@ export const mockClerkSession = (values: MockSession) => {
         isLoaded: true,
     })
     auth.mockImplementation(() => ({
+        orgSlug: values.org_slug,
         sessionClaims: { org_slug: values.org_slug },
         userId: values.clerkUserId,
     }))
@@ -331,13 +334,22 @@ export const mockClerkSession = (values: MockSession) => {
     return { client: clientMocks, auth, useUserReturn }
 }
 
-export async function mockSessionWithTestData(memberSlug = faker.string.alpha(10)) {
-    const member = await insertTestMember({ slug: memberSlug })
-    const user = await insertTestUser({ member: { id: member.id, slug: memberSlug } })
+type MockSessionWithTestDataOptions = {
+    orgSlug?: string
+    isResearcher?: boolean
+    isReviewer?: boolean
+    isAdmin?: boolean
+}
+
+export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
+    if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
+
+    const org = await insertTestOrg({ slug: options.orgSlug })
+    const { user, orgUser } = await insertTestUser({ org: { id: org.id, slug: options.orgSlug }, ...options })
 
     const mocks = mockClerkSession({
         clerkUserId: user.clerkId,
-        org_slug: member.slug,
+        org_slug: org.slug,
     })
-    return { member, user, ...mocks }
+    return { org, user, orgUser, ...mocks }
 }

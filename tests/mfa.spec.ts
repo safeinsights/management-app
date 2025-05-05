@@ -6,14 +6,14 @@ test.describe('MFA Setup Visibility', () => {
 
     test('renders the sms and authenticator buttons', async ({ page }) => {
         // Visit the main MFA page first
-        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
         await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Authenticator App Verification' })).toBeVisible()
     })
 
     test('checks Authenticator App page elements', async ({ page }) => {
         // Go DIRECTLY to the authenticator app page
-        await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
 
         // Check if the code input field is visible
         await expect(page.getByPlaceholder('000000')).toBeVisible()
@@ -26,7 +26,7 @@ test.describe('MFA Setup Visibility', () => {
 
     test('checks SMS page elements', async ({ page }) => {
         // Navigate to the SMS setup page
-        await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'member' })
+        await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
 
         // Check if the Phone Number input is visible
         await page.getByLabel('Phone Number').fill('+15555550101')

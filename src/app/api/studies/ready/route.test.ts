@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, insertTestMember, readTestSupportFile } from '@/tests/unit.helpers'
+import { insertTestStudyData, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -13,7 +13,7 @@ test('missing JWT is rejected', async () => {
 
 test('jwt with invalid iss is rejected', async () => {
     const privateKey = await readTestSupportFile('invalid_private_key.pem')
-    const token = jwt.sign({ iss: 'unknown-member-slug' }, privateKey, { algorithm: 'RS256' })
+    const token = jwt.sign({ iss: 'unknown-org-slug' }, privateKey, { algorithm: 'RS256' })
     const hdr = await headers()
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
@@ -22,9 +22,9 @@ test('jwt with invalid iss is rejected', async () => {
 })
 
 test('jwt with expired token is rejected', async () => {
-    const member = await insertTestMember()
+    const org = await insertTestOrg()
     const privateKey = await readTestSupportFile('private_key.pem')
-    const token = jwt.sign({ iss: member.slug }, privateKey, { algorithm: 'RS256', expiresIn: -30 })
+    const token = jwt.sign({ iss: org.slug }, privateKey, { algorithm: 'RS256', expiresIn: -30 })
     const hdr = await headers()
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
@@ -33,8 +33,8 @@ test('jwt with expired token is rejected', async () => {
 })
 
 test('return study jobs', async () => {
-    const member = await insertTestMember()
-    const { jobIds } = await insertTestStudyData({ member })
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()
@@ -70,8 +70,8 @@ test('return study jobs', async () => {
 })
 
 test('studies are not included once finished', async () => {
-    const member = await insertTestMember()
-    const { jobIds } = await insertTestStudyData({ member })
+    const org = await insertTestOrg()
+    const { jobIds } = await insertTestStudyData({ org })
 
     await db
         .insertInto('jobStatusChange')

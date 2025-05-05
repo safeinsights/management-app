@@ -1,19 +1,19 @@
-import { MembersAdminTable } from './table'
+import { OrgsAdminTable } from './table'
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
-import { fetchMembersAction } from '@/server/actions/member.actions'
+import { fetchOrgsAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MembersAdministration() {
+export default async function OrgsAdministration() {
     const queryClient = new QueryClient()
     await queryClient.prefetchQuery({
-        queryKey: ['members'],
-        queryFn: fetchMembersAction,
+        queryKey: ['orgs'],
+        queryFn: fetchOrgsAction,
     })
 
     return (
         <HydrationBoundary state={dehydrate(queryClient)}>
-            <MembersAdminTable />
+            <OrgsAdminTable />
         </HydrationBoundary>
     )
 }

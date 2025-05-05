@@ -1,12 +1,14 @@
 import * as Sentry from '@sentry/nextjs'
 
-type TimeOpts = { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
+type TimeOpts = { [key: number]: 'ms' } | { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
 
 export async function sleep(opts: TimeOpts): Promise<void> {
     let ms = 0
     for (const [key, unit] of Object.entries(opts)) {
         const duration = parseInt(key, 10)
-        if (unit === 'seconds') {
+        if (unit === 'ms') {
+            ms += duration
+        } else if (unit === 'seconds') {
             ms += duration * 1000
         } else if (unit === 'minutes') {
             ms += duration * 60 * 1000

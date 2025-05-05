@@ -1,7 +1,9 @@
 'use server'
 
+import { db } from '@/database'
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
-import { anonAction } from './wrappers'
+import { anonAction, orgAdminAction, z } from './wrappers'
+import { ROLE_LABELS } from '@/lib/role'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 export const onUserSignInAction = anonAction(async () => {
@@ -22,3 +24,28 @@ export const onUserSignInAction = anonAction(async () => {
         },
     })
 })
+
+export const updateUserRoleAction = orgAdminAction(
+    async ({ orgSlug, userId, isAdmin, isResearcher, isReviewer }) => {
+        return db
+            .updateTable('orgUser')
+            .set({
+                isAdmin,
+                isReviewer,
+                isResearcher,
+            })
+            .from('org')
+            .whereRef('org.id', '=', 'orgUser.orgId')
+            .where('org.slug', '=', orgSlug as string)
+            .where('userId', '=', userId)
+            .returningAll('orgUser')
+            .executeTakeFirstOrThrow()
+    },
+    z.object({
+        orgSlug: z.string(),
+        userId: z.string(),
+        isAdmin: z.boolean(),
+        isResearcher: z.boolean(),
+        isReviewer: z.boolean(),
+    }),
+)

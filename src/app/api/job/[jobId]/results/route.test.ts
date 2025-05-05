@@ -1,11 +1,16 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestMember, insertTestStudyData } from '@/tests/unit.helpers'
+import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { db } from '@/database'
+import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
 import { fetchStudyResultsFile } from '@/server/storage'
 
+vi.mock('@/server/mailgun', () => ({
+    sendResultsReadyForReviewEmail: vi.fn(),
+}))
+
 test('handling upload', async () => {
-    const member = await insertTestMember()
+    const org = await insertTestOrg()
 
     const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
 
@@ -17,13 +22,14 @@ test('handling upload', async () => {
         body: formData,
     })
 
-    const { jobIds, studyId } = await insertTestStudyData({ member })
+    const { jobIds, studyId } = await insertTestStudyData({ org })
 
     const resp = await apiHandler.POST(req, { params: Promise.resolve({ jobId: jobIds[0] }) })
     expect(resp.ok).toBe(true)
+    expect(sendResultsReadyForReviewEmail).toHaveBeenCalled()
 
     const studyResultsFile = await fetchStudyResultsFile({
-        memberSlug: member.slug,
+        orgSlug: org.slug,
         studyId,
         studyJobId: jobIds[0],
         resultsType: 'ENCRYPTED',

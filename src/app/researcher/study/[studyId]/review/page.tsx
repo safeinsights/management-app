@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
     const { studyId } = await props.params
+
     await checkUserAllowedStudyView(studyId)
 
     const study = await getStudyAction(studyId)
@@ -34,7 +35,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <Paper bg="white" p="xl">
                 <Stack>
                     <Title order={4}>Study Details</Title>
-                    <StudyDetails studyIdentifier={studyId} />
+                    <StudyDetails studyId={studyId} />
                 </Stack>
             </Paper>
 

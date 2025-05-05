@@ -53,15 +53,16 @@ jobs:
             pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
+            SIMULATE_IMAGE_BUILD: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-            E2E_CLERK_RESEARCHER_EMAIL: ${{ secrets.E2E_CLERK_RESEARCHER_EMAIL }}
-            E2E_CLERK_RESEARCHER_PASSWORD: ${{ secrets.E2E_CLERK_RESEARCHER_PASSWORD }}
+            CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}
+            CLERK_RESEARCHER_PASSWORD: ${{ secrets.CLERK_RESEARCHER_PASSWORD }}
             AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-            E2E_CLERK_MEMBER_EMAIL: ${{ secrets.E2E_CLERK_MEMBER_EMAIL }}
-            E2E_CLERK_MEMBER_PASSWORD: ${{ secrets.E2E_CLERK_MEMBER_PASSWORD }}
-            E2E_CLERK_ADMIN_EMAIL: ${{ secrets.E2E_CLERK_ADMIN_EMAIL }}
-            E2E_CLERK_ADMIN_PASSWORD: ${{ secrets.E2E_CLERK_ADMIN_PASSWORD }}
+            CLERK_REVIEWER_EMAIL: ${{ secrets.CLERK_REVIEWER_EMAIL }}
+            CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
+            CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
+            CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
             S3_ENDPOINT: 'http://localhost:9198'
             S3_BROWSER_ENDPOINT: 'http://localhost:9198'
             MINIO_ROOT_USER: 'si-local-minio'

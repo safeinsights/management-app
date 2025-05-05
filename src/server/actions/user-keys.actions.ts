@@ -2,10 +2,10 @@
 
 import { db } from '@/database'
 import { z, userAction, getUserIdFromActionContext } from './wrappers'
-import { getMemberUserPublicKey } from '@/server/db/queries'
+import { getReviewerPublicKey } from '@/server/db/queries'
 import { ensureUserIsMemberOfOrg } from '../mutations'
 
-export const getMemberUserFingerprintAction = userAction(async () => {
+export const getReviewerFingerprintAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
 
     const result = await db
@@ -17,15 +17,15 @@ export const getMemberUserFingerprintAction = userAction(async () => {
     return result?.fingerprint
 })
 
-export const getMemberUserPublicKeyAction = userAction(async () => {
+export const getReviewerPublicKeyAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
 
-    return await getMemberUserPublicKey(userId)
+    return await getReviewerPublicKey(userId)
 })
 
-const setMemberUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuffer), fingerprint: z.string() })
+const setOrgUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuffer), fingerprint: z.string() })
 
-export const setMemberUserPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
+export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
     const userId = await getUserIdFromActionContext()
 
     // during MVP, we have several users who were set up in clerk without invites
@@ -40,4 +40,4 @@ export const setMemberUserPublicKeyAction = userAction(async ({ publicKey, finge
             fingerprint,
         })
         .execute()
-}, setMemberUserPublicKeySchema)
+}, setOrgUserPublicKeySchema)

@@ -4,9 +4,9 @@ import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpe
 import { db } from '@/database'
 
 test('updating status', async () => {
-    const { member, user } = await mockSessionWithTestData()
+    const { org, user } = await mockSessionWithTestData()
 
-    const { jobIds } = await insertTestStudyData({ member, researcherId: user.id })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
 
     const req = new Request('http://localhost', {
         method: 'PUT',

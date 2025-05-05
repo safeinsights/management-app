@@ -17,6 +17,7 @@ import { ReactNode } from 'react'
 import { NavbarItems } from '@/components/layout/navbar-items'
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
+import { NavbarProfileMenu } from './navbar-profile-menu'
 
 type Props = {
     children: ReactNode
@@ -35,10 +36,11 @@ export function AppShell({ children }: Props) {
                             <SafeInsightsLogo />
                         </Link>
                     </AppShellSection>
-                    <AppShellSection grow>
-                        <NavbarItems />
-                    </AppShellSection>
                 </Stack>
+                <AppShellSection grow>
+                    <NavbarItems />
+                </AppShellSection>
+                <NavbarProfileMenu />
             </AppShellNavbar>
             <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
             <AppShellFooter p="md" bg="purple.9" bd="none">

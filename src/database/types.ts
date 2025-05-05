@@ -26,7 +26,7 @@ export interface JobStatusChange {
   userId: string | null;
 }
 
-export interface Member {
+export interface Org {
   createdAt: Generated<Timestamp>;
   email: string;
   id: Generated<string>;
@@ -36,12 +36,13 @@ export interface Member {
   updatedAt: Generated<Timestamp>;
 }
 
-export interface MemberUser {
+export interface OrgUser {
   id: Generated<string>;
   isAdmin: boolean;
+  isResearcher: Generated<boolean>;
   isReviewer: boolean;
   joinedAt: Generated<Timestamp>;
-  memberId: string;
+  orgId: string;
   userId: string;
 }
 
@@ -55,7 +56,7 @@ export interface Study {
   id: Generated<string>;
   irbDocPath: string | null;
   irbProtocols: string | null;
-  memberId: string;
+  orgId: string;
   outputMimeType: string | null;
   piName: string;
   rejectedAt: Timestamp | null;
@@ -80,7 +81,6 @@ export interface User {
   firstName: string;
   fullName: Generated<string>;
   id: Generated<string>;
-  isResearcher: Generated<boolean>;
   lastName: string | null;
   updatedAt: Generated<Timestamp>;
 }
@@ -96,8 +96,8 @@ export interface UserPublicKey {
 
 export interface DB {
   jobStatusChange: JobStatusChange;
-  member: Member;
-  memberUser: MemberUser;
+  org: Org;
+  orgUser: OrgUser;
   study: Study;
   studyJob: StudyJob;
   user: User;

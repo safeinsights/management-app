@@ -2,14 +2,14 @@
 
 ### Overview
 
-The management app (also called Basic Management App or BMA) serves as an interface for researchers to submit and members to approve study proposals.
+The management app (also called Basic Management App or BMA) serves as an interface for researchers to submit and reviewers to approve study proposals.
 
 It’s responsible for:
 
 - Researcher creates/modifies/deletes study
-- Member is notified when a study proposal is submitted
+- Reviewer is notified when a study proposal is submitted
 - Researcher is notified when study is approved
-- Member reviews/approves/denies study
+- Reviewer reviews/approves/denies study
 - Reports study status in response to enclave's SetupApp requests
 
 # Development
@@ -58,7 +58,7 @@ The connection details for the development database (`mgmnt_dev`) are pre-config
 
 ### Enclave API Routes
 
-- Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the member. The public key is stored in the members record accessed at the admin page at /admin/members
+- Api routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held be the organization. The public key is stored in the organization admin panel
 
 To generate a public private key you can run:
 
@@ -66,13 +66,6 @@ To generate a public private key you can run:
 openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:4096
 openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
-
-### Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
@@ -98,7 +91,7 @@ There are a few CLI applications to debug the API end endpoints:
 - npx tsx bin/debug/upload-results.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
 - npx tsx bin/debug/keys.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job>
 
-The origin will default to http://localhost:4000 and member to `openstax`, the values are shown above for illustration purposes and could be omitted.
+The origin will default to http://localhost:4000 and organization to `openstax`, the values are shown above for illustration purposes and could be omitted.
 
 **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. while useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
@@ -119,3 +112,5 @@ If there are playwright failures on GitHub actions, the trace file will be store
 
 - [phosphor icons](https://phosphoricons.com/)
 - [mantine](https://mantine.dev)
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.

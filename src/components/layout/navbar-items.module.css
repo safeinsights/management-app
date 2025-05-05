@@ -1,3 +1,7 @@
 .navLinkHover:hover {
     background-color: var(--mantine-color-blue-9);
 }
+
+.navLinkProfileHover:hover {
+    background-color: var(--mantine-color-blue-8);
+}

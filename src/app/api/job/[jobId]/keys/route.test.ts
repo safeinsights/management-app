@@ -1,6 +1,6 @@
 import { expect, describe, it, beforeEach } from 'vitest'
 import * as apiHandler from './route'
-import { insertTestStudyJobUsers, insertTestMember } from '@/tests/unit.helpers'
+import { insertTestStudyJobUsers, insertTestOrg } from '@/tests/unit.helpers'
 
 describe('get keys', () => {
     let req: Request
@@ -11,7 +11,7 @@ describe('get keys', () => {
         })
     })
 
-    it('does not work if requestor not a member', async () => {
+    it('does not work if requestor not a org', async () => {
         const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: 'jobId' }) })
 
         expect(response.status).toBe(401)
@@ -19,7 +19,7 @@ describe('get keys', () => {
     })
 
     it('if data not present, return empty array', async () => {
-        await insertTestMember()
+        await insertTestOrg()
 
         const response = await apiHandler.GET(req, {
             params: Promise.resolve({ jobId: '00000000-0000-0000-0000-000000000000' }),
