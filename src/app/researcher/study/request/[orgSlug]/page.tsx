@@ -18,11 +18,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
     }
 
     const authResult = await auth()
-    const user = await db
-        .selectFrom('user')
-        .select('id')
-        .where('clerkId', '=', authResult.userId)
-        .executeTakeFirst()
+    const user = await db.selectFrom('user').select('id').where('clerkId', '=', authResult.userId).executeTakeFirst()
 
     if (!user) {
         return <AlertNotFound title="User Error" message="Internal user record not found." />
@@ -48,7 +44,6 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
             </Stack>
         )
     }
-
 
     return (
         <Stack p="xl" gap="xl">
