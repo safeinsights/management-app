@@ -14,7 +14,7 @@ export function NavbarProfileMenu() {
 
     return (
         <AppShellSection>
-            <Collapse in={opened} bg={'var(--mantine-color-purple-9)'}>
+            <Collapse in={opened} bg="purple.9">
                 <NavLink
                     label="My Account"
                     leftSection={<User />}
