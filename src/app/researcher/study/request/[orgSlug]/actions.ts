@@ -22,18 +22,6 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
 
     const org = await getOrgFromSlugAction(orgSlug)
 
-    // Verify researcher is allowed to submit studies to this organization
-    const memberUser = await db
-        .selectFrom('memberUser')
-        .select('id')
-        .where('userId', '=', userId)
-        .where('memberId', '=', member.id)
-        .executeTakeFirst()
-
-    if (!memberUser) {
-        throw new AccessDeniedError('You are not a member of this organization')
-    }
-
     const studyId = uuidv7()
 
     const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: org.slug })

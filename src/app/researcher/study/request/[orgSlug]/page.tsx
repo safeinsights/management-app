@@ -18,30 +18,37 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
     }
 
     const authResult = await auth()
-    const user = await db.selectFrom('user').select('id').where('clerkId', '=', authResult.userId).executeTakeFirst()
+    const user = await db
+        .selectFrom('user')
+        .select('id')
+        .where('clerkId', '=', authResult.userId)
+        .executeTakeFirst()
 
     if (!user) {
         return <AlertNotFound title="User Error" message="Internal user record not found." />
     }
 
-    const memberUser = await db
-        .selectFrom('memberUser')
+    // Verify user is a researcher in this org
+    const orgUser = await db
+        .selectFrom('orgUser')
         .select('id')
+        .where('orgId', '=', org.id)
         .where('userId', '=', user.id)
-        .where('memberId', '=', member.id)
+        .where('isResearcher', '=', true)
         .executeTakeFirst()
 
-    if (!memberUser) {
+    if (!orgUser) {
         return (
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
                 <AlertNotFound
                     title="Access Denied"
-                    message={`You are not authorized to submit study proposals to the organization "${member.name}".`}
+                    message="You are not authorized to propose studies for this organization."
                 />
             </Stack>
         )
     }
+
 
     return (
         <Stack p="xl" gap="xl">
