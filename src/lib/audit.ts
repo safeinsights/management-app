@@ -2,20 +2,22 @@
 import { db } from '@/database'
 import { AuditEventType, AuditRecordType } from '@/database/types'
 
-export const audit = async (
-    eventType: AuditEventType,
-    userId: string,
-    recordType: AuditRecordType,
-    recordId: string,
-): Promise<void> => {
-    console.log(`Auditing ${eventType}: ${recordType}/${recordId}`)
+type AuditEntry = {
+    eventType: AuditEventType
+    userId: string
+    recordType: AuditRecordType
+    recordId: string
+}
+
+export const audit = async (entry: AuditEntry): Promise<void> => {
+    console.log(`Auditing ${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
     await db
         .insertInto('audit')
         .values({
-            userId: userId,
-            eventType: eventType,
-            recordType: recordType,
-            recordId: recordId,
+            userId: entry.userId,
+            eventType: entry.eventType,
+            recordType: entry.recordType,
+            recordId: entry.recordId,
         })
         .execute()
 }

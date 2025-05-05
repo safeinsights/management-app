@@ -9,9 +9,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('id', 'uuid', (col) => col.defaultTo(sql`v7uuid()`).primaryKey())
         .addColumn('created_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .addColumn('event_type', sql`audit_event_type`, (col) => col.notNull())
-        .addColumn('record_id', 'text', (col) => col.notNull())
+        .addColumn('record_id', 'uuid', (col) => col.notNull())
         .addColumn('record_type', sql`audit_record_type`, (col) => col.notNull())
-        .addColumn('userId', 'text', (col) => col.notNull())
+        .addColumn('userId', 'uuid', (col) => col.notNull())
         .execute()
 }
 

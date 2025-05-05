@@ -214,7 +214,12 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
-        await audit('APPROVED', userId, 'STUDY', studyId)
+        await audit({
+            eventType: 'APPROVED',
+            userId,
+            recordType: 'STUDY',
+            recordId: studyId,
+        })
         await sendStudyProposalApprovedEmail(studyId)
 
         logger.info('Study Approved', {
@@ -257,7 +262,12 @@ export const rejectStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
-        await audit('REJECTED', userId, 'STUDY', studyId)
+        await audit({
+            eventType: 'REJECTED',
+            userId,
+            recordType: 'STUDY',
+            recordId: studyId,
+        })
         await sendStudyProposalRejectedEmail(studyId)
 
         logger.info('Study Rejected', {
