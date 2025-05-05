@@ -35,8 +35,11 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
 export const sendWelcomeEmail = async (emailTo: string) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
+        logger.warn('Mailgun not configured, skipping welcome email')
         return
     }
+
+    logger.info('Attempting to send welcome email', { emailTo, domain })
 
     try {
         await mg.messages.create(domain, {
@@ -48,8 +51,9 @@ export const sendWelcomeEmail = async (emailTo: string) => {
                 resetPasswordLink: `${BASE_URL}/account/reset-password`,
             }),
         })
+        logger.info('Successfully sent welcome email')
     } catch (error) {
-        logger.error.log('sendWelcomeEmail error: ', error)
+        logger.error('Failed to send welcome email', { error: error })
     }
 }
 

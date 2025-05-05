@@ -7,8 +7,16 @@ import { adminAction } from '@/server/actions/wrappers'
 import { sendWelcomeEmail } from '@/server/mailgun'
 import { findOrCreateClerkOrganization } from '@/server/clerk'
 import { isClerkApiError, SanitizedError } from '@/lib/errors'
+import logger from '@/lib/logger'
 
 export const adminInviteUserAction = adminAction(async (invite) => {
+    // Check if the user already exists in pending users, resend invitation if so
+    const existingPendingUser = await getPendingUsersByEmailAction({ email: invite.email })
+
+    if (existingPendingUser) {
+        return reInviteUserAction({ email: invite.email })
+    }
+
     const client = await clerkClient()
     let clerkUserId = ''
 
@@ -74,8 +82,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
     })
 }, inviteUserSchema)
 
-export const getPendingOrgUsersAction = adminAction(async ({ orgSlug }: { orgSlug: string }) => {
-    // TODO: filter out already registered users/add a status column
+export const getPendingUsersAction = adminAction(async ({ orgSlug }: { orgSlug: string }) => {
     return await db
         .selectFrom('pendingUser')
         .select(['id', 'email'])
@@ -84,9 +91,26 @@ export const getPendingOrgUsersAction = adminAction(async ({ orgSlug }: { orgSlu
         .execute()
 })
 
+export const getPendingUsersByEmailAction = adminAction(async ({ email }: { email: string }) => {
+    return await db.selectFrom('pendingUser').select(['id', 'email']).where('email', '=', email).executeTakeFirst()
+})
+
 export const reInviteUserAction = adminAction(async ({ email }: { email: string }) => {
-    // TODO: filter out already registered users
-    // but for now, just resend the email.
-    await sendWelcomeEmail(email)
-    return { success: true }
+    try {
+        await sendWelcomeEmail(email)
+        return { success: true }
+    } catch (error) {
+        logger.error(error)
+        return { success: false }
+    }
+})
+
+export const deletePendingUserAction = adminAction(async ({ id }: { id: string }) => {
+    try {
+        await db.deleteFrom('pendingUser').where('id', '=', id).execute()
+        return { success: true }
+    } catch (error) {
+        logger.error(error)
+        return { success: false }
+    }
 })

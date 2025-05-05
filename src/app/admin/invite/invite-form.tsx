@@ -4,7 +4,7 @@ import { TextInput, Button, Flex, Radio, Text } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { adminInviteUserAction, getPendingOrgUsersAction, reInviteUserAction } from './admin-users.actions'
+import { adminInviteUserAction, getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './admin-users.schema'
 import { reportError } from '@/components/errors'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -32,7 +32,7 @@ export const InviteForm: FC<InviteFormProps> = ({ onCompleteAction, orgSlug }) =
 
     const { data: pendingUsers, isLoading: isLoadingPending } = useQuery({
         queryKey: ['pendingUsers', orgSlug],
-        queryFn: () => getPendingOrgUsersAction({ orgSlug }),
+        queryFn: () => getPendingUsersAction({ orgSlug }),
         enabled: !!orgSlug,
     })
 
@@ -65,7 +65,14 @@ export const InviteForm: FC<InviteFormProps> = ({ onCompleteAction, orgSlug }) =
             reportError(error)
         },
         onSuccess(info) {
-            notifications.show({ message: `User invited successfully\nClerk ID: ${info.clerkId}`, color: 'green' })
+            if ('clerkId' in info) {
+                notifications.show({
+                    message: `User invited successfully\nClerk ID: ${info.clerkId}`,
+                    color: 'green',
+                })
+            } else {
+                notifications.show({ message: `Re-invitation sent successfully`, color: 'green' })
+            }
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
             onCompleteAction?.()

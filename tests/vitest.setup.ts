@@ -5,7 +5,6 @@ import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
 import { ClerkProvider, useClerk } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
-import { sendStudyProposalEmails, sendWelcomeEmail } from '@/server/mailgun'
 
 const Headers = new Map()
 
