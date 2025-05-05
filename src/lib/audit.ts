@@ -1,6 +1,8 @@
-/* eslint-disable no-console */
 import { db } from '@/database'
 import { AuditEventType, AuditRecordType } from '@/database/types'
+import debug from 'debug'
+
+const auditDebug = debug('app:audit')
 
 type AuditEntry = {
     eventType: AuditEventType
@@ -10,7 +12,7 @@ type AuditEntry = {
 }
 
 export const audit = async (entry: AuditEntry): Promise<void> => {
-    console.log(`Auditing ${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
+    auditDebug(`Auditing ${entry.eventType}: ${entry.recordType}/${entry.recordId}`)
     await db
         .insertInto('audit')
         .values({
