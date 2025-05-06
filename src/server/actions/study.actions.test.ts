@@ -9,10 +9,10 @@ import {
 } from '@/tests/unit.helpers'
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { latestJobForStudy } from '../db/queries'
-import { sendStudyProposalApprovedEmail } from '@/server/mailgun'
+import { onStudyApproved } from '@/server/events'
 
-vi.mock('@/server/mailgun', () => ({
-    sendStudyProposalApprovedEmail: vi.fn(),
+vi.mock('@/server/events', () => ({
+    onStudyApproved: vi.fn(),
 }))
 
 describe('Study Actions', () => {
@@ -20,7 +20,7 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
-        expect(sendStudyProposalApprovedEmail).toHaveBeenCalled()
+        expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
         const job = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: user.id })
         expect(job.latestStatus).toBe('JOB-READY')
     })
