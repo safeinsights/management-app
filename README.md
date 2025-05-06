@@ -67,13 +67,6 @@ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:409
 openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
 
-### Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
 ### Useful Links
@@ -119,3 +112,5 @@ If there are playwright failures on GitHub actions, the trace file will be store
 
 - [phosphor icons](https://phosphoricons.com/)
 - [mantine](https://mantine.dev)
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
