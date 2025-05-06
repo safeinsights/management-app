@@ -47,31 +47,48 @@ describe('invite user Actions', async () => {
         }
     })
 
-    it('creates a new user and org_user record successfully', async () => {
-        const user = await adminInviteUserAction(userInvite)
-        expect(user).toMatchObject({
-            clerkId: '1234',
-            userId: expect.any(String),
+    it('creates a new pending user successfully', async () => {
+        const userResult = await adminInviteUserAction(userInvite)
+
+        if (!userResult || !('pendingUserId' in userResult) || !('clerkId' in userResult)) {
+            throw new Error('adminInviteUserAction did not return expected user details (pendingUserId and clerkId).')
+        }
+
+        expect(userResult).toMatchObject({
+            clerkId: userResult.clerkId,
+            pendingUserId: expect.any(String),
+            email: userInvite.email,
         })
-        const orgUser = await db
-            .selectFrom('orgUser')
-            .select('id')
-            .where('userId', '=', user.pendingUserId)
-            .where('orgId', '=', userInvite.organizationId)
+
+        const pendingUser = await db
+            .selectFrom('pendingUser')
+            .selectAll()
+            .where('email', '=', userInvite.email)
+            .where('orgSlug', '=', userInvite.orgSlug)
             .executeTakeFirst()
 
-        expect(orgUser).toBeTruthy()
+        expect(pendingUser).toBeTruthy()
+        expect(pendingUser?.id).toBe(userResult.pendingUserId)
+        expect(pendingUser?.organizationId).toBe(userInvite.organizationId)
+        expect(pendingUser?.isReviewer).toBe(userInvite.isReviewer)
+        expect(pendingUser?.isResearcher).toBe(userInvite.isResearcher)
 
         expect(clerkMocks?.client.users.createUser).toHaveBeenCalledWith({
             emailAddress: [userInvite.email],
             password: userInvite.password,
+            firstName: '',
+            lastName: '',
         })
 
         expect(clerkMocks?.client.organizations.createOrganizationMembership).toHaveBeenCalledWith(
-            expect.objectContaining({ userId: '1234' }),
+            expect.objectContaining({
+                userId: userResult.clerkId,
+                organizationId: expect.any(String),
+                role: 'org:member',
+            }),
         )
 
-        expect(sendWelcomeEmail).toHaveBeenCalledWith(user.email)
+        expect(sendWelcomeEmail).toHaveBeenCalledWith(userInvite.email)
     })
 
     it('throws an error when user insert fails', async () => {
