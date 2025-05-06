@@ -4,13 +4,12 @@ import { FC } from 'react'
 import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Gear, House, SignOut } from '@phosphor-icons/react/dist/ssr'
-import { OrganizationSwitcher, useClerk } from '@clerk/nextjs'
+import { House } from '@phosphor-icons/react/dist/ssr'
+import { OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
-    const { signOut, openUserProfile } = useClerk()
     const { isReviewer, isResearcher, isAdmin } = useAuthInfo()
     const pathname = usePathname()
 
@@ -35,13 +34,6 @@ export const NavbarItems: FC = () => {
                 className={styles.navLinkHover}
             />
 
-            <NavLink
-                label="Settings"
-                leftSection={<Gear />}
-                onClick={() => openUserProfile()}
-                c="white"
-                className={styles.navLinkHover}
-            />
             <Group justify="left" pl="xs" c="white">
                 <OrganizationSwitcher
                     afterSelectOrganizationUrl="/"
@@ -59,13 +51,6 @@ export const NavbarItems: FC = () => {
                     }}
                 />
             </Group>
-            <NavLink
-                label="Logout"
-                leftSection={<SignOut />}
-                onClick={() => signOut()}
-                c="white"
-                className={styles.navLinkHover}
-            />
         </Stack>
     )
 }
