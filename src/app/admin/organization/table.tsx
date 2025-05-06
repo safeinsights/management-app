@@ -45,7 +45,7 @@ export function OrgsAdminTable() {
                 title="Invite others to join your team"
                 size="lg"
             >
-                <InviteForm onCompleteAction={closeInviteUser} orgSlug={targetOrgSlug || ''} />
+                <InviteForm orgSlug={targetOrgSlug || ''} />
             </AppModal>
 
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>

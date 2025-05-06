@@ -21,11 +21,10 @@ const initialValues = (orgSlug: string = '') => ({
 })
 
 interface InviteFormProps {
-    onCompleteAction?: () => void
     orgSlug: string
 }
 
-export const InviteForm: FC<InviteFormProps> = ({ onCompleteAction, orgSlug }) => {
+export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
     const queryClient = useQueryClient()
     const [selectedRole, setSelectedRole] = useState('')
     const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null)
