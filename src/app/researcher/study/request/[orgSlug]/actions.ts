@@ -8,7 +8,7 @@ import { getUserIdFromActionContext, researcherAction, z } from '@/server/action
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
-import { sendStudyProposalEmails } from '@/server/mailgun'
+import { onStudyCreated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 
 const onCreateStudyActionArgsSchema = z.object({
@@ -67,7 +67,7 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
         })
         .execute()
 
-    await sendStudyProposalEmails(studyId)
+    onStudyCreated({ userId, studyId })
 
     const studyJobCodePath = pathForStudyJobCode({
         orgSlug,

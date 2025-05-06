@@ -2,9 +2,9 @@
 
 import { db } from '@/database'
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
-import { anonAction, orgAdminAction, z } from './wrappers'
-import { ROLE_LABELS } from '@/lib/role'
+import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
+import { onUserLogIn, onUserResetPW } from '../events'
 
 export const onUserSignInAction = anonAction(async () => {
     const user = await currentUser()
@@ -18,11 +18,20 @@ export const onUserSignInAction = anonAction(async () => {
     })
     const client = await clerkClient()
 
-    return await client.users.updateUserMetadata(user.id, {
+    const metadata = await client.users.updateUserMetadata(user.id, {
         publicMetadata: {
             userId: siUserId,
         },
     })
+
+    onUserLogIn(siUserId)
+
+    return metadata
+})
+
+export const onUserResetPWAction = userAction(async () => {
+    const userId = await getUserIdFromActionContext()
+    onUserResetPW(userId)
 })
 
 export const updateUserRoleAction = orgAdminAction(

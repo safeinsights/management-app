@@ -1,13 +1,9 @@
 'use server'
 
 import { db } from '@/database'
-import { revalidatePath } from 'next/cache'
-
 import { StudyJobStatus } from '@/database/types'
-import { audit } from '@/lib/audit'
-import logger from '@/lib/logger'
+import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { latestJobForStudy } from '@/server/db/queries'
-import { sendStudyProposalApprovedEmail, sendStudyProposalRejectedEmail } from '@/server/mailgun'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { checkUserAllowedStudyReview } from '../db/queries'
@@ -214,20 +210,7 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
-        await audit({
-            eventType: 'APPROVED',
-            userId,
-            recordType: 'STUDY',
-            recordId: studyId,
-        })
-        await sendStudyProposalApprovedEmail(studyId)
-
-        logger.info('Study Approved', {
-            reviewerId: userId,
-            studyId: studyId,
-        })
-
-        revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+        onStudyApproved({ studyId, userId })
     },
     z.object({
         studyId: z.string(),
@@ -262,20 +245,7 @@ export const rejectStudyProposalAction = orgAction(
                 .executeTakeFirstOrThrow()
         })
 
-        await audit({
-            eventType: 'REJECTED',
-            userId,
-            recordType: 'STUDY',
-            recordId: studyId,
-        })
-        await sendStudyProposalRejectedEmail(studyId)
-
-        logger.info('Study Rejected', {
-            reviewerId: userId,
-            studyId: studyId,
-        })
-
-        revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+        onStudyRejected({ studyId, userId })
     },
     z.object({
         studyId: z.string(),
