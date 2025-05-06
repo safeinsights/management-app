@@ -9,8 +9,6 @@ import { useQuery } from '@tanstack/react-query'
 import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
 import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-// Comment out unused import
-// import { useAuth } from '@clerk/nextjs'
 import { InviteForm } from '@/app/admin/invite/invite-form'
 import { AppModal } from '@/components/modal'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
@@ -22,11 +20,10 @@ export function OrgsAdminTable() {
         queryFn: fetchOrgsAction,
     })
 
-    // const { isLoaded, orgId, orgSlug } = useAuth()
-
-    // TEMPORARY HARDCODING
-    // TODO: remove this
-    const hardcodedOrgSlug = 'openstax'
+    const targetOrgSlug = useMemo(() => {
+        const firstOrg = data.find((org) => org.slug !== 'safe-insights')
+        return firstOrg?.slug
+    }, [data])
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
@@ -48,8 +45,7 @@ export function OrgsAdminTable() {
                 title="Invite others to join your team"
                 size="lg"
             >
-                {/* <InviteForm onCompleteAction={closeInviteUser} orgSlug={orgSlug || ''} /> */}
-                <InviteForm onCompleteAction={closeInviteUser} orgSlug={hardcodedOrgSlug} />
+                <InviteForm onCompleteAction={closeInviteUser} orgSlug={targetOrgSlug || ''} />
             </AppModal>
 
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
@@ -59,9 +55,7 @@ export function OrgsAdminTable() {
                     <Group justify="space-between">
                         <Title order={3}>People</Title>
                         <Flex justify="flex-end">
-                            {/* original button disable logic */}
-                            {/* disabled={!isLoaded || !orgSlug} */}
-                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!hardcodedOrgSlug}>
+                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgSlug}>
                                 Invite People
                             </Button>
                         </Flex>
