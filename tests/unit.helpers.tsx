@@ -283,6 +283,7 @@ type MockSession = {
     clerkUserId: string
     org_slug: string
     imageUrl?: string
+    org_id: string
 }
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
@@ -301,6 +302,7 @@ export const mockClerkSession = (values: MockSession) => {
         organizations: {
             getOrganization: vi.fn(async (orgSlug: string) => ({
                 slug: orgSlug,
+                id: values.org_id,
             })),
             createOrganization: vi.fn(async (org: object) => org),
             createOrganizationMembership: vi.fn(async () => ({ id: '1234' })),
@@ -350,6 +352,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const mocks = mockClerkSession({
         clerkUserId: user.clerkId,
         org_slug: org.slug,
+        org_id: org.id,
     })
     return { org, user, orgUser, ...mocks }
 }
