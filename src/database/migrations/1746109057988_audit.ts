@@ -1,6 +1,5 @@
 import { type Kysely, sql } from 'kysely'
 
-// biome-ignore lint/suspicious/noExplicitAny: `any` is required here since migrations should be frozen in time. alternatively, keep a "snapshot" db interface.
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema.createType('audit_event_type').asEnum(['APPROVED', 'REJECTED']).execute()
     await db.schema.createType('audit_record_type').asEnum(['STUDY']).execute()
@@ -15,7 +14,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: `any` is required here since migrations should be frozen in time. alternatively, keep a "snapshot" db interface.
 export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('audit').execute()
 }
