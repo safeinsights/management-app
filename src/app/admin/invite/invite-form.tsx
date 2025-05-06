@@ -75,7 +75,6 @@ export const InviteForm: FC<InviteFormProps> = ({ onCompleteAction, orgSlug }) =
             }
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
-            onCompleteAction?.()
         },
     })
 
