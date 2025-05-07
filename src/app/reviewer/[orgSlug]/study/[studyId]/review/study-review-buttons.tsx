@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Text, useMantineTheme } from '@mantine/core'
+import { Button, Group, Text, Flex, useMantineTheme } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -44,23 +44,27 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
     if (study.status === 'APPROVED' && study.approvedAt) {
         return (
-            <Group gap="xs">
-                <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
-                <Text fz="xs" fw={600} c="green.9">
-                    Approved on {dayjs(study.approvedAt).format('MMM DD, YYYY')}
-                </Text>
-            </Group>
+            <Flex align="center">
+                <Group gap="2">
+                    <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
+                    <Text fz="xs" fw={600} c="green.9">
+                        Approved on {dayjs(study.approvedAt).format('MMM DD, YYYY')}
+                    </Text>
+                </Group>
+            </Flex>
         )
     }
 
     if (study.status === 'REJECTED' && study.rejectedAt) {
         return (
-            <Group gap="xs">
-                <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
-                <Text fz="xs" fw={600} c="red.9">
-                    Rejected on {dayjs(study.rejectedAt).format('MMM DD, YYYY')}
-                </Text>
-            </Group>
+            <Flex align="center">
+                <Group gap="2">
+                    <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
+                    <Text fz="xs" fw={600} c="red.9">
+                        Rejected on {dayjs(study.rejectedAt).format('MMM DD, YYYY')}
+                    </Text>
+                </Group>
+            </Flex>
         )
     }
 
