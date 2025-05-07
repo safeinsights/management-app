@@ -38,14 +38,15 @@ export const NavbarItems: FC = () => {
             {orgSlug && (
                 <Protect role="org:admin">
                     <NavLink
-                        label="Admin"
+                        label="Admin" 
                         leftSection={<Gear />}
-                        active={pathname.startsWith(orgAdminBaseUrl)}
-                        defaultOpened={pathname.startsWith(orgAdminBaseUrl)}
+                        component={Link}
+                        href={`${orgAdminBaseUrl}/users`}
+                        active={false}
+                        opened={true}
                         c="white"
-                        color="blue.7"
-                        variant="filled"
                         className={styles.navLinkHover}
+                        rightSection={<></>}
                     >
                         <NavLink
                             label="Manage Team"
