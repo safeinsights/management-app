@@ -13,6 +13,7 @@ import {
 
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { reportMutationError } from '@/components/errors'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
@@ -35,11 +36,8 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
-        onSettled(error) {
-            if (!error) {
-                router.push(backPath)
-            }
-        },
+        onError: reportMutationError,
+        onSuccess: () => router.push(backPath),
     })
 
     if (study.status === 'APPROVED' && study.approvedAt) {
