@@ -69,12 +69,12 @@ export const JobReviewButtons = ({
     if (job.latestStatus === 'RESULTS-REJECTED') {
         return (
             <Flex align="center">
-            <Group gap="2">
-                <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
-                <Text fz="xs" fw={600} c="red.9">
-                    Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
-                </Text>
-            </Group>
+                <Group gap="2">
+                    <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
+                    <Text fz="xs" fw={600} c="red.9">
+                        Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                    </Text>
+                </Group>
             </Flex>
         )
     }
