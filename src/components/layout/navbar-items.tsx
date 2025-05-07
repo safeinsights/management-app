@@ -57,7 +57,13 @@ export const NavbarItems: FC = () => {
                     <NavLink
                         label="Admin"
                         leftSection={<Gear />}
-                        onClick={() => setIsAdminMenuOpen((prev) => !prev)}
+                        onClick={() => {
+                            if (!pathname.startsWith(orgAdminBaseUrl)) {
+                                setIsAdminMenuOpen((prev) => !prev)
+                            }
+                            // If pathname.startsWith(orgAdminBaseUrl) is true, do nothing here.
+                            // The menu is already open (due to useEffect) and should stay open.
+                        }}
                         active={false}
                         opened={isAdminMenuOpen}
                         c="white"
