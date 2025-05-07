@@ -10,7 +10,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('event_type', sql`audit_event_type`, (col) => col.notNull())
         .addColumn('record_id', 'uuid', (col) => col.notNull())
         .addColumn('record_type', sql`audit_record_type`, (col) => col.notNull())
-        .addColumn('userId', 'uuid', (col) => col.notNull())
+        .addColumn('userId', 'uuid', (col) => col.notNull()) // deliberately not using a fk reference because we want to keep audit even if users are deleted
         .execute()
 }
 
