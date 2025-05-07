@@ -82,7 +82,7 @@ export const NavbarItems: FC = () => {
                             className={styles.navLinkHover}
                             pl="xl"
                         />
-                        {/* TODO: re-add if we have a settings org admin settings page */}
+                        {/* TODO: re-add if we have a org admin settings page */}
                         {/* <NavLink
                             label="Settings"
                             leftSection={<Sliders size={20} />}
