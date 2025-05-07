@@ -40,7 +40,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         const org = await db
             .selectFrom('org')
             .select(['org.slug', 'name'])
-            .where('slug', '=', invite.orgSlug)
+            .where('id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
         const clerkOrg = await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
@@ -53,18 +53,10 @@ export const adminInviteUserAction = adminAction(async (invite) => {
     }
 
     return await db.transaction().execute(async (trx) => {
-        // Fetch the database org ID (UUID) using the provided slug
-        const dbOrg = await trx.selectFrom('org').select('id').where('slug', '=', invite.orgSlug).executeTakeFirst()
-
-        if (!dbOrg) {
-            throw new Error(`Organization with slug ${invite.orgSlug} not found in the database.`)
-        }
-
         const pendingUser = await trx
             .insertInto('pendingUser')
             .values({
-                organizationId: dbOrg.id,
-                orgSlug: invite.orgSlug,
+                organizationId: invite.orgId,
                 email: invite.email,
                 isResearcher: !!invite.isResearcher,
                 isReviewer: !!invite.isReviewer,
@@ -82,11 +74,11 @@ export const adminInviteUserAction = adminAction(async (invite) => {
     })
 }, inviteUserSchema)
 
-export const getPendingUsersAction = adminAction(async ({ orgSlug }: { orgSlug: string }) => {
+export const getPendingUsersAction = adminAction(async ({ orgId }: { orgId: string }) => {
     return await db
         .selectFrom('pendingUser')
         .select(['id', 'email'])
-        .where('orgSlug', '=', orgSlug)
+        .where('organizationId', '=', orgId)
         .orderBy('createdAt', 'desc')
         .execute()
 })
@@ -98,16 +90,6 @@ export const getPendingUsersByEmailAction = adminAction(async ({ email }: { emai
 export const reInviteUserAction = adminAction(async ({ email }: { email: string }) => {
     try {
         await sendWelcomeEmail(email)
-        return { success: true }
-    } catch (error) {
-        logger.error(error)
-        return { success: false }
-    }
-})
-
-export const deletePendingUserAction = adminAction(async ({ id }: { id: string }) => {
-    try {
-        await db.deleteFrom('pendingUser').where('id', '=', id).execute()
         return { success: true }
     } catch (error) {
         logger.error(error)

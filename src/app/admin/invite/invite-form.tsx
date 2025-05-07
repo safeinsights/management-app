@@ -1,6 +1,6 @@
 'use client'
 
-import { TextInput, Button, Flex, Radio, Text } from '@mantine/core'
+import { TextInput, Button, Flex, Radio, Text, useMantineTheme } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -11,51 +11,56 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 import { FC, useEffect, useState } from 'react'
 import { WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { randomString } from '@/lib/string'
+import { PendingUsers } from './pending-users'
 
-const initialValues = (orgSlug: string = '') => ({
+const initialValues = (orgId: string = '') => ({
     email: '',
     password: randomString(8),
     isResearcher: false,
     isReviewer: false,
-    orgSlug: orgSlug,
+    orgId: orgId,
 })
 
 interface InviteFormProps {
-    orgSlug: string
+    orgId: string
 }
 
-export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
+export const InviteForm: FC<InviteFormProps> = ({ orgId }) => {
+    const theme = useMantineTheme()
+
     const queryClient = useQueryClient()
     const [selectedRole, setSelectedRole] = useState('')
     const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null)
 
-    const { data: pendingUsers, isLoading: isLoadingPending } = useQuery({
-        queryKey: ['pendingUsers', orgSlug],
-        queryFn: () => getPendingUsersAction({ orgSlug }),
-        enabled: !!orgSlug,
+    const { data: pendingUsers = [], isLoading: isLoadingPending } = useQuery({
+        queryKey: ['pendingUsers', orgId],
+        queryFn: () => getPendingUsersAction({ orgId }),
+        enabled: !!orgId,
     })
 
     const studyProposalForm = useForm<InviteUserFormValues>({
         mode: 'controlled',
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
-        initialValues: initialValues(orgSlug),
+        initialValues: initialValues(orgId),
     })
 
     useEffect(() => {
-        if (orgSlug) {
+        if (orgId) {
             studyProposalForm.setValues({
                 ...studyProposalForm.values,
-                orgSlug: orgSlug,
+                orgId: orgId,
             })
-            studyProposalForm.setInitialValues(initialValues(orgSlug))
+            studyProposalForm.setInitialValues(initialValues(orgId))
         }
-    }, [orgSlug])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [orgId])
 
     useEffect(() => {
         studyProposalForm.setFieldValue('isReviewer', selectedRole === 'multiple' || selectedRole === 'reviewer')
         studyProposalForm.setFieldValue('isResearcher', selectedRole === 'multiple' || selectedRole === 'researcher')
         studyProposalForm.validateField('isResearcher')
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedRole])
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
@@ -73,7 +78,7 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
                 notifications.show({ message: `Re-invitation sent successfully`, color: 'green' })
             }
             studyProposalForm.reset()
-            queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+            queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgId] })
         },
     })
 
@@ -106,13 +111,13 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
             />
             {studyProposalForm.errors.email && (
                 <Flex align="center" gap={4} my={2}>
-                    <WarningCircle size={16} color="var(--mantine-color-error)" />
+                    <WarningCircle size={16} color={theme.colors.red[7]} />
                     <Text c="red" size="xs">
                         {studyProposalForm.errors.email}
                     </Text>
                 </Flex>
             )}
-            <div style={{ marginBottom: '1rem', fontWeight: 600 }}>
+            <Flex mb="sm" fw="semibold">
                 <Radio.Group
                     label="Assign Role"
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
@@ -125,45 +130,19 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
                         <Radio value="researcher" label="Researcher (can submit studies and access results)" />
                     </Flex>
                 </Radio.Group>
-            </div>
+            </Flex>
 
             <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid()}>
                 Send invitation
             </Button>
 
-            <hr style={{ margin: '32px 0', color: '#D9D9D9' }} />
-
-            <div>
-                <Text fw={600} mb="md">
-                    Pending invitations ({pendingUsers?.length ?? 0})
-                </Text>
-                {isLoadingPending && <Text size="sm">Loading pending invitations...</Text>}
-                {!isLoadingPending && (!pendingUsers || pendingUsers.length === 0) && (
-                    <Text size="sm" c="dimmed">
-                        No pending invitations for this organization.
-                    </Text>
-                )}
-                {pendingUsers && pendingUsers.length > 0 && (
-                    <Flex direction="column" gap="xs">
-                        {pendingUsers.map((user) => (
-                            <Flex key={user.id} justify="space-between" align="center">
-                                <Text size="sm" truncate>
-                                    {user.email}
-                                </Text>
-                                <Button
-                                    variant="outline"
-                                    size="xs"
-                                    onClick={() => reInviteUser({ email: user.email })}
-                                    loading={isReinviting && reinvitingEmail === user.email}
-                                    disabled={isReinviting}
-                                >
-                                    Re-invite
-                                </Button>
-                            </Flex>
-                        ))}
-                    </Flex>
-                )}
-            </div>
+            <PendingUsers
+                pendingUsers={pendingUsers}
+                isLoadingPending={isLoadingPending}
+                reInviteUser={(email) => reInviteUser({ email })}
+                isReinviting={isReinviting}
+                reinvitingEmail={reinvitingEmail}
+            />
         </form>
     )
 }

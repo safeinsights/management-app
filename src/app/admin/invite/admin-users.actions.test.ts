@@ -28,8 +28,7 @@ describe('invite user Actions', async () => {
 
     let userInvite = {
         email: '',
-        organizationId: '',
-        orgSlug: '',
+        orgId: '',
         password: randomString(8),
         isReviewer: true,
         isResearcher: false,
@@ -38,8 +37,7 @@ describe('invite user Actions', async () => {
     beforeEach(async () => {
         userInvite = {
             email: faker.internet.email(),
-            organizationId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
-            orgSlug: (await db.selectFrom('org').select('slug').executeTakeFirstOrThrow()).slug,
+            orgId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
             password: randomString(10),
             isReviewer: true,
             isResearcher: false,
@@ -63,7 +61,6 @@ describe('invite user Actions', async () => {
             .selectFrom('pendingUser')
             .selectAll()
             .where('email', '=', userInvite.email)
-            .where('orgSlug', '=', userInvite.orgSlug)
             .executeTakeFirst()
 
         expect(pendingUser).toBeTruthy()

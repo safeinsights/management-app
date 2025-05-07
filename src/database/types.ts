@@ -66,7 +66,6 @@ export interface PendingUser {
   isResearcher: boolean;
   isReviewer: boolean;
   organizationId: string;
-  orgSlug: string;
 }
 
 export interface Study {

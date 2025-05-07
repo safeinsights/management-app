@@ -12,6 +12,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { InviteForm } from '@/app/admin/invite/invite-form'
 import { AppModal } from '@/components/modal'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export function OrgsAdminTable() {
     const theme = useMantineTheme()
@@ -20,9 +21,9 @@ export function OrgsAdminTable() {
         queryFn: fetchOrgsAction,
     })
 
-    const targetOrgSlug = useMemo(() => {
-        const firstOrg = data.find((org) => org.slug !== 'safe-insights')
-        return firstOrg?.slug
+    const targetOrgId = useMemo(() => {
+        const firstOrg = data.find((org) => org.slug !== CLERK_ADMIN_ORG_SLUG)
+        return firstOrg?.id
     }, [data])
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
@@ -45,7 +46,7 @@ export function OrgsAdminTable() {
                 title="Invite others to join your team"
                 size="lg"
             >
-                <InviteForm orgSlug={targetOrgSlug || ''} />
+                <InviteForm orgId={targetOrgId || ''} />
             </AppModal>
 
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
@@ -55,7 +56,7 @@ export function OrgsAdminTable() {
                     <Group justify="space-between">
                         <Title order={3}>People</Title>
                         <Flex justify="flex-end">
-                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgSlug}>
+                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgId}>
                                 Invite People
                             </Button>
                         </Flex>

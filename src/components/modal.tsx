@@ -17,14 +17,10 @@ export function AppModal({
     children,
     title,
     size = 'md',
-    centered = false,
-    closeOnClickOutside = false,
+    centered = true,
+    closeOnClickOutside = true,
     trapFocus = true,
 }: AppModalProps) {
-    if (!isOpen) {
-        return null
-    }
-
     return (
         <Modal
             opened={isOpen}
