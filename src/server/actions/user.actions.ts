@@ -1,32 +1,23 @@
 'use server'
 
 import { db } from '@/database'
-import { clerkClient, currentUser } from '@clerk/nextjs/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
-import { onUserLogIn, onUserResetPW } from '../events'
+import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 
 export const onUserSignInAction = anonAction(async () => {
-    const user = await currentUser()
+    const clerkUser = await currentUser()
 
-    if (!user) throw new Error('User not authenticated')
+    if (!clerkUser) throw new Error('User not authenticated')
 
-    const siUserId = await findOrCreateSiUserId(user.id, {
-        firstName: user.firstName ?? 'Unknown', // unlike clerk, we require users to have some sort of name for showing in reports
-        lastName: user.lastName,
-        email: user.primaryEmailAddress?.emailAddress,
-    })
-    const client = await clerkClient()
-
-    const metadata = await client.users.updateUserMetadata(user.id, {
-        publicMetadata: {
-            userId: siUserId,
-        },
+    const siUserId = await findOrCreateSiUserId(clerkUser.id, {
+        firstName: clerkUser.firstName ?? 'Unknown', // unlike clerk, we require users to have some sort of name for showing in reports
+        lastName: clerkUser.lastName,
+        email: clerkUser.primaryEmailAddress?.emailAddress,
     })
 
-    onUserLogIn(siUserId)
-
-    return metadata
+    onUserLogIn({ userId: siUserId })
 })
 
 export const onUserResetPWAction = userAction(async () => {
@@ -35,20 +26,18 @@ export const onUserResetPWAction = userAction(async () => {
 })
 
 export const updateUserRoleAction = orgAdminAction(
-    async ({ orgSlug, userId, isAdmin, isResearcher, isReviewer }) => {
-        return db
-            .updateTable('orgUser')
-            .set({
-                isAdmin,
-                isReviewer,
-                isResearcher,
-            })
-            .from('org')
-            .whereRef('org.id', '=', 'orgUser.orgId')
+    async ({ orgSlug, userId, ...update }) => {
+        const { id, ...before } = await db
+            .selectFrom('orgUser')
+            .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
             .where('org.slug', '=', orgSlug as string)
-            .where('userId', '=', userId)
-            .returningAll('orgUser')
+            .where('orgUser.userId', '=', userId)
             .executeTakeFirstOrThrow()
+
+        await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
+
+        onUserRoleUpdate({ userId, before, after: update })
     },
     z.object({
         orgSlug: z.string(),
