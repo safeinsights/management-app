@@ -99,23 +99,29 @@ export const NavbarItems: FC = () => {
                 </Protect>
             )}
 
-            <Group justify="left" c="white">
+            <Group justify="left" c="white" w="100%">
                 <OrganizationSwitcher
                     afterSelectOrganizationUrl="/"
                     appearance={{
                         elements: {
-                            root: {
+                            rootBox: {
                                 width: '100%',
                             },
                             organizationSwitcherTrigger: {
                                 color: 'white !important',
                                 '& span': { color: 'white !important' },
-                                padding: `var(--mantine-spacing-xs) var(--mantine-spacing-sm)`,
+                                padding: `12px 10px`,
                                 width: '100%',
                                 borderRadius: '0',
                                 '&:hover': {
                                     backgroundColor: 'var(--mantine-color-blue-9)',
                                 },
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                            },
+                            organizationPreview: {
+                                gap: 'var(--mantine-spacing-sm)',
                             },
                         },
                     }}
