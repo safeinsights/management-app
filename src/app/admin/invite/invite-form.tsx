@@ -1,15 +1,14 @@
 'use client'
 
-import { TextInput, Button, Flex, Radio, Text, useMantineTheme } from '@mantine/core'
+import { TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { adminInviteUserAction, getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './admin-users.schema'
-import { reportError } from '@/components/errors'
+import { InputError, reportError } from '@/components/errors'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { FC, useEffect, useState } from 'react'
-import { WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { randomString } from '@/lib/string'
 import { PendingUsers } from './pending-users'
 
@@ -26,8 +25,6 @@ interface InviteFormProps {
 }
 
 export const InviteForm: FC<InviteFormProps> = ({ orgId }) => {
-    const theme = useMantineTheme()
-
     const queryClient = useQueryClient()
     const [selectedRole, setSelectedRole] = useState('')
     const [reinvitingEmail, setReinvitingEmail] = useState<string | null>(null)
@@ -107,16 +104,8 @@ export const InviteForm: FC<InviteFormProps> = ({ orgId }) => {
                 mb="sm"
                 styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
                 {...studyProposalForm.getInputProps('email')}
-                error={false}
+                error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
             />
-            {studyProposalForm.errors.email && (
-                <Flex align="center" gap={4} my={2}>
-                    <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
-                    <Text c="red.7" size="xs">
-                        {studyProposalForm.errors.email}
-                    </Text>
-                </Flex>
-            )}
             <Flex mb="sm" fw="semibold">
                 <Radio.Group
                     label="Assign Role"
