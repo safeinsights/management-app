@@ -57,9 +57,9 @@ export const NavbarItems: FC = () => {
                     <NavLink
                         label="Admin"
                         leftSection={<Gear />}
-                        onClick={() => setIsAdminMenuOpen((prev) => !prev)} // Toggle the state on click
-                        active={false} // Admin item itself is not highlighted
-                        opened={isAdminMenuOpen} // Controlled by local state
+                        onClick={() => setIsAdminMenuOpen((prev) => !prev)}
+                        active={false}
+                        opened={isAdminMenuOpen}
                         c="white"
                         className={styles.navLinkHover}
                     >
@@ -75,18 +75,19 @@ export const NavbarItems: FC = () => {
                             className={styles.navLinkHover}
                             pl="xl"
                         />
-                        <NavLink
+                        {/* TODO: re-add if we have a settings org admin settings page */}
+                        {/* <NavLink
                             label="Settings"
                             leftSection={<Sliders size={20} />}
                             component={Link}
-                            href={`${orgAdminBaseUrl}/settings`} // TODO: Placeholder link for settings
+                            href={`${orgAdminBaseUrl}/settings`}
                             active={pathname === `${orgAdminBaseUrl}/settings`}
                             c="white"
                             color="blue.7"
                             variant="filled"
                             className={styles.navLinkHover}
                             pl="xl"
-                        />
+                        /> */}
                     </NavLink>
                 </Protect>
             )}
