@@ -60,6 +60,19 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                     className={styles.navLinkHover}
                     pl="xl"
                 />
+                {/* TODO: re-add if we have a org admin settings page */}
+                {/* <NavLink
+                    label="Settings"
+                    leftSection={<Sliders size={20} />}
+                    component={Link}
+                    href={`${orgAdminBaseUrl}/settings`}
+                    active={pathname === `${orgAdminBaseUrl}/settings`}
+                    c="white"
+                    color="blue.7"
+                    variant="filled"
+                    className={styles.navLinkHover}
+                    pl="xl"
+                /> */}
             </NavLink>
         </Protect>
     )
