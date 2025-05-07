@@ -3,7 +3,7 @@
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
-import { CaretRight, Lock, SignOut, User } from '@phosphor-icons/react/dist/ssr'
+import { CaretRight, SignOut, User } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { useDisclosure } from '@mantine/hooks'
 import { useClerk } from '@clerk/nextjs'
@@ -24,7 +24,8 @@ export function NavbarProfileMenu() {
                         openUserProfile()
                     }}
                 />
-                <NavLink
+                {/* Will restore once page is built*/}
+                {/* <NavLink
                     label="Reviewer Key"
                     leftSection={<Lock />}
                     onClick={() => {
@@ -32,7 +33,7 @@ export function NavbarProfileMenu() {
                     }}
                     c="white"
                     className={styles.navLinkProfileHover}
-                />
+                /> */}
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOut />}
