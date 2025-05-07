@@ -1,35 +1,18 @@
 'use client'
 
-import { FC, useState, useEffect } from 'react'
+import { FC } from 'react'
 import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { House, Gear, UsersThree } from '@phosphor-icons/react/dist/ssr'
-import { OrganizationSwitcher, Protect } from '@clerk/nextjs'
+import { House } from '@phosphor-icons/react/dist/ssr'
+import { OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
 export const NavbarItems: FC = () => {
     const { isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
     const pathname = usePathname()
-    const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
-
-    // State for controlling the Admin NavLink's opened/closed status
-    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false)
-
-    useEffect(() => {
-        if (orgSlug) {
-            if (pathname.startsWith(orgAdminBaseUrl)) {
-                setIsAdminMenuOpen(true)
-            } else {
-                // If navigating away from admin pages (but still in an org),
-                // collapse the menu. The user can re-open it manually.
-                setIsAdminMenuOpen(false)
-            }
-        } else {
-            setIsAdminMenuOpen(false)
-        }
-    }, [pathname, orgAdminBaseUrl, orgSlug]) // Rerun when path or org context changes
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
@@ -52,52 +35,7 @@ export const NavbarItems: FC = () => {
                 className={styles.navLinkHover}
             />
 
-            {orgSlug && (
-                <Protect role="org:admin">
-                    <NavLink
-                        label="Admin"
-                        leftSection={<Gear />}
-                        onClick={() => {
-                            if (!pathname.startsWith(orgAdminBaseUrl)) {
-                                setIsAdminMenuOpen((prev) => !prev)
-                            }
-                            // If pathname.startsWith(orgAdminBaseUrl) is true, do nothing here.
-                            // The menu is already open (due to useEffect) and should stay open.
-                        }}
-                        active={false}
-                        opened={isAdminMenuOpen}
-                        c="white"
-                        className={styles.navLinkHover}
-                        rightSection={<></>}
-                    >
-                        <NavLink
-                            label="Manage Team"
-                            leftSection={<UsersThree size={20} />}
-                            component={Link}
-                            href={`${orgAdminBaseUrl}/users`}
-                            active={pathname === `${orgAdminBaseUrl}/users`}
-                            c="white"
-                            color="blue.7"
-                            variant="filled"
-                            className={styles.navLinkHover}
-                            pl="xl"
-                        />
-                        {/* TODO: re-add if we have a org admin settings page */}
-                        {/* <NavLink
-                            label="Settings"
-                            leftSection={<Sliders size={20} />}
-                            component={Link}
-                            href={`${orgAdminBaseUrl}/settings`}
-                            active={pathname === `${orgAdminBaseUrl}/settings`}
-                            c="white"
-                            color="blue.7"
-                            variant="filled"
-                            className={styles.navLinkHover}
-                            pl="xl"
-                        /> */}
-                    </NavLink>
-                </Protect>
-            )}
+            <OrgAdminDashboardLink orgSlug={orgSlug} pathname={pathname} />
 
             <Group justify="left" c="white" w="100%">
                 <OrganizationSwitcher
