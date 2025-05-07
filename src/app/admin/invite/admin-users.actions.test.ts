@@ -48,10 +48,6 @@ describe('invite user Actions', async () => {
     it('creates a new pending user successfully', async () => {
         const userResult = await adminInviteUserAction(userInvite)
 
-        if (!userResult || !('pendingUserId' in userResult) || !('clerkId' in userResult)) {
-            throw new Error('adminInviteUserAction did not return expected user details (pendingUserId and clerkId).')
-        }
-
         expect(userResult).toMatchObject({
             clerkId: '1234',
             pendingUserId: expect.any(String),
@@ -75,7 +71,7 @@ describe('invite user Actions', async () => {
 
         expect(clerkMocks?.client.organizations.createOrganizationMembership).toHaveBeenCalledWith(
             expect.objectContaining({
-                userId: userResult.clerkId,
+                userId: 'clerkId' in userResult ? userResult.clerkId : undefined,
                 organizationId: expect.any(String),
                 role: 'org:member',
             }),
@@ -138,15 +134,11 @@ describe('invite user Actions', async () => {
     })
 
     it('user is not recreated as a pending user if they already exist', async () => {
-        const firstInvite = await adminInviteUserAction(userInvite)
+        await adminInviteUserAction(userInvite)
         const beforeSecondInviteCount = await db
             .selectFrom('pendingUser')
             .select(({ fn }) => [fn.count('id').as('count')])
             .executeTakeFirstOrThrow()
-
-        if (!firstInvite || !('pendingUserId' in firstInvite) || !('clerkId' in firstInvite)) {
-            throw new Error('adminInviteUserAction did not return expected user details (pendingUserId and clerkId).')
-        }
 
         await adminInviteUserAction(userInvite)
         const afterSecondInviteCount = await db
