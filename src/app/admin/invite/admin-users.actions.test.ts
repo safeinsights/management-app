@@ -7,6 +7,7 @@ import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
 import { sendWelcomeEmail } from '@/server/mailgun'
 import { SanitizedError } from '@/lib/errors'
+import { getPendingUsersAction, getPendingUsersByEmailAction, reInviteUserAction } from './admin-users.actions'
 
 vi.mock('@/server/mailgun', () => ({
     sendWelcomeEmail: vi.fn(),
@@ -100,5 +101,61 @@ describe('invite user Actions', async () => {
         }))
         await expect(adminInviteUserAction(userInvite)).rejects.toThrowError()
         expect(beforeCount).toEqual(await userRecordCount())
+    })
+
+    it('getPendingUsersAction returns pending users for org', async () => {
+        const emails = [faker.internet.email(), faker.internet.email()]
+        await db
+            .insertInto('pendingUser')
+            .values([
+                { organizationId: userInvite.orgId, email: emails[0], isResearcher: false, isReviewer: false },
+                { organizationId: userInvite.orgId, email: emails[1], isResearcher: false, isReviewer: false },
+            ])
+            .execute()
+        const pendingUsersInOrg = await getPendingUsersAction({ orgId: userInvite.orgId })
+        expect(pendingUsersInOrg.map((u) => u.email)).toEqual(expect.arrayContaining(emails))
+    })
+
+    it('getPendingUsersByEmailAction returns a pending user by email', async () => {
+        const email = faker.internet.email()
+        await db
+            .insertInto('pendingUser')
+            .values({
+                organizationId: userInvite.orgId,
+                email,
+                isResearcher: false,
+                isReviewer: false,
+            })
+            .execute()
+        const pendingUser = await getPendingUsersByEmailAction({ email })
+        expect(pendingUser).toMatchObject({ email })
+    })
+
+    it('reInviteUserAction returns success with sendWelcomeEmail', async () => {
+        const res = await reInviteUserAction({ email: userInvite.email })
+        expect(sendWelcomeEmail).toHaveBeenCalledWith(userInvite.email)
+        expect(res).toEqual({ success: true })
+    })
+
+    it('user is not recreated as a pending user if they already exist', async () => {
+        const firstInvite = await adminInviteUserAction(userInvite)
+        const beforeSecondInviteCount = await db
+            .selectFrom('pendingUser')
+            .select(({ fn }) => [fn.count('id').as('count')])
+            .executeTakeFirstOrThrow()
+
+        if (!firstInvite || !('pendingUserId' in firstInvite) || !('clerkId' in firstInvite)) {
+            throw new Error('adminInviteUserAction did not return expected user details (pendingUserId and clerkId).')
+        }
+
+        await adminInviteUserAction(userInvite)
+        const afterSecondInviteCount = await db
+            .selectFrom('pendingUser')
+            .select(({ fn }) => [fn.count('id').as('count')])
+            .executeTakeFirstOrThrow()
+
+        expect(afterSecondInviteCount).toEqual(beforeSecondInviteCount)
+
+        expect(sendWelcomeEmail).toHaveBeenCalledWith(userInvite.email)
     })
 })
