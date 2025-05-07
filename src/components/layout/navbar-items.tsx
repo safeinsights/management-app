@@ -62,6 +62,7 @@ export const NavbarItems: FC = () => {
                         opened={isAdminMenuOpen}
                         c="white"
                         className={styles.navLinkHover}
+                        rightSection={<></>}
                     >
                         <NavLink
                             label="Manage Team"
