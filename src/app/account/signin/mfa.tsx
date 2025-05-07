@@ -7,6 +7,7 @@ import type { SignInResource } from '@clerk/types'
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
 import { useRouter } from 'next/navigation'
+import { onUserSignInAction } from '@/server/actions/user.actions'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
@@ -40,6 +41,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
+                await onUserSignInAction()
                 router.push('/')
             } else {
                 // clerk did not throw an error but also did not return a signIn object

@@ -38,22 +38,35 @@ export async function findOrCreateOrgMembership({
     isResearcher?: boolean
     isReviewer?: boolean
 }) {
-    let org = await db
+    const orgInfo = await db
         .selectFrom('orgUser')
         .innerJoin('org', (join) => join.on('org.slug', '=', slug).onRef('org.id', '=', 'orgUser.orgId'))
-        .select(['org.id', 'org.slug', 'org.name'])
+        .select([
+            'org.id',
+            'org.slug',
+            'org.name',
+            'orgUser.id as orgUserId',
+            'orgUser.isResearcher',
+            'orgUser.isReviewer',
+        ])
         .where('orgUser.userId', '=', userId)
         .executeTakeFirst()
 
-    if (!org) {
-        org = await db
+    if (orgInfo) {
+        if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer) {
+            db.updateTable('orgUser')
+                .set({ isResearcher, isReviewer })
+                .where('id', '=', orgInfo.orgUserId)
+                .executeTakeFirstOrThrow()
+        }
+        return { ...orgInfo, isReviewer, isResearcher }
+    } else {
+        const org = await db
             .selectFrom('org')
             .select(['org.id', 'org.slug', 'org.name'])
             .where('org.slug', '=', slug)
-            .executeTakeFirst()
-        if (!org) {
-            throw new Error(`No organization found with slug ${slug}`)
-        }
+            .executeTakeFirstOrThrow(() => new Error(`No organization found with slug ${slug}`))
+
         await db
             .insertInto('orgUser')
             .values({
@@ -64,8 +77,8 @@ export async function findOrCreateOrgMembership({
                 orgId: org.id,
             })
             .executeTakeFirstOrThrow()
+        return { ...org, isReviewer, isResearcher }
     }
-    return org
 }
 
 export async function ensureUserIsMemberOfOrg() {

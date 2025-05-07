@@ -1,6 +1,8 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import { auth } from '@clerk/nextjs/server'
 import { capitalize } from 'remeda'
+import { db } from '@/database'
+import { getOrgInfoForUserId } from './db/queries'
 
 type ClerkOrganizationProps = {
     adminUserId?: string
@@ -30,4 +32,15 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 
         return clerkOrg
     }
+}
+
+export const updateClerkUserMetadata = async (userId: string) => {
+    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
+    const client = await clerkClient()
+    await client.users.updateUserMetadata(clerkId, {
+        publicMetadata: {
+            userId,
+            orgs: await getOrgInfoForUserId(userId),
+        },
+    })
 }

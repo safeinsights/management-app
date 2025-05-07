@@ -46,7 +46,7 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
     }
 }
 

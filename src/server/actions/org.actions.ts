@@ -69,6 +69,19 @@ export const getUsersForOrgAction = orgAdminAction(
             .selectFrom('orgUser')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
             .innerJoin('user', 'user.id', 'orgUser.userId')
+            .leftJoin(
+                (
+                    eb, // join to the latest activity from audit
+                ) =>
+                    eb
+                        .selectFrom('audit')
+                        .distinctOn('audit.userId')
+                        .select(['audit.userId', 'audit.createdAt'])
+                        .orderBy('audit.userId', 'desc')
+                        .orderBy('audit.createdAt', 'desc')
+                        .as('latestAuditEntry'),
+                (join) => join.onRef('latestAuditEntry.userId', '=', 'orgUser.userId'),
+            )
             .select([
                 'user.id',
                 'user.fullName',
@@ -77,6 +90,7 @@ export const getUsersForOrgAction = orgAdminAction(
                 'orgUser.isResearcher',
                 'orgUser.isAdmin',
                 'orgUser.isReviewer',
+                'latestAuditEntry.createdAt as latestActivityAt',
             ])
             .where('org.slug', '=', orgSlug)
             .orderBy(sort.columnAccessor, sort.direction)

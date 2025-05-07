@@ -5,13 +5,25 @@
 
 import type { ColumnType } from "kysely"
 
-export type AuditEventType = "APPROVED" | "REJECTED";
+export type AuditEventType = "ACCEPTED_INVITE" | "APPROVED" | "CREATED" | "DELETED" | "INVITED" | "LOGGED_IN" | "REJECTED" | "RESET_PASSWORD" | "UPDATED";
 
-export type AuditRecordType = "STUDY";
+export type AuditRecordType = "STUDY" | "USER";
 
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
+
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type ResultFormat = "SI_V1_ENCRYPT";
 
@@ -25,6 +37,7 @@ export interface Audit {
   createdAt: Generated<Timestamp>;
   eventType: AuditEventType;
   id: Generated<string>;
+  metadata: Json | null;
   recordId: string;
   recordType: AuditRecordType;
   userId: string;
