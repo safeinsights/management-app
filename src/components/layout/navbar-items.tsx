@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { House, Gear } from '@phosphor-icons/react/dist/ssr'
+import { House, Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
 import { OrganizationSwitcher, Protect } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
@@ -12,6 +12,7 @@ import styles from './navbar-items.module.css'
 export const NavbarItems: FC = () => {
     const { isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
     const pathname = usePathname()
+    const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
@@ -39,14 +40,38 @@ export const NavbarItems: FC = () => {
                     <NavLink
                         label="Admin"
                         leftSection={<Gear />}
-                        component={Link}
-                        href={`/organization/${orgSlug}/admin`}
-                        active={pathname.startsWith(`/organization/${orgSlug}/admin/users`)}
+                        active={pathname.startsWith(orgAdminBaseUrl)}
+                        defaultOpened={pathname.startsWith(orgAdminBaseUrl)}
                         c="white"
                         color="blue.7"
                         variant="filled"
                         className={styles.navLinkHover}
-                    />
+                    >
+                        <NavLink
+                            label="Manage Team"
+                            leftSection={<UsersThree size={20} />}
+                            component={Link}
+                            href={`${orgAdminBaseUrl}/users`}
+                            active={pathname === `${orgAdminBaseUrl}/users`}
+                            c="white"
+                            color="blue.7"
+                            variant="filled"
+                            className={styles.navLinkHover}
+                            pl="xl"
+                        />
+                        <NavLink
+                            label="Settings"
+                            leftSection={<Sliders size={20} />}
+                            component={Link}
+                            href={`${orgAdminBaseUrl}/settings`} // TODO: Placeholder link for settings
+                            active={pathname === `${orgAdminBaseUrl}/settings`}
+                            c="white"
+                            color="blue.7"
+                            variant="filled"
+                            className={styles.navLinkHover}
+                            pl="xl"
+                        />
+                    </NavLink>
                 </Protect>
             )}
 
