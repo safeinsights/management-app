@@ -1,4 +1,4 @@
-import { Modal, ModalProps } from '@mantine/core'
+import { Modal, ModalProps, useMantineTheme } from '@mantine/core'
 import React from 'react'
 
 interface AppModalProps extends Omit<ModalProps, 'opened'> {
@@ -21,6 +21,8 @@ export function AppModal({
     closeOnClickOutside = true,
     trapFocus = true,
 }: AppModalProps) {
+    const theme = useMantineTheme()
+
     return (
         <Modal
             opened={isOpen}
@@ -34,14 +36,14 @@ export function AppModal({
             styles={{
                 header: {
                     padding: '0px 40px',
-                    backgroundColor: '#F1F3F5',
+                    backgroundColor: theme.colors.grey[10],
                 },
                 body: {
                     padding: '40px 80px',
                 },
                 close: {
-                    backgroundColor: '#8C8C8C',
-                    color: '#FFFFFF',
+                    backgroundColor: theme.colors.charcoal[4],
+                    color: 'white',
                     borderRadius: '32px',
                     padding: '4px',
                 },

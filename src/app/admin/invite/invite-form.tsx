@@ -111,8 +111,8 @@ export const InviteForm: FC<InviteFormProps> = ({ orgId }) => {
             />
             {studyProposalForm.errors.email && (
                 <Flex align="center" gap={4} my={2}>
-                    <WarningCircle size={16} color={theme.colors.red[7]} />
-                    <Text c="red" size="xs">
+                    <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
+                    <Text c="red.7" size="xs">
                         {studyProposalForm.errors.email}
                     </Text>
                 </Flex>
