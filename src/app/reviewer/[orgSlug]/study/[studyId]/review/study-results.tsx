@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Group, Paper, Stack, Text, Title, Divider } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
 import { ViewUnapprovedResults, type FileEntry } from './view-unapproved-results'
@@ -41,6 +41,7 @@ export const StudyResults: FC<{
                     <Title order={4}>Study Results</Title>
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
+                <Divider />
                 <ViewUnapprovedResults job={job} onApproval={setDecryptedResults} />
                 {job.latestStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={job} />}
             </Stack>
