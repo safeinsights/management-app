@@ -263,7 +263,7 @@ export const getOrgInfoForUserId = async (userId: string) => {
     return await db
         .selectFrom('orgUser')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['orgUser.orgId as id', 'org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
+        .select(['org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
         .where('userId', '=', userId)
         .execute()
 }
