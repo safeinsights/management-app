@@ -7,17 +7,25 @@ import { adminAction } from '@/server/actions/wrappers'
 import { sendWelcomeEmail } from '@/server/mailgun'
 import { findOrCreateClerkOrganization } from '@/server/clerk'
 import { isClerkApiError, SanitizedError } from '@/lib/errors'
+import logger from '@/lib/logger'
 
 export const adminInviteUserAction = adminAction(async (invite) => {
+    // Check if the user already exists in pending users, resend invitation if so
+    const existingPendingUser = await getPendingUsersByEmailAction({ email: invite.email })
+
+    if (existingPendingUser) {
+        return reInviteUserAction({ email: invite.email })
+    }
+
     const client = await clerkClient()
     let clerkUserId = ''
 
     try {
         const clerkUser = await client.users.createUser({
-            firstName: invite.firstName,
-            lastName: invite.lastName,
             emailAddress: [invite.email],
             password: invite.password,
+            firstName: '',
+            lastName: '',
         })
         clerkUserId = clerkUser.id
     } catch (error) {
@@ -32,7 +40,7 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         const org = await db
             .selectFrom('org')
             .select(['org.slug', 'name'])
-            .where('id', '=', invite.organizationId)
+            .where('id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
         const clerkOrg = await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
@@ -40,52 +48,51 @@ export const adminInviteUserAction = adminAction(async (invite) => {
         await client.organizations.createOrganizationMembership({
             organizationId: clerkOrg.id,
             userId: clerkUserId,
-            role: 'org:org',
+            role: 'org:member',
         })
     }
 
     return await db.transaction().execute(async (trx) => {
-        const existingUser = await trx
-            .selectFrom('user')
-            .select('id')
-            .where('clerkId', '=', clerkUserId)
-            .executeTakeFirst()
-
-        if (existingUser) {
-            throw new Error(`User with clerkId ${clerkUserId} already exists`)
-        }
-
-        const siUser = await trx
-            .insertInto('user')
+        const pendingUser = await trx
+            .insertInto('pendingUser')
             .values({
-                clerkId: clerkUserId,
-                firstName: invite.firstName,
-                lastName: invite.lastName,
+                organizationId: invite.orgId,
                 email: invite.email,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        await trx
-            .insertInto('orgUser')
-            .values({
-                userId: siUser.id,
-                orgId: invite.organizationId,
                 isResearcher: !!invite.isResearcher,
                 isReviewer: !!invite.isReviewer,
-                isAdmin: false,
             })
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const fullName = `${invite.firstName} ${invite.lastName}`
-        await sendWelcomeEmail(invite.email, fullName)
+        await sendWelcomeEmail(invite.email)
 
-        // Return the created user record.
         return {
-            ...invite,
             clerkId: clerkUserId,
-            userId: siUser.id,
+            pendingUserId: pendingUser.id,
+            email: invite.email,
         }
     })
 }, inviteUserSchema)
+
+export const getPendingUsersAction = adminAction(async ({ orgId }: { orgId: string }) => {
+    return await db
+        .selectFrom('pendingUser')
+        .select(['id', 'email'])
+        .where('organizationId', '=', orgId)
+        .orderBy('createdAt', 'desc')
+        .execute()
+})
+
+export const getPendingUsersByEmailAction = adminAction(async ({ email }: { email: string }) => {
+    return await db.selectFrom('pendingUser').select(['id', 'email']).where('email', '=', email).executeTakeFirst()
+})
+
+export const reInviteUserAction = adminAction(async ({ email }: { email: string }) => {
+    try {
+        await sendWelcomeEmail(email)
+        return { success: true }
+    } catch (error) {
+        logger.error(error)
+        return { success: false }
+    }
+})

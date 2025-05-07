@@ -59,6 +59,15 @@ export interface OrgUser {
   userId: string;
 }
 
+export interface PendingUser {
+  createdAt: Generated<Timestamp>;
+  email: string;
+  id: Generated<string>;
+  isResearcher: boolean;
+  isReviewer: boolean;
+  organizationId: string;
+}
+
 export interface Study {
   agreementDocPath: string | null;
   approvedAt: Timestamp | null;
@@ -112,6 +121,7 @@ export interface DB {
   jobStatusChange: JobStatusChange;
   org: Org;
   orgUser: OrgUser;
+  pendingUser: PendingUser;
   study: Study;
   studyJob: StudyJob;
   user: User;

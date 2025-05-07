@@ -8,8 +8,11 @@ import { type Org } from '@/schema/org'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
 import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
-import { Link } from '@/components/links'
+import { useDisclosure } from '@mantine/hooks'
+import { InviteForm } from '@/app/admin/invite/invite-form'
+import { AppModal } from '@/components/modal'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export function OrgsAdminTable() {
     const theme = useMantineTheme()
@@ -17,6 +20,11 @@ export function OrgsAdminTable() {
         queryKey: ['members'],
         queryFn: fetchOrgsAction,
     })
+
+    const targetOrgId = useMemo(() => {
+        const firstOrg = data.find((org) => org.slug !== CLERK_ADMIN_ORG_SLUG)
+        return firstOrg?.id
+    }, [data])
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
@@ -28,8 +36,19 @@ export function OrgsAdminTable() {
         return sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers
     }, [data, sortStatus])
 
+    const [inviteUserOpened, { open: openInviteUser, close: closeInviteUser }] = useDisclosure(false)
+
     return (
         <Stack p="xl">
+            <AppModal
+                isOpen={inviteUserOpened}
+                onClose={closeInviteUser}
+                title="Invite others to join your team"
+                size="lg"
+            >
+                <InviteForm orgId={targetOrgId || ''} />
+            </AppModal>
+
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
             <Title order={1}>Manage Team</Title>
             <Paper shadow="xs" p="xl">
@@ -37,9 +56,9 @@ export function OrgsAdminTable() {
                     <Group justify="space-between">
                         <Title order={3}>People</Title>
                         <Flex justify="flex-end">
-                            <Link href="/admin/invite">
-                                <Button leftSection={<Plus />}>Invite People</Button>
-                            </Link>
+                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgId}>
+                                Invite People
+                            </Button>
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
