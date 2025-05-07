@@ -4,13 +4,13 @@ import { FC } from 'react'
 import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { House } from '@phosphor-icons/react/dist/ssr'
-import { OrganizationSwitcher } from '@clerk/nextjs'
+import { House, Gear } from '@phosphor-icons/react/dist/ssr'
+import { OrganizationSwitcher, Protect } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 
 export const NavbarItems: FC = () => {
-    const { isReviewer, isResearcher, isAdmin } = useAuthInfo()
+    const { isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
     const pathname = usePathname()
 
     const dashboardURL = () => {
@@ -33,6 +33,22 @@ export const NavbarItems: FC = () => {
                 variant="filled"
                 className={styles.navLinkHover}
             />
+
+            {orgSlug && (
+                <Protect role="org:admin">
+                    <NavLink
+                        label="Admin"
+                        leftSection={<Gear />}
+                        component={Link}
+                        href={`/organization/${orgSlug}/admin`}
+                        active={pathname.startsWith(`/organization/${orgSlug}/admin/users`)}
+                        c="white"
+                        color="blue.7"
+                        variant="filled"
+                        className={styles.navLinkHover}
+                    />
+                </Protect>
+            )}
 
             <Group justify="left" pl="xs" c="white">
                 <OrganizationSwitcher
