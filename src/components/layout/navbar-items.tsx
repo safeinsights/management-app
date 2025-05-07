@@ -1,9 +1,9 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, useState, useEffect } from 'react'
 import { Group, NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { House, Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
 import { OrganizationSwitcher, Protect } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
@@ -12,8 +12,24 @@ import styles from './navbar-items.module.css'
 export const NavbarItems: FC = () => {
     const { isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
     const pathname = usePathname()
-    const router = useRouter()
     const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
+
+    // State for controlling the Admin NavLink's opened/closed status
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false)
+
+    useEffect(() => {
+        if (orgSlug) {
+            if (pathname.startsWith(orgAdminBaseUrl)) {
+                setIsAdminMenuOpen(true)
+            } else {
+                // If navigating away from admin pages (but still in an org),
+                // collapse the menu. The user can re-open it manually.
+                setIsAdminMenuOpen(false)
+            }
+        } else {
+            setIsAdminMenuOpen(false)
+        }
+    }, [pathname, orgAdminBaseUrl, orgSlug]) // Rerun when path or org context changes
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
@@ -41,12 +57,11 @@ export const NavbarItems: FC = () => {
                     <NavLink
                         label="Admin"
                         leftSection={<Gear />}
-                        onClick={() => router.push(`${orgAdminBaseUrl}/users`)}
-                        active={false}
-                        opened={true}
+                        onClick={() => setIsAdminMenuOpen((prev) => !prev)} // Toggle the state on click
+                        active={false} // Admin item itself is not highlighted
+                        opened={isAdminMenuOpen} // Controlled by local state
                         c="white"
                         className={styles.navLinkHover}
-                        rightSection={<></>}
                     >
                         <NavLink
                             label="Manage Team"
