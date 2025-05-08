@@ -7,37 +7,44 @@ import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
 
+interface BadgeWithDescriptionProps {
+    path?: string | null
+    type: StudyDocumentType
+    studyId: string
+}
+
+const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, studyId }) => {
+    if (!path) return null
+
+    const truncatedText = truncate(path)
+    const needsTooltip = path.length > 20
+
+    const badge = (
+        <Badge
+            key={path}
+            color="#D4D1F3"
+            c="black"
+            component="a"
+            href={studyDocumentURL(studyId, type, path)}
+            target="_blank"
+            rightSection={<Download />}
+            style={{ cursor: 'pointer' }}
+        >
+            {truncatedText}
+        </Badge>
+    )
+
+    if (needsTooltip) {
+        return <Tooltip label={path}>{badge}</Tooltip>
+    }
+
+    return badge
+}
+
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction(studyId))
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    // Function to render badge with tooltip for truncated text
-    const renderBadge = (docPath: string, docType: StudyDocumentType, studyId: string) => {
-        const truncatedText = truncate(docPath)
-        const needsTooltip = docPath.length > 20
-
-        const badge = (
-            <Badge
-                key={docPath}
-                color="#D4D1F3"
-                c="black"
-                component="a"
-                href={studyDocumentURL(studyId, docType, docPath)}
-                target="_blank"
-                rightSection={<Download />}
-                style={{ cursor: 'pointer' }}
-            >
-                {truncatedText}
-            </Badge>
-        )
-
-        if (needsTooltip) {
-            return <Tooltip label={docPath}>{badge}</Tooltip>
-        }
-
-        return badge
     }
 
     return (
@@ -60,15 +67,31 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                         <Text>{study.piName}</Text>
                         <Text>{study.researcherName}</Text>
                         <Text>
-                            {study.descriptionDocPath &&
-                                renderBadge(study.descriptionDocPath, StudyDocumentType.DESCRIPTION, study.id)}
+                            {study.descriptionDocPath && (
+                                <BadgeWithDescription
+                                    path={study.descriptionDocPath}
+                                    type={StudyDocumentType.DESCRIPTION}
+                                    studyId={study.id}
+                                />
+                            )}
                         </Text>
                         <Text>
-                            {study.irbDocPath && renderBadge(study.irbDocPath, StudyDocumentType.IRB, study.id)}
+                            {study.irbDocPath && (
+                                <BadgeWithDescription
+                                    path={study.irbDocPath}
+                                    type={StudyDocumentType.IRB}
+                                    studyId={study.id}
+                                />
+                            )}
                         </Text>
                         <Text>
-                            {study.agreementDocPath &&
-                                renderBadge(study.agreementDocPath, StudyDocumentType.AGREEMENT, study.id)}
+                            {study.agreementDocPath && (
+                                <BadgeWithDescription
+                                    path={study.agreementDocPath}
+                                    type={StudyDocumentType.AGREEMENT}
+                                    studyId={study.id}
+                                />
+                            )}
                         </Text>
                     </Stack>
                 </GridCol>
