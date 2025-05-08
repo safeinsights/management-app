@@ -35,7 +35,7 @@ export const StudyResults: FC<{
     }
 
     return (
-        <Paper bg="white" p="xl">
+        <Paper bg="white" p={40}>
             <Stack>
                 <Group justify="space-between">
                     <Title order={4}>Study Results</Title>
