@@ -21,7 +21,7 @@ export function OrgsAdminTable() {
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
-        direction: 'desc',
+        direction: 'asc',
     })
 
     const sortedMembers = useMemo(() => {
