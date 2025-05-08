@@ -81,7 +81,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                         Review all the studies submitted to your organization. Studies that need your attention will be
                         labeled ‘Needs review’.
                     </Text>
-                    <Table layout="fixed" highlightOnHover withRowBorders>
+                    <Table layout="fixed" highlightOnHover withRowBorders stickyHeader>
                         {!rows.length && (
                             <TableCaption>
                                 <Text>You have no studies to review.</Text>
