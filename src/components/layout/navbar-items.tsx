@@ -8,10 +8,12 @@ import { House } from '@phosphor-icons/react/dist/ssr'
 import { OrganizationSwitcher } from '@clerk/nextjs'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
+import { useHasMultipleRoles } from '../org-info'
 
 export const NavbarItems: FC = () => {
     const { isReviewer, isResearcher, isAdmin } = useAuthInfo()
     const pathname = usePathname()
+    const isMulitRole = useHasMultipleRoles()
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
@@ -33,24 +35,25 @@ export const NavbarItems: FC = () => {
                 variant="filled"
                 className={styles.navLinkHover}
             />
-
-            <Group justify="left" pl="xs" c="white">
-                <OrganizationSwitcher
-                    afterSelectOrganizationUrl="/"
-                    appearance={{
-                        elements: {
-                            organizationSwitcherTrigger: {
-                                color: 'white !important',
-                                '& span': { color: 'white !important' },
-                                padding: 0,
-                                '&:hover': {
-                                    backgroundColor: 'var(--mantine-color-blue-9)',
+            {isMulitRole && (
+                <Group justify="left" pl="xs" c="white">
+                    <OrganizationSwitcher
+                        afterSelectOrganizationUrl="/"
+                        appearance={{
+                            elements: {
+                                organizationSwitcherTrigger: {
+                                    color: 'white !important',
+                                    '& span': { color: 'white !important' },
+                                    padding: 0,
+                                    '&:hover': {
+                                        backgroundColor: 'var(--mantine-color-blue-9)',
+                                    },
                                 },
                             },
-                        },
-                    }}
-                />
-            </Group>
+                        }}
+                    />
+                </Group>
+            )}
         </Stack>
     )
 }
