@@ -1,10 +1,45 @@
 import { FC, use } from 'react'
-import { Badge, Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
+import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
+import { truncate } from '@/lib/string'
+
+interface BadgeWithDescriptionProps {
+    path?: string | null
+    type: StudyDocumentType
+    studyId: string
+}
+
+const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, studyId }) => {
+    if (!path) return null
+
+    const truncatedText = truncate(path)
+    const needsTooltip = path.length > 20
+
+    const badge = (
+        <Badge
+            key={path}
+            color="#D4D1F3"
+            c="black"
+            component="a"
+            href={studyDocumentURL(studyId, type, path)}
+            target="_blank"
+            rightSection={<Download />}
+            style={{ cursor: 'pointer' }}
+        >
+            {truncatedText}
+        </Badge>
+    )
+
+    if (needsTooltip) {
+        return <Tooltip label={path}>{badge}</Tooltip>
+    }
+
+    return badge
+}
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction(studyId))
@@ -33,58 +68,29 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                         <Text>{study.researcherName}</Text>
                         <Text>
                             {study.descriptionDocPath && (
-                                <Badge
-                                    key={study.descriptionDocPath}
-                                    color="#D4D1F3"
-                                    c="black"
-                                    component="a"
-                                    href={studyDocumentURL(
-                                        study.id,
-                                        StudyDocumentType.DESCRIPTION,
-                                        study.descriptionDocPath,
-                                    )}
-                                    target="_blank"
-                                    rightSection={<Download />}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    {study.descriptionDocPath}
-                                </Badge>
+                                <BadgeWithDescription
+                                    path={study.descriptionDocPath}
+                                    type={StudyDocumentType.DESCRIPTION}
+                                    studyId={study.id}
+                                />
                             )}
                         </Text>
                         <Text>
                             {study.irbDocPath && (
-                                <Badge
-                                    key={study.irbDocPath}
-                                    color="#D4D1F3"
-                                    c="black"
-                                    component="a"
-                                    href={studyDocumentURL(study.id, StudyDocumentType.IRB, study.irbDocPath)}
-                                    target="_blank"
-                                    rightSection={<Download />}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    {study.irbDocPath}
-                                </Badge>
+                                <BadgeWithDescription
+                                    path={study.irbDocPath}
+                                    type={StudyDocumentType.IRB}
+                                    studyId={study.id}
+                                />
                             )}
                         </Text>
                         <Text>
                             {study.agreementDocPath && (
-                                <Badge
-                                    key={study.agreementDocPath}
-                                    color="#D4D1F3"
-                                    c="black"
-                                    component="a"
-                                    href={studyDocumentURL(
-                                        study.id,
-                                        StudyDocumentType.AGREEMENT,
-                                        study.agreementDocPath,
-                                    )}
-                                    target="_blank"
-                                    rightSection={<Download />}
-                                    style={{ cursor: 'pointer' }}
-                                >
-                                    {study.agreementDocPath}
-                                </Badge>
+                                <BadgeWithDescription
+                                    path={study.agreementDocPath}
+                                    type={StudyDocumentType.AGREEMENT}
+                                    studyId={study.id}
+                                />
                             )}
                         </Text>
                     </Stack>
