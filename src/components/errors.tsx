@@ -64,7 +64,7 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 
     return (
-        <Flex align="center" gap={4} my={2} component="span">
+        <Flex align="center" gap={4} my={2} component="span" data-testid="input-error">
             <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
             <Text c="red.7" size="xs" component="span">
                 {error}

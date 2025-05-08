@@ -3,7 +3,6 @@
 import type { Metadata } from 'next'
 
 import './globals.css'
-import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 

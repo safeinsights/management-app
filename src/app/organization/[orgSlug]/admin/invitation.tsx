@@ -1,6 +1,6 @@
 'use client'
 
-import { TextInput, Button, Flex, Radio } from '@mantine/core'
+import { Divider, TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -12,7 +12,7 @@ import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { FC } from 'react'
 import { useDisclosure } from '@mantine/hooks'
-import { PendingUsers } from './pending-users'
+import { PendingUsers } from './pending-invites'
 
 interface InviteFormProps {
     orgSlug: string
@@ -26,7 +26,7 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
         validateInputOnBlur: true,
         initialValues: {
             email: '',
-            role: 'multiple',
+            role: '',
         },
     })
 
@@ -65,7 +65,11 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
             <Flex mb="sm" fw="semibold">
                 <Radio.Group
                     label="Assign Role"
-                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
+
+                    styles={{
+                        error: { fontWeight: 600, marginTop: 10 },
+                        label: { fontWeight: 600, marginBottom: 4 },
+                    }}
                     name="role"
                     {...studyProposalForm.getInputProps('role', { type: 'checkbox' })}
                 >
@@ -80,6 +84,8 @@ export const InviteForm: FC<InviteFormProps> = ({ orgSlug }) => {
             <Button type="submit" mt="sm" loading={isInviting}>
                 Send invitation
             </Button>
+
+            <Divider c="charcoal.1" my="xl" />
 
             <PendingUsers orgSlug={orgSlug} />
         </form>
