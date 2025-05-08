@@ -120,7 +120,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     render: (user: User) => <PermissionSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
                 {
-                    accessor: 'latestActivityAt', // TODO: update once we have audit trail
+                    accessor: 'latestActivityAt',
                     title: 'Last active',
                     textAlign: 'right',
                     render: (user: User) =>

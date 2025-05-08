@@ -61,10 +61,12 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
 
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     const theme = useMantineTheme()
+    if (!error) return null
+
     return (
-        <Flex align="center" gap={4} my={2}>
+        <Flex align="center" gap={4} my={2} component="span">
             <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
-            <Text c="red.7" size="xs">
+            <Text c="red.7" size="xs" component="span">
                 {error}
             </Text>
         </Flex>

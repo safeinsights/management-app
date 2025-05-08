@@ -11,6 +11,11 @@ const Headers = new Map()
 beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     vi.mock('next/router', () => require('next-router-mock'))
+    vi.mock('next/server', async (importOriginal) => ({
+        ...await importOriginal(),
+        after: (cb: () => void) => cb()
+
+    }))
 
     // https://github.com/scottrippey/next-router-mock/issues/67#issuecomment-1564906960
     vi.mock('next/navigation', () => {

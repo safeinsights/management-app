@@ -19,7 +19,7 @@ export function AppModal({
     size = 'md',
     centered = true,
     closeOnClickOutside = true,
-    trapFocus = true,
+    //trapFocus = true,
 }: AppModalProps) {
     const theme = useMantineTheme()
 
@@ -31,7 +31,7 @@ export function AppModal({
             size={size}
             centered={centered}
             closeOnClickOutside={closeOnClickOutside}
-            trapFocus={trapFocus}
+            //trapFocus={trapFocus}
             closeButtonProps={{ size: 'md' }}
             styles={{
                 header: {

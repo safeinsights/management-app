@@ -2,108 +2,108 @@
 
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
-import { useMemo, useState } from 'react'
-import { fetchOrgsAction } from '@/server/actions/org.actions'
-import { type Org } from '@/schema/org'
-import { useQuery } from '@tanstack/react-query'
-import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
-import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import { FC, useMemo, useState } from 'react'
+import { deleteOrgAction, fetchOrgsAction } from '@/server/actions/org.actions'
+import { getNewOrg, type Org } from '@/schema/org'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
+import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
+import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
-import { InviteForm } from '@/app/admin/invite/invite-form'
-import { AppModal } from '@/components/modal'
-import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { EditOrgForm } from '@/components/org/edit-org-form'
+import { useRouter } from 'next/navigation'
 
 export function OrgsAdminTable() {
-    const theme = useMantineTheme()
     const { data = [] } = useQuery({
         queryKey: ['members'],
         queryFn: fetchOrgsAction,
     })
 
-    const targetOrgId = useMemo(() => {
-        const firstOrg = data.find((org) => org.slug !== CLERK_ADMIN_ORG_SLUG)
-        return firstOrg?.id
-    }, [data])
-
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
-        direction: 'asc',
+        direction: 'desc',
     })
 
     const sortedMembers = useMemo(() => {
-        const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
-        return sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers
+        const newOrgs = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
+        return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
-    const [inviteUserOpened, { open: openInviteUser, close: closeInviteUser }] = useDisclosure(false)
+    return (
+        <Flex direction={'column'}>
+            <AddMember />
+            <DataTable
+                withTableBorder
+                withColumnBorders
+                idAccessor="slug"
+                noRecordsText="No organisations yet, add some using button below"
+                noRecordsIcon={<Users />}
+                records={sortedMembers}
+                sortStatus={sortStatus}
+                onSortStatusChange={setSortStatus}
+                columns={[
+                    { accessor: 'slug', sortable: true },
+                    { accessor: 'name', sortable: true },
+                    { accessor: 'email', sortable: true, textAlign: 'right' },
+                    {
+                        accessor: 'actions',
+                        width: 80,
+                        textAlign: 'center',
+                        title: <Box mr={6}>Edit</Box>,
+                        render: (org) => <OrgRow org={org} />,
+                    },
+                ]}
+            />
+        </Flex>
+    )
+}
+
+const AddMember: FC = () => {
+    const [opened, { open, close }] = useDisclosure(false)
 
     return (
-        <Stack p="xl">
-            <AppModal
-                isOpen={inviteUserOpened}
-                onClose={closeInviteUser}
-                title="Invite others to join your team"
-                size="lg"
-            >
-                <InviteForm orgId={targetOrgId || ''} />
-            </AppModal>
+        <Flex justify={'space-between'} my="lg" align={'center'}>
+            <Title>Organizations</Title>
+            <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
+                <EditOrgForm org={getNewOrg()} onCompleteAction={close} />
+            </Modal>
+            <Button onClick={open}>Add new organization</Button>
+        </Flex>
+    )
+}
 
-            <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
-            <Title order={1}>Manage Team</Title>
-            <Paper shadow="xs" p="xl">
-                <Stack>
-                    <Group justify="space-between">
-                        <Title order={3}>People</Title>
-                        <Flex justify="flex-end">
-                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgId}>
-                                Invite People
-                            </Button>
-                        </Flex>
-                    </Group>
-                    <Divider c="charcoal.1" />
-                    <DataTable
-                        withColumnBorders
-                        striped
-                        backgroundColor="charcoal.1"
-                        idAccessor="slug"
-                        noRecordsText="No organisations yet, add some using button below"
-                        noRecordsIcon={<Users />}
-                        records={sortedMembers}
-                        sortStatus={sortStatus}
-                        onSortStatusChange={setSortStatus}
-                        columns={[
-                            { accessor: 'name', sortable: true },
-                            {
-                                accessor: 'role',
-                                sortable: false,
-                                title: (
-                                    <Group gap="xs">
-                                        <Text>Role</Text>
-                                        <Info color={theme.colors.blue[7]} weight="fill" />
-                                    </Group>
-                                ),
-                            },
-                            {
-                                accessor: 'permission',
-                                sortable: false,
-                                textAlign: 'left',
-                                title: (
-                                    <Group gap="xs">
-                                        <Text>Permission</Text>
-                                        <Info color={theme.colors.blue[7]} weight="fill" />
-                                    </Group>
-                                ),
-                            },
-                            { accessor: 'last-active', sortable: false, textAlign: 'left' },
-                        ]}
-                        sortIcons={{
-                            sorted: <ArrowDown color={theme.colors.charcoal[7]} />,
-                            unsorted: <ArrowUp color={theme.colors.charcoal[7]} />,
-                        }}
-                    />
-                </Stack>
-            </Paper>
-        </Stack>
+const OrgRow: FC<{ org: Org }> = ({ org }) => {
+    const queryClient = useQueryClient()
+    const router = useRouter()
+    const [opened, { open, close }] = useDisclosure(false)
+
+    const { mutate: deleteOrg } = useMutation({
+        mutationFn: deleteOrgAction,
+        onSettled: async () => {
+            return await queryClient.invalidateQueries({ queryKey: ['members'] })
+        },
+    })
+
+    return (
+        <Group gap={4} justify="center" wrap="nowrap">
+            <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
+                <EditOrgForm org={org} onCompleteAction={close} />
+            </Modal>
+            <ActionIcon
+                size="sm"
+                variant="subtle"
+                color="blue"
+                onClick={() => router.push(`/organization/${org.slug}/admin`)}
+            >
+                <Users />
+            </ActionIcon>
+            <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
+                <Pencil />
+            </ActionIcon>
+
+            <SuretyGuard onConfirmed={() => deleteOrg(org.slug)}>
+                <Trash />
+            </SuretyGuard>
+        </Group>
     )
 }
