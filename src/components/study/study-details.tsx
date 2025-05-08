@@ -5,18 +5,12 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
+import { truncate } from '@/lib/string'
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction(studyId))
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    const truncate = (text: string) => {
-        if (text.length > 20) {
-            return text.substring(0, 20) + '...'
-        }
-        return text
     }
 
     // Function to render badge with tooltip for truncated text
