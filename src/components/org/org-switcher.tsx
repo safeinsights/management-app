@@ -12,20 +12,31 @@ export const OrgSwitcher: FC = () => {
     return (
         <Group justify="left" pl="xs" c="white">
             <OrganizationSwitcher
-                afterSelectOrganizationUrl="/"
-                appearance={{
-                    elements: {
-                        organizationSwitcherTrigger: {
-                            color: 'white !important',
-                            '& span': { color: 'white !important' },
-                            padding: 0,
-                            '&:hover': {
-                                backgroundColor: 'var(--mantine-color-blue-9)',
+                    afterSelectOrganizationUrl="/"
+                    appearance={{
+                        elements: {
+                            rootBox: {
+                                width: '100%',
+                            },
+                            organizationSwitcherTrigger: {
+                                color: 'white !important',
+                                '& span': { color: 'white !important' },
+                                padding: `12px 10px`,
+                                width: '100%',
+                                borderRadius: '0',
+                                '&:hover': {
+                                    backgroundColor: 'var(--mantine-color-blue-9)',
+                                },
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                            },
+                            organizationPreview: {
+                                gap: 'var(--mantine-spacing-sm)',
                             },
                         },
-                    },
-                }}
-            />
+                    }}
+                />
         </Group>
     )
 }
