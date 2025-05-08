@@ -13,7 +13,7 @@ import { useHasMultipleRoles } from '../org-info'
 export const NavbarItems: FC = () => {
     const { isReviewer, isResearcher, isAdmin } = useAuthInfo()
     const pathname = usePathname()
-    const isMulitple = useHasMultipleRoles()
+    const isMultiple = useHasMultipleRoles()
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
@@ -35,7 +35,7 @@ export const NavbarItems: FC = () => {
                 variant="filled"
                 className={styles.navLinkHover}
             />
-            {isMulitple && (
+            {isMultiple && (
                 <Group justify="left" pl="xs" c="white">
                     <OrganizationSwitcher
                         afterSelectOrganizationUrl="/"
