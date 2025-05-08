@@ -11,8 +11,12 @@ import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
 export const NavbarItems: FC = () => {
-    const { isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
+    const { isLoaded, isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
+
     const pathname = usePathname()
+
+    // wait for Clerk to finish loading before showing nav links
+    if (!isLoaded) return null
 
     const dashboardURL = () => {
         if (isReviewer) return '/reviewer/openstax/dashboard'
