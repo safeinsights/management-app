@@ -49,7 +49,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                 opened={isAdminMenuOpen}
                 c="white"
                 className={styles.navLinkHover}
-                rightSection={<></>}
+                rightSection={null}
             >
                 <NavLink
                     label="Manage Team"
