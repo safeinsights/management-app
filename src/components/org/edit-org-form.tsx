@@ -34,7 +34,7 @@ export const EditOrgForm: FC<{
         <form onSubmit={form.onSubmit((values) => upsertOrg(values))}>
             <TextInput
                 label="Slug"
-                placeholder="Enter slug"
+                placeholder="Enter org slug"
                 data-autofocus
                 name="slug"
                 key={form.key('slug')}
@@ -45,7 +45,7 @@ export const EditOrgForm: FC<{
 
             <TextInput
                 label="Name"
-                placeholder="Enter your name"
+                placeholder="Enter org name"
                 name="name"
                 key={form.key('name')}
                 {...form.getInputProps('name')}
@@ -54,7 +54,7 @@ export const EditOrgForm: FC<{
 
             <TextInput
                 label="Email"
-                placeholder="Enter your email"
+                placeholder="Enter org contact email"
                 description="Used for study notifications"
                 name="email"
                 key={form.key('email')}

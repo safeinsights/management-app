@@ -4,8 +4,9 @@ import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { useMemo, useState } from 'react'
 import { fetchOrgsAction } from '@/server/actions/org.actions'
-import { type Org } from '@/schema/org'
-import { useQuery } from '@tanstack/react-query'
+import { type Org, type NewOrg } from '@/schema/org'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { EditOrgForm } from '@/components/org/edit-org-form'
 import { Users, Plus, ArrowDown, ArrowUp, Info } from '@phosphor-icons/react/dist/ssr'
 import { Button, Divider, Flex, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -14,10 +15,17 @@ import { AppModal } from '@/components/modal'
 import { AdminBreadcrumbs } from '@/components/page-breadcrumbs'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
+const getNewOrg = (): NewOrg => ({
+    slug: '',
+    name: '',
+    email: '',
+    publicKey: '',
+})
+
 export function OrgsAdminTable() {
     const theme = useMantineTheme()
     const { data = [] } = useQuery({
-        queryKey: ['members'],
+        queryKey: ['orgs'],
         queryFn: fetchOrgsAction,
     })
 
@@ -31,12 +39,13 @@ export function OrgsAdminTable() {
         direction: 'asc',
     })
 
-    const sortedMembers = useMemo(() => {
-        const newMembers = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
-        return sortStatus.direction === 'desc' ? R.reverse(newMembers) : newMembers
+    const sortedOrgs = useMemo(() => {
+        const newOrgs = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
+        return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
     const [inviteUserOpened, { open: openInviteUser, close: closeInviteUser }] = useDisclosure(false)
+    const [addOrgModalOpened, { open: openAddOrgModal, close: closeAddOrgModal }] = useDisclosure(false)
 
     return (
         <Stack p="xl">
@@ -49,6 +58,21 @@ export function OrgsAdminTable() {
                 <InviteForm orgId={targetOrgId || ''} />
             </AppModal>
 
+            <AppModal
+                isOpen={addOrgModalOpened}
+                onClose={closeAddOrgModal}
+                title="Add new organization"
+                closeOnClickOutside={false}
+                size="lg"
+            >
+                <EditOrgForm
+                    org={getNewOrg()}
+                    onCompleteAction={() => {
+                        closeAddOrgModal()
+                    }}
+                />
+            </AppModal>
+
             <AdminBreadcrumbs crumbs={{ current: 'Manage team' }}></AdminBreadcrumbs>
             <Title order={1}>Manage Team</Title>
             <Paper shadow="xs" p="xl">
@@ -56,8 +80,11 @@ export function OrgsAdminTable() {
                     <Group justify="space-between">
                         <Title order={3}>People</Title>
                         <Flex justify="flex-end">
-                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgId}>
+                            <Button leftSection={<Plus />} onClick={openInviteUser} disabled={!targetOrgId} mr="md">
                                 Invite People
+                            </Button>
+                            <Button leftSection={<Plus />} onClick={openAddOrgModal}>
+                                Add new organization
                             </Button>
                         </Flex>
                     </Group>
@@ -69,7 +96,7 @@ export function OrgsAdminTable() {
                         idAccessor="slug"
                         noRecordsText="No organisations yet, add some using button below"
                         noRecordsIcon={<Users />}
-                        records={sortedMembers}
+                        records={sortedOrgs}
                         sortStatus={sortStatus}
                         onSortStatusChange={setSortStatus}
                         columns={[

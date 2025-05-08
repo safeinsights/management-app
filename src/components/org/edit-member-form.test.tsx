@@ -18,7 +18,7 @@ describe('EditOrgForm', () => {
     it('renders form fields correctly', () => {
         renderWithProviders(<EditOrgForm org={mockOrg} />)
 
-        const slugInput = screen.getByPlaceholderText('Enter slug')
+        const slugInput = screen.getByPlaceholderText('Enter org slug')
         const inputs = screen.getAllByRole('textbox')
 
         expect(slugInput).toBeDefined()
@@ -27,14 +27,14 @@ describe('EditOrgForm', () => {
 
     it('disables the slug field if org has an id', () => {
         renderWithProviders(<EditOrgForm org={{ ...mockOrg, id: '123' }} />)
-        const slugInput = screen.getByPlaceholderText('Enter slug')
+        const slugInput = screen.getByPlaceholderText('Enter org slug')
         expect(slugInput).toHaveProperty('disabled')
     })
 
     it('populates form fields with org data', () => {
         renderWithProviders(<EditOrgForm org={mockOrg} />)
 
-        const slugInput = screen.getByPlaceholderText('Enter slug') as HTMLInputElement
+        const slugInput = screen.getByPlaceholderText('Enter org slug') as HTMLInputElement
         expect(slugInput.value).toBe(mockOrg.slug)
 
         const inputs = screen.getAllByRole('textbox') as HTMLInputElement[]
