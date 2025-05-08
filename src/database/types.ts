@@ -78,7 +78,7 @@ export interface PendingUser {
   id: Generated<string>;
   isResearcher: boolean;
   isReviewer: boolean;
-  organizationId: string;
+  orgId: string;
 }
 
 export interface Study {

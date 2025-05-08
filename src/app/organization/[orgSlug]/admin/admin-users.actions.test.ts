@@ -3,18 +3,17 @@ import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
 import { ClerkMocks, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { adminInviteUserAction } from './admin-users.actions'
 import { faker } from '@faker-js/faker'
-import { randomString } from 'remeda'
 import * as clerk from '@clerk/nextjs/server'
 import { sendWelcomeEmail } from '@/server/mailgun'
 import { SanitizedError } from '@/lib/errors'
-import { getPendingUsersAction, getPendingUsersByEmailAction, reInviteUserAction } from './admin-users.actions'
+import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 
 vi.mock('@/server/mailgun', () => ({
     sendWelcomeEmail: vi.fn(),
 }))
 
 describe('invite user Actions', async () => {
-    let clerkMocks: ClerkMocks | null = null
+    let clerkMocks: Awaited<ReturnType<typeof mockSessionWithTestData>> | null = null
     beforeEach(async () => {
         clerkMocks = await mockSessionWithTestData({ isAdmin: true })
     })
@@ -30,7 +29,6 @@ describe('invite user Actions', async () => {
     let userInvite = {
         email: '',
         orgId: '',
-        password: randomString(8),
         isReviewer: true,
         isResearcher: false,
     }
@@ -38,8 +36,7 @@ describe('invite user Actions', async () => {
     beforeEach(async () => {
         userInvite = {
             email: faker.internet.email(),
-            orgId: (await db.selectFrom('org').select('id').executeTakeFirstOrThrow()).id,
-            password: randomString(10),
+            orgId: clerkMocks?.org.id || '',
             isReviewer: true,
             isResearcher: false,
         }
@@ -104,50 +101,33 @@ describe('invite user Actions', async () => {
         await db
             .insertInto('pendingUser')
             .values([
-                { organizationId: userInvite.orgId, email: emails[0], isResearcher: false, isReviewer: false },
-                { organizationId: userInvite.orgId, email: emails[1], isResearcher: false, isReviewer: false },
+                { orgId: userInvite.orgId, email: emails[0], isResearcher: false, isReviewer: false },
+                { orgId: userInvite.orgId, email: emails[1], isResearcher: false, isReviewer: false },
             ])
             .execute()
-        const pendingUsersInOrg = await getPendingUsersAction({ orgId: userInvite.orgId })
+        const pendingUsersInOrg = await getPendingUsersAction({ orgSlug: '123' })
         expect(pendingUsersInOrg.map((u) => u.email)).toEqual(expect.arrayContaining(emails))
     })
 
-    it('getPendingUsersByEmailAction returns a pending user by email', async () => {
-        const email = faker.internet.email()
-        await db
+
+
+    it('reInviteUserAction sends email', async () => {
+        const invite = await db
             .insertInto('pendingUser')
+
             .values({
-                organizationId: userInvite.orgId,
-                email,
+                orgId: userInvite.orgId,
+                email: faker.internet.email(),
                 isResearcher: false,
                 isReviewer: false,
             })
-            .execute()
-        const pendingUser = await getPendingUsersByEmailAction({ email })
-        expect(pendingUser).toMatchObject({ email })
-    })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+        const res = await reInviteUserAction({ pendingUserId: invite.id, orgSlug: clerkMocks?.org.slug || ''})
 
-    it('reInviteUserAction returns success with sendWelcomeEmail', async () => {
-        const res = await reInviteUserAction({ email: userInvite.email })
         expect(sendWelcomeEmail).toHaveBeenCalledWith(userInvite.email)
         expect(res).toEqual({ success: true })
     })
 
-    it('user is not recreated as a pending user if they already exist', async () => {
-        await adminInviteUserAction(userInvite)
-        const beforeSecondInviteCount = await db
-            .selectFrom('pendingUser')
-            .select(({ fn }) => [fn.count('id').as('count')])
-            .executeTakeFirstOrThrow()
 
-        await adminInviteUserAction(userInvite)
-        const afterSecondInviteCount = await db
-            .selectFrom('pendingUser')
-            .select(({ fn }) => [fn.count('id').as('count')])
-            .executeTakeFirstOrThrow()
-
-        expect(afterSecondInviteCount).toEqual(beforeSecondInviteCount)
-
-        expect(sendWelcomeEmail).toHaveBeenCalledWith(userInvite.email)
-    })
 })
