@@ -24,7 +24,13 @@ const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: str
             <Text size="sm" truncate>
                 {pending.email}
             </Text>
-            <Button variant="outline" size="xs" onClick={() => reInviteUser()} loading={isReinviting} data-testid={`re-invite-${pending.email}`}>
+            <Button
+                variant="outline"
+                size="xs"
+                onClick={() => reInviteUser()}
+                loading={isReinviting}
+                data-testid={`re-invite-${pending.email}`}
+            >
                 Re-invite
             </Button>
         </Flex>
