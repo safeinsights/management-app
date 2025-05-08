@@ -224,7 +224,6 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
 
 export async function checkMemberOfOrgWithSlug(orgSlug: string) {
     const org = await getOrgInfoFromActionContext()
-
-    if (!org.isStaff || org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
+    if (!org.isStaff && org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
     return true
 }
