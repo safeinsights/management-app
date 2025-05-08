@@ -343,7 +343,6 @@ type MockSessionWithTestDataOptions = {
     isAdmin?: boolean
 }
 
-
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
     if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
 
