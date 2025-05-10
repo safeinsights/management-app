@@ -2,14 +2,14 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Divider, FileInput, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { Divider, FileInput, Grid, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 const FormLabel = ({ label }: { label: string }) => {
     return (
-        <Title order={5} w={'10%'} fw="semibold">
+        <Title order={5} fw="semibold" style={{ overflowWrap: 'normal' }}>
             {label}
         </Title>
     )
@@ -38,6 +38,9 @@ export const StudyProposalForm: FC<{
 
     const { user } = useUser()
 
+    const titleSpan = { base: 12, sm: 4, md: 2 }
+    const inputSpan = { base: 12, sm: 8, md: 4 }
+
     return (
         <Paper p="xl">
             <Title order={4}>Study Proposal</Title>
@@ -47,74 +50,93 @@ export const StudyProposalForm: FC<{
                     This section is here to help you submit your study proposal. Consider providing as much detail as
                     possible to ensure the Reviewer has all the information needed to make an informed decision.
                 </Text>
-                <Group align="flex-start">
-                    <FormLabel label="Study Title" />
-                    <TextInput
-                        w={'30%'}
-                        aria-label="Study Title"
-                        placeholder="Enter a title (max. 50 characters)"
-                        {...studyProposalForm.getInputProps('title')}
-                        maxLength={50}
-                    />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="Study Title" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <TextInput
+                            aria-label="Study Title"
+                            placeholder="Enter a title (max. 50 characters)"
+                            {...studyProposalForm.getInputProps('title')}
+                            maxLength={50}
+                        />
+                    </Grid.Col>
+                </Grid>
 
-                <Group align="flex-start">
-                    <FormLabel label="Study Lead" />
-                    <TextInput w={'30%'} aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="Study Lead" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
+                    </Grid.Col>
+                </Grid>
 
-                <Group align="flex-start">
-                    <FormLabel label="Principal Investigator" />
-                    <TextInput
-                        w={'30%'}
-                        aria-label="Principal Investigator"
-                        placeholder="Full Name (max. 100 characters)"
-                        {...studyProposalForm.getInputProps('piName')}
-                        maxLength={100}
-                    />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="Principal Investigator" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <TextInput
+                            aria-label="Principal Investigator"
+                            placeholder="Full Name (max. 100 characters)"
+                            {...studyProposalForm.getInputProps('piName')}
+                            maxLength={100}
+                        />
+                    </Grid.Col>
+                </Grid>
 
-                <Group align="flex-start">
-                    <FormLabel label="Study Description" />
-                    <FileInput
-                        w={'30%'}
-                        name="descriptionDocument"
-                        leftSection={fileUpload}
-                        aria-label="Upload Study Description Document"
-                        placeholder="Upload Study Description Document"
-                        clearable
-                        accept=".doc,.docx,.pdf"
-                        {...studyProposalForm.getInputProps('descriptionDocument')}
-                    />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="Study Description" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <FileInput
+                            name="descriptionDocument"
+                            leftSection={fileUpload}
+                            aria-label="Upload Study Description Document"
+                            placeholder="Upload Study Description Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('descriptionDocument')}
+                        />
+                    </Grid.Col>
+                </Grid>
 
-                <Group align="flex-start">
-                    <FormLabel label="IRB Document" />
-                    <FileInput
-                        w={'30%'}
-                        leftSection={irbFileUpload}
-                        {...studyProposalForm.getInputProps('irbDocument')}
-                        name="irbDocument"
-                        aria-label="Upload IRB Document"
-                        placeholder="Upload IRB Document"
-                        clearable
-                        accept=".doc,.docx,.pdf"
-                    />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="IRB Document" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <FileInput
+                            leftSection={irbFileUpload}
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                            name="irbDocument"
+                            aria-label="Upload IRB Document"
+                            placeholder="Upload IRB Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                        />
+                    </Grid.Col>
+                </Grid>
 
-                <Group align="flex-start">
-                    <FormLabel label="Agreement Document" />
-                    <FileInput
-                        w={'30%'}
-                        leftSection={agreementFileUpload}
-                        name="agreementDocument"
-                        aria-label="Upload Agreement Document"
-                        placeholder="Upload Agreement Document"
-                        clearable
-                        accept=".doc,.docx,.pdf"
-                        {...studyProposalForm.getInputProps('agreementDocument')}
-                    />
-                </Group>
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormLabel label="Agreement Document" />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <FileInput
+                            leftSection={agreementFileUpload}
+                            name="agreementDocument"
+                            aria-label="Upload Agreement Document"
+                            placeholder="Upload Agreement Document"
+                            clearable
+                            accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('agreementDocument')}
+                        />
+                    </Grid.Col>
+                </Grid>
             </Stack>
         </Paper>
     )

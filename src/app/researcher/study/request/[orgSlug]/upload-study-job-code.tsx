@@ -31,7 +31,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             </Text>
 
             <Grid>
-                <GridCol span={4}>
+                <GridCol span={{ base: 6, md: 4 }}>
                     <Dropzone
                         name="codeFiles"
                         onDrop={(files) => {
@@ -82,7 +82,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         </Stack>
                     </Dropzone>
                 </GridCol>
-                <GridCol span={6}>
+                <GridCol span={{ base: 4, md: 6 }}>
                     <Divider orientation="vertical" />
                     {studyProposalForm.getValues().codeFiles.map((file) => (
                         <Group key={file.name} gap="md" w="100%">
