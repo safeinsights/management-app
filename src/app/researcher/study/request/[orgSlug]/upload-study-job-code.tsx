@@ -36,7 +36,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         name="codeFiles"
                         onDrop={(files) => {
                             const { codeFiles: previousFiles } = studyProposalForm.getValues()
-                            const updatedFiles = uniqueBy([...previousFiles, ...files], (file) => file.name)
+                            const updatedFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
                             studyProposalForm.setFieldValue('codeFiles', updatedFiles)
                         }}
                         onReject={(rejections) =>

@@ -31,3 +31,10 @@ export function randomString(length: number) {
     }
     return retVal
 }
+
+export function truncate(text: string) {
+    if (text.length > 20) {
+        return text.substring(0, 20) + '...'
+    }
+    return text
+}
