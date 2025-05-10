@@ -58,39 +58,8 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                 <GridCol span={titleSpan}>
                     <Text fw="bold">Study Name</Text>
                 </GridCol>
-                <GridCol span={9}>
-                    <Stack>
-                        <Text>{study.title}</Text>
-                        <Text>{study.piName}</Text>
-                        <Text>{study.researcherName}</Text>
-                        <Text>
-                            {study.descriptionDocPath && (
-                                <BadgeWithDescription
-                                    path={study.descriptionDocPath}
-                                    type={StudyDocumentType.DESCRIPTION}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                        <Text>
-                            {study.irbDocPath && (
-                                <BadgeWithDescription
-                                    path={study.irbDocPath}
-                                    type={StudyDocumentType.IRB}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                        <Text>
-                            {study.agreementDocPath && (
-                                <BadgeWithDescription
-                                    path={study.agreementDocPath}
-                                    type={StudyDocumentType.AGREEMENT}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                    </Stack>
+                <GridCol span={inputSpan}>
+                    <Text>{study.title}</Text>
                 </GridCol>
             </Grid>
 
@@ -119,22 +88,11 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                 <GridCol span={inputSpan}>
                     <Text>
                         {study.descriptionDocPath && (
-                            <Badge
-                                key={study.descriptionDocPath}
-                                color="#D4D1F3"
-                                c="black"
-                                component="a"
-                                href={studyDocumentURL(
-                                    study.id,
-                                    StudyDocumentType.DESCRIPTION,
-                                    study.descriptionDocPath,
-                                )}
-                                target="_blank"
-                                rightSection={<Download />}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                {study.descriptionDocPath}
-                            </Badge>
+                            <BadgeWithDescription
+                                path={study.descriptionDocPath}
+                                type={StudyDocumentType.DESCRIPTION}
+                                studyId={study.id}
+                            />
                         )}
                     </Text>
                 </GridCol>
@@ -147,18 +105,11 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                 <GridCol span={inputSpan}>
                     <Text>
                         {study.irbDocPath && (
-                            <Badge
-                                key={study.irbDocPath}
-                                color="#D4D1F3"
-                                c="black"
-                                component="a"
-                                href={studyDocumentURL(study.id, StudyDocumentType.IRB, study.irbDocPath)}
-                                target="_blank"
-                                rightSection={<Download />}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                {study.irbDocPath}
-                            </Badge>
+                            <BadgeWithDescription
+                                path={study.irbDocPath}
+                                type={StudyDocumentType.IRB}
+                                studyId={study.id}
+                            />
                         )}
                     </Text>
                 </GridCol>
@@ -171,18 +122,11 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
                 <GridCol span={inputSpan}>
                     <Text>
                         {study.agreementDocPath && (
-                            <Badge
-                                key={study.agreementDocPath}
-                                color="#D4D1F3"
-                                c="black"
-                                component="a"
-                                href={studyDocumentURL(study.id, StudyDocumentType.AGREEMENT, study.agreementDocPath)}
-                                target="_blank"
-                                rightSection={<Download />}
-                                style={{ cursor: 'pointer' }}
-                            >
-                                {study.agreementDocPath}
-                            </Badge>
+                            <BadgeWithDescription
+                                path={study.agreementDocPath}
+                                type={StudyDocumentType.AGREEMENT}
+                                studyId={study.id}
+                            />
                         )}
                     </Text>
                 </GridCol>
