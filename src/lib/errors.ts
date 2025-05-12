@@ -1,12 +1,6 @@
-export class AccessDeniedError extends Error {}
+import { capitalize } from 'remeda'
 
-// a special error that can be thrown from
-// a server action with a message that is safe to display to users
-export class SanitizedError extends Error {
-    constructor(message: string) {
-        super(JSON.stringify({ isSanitizedError: true, sanitizedErrorMessage: message }))
-    }
-}
+export class AccessDeniedError extends Error {}
 
 export type ClerkAPIErrorObject = {
     code: string
@@ -41,11 +35,11 @@ export type ErrorResponse = {
     errorMessage: string
 }
 
-function extractSanitizedError(error: unknown): string | null {
+export function extractActionFailure(error: unknown): Record<string, string> | null {
     if (isServerActionError(error)) {
         try {
             const encoded = JSON.parse(error.message)
-            return extractSanitizedError(encoded)
+            return extractActionFailure(encoded)
         } catch {}
         return null
     }
@@ -53,16 +47,16 @@ function extractSanitizedError(error: unknown): string | null {
         error != null &&
         typeof error === 'object' &&
         'isSanitizedError' in error &&
-        'sanitizedErrorMessage' in error &&
+        'sanitizedError' in error &&
         error['isSanitizedError'] === true
     ) {
-        return error.sanitizedErrorMessage as string
+        return error.sanitizedError as Record<string, string>
     }
     return null
 }
 
-export function isSanitizedError(error: unknown): error is ErrorResponse {
-    return extractSanitizedError(error) !== null
+export function isActionFailure(error: unknown): error is ErrorResponse {
+    return extractActionFailure(error) !== null
 }
 
 type ServerActionError = {
@@ -72,6 +66,14 @@ type ServerActionError = {
     message: string
     stack?: string
     environmentName: 'Server'
+}
+
+// a special error that can be thrown from
+// a server action with a message that is safe to display to users
+export class ActionFailure extends Error {
+    constructor(sanitizedError: Record<string, string>) {
+        super(JSON.stringify({ isSanitizedError: true, sanitizedError }))
+    }
 }
 
 export function isServerActionError(error: unknown): error is ServerActionError {
@@ -89,9 +91,11 @@ export const errorToString = (error: unknown) => {
     if (typeof error === 'string') {
         return error
     }
-    const sanitizedMsg = extractSanitizedError(error)
-    if (sanitizedMsg) {
-        return sanitizedMsg
+    const actionFailure = extractActionFailure(error)
+    if (actionFailure) {
+        return Object.entries(actionFailure)
+            .map(([field, msg]) => `${capitalize(field)} ${msg}`)
+            .join(', ')
     }
 
     if (isServerActionError(error)) {

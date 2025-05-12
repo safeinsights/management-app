@@ -1,6 +1,7 @@
-import { Button, Paper, Stack, Text, Title, Flex } from '@mantine/core'
-
+import { Paper, Stack, Text, Title, Flex } from '@mantine/core'
 import { UsersTable } from './users-table'
+import { InviteButton } from './invitation'
+import { RequireOrgAdmin } from '@/components/require-org-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,6 +10,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="md">
+            <RequireOrgAdmin />
             <Title>Manage team</Title>
             <Text>
                 <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to
@@ -18,7 +20,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
             <Paper shadow="xs" p="xl">
                 <Flex direction="row" justify={'space-between'} align="center">
                     <Title mb="lg">People</Title>
-                    <Button>Invite People</Button>
+                    <InviteButton orgSlug={orgSlug} />
                 </Flex>
 
                 <UsersTable orgSlug={orgSlug} />

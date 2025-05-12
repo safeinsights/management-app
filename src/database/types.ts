@@ -73,12 +73,13 @@ export interface OrgUser {
 }
 
 export interface PendingUser {
+  claimedByUserId: string | null;
   createdAt: Generated<Timestamp>;
   email: string;
   id: Generated<string>;
   isResearcher: boolean;
   isReviewer: boolean;
-  organizationId: string;
+  orgId: string;
 }
 
 export interface Study {

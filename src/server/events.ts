@@ -7,6 +7,7 @@ import { after } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import * as Sentry from '@sentry/nextjs'
 import { updateClerkUserMetadata } from './clerk'
+import { siUser } from './db/queries'
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functions in this file are intended to be contain non-essential code that should run after the calling action has completed.    //
@@ -66,8 +67,17 @@ export const onUserResetPW = deferred(async (userId: string) => {
 })
 
 export const onUserInvited = deferred(
-    async ({ invitedUserId, adminUserId }: { invitedUserId: string; adminUserId: string }) => {
-        await audit({ userId: adminUserId, eventType: 'INVITED', recordType: 'USER', recordId: invitedUserId })
+    async ({ pendingId, invitedEmail }: { invitedEmail: string; pendingId: string }) => {
+        const user = await siUser()
+
+        await audit({
+            userId: user.id,
+            eventType: 'INVITED',
+            recordType: 'USER',
+            recordId: pendingId,
+            metadata: { invitedEmail },
+        })
+        await email.sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
     },
 )
 

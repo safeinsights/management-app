@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
     AccessDeniedError,
-    SanitizedError,
+    ActionFailure,
     isClerkApiError,
-    isSanitizedError,
+    isActionFailure,
     isServerActionError,
     errorToString,
 } from './errors'
@@ -19,12 +19,12 @@ describe('AccessDeniedError', () => {
 
 describe('SanitizedError', () => {
     it('should set its message as a JSON string with sanitized properties', () => {
-        const err = new SanitizedError('Safe error message')
+        const err = new ActionFailure({ msg: 'Safe error message' })
         // The message is a JSON string; parse it to verify its contents
         const parsed = JSON.parse(err.message)
         expect(parsed).toEqual({
             isSanitizedError: true,
-            sanitizedErrorMessage: 'Safe error message',
+            sanitizedError: { msg: 'Safe error message' },
         })
     })
 })
@@ -72,8 +72,8 @@ describe('isServerActionError', () => {
 
 describe('isSanitizedError', () => {
     it('returns true for an object with sanitized error properties', () => {
-        const sanitizedObj = { isSanitizedError: true, sanitizedErrorMessage: 'Safe message' }
-        expect(isSanitizedError(sanitizedObj)).toBe(true)
+        const sanitizedObj = { isSanitizedError: true, sanitizedError: { err: 'Safe message' } }
+        expect(isActionFailure(sanitizedObj)).toBe(true)
     })
 
     it('returns true for a server action error with a valid JSON message containing a sanitized error', () => {
@@ -83,16 +83,16 @@ describe('isSanitizedError', () => {
             Error: 'Error',
             message: JSON.stringify({
                 isSanitizedError: true,
-                sanitizedErrorMessage: 'Server safe message',
+                sanitizedError: { msg: 'Server safe message' },
             }),
             environmentName: 'Server',
         }
-        expect(isSanitizedError(serverError)).toBe(true)
+        expect(isActionFailure(serverError)).toBe(true)
     })
 
     it('returns false if the object does not contain the proper sanitized error properties', () => {
-        expect(isSanitizedError({})).toBe(false)
-        expect(isSanitizedError({ isSanitizedError: false, sanitizedErrorMessage: 'Not safe' })).toBe(false)
+        expect(isActionFailure({})).toBe(false)
+        expect(isActionFailure({ isSanitizedError: false, sanitizedErrorMessage: 'Not safe' })).toBe(false)
     })
 })
 
@@ -112,8 +112,8 @@ describe('errorToString', () => {
     })
 
     it('returns the sanitized error message when provided an object with sanitized error properties', () => {
-        const sanitizedObj = { isSanitizedError: true, sanitizedErrorMessage: 'Sanitized error message' }
-        expect(errorToString(sanitizedObj)).toBe('Sanitized error message')
+        const sanitizedObj = { isSanitizedError: true, sanitizedError: { msg: 'Sanitized error message' } }
+        expect(errorToString(sanitizedObj)).toBe('Msg Sanitized error message')
     })
 
     it('handles a server action error without a valid JSON message', () => {
@@ -135,12 +135,12 @@ describe('errorToString', () => {
             Error: 'Error',
             message: JSON.stringify({
                 isSanitizedError: true,
-                sanitizedErrorMessage: 'Sanitized from server',
+                sanitizedError: { msg: 'Sanitized from server' },
             }),
             environmentName: 'Server',
         }
         const result = errorToString(serverError)
-        expect(result).toBe('Sanitized from server')
+        expect(result).toBe('Msg Sanitized from server')
         // In this case, the sanitized error is extracted before the branch that calls captureException
     })
 

@@ -53,6 +53,8 @@ export const JobReviewButtons = ({
         },
     })
 
+    if (!decryptedResults?.length) return null
+
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
             <Flex align="center">
@@ -82,13 +84,7 @@ export const JobReviewButtons = ({
     return (
         <Group>
             <Divider />
-            {decryptedResults?.length && (
-                <DownloadLink
-                    target="_blank"
-                    filename={decryptedResults[0].path}
-                    content={decryptedResults[0].contents}
-                />
-            )}
+            <DownloadLink target="_blank" filename={decryptedResults[0].path} content={decryptedResults[0].contents} />
             <Divider />
             <Button
                 disabled={isPending || isSuccess}

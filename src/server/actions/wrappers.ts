@@ -1,18 +1,20 @@
 import logger from '@/lib/logger'
 import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { AccessDeniedError } from '@/lib/errors'
 import { UnknownKeysParam, z, ZodObject, ZodString, ZodTypeAny, type Schema } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
+import { AccessDeniedError } from '@/lib/errors'
 
+export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
 
 export type ActionContextOrgInfo = {
-    id: number
+    id: string
     slug: string
     isResearcher: boolean
+    isStaff?: boolean
     isAdmin: boolean
     isReviewer: boolean
 }
@@ -39,6 +41,20 @@ export async function actionContext() {
         } as ActionContext
     }
     return ctx as ActionContext
+}
+
+type ActionOrgContext = {
+    user: SiUser
+    org: ActionContextOrgInfo
+}
+
+export async function orgActionContext(): Promise<ActionOrgContext> {
+    const ctx = await actionContext()
+    if (!ctx?.org?.id) {
+        throw new Error('not called from inside an org action')
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return ctx as any as ActionOrgContext
 }
 
 export async function getUserIdFromActionContext(): Promise<string> {
@@ -160,20 +176,35 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         if (!arg.orgSlug) throw new AccessDeniedError(`'orgSlug' property not present`)
+        const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
+        const { sessionClaims } = await clerkAuth()
+        // // SI staff user is admin on everything
+        if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
+            const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+            Object.assign(ctx, {
+                org: {
+                    id: org.id,
+                    isResearcher: true,
+                    isReviewer: true,
+                    isAdmin: true,
+                    slug: orgSlug,
+                    isStaff: true,
+                } as ActionContextOrgInfo,
+            })
+        } else {
+            const orgInfo = await db
+                .selectFrom('orgUser')
+                .innerJoin('org', 'org.id', 'orgUser.orgId')
+                .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
+                .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
+                .where('orgUser.userId', '=', ctx.user?.id || '')
+                .executeTakeFirstOrThrow(
+                    () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
+                )
 
-        const orgInfo = await db
-            .selectFrom('orgUser')
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
-            .where('org.slug', '=', arg.orgSlug as string) // we are wrapped by orgAction which ensures orgSlug is set
-            .where('orgUser.userId', '=', ctx.user?.id || '')
-            .executeTakeFirstOrThrow(
-                () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
-            )
-
-        Object.assign(ctx, { org: orgInfo })
-
+            Object.assign(ctx, { org: orgInfo })
+        }
         return await func(arg)
     }
 
@@ -194,6 +225,6 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
 
 export async function checkMemberOfOrgWithSlug(orgSlug: string) {
     const org = await getOrgInfoFromActionContext()
-    if (org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
+    if (!org.isStaff && org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
     return true
 }
