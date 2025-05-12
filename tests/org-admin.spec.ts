@@ -9,24 +9,34 @@ test.describe('Organization Admin', () => {
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
-        await page.getByLabel(/email/i).fill('not an email')
-        await page.keyboard.press('Tab')
-        await expect(page.getByText('invalid email address')).toBeVisible()
 
-        await page.getByLabel(/email/i).fill(email)
-        await page.keyboard.press('Tab')
-        await expect(page.getByText('role must be selected')).toBeVisible()
-        await page.getByLabel(/review and approve studies/i).click()
-        await page.getByRole('button', { name: /send/i }).click()
-        await expect(page.getByText(`sent successfully`)).toBeVisible()
+        // Wait for the modal to appear using its title and get a locator for it
+        const inviteModal = page.getByRole('dialog', { name: /invite others to join your team/i })
+        await expect(inviteModal).toBeVisible()
 
-        await page.getByRole('button', { name: /continue to invite people/i }).click()
+        // Interact with elements within the modal
+        await inviteModal.getByLabel(/invite by email/i).fill('not an email')
+        await inviteModal.getByLabel(/invite by email/i).press('Tab')
+        await expect(inviteModal.getByText('invalid email address')).toBeVisible()
+
+        await inviteModal.getByLabel(/invite by email/i).fill(email)
+        await inviteModal.getByLabel(/invite by email/i).press('Tab')
+        await expect(inviteModal.getByText('Role must be selected')).toBeVisible()
+
+        await inviteModal.getByLabel(/reviewer \(can review and approve studies\)/i).check()
+
+        await inviteModal.getByRole('button', { name: /send invitation/i }).click()
+        await expect(inviteModal.getByRole('heading', { name: /invitation sent successfully!/i })).toBeVisible()
+
+        await inviteModal.getByRole('button', { name: /continue to invite people/i }).click()
+        await inviteModal.press('Escape')
+        await expect(inviteModal).not.toBeVisible()
 
         const pendingPanel = page.getByTestId('pending-invites')
         await expect(pendingPanel.getByText(email)).toBeVisible()
 
         const btn = page.getByTestId(`re-invite-${email}`)
-        const inviteId = await btn.getAttribute('data-pendig-id')
+        const inviteId = await btn.getAttribute('data-pending-id')
         await btn.click()
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()

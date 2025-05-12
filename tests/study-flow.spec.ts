@@ -17,7 +17,10 @@ test.describe('Studies', () => {
 
         await page.getByRole('button', { name: /propose/i }).click()
 
-        await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
+        // Wait for study proposal form to load
+        await expect(page.getByRole('heading', { name: 'Study Proposal', exact: true })).toBeVisible()
+
+        await page.getByRole('textbox', { name: /study title/i }).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
         // Invalid file testing
@@ -71,8 +74,9 @@ test.describe('Studies', () => {
 
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
-        await page.waitForURL(/\/study\//)
-        await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
+        // Wait for study details page to load
+        await expect(page.getByText('Study Name', { exact: true })).toBeVisible()
+        await expect(page.url()).toMatch(/\/study\//)
 
         await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForURL(/\/dashboard/)
