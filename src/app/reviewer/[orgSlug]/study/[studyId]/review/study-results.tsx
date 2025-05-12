@@ -39,7 +39,7 @@ export const StudyResults: FC<{
             <Stack>
                 <Group justify="space-between">
                     <Title order={4}>Study Results</Title>
-                    {decryptedResults && <JobReviewButtons job={job} decryptedResults={decryptedResults} />}
+                    <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider />
                 <ViewUnapprovedResults job={job} onApproval={setDecryptedResults} />
