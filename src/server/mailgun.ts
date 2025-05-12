@@ -32,14 +32,14 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     return [_mg, domain]
 }
 
-export const sendWelcomeEmail = async (emailTo: string) => {
+export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        logger.warn('Mailgun not configured, skipping welcome email')
+        logger.warn('Mailgun not configured, skipping invite email')
         return
     }
 
-    logger.info('Attempting to send welcome email', { emailTo, domain })
+    logger.info('Attempting to send invite email', { emailTo, domain })
 
     try {
         await mg.messages.create(domain, {
@@ -48,12 +48,12 @@ export const sendWelcomeEmail = async (emailTo: string) => {
             subject: 'Get started with SafeInsights',
             template: 'welcome email',
             'h:X-Mailgun-Variables': JSON.stringify({
-                resetPasswordLink: `${BASE_URL}/account/reset-password`,
+                inviteLink: `${BASE_URL}/account/invitation/${inviteId}`,
             }),
         })
-        logger.info('Successfully sent welcome email')
+        logger.info('Successfully sent invite email')
     } catch (error) {
-        logger.error('Failed to send welcome email', { error: error })
+        logger.error('Failed to send invite email', { error: error })
     }
 }
 

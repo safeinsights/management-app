@@ -2,8 +2,9 @@ import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
 import { Lock, Warning, WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode } from 'react'
-import { errorToString, isServerActionError } from '@/lib/errors'
+import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
+import { difference } from 'remeda'
 
 export * from '@/lib/errors'
 
@@ -19,7 +20,23 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     })
 }
 
-export const reportMutationError = (error: unknown) => reportError(error, 'update failed')
+export const reportMutationError = (error: unknown) => {
+    reportError(error, 'update failed')
+}
+type FormErrorHandler = {
+    setErrors(errs: Record<string, string>): void
+    values: Record<string, string>
+}
+export function handleMutationErrorsWithForm(form: FormErrorHandler) {
+    return (err: unknown) => {
+        const failure = extractActionFailure(err)
+        if (failure && difference(Object.keys(failure), Object.keys(form.values)).length == 0) {
+            form.setErrors(failure)
+        } else {
+            reportMutationError(err)
+        }
+    }
+}
 
 type ErrorAlertProps = { error: string | Error } & AlertProps
 
@@ -61,10 +78,12 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
 
 export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     const theme = useMantineTheme()
+    if (!error) return null
+
     return (
-        <Flex align="center" gap={4} my={2}>
+        <Flex align="center" gap={4} my={2} component="span" data-testid="input-error">
             <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
-            <Text c="red.7" size="xs">
+            <Text c="red.7" size="xs" component="span">
                 {error}
             </Text>
         </Flex>
