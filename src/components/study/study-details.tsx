@@ -47,8 +47,8 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const titleSpan = { base: 12, sm: 4, md: 3 }
-    const inputSpan = { base: 12, sm: 8, md: 9 }
+    const titleSpan = { base: 12, sm: 4, lg: 2 }
+    const inputSpan = { base: 12, sm: 8, lg: 4 }
 
     return (
         <Stack>
