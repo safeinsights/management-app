@@ -38,8 +38,8 @@ export const StudyProposalForm: FC<{
 
     const { user } = useUser()
 
-    const titleSpan = { base: 12, sm: 4, md: 2 }
-    const inputSpan = { base: 12, sm: 8, md: 4 }
+    const titleSpan = { base: 12, sm: 4, lg: 2 }
+    const inputSpan = { base: 12, sm: 8, lg: 4 }
 
     return (
         <Paper p="xl">
