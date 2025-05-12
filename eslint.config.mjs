@@ -7,7 +7,7 @@ const compat = new FlatCompat({
 })
 
 /** @type {import('eslint').Linter.Config[]} */
-export default [
+const eslintConfig = [
     {
         ignores: ['src/styles/generated/'],
     },
@@ -24,3 +24,5 @@ export default [
         },
     },
 ]
+
+export default eslintConfig
