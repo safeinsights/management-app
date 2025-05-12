@@ -77,7 +77,7 @@ export const onUserInvited = deferred(
             recordId: pendingId,
             metadata: { invitedEmail },
         })
-        await email.sendWelcomeEmail(invitedEmail)
+        await email.sendInviteEmail({ emailTo: invitedEmail, inviteId: pendingId })
     },
 )
 

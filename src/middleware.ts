@@ -8,7 +8,12 @@ const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
-const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
+const ANON_ROUTES: Array<string> = [
+    '/account/reset-password',
+    '/account/signup',
+    '/account/signin',
+    '/account/invitation',
+]
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware

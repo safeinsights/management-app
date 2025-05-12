@@ -3,9 +3,8 @@
 import { db } from '@/database'
 import { orgSchema } from '@/schema/org'
 import { findOrCreateClerkOrganization } from '../clerk'
-import { adminAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
+import { adminAction, getUserIdFromActionContext, orgAdminAction, userAction, z, ActionFailure } from './wrappers'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
-import { SanitizedError } from '@/lib/errors'
 
 export const upsertOrgAction = adminAction(async (org) => {
     // Check for duplicate organization name for new organizations only
@@ -53,7 +52,7 @@ export const getOrgFromSlugAction = userAction(async (slug) => {
         .selectAll()
         .where('slug', '=', slug)
         .executeTakeFirstOrThrow(() => {
-            throw new SanitizedError(`Org not found`)
+            throw new ActionFailure({ message: `Org not found` })
         })
 }, z.string())
 

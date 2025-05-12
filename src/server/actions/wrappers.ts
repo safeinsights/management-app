@@ -1,12 +1,13 @@
 import logger from '@/lib/logger'
-import { auth as clerkAuth, auth } from '@clerk/nextjs/server'
+import { auth as clerkAuth } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { AccessDeniedError } from '@/lib/errors'
 import { UnknownKeysParam, z, ZodObject, ZodString, ZodTypeAny, type Schema } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
+import { AccessDeniedError } from '@/lib/errors'
 
+export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
 
 export type ActionContextOrgInfo = {
@@ -177,7 +178,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         if (!arg.orgSlug) throw new AccessDeniedError(`'orgSlug' property not present`)
         const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
-        const { sessionClaims } = await auth()
+        const { sessionClaims } = await clerkAuth()
         // // SI staff user is admin on everything
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
             const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()

@@ -1,36 +1,28 @@
 'use client'
 
 import { useDisclosure } from '@mantine/hooks'
-import { Divider, TextInput, Button, Flex, Radio, useMantineTheme, Anchor, Text } from '@mantine/core'
+import { Divider, TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { InputError, reportMutationError } from '@/components/errors'
-import { CheckCircle, Plus } from '@phosphor-icons/react/dist/ssr'
+import { Plus } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
-
 import { PendingUsers } from './pending-invites'
+import { SuccessPanel } from '@/components/panel'
 
 interface InviteFormProps {
     orgSlug: string
 }
 
 const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
-    const theme = useMantineTheme()
-
     return (
-        <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold">
-            <CheckCircle size={28} color={theme.colors.green[9]} weight="fill" />
-            <Text c="green.9" size="md" fw="bold">
-                Invitation sent successfully!
-            </Text>
-            <Anchor component="button" mt={16} size="sm" c="blue.8" fw={600} onClick={onContinue}>
-                Continue to invite people
-            </Anchor>
-        </Flex>
+        <SuccessPanel title="Invitation sent successfully!" onContinue={onContinue}>
+            Continue to invite people
+        </SuccessPanel>
     )
 }
 
@@ -99,24 +91,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     )
 }
 
-const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
-    const [wasInvited, setWasInvited] = useState(false)
-
-    const body = wasInvited ? (
-        <InviteSuccess onContinue={() => setWasInvited(false)} />
-    ) : (
-        <InviteForm orgSlug={orgSlug} onInvited={() => setWasInvited(true)} />
-    )
-
-    return (
-        <>
-            {body}
-            <Divider c="charcoal.1" my="xl" />
-            <PendingUsers orgSlug={orgSlug} />
-        </>
-    )
-}
-
 export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const [inviteUserOpened, { open: openInviteUser, close: closeInviteUser }] = useDisclosure(false)
 
@@ -134,6 +108,24 @@ export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
             <Button leftSection={<Plus />} onClick={openInviteUser}>
                 Invite People
             </Button>
+        </>
+    )
+}
+
+const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
+    const [wasInvited, setWasInvited] = useState(false)
+
+    const body = wasInvited ? (
+        <InviteSuccess onContinue={() => setWasInvited(false)} />
+    ) : (
+        <InviteForm orgSlug={orgSlug} onInvited={() => setWasInvited(true)} />
+    )
+
+    return (
+        <>
+            {body}
+            <Divider c="charcoal.1" my="xl" />
+            <PendingUsers orgSlug={orgSlug} />
         </>
     )
 }

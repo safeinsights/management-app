@@ -73,6 +73,7 @@ export interface OrgUser {
 }
 
 export interface PendingUser {
+  claimedByUserId: string | null;
   createdAt: Generated<Timestamp>;
   email: string;
   id: Generated<string>;

@@ -29,6 +29,7 @@ const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: str
                 size="xs"
                 onClick={() => reInviteUser()}
                 loading={isReinviting}
+                data-pendig-id={pending.id}
                 data-testid={`re-invite-${pending.email}`}
             >
                 Re-invite

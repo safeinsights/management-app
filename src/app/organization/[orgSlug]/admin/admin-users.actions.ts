@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { z, inviteUserSchema } from './invite-user.schema'
 import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
-import { sendWelcomeEmail } from '@/server/mailgun'
+import { sendInviteEmail } from '@/server/mailgun'
 import { onUserInvited } from '@/server/events'
 
 export const orgAdminInviteUserAction = orgAdminAction(
@@ -14,12 +14,11 @@ export const orgAdminInviteUserAction = orgAdminAction(
             .select(['id', 'email'])
             .where('email', '=', invite.email)
             .executeTakeFirst()
-        const { org } = await orgActionContext()
         if (existingPendingUser) {
-            await sendWelcomeEmail(invite.email)
+            await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return
         }
-
+        const { org } = await orgActionContext()
         const record = await db
             .insertInto('pendingUser')
             .values({

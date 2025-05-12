@@ -19,7 +19,7 @@ import {
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkUserAllowedStudyReview } from '../db/queries'
-import { SanitizedError } from '@/lib/errors'
+import { ActionFailure } from '@/lib/errors'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailgun'
 
 const approveStudyJobResultsActionSchema = z.object({
@@ -163,7 +163,7 @@ export const fetchJobResultsEncryptedZipAction = orgAction(
         const job = await queryJobResult(jobId)
 
         if (!job) {
-            throw new SanitizedError(`Job ${jobId} not found or does not have results`)
+            throw new ActionFailure({ job: `${jobId} not found or does not have results` })
         }
 
         return await fetchStudyEncryptedResultsFile(job)
