@@ -53,7 +53,7 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xl">
                 <Stack>
                     <Group justify="space-between">
-                        <Title order={3}>Study Proposal</Title>
+                        <Title fz="xl">Study Proposal</Title>
                         <StudyReviewButtons study={study} />
                     </Group>
                     <Stack mt="md">{studyId && <StudyDetails studyId={study.id} />}</Stack>
@@ -62,7 +62,7 @@ export default async function StudyReviewPage(props: {
 
             <Paper bg="white" p="xl">
                 <Stack mt="md">
-                    <Title order={3}>Study Code</Title>
+                    <Title fz="xl">Study Code</Title>
                     <Divider my="md" c="dimmed" />
                     <StudyCodeDetails job={latestJob} />
                 </Stack>

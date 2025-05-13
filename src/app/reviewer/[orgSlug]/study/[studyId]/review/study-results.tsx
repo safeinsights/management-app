@@ -38,7 +38,7 @@ export const StudyResults: FC<{
         <Paper bg="white" p="xl">
             <Stack>
                 <Group justify="space-between">
-                    <Title order={4}>Study Results</Title>
+                    <Title fz="xl">Study Results</Title>
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider />
