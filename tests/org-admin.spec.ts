@@ -55,12 +55,8 @@ test.describe('Organization Admin', () => {
         // verify we landed on the MFA setup screen
         await expect(page).toHaveURL(/\/account\/mfa$/)
         // check both setup options are present
-        await expect(
-          page.getByRole('link', { name: 'SMS Verification' })
-        ).toBeVisible()
-        await expect(
-          page.getByRole('link', { name: 'Authenticator App Verification' })
-        ).toBeVisible()
+        await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Authenticator App Verification' })).toBeVisible()
 
         // test invitation no longer works
         await page.goto(`/account/invitation/${inviteId}`)
