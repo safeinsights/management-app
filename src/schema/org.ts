@@ -7,6 +7,7 @@ export const orgSchema = z.object({
     name: z.string().min(1, { message: 'Name must be provided' }),
     email: z.string().email({ message: 'Invalid email address' }),
     publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
+    description: z.string().max(250, 'Word limit is 250 characters').optional().nullable(),
 })
 
 export type ValidatedOrg = z.infer<typeof orgSchema>
@@ -17,6 +18,7 @@ export const getNewOrg = (): NewOrg => {
         name: '',
         email: '',
         publicKey: '',
+        description: null,
     }
 }
 

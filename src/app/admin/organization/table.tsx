@@ -25,7 +25,8 @@ export function OrgsAdminTable() {
     })
 
     const sortedMembers = useMemo(() => {
-        const newOrgs = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
+        const accessor = sortStatus.columnAccessor as keyof Org
+        const newOrgs = R.sortBy(data, (org: Org) => org[accessor] as string | number | Date | boolean)
         return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 

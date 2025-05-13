@@ -10,6 +10,7 @@ const mockOrg: Org = {
     name: 'test',
     email: 'junk@asdf.com',
     publicKey: 'junk',
+    description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
 }
