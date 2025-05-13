@@ -8,7 +8,12 @@ const isAdminRoute = createRouteMatcher(['/admin(.*)'])
 const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
-const ANON_ROUTES: Array<string> = ['/account/reset-password', '/account/signup', '/account/signin']
+const ANON_ROUTES: Array<string> = [
+    '/account/reset-password',
+    '/account/signup',
+    '/account/signin',
+    '/account/invitation',
+]
 
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
@@ -25,7 +30,7 @@ function redirectToRole(request: NextRequest, route: string, roles: Roles) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
     if (roles.isReviewer) {
-        return NextResponse.redirect(new URL('/reviewer/dashboard', request.url))
+        return NextResponse.redirect(new URL('/reviewer/openstax/dashboard', request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
 }
