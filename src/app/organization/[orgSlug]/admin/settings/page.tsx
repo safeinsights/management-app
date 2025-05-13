@@ -10,6 +10,7 @@ import {
     Textarea,
     Group,
     Button,
+    Flex
 } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
@@ -37,10 +38,17 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
             </Title>
 
             <Paper shadow="xs" p="xl" mb="xl">
-                <Title order={3} mb="lg">
-                    About organization
-                </Title>
-                <Stack gap="md">
+                <Flex direction="row" justify={'space-between'} align="center" mb="lg">
+                    <Title order={3}>
+                        About organization
+                    </Title>
+                    <Group justify="flex-end">
+                        <Button variant="outline">Cancel</Button>
+                        <Button>Save</Button>
+                    </Group>
+                </Flex>
+                <Divider />
+                <Stack gap="md" mt="lg">
                     <TextInput
                         label="Name"
                         withAsterisk
@@ -53,10 +61,6 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
                         // value="" // TODO: No logical implementation yet
                     />
                 </Stack>
-                <Group justify="flex-end" mt="xl">
-                    <Button variant="outline">Cancel</Button>
-                    <Button>Save</Button>
-                </Group>
             </Paper>
 
             <Paper shadow="xs" p="xl" style={{ visibility: 'hidden' }}>
