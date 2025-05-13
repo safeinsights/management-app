@@ -72,7 +72,7 @@ export function AdminSettingsForm({ orgSlug, initialName, initialDescription }: 
                         {...form.getInputProps('description')}
                     />
                     <Text size="xs" color="dimmed">
-                        {form.values.description.length}/250 characters
+                        {form.values.description?.length ?? 0}/250 characters
                     </Text>
                 </Stack>
             </form>
