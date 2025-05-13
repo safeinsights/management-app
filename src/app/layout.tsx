@@ -6,6 +6,7 @@ import './globals.css'
 import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
+import './sizes.css'
 
 import { Providers } from './providers'
 import { type ReactNode } from 'react'

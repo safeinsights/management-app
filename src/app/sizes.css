@@ -1,0 +1,3 @@
+:root {
+    --mantine-spacing-xl: calc(2.5rem * var(--mantine-scale));
+}
