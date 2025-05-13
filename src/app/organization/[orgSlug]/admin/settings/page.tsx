@@ -1,4 +1,4 @@
-import { Paper, Stack, Text, Title, Breadcrumbs, Anchor, Divider } from '@mantine/core'
+import { Paper, Stack, Text, Title, Breadcrumbs, Anchor, Divider, TextInput, Textarea, Group, Button, Box } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 
@@ -20,13 +20,32 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
             <RequireOrgAdmin />
             <Breadcrumbs>{items}</Breadcrumbs>
             <Divider />
-            <Title>Organization Settings</Title>
-            <Text>
-                Manage your organization's settings here. (Content to be added)
-            </Text>
-            <Paper shadow="xs" p="xl">
-                <Text>Organization: {orgSlug}</Text>
-                {/* Placeholder for future settings content */}
+            <Title order={1} mb={40}>Settings</Title>
+
+            <Paper shadow="xs" p="xl" mb="xl">
+                <Title order={3} mb="lg">About organization</Title>
+                <Stack gap="md">
+                    <TextInput
+                        label="Name"
+                        withAsterisk
+                        // value="" // TODO: No logical implementation yet
+                    />
+                    <Textarea
+                        label="Description"
+                        maxLength={250}
+                        description="Word limit is 250 characters"
+                        // value="" // TODO: No logical implementation yet
+                    />
+                </Stack>
+                <Group justify="flex-end" mt="xl">
+                    <Button variant="outline">Cancel</Button>
+                    <Button>Save</Button>
+                </Group>
+            </Paper>
+
+            <Paper shadow="xs" p="xl" style={{ visibility: 'hidden' }}>
+                <Title order={3} mb="lg">API key</Title>
+                <Text>Section under design</Text>
             </Paper>
         </Stack>
     )
