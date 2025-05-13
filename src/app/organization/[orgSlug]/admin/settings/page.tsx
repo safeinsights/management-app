@@ -6,19 +6,20 @@ import {
     Breadcrumbs,
     Anchor,
     Divider,
-    TextInput,
-    Textarea,
-    Group,
-    Button,
     Flex
 } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
+import { AdminSettingsForm } from './settings-form'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminSettingsPage(props: { params: Promise<{ orgSlug: string }> }) {
-    const { orgSlug } = await props.params
+export default async function AdminSettingsPage({ params }: { params: { orgSlug: string } }) {
+    const { orgSlug } = params
+
+    // TODO: Fetch actual initial data for name and description from the organization
+    const initialName: string | null = "Current Org Name Placeholder"
+    const initialDescription: string | null = "Current Org Description Placeholder"
 
     const items = [
         <Anchor component={Link} href={`/organization/${orgSlug}/admin`} key="1">
@@ -37,31 +38,11 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
                 Settings
             </Title>
 
-            <Paper shadow="xs" p="xl" mb="xl">
-                <Flex direction="row" justify={'space-between'} align="center" mb="lg">
-                    <Title order={3}>
-                        About organization
-                    </Title>
-                    <Group justify="flex-end">
-                        <Button variant="outline">Cancel</Button>
-                        <Button>Save</Button>
-                    </Group>
-                </Flex>
-                <Divider />
-                <Stack gap="md" mt="lg">
-                    <TextInput
-                        label="Name"
-                        withAsterisk
-                        // value="" // TODO: No logical implementation yet
-                    />
-                    <Textarea
-                        label="Description"
-                        maxLength={250}
-                        description="Word limit is 250 characters"
-                        // value="" // TODO: No logical implementation yet
-                    />
-                </Stack>
-            </Paper>
+            <AdminSettingsForm
+                orgSlug={orgSlug}
+                initialName={initialName}
+                initialDescription={initialDescription}
+            />
 
             <Paper shadow="xs" p="xl" style={{ visibility: 'hidden' }}>
                 <Title order={3} mb="lg">
