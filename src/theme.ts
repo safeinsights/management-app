@@ -1,4 +1,4 @@
-import { createTheme, DefaultMantineColor, MantineColorsTuple } from '@mantine/core'
+import { createTheme, DefaultMantineColor, DefaultMantineSize, MantineColorsTuple } from '@mantine/core'
 
 const charcoal: MantineColorsTuple = [
     '#E6E6E6',
@@ -88,9 +88,15 @@ const blue: MantineColorsTuple = [
 
 type ExtendedCustomColors = 'purple' | 'blue' | 'charcoal' | 'grey' | 'red' | 'green' | 'yellow' | DefaultMantineColor
 
+type ExtendedCustomSpacing = 'xxl' | DefaultMantineSize
+
 declare module '@mantine/core' {
     export interface MantineThemeColorsOverride {
         colors: Record<ExtendedCustomColors, MantineColorsTuple>
+    }
+
+    export interface MantineThemeSizesOverride {
+        spacing: Record<ExtendedCustomSpacing, string>
     }
 }
 
@@ -118,4 +124,7 @@ export const theme = createTheme({
     },
     primaryShade: 5,
     primaryColor: 'purple',
+    spacing: {
+        xxl: '2.5rem',
+    },
 })
