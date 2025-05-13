@@ -1,4 +1,16 @@
-import { Paper, Stack, Text, Title, Breadcrumbs, Anchor, Divider, TextInput, Textarea, Group, Button, Box } from '@mantine/core'
+import {
+    Paper,
+    Stack,
+    Text,
+    Title,
+    Breadcrumbs,
+    Anchor,
+    Divider,
+    TextInput,
+    Textarea,
+    Group,
+    Button,
+} from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 
@@ -20,10 +32,14 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
             <RequireOrgAdmin />
             <Breadcrumbs>{items}</Breadcrumbs>
             <Divider />
-            <Title order={1} mb={40}>Settings</Title>
+            <Title order={1} mb={40}>
+                Settings
+            </Title>
 
             <Paper shadow="xs" p="xl" mb="xl">
-                <Title order={3} mb="lg">About organization</Title>
+                <Title order={3} mb="lg">
+                    About organization
+                </Title>
                 <Stack gap="md">
                     <TextInput
                         label="Name"
@@ -44,7 +60,9 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
             </Paper>
 
             <Paper shadow="xs" p="xl" style={{ visibility: 'hidden' }}>
-                <Title order={3} mb="lg">API key</Title>
+                <Title order={3} mb="lg">
+                    API key
+                </Title>
                 <Text>Section under design</Text>
             </Paper>
         </Stack>

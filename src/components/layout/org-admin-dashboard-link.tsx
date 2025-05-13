@@ -1,7 +1,7 @@
 'use client'
 
 import { FC, useState, useEffect } from 'react'
-import { NavLink, Text } from '@mantine/core'
+import { NavLink } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
 import { Protect } from '@clerk/nextjs'
