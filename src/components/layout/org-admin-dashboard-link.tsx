@@ -55,8 +55,8 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                     label="Manage Team"
                     leftSection={<UsersThree size={20} />}
                     component={Link}
-                    href={`${orgAdminBaseUrl}/users`}
-                    active={pathname === `${orgAdminBaseUrl}/users`}
+                    href={`${orgAdminBaseUrl}`}
+                    active={pathname === `${orgAdminBaseUrl}`}
                     c="white"
                     color="blue.7"
                     variant="filled"
