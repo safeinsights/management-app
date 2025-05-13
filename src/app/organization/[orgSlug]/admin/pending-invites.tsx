@@ -1,4 +1,4 @@
-import { Flex, Text, Button } from '@mantine/core'
+import { Flex, Text, Button, Divider } from '@mantine/core'
 import { FC } from 'react'
 import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications'
 
 interface PendingUsersProps {
     orgSlug: string
+    isVisible: boolean
 }
 
 const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: string } }> = ({ pending, orgSlug }) => {
@@ -38,30 +39,35 @@ const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: str
     )
 }
 
-export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug }) => {
+export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug, isVisible }) => {
     const { data: pendingUsers = [], isLoading: isLoadingPending } = useQuery({
         queryKey: ['pendingUsers', orgSlug],
         queryFn: () => getPendingUsersAction({ orgSlug }),
     })
 
+    if (!isVisible) return null
+
     return (
-        <div data-testid="pending-invites">
-            <Text fw={600} mb="md">
-                Pending invitations
-            </Text>
-            <LoadingMessage isVisible={isLoadingPending} message="Loading pending invitations…" />
-
-            {!pendingUsers.length && (
-                <Text size="sm" c="dimmed">
-                    No pending invitations for this organization.
+        <>
+            <Divider c="charcoal.1" my="xl" />
+            <div data-testid="pending-invites">
+                <Text fw={600} mb="md">
+                    Pending invitations
                 </Text>
-            )}
+                <LoadingMessage isVisible={isLoadingPending} message="Loading pending invitations…" />
 
-            <Flex direction="column" gap="xs">
-                {pendingUsers.map((pending) => (
-                    <PendingUser orgSlug={orgSlug} pending={pending} key={pending.id} />
-                ))}
-            </Flex>
-        </div>
+                {!pendingUsers.length && (
+                    <Text size="sm" c="dimmed">
+                        No pending invitations for this organization.
+                    </Text>
+                )}
+
+                <Flex direction="column" gap="xs">
+                    {pendingUsers.map((pending) => (
+                        <PendingUser orgSlug={orgSlug} pending={pending} key={pending.id} />
+                    ))}
+                </Flex>
+            </div>
+        </>
     )
 }

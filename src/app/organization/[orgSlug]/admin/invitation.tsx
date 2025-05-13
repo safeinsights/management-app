@@ -1,7 +1,7 @@
 'use client'
 
 import { useDisclosure } from '@mantine/hooks'
-import { Divider, TextInput, Button, Flex, Radio } from '@mantine/core'
+import { TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
@@ -123,12 +123,7 @@ const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
     return (
         <>
             {body}
-            {!wasInvited && (
-                <>
-                    <Divider c="charcoal.1" my="xl" />
-                    <PendingUsers orgSlug={orgSlug} />
-                </>
-            )}
+            <PendingUsers orgSlug={orgSlug} isVisible={!wasInvited} />
         </>
     )
 }
