@@ -5,8 +5,7 @@ import {
     Title,
     Breadcrumbs,
     Anchor,
-    Divider,
-    Flex
+    Divider
 } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
