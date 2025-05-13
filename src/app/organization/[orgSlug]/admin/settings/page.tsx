@@ -4,8 +4,8 @@ import {
     Text,
     Title,
     Breadcrumbs,
+    Divider,
     Anchor,
-    Divider
 } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
@@ -25,7 +25,9 @@ export default async function AdminSettingsPage({ params }: { params: { orgSlug:
             Dashboard
         </Anchor>,
         <Text key="2">Admin</Text>,
-        <Text key="3">Settings</Text>,
+        <Text key="3" aria-current="page">
+            Settings
+        </Text>,
     ]
 
     return (

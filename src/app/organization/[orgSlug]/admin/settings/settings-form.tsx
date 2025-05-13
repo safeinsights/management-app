@@ -5,6 +5,7 @@ import {
     Stack,
     TextInput,
     Textarea,
+    Text,
     Group,
     Button,
     Flex,
@@ -59,6 +60,8 @@ export function AdminSettingsForm({ orgSlug, initialName, initialDescription }: 
                     <TextInput
                         label="Name"
                         withAsterisk
+                        required
+                        aria-required="true"
                         key={form.key('name')}
                         {...form.getInputProps('name')}
                     />
@@ -68,6 +71,9 @@ export function AdminSettingsForm({ orgSlug, initialName, initialDescription }: 
                         key={form.key('description')}
                         {...form.getInputProps('description')}
                     />
+                    <Text size="xs" color="dimmed">
+                        {form.values.description.length}/250 characters
+                    </Text>
                 </Stack>
             </form>
         </Paper>
