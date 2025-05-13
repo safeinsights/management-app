@@ -90,12 +90,12 @@ test('studies are not included once finished', async () => {
     })
 })
 
-test('studies pending review are not included', async () => {
+test('includes approved studies only', async () => {
     const org = await insertTestOrg()
     await insertTestStudyData({ org })
     const { user } = await insertTestUser({ org })
 
-    const study = await db
+    const pendingReviewStudy = await db
         .insertInto('study')
         .values({
             orgId: org.id,
@@ -113,5 +113,5 @@ test('studies pending review are not included', async () => {
 
     const resp = await apiHandler.GET()
     const json = await resp.json()
-    expect(json.jobs).not.toContainEqual(expect.objectContaining({ studyId: study.id }))
+    expect(json.jobs).not.toContainEqual(expect.objectContaining({ studyId: pendingReviewStudy.id }))
 })
