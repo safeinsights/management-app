@@ -51,7 +51,10 @@ test.describe('Organization Admin', () => {
 
         // test nav to mfa page
         await page.getByRole('button', { name: /secure your account/i }).click()
-        await expect(page.getByText('Two-Step Verification')).toBeVisible()
+
+        // verify we landed on the MFA setup screen
+        await expect(page).toHaveURL(/\/account\/mfa$/)
+        // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
 
         // test invitation no longer works
         await page.goto(`/account/invitation/${inviteId}`)
