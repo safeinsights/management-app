@@ -67,7 +67,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 size="md"
                 {...studyProposalForm.getInputProps('email')}
                 error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
-                data-autofocus
             />
             <Flex mb="sm" fw="semibold">
                 <Radio.Group
@@ -124,8 +123,12 @@ const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
     return (
         <>
             {body}
-            <Divider c="charcoal.1" my="xl" />
-            <PendingUsers orgSlug={orgSlug} />
+            {!wasInvited && (
+                <>
+                    <Divider c="charcoal.1" my="xl" />
+                    <PendingUsers orgSlug={orgSlug} />
+                </>
+            )}
         </>
     )
 }
