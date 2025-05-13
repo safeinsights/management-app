@@ -28,7 +28,7 @@ export const GET = wrapApiOrgAction(async () => {
                     .on('latestStatusChange.status', 'in', ['JOB-READY', 'JOB-RUNNING'])
                     .onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
         )
-        .where('study.status', '!=', 'PENDING-REVIEW')
+        .where('study.status', '=', 'APPROVED')
         .select([
             'studyJob.id as jobId',
             'studyId',
