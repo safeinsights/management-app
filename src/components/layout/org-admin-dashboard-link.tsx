@@ -1,9 +1,9 @@
 'use client'
 
 import { FC, useState, useEffect } from 'react'
-import { NavLink } from '@mantine/core'
+import { NavLink, Text } from '@mantine/core'
 import Link from 'next/link'
-import { Gear, UsersThree } from '@phosphor-icons/react/dist/ssr'
+import { Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
 import { Protect } from '@clerk/nextjs'
 import styles from './navbar-items.module.css'
 
@@ -63,8 +63,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                     className={styles.navLinkHover}
                     pl="xl"
                 />
-                {/* TODO: re-add if we have a org admin settings page */}
-                {/* <NavLink
+                <NavLink
                     label="Settings"
                     leftSection={<Sliders size={20} />}
                     component={Link}
@@ -75,7 +74,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                     variant="filled"
                     className={styles.navLinkHover}
                     pl="xl"
-                /> */}
+                />
             </NavLink>
         </Protect>
     )
