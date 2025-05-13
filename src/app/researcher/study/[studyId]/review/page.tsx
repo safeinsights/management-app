@@ -34,14 +34,18 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <Title order={1}>Study Details</Title>
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title fz={'xl'}>Study Details</Title>
+                    <Title order={4} fz={'xl'}>
+                        Study Details
+                    </Title>
                     <StudyDetails studyId={studyId} />
                 </Stack>
             </Paper>
 
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title fz="xl">Study Code</Title>
+                    <Title order={4} fz="xl">
+                        Study Code
+                    </Title>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
@@ -49,7 +53,9 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
             <Paper bg="white" p="xl">
                 <Stack>
-                    <Title fz="xl">Study Results</Title>
+                    <Title order={4} fz="xl">
+                        Study Results
+                    </Title>
                     <Divider c="dimmed" />
                     <ViewJobResultsCSV job={job} />
                 </Stack>
