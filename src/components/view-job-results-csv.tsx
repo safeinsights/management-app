@@ -60,7 +60,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     return (
         <Stack mt="xl">
             <Group justify="space-between">
-                <Title order={4} fz="xl">
+                <Title order={4} size="xl">
                     Study Results
                 </Title>
                 <Divider />

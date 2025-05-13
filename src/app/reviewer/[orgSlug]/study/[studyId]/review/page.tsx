@@ -53,7 +53,7 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xl">
                 <Stack>
                     <Group justify="space-between">
-                        <Title order={4} fz="xl">
+                        <Title order={4} size="xl">
                             Study Proposal
                         </Title>
                         <StudyReviewButtons study={study} />
@@ -64,7 +64,7 @@ export default async function StudyReviewPage(props: {
 
             <Paper bg="white" p="xl">
                 <Stack mt="md">
-                    <Title order={4} fz="xl">
+                    <Title order={4} size="xl">
                         Study Code
                     </Title>
                     <Divider my="md" c="dimmed" />
