@@ -18,56 +18,26 @@ export function NavbarProfileMenu() {
     // const reviewerKeyMenuItemRef = useRef<HTMLAnchorElement>(null)
     const signOutMenuItemRef = useRef<HTMLAnchorElement>(null)
 
-    const menuRef = useClickOutside<HTMLDivElement>(() => {
-        if (opened) {
-            close()
-        }
-    })
+    const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
 
+    // Active refs and navigation helpers
     const activeRefs = [
         accountMenuItemRef.current,
         // reviewerKeyMenuItemRef.current,
         signOutMenuItemRef.current,
     ].filter(Boolean) as HTMLAnchorElement[]
 
-    const focusFirstMenuItem = () => {
-        if (activeRefs.length > 0) {
-            activeRefs[0].focus()
-        }
+    const focusItem = (index: number) => activeRefs[index]?.focus()
+
+    const navigate = (dir: 1 | -1) => {
+        const index = activeRefs.findIndex((ref) => ref === document.activeElement)
+        focusItem(
+            index < 0 ? (dir > 0 ? 0 : activeRefs.length - 1) : (index + dir + activeRefs.length) % activeRefs.length,
+        )
     }
 
-    const focusLastMenuItem = () => {
-        if (activeRefs.length > 0) {
-            activeRefs[activeRefs.length - 1].focus()
-        }
-    }
-
-    const focusNextMenuItem = () => {
-        const currentIndex = activeRefs.findIndex((ref) => ref === document.activeElement)
-
-        if (currentIndex >= 0 && currentIndex < activeRefs.length - 1) {
-            activeRefs[currentIndex + 1].focus()
-        } else {
-            focusFirstMenuItem()
-        }
-    }
-
-    const focusPrevMenuItem = () => {
-        const currentIndex = activeRefs.findIndex((ref) => ref === document.activeElement)
-
-        if (currentIndex > 0) {
-            activeRefs[currentIndex - 1].focus()
-        } else {
-            focusLastMenuItem()
-        }
-    }
-
-    const closeAndCall = (fn: () => void) => {
-        return () => {
-            fn()
-            close()
-        }
-    }
+    // Close menu after clicking on an item
+    const closeAndCall = (fn: () => void) => () => (fn(), close())
 
     useHotkeys([
         [
@@ -81,32 +51,32 @@ export function NavbarProfileMenu() {
         ],
         [
             'ArrowDown',
-            () => {
+            (e) => {
+                e.preventDefault()
                 if (!opened && document.activeElement === toggleButtonRef.current) {
                     toggle()
-                    focusFirstMenuItem()
+                    setTimeout(() => focusItem(0), 50) // make sure DOM is updated
                 } else if (opened) {
-                    focusNextMenuItem()
+                    focusItem(0)
                 }
             },
         ],
         [
             'ArrowUp',
-            () => {
+            (e) => {
+                e.preventDefault()
                 if (opened) {
-                    focusPrevMenuItem()
+                    navigate(-1)
                 }
             },
         ],
         [
             'Enter',
-            () => {
-                if (
-                    document.activeElement?.getAttribute('role') === 'menuitem' ||
-                    document.activeElement?.getAttribute('role') === 'button'
-                ) {
-                    ;(document.activeElement as HTMLElement).click()
-                    close()
+            (e) => {
+                const active = document.activeElement
+                if (active?.getAttribute('role') === 'menuitem' || active?.getAttribute('role') === 'button') {
+                    e.preventDefault()
+                    ;(active as HTMLElement).click()
                 }
             },
         ],
