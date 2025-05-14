@@ -6,8 +6,8 @@ import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminSettingsPage({ params }: { params: { orgSlug: string } }) {
-    const { orgSlug } = params
+export default async function AdminSettingsPage(props: { params: Promise<{ orgSlug: string }> }) {
+    const { orgSlug } = await props.params
 
     const org = await getOrgFromSlugAction(orgSlug)
 
