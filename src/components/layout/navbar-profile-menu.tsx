@@ -15,6 +15,7 @@ export function NavbarProfileMenu() {
 
     const toggleButtonRef = useRef<HTMLAnchorElement>(null)
     const accountMenuItemRef = useRef<HTMLAnchorElement>(null)
+    // TODO: restore once reviewkey page is built
     // const reviewerKeyMenuItemRef = useRef<HTMLAnchorElement>(null)
     const signOutMenuItemRef = useRef<HTMLAnchorElement>(null)
 
@@ -98,7 +99,7 @@ export function NavbarProfileMenu() {
                     tabIndex={opened ? 0 : -1}
                     ref={accountMenuItemRef}
                 />
-                {/* Will restore once page is built*/}
+                {/* TODO: restore once page is built*/}
                 {/* <NavLink
                     label="Reviewer Key"
                     leftSection={<Lock aria-hidden="true" />}
