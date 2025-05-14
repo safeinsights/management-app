@@ -9,7 +9,7 @@ import {
 } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
-import { AdminSettingsForm } from './settings-form'
+import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +41,7 @@ export default async function AdminSettingsPage({ params }: { params: { orgSlug:
                 Settings
             </Title>
 
-            <AdminSettingsForm
+            <OrganizationSettingsManager
                 orgSlug={orgSlug}
                 initialName={initialName}
                 initialDescription={initialDescription}

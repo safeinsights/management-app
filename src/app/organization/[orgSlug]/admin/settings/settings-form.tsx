@@ -1,81 +1,43 @@
 'use client'
 
-import {
-    Paper,
-    Stack,
-    TextInput,
-    Textarea,
-    Text,
-    Group,
-    Button,
-    Flex,
-    Title,
-    Divider,
-} from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { zodResolver } from 'mantine-form-zod-resolver'
+import { Stack, TextInput, Textarea, Text } from '@mantine/core'
+import { UseFormReturnType } from '@mantine/form'
 import { z } from 'zod'
 
-const settingsFormSchema = z.object({
+export const settingsFormSchema = z.object({
     name: z.string().min(1, 'Name is required'),
-    description: z.string().max(250, 'Word limit is 250 characters').optional(),
+    description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
 })
-type SettingsFormValues = z.infer<typeof settingsFormSchema>
+
+export type SettingsFormValues = z.infer<typeof settingsFormSchema>
 
 interface AdminSettingsFormProps {
-    orgSlug: string
-    initialName: string | null
-    initialDescription: string | null
+    form: UseFormReturnType<SettingsFormValues>
 }
 
-export function AdminSettingsForm({ orgSlug, initialName, initialDescription }: AdminSettingsFormProps) {
-    const form = useForm<SettingsFormValues>({
-        initialValues: {
-            name: initialName || '',
-            description: initialDescription || '',
-        },
-        validate: zodResolver(settingsFormSchema),
-    })
-
-    const handleSubmit = async (values: SettingsFormValues) => {
-        console.log('Form values to save:', values, orgSlug)
-    }
-
+export function AdminSettingsForm({ form }: AdminSettingsFormProps) {
     return (
-        <Paper shadow="xs" p="xl" mb="xl">
-            <form onSubmit={form.onSubmit(handleSubmit)}>
-                <Flex direction="row" justify={'space-between'} align="center" mb="lg">
-                    <Title order={3}>About organization</Title>
-                    <Group justify="flex-end">
-                        <Button variant="outline" onClick={() => form.reset()} disabled={!form.isDirty()}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={!form.isDirty() || !form.isValid()}>
-                            Save
-                        </Button>
-                    </Group>
-                </Flex>
-                <Divider />
-                <Stack gap="md" mt="lg">
-                    <TextInput
-                        label="Name"
-                        withAsterisk
-                        required
-                        aria-required="true"
-                        key={form.key('name')}
-                        {...form.getInputProps('name')}
-                    />
-                    <Textarea
-                        label="Description"
-                        maxLength={250}
-                        key={form.key('description')}
-                        {...form.getInputProps('description')}
-                    />
-                </Stack>
-                <Text size="xs" color="dimmed" style={{ marginTop: 4 }}>
-                    {form.values.description?.length ?? 0}/250 characters
-                </Text>
-            </form>
-        </Paper>
+        <Stack gap="lg">
+            <TextInput
+                label="Name"
+                withAsterisk
+                required
+                aria-required="true"
+                autoFocus
+                key={form.key('name')}
+                {...form.getInputProps('name')}
+            />
+            <Textarea
+                label="Description"
+                maxLength={250}
+                key={form.key('description')}
+                {...form.getInputProps('description')}
+                autosize
+                minRows={3}
+            />
+            <Text size="xs" c="dimmed" mt={-10} style={{ alignSelf: 'flex-start' }}>
+                {(form.values.description || '').length}/250 characters
+            </Text>
+        </Stack>
     )
 }
