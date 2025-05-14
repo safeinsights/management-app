@@ -123,7 +123,7 @@ const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
     return (
         <>
             {body}
-            <PendingUsers orgSlug={orgSlug} isVisible={!wasInvited} />
+            {!wasInvited && <PendingUsers orgSlug={orgSlug} />}
         </>
     )
 }

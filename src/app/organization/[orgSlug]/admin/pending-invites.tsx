@@ -8,7 +8,6 @@ import { notifications } from '@mantine/notifications'
 
 interface PendingUsersProps {
     orgSlug: string
-    isVisible: boolean
 }
 
 const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: string } }> = ({ pending, orgSlug }) => {
@@ -39,13 +38,11 @@ const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: str
     )
 }
 
-export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug, isVisible }) => {
+export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug }) => {
     const { data: pendingUsers = [], isLoading: isLoadingPending } = useQuery({
         queryKey: ['pendingUsers', orgSlug],
         queryFn: () => getPendingUsersAction({ orgSlug }),
     })
-
-    if (!isVisible) return null
 
     return (
         <>
@@ -54,8 +51,7 @@ export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug, isVisible }) => {
                 <Text fw={600} mb="md">
                     Pending invitations
                 </Text>
-                <LoadingMessage isVisible={isLoadingPending} message="Loading pending invitations…" />
-
+                {isLoadingPending && <LoadingMessage message="Loading pending invitations…" />}
                 {!pendingUsers.length && (
                     <Text size="sm" c="dimmed">
                         No pending invitations for this organization.
