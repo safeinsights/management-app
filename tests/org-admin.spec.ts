@@ -1,11 +1,13 @@
 import { faker } from '@faker-js/faker'
-import { clerk, expect, test, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const email = faker.internet.email()
 
         await visitClerkProtectedPage({ page, role: 'admin', url: '/organization/openstax/admin' })
+
+        await page.waitForLoadState('networkidle')
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
@@ -26,7 +28,7 @@ test.describe('Organization Admin', () => {
         await expect(pendingPanel.getByText(email)).toBeVisible()
 
         const btn = page.getByTestId(`re-invite-${email}`)
-        const inviteId = await btn.getAttribute('data-pendig-id')
+        const inviteId = await btn.getAttribute('data-pending-id')
         await btn.click()
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
