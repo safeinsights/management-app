@@ -32,24 +32,30 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 }}
             />
             <Title order={1}>Study Details</Title>
-            <Paper bg="white" p="xl">
+            <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4}>Study Details</Title>
+                    <Title order={4} size="xl">
+                        Study Details
+                    </Title>
                     <StudyDetails studyId={studyId} />
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xl">
+            <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4}>Study Code</Title>
+                    <Title order={4} size="xl">
+                        Study Code
+                    </Title>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xl">
+            <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4}>Study Results</Title>
+                    <Title order={4} size="xl">
+                        Study Results
+                    </Title>
                     <Divider c="dimmed" />
                     <ViewJobResultsCSV job={job} />
                 </Stack>
