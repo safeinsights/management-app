@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { clerk, expect, test, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
