@@ -1,6 +1,5 @@
 # SafeInsights Management Application
 
-
 ## Overview
 
 The management app (also called Basic Management App or BMA) serves as an interface for researchers to submit and reviewers to approve study proposals.
@@ -40,19 +39,21 @@ For developing locally without docker compose, you will need to:
 1. Install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it. [Homebrew instructions](https://wiki.postgresql.org/wiki/Homebrew)
 
 2. Install minio and minio-mc [Homebrew instructions](https://min.io/docs/minio/macos/index.html) and provision it using:
-   - Start server: `./bin/local-minio`
-   - Setup alias (_only needed once_): `mc alias set siminio http://localhost:9198 si-local-minio si-local-minio`
-   - Create bucket (_only needed once_): `mc mb siminio/mgmt-app-local`
+
+    - Start server: `./bin/local-minio`
+    - Setup alias (_only needed once_): `mc alias set siminio http://localhost:9198 si-local-minio si-local-minio`
+    - Create bucket (_only needed once_): `mc mb siminio/mgmt-app-local`
 
 3. Install dependencies:
-   ```bash
-   npm install
-   ```
+
+    ```bash
+    npm install
+    ```
 
 4. Run the development server:
-   ```bash
-   npm run dev
-   ```
+    ```bash
+    npm run dev
+    ```
 
 ### Authentication Configuration 🔐
 
@@ -95,7 +96,7 @@ openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:409
 openssl rsa -pubout -in private_key.pem -out public_key.pem
 ```
 
-## Testing 
+## Testing
 
 ### Unit Testing
 
