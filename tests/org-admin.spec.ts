@@ -28,7 +28,7 @@ test.describe('Organization Admin', () => {
         await expect(pendingPanel.getByText(email)).toBeVisible()
 
         const btn = page.getByTestId(`re-invite-${email}`)
-        const inviteId = await btn.getAttribute('data-pendig-id')
+        const inviteId = await btn.getAttribute('data-pending-id')
         await btn.click()
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
