@@ -10,15 +10,17 @@ import {
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { AdminSettingsForm } from './settings-form'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminSettingsPage({ params }: { params: { orgSlug: string } }) {
     const { orgSlug } = params
 
-    // TODO: Fetch actual initial data for name and description from the organization
-    const initialName: string | null = "Current Org Name Placeholder"
-    const initialDescription: string | null = "Current Org Description Placeholder"
+    const org = await getOrgFromSlugAction(orgSlug)
+
+    const initialName: string | null = org.name
+    const initialDescription: string | null = org.description
 
     const items = [
         <Anchor component={Link} href={`/organization/${orgSlug}/admin`} key="1">
