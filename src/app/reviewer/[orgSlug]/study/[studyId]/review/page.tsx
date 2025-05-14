@@ -50,19 +50,23 @@ export default async function StudyReviewPage(props: {
             </Stack>
 
             <Title>Study details</Title>
-            <Paper bg="white" p="xl">
+            <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between">
-                        <Title order={3}>Study Proposal</Title>
+                        <Title order={4} size="xl">
+                            Study Proposal
+                        </Title>
                         <StudyReviewButtons study={study} />
                     </Group>
                     <Stack mt="md">{studyId && <StudyDetails studyId={study.id} />}</Stack>
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xl">
+            <Paper bg="white" p="xxl">
                 <Stack mt="md">
-                    <Title order={3}>Study Code</Title>
+                    <Title order={4} size="xl">
+                        Study Code
+                    </Title>
                     <Divider my="md" c="dimmed" />
                     <StudyCodeDetails job={latestJob} />
                 </Stack>
