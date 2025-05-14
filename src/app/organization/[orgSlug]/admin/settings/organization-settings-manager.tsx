@@ -1,5 +1,6 @@
 'use client'
 
+import { notifications } from '@mantine/notifications'
 import { useState, useEffect } from 'react'
 import { Paper, Stack, Text, Group, Button, Flex, Title, Divider } from '@mantine/core'
 import { AdminSettingsForm, settingsFormSchema, type SettingsFormValues } from './settings-form'
@@ -14,12 +15,20 @@ interface OrganizationSettingsManagerProps {
 
 const ReadOnlyField: React.FC<{ label: string; value: string | null }> = ({ label, value }) => (
     <Stack gap="xs" mt="lg">
-        <Text fw={500} size="sm">{label}</Text>
-        <Text size="sm" c={value ? undefined : 'dimmed'}>{value || (value === null ? 'Not set' : '')}</Text>
+        <Text fw={500} size="sm">
+            {label}
+        </Text>
+        <Text size="sm" c={value ? undefined : 'dimmed'}>
+            {value || (value === null ? 'Not set' : '')}
+        </Text>
     </Stack>
 )
 
-export function OrganizationSettingsManager({ orgSlug, initialName, initialDescription }: OrganizationSettingsManagerProps) {
+export function OrganizationSettingsManager({
+    orgSlug,
+    initialName,
+    initialDescription,
+}: OrganizationSettingsManagerProps) {
     const [isEditing, setIsEditing] = useState(false)
     const [currentName, setCurrentName] = useState(initialName)
     const [currentDescription, setCurrentDescription] = useState(initialDescription)
@@ -43,11 +52,15 @@ export function OrganizationSettingsManager({ orgSlug, initialName, initialDescr
             name: initialName || '',
             description: initialDescription || '',
         })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialName, initialDescription])
 
     const onFormSubmit = (values: SettingsFormValues) => {
-        console.log('Form values to save:', values, orgSlug) // TODO: Placeholder for actual save
+        notifications.show({
+            title: 'TODO: Implement Save',
+            message: `Saving to DB here. OrgSlug: ${orgSlug}, Values: ${JSON.stringify(values)}`,
+            color: 'blue',
+        })
         setCurrentName(values.name)
         setCurrentDescription(values.description || null)
         setIsEditing(false)
@@ -68,12 +81,18 @@ export function OrganizationSettingsManager({ orgSlug, initialName, initialDescr
                         <Button variant="default" onClick={handleCancel}>
                             Cancel
                         </Button>
-                        <Button type="submit" form="organization-settings-form" disabled={!form.isDirty() || !form.isValid()}>
+                        <Button
+                            type="submit"
+                            form="organization-settings-form"
+                            disabled={!form.isDirty() || !form.isValid()}
+                        >
                             Save
                         </Button>
                     </Group>
                 ) : (
-                    <Button variant="default" onClick={() => setIsEditing(true)}>Edit</Button>
+                    <Button variant="default" onClick={() => setIsEditing(true)}>
+                        Edit
+                    </Button>
                 )}
             </Flex>
             <Divider mb="lg" />

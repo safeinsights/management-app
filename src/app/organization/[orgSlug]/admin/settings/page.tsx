@@ -1,12 +1,4 @@
-import {
-    Paper,
-    Stack,
-    Text,
-    Title,
-    Breadcrumbs,
-    Divider,
-    Anchor,
-} from '@mantine/core'
+import { Paper, Stack, Text, Title, Breadcrumbs, Divider, Anchor } from '@mantine/core'
 import Link from 'next/link'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { OrganizationSettingsManager } from './organization-settings-manager'
