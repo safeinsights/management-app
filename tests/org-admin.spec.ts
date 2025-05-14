@@ -9,7 +9,7 @@ test.describe('Organization Admin', () => {
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
-        await page.waitForSelector('input[type="email"]')
+        await page.waitForSelector('input[type="email"]', { state: 'visible' })
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
         await expect(page.getByText('invalid email address')).toBeVisible()
