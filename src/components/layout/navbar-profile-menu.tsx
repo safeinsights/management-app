@@ -13,7 +13,6 @@ export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
     const [opened, { toggle, close }] = useDisclosure()
 
-    // Keep your original refs
     const toggleButtonRef = useRef<HTMLAnchorElement>(null)
     const accountMenuItemRef = useRef<HTMLAnchorElement>(null)
     // const reviewerKeyMenuItemRef = useRef<HTMLAnchorElement>(null)
@@ -25,32 +24,25 @@ export function NavbarProfileMenu() {
         }
     })
 
-    const getActiveMenuItemRefs = () => {
-        const refs = [
-            accountMenuItemRef.current,
-            // reviewerKeyMenuItemRef.current,
-            signOutMenuItemRef.current,
-        ]
-        // Filter out null refs
-        return refs.filter(Boolean) as HTMLAnchorElement[]
-    }
+    const activeRefs = [
+        accountMenuItemRef.current,
+        // reviewerKeyMenuItemRef.current,
+        signOutMenuItemRef.current,
+    ].filter(Boolean) as HTMLAnchorElement[]
 
     const focusFirstMenuItem = () => {
-        const activeRefs = getActiveMenuItemRefs()
         if (activeRefs.length > 0) {
             activeRefs[0].focus()
         }
     }
 
     const focusLastMenuItem = () => {
-        const activeRefs = getActiveMenuItemRefs()
         if (activeRefs.length > 0) {
             activeRefs[activeRefs.length - 1].focus()
         }
     }
 
     const focusNextMenuItem = () => {
-        const activeRefs = getActiveMenuItemRefs()
         const currentIndex = activeRefs.findIndex((ref) => ref === document.activeElement)
 
         if (currentIndex >= 0 && currentIndex < activeRefs.length - 1) {
@@ -61,13 +53,19 @@ export function NavbarProfileMenu() {
     }
 
     const focusPrevMenuItem = () => {
-        const activeRefs = getActiveMenuItemRefs()
         const currentIndex = activeRefs.findIndex((ref) => ref === document.activeElement)
 
         if (currentIndex > 0) {
             activeRefs[currentIndex - 1].focus()
         } else {
             focusLastMenuItem()
+        }
+    }
+
+    const closeAndCall = (fn: () => void) => {
+        return () => {
+            fn()
+            close()
         }
     }
 
@@ -83,8 +81,7 @@ export function NavbarProfileMenu() {
         ],
         [
             'ArrowDown',
-            (e) => {
-                e.preventDefault()
+            () => {
                 if (!opened && document.activeElement === toggleButtonRef.current) {
                     toggle()
                     focusFirstMenuItem()
@@ -95,8 +92,7 @@ export function NavbarProfileMenu() {
         ],
         [
             'ArrowUp',
-            (e) => {
-                e.preventDefault()
+            () => {
                 if (opened) {
                     focusPrevMenuItem()
                 }
@@ -104,13 +100,13 @@ export function NavbarProfileMenu() {
         ],
         [
             'Enter',
-            (e) => {
+            () => {
                 if (
                     document.activeElement?.getAttribute('role') === 'menuitem' ||
                     document.activeElement?.getAttribute('role') === 'button'
                 ) {
-                    e.preventDefault()
                     ;(document.activeElement as HTMLElement).click()
+                    close()
                 }
             },
         ],
@@ -124,7 +120,9 @@ export function NavbarProfileMenu() {
                     leftSection={<User aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
-                    onClick={() => openUserProfile()}
+                    onClick={closeAndCall(() => {
+                        openUserProfile()
+                    })}
                     role="menuitem"
                     aria-label="My Account"
                     tabIndex={opened ? 0 : -1}
@@ -147,7 +145,9 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOut aria-hidden="true" />}
-                    onClick={() => signOut()}
+                    onClick={closeAndCall(() => {
+                        signOut()
+                    })}
                     c="white"
                     className={styles.navLinkProfileHover}
                     role="menuitem"
