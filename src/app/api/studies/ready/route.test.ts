@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, insertTestOrg, readTestSupportFile } from '@/tests/unit.helpers'
+import { insertTestStudyData, insertTestOrg, readTestSupportFile, insertTestUser } from '@/tests/unit.helpers'
 import { headers } from 'next/headers'
 import jwt from 'jsonwebtoken'
 
@@ -88,4 +88,30 @@ test('studies are not included once finished', async () => {
     expect(json).not.toEqual({
         jobs: expect.arrayContaining([{ jobId: jobIds[1] }]),
     })
+})
+
+test('includes approved studies only', async () => {
+    const org = await insertTestOrg()
+    await insertTestStudyData({ org })
+    const { user } = await insertTestUser({ org })
+
+    const pendingReviewStudy = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            containerLocation: 'test-container',
+            title: 'my 1st study',
+            researcherId: user.id,
+            piName: 'test',
+            irbProtocols: 'https://www.google.com',
+            status: 'PENDING-REVIEW',
+            dataSources: ['all'],
+            outputMimeType: 'text/csv',
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    const resp = await apiHandler.GET()
+    const json = await resp.json()
+    expect(json.jobs).not.toContainEqual(expect.objectContaining({ studyId: pendingReviewStudy.id }))
 })
