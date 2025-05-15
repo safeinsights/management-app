@@ -3,7 +3,7 @@ import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
-        const email = faker.internet.email()
+        const email = faker.internet.email({ provider: 'test.com' })
 
         await visitClerkProtectedPage({ page, role: 'admin', url: '/organization/openstax/admin' })
 
@@ -17,7 +17,9 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/email/i).fill(email)
         await page.keyboard.press('Tab')
         await expect(page.getByText('role must be selected')).toBeVisible()
+
         await page.getByLabel(/review and approve studies/i).click()
+
         await page.getByRole('button', { name: /send/i }).click()
         await expect(page.getByText('sent successfully')).toBeVisible({ timeout: 10000 })
 
