@@ -5,7 +5,17 @@ import { UseFormReturnType } from '@mantine/form'
 import { z } from 'zod'
 
 export const settingsFormSchema = z.object({
-    name: z.string().min(1, 'Name is required'),
+    name: z
+        .string()
+        .trim()
+        .min(1, 'Name is required')
+        .max(50, 'Name cannot exceed 50 characters')
+        .refine((val) => /\p{L}/u.test(val), {
+            message: 'Name must contain at least one alphabetic character',
+        })
+        .refine((val) => !/^\d+$/.test(val) || /\p{L}/u.test(val), {
+            message: 'Name cannot be only numbers',
+        }),
     description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
 })
 
@@ -41,6 +51,7 @@ export function AdminSettingsForm({ form }: AdminSettingsFormProps) {
                         aria-label="Name"
                         required
                         aria-required="true"
+                        maxLength={50}
                         autoFocus
                         key={form.key('name')}
                         {...form.getInputProps('name')}
