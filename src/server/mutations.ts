@@ -32,11 +32,13 @@ export async function findOrCreateOrgMembership({
     slug,
     isResearcher = true,
     isReviewer = true,
+    isAdmin = false,
 }: {
     userId: string
     slug: string
     isResearcher?: boolean
     isReviewer?: boolean
+    isAdmin?: boolean
 }) {
     const orgInfo = await db
         .selectFrom('orgUser')
@@ -55,7 +57,7 @@ export async function findOrCreateOrgMembership({
     if (orgInfo) {
         if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer) {
             db.updateTable('orgUser')
-                .set({ isResearcher, isReviewer })
+                .set({ isResearcher, isReviewer, isAdmin })
                 .where('id', '=', orgInfo.orgUserId)
                 .executeTakeFirstOrThrow()
         }
@@ -71,9 +73,9 @@ export async function findOrCreateOrgMembership({
             .insertInto('orgUser')
             .values({
                 userId,
-                isAdmin: false,
                 isReviewer,
                 isResearcher,
+                isAdmin,
                 orgId: org.id,
             })
             .executeTakeFirstOrThrow()

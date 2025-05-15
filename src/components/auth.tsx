@@ -1,17 +1,15 @@
 import { useAuth as clerkUseAuth } from '@clerk/nextjs'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { useOrgInfo } from './org-info'
 import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
 import { useState, useEffect } from 'react'
 
 export const useAuthInfo = () => {
-    const { isLoaded, userId, orgSlug } = clerkUseAuth()
-    const isAdmin = orgSlug == CLERK_ADMIN_ORG_SLUG
-    const isReviewer = orgSlug && !isAdmin
-    const isResearcher = !orgSlug && !isAdmin
+    const { isLoaded: authLoaded, userId, orgSlug } = clerkUseAuth()
+    const { isLoaded: orgLoaded, org } = useOrgInfo()
     const [hasReviewerKey, setHasReviewerKey] = useState<boolean>(false)
 
     useEffect(() => {
-        if (isLoaded && isReviewer && userId) {
+        if (authLoaded && org.isReviewer && userId) {
             // Only fetch if user is loaded, is a reviewer, and userId is available
             getReviewerPublicKeyAction()
                 .then((publicKey) => {
@@ -22,16 +20,32 @@ export const useAuthInfo = () => {
                     setHasReviewerKey(false)
                 })
         }
-    }, [isLoaded, isReviewer, userId])
+    }, [authLoaded, org.isReviewer, userId])
 
     return {
-        isLoaded,
+        isLoaded: Boolean(authLoaded && orgLoaded),
         userId,
         orgSlug,
-        isReviewer,
-        isAdmin,
-        isResearcher,
-        role: isAdmin ? 'admin' : isReviewer ? 'reviewer' : 'researcher',
+        ...org,
+        role: org.isAdmin ? 'admin' : org.isReviewer ? 'reviewer' : org.isResearcher ? 'researcher' : null,
         hasReviewerKey,
     }
+}
+
+type ProtectProps = {
+    role: 'admin' | 'reviewer' | 'researcher'
+    orgSlug?: string
+    children: React.ReactNode
+}
+
+export const Protect: React.FC<ProtectProps> = ({ role, orgSlug, children }) => {
+    const { isLoaded, org } = useOrgInfo(orgSlug)
+
+    if (!isLoaded) return null
+
+    if (role == 'admin' && org.isAdmin) return children
+    if (role == 'researcher' && org.isResearcher) return children
+    if (role == 'reviewer' && org.isReviewer) return children
+
+    return null
 }

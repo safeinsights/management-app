@@ -11,7 +11,7 @@ import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin, orgSlug } = useAuthInfo()
+    const { isLoaded, isReviewer, isResearcher, isAdmin } = useAuthInfo()
 
     const pathname = usePathname()
 
@@ -39,7 +39,7 @@ export const NavbarItems: FC = () => {
                 className={styles.navLinkHover}
             />
 
-            <OrgAdminDashboardLink orgSlug={orgSlug} pathname={pathname} />
+            <OrgAdminDashboardLink pathname={pathname} />
             <OrgSwitcher />
         </Stack>
     )
