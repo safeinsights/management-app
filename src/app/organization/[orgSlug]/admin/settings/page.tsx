@@ -29,7 +29,7 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
             <RequireOrgAdmin />
             <Breadcrumbs>{items}</Breadcrumbs>
             <Divider />
-            <Title order={1} mb={40}>
+            <Title order={1} mb="xl">
                 Settings
             </Title>
 

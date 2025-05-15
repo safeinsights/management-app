@@ -2,7 +2,7 @@
 
 import { notifications } from '@mantine/notifications'
 import { useState, useEffect } from 'react'
-import { Paper, Stack, Text, Group, Button, Flex, Title, Divider } from '@mantine/core'
+import { Paper, Stack, Text, Group, Button, Flex, Title, Divider, Grid } from '@mantine/core'
 import { AdminSettingsForm, settingsFormSchema, type SettingsFormValues } from './settings-form'
 import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -13,17 +13,6 @@ interface OrganizationSettingsManagerProps {
     initialDescription: string | null
 }
 
-const ReadOnlyField: React.FC<{ label: string; value: string | null }> = ({ label, value }) => (
-    <Stack gap="xs" mt="lg">
-        <Text fw={500} size="sm">
-            {label}
-        </Text>
-        <Text size="sm" c={value ? undefined : 'dimmed'}>
-            {value || (value === null ? 'Not set' : '')}
-        </Text>
-    </Stack>
-)
-
 export function OrganizationSettingsManager({
     orgSlug,
     initialName,
@@ -32,6 +21,9 @@ export function OrganizationSettingsManager({
     const [isEditing, setIsEditing] = useState(false)
     const [currentName, setCurrentName] = useState(initialName)
     const [currentDescription, setCurrentDescription] = useState(initialDescription)
+
+    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
+    const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
     const form = useForm<SettingsFormValues>({
         initialValues: {
@@ -102,9 +94,35 @@ export function OrganizationSettingsManager({
                     <AdminSettingsForm form={form} />
                 </form>
             ) : (
-                <Stack gap="md">
-                    <ReadOnlyField label="Name" value={currentName} />
-                    <ReadOnlyField label="Description" value={currentDescription} />
+                <Stack gap="lg">
+                    <Grid align="flex-start">
+                        <Grid.Col span={labelSpan}>
+                            <Text fw={600} size="sm">
+                                Name
+                            </Text>
+                        </Grid.Col>
+                        <Grid.Col span={valueSpan}>
+                            <Text size="sm" c={currentName ? undefined : 'dimmed'}>
+                                {currentName || 'Not set'}
+                            </Text>
+                        </Grid.Col>
+                    </Grid>
+                    <Grid align="flex-start">
+                        <Grid.Col span={labelSpan}>
+                            <Text fw={600} size="sm">
+                                Description
+                            </Text>
+                        </Grid.Col>
+                        <Grid.Col span={valueSpan}>
+                            <Text
+                                size="sm"
+                                c={currentDescription ? undefined : 'dimmed'}
+                                style={{ whiteSpace: 'pre-wrap' }}
+                            >
+                                {currentDescription || 'Not set'}
+                            </Text>
+                        </Grid.Col>
+                    </Grid>
                 </Stack>
             )}
         </Paper>
