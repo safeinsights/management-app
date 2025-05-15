@@ -47,53 +47,88 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
+    const titleSpan = { base: 12, sm: 4, lg: 2 }
+    const inputSpan = { base: 12, sm: 8, lg: 4 }
+
     return (
         <Stack>
             <Divider />
-            <Grid>
-                <GridCol span={3}>
-                    <Stack>
-                        <Text fw="bold">Study Name</Text>
-                        <Text fw="bold">Principal investigator</Text>
-                        <Text fw="bold">Researcher</Text>
-                        <Text fw="bold">Study Description</Text>
-                        <Text fw="bold">IRB</Text>
-                        <Text fw="bold">Agreement(s)</Text>
-                    </Stack>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">Study Name</Text>
                 </GridCol>
-                <GridCol span={9}>
-                    <Stack>
-                        <Text>{study.title}</Text>
-                        <Text>{study.piName}</Text>
-                        <Text>{study.researcherName}</Text>
-                        <Text>
-                            {study.descriptionDocPath && (
-                                <BadgeWithDescription
-                                    path={study.descriptionDocPath}
-                                    type={StudyDocumentType.DESCRIPTION}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                        <Text>
-                            {study.irbDocPath && (
-                                <BadgeWithDescription
-                                    path={study.irbDocPath}
-                                    type={StudyDocumentType.IRB}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                        <Text>
-                            {study.agreementDocPath && (
-                                <BadgeWithDescription
-                                    path={study.agreementDocPath}
-                                    type={StudyDocumentType.AGREEMENT}
-                                    studyId={study.id}
-                                />
-                            )}
-                        </Text>
-                    </Stack>
+                <GridCol span={inputSpan}>
+                    <Text>{study.title}</Text>
+                </GridCol>
+            </Grid>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">Principal investigator</Text>
+                </GridCol>
+                <GridCol span={inputSpan}>
+                    <Text>{study.piName}</Text>
+                </GridCol>
+            </Grid>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">Researcher</Text>
+                </GridCol>
+                <GridCol span={inputSpan}>
+                    <Text>{study.researcherName}</Text>
+                </GridCol>
+            </Grid>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">Study Description</Text>
+                </GridCol>
+                <GridCol span={inputSpan}>
+                    <Text>
+                        {study.descriptionDocPath && (
+                            <BadgeWithDescription
+                                path={study.descriptionDocPath}
+                                type={StudyDocumentType.DESCRIPTION}
+                                studyId={study.id}
+                            />
+                        )}
+                    </Text>
+                </GridCol>
+            </Grid>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">IRB</Text>
+                </GridCol>
+                <GridCol span={inputSpan}>
+                    <Text>
+                        {study.irbDocPath && (
+                            <BadgeWithDescription
+                                path={study.irbDocPath}
+                                type={StudyDocumentType.IRB}
+                                studyId={study.id}
+                            />
+                        )}
+                    </Text>
+                </GridCol>
+            </Grid>
+
+            <Grid align="flex-start">
+                <GridCol span={titleSpan}>
+                    <Text fw="bold">Agreement(s)</Text>
+                </GridCol>
+                <GridCol span={inputSpan}>
+                    <Text>
+                        {study.agreementDocPath && (
+                            <BadgeWithDescription
+                                path={study.agreementDocPath}
+                                type={StudyDocumentType.AGREEMENT}
+                                studyId={study.id}
+                            />
+                        )}
+                    </Text>
                 </GridCol>
             </Grid>
         </Stack>

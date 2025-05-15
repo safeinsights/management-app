@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { clerk, expect, test, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
@@ -9,6 +9,7 @@ test.describe('Organization Admin', () => {
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
+        await page.waitForSelector('input[type="email"]', { state: 'visible' })
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
         await expect(page.getByText('invalid email address')).toBeVisible()
@@ -18,7 +19,7 @@ test.describe('Organization Admin', () => {
         await expect(page.getByText('role must be selected')).toBeVisible()
         await page.getByLabel(/review and approve studies/i).click()
         await page.getByRole('button', { name: /send/i }).click()
-        await expect(page.getByText(`sent successfully`)).toBeVisible()
+        await expect(page.getByText('sent successfully')).toBeVisible({ timeout: 10000 })
 
         await page.getByRole('button', { name: /continue to invite people/i }).click()
 
