@@ -103,9 +103,7 @@ export function OrganizationSettingsManager({
                             </Text>
                         </Grid.Col>
                         <Grid.Col span={valueSpan}>
-                            <Text size="sm">
-                                {currentName}
-                            </Text>
+                            <Text size="sm">{currentName}</Text>
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
