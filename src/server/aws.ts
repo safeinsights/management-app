@@ -52,7 +52,6 @@ const awsEnvironmentId = () => {
     return process.env.ENVIRONMENT_ID || 'dev'
 }
 
-// we currently use a single ECR, but in the future we may use a different one for each member and/or study
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
     return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `${info.orgSlug}/code-builds/${awsEnvironmentId()}`
 }
