@@ -4,20 +4,20 @@ import { FC, useState, useEffect } from 'react'
 import { NavLink } from '@mantine/core'
 import Link from 'next/link'
 import { Gear, UsersThree } from '@phosphor-icons/react/dist/ssr'
-import { Protect } from '@clerk/nextjs'
 import styles from './navbar-items.module.css'
+import { Protect } from '../auth'
+import { useOrgInfo } from '../org-info'
 
 interface OrgAdminDashboardLinkProps {
-    orgSlug: string | null | undefined
     pathname: string
 }
 
-export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug, pathname }) => {
+export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname }) => {
+    const { orgSlug } = useOrgInfo()
+
     const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
     // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
-    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() =>
-        Boolean(orgSlug && pathname.startsWith(orgAdminBaseUrl)),
-    )
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
 
     useEffect(() => {
         if (orgSlug) {
@@ -36,7 +36,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
     }
 
     return (
-        <Protect role="org:admin">
+        <Protect role="admin">
             <NavLink
                 label="Admin"
                 leftSection={<Gear />}
@@ -55,8 +55,8 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ orgSlug,
                     label="Manage Team"
                     leftSection={<UsersThree size={20} />}
                     component={Link}
-                    href={`${orgAdminBaseUrl}/users`}
-                    active={pathname === `${orgAdminBaseUrl}/users`}
+                    href={`${orgAdminBaseUrl}`}
+                    active={pathname === `${orgAdminBaseUrl}`}
                     c="white"
                     color="blue.7"
                     variant="filled"
