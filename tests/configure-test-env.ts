@@ -6,6 +6,8 @@ import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 
+const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2x7LYQXvGNmiYhcVB60LtxJegRK'])
+
 const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
 export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
@@ -25,6 +27,14 @@ async function setupUsers() {
 
     if (org.publicKey.length < 1000) {
         await db.updateTable('org').set({ publicKey: pubKeyStr }).where('id', '=', org.id).execute()
+    }
+
+    for (const clerkId of CLERK_ADMIN_TEST_IDS) {
+        const userId = await findOrCreateSiUserId(clerkId, {
+            firstName: 'Test Admin User',
+            lastName: 'Test Admin User',
+        })
+        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true, isAdmin: true })
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {

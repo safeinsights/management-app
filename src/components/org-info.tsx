@@ -1,4 +1,5 @@
-import { useUser } from '@clerk/nextjs'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { useParams } from 'next/navigation'
 
 export function useHasMultipleRoles() {
@@ -9,13 +10,18 @@ export function useHasMultipleRoles() {
 
 export function useOrgInfo(orgSlugFallback = '') {
     const { user, isLoaded } = useUser()
+    const { orgSlug: currentOrgSlug } = useAuth()
 
     const { orgSlug: paramOrgSlug } = useParams<{ orgSlug: string }>()
 
-    const org = user?.publicMetadata?.orgs?.find((org) => org.slug == (paramOrgSlug || orgSlugFallback))
+    const orgs = user?.publicMetadata?.orgs || []
+    const orgSlug = paramOrgSlug || orgSlugFallback || currentOrgSlug || orgs[0]?.slug
+    const org = orgs.find((org) => org.slug == orgSlug)
+    const adminOrg = orgs.find((org) => org.slug == CLERK_ADMIN_ORG_SLUG)
 
     return {
         isLoaded,
-        org,
+        orgSlug,
+        org: { ...org, isAdmin: org?.isAdmin || adminOrg },
     }
 }
