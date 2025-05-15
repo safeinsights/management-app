@@ -31,6 +31,7 @@ export function OrganizationSettingsManager({
             description: initialDescription || '',
         },
         validate: zodResolver(settingsFormSchema),
+        validateInputOnBlur: true,
     })
 
     useEffect(() => {
