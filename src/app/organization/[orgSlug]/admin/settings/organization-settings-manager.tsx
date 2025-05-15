@@ -90,7 +90,7 @@ export function OrganizationSettingsManager({
                         </Button>
                     </Group>
                 ) : (
-                    <Button variant="default" onClick={() => setIsEditing(true)}>
+                    <Button variant="subtle" onClick={() => setIsEditing(true)}>
                         Edit
                     </Button>
                 )}
