@@ -7,6 +7,7 @@ const nextConfig: NextConfig = async (phase: string) => {
     const isDev = phase === PHASE_DEVELOPMENT_SERVER
 
     const nextConfig: NextConfig = {
+        productionBrowserSourceMaps: true,
         assetPrefix: isDev ? undefined : '/assets/',
         output: 'standalone',
         transpilePackages: ['si-encryption'],
