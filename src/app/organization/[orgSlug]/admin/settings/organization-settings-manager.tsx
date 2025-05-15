@@ -103,8 +103,8 @@ export function OrganizationSettingsManager({
                             </Text>
                         </Grid.Col>
                         <Grid.Col span={valueSpan}>
-                            <Text size="sm" c={currentName ? undefined : 'dimmed'}>
-                                {currentName || 'Not set'}
+                            <Text size="sm">
+                                {currentName}
                             </Text>
                         </Grid.Col>
                     </Grid>
