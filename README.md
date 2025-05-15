@@ -15,11 +15,14 @@ It's responsible for:
 ## Requirements
 
 ### Production Environment
+
 - Node.js version 20.x or higher
 - PostgreSQL
 
 ### Development Environment
+
 Either:
+
 - **Option 1:** Node.js + Docker and Docker Compose (recommended, handles PostgreSQL automatically)
 - **Option 2:** Node.js + PostgreSQL installed locally
 
