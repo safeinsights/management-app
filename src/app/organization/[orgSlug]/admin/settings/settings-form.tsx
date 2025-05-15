@@ -16,7 +16,12 @@ export const settingsFormSchema = z.object({
         .refine((val) => !/^\d+$/.test(val) || /\p{L}/u.test(val), {
             message: 'Name cannot be only numbers',
         }),
-    description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
+    description: z
+        .string()
+        .max(250, 'Word limit is 250 characters')
+        .transform((val) => (val === '' ? null : val)) // Convert empty string to null
+        .nullable()
+        .optional(),
 })
 
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
