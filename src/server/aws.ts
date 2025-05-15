@@ -53,7 +53,7 @@ const awsEnvironmentId = () => {
 }
 
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
-    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `${info.orgSlug}/code-builds/${awsEnvironmentId()}`
+    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${awsEnvironmentId()}`
 }
 
 export const getAWSInfo = async () => {
