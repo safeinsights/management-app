@@ -41,3 +41,9 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
         })
         .execute()
 }, setOrgUserPublicKeySchema)
+
+// Utility function to check if a reviewer has a public key
+export async function hasReviewerPublicKey(userId: string): Promise<boolean> {
+    const publicKey = await getReviewerPublicKey(userId)
+    return Boolean(publicKey)
+}
