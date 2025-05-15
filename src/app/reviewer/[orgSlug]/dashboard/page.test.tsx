@@ -23,7 +23,7 @@ const mockOrg: Org = {
     id: faker.string.uuid(),
     slug: 'test-org',
     name: faker.company.name(),
-    email: faker.internet.email(),
+    email: faker.internet.email({ provider: 'test.com' }),
     publicKey: 'fake-key',
     createdAt: new Date(),
     updatedAt: new Date(),
