@@ -7,6 +7,9 @@
     "author": "Nathan Stitt",
     "main": "index.js",
     "type": "module",
+    "engines": {
+        "node": ">=20.0.0"
+    },
     "scripts": {
         "build:lambda": "./bin/build-lambda",
         "build:docker:production": "./bin/prod-docker-build",
