@@ -23,7 +23,7 @@ It's responsible for:
 
 Either:
 
-- **Option 1:** Node.js + Docker and Docker Compose (handles PostgreSQL automatically)
+- **Option 1:** Node.js + Docker and Docker Compose (installs PostgreSQL in container)
 - **Option 2:** Node.js + PostgreSQL installed locally
 
 ## Development
