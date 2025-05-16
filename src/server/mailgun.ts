@@ -32,119 +32,112 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     return [_mg, domain]
 }
 
-export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
+async function deliver({
+    to,
+    from = SI_EMAIL,
+    subject,
+    template,
+    vars,
+}: {
+    to: string
+    from?: string
+    subject: string
+    template: string
+    vars: Record<string, unknown>
+}) {
+    const tmplVars = JSON.stringify(vars, null, 2)
+
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        logger.warn('Mailgun not configured, skipping invite email')
+        logger.info(`Mailgun not configured, skipping sending ${template} email`)
+        logger.info('values that would have been used for email:')
+        logger.info(tmplVars)
         return
     }
 
-    logger.info('Attempting to send invite email', { emailTo, domain })
-
     try {
         await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: [emailTo],
-            subject: 'Get started with SafeInsights',
-            template: 'welcome email',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                inviteLink: `${BASE_URL}/account/invitation/${inviteId}`,
-            }),
+            to,
+            from,
+            subject,
+            template,
+            'h:X-Mailgun-Variables': tmplVars,
         })
-        logger.info('Successfully sent invite email')
     } catch (error) {
-        logger.error('Failed to send invite email', { error: error })
+        logger.error.log(`mailgun send ${template} error: ${error}`)
     }
+}
+
+export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
+    await deliver({
+        to: emailTo,
+        subject: 'Get started with SafeInsights',
+        template: 'welcome email',
+        vars: {
+            inviteLink: `${BASE_URL}/account/invitation/${inviteId}`,
+        },
+    })
 }
 
 export const sendStudyProposalEmails = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
     const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', study.orgId)
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email !== null)
-
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            bcc: emails,
-            subject: 'SafeInsights - New study proposal',
-            template: 'vb - new research proposal',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                studyURL: `${BASE_URL}/organization/${study?.orgSlug}/study/${studyId}/review`,
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendStudyProposalEmails error: ', error)
-    }
+    await deliver({
+        to: emails.join(', '),
+        subject: 'SafeInsights - New study proposal',
+        template: 'vb - new research proposal',
+        vars: {
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+        },
+    })
 }
 
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
     const researcher = await getUserById(study.researcherId)
-
     if (!researcher.email) return
 
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: researcher.email,
-            subject: 'SafeInsights - Study Proposal Approved',
-            template: 'vb - research proposal approved',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                fullName: researcher.fullName,
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedTo: study.orgName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendStudyProposalApprovedEmail error: ', error)
-    }
+    await deliver({
+        to: researcher.email,
+        subject: 'SafeInsights - Study Proposal Approved',
+        template: 'vb - research proposal approved',
+        vars: {
+            fullName: researcher.fullName,
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedTo: study.orgName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+        },
+    })
 }
 
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
 
     const researcher = await getUserById(study.researcherId)
 
     if (!researcher.email) return
 
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: researcher.email,
-            subject: 'SafeInsights - Study Proposal Rejected',
-            template: 'vb - research proposal rejected',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                fullName: researcher.fullName,
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedTo: study.orgName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendStudyProposalRejectedEmail error: ', error)
-    }
+    await deliver({
+        to: researcher.email,
+        subject: 'SafeInsights - Study Proposal Rejected',
+        template: 'vb - research proposal rejected',
+        vars: {
+            fullName: researcher.fullName,
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedTo: study.orgName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+        },
+    })
 }
 
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
 
     if (!study.reviewerId) {
@@ -154,78 +147,57 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
     const reviewer = await getUserById(study.reviewerId)
     if (!reviewer.email) return
 
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: reviewer.email,
-            subject: 'SafeInsights - New study proposal',
-            template: 'vb - encrypted results ready for review',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                userFullName: reviewer.fullName,
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendResultsReadyForReviewEmail error: ', error)
-    }
+    await deliver({
+        to: reviewer.email,
+        subject: 'SafeInsights - New study proposal',
+        template: 'vb - encrypted results ready for review',
+        vars: {
+            userFullName: reviewer.fullName,
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+        },
+    })
 }
 
 export const sendStudyResultsApprovedEmail = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
     const researcher = await getUserById(study.researcherId)
 
     if (!researcher.email) return
 
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: researcher.email,
-            subject: 'SafeInsights - Study Results',
-            template: 'vb - study results approved',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                fullName: researcher.fullName,
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedTo: study.orgName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-                studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendStudyResultsApprovedEmail error: ', error)
-    }
+    await deliver({
+        to: researcher.email,
+        subject: 'SafeInsights - Study Results',
+        template: 'vb - study results approved',
+        vars: {
+            fullName: researcher.fullName,
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedTo: study.orgName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+        },
+    })
 }
 
 export const sendStudyResultsRejectedEmail = async (studyId: string) => {
-    const [mg, domain] = await mailGunConfig()
-    if (!mg) return
-
     const study = await getStudyAndOrg(studyId)
     const researcher = await getUserById(study.researcherId)
 
     if (!researcher.email) return
 
-    try {
-        await mg.messages.create(domain, {
-            from: SI_EMAIL,
-            to: researcher.email,
-            subject: 'SafeInsights - Study Results',
-            template: 'vb - study results rejected',
-            'h:X-Mailgun-Variables': JSON.stringify({
-                fullName: researcher.fullName,
-                studyTitle: study.title,
-                submittedBy: study.researcherName,
-                submittedTo: study.orgName,
-                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            }),
-        })
-    } catch (error) {
-        logger.error.log('sendStudyResultsRejectedEmail error: ', error)
-    }
+    await deliver({
+        to: researcher.email,
+        subject: 'SafeInsights - Study Results',
+        template: 'vb - study results rejected',
+        vars: {
+            fullName: researcher.fullName,
+            studyTitle: study.title,
+            submittedBy: study.researcherName,
+            submittedTo: study.orgName,
+            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+        },
+    })
 }
