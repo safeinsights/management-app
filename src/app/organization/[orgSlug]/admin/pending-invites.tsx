@@ -1,4 +1,4 @@
-import { Flex, Text, Button } from '@mantine/core'
+import { Flex, Text, Button, Divider } from '@mantine/core'
 import { FC } from 'react'
 import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -45,23 +45,25 @@ export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug }) => {
     })
 
     return (
-        <div data-testid="pending-invites">
-            <Text fw={600} mb="md">
-                Pending invitations
-            </Text>
-            <LoadingMessage isVisible={isLoadingPending} message="Loading pending invitations…" />
-
-            {!pendingUsers.length && (
-                <Text size="sm" c="dimmed">
-                    No pending invitations for this organization.
+        <>
+            <Divider c="charcoal.1" my="xl" />
+            <div data-testid="pending-invites">
+                <Text fw={600} mb="md">
+                    Pending invitations
                 </Text>
-            )}
+                {isLoadingPending && <LoadingMessage message="Loading pending invitations…" />}
+                {!pendingUsers.length && (
+                    <Text size="sm" c="dimmed">
+                        No pending invitations for this organization.
+                    </Text>
+                )}
 
-            <Flex direction="column" gap="xs">
-                {pendingUsers.map((pending) => (
-                    <PendingUser orgSlug={orgSlug} pending={pending} key={pending.id} />
-                ))}
-            </Flex>
-        </div>
+                <Flex direction="column" gap="xs">
+                    {pendingUsers.map((pending) => (
+                        <PendingUser orgSlug={orgSlug} pending={pending} key={pending.id} />
+                    ))}
+                </Flex>
+            </div>
+        </>
     )
 }
