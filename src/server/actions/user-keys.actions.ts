@@ -32,18 +32,19 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
     // those accounts are not associated with any organization
     await ensureUserIsMemberOfOrg()
 
-    await db
-        .insertInto('userPublicKey')
-        .values({
-            userId,
-            publicKey: Buffer.from(publicKey),
-            fingerprint,
-        })
-        .execute()
-}, setOrgUserPublicKeySchema)
+    try {
+        await db
+            .insertInto('userPublicKey')
+            .values({
+                userId,
+                publicKey: Buffer.from(publicKey),
+                fingerprint,
+            })
+            .execute()
+    } catch (error) {
+        console.error('Error setting reviewer public key:', error)
+        throw error
+    }
 
-// Utility function to check if a reviewer has a public key
-export async function hasReviewerPublicKey(userId: string): Promise<boolean> {
-    const publicKey = await getReviewerPublicKey(userId)
-    return Boolean(publicKey)
-}
+    return { success: true }
+}, setOrgUserPublicKeySchema)

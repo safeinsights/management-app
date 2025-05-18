@@ -71,3 +71,9 @@ export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResults
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
+
+export enum AuthRole {
+    Admin = 'admin',
+    Reviewer = 'reviewer',
+    Researcher = 'researcher',
+}

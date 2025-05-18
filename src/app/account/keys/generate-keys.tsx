@@ -18,18 +18,21 @@ import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
-import Link from 'next/link'
 import { Check } from '@phosphor-icons/react/dist/ssr'
+import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { useRouter } from 'next/navigation'
+
+interface Keys {
+    binaryPublicKey: ArrayBuffer
+    privateKey: string
+    fingerprint: string
+}
 
 export const GenerateKeys: FC = () => {
     const theme = useMantineTheme()
-    const [keys, setKeys] = useState<{
-        binaryPublicKey: ArrayBuffer
-        privateKey: string
-        fingerprint: string
-    }>()
+    const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirmKeyCopied, close: closeConfirmKeyCopied }] = useDisclosure(false)
-    const [isKeyCopied, setIsKeyCopied] = useState(false)
+    const [isKeyCopied, setIsKeyCopied] = useState<boolean>(false)
 
     const onGenerateKeys = async () => {
         const { privateKeyString, fingerprint, exportedPublicKey } = await generateKeyPair()
@@ -42,8 +45,6 @@ export const GenerateKeys: FC = () => {
             privateKey: privateKeyPem,
             fingerprint,
         })
-
-        // await setReviewerPublicKeyAction({ publicKey: exportedPublicKey, fingerprint: fingerprint })
     }
 
     useEffect(() => {
@@ -53,12 +54,13 @@ export const GenerateKeys: FC = () => {
     if (keys) {
         return (
             <Container>
+                <Title my="xxl">Reviewer key</Title>
                 <Paper shadow="xs" p="xl">
-                    <Stack gap="lg">
+                    <Stack>
                         <Title size="xl">Store reviewer key</Title>
                         <Divider c="charcoal.1" />
                         <Stack>
-                            <Text size="md">
+                            <Text size="md" mb="xs">
                                 For security reasons, this role requires you to create a reviewer key that is unique to
                                 you. You will use this reviewer key to access encrypted results. Please copy and store
                                 this key in a safe location.
@@ -75,7 +77,7 @@ export const GenerateKeys: FC = () => {
                             >
                                 {keys.privateKey}
                             </Code>
-                            <Text size="sm">
+                            <Text size="sm" mb="xs">
                                 Note: Please store your reviewer key securely, such as in your password manager
                             </Text>
                         </Stack>
@@ -96,7 +98,11 @@ export const GenerateKeys: FC = () => {
                                 </CopyButton>
                             </Group>
                             <Group>
-                                <Button variant="outline" onClick={() => openConfirmKeyCopied()}>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => openConfirmKeyCopied()}
+                                    disabled={!isKeyCopied}
+                                >
                                     Go to dashboard
                                 </Button>
                             </Group>
@@ -111,13 +117,26 @@ export const GenerateKeys: FC = () => {
                         )}
                     </Stack>
                 </Paper>
-                <ConfirmationModal onClose={closeConfirmKeyCopied} isOpen={confirmationOpened} />
+                <ConfirmationModal onClose={closeConfirmKeyCopied} isOpen={confirmationOpened} keys={keys} />
             </Container>
         )
     }
 }
 
-const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean }> = ({ onClose, isOpen }) => {
+const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }> = ({ onClose, isOpen, keys }) => {
+    const router = useRouter()
+    const onNavigateToDashboard = async () => {
+        try {
+            await setReviewerPublicKeyAction({ publicKey: keys.binaryPublicKey, fingerprint: keys.fingerprint }).then(
+                (result) => {
+                    if (result.success) router.push('/')
+                },
+            )
+        } catch (error) {
+            console.error('Error setting reviewer public key:', error)
+        }
+    }
+
     return (
         <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your reviewer key?" size="lg">
             <Stack>
@@ -131,9 +150,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean }> = ({ onClo
                     <Button variant="outline" onClick={onClose}>
                         Take me back
                     </Button>
-                    <Button component={Link} href="/">
-                        Yes, go to dashboard
-                    </Button>
+                    <Button onClick={onNavigateToDashboard}>Yes, go to dashboard</Button>
                 </Group>
             </Stack>
         </AppModal>
