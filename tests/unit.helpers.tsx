@@ -197,7 +197,7 @@ export const insertTestStudyJobData = async ({
             dataSources: ['all'],
             outputMimeType: 'application/zip',
         })
-        .returning('id')
+        .returningAll()
         .executeTakeFirstOrThrow()
 
     // Create job
@@ -224,8 +224,9 @@ export const insertTestStudyJobData = async ({
     const latestJobithStatus = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: researcherId })
 
     return {
-        study,
         job,
+        org,
+        study,
         studyJobStatus,
         latestJobithStatus,
     }
@@ -235,12 +236,12 @@ export const insertTestStudyJobUsers = async ({ org }: { org?: MinimalTestOrg } 
     if (!org) {
         org = await insertTestOrg()
     }
-    const { user: user1 } = await insertTestUser({ org })
+    const { user: user1 } = await insertTestUser({ org, isReviewer: true })
     const { user: user2 } = await insertTestUser({ org, isReviewer: false })
 
-    const { study, job } = await insertTestStudyJobData({ org })
+    const { study, job, ...rest } = await insertTestStudyJobData({ org })
 
-    return { study, job, user1, user2 }
+    return { study, job, user1, user2, ...rest }
 }
 
 export async function createTempDir() {
@@ -253,7 +254,7 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
-    const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll().executeTakeFirst()
+    const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll('org').executeTakeFirst()
     const org =
         existing ||
         (await db
@@ -277,6 +278,12 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
         )}`,
     )
     return org as Org
+}
+
+export const insertTestOrgStudyJobUsers = async () => {
+    const org = await insertTestOrg()
+    const result = await insertTestStudyJobUsers({ org })
+    return { ...result, org }
 }
 
 type MockSession = {

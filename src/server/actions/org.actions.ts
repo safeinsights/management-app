@@ -31,7 +31,7 @@ export const upsertOrgAction = adminAction(async (org) => {
 }, orgSchema)
 
 export const getOrgFromIdAction = userAction(async (id) => {
-    return await db.selectFrom('org').selectAll().where('id', '=', id).executeTakeFirst()
+    return await db.selectFrom('org').selectAll('org').where('id', '=', id).executeTakeFirst()
 }, z.string())
 
 export const fetchOrgsForSelectAction = adminAction(async () => {
@@ -49,7 +49,7 @@ export const deleteOrgAction = adminAction(async (slug) => {
 export const getOrgFromSlugAction = userAction(async (slug) => {
     return await db
         .selectFrom('org')
-        .selectAll()
+        .selectAll('org')
         .where('slug', '=', slug)
         .executeTakeFirstOrThrow(() => {
             throw new ActionFailure({ message: `Org not found` })

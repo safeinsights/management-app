@@ -11,7 +11,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
     const { studyId } = params
 
     // TODO: validate that member from clerk session matches memberId from url
-    const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+    const study = await db.selectFrom('study').selectAll('study').where('id', '=', studyId).executeTakeFirst()
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

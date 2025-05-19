@@ -196,7 +196,8 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'orgUser.orgId', 'org.id')
-        .selectAll()
+        .distinctOn('user.id')
+        .select(['user.id', 'user.email', 'user.fullName'])
         .where((eb) => {
             const filters = []
             filters.push(eb('orgUser.orgId', '=', orgId))
@@ -215,38 +216,26 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
     return await query.execute()
 }
 
-export const getStudyAndOrg = async (studyId: string) => {
-    const user = await siUser()
-
+// this is called primarlily by the mail functions to get study infoormation
+// some of these functions are called by API which lacks a user, do not use siUser inside this
+export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await db
         .selectFrom('study')
-        .innerJoin('orgUser', (join) => join.on('userId', '=', user.id).onRef('orgUser.orgId', '=', 'study.orgId'))
-        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+        .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
+        .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .where('orgUser.userId', '=', user.id)
         .select([
-            'study.id',
-            'study.approvedAt',
-            'study.rejectedAt',
-            'study.containerLocation',
-            'study.createdAt',
-            'study.dataSources',
-            'study.irbProtocols',
             'study.orgId',
-            'study.outputMimeType',
-            'study.piName',
             'study.researcherId',
-            'study.status',
             'study.title',
-            'study.descriptionDocPath',
-            'study.irbDocPath',
-            'study.reviewerId',
-            'study.agreementDocPath',
-            'researcher.fullName as researcherName',
+            'reviewer.email as reviewerEmail',
+            'reviewer.fullName as reviewerFullName',
+            'researcher.email as researcherEmail',
+            'researcher.fullName as researcherFullName',
             'org.slug as orgSlug',
             'org.name as orgName',
+            'study.createdAt',
         ])
-        .selectAll('org')
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
 
@@ -256,7 +245,7 @@ export const getStudyAndOrg = async (studyId: string) => {
 }
 
 export const getUserById = async (userId: string) => {
-    return await db.selectFrom('user').selectAll().where('id', '=', userId).executeTakeFirstOrThrow()
+    return await db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {

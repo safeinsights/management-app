@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { z, inviteUserSchema } from './invite-user.schema'
 import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
-import { sendInviteEmail } from '@/server/mailgun'
+import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
 
 export const orgAdminInviteUserAction = orgAdminAction(

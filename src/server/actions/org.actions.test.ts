@@ -25,7 +25,7 @@ describe('Org Actions', () => {
 
     describe('upsertOrgAction', () => {
         it('successfully inserts a new org', async () => {
-            const org = await db.selectFrom('org').selectAll().where('slug', '=', newOrg.slug).executeTakeFirst()
+            const org = await db.selectFrom('org').selectAll('org').where('slug', '=', newOrg.slug).executeTakeFirst()
             expect(org).toMatchObject(newOrg)
         })
 

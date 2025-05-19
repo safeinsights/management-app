@@ -1,4 +1,4 @@
-import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
+import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'

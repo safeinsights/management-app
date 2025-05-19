@@ -2,10 +2,10 @@ import { expect, test, vi } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestOrg, insertTestStudyData } from '@/tests/unit.helpers'
 import { db } from '@/database'
-import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
+import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 import { fetchStudyResultsFile } from '@/server/storage'
 
-vi.mock('@/server/mailgun', () => ({
+vi.mock('@/server/mailer', () => ({
     sendResultsReadyForReviewEmail: vi.fn(),
 }))
 
