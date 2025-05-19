@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation'
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({
-        queryKey: ['members'],
+        queryKey: ['orgs'],
         queryFn: fetchOrgsAction,
     })
 
