@@ -3,26 +3,9 @@
 import { Stack, TextInput, Textarea, Text, Grid } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { z } from 'zod'
+import { orgSchema as baseOrgSchema } from '@/schema/org'
 
-export const settingsFormSchema = z.object({
-    name: z
-        .string()
-        .trim()
-        .min(1, 'Name is required')
-        .max(50, 'Name cannot exceed 50 characters')
-        .refine((val) => /\p{L}/u.test(val), {
-            message: 'Name must contain at least one alphabetic character',
-        })
-        .refine((val) => !/^\d+$/.test(val) || /\p{L}/u.test(val), {
-            message: 'Name cannot be only numbers',
-        }),
-    description: z
-        .string()
-        .max(250, 'Word limit is 250 characters')
-        .transform((val) => (val === '' ? null : val)) // Convert empty string to null
-        .nullable()
-        .optional(),
-})
+export const settingsFormSchema = baseOrgSchema.pick({ name: true, description: true })
 
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
 

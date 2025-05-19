@@ -5,6 +5,8 @@ import { orgSchema } from '@/schema/org'
 import { findOrCreateClerkOrganization } from '../clerk'
 import { adminAction, getUserIdFromActionContext, orgAdminAction, userAction, z, ActionFailure } from './wrappers'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
+import { clerkClient } from '@clerk/nextjs/server'
+import { revalidatePath } from 'next/cache'
 
 export const upsertOrgAction = adminAction(async (org) => {
     // Check for duplicate organization name for new organizations only
@@ -61,6 +63,55 @@ export const getReviewerPublicKeyAction = userAction(async () => {
 })
 
 export type OrgUserReturn = Awaited<ReturnType<typeof getUsersForOrgAction>>[number]
+
+const updateOrgSettingsSchema = z
+    .object({
+        orgSlug: z.string(),
+    })
+    .merge(orgSchema.pick({ name: true, description: true }))
+
+export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, description }) => {
+    // Fetch the current organization
+    const currentOrg = await db.selectFrom('org').select('name').where('slug', '=', orgSlug).executeTakeFirst()
+    if (!currentOrg) {
+        throw new ActionFailure({ org: `Organization with slug ${orgSlug} not found.` })
+    }
+    const originalName = currentOrg.name
+
+    // Update the database first, Clerk second
+    await db.updateTable('org').set({ name, description }).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+
+    try {
+        // Update Clerk
+        const clerk = await clerkClient()
+        await clerk.organizations.updateOrganization(orgSlug, { name })
+    } catch (error) {
+        console.error(`Failed to update organization name in Clerk for ${orgSlug}:`, error)
+        // Revert the database change
+        try {
+            await db
+                .updateTable('org')
+                .set({ name: originalName })
+                .where('slug', '=', orgSlug)
+                .executeTakeFirstOrThrow()
+            console.warn(`Successfully reverted organization name in DB for ${orgSlug} after Clerk update failure.`)
+        } catch (revertError) {
+            console.error(`Failed to revert organization name in DB for ${orgSlug}:`, revertError)
+            // If revert fails, the DB is in an inconsistent state with Clerk regarding the name.
+            throw new ActionFailure({
+                form: `Failed to update in external system. DB revert also failed. Please contact support.`,
+            })
+        }
+        throw new ActionFailure({
+            form: `Organization settings updated locally, but failed to sync with external system. Local changes were reverted.`,
+        })
+    }
+    // If both DB and Clerk updates are successful
+    revalidatePath(`/organization/${orgSlug}/admin/settings`)
+    revalidatePath(`/organization/${orgSlug}/admin`)
+
+    return { success: true, message: 'Organization settings updated successfully.' }
+}, updateOrgSettingsSchema)
 
 export const getUsersForOrgAction = orgAdminAction(
     async ({ orgSlug, sort }) => {

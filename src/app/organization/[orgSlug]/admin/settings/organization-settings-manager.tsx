@@ -1,68 +1,78 @@
 'use client'
 
+import { useEffect } from 'react'
 import { notifications } from '@mantine/notifications'
-import { useState, useEffect } from 'react'
-import { Paper, Stack, Text, Group, Button, Flex, Title, Divider, Grid } from '@mantine/core'
+import { Paper, Stack, Text, Group, Button, Flex, Title, Divider, Grid, Loader } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { AdminSettingsForm, settingsFormSchema, type SettingsFormValues } from './settings-form'
 import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { updateOrgSettingsAction, getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 interface OrganizationSettingsManagerProps {
     orgSlug: string
-    initialName: string | null
-    initialDescription: string | null
 }
 
-export function OrganizationSettingsManager({
-    orgSlug,
-    initialName,
-    initialDescription,
-}: OrganizationSettingsManagerProps) {
-    const [isEditing, setIsEditing] = useState(false)
-    const [currentName, setCurrentName] = useState(initialName)
-    const [currentDescription, setCurrentDescription] = useState(initialDescription)
+export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsManagerProps) {
+    const [isEditing, { open: startEdit, close: cancelEdit }] = useDisclosure(false)
+    const queryClient = useQueryClient()
 
-    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
-    const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
+    const { data: org, isLoading } = useQuery({
+        queryKey: ['org', orgSlug],
+        queryFn: () => getOrgFromSlugAction(orgSlug),
+    })
 
     const form = useForm<SettingsFormValues>({
         initialValues: {
-            name: initialName || '',
-            description: initialDescription || '',
+            name: org?.name ?? '',
+            description: org?.description ?? '',
         },
         validate: zodResolver(settingsFormSchema),
         validateInputOnBlur: true,
     })
 
+    const { setValues } = form
+
+    // Effect to update form values when org data changes while in edit mode
     useEffect(() => {
-        setCurrentName(initialName)
-        setCurrentDescription(initialDescription)
-        form.setValues({
-            name: initialName || '',
-            description: initialDescription || '',
-        })
-        form.resetDirty({
-            name: initialName || '',
-            description: initialDescription || '',
-        })
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialName, initialDescription])
+        if (isEditing && org) {
+            setValues({ name: org.name, description: org.description ?? '' })
+        }
+    }, [isEditing, org, setValues])
+
+    const updateOrgSettingsMutation = useMutation({
+        mutationFn: updateOrgSettingsAction,
+        onSuccess: (data, variables) => {
+            notifications.show({ title: 'Success', message: data.message, color: 'green' })
+            cancelEdit()
+            form.resetDirty({ name: variables.name, description: variables.description ?? '' })
+            queryClient.invalidateQueries({ queryKey: ['org', orgSlug] })
+        },
+        onError: (error) =>
+            notifications.show({
+                title: 'Error updating settings',
+                message: (error as Error).message || 'An unexpected error occurred.',
+                color: 'red',
+            }),
+    })
+
+    if (isLoading || !org) return <Loader />
+
+    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
+    const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
     const onFormSubmit = (values: SettingsFormValues) => {
-        notifications.show({
-            title: 'TODO: Implement Save',
-            message: `Saving to DB here. OrgSlug: ${orgSlug}, Values: ${JSON.stringify(values)}`,
-            color: 'blue',
+        updateOrgSettingsMutation.mutate({
+            orgSlug,
+            name: values.name,
+            description: values.description ?? null,
         })
-        setCurrentName(values.name)
-        setCurrentDescription(values.description || null)
-        setIsEditing(false)
-        form.resetDirty(values)
     }
 
     const handleCancel = () => {
         form.reset()
-        setIsEditing(false)
+        cancelEdit()
     }
 
     return (
@@ -77,13 +87,14 @@ export function OrganizationSettingsManager({
                         <Button
                             type="submit"
                             form="organization-settings-form"
-                            disabled={!form.isDirty() || !form.isValid()}
+                            disabled={!form.isDirty() || !form.isValid() || updateOrgSettingsMutation.isPending}
+                            loading={updateOrgSettingsMutation.isPending}
                         >
                             Save
                         </Button>
                     </Group>
                 ) : (
-                    <Button variant="subtle" onClick={() => setIsEditing(true)}>
+                    <Button variant="subtle" onClick={startEdit}>
                         Edit
                     </Button>
                 )}
@@ -103,7 +114,7 @@ export function OrganizationSettingsManager({
                             </Text>
                         </Grid.Col>
                         <Grid.Col span={valueSpan}>
-                            <Text size="sm">{currentName}</Text>
+                            <Text size="sm">{org.name}</Text>
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
@@ -115,10 +126,10 @@ export function OrganizationSettingsManager({
                         <Grid.Col span={valueSpan}>
                             <Text
                                 size="sm"
-                                c={currentDescription ? undefined : 'dimmed'}
+                                c={org.description ? undefined : 'dimmed'}
                                 style={{ whiteSpace: 'pre-wrap' }}
                             >
-                                {currentDescription || 'Not set'}
+                                {org.description || 'Not set'}
                             </Text>
                         </Grid.Col>
                     </Grid>
