@@ -216,6 +216,7 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
     return await query.execute()
 }
 
+
 // this is called primarlily by the mail functions to get study infoormation
 // some of these functions are called by API which lacks a user, do not use siUser inside this
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
@@ -235,7 +236,6 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'org.slug as orgSlug',
             'org.name as orgName',
         ])
-        .selectAll('org')
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow(() => new Error('Study & Org not found'))
 

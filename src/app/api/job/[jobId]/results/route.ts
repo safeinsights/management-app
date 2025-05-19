@@ -32,7 +32,6 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
             .executeTakeFirst()
 
         if (!info) {
-            console.log('no info')
             return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
         }
 
