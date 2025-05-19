@@ -1,7 +1,7 @@
 'use client'
 
 import { useDisclosure } from '@mantine/hooks'
-import { Divider, TextInput, Button, Flex, Radio } from '@mantine/core'
+import { TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
@@ -67,7 +67,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 size="md"
                 {...studyProposalForm.getInputProps('email')}
                 error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
-                data-autofocus
             />
             <Flex mb="sm" fw="semibold">
                 <Radio.Group
@@ -124,8 +123,7 @@ const InvitePanel: FC<InviteFormProps> = ({ orgSlug }) => {
     return (
         <>
             {body}
-            <Divider c="charcoal.1" my="xl" />
-            <PendingUsers orgSlug={orgSlug} />
+            {!wasInvited && <PendingUsers orgSlug={orgSlug} />}
         </>
     )
 }

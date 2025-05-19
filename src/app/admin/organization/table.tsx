@@ -10,12 +10,12 @@ import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
-import { EditOrgForm } from '@/components/org/edit-org-form'
+import { EditOrgForm } from './edit-org-form'
 import { useRouter } from 'next/navigation'
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({
-        queryKey: ['members'],
+        queryKey: ['orgs'],
         queryFn: fetchOrgsAction,
     })
 
@@ -81,7 +81,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
     const { mutate: deleteOrg } = useMutation({
         mutationFn: deleteOrgAction,
         onSettled: async () => {
-            return await queryClient.invalidateQueries({ queryKey: ['members'] })
+            return await queryClient.invalidateQueries({ queryKey: ['orgs'] })
         },
     })
 

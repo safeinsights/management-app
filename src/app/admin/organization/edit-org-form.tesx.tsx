@@ -2,7 +2,7 @@ import { renderWithProviders } from '@/tests/unit.helpers'
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import { Org } from '@/schema/org'
-import { EditOrgForm } from '@/components/org/edit-org-form'
+import { EditOrgForm } from './edit-org-form'
 
 const mockOrg: Org = {
     id: '1',
