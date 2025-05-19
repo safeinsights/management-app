@@ -83,7 +83,7 @@ const findOrCreateUser = async (db: Kysely<DB>, values: Omit<Selectable<User>, '
 const findOrCreateOrgUser = async (db: Kysely<DB>, values: Selectable<OrgUser>) => {
     const orgUser = await db
         .selectFrom('orgUser')
-        .selectAll()
+        .selectAll('orgUser')
         .where('orgId', '=', values.orgId)
         .where('userId', '=', values.userId)
         .executeTakeFirst()

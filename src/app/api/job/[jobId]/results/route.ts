@@ -1,4 +1,4 @@
-import { sendResultsReadyForReviewEmail } from '@/server/mailgun'
+import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 
 export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
@@ -32,6 +32,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
             .executeTakeFirst()
 
         if (!info) {
+            console.log('no info')
             return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
         }
 

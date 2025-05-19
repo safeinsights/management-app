@@ -21,7 +21,7 @@ export const orgFromAuthToken = async (): Promise<Org | null> => {
             return null
         }
 
-        const org = await db.selectFrom('org').selectAll().where('slug', '=', orgSlug).executeTakeFirst()
+        const org = await db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirst()
         if (!org) {
             return null
         }

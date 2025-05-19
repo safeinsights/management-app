@@ -155,14 +155,14 @@ describe('getUsersByRoleAndMemberId', () => {
         const { org1, org1User1 } = await insertRecords()
         const users = await getUsersByRoleAndOrgId('reviewer', org1.id)
         expect(users).not.toBeNull()
-        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User1.id })]))
+        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ id: org1User1.id })]))
     })
 
     it('returns users with role researcher for a member', async () => {
         const { org1, org1User2 } = await insertRecords()
         const users = await getUsersByRoleAndOrgId('researcher', org1.id)
         expect(users).not.toBeNull()
-        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ userId: org1User2.id })]))
+        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ id: org1User2.id })]))
     })
 
     it('returns empty array when memberId is invalid', async () => {

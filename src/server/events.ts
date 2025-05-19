@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
-import * as email from './mailgun'
+import * as email from './mailer'
 import logger from '@/lib/logger'
 import { UserOrgRoles } from '@/lib/types'
 import { after } from 'next/server'

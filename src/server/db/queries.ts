@@ -196,7 +196,8 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'orgUser.orgId', 'org.id')
-        .selectAll()
+        .distinctOn('user.id')
+        .select(['user.id', 'user.email', 'user.fullName'])
         .where((eb) => {
             const filters = []
             filters.push(eb('orgUser.orgId', '=', orgId))
@@ -220,8 +221,8 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await db
         .selectFrom('study')
-        .innerJoin('user as researcher', 'researcher.id', 'study.reviewerId')
-        .leftJoin('user as reviewer', 'reviewer.id', 'study.reviewerId')
+        .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
+        .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
         .innerJoin('org', 'org.id', 'study.orgId')
         .select([
             'study.orgId',
@@ -229,6 +230,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
             'study.title',
             'reviewer.email as reviewerEmail',
             'reviewer.fullName as reviewerFullName',
+            'researcher.email as researcherEmail',
             'researcher.fullName as researcherFullName',
             'org.slug as orgSlug',
             'org.name as orgName',
@@ -243,7 +245,7 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
 }
 
 export const getUserById = async (userId: string) => {
-    return await db.selectFrom('user').selectAll().where('id', '=', userId).executeTakeFirstOrThrow()
+    return await db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
