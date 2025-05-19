@@ -215,34 +215,21 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
     return await query.execute()
 }
 
-export const getStudyAndOrg = async (studyId: string) => {
-    const user = await siUser()
-
+// this is called primarlily by the mail functions to get study infoormation
+// some of these functions are called by API which lacks a user, do not use siUser inside this
+export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await db
         .selectFrom('study')
-        .innerJoin('orgUser', (join) => join.on('userId', '=', user.id).onRef('orgUser.orgId', '=', 'study.orgId'))
-        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+        .innerJoin('user as researcher', 'researcher.id', 'study.reviewerId')
+        .leftJoin('user as reviewer', 'reviewer.id', 'study.reviewerId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .where('orgUser.userId', '=', user.id)
         .select([
-            'study.id',
-            'study.approvedAt',
-            'study.rejectedAt',
-            'study.containerLocation',
-            'study.createdAt',
-            'study.dataSources',
-            'study.irbProtocols',
             'study.orgId',
-            'study.outputMimeType',
-            'study.piName',
             'study.researcherId',
-            'study.status',
             'study.title',
-            'study.descriptionDocPath',
-            'study.irbDocPath',
-            'study.reviewerId',
-            'study.agreementDocPath',
-            'researcher.fullName as researcherName',
+            'reviewer.email as reviewerEmail',
+            'reviewer.fullName as reviewerFullName',
+            'researcher.fullName as researcherFullName',
             'org.slug as orgSlug',
             'org.name as orgName',
         ])

@@ -1,7 +1,7 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
 import { getConfigValue, PROD_ENV } from './config'
-import { getStudyAndOrg, getUserById, getUsersByRoleAndOrgId } from '@/server/db/queries'
+import { getStudyAndOrgDisplayInfo, getUserById, getUsersByRoleAndOrgId } from '@/server/db/queries'
 import dayjs from 'dayjs'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
@@ -80,7 +80,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
 }
 
 export const sendStudyProposalEmails = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', study.orgId)
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email !== null)
     await deliver({
@@ -89,7 +89,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
         template: 'vb - new research proposal',
         vars: {
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
             studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
         },
@@ -97,7 +97,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
 }
 
 export const sendStudyProposalApprovedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
     const researcher = await getUserById(study.researcherId)
     if (!researcher.email) return
 
@@ -108,7 +108,7 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
         vars: {
             fullName: researcher.fullName,
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
         },
@@ -116,7 +116,7 @@ export const sendStudyProposalApprovedEmail = async (studyId: string) => {
 }
 
 export const sendStudyProposalRejectedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
 
     const researcher = await getUserById(study.researcherId)
 
@@ -129,7 +129,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
         vars: {
             fullName: researcher.fullName,
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
             studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
@@ -138,23 +138,20 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
 }
 
 export const sendResultsReadyForReviewEmail = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!study.reviewerId) {
-        throw new Error('Missing study reviewer ID')
+    if (!study.reviewerEmail || !study.reviewerFullName) {
+        throw new Error('Missing study reviewer')
     }
 
-    const reviewer = await getUserById(study.reviewerId)
-    if (!reviewer.email) return
-
     await deliver({
-        to: reviewer.email,
+        to: study.reviewerEmail,
         subject: 'SafeInsights - New study proposal',
         template: 'vb - encrypted results ready for review',
         vars: {
-            userFullName: reviewer.fullName,
+            userFullName: study.reviewerFullName,
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
             studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
         },
@@ -162,7 +159,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
 }
 
 export const sendStudyResultsApprovedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
     const researcher = await getUserById(study.researcherId)
 
     if (!researcher.email) return
@@ -174,7 +171,7 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
         vars: {
             fullName: researcher.fullName,
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
             studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
@@ -183,7 +180,7 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
 }
 
 export const sendStudyResultsRejectedEmail = async (studyId: string) => {
-    const study = await getStudyAndOrg(studyId)
+    const study = await getStudyAndOrgDisplayInfo(studyId)
     const researcher = await getUserById(study.researcherId)
 
     if (!researcher.email) return
@@ -195,7 +192,7 @@ export const sendStudyResultsRejectedEmail = async (studyId: string) => {
         vars: {
             fullName: researcher.fullName,
             studyTitle: study.title,
-            submittedBy: study.researcherName,
+            submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
         },
