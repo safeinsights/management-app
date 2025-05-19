@@ -52,11 +52,8 @@ const awsEnvironmentId = () => {
     return process.env.ENVIRONMENT_ID || 'dev'
 }
 
-// we currently use a single ECR, but in the future we may use a different one for each member and/or study
-export async function codeBuildRepositoryUrl(_info: MinimalStudyInfo) {
-    const repoName = process.env.CODE_BUILD_ECR_NAME || `si/analysis/code-builds/${awsEnvironmentId()}`
-    const { accountId, region } = await getAWSInfo()
-    return `${accountId}.dkr.ecr.${region}.amazonaws.com/${repoName}`
+export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
+    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${awsEnvironmentId()}`
 }
 
 export const getAWSInfo = async () => {
@@ -187,6 +184,7 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
                 { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
                 { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
+                { name: 'DOCKER_REPOSITORY_URL', value: await codeBuildRepositoryUrl(info) },
                 { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
             ],
         }),

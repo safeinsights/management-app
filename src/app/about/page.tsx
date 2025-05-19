@@ -45,7 +45,7 @@ export default function AboutPage() {
 
                 <Divider my="md" />
 
-                <Stat title="Container Repo" value={process.env.CODE_BUILD_ECR_NAME || 'none'} />
+                <Stat title="Container Repo" value={process.env.CODE_BUILD_REPOSITORY_DOMAIN || 'none'} />
             </Card>
         </Paper>
     )
