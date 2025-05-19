@@ -30,6 +30,8 @@ export const ActivityContext = () => {
                 notifications.show({
                     title: 'Session Expiration Warning',
                     id: 'inactivity-warning',
+                    withCloseButton: false,
+                    autoClose: false,
                     message: (
                         <Stack>
                             <Text>
@@ -56,6 +58,7 @@ export const ActivityContext = () => {
                     title: 'Session Expired',
                     message: "You've been logged out due to inactivity. Log back in to resume your work.",
                     withCloseButton: true,
+                    autoClose: false,
                 })
                 signOut()
             }
