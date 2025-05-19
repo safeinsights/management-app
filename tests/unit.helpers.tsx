@@ -1,4 +1,29 @@
 import { db } from '@/database'
+
+// Mock the '@clerk/nextjs/server' module to prevent real API calls to Clerk
+// and to control the behavior of Clerk functions during tests.
+// This mock is global for all unit tests importing this helper.
+vi.mock('@clerk/nextjs/server', async (importOriginal) => {
+    const originalModule = await importOriginal<typeof import('@clerk/nextjs/server')>()
+    return {
+        ...originalModule,
+        // Mock the clerkClient function. When `await clerkClient()` is called in the actions,
+        // it will return this mock object instead of the real Clerk client.
+        clerkClient: vi.fn().mockReturnValue({
+            // Mock the organizations service within the clerkClient.
+            organizations: {
+                // Mock the updateOrganization method. This allows tests to simulate
+                // successful or failed calls to Clerk's updateOrganization API
+                // and to assert that it was called with the correct parameters.
+                updateOrganization: vi.fn(),
+            },
+        }),
+        // Mock the auth function (commonly `clerkAuth`).
+        // This provides a default mock for authentication state, which can be
+        // further customized by helpers like `mockClerkSession` in individual tests.
+        auth: originalModule.auth || vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
+    }
+})
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -249,7 +274,13 @@ export async function createTempDir() {
     return await fs.promises.mkdtemp(tmpdir)
 }
 
-export const insertTestOrg = async (opts: { slug: string } = { slug: faker.string.alpha(10) }) => {
+export type InsertTestOrgOptions = {
+    slug: string
+    name?: string
+    description?: string | null
+}
+
+export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
     const publicKey = await readTestSupportFile('public_key.pem')
 
@@ -303,9 +334,11 @@ export const mockClerkSession = (values: MockSession) => {
             getOrganization: vi.fn(async (orgSlug: string) => ({
                 slug: orgSlug,
                 id: values.org_id || faker.string.alpha(10),
+                name: 'Mocked Clerk Org Name by getOrganization',
             })),
             createOrganization: vi.fn(async (org: object) => org),
             createOrganizationMembership: vi.fn(async () => ({ id: '1234' })),
+            updateOrganization: vi.fn(),
         },
         users: {
             createUser: vi.fn(async () => ({ id: '1234' })),
@@ -341,6 +374,7 @@ type MockSessionWithTestDataOptions = {
     isResearcher?: boolean
     isReviewer?: boolean
     isAdmin?: boolean
+    clerkId?: string
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
