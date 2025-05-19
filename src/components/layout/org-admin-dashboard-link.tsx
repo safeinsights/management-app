@@ -7,6 +7,7 @@ import { Gear, UsersThree } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { Protect } from '../auth'
 import { useOrgInfo } from '../org-info'
+import { AuthRole } from '@/lib/types'
 
 interface OrgAdminDashboardLinkProps {
     pathname: string
@@ -36,7 +37,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
     }
 
     return (
-        <Protect role="admin">
+        <Protect role={AuthRole.Admin}>
             <NavLink
                 label="Admin"
                 leftSection={<Gear />}
