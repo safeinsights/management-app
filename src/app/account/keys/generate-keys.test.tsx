@@ -52,6 +52,7 @@ describe('Reviewer keypair generation', () => {
         })
 
         const dashboardButton = screen.getByRole('button', { name: 'Go to dashboard' })
+        expect(dashboardButton).toBeDefined()
         fireEvent.click(dashboardButton)
 
         await waitFor(() => {

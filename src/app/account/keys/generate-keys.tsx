@@ -98,11 +98,7 @@ export const GenerateKeys: FC = () => {
                                 </CopyButton>
                             </Group>
                             <Group>
-                                <Button
-                                    variant="outline"
-                                    onClick={() => openConfirmKeyCopied()}
-                                    disabled={!isKeyCopied}
-                                >
+                                <Button variant="outline" onClick={() => openConfirmKeyCopied()}>
                                     Go to dashboard
                                 </Button>
                             </Group>
