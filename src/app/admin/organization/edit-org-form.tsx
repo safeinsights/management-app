@@ -15,6 +15,7 @@ export const EditOrgForm: FC<{
     const form = useForm<ValidatedOrg>({
         validate: zodResolver(orgSchema),
         initialValues: org,
+        validateInputOnBlur: true,
     })
 
     const queryClient = useQueryClient()
