@@ -36,6 +36,7 @@ async function setupUsers() {
             firstName: 'Test Admin User',
             lastName: 'Test Admin User',
         })
+        console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
         findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true, isAdmin: true })
     }
 

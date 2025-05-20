@@ -214,9 +214,9 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
 export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const { org } = await actionContext()
+        const { org, user } = await actionContext()
         if (!org.isAdmin) {
-            throw new AccessDeniedError(`user is not an admin of organization ${arg.orgSlug}`)
+            throw new AccessDeniedError(`user ${user?.id} is not an admin of organization ${arg.orgSlug}`)
         }
         return await func(arg)
     }
