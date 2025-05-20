@@ -32,7 +32,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         validateInputOnBlur: true,
     })
 
-    const updateOrgSettingsMutation = useMutation({
+    const { mutate: updateOrgSettings, isPending: isOrgUpdating } = useMutation({
         mutationFn: updateOrgSettingsAction,
         onSuccess: (data, variables) => {
             notifications.show({ title: 'Success', message: data.message, color: 'green' })
@@ -49,7 +49,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
     const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
     const onFormSubmit = (values: SettingsFormValues) => {
-        updateOrgSettingsMutation.mutate({
+        updateOrgSettings({
             orgSlug,
             name: values.name,
             description: values.description ?? null,
@@ -83,7 +83,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
                             type="submit"
                             form="organization-settings-form"
                             disabled={!form.isDirty() || !form.isValid()}
-                            loading={updateOrgSettingsMutation.isPending}
+                            loading={isOrgUpdating}
                         >
                             Save
                         </Button>
