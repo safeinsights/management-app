@@ -9,6 +9,7 @@ import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { updateOrgSettingsAction, getOrgFromSlugAction } from '@/server/actions/org.actions'
+import { reportMutationError } from '@/components/errors'
 
 interface OrganizationSettingsManagerProps {
     orgSlug: string
@@ -42,12 +43,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
             form.resetDirty({ name: variables.name, description: variables.description ?? '' })
             queryClient.invalidateQueries({ queryKey: ['org', orgSlug] })
         },
-        onError: (error) =>
-            notifications.show({
-                title: 'Error updating settings',
-                message: (error as Error).message || 'An unexpected error occurred.',
-                color: 'red',
-            }),
+        onError: reportMutationError,
     })
 
     if (isLoading || !org) return <Loader />
