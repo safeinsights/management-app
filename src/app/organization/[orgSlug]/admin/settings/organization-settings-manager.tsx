@@ -85,7 +85,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
                         <Button
                             type="submit"
                             form="organization-settings-form"
-                            disabled={!form.isDirty() || !form.isValid() || updateOrgSettingsMutation.isPending}
+                            disabled={!form.isDirty() || !form.isValid()}
                             loading={updateOrgSettingsMutation.isPending}
                         >
                             Save
