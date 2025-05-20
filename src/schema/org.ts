@@ -12,7 +12,7 @@ export const orgSchema = z.object({
         .refine((val) => /\p{L}/u.test(val), {
             message: 'Name must contain at least one alphabetic character',
         })
-        .refine((val) => !/^\d+$/.test(val) || /\p{L}/u.test(val), {
+        .refine((val) => !/^\d+$/.test(val), {
             message: 'Name cannot be only numbers',
         }),
     email: z.string().email({ message: 'Invalid email address' }),
