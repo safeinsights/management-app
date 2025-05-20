@@ -13,8 +13,7 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     const key = await getConfigValue('MAILGUN_API_KEY', false)
     const domain = await getConfigValue('MAILGUN_DOMAIN', false)
     if (!key || !domain) {
-        if (PROD_ENV) throw new Error('Mailgun API key must be defined')
-        logger.warn('Mailgun client is not initialized. Skipping email sending.')
+        if (PROD_ENV) throw new Error('Mailgun API key must be defined in production')
         return [null, '']
     }
 
@@ -46,7 +45,7 @@ export async function deliver({
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        logger.info(`Mailgun not configured, skipping sending ${template} email`)
+        logger.info(`Mailgun not configured, skipping sending: ${template} email`)
         logger.info('values that would have been used for email:')
         logger.info(tmplVars)
         return

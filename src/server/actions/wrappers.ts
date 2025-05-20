@@ -200,7 +200,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
                 .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
                 .where('orgUser.userId', '=', ctx.user?.id || '')
                 .executeTakeFirstOrThrow(
-                    () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
+                    () => new AccessDeniedError(`user ${ctx.user?.id} is not a member of organization ${arg.orgSlug}`),
                 )
 
             Object.assign(ctx, { org: orgInfo })

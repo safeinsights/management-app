@@ -22,11 +22,12 @@ import {
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { ensureUserIsMemberOfOrg } from '@/server/mutations'
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { currentUser } from '@clerk/nextjs/server'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,13 +49,10 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    let org: { slug: string } | null = null
-    // FIXME: it should be possible to remove this once we ensure all users have an org
-    try {
-        org = await ensureUserIsMemberOfOrg()
-    } catch {
-        return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
-    }
+    const clerkUser = await currentUser()
+    const org = clerkUser?.publicMetadata?.orgs?.find((o) => o.slug !== CLERK_ADMIN_ORG_SLUG)
+    if (!org) return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
+
     const studies = await fetchStudiesForCurrentResearcherAction()
 
     const rows = studies.map((study) => (
