@@ -106,6 +106,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 const clerkLoaded = async (page: Page) => {
     await page.waitForFunction(() => window.Clerk !== undefined)
     await page.waitForFunction(() => window.Clerk.loaded)
+    return await page.evaluate(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
 }
 
 // This function is serialized and executed in the browser context
@@ -180,18 +181,34 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
 type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
 
 export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
-    await setupClerkTestingToken({ page })
-    await page.goto('/account/signin')
+    const creds = TestingUsers[role]
 
-    await clerkLoaded(page)
+    await setupClerkTestingToken({ page })
+    await page.goto(url)
+    const currentEmail = await clerkLoaded(page)
+    if (currentEmail == creds.identifier) {
+        return
+    }
+
     await page.evaluate(() => {
         return window.Clerk.session?.end()
     })
 
     await page.goto('/account/signin')
-    await clerkLoaded(page)
-    await page.evaluate(clerkSignInHelper, TestingUsers[role])
 
+    await page.getByLabel('email').fill(creds.identifier)
+    await page.getByLabel('password').fill(creds.password)
+    await page.getByRole('button', { name: 'login' }).click()
+
+    await page.getByLabel('code').fill(creds.mfa)
+    await page.getByRole('button', { name: 'login' }).click()
+    await page.waitForLoadState()
+
+    await page.waitForFunction(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
+    const updatedEmail = await clerkLoaded(page)
+    if (updatedEmail != creds.identifier) {
+        throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
+    }
     //  the earlier page.goto likely navigated to signin
     if (page.url() != url) {
         await page.goto(url)
