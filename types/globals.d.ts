@@ -6,7 +6,7 @@ declare global {
     }
     interface UserPublicMetadata {
         userId: string
-        orgs: Array<{
+        orgs?: Array<{
             slug: string
             isAdmin: boolean
             isReviewer: boolean
