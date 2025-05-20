@@ -101,15 +101,13 @@ jobs:
               run: npm run db:migrate
 
             - name: start NextJS server
-              run: npm run dev &
-
+              run: npm run dev > server_output.log 2>&1 &
             - name: npm run test:unit
               run: npm run test:unit
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
               run: npm run test:coverage
-
             - name: Add code coverage to actions summary
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
@@ -121,14 +119,15 @@ jobs:
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
-
+            - name: Display server log
+              run: cat server_output.log
+              if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
               with:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
-
     build:
         timeout-minutes: 15
         runs-on: ubuntu-latest
