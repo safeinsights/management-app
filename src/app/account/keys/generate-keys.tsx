@@ -14,6 +14,7 @@ import {
     CopyButton,
     Flex,
 } from '@mantine/core'
+import { useMutation } from '@tanstack/react-query'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
@@ -21,6 +22,7 @@ import { AppModal } from '@/components/modal'
 import { Check } from '@phosphor-icons/react/dist/ssr'
 import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
+import { reportMutationError } from '@/components/errors'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -121,20 +123,21 @@ export const GenerateKeys: FC = () => {
 
 const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }> = ({ onClose, isOpen, keys }) => {
     const router = useRouter()
-    const onNavigateToDashboard = async () => {
-        try {
-            await setReviewerPublicKeyAction({ publicKey: keys.binaryPublicKey, fingerprint: keys.fingerprint }).then(
-                (result) => {
-                    if (result.success) router.push('/')
-                },
-            )
-        } catch (error) {
-            console.error('Error setting reviewer public key:', error)
-        }
-    }
+
+    const { mutate: saveReviewerKey } = useMutation({
+        mutationFn: () =>
+            setReviewerPublicKeyAction({
+                publicKey: keys.binaryPublicKey,
+                fingerprint: keys.fingerprint,
+            }),
+        onError: reportMutationError,
+        async onSuccess() {
+            router.push('/')
+        },
+    })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your reviewer key?" size="lg">
+        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your reviewer key?">
             <Stack>
                 <Text size="md">Make sure you have securely saved your reviewer key. </Text>
                 <Text size="sm" c="red.9">
@@ -146,7 +149,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }
                     <Button variant="outline" onClick={onClose}>
                         Take me back
                     </Button>
-                    <Button onClick={onNavigateToDashboard}>Yes, go to dashboard</Button>
+                    <Button onClick={() => saveReviewerKey()}>Yes, go to dashboard</Button>
                 </Group>
             </Stack>
         </AppModal>

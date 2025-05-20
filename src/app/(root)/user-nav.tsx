@@ -15,7 +15,7 @@ export const UserNav = () => {
         if (auth.isResearcher) {
             router.push('/researcher/dashboard') // Redirect to the Researcher dashboard
         } else if (auth.isReviewer) {
-            router.push('/account/keys') // Redirect to account keys page to generate a reviewer key
+            router.push(`/reviewer/${auth.orgSlug}/dashboard`) // Redirect to the Reviewer dashboard
         } else if (auth.isAdmin) {
             router.push('/admin/organization') // Redirect to the Admin dashboard
         }

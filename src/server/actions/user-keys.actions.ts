@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/database'
-import { z, userAction, getUserIdFromActionContext } from './wrappers'
+import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrappers'
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { ensureUserIsMemberOfOrg } from '../mutations'
 
@@ -32,19 +32,18 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
     // those accounts are not associated with any organization
     await ensureUserIsMemberOfOrg()
 
-    try {
-        await db
-            .insertInto('userPublicKey')
-            .values({
-                userId,
-                publicKey: Buffer.from(publicKey),
-                fingerprint,
-            })
-            .execute()
-    } catch (error) {
-        console.error('Error setting reviewer public key:', error)
-        throw error
-    }
+    const insertResults = await db
+        .insertInto('userPublicKey')
+        .values({
+            userId,
+            publicKey: Buffer.from(publicKey),
+            fingerprint,
+        })
+        .execute()
 
-    return { success: true }
+    // Kysely's execute() for an INSERT returns an array of InsertResult.
+    // We expect one insert operation, so we check the first result.
+    if (insertResults.length === 0 || !insertResults[0].numInsertedOrUpdatedRows) {
+        throw new ActionFailure({ message: 'Failed to set reviewer public key' })
+    }
 }, setOrgUserPublicKeySchema)
