@@ -7,21 +7,19 @@ vi.mock('@clerk/nextjs/server', async (importOriginal) => {
     const originalModule = await importOriginal<typeof import('@clerk/nextjs/server')>()
     return {
         ...originalModule,
-        // Mock the clerkClient function. When `await clerkClient()` is called in the actions,
-        // it will return this mock object instead of the real Clerk client.
         clerkClient: vi.fn().mockReturnValue({
-            // Mock the organizations service within the clerkClient.
             organizations: {
-                // Mock the updateOrganization method. This allows tests to simulate
-                // successful or failed calls to Clerk's updateOrganization API
-                // and to assert that it was called with the correct parameters.
+                getOrganization: vi.fn(),
+                createOrganization: vi.fn(),
+                createOrganizationMembership: vi.fn(),
                 updateOrganization: vi.fn(),
             },
+            users: {
+                createUser: vi.fn(),
+            },
         }),
-        // Mock the auth function (commonly `clerkAuth`).
-        // This provides a default mock for authentication state, which can be
-        // further customized by helpers like `mockClerkSession` in individual tests.
-        auth: originalModule.auth || vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
+        auth: vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
+        currentUser: vi.fn(),
     }
 })
 import fs from 'fs'
