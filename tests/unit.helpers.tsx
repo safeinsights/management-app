@@ -276,11 +276,13 @@ export type InsertTestOrgOptions = {
     slug: string
     name?: string
     description?: string | null
+    email?: string
+    publicKey?: string
 }
 
 export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
-    const publicKey = await readTestSupportFile('public_key.pem')
+    const defaultPublicKey = await readTestSupportFile('public_key.pem')
 
     const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll().executeTakeFirst()
     const org =
@@ -289,9 +291,10 @@ export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.s
             .insertInto('org')
             .values({
                 slug: opts.slug,
-                name: 'test',
-                email: 'none@test.com',
-                publicKey,
+                name: opts.name || faker.company.name(),
+                description: opts.description ?? null,
+                email: opts.email || `${opts.slug}@example.com`,
+                publicKey: opts.publicKey || defaultPublicKey,
             })
             .returningAll()
             .executeTakeFirstOrThrow())

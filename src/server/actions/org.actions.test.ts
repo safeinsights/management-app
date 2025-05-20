@@ -134,7 +134,7 @@ describe('Org Actions', () => {
         })
 
         it('reverts DB change and throws ActionFailure if Clerk update fails', async () => {
-            const newName = 'Attempted Name Update (Clerk Fail Scenario for Test)'
+            const newName = 'Update Attempt (Clerk Fail Test)'
             const clerkErrorMessage = 'Clerk API error 500 from test mock'
             clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(new Error(clerkErrorMessage))
             const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

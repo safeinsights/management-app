@@ -5,7 +5,7 @@ import { UnknownKeysParam, z, ZodObject, ZodString, ZodTypeAny, type Schema } fr
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
-import { AccessDeniedError } from '@/lib/errors'
+import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 
 export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
@@ -107,7 +107,18 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
                         const result = await func(arg)
                         resolve(result)
                     } catch (error) {
-                        reject(error)
+                        if (error instanceof z.ZodError) {
+                            const fieldErrors = error.flatten().fieldErrors
+                            const sanitizedErrors: Record<string, string> = {}
+                            for (const key in fieldErrors) {
+                                if (fieldErrors[key]) {
+                                    sanitizedErrors[key] = (fieldErrors[key] as string[]).join(', ')
+                                }
+                            }
+                            reject(new ActionFailure(sanitizedErrors))
+                        } else {
+                            reject(error)
+                        }
                     }
                 },
             )
@@ -181,7 +192,13 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         const { sessionClaims } = await clerkAuth()
         // // SI staff user is admin on everything
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
-            const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+            const org = await db
+                .selectFrom('org')
+                .select('id')
+                .where('slug', '=', orgSlug)
+                .executeTakeFirstOrThrow(
+                    () => new ActionFailure({ org: `Target organization ${orgSlug} not found for admin operation.` }),
+                )
             Object.assign(ctx, {
                 org: {
                     id: org.id,
