@@ -68,7 +68,7 @@ test.describe('Studies', () => {
         await expect(page.getByText('Review Studies')).toBeVisible()
 
         const title = studyFeatures.studyTitle.substring(0, 30)
-
+        await page.waitForTimeout(1000)
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
