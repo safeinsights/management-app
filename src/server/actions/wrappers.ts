@@ -13,6 +13,8 @@ export { z } from 'zod'
 export type ActionContextOrgInfo = {
     id: string
     slug: string
+    name: string
+    description: string | null
     isResearcher: boolean
     isStaff?: boolean
     isAdmin: boolean
@@ -194,7 +196,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
             const org = await db
                 .selectFrom('org')
-                .select('id')
+                .select(['id', 'name', 'description'])
                 .where('slug', '=', orgSlug)
                 .executeTakeFirstOrThrow(
                     () => new ActionFailure({ org: `Target organization ${orgSlug} not found for admin operation.` }),
@@ -202,6 +204,8 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
             Object.assign(ctx, {
                 org: {
                     id: org.id,
+                    name: org.name,
+                    description: org.description,
                     isResearcher: true,
                     isReviewer: true,
                     isAdmin: true,
@@ -213,7 +217,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
             const orgInfo = await db
                 .selectFrom('orgUser')
                 .innerJoin('org', 'org.id', 'orgUser.orgId')
-                .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
+                .select(['org.id', 'org.slug', 'org.name', 'org.description', 'isResearcher', 'isAdmin', 'isReviewer'])
                 .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
                 .where('orgUser.userId', '=', ctx.user?.id || '')
                 .executeTakeFirstOrThrow(

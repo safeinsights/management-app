@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { orgSchema } from '@/schema/org'
 import { findOrCreateClerkOrganization } from '../clerk'
-import { adminAction, getUserIdFromActionContext, orgAdminAction, userAction, z, ActionFailure } from './wrappers'
+import { adminAction, getUserIdFromActionContext, orgAdminAction, userAction, z, ActionFailure, getOrgInfoFromActionContext } from './wrappers'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
@@ -71,12 +71,12 @@ const updateOrgSettingsSchema = z
     .merge(orgSchema.pick({ name: true, description: true }))
 
 export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, description }) => {
-    // Fetch the current organization
-    const currentOrg = await db.selectFrom('org').select('name').where('slug', '=', orgSlug).executeTakeFirst()
-    if (!currentOrg) {
-        throw new ActionFailure({ org: `Organization with slug ${orgSlug} not found.` })
-    }
-    const originalName = currentOrg.name
+    // Fetch the current organization details from the action context
+    const orgFromContext = await getOrgInfoFromActionContext()
+
+    // orgAdminAction and orgAction already ensure the org exists and the user is an admin.
+    // TypeScript ensures orgFromContext.name is a string due to ActionContextOrgInfo type.
+    const originalName = orgFromContext.name
 
     // Update the database first, Clerk second
     await db.updateTable('org').set({ name, description }).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
@@ -91,7 +91,7 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
         try {
             await db
                 .updateTable('org')
-                .set({ name: originalName })
+                .set({ name: originalName, description: orgFromContext.description })
                 .where('slug', '=', orgSlug)
                 .executeTakeFirstOrThrow()
             console.warn(`Successfully reverted organization name in DB for ${orgSlug} after Clerk update failure.`)
