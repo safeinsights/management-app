@@ -121,6 +121,7 @@ export const CLERK_MFA_CODE = '424242'
 export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     const w = window
     if (!w.Clerk.client) {
+        console.error('Clerk client not found')
         return
     }
 
@@ -145,7 +146,7 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
         code: params.mfa,
     })
     if (result.status !== 'complete') {
-        reportError(`Unknown signIn status: ${result.status}`)
+        console.error(`Unknown signIn status: ${result.status}`)
     }
 
     await w.Clerk.setActive({ session: result.createdSessionId })
@@ -184,7 +185,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
 
     await clerkLoaded(page)
     await page.evaluate(() => {
-        window.Clerk.session?.end()
+        return window.Clerk.session?.end()
     })
 
     await page.goto('/account/signin')

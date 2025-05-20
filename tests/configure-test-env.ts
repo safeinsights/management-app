@@ -6,9 +6,7 @@ import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 
-const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(
-    PROD_ENV ? [] : ['user_2x8iPxAfMZg5EJoZcrALjqXXEFD', 'user_2x7LYQXvGNmiYhcVB60LtxJegRK'],
-)
+const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2x8iPxAfMZg5EJoZcrALjqXXEFD'])
 
 const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
