@@ -71,11 +71,9 @@ test.describe('Studies', () => {
 
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
-        await page.waitForURL(/\/study\//)
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
         await page.getByRole('button', { name: /approve/i }).click()
-        await page.waitForURL(/\/dashboard/)
 
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 

@@ -1,11 +1,14 @@
 import { faker } from '@faker-js/faker'
-import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const email = faker.internet.email({ provider: 'test.com' })
 
         await visitClerkProtectedPage({ page, role: 'admin', url: '/organization/openstax/admin' })
+
+        // the admin user should also appear in the list, wait for it to load
+        await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
