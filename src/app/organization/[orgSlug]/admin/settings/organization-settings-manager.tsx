@@ -34,13 +34,6 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
 
     const { setValues } = form
 
-    // Effect to update form values when org data changes while in edit mode
-    useEffect(() => {
-        if (isEditing && org) {
-            setValues({ name: org.name, description: org.description ?? '' })
-        }
-    }, [isEditing, org, setValues])
-
     const updateOrgSettingsMutation = useMutation({
         mutationFn: updateOrgSettingsAction,
         onSuccess: (data, variables) => {
@@ -75,6 +68,15 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         cancelEdit()
     }
 
+    const handleStartEdit = () => {
+        if (org) {
+            // Populate form with current org data at the moment editing starts
+            form.setValues({ name: org.name, description: org.description ?? '' })
+            form.resetDirty({ name: org.name, description: org.description ?? '' })
+        }
+        startEdit()
+    }
+
     return (
         <Paper shadow="xs" p="xl" mb="xl">
             <Flex direction="row" justify={'space-between'} align="center" mb="lg">
@@ -94,7 +96,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
                         </Button>
                     </Group>
                 ) : (
-                    <Button variant="subtle" onClick={startEdit}>
+                    <Button variant="subtle" onClick={handleStartEdit}>
                         Edit
                     </Button>
                 )}
