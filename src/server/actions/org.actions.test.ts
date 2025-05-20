@@ -122,7 +122,7 @@ describe('Org Actions', () => {
             expect(result.success).toBe(true)
             expect(result.message).toBe('Organization settings updated successfully.')
 
-            const dbOrg = await db.selectFrom('org').selectAll().where('id', '=', targetOrg.id).executeTakeFirst()
+            const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
             expect(dbOrg?.name).toBe(newName)
             expect(dbOrg?.description).toBe(newDescription)
 
@@ -148,7 +148,7 @@ describe('Org Actions', () => {
                 }),
             ).rejects.toThrow(ActionFailure)
 
-            const dbOrg = await db.selectFrom('org').selectAll().where('id', '=', targetOrg.id).executeTakeFirst()
+            const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
             expect(dbOrg?.name).toBe(initialName)
             expect(dbOrg?.description).toBe(initialDescription)
 
