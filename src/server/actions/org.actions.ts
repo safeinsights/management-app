@@ -94,7 +94,7 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
         const clerk = await clerkClient()
         await clerk.organizations.updateOrganization(orgSlug, { name })
     } catch (error) {
-        console.error(`Failed to update organization name in Clerk for ${orgSlug}:`, error)
+        logger.error({ message: `Failed to update organization name in Clerk for ${orgSlug}:`, err: error })
         // Revert the database change
         try {
             await db
@@ -102,9 +102,9 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
                 .set({ name: originalName, description: orgFromContext.description })
                 .where('slug', '=', orgSlug)
                 .executeTakeFirstOrThrow()
-            console.warn(`Successfully reverted organization name in DB for ${orgSlug} after Clerk update failure.`)
+            logger.warn(`Successfully reverted organization name in DB for ${orgSlug} after Clerk update failure.`)
         } catch (revertError) {
-            console.error(`Failed to revert organization name in DB for ${orgSlug}:`, revertError)
+            logger.error({ message: `Failed to revert organization name in DB for ${orgSlug}:`, err: revertError })
             // If revert fails, the DB is in an inconsistent state with Clerk regarding the name.
             throw new ActionFailure({
                 form: `Failed to update in external system. DB revert also failed. Please contact support.`,
