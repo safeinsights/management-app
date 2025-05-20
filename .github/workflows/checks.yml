@@ -18,6 +18,8 @@ jobs:
                   cache: 'npm'
             - name: npm install
               run: npm ci
+            - name: show versions
+              run: npm ls
             - name: npm run checks
               run: npm run checks
             - name: validate actions
