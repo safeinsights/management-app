@@ -6,6 +6,7 @@ import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z }
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { ActionFailure } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '../mutations'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 export const onUserSignInAction = anonAction(async () => {
     const clerkUser = await currentUser()
@@ -40,16 +41,18 @@ export const onUserSignInAction = anonAction(async () => {
     const clerk = await clerkClient()
     const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
     for (const org of memberships.data) {
-        if (!org.organization.slug) continue
+        if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
 
         const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
-        findOrCreateOrgMembership({
-            userId: user.id,
-            slug: org.organization.slug,
-            isResearcher: md?.isResearcher,
-            isAdmin: md?.isAdmin,
-            isReviewer: md?.isReviewer,
-        })
+        try {
+            findOrCreateOrgMembership({
+                userId: user.id,
+                slug: org.organization.slug,
+                isResearcher: md?.isResearcher,
+                isAdmin: md?.isAdmin,
+                isReviewer: md?.isReviewer,
+            })
+        } catch {}
     }
     onUserLogIn({ userId: user.id })
 })
