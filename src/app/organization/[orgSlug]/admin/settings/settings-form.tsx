@@ -5,7 +5,9 @@ import { UseFormReturnType } from '@mantine/form'
 import { z } from 'zod'
 import { orgSchema as baseOrgSchema } from '@/schema/org'
 
-export const settingsFormSchema = baseOrgSchema.pick({ name: true, description: true })
+export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
+    description: z.string().max(250, 'Word limit is 250 characters').default(''),
+})
 
 export type SettingsFormValues = z.infer<typeof settingsFormSchema>
 

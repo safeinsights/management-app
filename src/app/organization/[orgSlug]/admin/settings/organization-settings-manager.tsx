@@ -52,7 +52,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         updateOrgSettings({
             orgSlug,
             name: values.name,
-            description: values.description ?? null,
+            description: values.description,
         })
     }
 
