@@ -15,6 +15,7 @@ import {
 import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
+import logger from '@/lib/logger'
 
 export const upsertOrgAction = adminAction(async (org) => {
     // Check for duplicate organization name for new organizations only
