@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { notifications } from '@mantine/notifications'
 import { Paper, Stack, Text, Group, Button, Flex, Title, Divider, Grid, Loader } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -32,8 +31,6 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         validate: zodResolver(settingsFormSchema),
         validateInputOnBlur: true,
     })
-
-    const { setValues } = form
 
     const updateOrgSettingsMutation = useMutation({
         mutationFn: updateOrgSettingsAction,
