@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { expect, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, TestingUsers, visitClerkProtectedPage, goto } from './e2e.helpers'
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe('Organization Admin', () => {
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
 
         // test invite
-        await page.goto(`/account/invitation/${inviteId}`, { waitUntil: 'commit' })
+        await goto(page, `/account/invitation/${inviteId}`)
         await page.waitForTimeout(1000)
         await expect(page.getByText(`must be signed out`)).toBeVisible()
         await page.getByRole('button', { name: /signout/i }).click()
@@ -67,7 +67,7 @@ test.describe('Organization Admin', () => {
         await page.waitForTimeout(1000)
 
         // test invitation no longer works
-        await page.goto(`/account/invitation/${inviteId}`, { waitUntil: 'domcontentloaded' })
+        await goto(page, `/account/invitation/${inviteId}`)
         // action waits for 100ms to delete
         await expect(page.getByText(`invalid invitation`)).toBeVisible({ timeout: 200 })
     })

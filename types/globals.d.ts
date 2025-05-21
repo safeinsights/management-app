@@ -13,4 +13,7 @@ declare global {
             isResearcher: boolean
         }>
     }
+    interface Window {
+        isReactHydrated: undefined | true
+    }
 }

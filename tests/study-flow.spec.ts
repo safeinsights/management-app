@@ -14,7 +14,9 @@ test.describe('Studies', () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
 
         await page.waitForTimeout(1000)
-        await page.getByRole('link', { name: /propose new study/i }).click()
+
+        await page.getByRole('link', { name: 'Propose New Study' }).click()
+
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 

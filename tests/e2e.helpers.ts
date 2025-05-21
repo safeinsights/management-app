@@ -21,6 +21,11 @@ export type CollectV8CodeCoverageOptions = {
     enableCssCoverage: boolean
 }
 
+export async function goto(page: Page, url: string) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => window.isReactHydrated)
+}
+
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
     return browserType.name() === 'chromium'
 }
@@ -184,7 +189,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     const creds = TestingUsers[role]
 
     await setupClerkTestingToken({ page })
-    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await goto(page, url)
     const currentEmail = await clerkLoaded(page)
     if (currentEmail == creds.identifier) {
         return
@@ -194,7 +199,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
         return window.Clerk.session?.end()
     })
 
-    await page.goto('/account/signin', { waitUntil: 'domcontentloaded' })
+    await goto(page, '/account/signin')
 
     await page.getByLabel('email').fill(creds.identifier)
     await page.getByLabel('password').fill(creds.password)
@@ -209,9 +214,9 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     if (updatedEmail != creds.identifier) {
         throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
     }
-    //  the earlier page.goto likely navigated to signin
+    //  the earlier goto likely navigated to signin
     if (page.url() != url) {
-        await page.goto(url, { waitUntil: 'domcontentloaded' })
+        await goto(page, url)
         await clerkLoaded(page)
     }
 }
