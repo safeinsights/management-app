@@ -15,7 +15,7 @@ test.describe('Studies', () => {
 
         await page.waitForTimeout(1000)
 
-        await page.getByTestId('new-study').click()
+        await page.getByTestId('new-study').first().click()
 
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')

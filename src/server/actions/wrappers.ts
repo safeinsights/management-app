@@ -179,7 +179,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
         const { sessionClaims } = await clerkAuth()
-        // // SI staff user is admin on everything
+        // SI staff users are admin on everything
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
             const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
             Object.assign(ctx, {
@@ -216,7 +216,7 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const { org, user } = await actionContext()
         if (!org.isAdmin) {
-            throw new AccessDeniedError(`user ${user?.id} is not an admin of organization ${arg.orgSlug}`)
+            throw new AccessDeniedError(`user ${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`)
         }
         return await func(arg)
     }
