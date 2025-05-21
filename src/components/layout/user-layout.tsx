@@ -1,14 +1,16 @@
-'use server'
+'use client'
 
 import { ClerkProvider } from '@clerk/nextjs'
 import { AppShell } from './app-shell'
+import { LoadingOverlay } from '@mantine/core'
 import { ReactNode } from 'react'
 
 type Props = {
     children: ReactNode
+    showOverlay?: boolean
 }
 
-export async function UserLayout({ children }: Props) {
+export function UserLayout({ children, showOverlay = false }: Props) {
     const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
 
     return (
@@ -23,7 +25,7 @@ export async function UserLayout({ children }: Props) {
                 },
             }}
         >
-            <AppShell>{children}</AppShell>
+            <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
         </ClerkProvider>
     )
 }

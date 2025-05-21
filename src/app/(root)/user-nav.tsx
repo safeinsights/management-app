@@ -22,6 +22,6 @@ export const UserNav = () => {
     }, [auth, router])
 
     if (!auth.isLoaded) {
-        return <LoadingOverlay visible />
+        return <LoadingOverlay />
     }
 }
