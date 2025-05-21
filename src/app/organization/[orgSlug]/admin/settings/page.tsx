@@ -2,11 +2,14 @@ import { Stack, Text, Title, Breadcrumbs, Divider } from '@mantine/core'
 import { Link } from '@/components/links'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { OrganizationSettingsManager } from './organization-settings-manager'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminSettingsPage(props: { params: Promise<{ orgSlug: string }> }) {
-    const { orgSlug } = await props.params
+export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+    const { orgSlug } = await params
+    // fetch the org on the server so the client can hydrate without a Loader
+    const initialOrg = await getOrgFromSlugAction(orgSlug)
 
     const items = [
         <Link href={`/organization/${orgSlug}/admin`} key="1">
@@ -27,7 +30,7 @@ export default async function AdminSettingsPage(props: { params: Promise<{ orgSl
                 Settings
             </Title>
 
-            <OrganizationSettingsManager orgSlug={orgSlug} />
+            <OrganizationSettingsManager orgSlug={orgSlug} initialOrg={initialOrg} />
         </Stack>
     )
 }

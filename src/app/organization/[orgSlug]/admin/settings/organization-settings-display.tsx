@@ -28,11 +28,7 @@ export function OrganizationSettingsDisplay({ org }: OrganizationSettingsDisplay
                     </Text>
                 </Grid.Col>
                 <Grid.Col span={orgSettingsValueSpan}>
-                    <Text
-                        size="sm"
-                        c={org.description ? undefined : 'dimmed'}
-                        style={{ whiteSpace: 'pre-wrap' }}
-                    >
+                    <Text size="sm" c={org.description ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap' }}>
                         {org.description || 'Not set'}
                     </Text>
                 </Grid.Col>

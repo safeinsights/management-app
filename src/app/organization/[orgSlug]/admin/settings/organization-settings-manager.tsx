@@ -16,15 +16,19 @@ export const orgSettingsValueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
 interface OrganizationSettingsManagerProps {
     orgSlug: string
+    // the server‐fetched org so we can hydrate immediately
+    initialOrg?: { name: string; description: string | null }
 }
 
-export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsManagerProps) {
+export function OrganizationSettingsManager({ orgSlug, initialOrg }: OrganizationSettingsManagerProps) {
     const [isEditing, { open: startEdit, close: cancelEdit }] = useDisclosure(false)
     const queryClient = useQueryClient()
 
-    const { data: org, isLoading } = useQuery({
+    const { data: org } = useQuery({
         queryKey: ['org', orgSlug],
         queryFn: () => getOrgFromSlugAction(orgSlug),
+        initialData: initialOrg,
+        staleTime: 1000 * 60, // we do not need to refresh org data very often
     })
 
     const form = useForm<SettingsFormValues>({
@@ -47,7 +51,7 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         onError: handleMutationErrorsWithForm(form),
     })
 
-    if (isLoading || !org) return <Loader />
+    if (!org) return <Loader />
 
     const onFormSubmit = (values: SettingsFormValues) => {
         updateOrgSettings({
