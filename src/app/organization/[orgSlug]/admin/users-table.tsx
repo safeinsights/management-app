@@ -98,6 +98,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             onSortStatusChange={setSortStatus}
             columns={[
                 {
+                    title: 'Name',
                     accessor: 'fullName',
                     sortable: true,
                     render: (user: User) => (
