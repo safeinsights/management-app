@@ -5,11 +5,12 @@ import { DataTable } from 'mantine-datatable'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
-import { Select, Flex, Text } from '@mantine/core'
+import { Select, Flex, Text, useMantineTheme } from '@mantine/core'
 import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUser } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { reportMutationError } from '@/components/errors'
 import { UserAvatar } from '@/components/user-avatar'
+import { InfoTooltip } from '@/components/tooltip'
 
 type User = OrgUserReturn
 
@@ -80,6 +81,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         columnAccessor: 'fullName',
         direction: 'asc',
     })
+    const { colors } = useMantineTheme()
 
     const {
         data: users,
@@ -94,7 +96,9 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
         <DataTable
             sortStatus={sort}
-            minHeight={400}
+            minHeight={100}
+            backgroundColor={colors.gray[2]}
+            rowBackgroundColor={() => 'white'}
             onSortStatusChange={setSortStatus}
             columns={[
                 {
@@ -105,8 +109,8 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         <Flex align={'center'} gap="lg">
                             <UserAvatar user={user} />
                             <Flex direction="column">
-                                <Text>{user.fullName}</Text>
-                                <Text size="sm" c="gray.6">
+                                <Text c="dark.9">{user.fullName}</Text>
+                                <Text size="sm" c="gray.7">
                                     {user.email}
                                 </Text>
                             </Flex>
@@ -115,9 +119,50 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 },
                 {
                     accessor: 'role',
+                    title: (
+                        <Flex align="center">
+                            <span>Role</span>
+                            <InfoTooltip
+                                size={22}
+                                text={
+                                    <Flex direction="column">
+                                        <Text>Shows someone’s role within the organization:</Text>
+                                        <Text>
+                                            <b>Researcher</b> – can submit studies and access results
+                                        </Text>
+                                        <Text>
+                                            <b>Reviewer</b> – can review and approve studies
+                                        </Text>
+                                        <Text>
+                                            <b>Multiple</b> – holds both roles
+                                        </Text>
+                                    </Flex>
+                                }
+                            />
+                        </Flex>
+                    ),
                     render: (user: User) => <RoleSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
                 {
+                    title: (
+                        <Flex align="center">
+                            <span>Permission</span>
+                            <InfoTooltip
+                                size={22}
+                                text={
+                                    <Flex direction="column">
+                                        <Text>Shows someone’s permissions within the organization:</Text>
+                                        <Text>
+                                            <b>Contributor</b> – full access within their role; no admin privileges
+                                        </Text>
+                                        <Text>
+                                            <b>Administrator</b> – manages team-level settings and contributors
+                                        </Text>
+                                    </Flex>
+                                }
+                            />
+                        </Flex>
+                    ),
                     accessor: 'permission',
                     render: (user: User) => <PermissionSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
@@ -126,7 +171,9 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     title: 'Last active',
                     textAlign: 'right',
                     render: (user: User) =>
-                        user.latestActivityAt ? dayjs(user.latestActivityAt).format('MMM DD, YYYY') : 'no activity',
+                        user.latestActivityAt
+                            ? dayjs(user.latestActivityAt).format('MMM DD, YYYY h:mma')
+                            : 'no activity',
                 },
             ]}
             fetching={isLoading}
