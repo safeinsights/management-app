@@ -3,7 +3,7 @@ import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
-import { Button, Divider, Group, Text, Flex, useMantineTheme } from '@mantine/core'
+import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -53,31 +53,28 @@ export const JobReviewButtons = ({
         },
     })
 
-    if (!decryptedResults?.length) return null
+    //TODO: Revist the implementation of this null check
+    // if (!decryptedResults?.length) return null
 
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
-            <Flex align="center">
-                <Group gap="2">
-                    <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
-                    <Text fz="xs" fw={600} c="green.9">
-                        Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
+            <Group gap="2">
+                <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
+                <Text fz="xs" fw={600} c="green.9">
+                    Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
         )
     }
 
     if (job.latestStatus === 'RESULTS-REJECTED') {
         return (
-            <Flex align="center">
-                <Group gap="2">
-                    <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
-                    <Text fz="xs" fw={600} c="red.9">
-                        Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
+            <Group gap="2">
+                <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
+                <Text fz="xs" fw={600} c="red.9">
+                    Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
         )
     }
 
