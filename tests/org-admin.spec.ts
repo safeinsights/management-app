@@ -38,9 +38,11 @@ test.describe('Organization Admin', () => {
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
 
         // test invite
-        await page.goto(`/account/invitation/${inviteId}`)
+        await page.goto(`/account/invitation/${inviteId}`, { waitUntil: 'commit' })
+        await page.waitForTimeout(1000)
         await expect(page.getByText(`must be signed out`)).toBeVisible()
         await page.getByRole('button', { name: /signout/i }).click()
+        await page.waitForTimeout(1000)
 
         await page.getByRole('button', { name: /create account/i }).click()
         await expect(page.getByText('cannot be left blank')).toHaveCount(2)
@@ -62,8 +64,10 @@ test.describe('Organization Admin', () => {
         await expect(page).toHaveURL(/\/account\/mfa$/)
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
 
+        await page.waitForTimeout(1000)
+
         // test invitation no longer works
-        await page.goto(`/account/invitation/${inviteId}`)
+        await page.goto(`/account/invitation/${inviteId}`, { waitUntil: 'domcontentloaded' })
         // action waits for 100ms to delete
         await expect(page.getByText(`invalid invitation`)).toBeVisible({ timeout: 200 })
     })

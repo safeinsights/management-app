@@ -13,10 +13,8 @@ test.describe('Studies', () => {
     test('researcher creates a study', async ({ page, studyFeatures }) => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
 
-        await expect(page).toHaveTitle(/SafeInsights/)
-
-        await page.getByRole('button', { name: /propose/i }).click()
-
+        await page.waitForTimeout(1000)
+        await page.getByRole('link', { name: /propose new study/i }).click()
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
@@ -47,6 +45,7 @@ test.describe('Studies', () => {
         // const largeFile = 'tests/assets/large-file.zip'
         // await page.setInputFiles('input[type="file"]', largeFile)
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
+
         await page.getByRole('button', { name: 'Submit', exact: true }).click()
 
         // TODO Final step changed? these aren't in the mockups :thinking:

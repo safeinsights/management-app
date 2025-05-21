@@ -184,7 +184,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     const creds = TestingUsers[role]
 
     await setupClerkTestingToken({ page })
-    await page.goto(url)
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
     const currentEmail = await clerkLoaded(page)
     if (currentEmail == creds.identifier) {
         return
@@ -194,7 +194,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
         return window.Clerk.session?.end()
     })
 
-    await page.goto('/account/signin')
+    await page.goto('/account/signin', { waitUntil: 'domcontentloaded' })
 
     await page.getByLabel('email').fill(creds.identifier)
     await page.getByLabel('password').fill(creds.password)
@@ -211,6 +211,7 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     }
     //  the earlier page.goto likely navigated to signin
     if (page.url() != url) {
-        await page.goto(url)
+        await page.goto(url, { waitUntil: 'domcontentloaded' })
+        await clerkLoaded(page)
     }
 }

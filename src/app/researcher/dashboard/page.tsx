@@ -1,8 +1,6 @@
 import * as React from 'react'
 import {
     Alert,
-    Anchor,
-    Button,
     Divider,
     Flex,
     Group,
@@ -20,16 +18,25 @@ import {
     Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import Link from 'next/link'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
+
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { currentUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { ButtonLink, Link } from '@/components/links'
+import { Plus } from '@phosphor-icons/react/dist/ssr'
 
 export const dynamic = 'force-dynamic'
+
+const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+    return (
+        <ButtonLink leftSection={<Plus />} href={`/researcher/study/request/${orgSlug}`}>
+            Propose New Study
+        </ButtonLink>
+    )
+}
 
 const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
     if (!visible) return null
@@ -39,9 +46,7 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
             <Alert variant="transparent">
                 You haven&apos;t started a study yet
                 <Stack>
-                    <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/request/${slug}`}>
-                        Propose New Study
-                    </Link>
+                    <NewStudyLink orgSlug={slug} />
                 </Stack>
             </Alert>
         </TableCaption>
@@ -74,9 +79,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/researcher/study/${study.id}/review`}>
-                    View
-                </Anchor>
+                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
             </TableTd>
         </TableTr>
     ))
@@ -98,9 +101,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Group justify="space-between">
                         <Title order={3}>Proposed Studies</Title>
                         <Flex justify="flex-end">
-                            <Link href={`/researcher/study/request/${org.slug}`}>
-                                <Button leftSection={<Plus />}>Propose New Study</Button>
-                            </Link>
+                            <NewStudyLink orgSlug={org.slug} />
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
