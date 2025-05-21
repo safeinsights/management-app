@@ -8,7 +8,7 @@ const nextConfig: NextConfig = async (phase: string) => {
 
     const nextConfig: NextConfig = {
         productionBrowserSourceMaps: true,
-        assetPrefix: isDev ? undefined : '/assets/',
+        assetPrefix: process.env.ASSETS_PREFIX || isDev ? undefined : '/assets/',
         output: 'standalone',
         transpilePackages: ['si-encryption'],
         experimental: {

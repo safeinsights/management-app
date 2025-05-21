@@ -1,0 +1,20 @@
+#!/bin/sh
+
+export ASSETS_PREFIX=/
+export PORT=4000
+export NEXT_PUBLIC_CLERK_DOMAIN=localhost:4000
+
+LOG=$1
+
+if [ -z "$LOG" ]; then
+    echo "Usage: $0 <logfile>"
+    exit 1
+fi
+
+npm run build > $LOG 2>&1
+
+cp -r public .next/standalone/
+
+cp -r .next/static .next/standalone/.next/
+
+node .next/standalone/server.js >> $LOG 2>&1 &

@@ -94,6 +94,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
         <DataTable
             sortStatus={sort}
+            minHeight={400}
             onSortStatusChange={setSortStatus}
             columns={[
                 {

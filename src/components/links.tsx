@@ -1,3 +1,5 @@
+'use client'
+// ↑ server-rendering doesn't like passing Link to component or if props contain icons
 import { AnchorProps, Button, ButtonProps, Anchor as MantineAnchor } from '@mantine/core'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import NextLink from 'next/link'

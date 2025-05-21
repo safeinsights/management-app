@@ -67,9 +67,9 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
             })
 
             if (attempt.status === 'complete') {
+                onComplete()
                 await setActive({ session: attempt.createdSessionId })
                 await onPendingUserLoginAction(inviteId)
-                onComplete()
             } else {
                 reportError('unable to sign in')
             }
