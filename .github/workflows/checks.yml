@@ -73,6 +73,8 @@ jobs:
             AWS_SECRET_ACCESS_KEY: 'si-local-minio'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
+            PORT: '4000'
+            NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
@@ -110,10 +112,7 @@ jobs:
                   npm run build
                   cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
             - name: start server
-              run: |
-                  PORT=4000 \
-                  NEXT_PUBLIC_CLERK_DOMAIN=localhost:4000 \
-                  node .next/standalone/server.js > server_output.log 2>&1 &
+              run: node .next/standalone/server.js > server_output.log 2>&1 &
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
