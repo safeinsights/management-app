@@ -93,7 +93,11 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
     try {
         // Update Clerk
         const clerk = await clerkClient()
-        await clerk.organizations.updateOrganization(orgSlug, { name })
+        const clerkOrg = await clerk.organizations.getOrganization({ slug: orgSlug })
+        if (!clerkOrg) {
+            throw new Error(`Clerk organization with slug ${orgSlug} not found.`)
+        }
+        await clerk.organizations.updateOrganization(clerkOrg.id, { name })
     } catch (error) {
         logger.error({ message: `Failed to update organization name in Clerk for ${orgSlug}:`, err: error })
         // Revert the database change
