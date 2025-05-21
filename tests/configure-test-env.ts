@@ -34,8 +34,14 @@ async function setupUsers() {
             firstName: 'Test Admin User',
             lastName: 'Test Admin User',
         })
+        await findOrCreateOrgMembership({
+            userId,
+            slug: 'openstax',
+            isReviewer: false,
+            isResearcher: true,
+            isAdmin: true,
+        })
         console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true, isAdmin: true })
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
@@ -43,7 +49,7 @@ async function setupUsers() {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
         })
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
+        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
     }
 
     for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
@@ -57,7 +63,7 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
+        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
     }
 }
 

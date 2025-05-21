@@ -32,7 +32,7 @@ export const dynamic = 'force-dynamic'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
-        <ButtonLink leftSection={<Plus />} href={`/researcher/study/request/${orgSlug}`}>
+        <ButtonLink data-testid="new-study" leftSection={<Plus />} href={`/researcher/study/request/${orgSlug}`}>
             Propose New Study
         </ButtonLink>
     )
