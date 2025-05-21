@@ -126,9 +126,58 @@ describe('Org Actions', () => {
             expect(dbOrg?.name).toBe(newName)
             expect(dbOrg?.description).toBe(newDescription)
 
-            expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrgSlug, {
+            expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrg.id, {
                 name: newName,
             })
+            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
+        })
+
+        it('successfully updates org name only in DB and Clerk', async () => {
+            const newName = 'Name Only Update'
+            // stub clerk update
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            clientMocksForTestScope.organizations.updateOrganization.mockResolvedValue({} as any)
+
+            const result = await updateOrgSettingsAction({
+                orgSlug: targetOrgSlug,
+                name: newName,
+                description: initialDescription, // unchanged
+            })
+
+            expect(result.success).toBe(true)
+            // verify DB
+            const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
+            expect(dbOrg?.name).toBe(newName)
+            expect(dbOrg?.description).toBe(initialDescription)
+
+            // clerk should be called with new name only
+            expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrg.id, {
+                name: newName,
+            })
+            // revalidate should still run
+            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
+        })
+
+        it('successfully updates description only in DB without calling Clerk', async () => {
+            const newDescription = 'Description Only Update'
+
+            const result = await updateOrgSettingsAction({
+                orgSlug: targetOrgSlug,
+                name: initialName, // unchanged
+                description: newDescription,
+            })
+
+            expect(result.success).toBe(true)
+            // verify DB
+            const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
+            expect(dbOrg?.name).toBe(initialName)
+            expect(dbOrg?.description).toBe(newDescription)
+
+            // clerk should NOT be called when name is unchanged
+            expect(clientMocksForTestScope.organizations.updateOrganization).not.toHaveBeenCalled()
+            // revalidate should still run
             expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
         })
