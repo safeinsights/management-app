@@ -1,6 +1,6 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
-import { getConfigValue, PROD_ENV } from './config'
+import { getConfigValue, PROD_ENV, CI_ENV } from './config'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 
@@ -13,7 +13,7 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     const key = await getConfigValue('MAILGUN_API_KEY', false)
     const domain = await getConfigValue('MAILGUN_DOMAIN', false)
     if (!key || !domain) {
-        if (PROD_ENV) throw new Error('Mailgun API key must be defined in production')
+        if (PROD_ENV && !CI_ENV) throw new Error('Mailgun API key must be defined in production')
         return [null, '']
     }
 

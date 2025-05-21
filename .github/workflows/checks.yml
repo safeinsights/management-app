@@ -85,7 +85,6 @@ jobs:
               run: |
                   curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
                   chmod +x mc
-                  ./mc --version
             - name: Setup minio bucket
               run: |
                   ./mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
