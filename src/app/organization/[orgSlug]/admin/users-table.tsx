@@ -102,7 +102,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     sortable: true,
                     render: (user: User) => (
                         <Flex align={'center'} gap="lg">
-                            <UserAvatar />
+                            <UserAvatar user={user} />
                             <Flex direction="column">
                                 <Text>{user.fullName}</Text>
                                 <Text size="sm" c="gray.6">
