@@ -15,7 +15,7 @@ test.describe('Studies', () => {
 
         await page.waitForTimeout(1000)
 
-        await page.getByRole('link', { name: 'Propose New Study' }).click()
+        await page.getByTestId('new-study').click()
 
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
@@ -68,9 +68,14 @@ test.describe('Studies', () => {
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
+
         const title = studyFeatures.studyTitle.substring(0, 30)
-        await page.waitForTimeout(1000)
-        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
+
+        await page
+            .getByRole('row', { name: title })
+            .getByRole('link', { name: 'View' })
+            .first()
+            .click()
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
