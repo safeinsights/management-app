@@ -4,7 +4,6 @@ import { db } from '@/database'
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
 import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { ActionFailure } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '../mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
@@ -17,11 +16,6 @@ export const onUserSignInAction = anonAction(async () => {
         firstName: clerkUser.firstName ?? '',
         lastName: clerkUser.lastName ?? '',
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
-    }
-
-    const blankAttrs = Object.values(userAttrs).filter((v) => !v)
-    if (blankAttrs.length) {
-        throw new ActionFailure({ user: `is missing required attributes ${blankAttrs.join(',')}` })
     }
 
     let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
