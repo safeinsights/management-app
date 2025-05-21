@@ -96,14 +96,24 @@ jobs:
             # https://github.com/microsoft/playwright/issues/7249#issuecomment-2664215505
             - name: install playwright dependencies
               run: npx playwright install --with-deps --only-shell chromium
-
             - name: provision db
               run: npm run db:migrate
-
-            - name: start NextJS server
-              run: npm run dev > server_output.log 2>&1 &
             - name: npm run test:unit
               run: npm run test:unit
+            - name: build server
+              run: |
+                  unset DATABASE_URL
+                  unset NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+                  unset CLERK_SECRET_KEY
+                  echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
+                  echo ASSETS_PREFIX=/ > .env
+                  npm run build
+                  cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
+            - name: start server
+              run: |
+                  PORT=4000 \
+                  NEXT_PUBLIC_CLERK_DOMAIN=localhost:4000 \
+                  node .next/standalone/server.js > server_output.log 2>&1 &
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
@@ -128,22 +138,3 @@ jobs:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
-    build:
-        timeout-minutes: 15
-        runs-on: ubuntu-latest
-        permissions: {}
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  cache: 'npm'
-            - name: npm install
-              run: npm ci
-            - name: Test build
-              run: |
-                  unset DATABASE_URL
-                  unset NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-                  unset CLERK_SECRET_KEY
-                  echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
-                  npm run build
