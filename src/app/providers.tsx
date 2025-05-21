@@ -3,7 +3,7 @@
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
-
+import { useEffect } from 'react'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
@@ -46,6 +46,10 @@ export function getQueryClient() {
 
 export const Providers: FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
+
+    useEffect(() => {
+        window.isReactHydrated = true
+    }, [])
 
     return (
         <QueryClientProvider client={queryClient}>

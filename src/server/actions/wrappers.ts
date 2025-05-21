@@ -179,7 +179,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
         const { sessionClaims } = await clerkAuth()
-        // // SI staff user is admin on everything
+        // SI staff users are admin on everything
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
             const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
             Object.assign(ctx, {
@@ -200,7 +200,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
                 .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
                 .where('orgUser.userId', '=', ctx.user?.id || '')
                 .executeTakeFirstOrThrow(
-                    () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
+                    () => new AccessDeniedError(`user ${ctx.user?.id} is not a member of organization ${arg.orgSlug}`),
                 )
 
             Object.assign(ctx, { org: orgInfo })
@@ -214,9 +214,9 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
 export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const { org } = await actionContext()
+        const { org, user } = await actionContext()
         if (!org.isAdmin) {
-            throw new AccessDeniedError(`user is not an admin of organization ${arg.orgSlug}`)
+            throw new AccessDeniedError(`user ${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`)
         }
         return await func(arg)
     }

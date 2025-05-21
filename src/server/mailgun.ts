@@ -1,6 +1,6 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
-import { getConfigValue, PROD_ENV } from './config'
+import { getConfigValue, PROD_ENV, CI_ENV } from './config'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 
@@ -13,8 +13,7 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
     const key = await getConfigValue('MAILGUN_API_KEY', false)
     const domain = await getConfigValue('MAILGUN_DOMAIN', false)
     if (!key || !domain) {
-        if (PROD_ENV) throw new Error('Mailgun API key must be defined')
-        logger.warn('Mailgun client is not initialized. Skipping email sending.')
+        if (PROD_ENV && !CI_ENV) throw new Error('Mailgun API key must be defined in production')
         return [null, '']
     }
 
@@ -31,12 +30,14 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
 
 export async function deliver({
     to,
+    bcc,
     from = SI_EMAIL,
     subject,
     template,
     vars,
 }: {
-    to: string
+    to?: string
+    bcc?: string
     from?: string
     subject: string
     template: string
@@ -46,7 +47,7 @@ export async function deliver({
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        logger.info(`Mailgun not configured, skipping sending ${template} email`)
+        logger.info(`Mailgun not configured, skipping sending: ${template} email`)
         logger.info('values that would have been used for email:')
         logger.info(tmplVars)
         return
@@ -55,6 +56,7 @@ export async function deliver({
     try {
         await mg.messages.create(domain, {
             to,
+            bcc,
             from,
             subject: `SafeInsights - ${subject}`,
             template,
