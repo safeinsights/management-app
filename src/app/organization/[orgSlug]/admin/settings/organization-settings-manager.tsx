@@ -1,14 +1,15 @@
 'use client'
 
 import { notifications } from '@mantine/notifications'
-import { Paper, Stack, Text, Group, Button, Flex, Title, Divider, Grid, Loader } from '@mantine/core'
+import { Paper, Group, Button, Flex, Title, Divider, Loader } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { AdminSettingsForm, settingsFormSchema, type SettingsFormValues } from './settings-form'
+import { OrganizationSettingsEdit, settingsFormSchema, type SettingsFormValues } from './organization-settings-edit'
 import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { updateOrgSettingsAction, getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm } from '@/components/errors'
+import { OrganizationSettingsDisplay } from './organization-settings-display'
 
 interface OrganizationSettingsManagerProps {
     orgSlug: string
@@ -45,9 +46,6 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
 
     if (isLoading || !org) return <Loader />
 
-    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
-    const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
-
     const onFormSubmit = (values: SettingsFormValues) => {
         updateOrgSettings({
             orgSlug,
@@ -70,66 +68,43 @@ export function OrganizationSettingsManager({ orgSlug }: OrganizationSettingsMan
         startEdit()
     }
 
+    let actionButtons: React.ReactNode
+    let content: React.ReactNode
+
+    if (isEditing) {
+        actionButtons = (
+            <Group>
+                <Button variant="default" onClick={handleCancel}>
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="organization-settings-form"
+                    disabled={!form.isDirty() || !form.isValid()}
+                    loading={isOrgUpdating}
+                >
+                    Save
+                </Button>
+            </Group>
+        )
+        content = <OrganizationSettingsEdit form={form} onFormSubmit={onFormSubmit} />
+    } else {
+        actionButtons = (
+            <Button variant="subtle" onClick={handleStartEdit}>
+                Edit
+            </Button>
+        )
+        content = <OrganizationSettingsDisplay org={org} />
+    }
+
     return (
         <Paper shadow="xs" p="xl" mb="xl">
             <Flex direction="row" justify={'space-between'} align="center" mb="lg">
                 <Title order={3}>About organization</Title>
-                {isEditing ? (
-                    <Group>
-                        <Button variant="default" onClick={handleCancel}>
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            form="organization-settings-form"
-                            disabled={!form.isDirty() || !form.isValid()}
-                            loading={isOrgUpdating}
-                        >
-                            Save
-                        </Button>
-                    </Group>
-                ) : (
-                    <Button variant="subtle" onClick={handleStartEdit}>
-                        Edit
-                    </Button>
-                )}
+                {actionButtons}
             </Flex>
             <Divider mb="lg" />
-
-            {isEditing ? (
-                <form id="organization-settings-form" onSubmit={form.onSubmit(onFormSubmit)}>
-                    <AdminSettingsForm form={form} />
-                </form>
-            ) : (
-                <Stack gap="lg">
-                    <Grid align="flex-start">
-                        <Grid.Col span={labelSpan}>
-                            <Text fw={600} size="sm">
-                                Name
-                            </Text>
-                        </Grid.Col>
-                        <Grid.Col span={valueSpan}>
-                            <Text size="sm">{org.name}</Text>
-                        </Grid.Col>
-                    </Grid>
-                    <Grid align="flex-start">
-                        <Grid.Col span={labelSpan}>
-                            <Text fw={600} size="sm">
-                                Description
-                            </Text>
-                        </Grid.Col>
-                        <Grid.Col span={valueSpan}>
-                            <Text
-                                size="sm"
-                                c={org.description ? undefined : 'dimmed'}
-                                style={{ whiteSpace: 'pre-wrap' }}
-                            >
-                                {org.description || 'Not set'}
-                            </Text>
-                        </Grid.Col>
-                    </Grid>
-                </Stack>
-            )}
+            {content}
         </Paper>
     )
 }
