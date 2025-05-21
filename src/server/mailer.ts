@@ -23,7 +23,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
     await deliver({
-        to: emails.join(', '),
+        bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
         vars: {

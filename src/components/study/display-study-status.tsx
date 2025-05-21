@@ -1,8 +1,8 @@
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
-import { ActionIcon, Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
-import { Info } from '@phosphor-icons/react/dist/ssr'
+import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
+import { InfoIcon } from '../icons'
 import React, { FC } from 'react'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
@@ -13,9 +13,7 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
     return (
         <Popover width={200} position="bottom" withArrow shadow="md">
             <PopoverTarget>
-                <ActionIcon variant="transparent">
-                    <Info color="blue" />
-                </ActionIcon>
+                <InfoIcon />
             </PopoverTarget>
             <PopoverDropdown miw={'350px'}>
                 <Text size="xs" fw="bold">

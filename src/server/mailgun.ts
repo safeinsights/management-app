@@ -30,12 +30,14 @@ export async function mailGunConfig(): Promise<[null | ReturnType<Mailgun['clien
 
 export async function deliver({
     to,
+    bcc,
     from = SI_EMAIL,
     subject,
     template,
     vars,
 }: {
-    to: string
+    to?: string
+    bcc?: string
     from?: string
     subject: string
     template: string
@@ -54,6 +56,7 @@ export async function deliver({
     try {
         await mg.messages.create(domain, {
             to,
+            bcc,
             from,
             subject: `SafeInsights - ${subject}`,
             template,
