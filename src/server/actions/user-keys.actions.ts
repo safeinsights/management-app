@@ -34,11 +34,5 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
             publicKey: Buffer.from(publicKey),
             fingerprint,
         })
-        .execute()
-
-    // Kysely's execute() for an INSERT returns an array of InsertResult.
-    // We expect one insert operation, so we check the first result.
-    if (insertResults.length === 0 || !insertResults[0].numInsertedOrUpdatedRows) {
-        throw new ActionFailure({ message: 'Failed to set reviewer public key' })
-    }
+        .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set reviewer public key' }))
 }, setOrgUserPublicKeySchema)

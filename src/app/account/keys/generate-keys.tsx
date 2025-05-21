@@ -124,14 +124,14 @@ export const GenerateKeys: FC = () => {
 const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }> = ({ onClose, isOpen, keys }) => {
     const router = useRouter()
 
-    const { mutate: saveReviewerKey } = useMutation({
+    const { mutate: saveReviewerKey, isPending: isSavingKey } = useMutation({
         mutationFn: () =>
             setReviewerPublicKeyAction({
                 publicKey: keys.binaryPublicKey,
                 fingerprint: keys.fingerprint,
             }),
         onError: reportMutationError,
-        async onSuccess() {
+        onSuccess() {
             router.push('/')
         },
     })
@@ -149,7 +149,9 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }
                     <Button variant="outline" onClick={onClose}>
                         Take me back
                     </Button>
-                    <Button onClick={() => saveReviewerKey()}>Yes, go to dashboard</Button>
+                    <Button onClick={() => saveReviewerKey()} loading={isSavingKey}>
+                        Yes, go to dashboard
+                    </Button>
                 </Group>
             </Stack>
         </AppModal>
