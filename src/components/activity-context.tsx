@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useSession, useClerk } from '@clerk/nextjs'
+import { useClerk, useSession } from '@clerk/clerk-react'
 import { notifications } from '@mantine/notifications'
 import { Button, Text, Space, Stack } from '@mantine/core'
+import { INACTIVITY_TIMEOUT_MS, WARNING_THRESHOLD_MS } from '@/lib/types'
 
 export const ActivityContext = () => {
     const { session } = useSession()
@@ -12,21 +13,30 @@ export const ActivityContext = () => {
     useEffect(() => {
         if (!session) return
 
-        const getRemainingTime = () => {
-            if (!session.lastActiveAt || !session.expireAt) return null
-            const expireTime = new Date(session.expireAt).getTime()
-            const currentTime = new Date().getTime()
-            const remainingMs = expireTime - currentTime
+        const checkInactivity = () => {
+            if (!session.lastActiveAt) return
 
-            return Math.max(0, Math.floor(remainingMs / 1000)) // Convert to seconds
-        }
+            const lastActiveTime = new Date(session.lastActiveAt).getTime()
+            const currentTime = Date.now()
+            const inactivityDuration = currentTime - lastActiveTime
 
-        // Set up interval to check remaining time
-        const intervalId = setInterval(() => {
-            const remaining = getRemainingTime()
+            if (inactivityDuration < WARNING_THRESHOLD_MS) {
+                // Hide the signout notification if the user is active again
+                notifications.hide('session-expired')
+            }
 
-            if (remaining !== null && remaining <= 2 * 60) {
-                // 2 minute warning
+            if (inactivityDuration >= INACTIVITY_TIMEOUT_MS) {
+                notifications.show({
+                    title: 'Session Expired',
+                    id: 'session-expired',
+                    message: 'You’ve been logged out due to inactivity. Log back in to resume your work.',
+                    withCloseButton: true,
+                    autoClose: false,
+                })
+                notifications.hide('inactivity-warning')
+                clearInterval(intervalId)
+                signOut()
+            } else if (INACTIVITY_TIMEOUT_MS - inactivityDuration <= WARNING_THRESHOLD_MS) {
                 notifications.show({
                     title: 'Session Expiration Warning',
                     id: 'inactivity-warning',
@@ -35,15 +45,19 @@ export const ActivityContext = () => {
                     message: (
                         <Stack>
                             <Text>
-                                {`To keep your account secure, you'll be logged out in ${Math.floor(remaining / 60)} minutes due to inactivity. Click 'Stay Signed In' to continue your session.`}
+                                {`To keep your account secure, you'll be logged out in ${Math.ceil(
+                                    (INACTIVITY_TIMEOUT_MS - inactivityDuration) / 60000,
+                                )} minutes due to inactivity. Click 'Stay Signed In' to continue your session.`}
                             </Text>
                             <Space h="xs" />
                             <Button
                                 variant="filled"
                                 size="sm"
-                                onClick={() => {
-                                    session.touch()
-                                    notifications.hide('inactivity-warning')
+                                onClick={async () => {
+                                    const updatedSession = await session.touch()
+                                    if (updatedSession) {
+                                        notifications.hide('inactivity-warning')
+                                    }
                                 }}
                             >
                                 Stay Signed In
@@ -52,17 +66,9 @@ export const ActivityContext = () => {
                     ),
                 })
             }
+        }
 
-            if (remaining !== null && remaining <= 0) {
-                notifications.show({
-                    title: 'Session Expired',
-                    message: "You've been logged out due to inactivity. Log back in to resume your work.",
-                    withCloseButton: true,
-                    autoClose: false,
-                })
-                signOut()
-            }
-        }, 10000) // Check every 10 seconds
+        const intervalId = setInterval(checkInactivity, 10000) // Check every 10 seconds
 
         return () => clearInterval(intervalId)
     }, [session, signOut])
