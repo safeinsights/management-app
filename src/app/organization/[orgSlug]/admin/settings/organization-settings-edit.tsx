@@ -4,6 +4,7 @@ import { type UseFormReturnType } from '@mantine/form'
 import { Stack, TextInput, Textarea, Text, Grid } from '@mantine/core'
 import { z } from 'zod'
 import { orgSchema as baseOrgSchema } from '@/schema/org'
+import { orgSettingsLabelSpan, orgSettingsValueSpan } from './organization-settings-manager'
 
 export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
     description: z.string().max(250, 'Word limit is 250 characters').default(''),
@@ -28,17 +29,14 @@ const FormLabel = ({ label, required = false }: { label: string; required?: bool
 )
 
 export function OrganizationSettingsEdit({ form, onFormSubmit }: OrganizationSettingsEditProps) {
-    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
-    const inputSpan = { base: 12, sm: 9, md: 6, lg: 4 }
-
     return (
         <form id="organization-settings-form" onSubmit={form.onSubmit(onFormSubmit)}>
             <Stack gap="lg">
                 <Grid align="flex-start">
-                    <Grid.Col span={labelSpan}>
+                    <Grid.Col span={orgSettingsLabelSpan}>
                         <FormLabel label="Name" required />
                     </Grid.Col>
-                    <Grid.Col span={inputSpan}>
+                    <Grid.Col span={orgSettingsValueSpan}>
                         <TextInput
                             aria-label="Name"
                             required
@@ -51,10 +49,10 @@ export function OrganizationSettingsEdit({ form, onFormSubmit }: OrganizationSet
                     </Grid.Col>
                 </Grid>
                 <Grid align="flex-start">
-                    <Grid.Col span={labelSpan}>
+                    <Grid.Col span={orgSettingsLabelSpan}>
                         <FormLabel label="Description" />
                     </Grid.Col>
-                    <Grid.Col span={inputSpan}>
+                    <Grid.Col span={orgSettingsValueSpan}>
                         <Textarea
                             aria-label="Description"
                             maxLength={250}

@@ -11,6 +11,9 @@ import { updateOrgSettingsAction, getOrgFromSlugAction } from '@/server/actions/
 import { handleMutationErrorsWithForm } from '@/components/errors'
 import { OrganizationSettingsDisplay } from './organization-settings-display'
 
+export const orgSettingsLabelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
+export const orgSettingsValueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
+
 interface OrganizationSettingsManagerProps {
     orgSlug: string
 }
