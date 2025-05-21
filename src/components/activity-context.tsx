@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useClerk, useSession } from '@clerk/clerk-react'
 import { notifications } from '@mantine/notifications'
 import { Button, Text, Space, Stack } from '@mantine/core'
+import { INACTIVITY_TIMEOUT_MS, WARNING_THRESHOLD_MS } from '@/lib/types'
 
 export const ActivityContext = () => {
     const { session } = useSession()
@@ -11,9 +12,6 @@ export const ActivityContext = () => {
 
     useEffect(() => {
         if (!session) return
-
-        const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000 // 20 minutes
-        const WARNING_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
         const checkInactivity = () => {
             if (!session.lastActiveAt) return
