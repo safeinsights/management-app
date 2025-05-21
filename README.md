@@ -14,9 +14,17 @@ It's responsible for:
 
 ## Requirements
 
+### Production Environment
+
 - Node.js version 20.x or higher
 - PostgreSQL
-- Docker and Docker Compose (optional, for containerized development)
+
+### Development Environment
+
+Either:
+
+- **Option 1:** Node.js + Docker and Docker Compose (installs PostgreSQL in container)
+- **Option 2:** Node.js + PostgreSQL installed locally
 
 ## Development
 
@@ -62,7 +70,6 @@ For developing locally without docker compose, you will need to:
 - There are two admin types and screens:
     - A organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/organization/<org slug>/admin` From their they can administer the users in their organization.
     - A SI Staff admin is an user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in codebase). The screen at `/admin/organization` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
-
 
 ### Authentication Configuration 🔐
 

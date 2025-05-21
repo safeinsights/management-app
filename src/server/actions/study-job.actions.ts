@@ -20,7 +20,7 @@ import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
 import { checkUserAllowedStudyReview } from '../db/queries'
 import { ActionFailure } from '@/lib/errors'
-import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailgun'
+import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 
 const approveStudyJobResultsActionSchema = z.object({
     orgSlug: z.string(),

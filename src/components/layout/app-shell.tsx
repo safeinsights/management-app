@@ -23,6 +23,7 @@ import { NavbarItems } from '@/components/layout/navbar-items'
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 import { NavbarProfileMenu } from './navbar-profile-menu'
+import { ActivityContext } from '../activity-context'
 
 type Props = { children: ReactNode }
 
@@ -49,6 +50,7 @@ export function AppShell({ children }: Props) {
             <RequireUser />
             <RequireMFA />
             <Notifications position="top-right" />
+            <ActivityContext />
 
             <AppShellHeader bg="purple.8" w="100%">
                 <Group h="100%" px="md">
