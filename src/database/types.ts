@@ -54,6 +54,7 @@ export interface JobStatusChange {
 
 export interface Org {
   createdAt: Generated<Timestamp>;
+  description: string | null;
   email: string;
   id: Generated<string>;
   name: string;

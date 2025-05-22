@@ -1,4 +1,27 @@
 import { db } from '@/database'
+
+// Mock the '@clerk/nextjs/server' module to prevent real API calls to Clerk
+// and to control the behavior of Clerk functions during tests.
+// This mock is global for all unit tests importing this helper.
+vi.mock('@clerk/nextjs/server', async (importOriginal) => {
+    const originalModule = await importOriginal<typeof import('@clerk/nextjs/server')>()
+    return {
+        ...originalModule,
+        clerkClient: vi.fn().mockReturnValue({
+            organizations: {
+                getOrganization: vi.fn(),
+                createOrganization: vi.fn(),
+                createOrganizationMembership: vi.fn(),
+                updateOrganization: vi.fn(),
+            },
+            users: {
+                createUser: vi.fn(),
+            },
+        }),
+        auth: vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
+        currentUser: vi.fn(),
+    }
+})
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -250,9 +273,17 @@ export async function createTempDir() {
     return await fs.promises.mkdtemp(tmpdir)
 }
 
-export const insertTestOrg = async (opts: { slug: string } = { slug: faker.string.alpha(10) }) => {
+export type InsertTestOrgOptions = {
+    slug: string
+    name?: string
+    description?: string | null
+    email?: string
+    publicKey?: string
+}
+
+export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.string.alpha(10) }) => {
     const privateKey = await readTestSupportFile('private_key.pem')
-    const publicKey = await readTestSupportFile('public_key.pem')
+    const defaultPublicKey = await readTestSupportFile('public_key.pem')
 
     const existing = await db.selectFrom('org').where('slug', '=', opts.slug).selectAll('org').executeTakeFirst()
     const org =
@@ -261,9 +292,10 @@ export const insertTestOrg = async (opts: { slug: string } = { slug: faker.strin
             .insertInto('org')
             .values({
                 slug: opts.slug,
-                name: 'test',
-                email: 'none@test.com',
-                publicKey,
+                name: opts.name || faker.company.name(),
+                description: opts.description ?? null,
+                email: opts.email || `${opts.slug}@example.com`,
+                publicKey: opts.publicKey || defaultPublicKey,
             })
             .returningAll()
             .executeTakeFirstOrThrow())
@@ -310,9 +342,11 @@ export const mockClerkSession = (values: MockSession) => {
             getOrganization: vi.fn(async (orgSlug: string) => ({
                 slug: orgSlug,
                 id: values.org_id || faker.string.alpha(10),
+                name: 'Mocked Clerk Org Name by getOrganization',
             })),
             createOrganization: vi.fn(async (org: object) => org),
             createOrganizationMembership: vi.fn(async () => ({ id: '1234' })),
+            updateOrganization: vi.fn(),
         },
         users: {
             createUser: vi.fn(async () => ({ id: '1234' })),
@@ -348,6 +382,7 @@ type MockSessionWithTestDataOptions = {
     isResearcher?: boolean
     isReviewer?: boolean
     isAdmin?: boolean
+    clerkId?: string
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {

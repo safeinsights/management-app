@@ -25,6 +25,7 @@ const mockOrg: Org = {
     name: faker.company.name(),
     email: faker.internet.email({ provider: 'test.com' }),
     publicKey: 'fake-key',
+    description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
 }
