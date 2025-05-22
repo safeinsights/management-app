@@ -53,8 +53,7 @@ export const JobReviewButtons = ({
         },
     })
 
-    //TODO: Revist the implementation of this null check
-    // if (!decryptedResults?.length) return null
+    const results = decryptedResults ?? []
 
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
@@ -83,8 +82,8 @@ export const JobReviewButtons = ({
             <Divider />
             <DownloadLink
                 target="_blank"
-                filename={decryptedResults?.[0]?.path}
-                content={decryptedResults?.[0]?.contents}
+                filename={results[0].path}
+                content={results[0].contents}
             />
             <Divider />
             <Button
