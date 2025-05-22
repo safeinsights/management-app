@@ -31,11 +31,7 @@ export function OrganizationSettingsManager({ org }: OrganizationSettingsManager
             <Transition mounted={isEditing} transition="fade" duration={150}>
                 {(styles) => (
                     <div style={{ ...styles, position: isEditing ? 'relative' : 'absolute', inset: 0 }}>
-                        <OrganizationSettingsEdit
-                            org={org}
-                            onSaveSuccess={handleSaveSuccess}
-                            onCancel={cancelEdit}
-                        />
+                        <OrganizationSettingsEdit org={org} onSaveSuccess={handleSaveSuccess} onCancel={cancelEdit} />
                     </div>
                 )}
             </Transition>
