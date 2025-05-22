@@ -102,19 +102,15 @@ jobs:
                   ~/.cache/mc mb siminio/mgmt-app-local
             - name: npm install
               run: npm ci
-
-            # If this becomes an issue long term with time, we can try re-implementing caching
-            # https://github.com/microsoft/playwright/issues/7249#issuecomment-2664215505
-            - name: install playwright dependencies
-              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
-              run: npx playwright install --with-deps --only-shell chromium
             - name: provision db
               run: npm run db:migrate
             - name: npm run test:unit
-              run: npm run test:unit
-
+              run: npm run test:unit -- --reporter=verbose
             - name: build and run server
               run: npm run ci:server -- server_output.log
+            - name: install playwright dependencies
+              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
+              run: npx playwright install --with-deps --only-shell chromium
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
