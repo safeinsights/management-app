@@ -15,7 +15,6 @@ export function OrganizationSettingsManager({ org }: OrganizationSettingsManager
 
     const handleSaveSuccess = () => {
         cancelEdit()
-        // Optionally, trigger a refetch or update here if needed
     }
 
     return (
