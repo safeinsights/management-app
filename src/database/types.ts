@@ -7,7 +7,7 @@ import type { ColumnType } from "kysely"
 
 export type AuditEventType = "ACCEPTED_INVITE" | "APPROVED" | "CREATED" | "DELETED" | "INVITED" | "LOGGED_IN" | "REJECTED" | "RESET_PASSWORD" | "UPDATED";
 
-export type AuditRecordType = "STUDY" | "USER" | "USER_PUBLIC_KEY";
+export type AuditRecordType = "STUDY" | "USER";
 
 export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
