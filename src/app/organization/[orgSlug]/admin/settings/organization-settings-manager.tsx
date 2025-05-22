@@ -13,18 +13,10 @@ interface OrganizationSettingsManagerProps {
 export function OrganizationSettingsManager({ org }: OrganizationSettingsManagerProps) {
     const [isEditing, { open: startEdit, close: cancelEdit }] = useDisclosure(false)
 
-    const handleSaveSuccess = () => {
-        cancelEdit()
-    }
-
     return (
         <Paper shadow="xs" p="xl" mb="xl">
             {isEditing ? (
-                <OrganizationSettingsEdit
-                    org={org}
-                    onSaveSuccess={handleSaveSuccess}
-                    onCancel={cancelEdit}
-                />
+                <OrganizationSettingsEdit org={org} onSaveSuccess={cancelEdit} onCancel={cancelEdit} />
             ) : (
                 <OrganizationSettingsDisplay org={org} onStartEdit={startEdit} />
             )}
