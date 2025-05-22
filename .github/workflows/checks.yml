@@ -105,8 +105,7 @@ jobs:
             - name: provision db
               run: npm run db:migrate
             - name: npm run test:unit
-              run: npm run test:unit
-
+              run: npm run test:unit -- --reporter=verbose
             - name: build and run server
               run: npm run ci:server -- server_output.log
             - name: install playwright dependencies
