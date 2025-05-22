@@ -3,7 +3,6 @@ import type { NextConfig } from 'next'
 
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 
-
 const nextConfig: NextConfig = async (phase: string) => {
     const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
