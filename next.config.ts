@@ -7,8 +7,6 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 const nextConfig: NextConfig = async (phase: string) => {
     const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
-    console.log(isDev, phase, process.env) // eslint-disable-line no-console
-
     const nextConfig: NextConfig = {
         productionBrowserSourceMaps: true,
         assetPrefix: isDev ? undefined : '/assets/',
