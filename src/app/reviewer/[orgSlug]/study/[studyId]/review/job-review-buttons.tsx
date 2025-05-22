@@ -14,6 +14,17 @@ type FileEntry = {
     contents: ArrayBuffer
 }
 
+const DownloadResults: React.FC<{ results?: FileEntry }> = ({ results }) => {
+    if (!results) return null
+    return (
+        <>
+            <Divider />
+            <DownloadLink target="_blank" filename={results.path} content={results.contents} />
+            <Divider />
+        </>
+    )
+}
+
 export const JobReviewButtons = ({
     job,
     decryptedResults,
@@ -53,8 +64,6 @@ export const JobReviewButtons = ({
         },
     })
 
-    const results = decryptedResults ?? []
-
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
             <Group gap="2">
@@ -79,9 +88,7 @@ export const JobReviewButtons = ({
 
     return (
         <Group>
-            <Divider />
-            <DownloadLink target="_blank" filename={results[0].path} content={results[0].contents} />
-            <Divider />
+            <DownloadResults results={decryptedResults?.[0]} />
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
