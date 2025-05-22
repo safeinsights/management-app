@@ -10,7 +10,6 @@ export default async function ReviewerKeysPageLayout({
     children: ReactNode
 }>) {
     const publicKey = await getReviewerPublicKeyAction()
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
 
     if (publicKey) {
         // User has a key - show UserLayout
@@ -21,6 +20,6 @@ export default async function ReviewerKeysPageLayout({
         )
     } else {
         // No key, first-time generation - show AnonLayout
-        return <AnonLayout clerkPublishableKey={clerkPublishableKey}>{children}</AnonLayout>
+        return <AnonLayout>{children}</AnonLayout>
     }
 }
