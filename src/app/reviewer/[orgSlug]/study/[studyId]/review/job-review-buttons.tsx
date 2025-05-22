@@ -81,7 +81,11 @@ export const JobReviewButtons = ({
     return (
         <Group>
             <Divider />
-            <DownloadLink target="_blank" filename={decryptedResults[0].path} content={decryptedResults[0].contents} />
+            <DownloadLink
+                target="_blank"
+                filename={decryptedResults?.[0]?.path}
+                content={decryptedResults?.[0]?.contents}
+            />
             <Divider />
             <Button
                 disabled={isPending || isSuccess}
