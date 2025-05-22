@@ -100,9 +100,9 @@ export const onUserRoleUpdate = deferred(
 )
 
 export const onUserPublicKeyCreated = deferred(async ({ userId }: { userId: string }) => {
-    await audit({ userId, eventType: 'CREATED', recordType: 'USER_PUBLIC_KEY', recordId: userId })
+    await audit({ userId, eventType: 'CREATED', recordType: 'USER', recordId: userId })
 })
 
 export const onUserPublicKeyUpdated = deferred(async ({ userId }: { userId: string }) => {
-    await audit({ userId, eventType: 'UPDATED', recordType: 'USER_PUBLIC_KEY', recordId: userId })
+    await audit({ userId, eventType: 'UPDATED', recordType: 'USER', recordId: userId })
 })
