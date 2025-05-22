@@ -3,6 +3,7 @@
 import { db } from '@/database'
 import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrappers'
 import { getReviewerPublicKey } from '@/server/db/queries'
+import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 
 export const getReviewerFingerprintAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
@@ -35,4 +36,22 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
             fingerprint,
         })
         .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set reviewer public key' }))
+
+    onUserPublicKeyCreated({ userId })
+}, setOrgUserPublicKeySchema)
+
+export const updateReviewerPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
+    const userId = await getUserIdFromActionContext()
+
+    await db
+        .updateTable('userPublicKey')
+        .set({
+            publicKey: Buffer.from(publicKey),
+            fingerprint,
+            updatedAt: new Date(),
+        })
+        .where('userId', '=', userId)
+        .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to update reviewer public key.' }))
+
+    onUserPublicKeyUpdated({ userId })
 }, setOrgUserPublicKeySchema)

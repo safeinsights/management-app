@@ -1,14 +1,14 @@
 import { it } from 'vitest'
-import { AnonLayout } from './anon-layout'
+import { AnonLayoutShell } from './anon-layout-shell'
 import { render, screen } from '@testing-library/react'
 
 import { TestingProviders } from '@/tests/providers'
 
 it('renders without a user', async () => {
     render(
-        <AnonLayout clerkPublishableKey="1234">
+        <AnonLayoutShell>
             <div>hello world</div>
-        </AnonLayout>,
+        </AnonLayoutShell>,
         { wrapper: TestingProviders },
     )
 
