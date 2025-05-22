@@ -82,6 +82,7 @@ jobs:
                   node-version: 22
                   cache: 'npm'
             - uses: actions/cache@v4
+              id: cache-all-the-things
               with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
                   key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: |
@@ -92,12 +93,10 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
-
             - name: Download mc CLI
+              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
               run: |
-                  [ ! -f "~/.cache/mc" ] && curl --create-dirs -o ~/.cache/mc  https://dl.min.io/client/mc/release/linux-amd64/mc
-            - name: Setup minio bucket
-              run: |
+                  curl --create-dirs -o ~/.cache/mc  https://dl.min.io/client/mc/release/linux-amd64/mc
                   chmod +x ~/.cache/mc
                   ~/.cache/mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
                   ~/.cache/mc mb siminio/mgmt-app-local
@@ -107,6 +106,7 @@ jobs:
             # If this becomes an issue long term with time, we can try re-implementing caching
             # https://github.com/microsoft/playwright/issues/7249#issuecomment-2664215505
             - name: install playwright dependencies
+              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
               run: npx playwright install --with-deps --only-shell chromium
             - name: provision db
               run: npm run db:migrate
