@@ -20,7 +20,7 @@ import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
 import { Check } from '@phosphor-icons/react/dist/ssr'
-import { setReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
 import { reportMutationError } from '@/components/errors'
 
@@ -30,7 +30,11 @@ interface Keys {
     fingerprint: string
 }
 
-export const GenerateKeys: FC = () => {
+type GenerateKeysProps = {
+    isRegenerating?: boolean
+}
+
+export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) => {
     const theme = useMantineTheme()
     const [keys, setKeys] = useState<Keys>()
     const [confirmationOpened, { open: openConfirmKeyCopied, close: closeConfirmKeyCopied }] = useDisclosure(false)
@@ -115,21 +119,39 @@ export const GenerateKeys: FC = () => {
                         )}
                     </Stack>
                 </Paper>
-                <ConfirmationModal onClose={closeConfirmKeyCopied} isOpen={confirmationOpened} keys={keys} />
+                <ConfirmationModal
+                    onClose={closeConfirmKeyCopied}
+                    isOpen={confirmationOpened}
+                    keys={keys}
+                    isRegenerating={isRegenerating}
+                />
             </Container>
         )
     }
 }
 
-const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys }> = ({ onClose, isOpen, keys }) => {
+const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; isRegenerating: boolean }> = ({
+    onClose,
+    isOpen,
+    keys,
+    isRegenerating,
+}) => {
     const router = useRouter()
 
     const { mutate: saveReviewerKey, isPending: isSavingKey } = useMutation({
-        mutationFn: () =>
-            setReviewerPublicKeyAction({
-                publicKey: keys.binaryPublicKey,
-                fingerprint: keys.fingerprint,
-            }),
+        mutationFn: () => {
+            if (isRegenerating) {
+                return updateReviewerPublicKeyAction({
+                    publicKey: keys.binaryPublicKey,
+                    fingerprint: keys.fingerprint,
+                })
+            } else {
+                return setReviewerPublicKeyAction({
+                    publicKey: keys.binaryPublicKey,
+                    fingerprint: keys.fingerprint,
+                })
+            }
+        },
         onError: reportMutationError,
         onSuccess() {
             router.push('/')

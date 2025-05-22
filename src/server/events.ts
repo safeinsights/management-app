@@ -98,3 +98,11 @@ export const onUserRoleUpdate = deferred(
         await updateClerkUserMetadata(userId)
     },
 )
+
+export const onUserPublicKeyCreated = deferred(async ({ userId }: { userId: string }) => {
+    await audit({ userId, eventType: 'CREATED', recordType: 'USER_PUBLIC_KEY', recordId: userId })
+})
+
+export const onUserPublicKeyUpdated = deferred(async ({ userId }: { userId: string }) => {
+    await audit({ userId, eventType: 'UPDATED', recordType: 'USER_PUBLIC_KEY', recordId: userId })
+})
