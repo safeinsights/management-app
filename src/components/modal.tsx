@@ -16,7 +16,7 @@ export function AppModal({
     onClose,
     children,
     title,
-    size = 'md',
+    size = 'lg',
     centered = true,
     closeOnClickOutside = true,
     trapFocus = true,

@@ -12,7 +12,6 @@ import {
     useMantineTheme,
 } from '@mantine/core'
 import { SafeInsightsLogo } from './si-logo'
-import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import { ReactNode } from 'react'
@@ -33,9 +32,7 @@ export function AnonLayout({ children, clerkPublishableKey }: Props) {
                 <AppShellNavbar bg={theme.colors.purple[8]}>
                     <Stack py="md">
                         <AppShellSection>
-                            <Link href="/">
-                                <SafeInsightsLogo />
-                            </Link>
+                            <SafeInsightsLogo />
                         </AppShellSection>
                     </Stack>
                 </AppShellNavbar>

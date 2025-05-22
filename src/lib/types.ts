@@ -75,3 +75,9 @@ export const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000 // 20 minutes
 export const WARNING_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
 export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
+
+export enum AuthRole {
+    Admin = 'admin',
+    Reviewer = 'reviewer',
+    Researcher = 'researcher',
+}

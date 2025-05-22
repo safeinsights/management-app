@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/database'
-import { z, userAction, getUserIdFromActionContext } from './wrappers'
+import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrappers'
 import { getReviewerPublicKey } from '@/server/db/queries'
 
 export const getReviewerFingerprintAction = userAction(async () => {
@@ -34,5 +34,5 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
             publicKey: Buffer.from(publicKey),
             fingerprint,
         })
-        .execute()
+        .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set reviewer public key' }))
 }, setOrgUserPublicKeySchema)

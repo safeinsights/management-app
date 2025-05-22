@@ -1,21 +1,32 @@
 import { useAuth as clerkUseAuth } from '@clerk/nextjs'
 import { useOrgInfo } from './org-info'
+import { useMemo } from 'react'
+import { AuthRole } from '@/lib/types'
 
 export const useAuthInfo = () => {
     const { isLoaded: authLoaded, userId, orgSlug } = clerkUseAuth()
     const { isLoaded: orgLoaded, org } = useOrgInfo()
 
-    return {
-        isLoaded: Boolean(authLoaded && orgLoaded),
-        userId,
-        orgSlug,
-        ...org,
-        role: org.isAdmin ? 'admin' : org.isReviewer ? 'reviewer' : org.isResearcher ? 'researcher' : null,
-    }
+    return useMemo(
+        () => ({
+            isLoaded: Boolean(authLoaded && orgLoaded),
+            userId,
+            orgSlug,
+            ...org,
+            role: org.isAdmin
+                ? AuthRole.Admin
+                : org.isReviewer
+                  ? AuthRole.Reviewer
+                  : org.isResearcher
+                    ? AuthRole.Researcher
+                    : null,
+        }),
+        [authLoaded, orgLoaded, userId, orgSlug, org],
+    )
 }
 
 type ProtectProps = {
-    role: 'admin' | 'reviewer' | 'researcher'
+    role: AuthRole
     orgSlug?: string
     children: React.ReactNode
 }
@@ -25,9 +36,9 @@ export const Protect: React.FC<ProtectProps> = ({ role, orgSlug, children }) => 
 
     if (!isLoaded) return null
 
-    if (role == 'admin' && org.isAdmin) return children
-    if (role == 'researcher' && org.isResearcher) return children
-    if (role == 'reviewer' && org.isReviewer) return children
+    if (role == AuthRole.Admin && org.isAdmin) return children
+    if (role == AuthRole.Researcher && org.isResearcher) return children
+    if (role == AuthRole.Reviewer && org.isReviewer) return children
 
     return null
 }
