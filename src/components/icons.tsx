@@ -1,3 +1,5 @@
+'use client'
+
 import { Info } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, ActionIconProps, useMantineTheme } from '@mantine/core'
 
