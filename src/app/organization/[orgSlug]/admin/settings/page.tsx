@@ -8,8 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params
-    // fetch the org on the server so the client can hydrate without a Loader
-    const initialOrg = await getOrgFromSlugAction(orgSlug)
+    const org = await getOrgFromSlugAction(orgSlug)
 
     const items = [
         <Link href={`/organization/${orgSlug}/admin`} key="1">
@@ -30,7 +29,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
                 Settings
             </Title>
 
-            <OrganizationSettingsManager orgSlug={orgSlug} initialOrg={initialOrg} />
+            <OrganizationSettingsManager org={org} />
         </Stack>
     )
 }

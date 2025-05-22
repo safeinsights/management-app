@@ -1,38 +1,50 @@
 'use client'
 
-import { Text, Grid, Stack } from '@mantine/core'
+import { Text, Grid, Stack, Paper, Flex, Title, Button, Divider } from '@mantine/core'
 import { type Org } from '@/schema/org'
-import { orgSettingsLabelSpan, orgSettingsValueSpan } from './organization-settings-manager'
 
 interface OrganizationSettingsDisplayProps {
-    org: Pick<Org, 'name' | 'description'>
+    org: Org
+    onStartEdit: () => void
 }
 
-export function OrganizationSettingsDisplay({ org }: OrganizationSettingsDisplayProps) {
+export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSettingsDisplayProps) {
+    const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
+    const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
+
     return (
-        <Stack gap="lg">
-            <Grid align="flex-start">
-                <Grid.Col span={orgSettingsLabelSpan}>
-                    <Text fw={600} size="sm">
-                        Name
-                    </Text>
-                </Grid.Col>
-                <Grid.Col span={orgSettingsValueSpan}>
-                    <Text size="sm">{org.name}</Text>
-                </Grid.Col>
-            </Grid>
-            <Grid align="flex-start">
-                <Grid.Col span={orgSettingsLabelSpan}>
-                    <Text fw={600} size="sm">
-                        Description
-                    </Text>
-                </Grid.Col>
-                <Grid.Col span={orgSettingsValueSpan}>
-                    <Text size="sm" c={org.description ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap' }}>
-                        {org.description || 'Not set'}
-                    </Text>
-                </Grid.Col>
-            </Grid>
-        </Stack>
+        <Paper shadow="xs" p="xl" mb="xl">
+            <Flex direction="row" justify={'space-between'} align="center" mb="lg">
+                <Title order={3}>About organization</Title>
+                <Button variant="subtle" onClick={onStartEdit}>
+                    Edit
+                </Button>
+            </Flex>
+            <Divider mb="lg" />
+            <Stack gap="lg">
+                <Grid align="flex-start">
+                    <Grid.Col span={labelSpan}>
+                        <Text fw={600} size="sm">
+                            Name
+                        </Text>
+                    </Grid.Col>
+                    <Grid.Col span={valueSpan}>
+                        <Text size="sm">{org.name}</Text>
+                    </Grid.Col>
+                </Grid>
+                <Grid align="flex-start">
+                    <Grid.Col span={labelSpan}>
+                        <Text fw={600} size="sm">
+                            Description
+                        </Text>
+                    </Grid.Col>
+                    <Grid.Col span={valueSpan}>
+                        <Text size="sm" c={org.description ? undefined : 'dimmed'} style={{ whiteSpace: 'pre-wrap' }}>
+                            {org.description || 'Not set'}
+                        </Text>
+                    </Grid.Col>
+                </Grid>
+            </Stack>
+        </Paper>
     )
 }
