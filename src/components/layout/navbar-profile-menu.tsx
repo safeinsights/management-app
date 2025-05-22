@@ -8,12 +8,12 @@ import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import { useRef } from 'react'
 import styles from './navbar-items.module.css'
-import { useAuthInfo } from '@/components/auth'
+import { Protect } from '@/components/auth'
 import { useRouter } from 'next/navigation'
+import { AuthRole } from '@/lib/types'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
-    const auth = useAuthInfo()
     const [opened, { toggle, close }] = useDisclosure()
     const router = useRouter()
     const toggleButtonRef = useRef<HTMLAnchorElement>(null)
@@ -100,7 +100,7 @@ export function NavbarProfileMenu() {
                     ref={accountMenuItemRef}
                 />
 
-                {auth.isReviewer && (
+                <Protect role={AuthRole.Reviewer}>
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<Lock aria-hidden="true" />}
@@ -114,7 +114,8 @@ export function NavbarProfileMenu() {
                         tabIndex={opened ? 0 : -1}
                         ref={reviewerKeyMenuItemRef}
                     />
-                )}
+                </Protect>
+
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOut aria-hidden="true" />}
