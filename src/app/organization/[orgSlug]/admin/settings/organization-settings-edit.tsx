@@ -1,6 +1,6 @@
 'use client'
 
-import { Stack, TextInput, Textarea, Grid, Text, Paper, Flex, Title, Button, Group, Divider } from '@mantine/core'
+import { Stack, TextInput, Textarea, Grid, Text, Flex, Title, Button, Group, Divider } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { useMutation } from '@tanstack/react-query'
@@ -60,7 +60,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
     }
 
     return (
-        <Paper shadow="xs" p="xl" mb="xl">
+        <>
             <Flex direction="row" justify={'space-between'} align="center" mb="lg">
                 <Title order={3}>About organization</Title>
                 <Group>
@@ -118,6 +118,6 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                     </Grid>
                 </Stack>
             </form>
-        </Paper>
+        </>
     )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Transition } from '@mantine/core'
+import { Paper } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { OrganizationSettingsEdit } from './organization-settings-edit'
 import { OrganizationSettingsDisplay } from './organization-settings-display'
@@ -18,22 +18,16 @@ export function OrganizationSettingsManager({ org }: OrganizationSettingsManager
     }
 
     return (
-        <div style={{ position: 'relative' }}>
-            <Transition mounted={!isEditing} transition="fade" duration={150}>
-                {(styles) => (
-                    <div style={{ ...styles, position: isEditing ? 'absolute' : 'relative', inset: 0 }}>
-                        <OrganizationSettingsDisplay org={org} onStartEdit={startEdit} />
-                    </div>
-                )}
-            </Transition>
-
-            <Transition mounted={isEditing} transition="fade" duration={150}>
-                {(styles) => (
-                    <div style={{ ...styles, position: isEditing ? 'relative' : 'absolute', inset: 0 }}>
-                        <OrganizationSettingsEdit org={org} onSaveSuccess={handleSaveSuccess} onCancel={cancelEdit} />
-                    </div>
-                )}
-            </Transition>
-        </div>
+        <Paper shadow="xs" p="xl" mb="xl">
+            {isEditing ? (
+                <OrganizationSettingsEdit
+                    org={org}
+                    onSaveSuccess={handleSaveSuccess}
+                    onCancel={cancelEdit}
+                />
+            ) : (
+                <OrganizationSettingsDisplay org={org} onStartEdit={startEdit} />
+            )}
+        </Paper>
     )
 }

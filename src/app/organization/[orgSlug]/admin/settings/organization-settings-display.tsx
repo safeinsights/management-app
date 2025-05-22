@@ -1,6 +1,6 @@
 'use client'
 
-import { Text, Grid, Stack, Paper, Flex, Title, Button, Divider } from '@mantine/core'
+import { Text, Grid, Stack, Flex, Title, Button, Divider } from '@mantine/core'
 import { type Org } from '@/schema/org'
 
 interface OrganizationSettingsDisplayProps {
@@ -13,7 +13,7 @@ export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSe
     const valueSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
     return (
-        <Paper shadow="xs" p="xl" mb="xl">
+        <>
             <Flex direction="row" justify={'space-between'} align="center" mb="lg">
                 <Title order={3}>About organization</Title>
                 <Button variant="subtle" onClick={onStartEdit}>
@@ -45,6 +45,6 @@ export function OrganizationSettingsDisplay({ org, onStartEdit }: OrganizationSe
                     </Grid.Col>
                 </Grid>
             </Stack>
-        </Paper>
+        </>
     )
 }
