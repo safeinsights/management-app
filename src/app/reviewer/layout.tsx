@@ -1,39 +1,18 @@
-'use client'
-
-import { ReactNode, useEffect, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
+import React, { ReactNode } from 'react'
 import { UserLayout } from '@/components/layout/user-layout'
+import { getReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { redirect } from 'next/navigation'
 
-type Props = { children: ReactNode }
+export default async function ReviewerLayout({
+    children,
+}: Readonly<{
+    children: ReactNode
+}>) {
+    const publicKey = await getReviewerPublicKeyAction()
 
-export default function ReviewerLayout({ children }: Props) {
-    const pathname = usePathname()
-    const router = useRouter()
-    const [loading, setLoading] = useState(!pathname.startsWith('/account'))
+    if (!publicKey) {
+        redirect('/account/keys')
+    }
 
-    useEffect(() => {
-        if (pathname.startsWith('/account')) {
-            setLoading(false)
-            return
-        }
-
-        const checkKey = async () => {
-            try {
-                const key = await getReviewerPublicKeyAction()
-
-                if (!key) {
-                    router.push('/account/keys')
-                } else {
-                    setLoading(false)
-                }
-            } catch (error) {
-                console.error('Error checking reviewer key:', error)
-            }
-        }
-
-        checkKey()
-    }, [pathname, router])
-
-    return <UserLayout showOverlay={loading}>{children}</UserLayout>
+    return <UserLayout>{children}</UserLayout>
 }
