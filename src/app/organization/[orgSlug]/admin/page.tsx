@@ -1,7 +1,8 @@
-import { Paper, Stack, Text, Title, Flex } from '@mantine/core'
+import { Paper, Stack, Title, Flex } from '@mantine/core'
 import { UsersTable } from './users-table'
 import { InviteButton } from './invitation'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,13 +11,9 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="md">
+            <PageBreadcrumbs crumbs={[['Dashboard', `/`], ['Admin'], ['Manage team']]} />
             <RequireOrgAdmin />
-            <Title>Manage team</Title>
-            <Text>
-                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to
-                your organization, view their status and know when you need to take action. We continuously iterate to
-                improve your experience and welcome your feedback.
-            </Text>
+            <Title my="lg">Manage team</Title>
             <Paper shadow="xs" p="xl">
                 <Flex direction="row" justify={'space-between'} align="center">
                     <Title mb="lg">People</Title>
