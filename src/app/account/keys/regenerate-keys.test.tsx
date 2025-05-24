@@ -17,14 +17,22 @@ vi.mock('@/server/actions/user-keys.actions', () => ({
 
 describe('Reviewer keypair regeneration', () => {
     it('should regenerate a reviewer key pair and update public key', async () => {
-        vi.mocked(useUser).mockReturnValue({
-            user: { firstName: 'Tester' },
-        } as UseUserReturn)
-
         mockClerkSession({
             clerkUserId: 'user-id',
             org_slug: 'dev',
         })
+
+        vi.mocked(useUser).mockReturnValue({
+            isLoaded: true,
+            isSignedIn: true,
+            user: {
+                firstName: 'Tester',
+                organizationMemberships: [],
+                publicMetadata: {
+                    orgs: [{ slug: 'dev', isAdmin: false, isResearcher: true, isReviewer: true }],
+                },
+            },
+        } as unknown as UseUserReturn)
 
         const mockKeys = {
             publicKeyString: 'mockPublicKey',

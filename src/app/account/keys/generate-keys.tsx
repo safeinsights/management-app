@@ -2,7 +2,6 @@
 
 import {
     Button,
-    Container,
     Divider,
     Group,
     Paper,
@@ -59,7 +58,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
 
     if (keys) {
         return (
-            <Container>
+            <Stack p="xl" w="90%" mx="sm">
                 <Title my="xxl">Reviewer key</Title>
                 <Paper shadow="xs" p="xl">
                     <Stack>
@@ -125,7 +124,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                     keys={keys}
                     isRegenerating={isRegenerating}
                 />
-            </Container>
+            </Stack>
         )
     }
 }
