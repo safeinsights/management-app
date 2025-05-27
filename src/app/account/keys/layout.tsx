@@ -12,6 +12,6 @@ export default async function ReviewerKeysPageLayout({
     if (publicKey) {
         return <RegenerateKeys />
     } else {
-        return <>{children}</>
+        return children
     }
 }
