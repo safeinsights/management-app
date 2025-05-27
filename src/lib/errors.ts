@@ -94,7 +94,7 @@ export const errorToString = (error: unknown) => {
     const actionFailure = extractActionFailure(error)
     if (actionFailure) {
         return Object.entries(actionFailure)
-            .map(([field, msg]) => `${capitalize(field)} ${msg}`)
+            .map(([field, msg]) => `${capitalize(field)}: ${msg}`)
             .join(', ')
     }
 
