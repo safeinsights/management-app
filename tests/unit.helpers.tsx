@@ -323,6 +323,7 @@ type MockSession = {
     org_slug: string
     imageUrl?: string
     org_id?: string
+    publicMetadata?: UserPublicMetadata
 }
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
@@ -335,6 +336,18 @@ export const mockClerkSession = (values: MockSession) => {
         banned: false,
         twoFactorEnabled: true,
         imageUrl: values.imageUrl,
+        organizationMemberships: [],
+        publicMetadata: values.publicMetadata || {
+            userId: values.clerkUserId,
+            orgs: [
+                {
+                    slug: values.org_slug,
+                    isAdmin: false,
+                    isReviewer: false,
+                    isResearcher: false,
+                },
+            ],
+        },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {

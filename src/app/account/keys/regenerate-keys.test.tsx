@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { UseUserReturn } from '@clerk/types'
-import { useUser } from '@clerk/nextjs'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 
@@ -20,19 +18,11 @@ describe('Reviewer keypair regeneration', () => {
         mockClerkSession({
             clerkUserId: 'user-id',
             org_slug: 'dev',
+            publicMetadata: {
+                userId: 'user-id',
+                orgs: [{ slug: 'dev', isAdmin: false, isResearcher: true, isReviewer: true }],
+            } as UserPublicMetadata,
         })
-
-        vi.mocked(useUser).mockReturnValue({
-            isLoaded: true,
-            isSignedIn: true,
-            user: {
-                firstName: 'Tester',
-                organizationMemberships: [],
-                publicMetadata: {
-                    orgs: [{ slug: 'dev', isAdmin: false, isResearcher: true, isReviewer: true }],
-                },
-            },
-        } as unknown as UseUserReturn)
 
         const mockKeys = {
             publicKeyString: 'mockPublicKey',
