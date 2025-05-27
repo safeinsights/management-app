@@ -5,9 +5,25 @@ import { z, inviteUserSchema } from './invite-user.schema'
 import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
+import { ActionFailure } from '@/lib/errors'
 
 export const orgAdminInviteUserAction = orgAdminAction(
     async ({ invite }) => {
+        const { org } = await orgActionContext()
+
+        // Check if the user (by email) is already inside this organization
+        const existingOrgUser = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .select('user.id')
+            .where('user.email', '=', invite.email)
+            .where('orgUser.orgId', '=', org.id)
+            .executeTakeFirst()
+
+        if (existingOrgUser) {
+            throw new ActionFailure({ email: 'This team member is already in this organization.' })
+        }
+
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
@@ -18,7 +34,6 @@ export const orgAdminInviteUserAction = orgAdminAction(
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return
         }
-        const { org } = await orgActionContext()
         const record = await db
             .insertInto('pendingUser')
             .values({
