@@ -1,16 +1,14 @@
-import React, { ReactNode } from 'react'
+'use server'
+
+import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
 import { UserLayout } from '@/components/layout/user-layout'
-import { getReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { redirect } from 'next/navigation'
 
-export default async function ReviewerLayout({
-    children,
-}: Readonly<{
-    children: ReactNode
-}>) {
-    const publicKey = await getReviewerPublicKeyAction()
+type Props = { children: React.ReactNode }
 
-    if (!publicKey) {
+export default async function ReviewerLayout({ children }: Props) {
+    const key = await getReviewerPublicKeyAction()
+    if (!key) {
         redirect('/account/keys')
     }
 
