@@ -113,7 +113,7 @@ describe('errorToString', () => {
 
     it('returns the sanitized error message when provided an object with sanitized error properties', () => {
         const sanitizedObj = { isSanitizedError: true, sanitizedError: { msg: 'Sanitized error message' } }
-        expect(errorToString(sanitizedObj)).toBe('Msg Sanitized error message')
+        expect(errorToString(sanitizedObj)).toBe('Msg: Sanitized error message')
     })
 
     it('handles a server action error without a valid JSON message', () => {
@@ -140,7 +140,7 @@ describe('errorToString', () => {
             environmentName: 'Server',
         }
         const result = errorToString(serverError)
-        expect(result).toBe('Msg Sanitized from server')
+        expect(result).toBe('Msg: Sanitized from server')
         // In this case, the sanitized error is extracted before the branch that calls captureException
     })
 
