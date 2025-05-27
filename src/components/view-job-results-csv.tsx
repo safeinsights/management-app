@@ -23,7 +23,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         isError,
         error,
     } = useQuery({
-        enabled: !!job.id,
+        enabled: !!job.resultsPath,
         queryKey: ['job-results', job.id],
         queryFn: async () => {
             const csv = await fetchJobResultsCsvAction(job.id || '')
