@@ -1,7 +1,5 @@
 import { capitalize } from 'remeda'
 
-export class AccessDeniedError extends Error {}
-
 export type ClerkAPIErrorObject = {
     code: string
     message: string
@@ -111,8 +109,11 @@ export const errorToString = (error: unknown) => {
     }
 }
 
+export class AccessDeniedError extends ActionFailure {}
+
 // a utility function to throw an AccessDeniedError with a message
 // useful for passing into kysely's takeFirstOrThrow
-export const throwAccessDenied = (part: string) => () => new AccessDeniedError(`not allowed access to ${part}`)
+export const throwAccessDenied = (part: string) => () =>
+    new AccessDeniedError({ user: `not allowed access to ${part}` })
 
-export const throwNotFound = (part: string) => () => new AccessDeniedError(`${part} was not found`)
+export const throwNotFound = (part: string) => () => new AccessDeniedError({ user: `${part} was not found` })
