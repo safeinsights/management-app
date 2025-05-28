@@ -148,15 +148,25 @@ The new way to deploy is from the IaC repo, run:
 There are a few CLI applications to debug the API end endpoints:
 
 ```bash
-npx tsx bin/debug/fetch-runnable.ts -o http://localhost:4000 -m openstax -k <path to private key>
-npx tsx bin/debug/set-status.ts -o http://localhost:4000 -m openstax -k <path to private key> -s <status: RUNNING | ERRORED> -j <uuid of job>
-npx tsx bin/debug/upload-results.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
-npx tsx bin/debug/keys.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job>
+npx tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
+npx tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
+npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
+npx tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
 ```
 
-The origin will default to http://localhost:4000 and organization to `openstax`, the values are shown above for illustration purposes and could be omitted.
+The scripts will use default values tailored for local development:
 
-> **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
+- origin will default to http://localhost:4000
+- organization to `openstax`
+- key to `tests/support/private_key.pem` (local dev `openstax` defaults to using the public key pair of this)
+
+Examples:
+
+- view runnable jobs details (useful for obtaining job uuids): `npx tsx bin/debug/fetch-runnable.ts`
+- set a job as running: `npx tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
+- upload results: `npx tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
+
+**Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
 ## Resources 📚
 

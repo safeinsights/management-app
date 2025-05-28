@@ -4,14 +4,14 @@ import { useMemo } from 'react'
 import { AuthRole } from '@/lib/types'
 
 export const useAuthInfo = () => {
-    const { isLoaded: authLoaded, userId, orgSlug } = clerkUseAuth()
+    const { isLoaded: authLoaded, userId } = clerkUseAuth()
     const { isLoaded: orgLoaded, org } = useOrgInfo()
 
     return useMemo(
         () => ({
             isLoaded: Boolean(authLoaded && orgLoaded),
             userId,
-            orgSlug,
+            orgSlug: org?.slug,
             ...org,
             role: org.isAdmin
                 ? AuthRole.Admin
@@ -21,7 +21,7 @@ export const useAuthInfo = () => {
                     ? AuthRole.Researcher
                     : null,
         }),
-        [authLoaded, orgLoaded, userId, orgSlug, org],
+        [authLoaded, orgLoaded, userId, org],
     )
 }
 
