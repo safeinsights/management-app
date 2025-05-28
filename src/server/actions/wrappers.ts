@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
+import { JwtPayload } from 'jsonwebtoken'
 
 export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
@@ -23,6 +24,10 @@ export type ActionContextOrgInfo = {
 
 export type OptionalActionContextOrgInfo = Partial<ActionContextOrgInfo>
 
+const orgSlugFromSessionClaims = (sessionClaims: JwtPayload | null) => {
+    return (sessionClaims?.org_slug as string) || sessionClaims?.userMetadata?.orgs?.[0]?.slug || undefined
+}
+
 export type ActionContext = {
     user: SiUser | Partial<SiUser>
     org: OptionalActionContextOrgInfo
@@ -38,7 +43,7 @@ export async function actionContext() {
         return {
             user: user,
             org: {
-                slug: sessionClaims?.org_slug as string | undefined,
+                slug: orgSlugFromSessionClaims(sessionClaims),
             },
         } as ActionContext
     }
@@ -100,7 +105,7 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
                 {
                     user: user,
                     org: {
-                        slug: sessionClaims?.org_slug as string | undefined,
+                        slug: orgSlugFromSessionClaims(sessionClaims),
                     },
                 } as ActionContext,
                 async () => {
@@ -168,7 +173,7 @@ export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(fun
                 }
                 return eb.and(filters)
             })
-            .executeTakeFirstOrThrow(() => new AccessDeniedError(`user is not a researcher`))
+            .executeTakeFirstOrThrow(() => new AccessDeniedError(`user ${ctx.user?.id} is not a researcher`))
 
         Object.assign(ctx, { org: orgInfo })
 
@@ -199,7 +204,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
                 .select(['id', 'name', 'description'])
                 .where('slug', '=', orgSlug)
                 .executeTakeFirstOrThrow(
-                    () => new ActionFailure({ org: `Target organization ${orgSlug} not found for admin operation.` }),
+                    () => new ActionFailure({ organization: `${orgSlug} was not found for admin operation.` }),
                 )
             Object.assign(ctx, {
                 org: {
@@ -221,7 +226,7 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
                 .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
                 .where('orgUser.userId', '=', ctx.user?.id || '')
                 .executeTakeFirstOrThrow(
-                    () => new AccessDeniedError(`user ${ctx.user?.id} is not a member of organization ${arg.orgSlug}`),
+                    () => new ActionFailure({ user: `${ctx.user?.id} is not a member of organization ${arg.orgSlug}` }),
                 )
 
             Object.assign(ctx, { org: orgInfo })
@@ -237,7 +242,7 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const { org, user } = await actionContext()
         if (!org.isAdmin) {
-            throw new AccessDeniedError(`user ${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`)
+            throw new ActionFailure({ user: `${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}` })
         }
         return await func(arg)
     }

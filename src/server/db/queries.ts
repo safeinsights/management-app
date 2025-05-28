@@ -152,7 +152,7 @@ export const latestJobForStudy = async (
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
-        .executeTakeFirstOrThrow(throwNotFound('job for study'))
+        .executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
