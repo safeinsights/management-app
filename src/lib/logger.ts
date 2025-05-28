@@ -11,11 +11,12 @@ const logger = {
 
     // always console.warn, then forward to Sentry only in prod
     warn: (...args: unknown[]) => {
-        debugWarn(...args)
+        // build a single message string for debug()
+        const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
+        debugWarn(msg)
         console.warn(...args)
         if (process.env.NODE_ENV !== 'development') {
             try {
-                const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
                 Sentry.captureMessage(msg, 'warning')
             } catch (e) {
                 console.warn('Failed to send warning to Sentry:', e)
@@ -25,15 +26,21 @@ const logger = {
 
     // always console.error, then forward real Error or wrapped text in prod
     error: (...args: unknown[]) => {
-        debugError(...args)
+        // detect an Error instance or stringify all args
+        const realErr = args.find((a) => a instanceof Error) as Error | undefined
+        if (realErr) {
+            debugError(realErr.stack ?? realErr.message)
+        } else {
+            const msg = args.map((a) => String(a)).join(' ')
+            debugError(msg)
+        }
         console.error(...args)
         if (process.env.NODE_ENV !== 'development') {
             try {
-                const real = args.find((a) => a instanceof Error) as Error | undefined
-                if (real) {
-                    Sentry.captureException(real)
+                if (realErr) {
+                    Sentry.captureException(realErr)
                 } else {
-                    const msg = args.map(String).join(' ')
+                    const msg = args.map((a) => String(a)).join(' ')
                     Sentry.captureException(new Error(msg))
                 }
             } catch (e) {
