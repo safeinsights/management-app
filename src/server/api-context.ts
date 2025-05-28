@@ -16,7 +16,7 @@ export function actionContext() {
 
 export function apiRequestingOrg() {
     const org = localStorageContext.getStore()?.org
-    if (!org) throw new AccessDeniedError('No org in context')
+    if (!org) throw new AccessDeniedError({ org: 'was not found in api context' })
 
     return org
 }

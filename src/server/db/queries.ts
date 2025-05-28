@@ -26,7 +26,7 @@ export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsIn
 }
 
 export const checkUserAllowedJobView = async (jobId?: string) => {
-    if (!jobId) throw new AccessDeniedError(`not allowed access to study`)
+    if (!jobId) throw new AccessDeniedError({ user: `not allowed access to job ${jobId}` })
     const userId = await getUserIdFromActionContext()
 
     await db
@@ -43,7 +43,7 @@ export const checkUserAllowedJobView = async (jobId?: string) => {
 }
 
 export const checkUserAllowedStudyView = async (studyId?: string) => {
-    if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
+    if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
     const userId = await getUserIdFromActionContext()
 
     await db
@@ -59,7 +59,7 @@ export const checkUserAllowedStudyView = async (studyId?: string) => {
 }
 
 export const checkUserAllowedStudyReview = async (studyId?: string) => {
-    if (!studyId) throw new AccessDeniedError(`not allowed access to study`)
+    if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
     const userId = await getUserIdFromActionContext()
 
     await db
@@ -85,7 +85,7 @@ export async function siUser(throwIfNotFound?: false): Promise<SiUser | null>
 export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
     const clerkUser = wasCalledFromAPI() ? null : await currentClerkUser()
     if (!clerkUser || clerkUser.banned) {
-        if (throwIfNotFound) throw new AccessDeniedError('User not found')
+        if (throwIfNotFound) throw new AccessDeniedError({ user: 'was not found' })
         return null
     }
 
@@ -152,7 +152,7 @@ export const latestJobForStudy = async (
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
-        .executeTakeFirstOrThrow(throwNotFound('job for study'))
+        .executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
 export const jobInfoForJobId = async (jobId: string) => {

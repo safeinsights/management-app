@@ -4,7 +4,7 @@ import { db } from '@/database'
 import { orgSchema } from '@/schema/org'
 import { findOrCreateClerkOrganization } from '../clerk'
 import {
-    adminAction,
+    siAdminAction,
     getUserIdFromActionContext,
     orgAdminAction,
     userAction,
@@ -17,7 +17,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 import logger from '@/lib/logger'
 
-export const upsertOrgAction = adminAction(async (org) => {
+export const upsertOrgAction = siAdminAction(async (org) => {
     // Check for duplicate organization name for new organizations only
     if (!('id' in org)) {
         const duplicate = await db.selectFrom('org').select('id').where('name', '=', org.name).executeTakeFirst()
@@ -45,15 +45,15 @@ export const getOrgFromIdAction = userAction(async (id) => {
     return await db.selectFrom('org').selectAll('org').where('id', '=', id).executeTakeFirst()
 }, z.string())
 
-export const fetchOrgsForSelectAction = adminAction(async () => {
+export const fetchOrgsForSelectAction = siAdminAction(async () => {
     return await db.selectFrom('org').select(['id as value', 'name as label']).execute()
 })
 
-export const fetchOrgsAction = adminAction(async () => {
+export const fetchOrgsAction = siAdminAction(async () => {
     return await db.selectFrom('org').selectAll('org').execute()
 })
 
-export const deleteOrgAction = adminAction(async (slug) => {
+export const deleteOrgAction = siAdminAction(async (slug) => {
     await db.deleteFrom('org').where('slug', '=', slug).execute()
 }, z.string())
 

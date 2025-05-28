@@ -7,7 +7,7 @@ import {
     getOrgInfoFromActionContext,
     anonAction,
     userAction,
-    adminAction,
+    siAdminAction,
     researcherAction,
     orgAction,
     orgAdminAction,
@@ -57,7 +57,7 @@ describe('actionContext & simple getters', () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             { user: user as any, org: {} },
             async () => {
-                await expect(getOrgInfoFromActionContext()).rejects.toThrow('user is not a member of organization?')
+                await expect(getOrgInfoFromActionContext()).rejects.toThrow(/orgSlug.*not present/)
             },
         )
     })
@@ -94,12 +94,12 @@ describe('adminAction()', () => {
         await mockSessionWithTestData()
         clerkAuthMock.mockResolvedValue({ orgSlug: CLERK_ADMIN_ORG_SLUG })
         const fn = vi.fn().mockResolvedValue('ADM_OK')
-        const wrapped = adminAction(fn)
+        const wrapped = siAdminAction(fn)
         await expect(wrapped({})).resolves.toBe('ADM_OK')
     })
 
     it('throws AccessDeniedError when not admin org', async () => {
-        const wrapped = adminAction(vi.fn())
+        const wrapped = siAdminAction(vi.fn())
         await expect(wrapped({})).rejects.toBeInstanceOf(AccessDeniedError)
     })
 })
