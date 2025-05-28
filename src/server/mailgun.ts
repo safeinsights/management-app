@@ -63,6 +63,6 @@ export async function deliver({
             'h:X-Mailgun-Variables': tmplVars,
         })
     } catch (error) {
-        logger.error.log(`mailgun send ${template} error: ${error}`)
+        logger.error(`mailgun send ${template} error:`, error)
     }
 }
