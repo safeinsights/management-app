@@ -61,6 +61,7 @@ export const getPendingUsersAction = orgAdminAction(
             .selectFrom('pendingUser')
             .select(['id', 'email'])
             .where('orgId', '=', org.id)
+            .where('claimedByUserId', 'is', null) // Only show pending invites that haven't been claimed yet
             .orderBy('createdAt', 'desc')
             .execute()
     },
