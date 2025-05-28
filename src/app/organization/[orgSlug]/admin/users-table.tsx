@@ -5,7 +5,7 @@ import { DataTable } from 'mantine-datatable'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
-import { Select, Flex, Text, useMantineTheme } from '@mantine/core'
+import { Select, Flex, Text } from '@mantine/core'
 import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUser } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { reportMutationError } from '@/components/errors'
@@ -81,7 +81,6 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         columnAccessor: 'fullName',
         direction: 'asc',
     })
-    const { colors } = useMantineTheme()
 
     const {
         data: users,
@@ -97,7 +96,6 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         <DataTable
             sortStatus={sort}
             minHeight={100}
-            backgroundColor={colors.gray[2]}
             rowBackgroundColor={() => 'white'}
             onSortStatusChange={setSortStatus}
             columns={[
