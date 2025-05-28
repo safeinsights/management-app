@@ -15,9 +15,7 @@ const logger = {
         console.warn(...args)
         if (process.env.NODE_ENV !== 'development') {
             try {
-                const msg = args
-                    .map(a => typeof a === 'string' ? a : JSON.stringify(a))
-                    .join(' ')
+                const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
                 Sentry.captureMessage(msg, 'warning')
             } catch (e) {
                 console.warn('Failed to send warning to Sentry:', e)
@@ -31,7 +29,7 @@ const logger = {
         console.error(...args)
         if (process.env.NODE_ENV !== 'development') {
             try {
-                const real = args.find(a => a instanceof Error) as Error | undefined
+                const real = args.find((a) => a instanceof Error) as Error | undefined
                 if (real) {
                     Sentry.captureException(real)
                 } else {
