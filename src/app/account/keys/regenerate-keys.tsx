@@ -1,14 +1,17 @@
 'use client'
 
-import { Button, Stack, Text, Group, Container, Title, Paper, Divider } from '@mantine/core'
+import { Button, Stack, Text, Group, Title, Paper, Divider } from '@mantine/core'
 import { AppModal } from '@/components/modal'
 import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { GenerateKeys } from './generate-keys'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { useOrgInfo } from '@/components/org-info'
 
 export const RegenerateKeys: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [displayGenerateKeys, setDisplayGenerateKeys] = useState(false)
+    const { orgSlug } = useOrgInfo()
 
     const handleConfirmAndProceed = () => {
         closeModal()
@@ -20,7 +23,8 @@ export const RegenerateKeys: FC = () => {
     }
 
     return (
-        <Container>
+        <Stack p="xl" w="90%" mx="sm">
+            <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${orgSlug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xl">
                 <Stack>
@@ -54,7 +58,7 @@ export const RegenerateKeys: FC = () => {
                 isOpen={isModalOpen}
                 onConfirmAndClose={handleConfirmAndProceed}
             />
-        </Container>
+        </Stack>
     )
 }
 

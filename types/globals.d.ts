@@ -1,9 +1,6 @@
 export {}
 
 declare global {
-    interface CustomJwtSessionClaims {
-        hasMFA?: boolean
-    }
     interface UserPublicMetadata {
         userId: string
         orgs?: Array<{
@@ -12,6 +9,10 @@ declare global {
             isReviewer: boolean
             isResearcher: boolean
         }>
+    }
+    interface CustomJwtSessionClaims {
+        hasMFA?: boolean
+        userMetadata?: UserPublicMetadata
     }
     interface Window {
         isReactHydrated: undefined | true

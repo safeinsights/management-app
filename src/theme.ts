@@ -121,6 +121,13 @@ export const theme = createTheme({
                 color: charcoal[9],
             },
         },
+        Table: {
+            styles: () => ({
+                th: {
+                    backgroundColor: grey[10],
+                },
+            }),
+        },
     },
     primaryShade: 5,
     primaryColor: 'purple',
