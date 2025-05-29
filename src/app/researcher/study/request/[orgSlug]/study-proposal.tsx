@@ -56,6 +56,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             agreementDocument: null,
             codeFiles: [],
         },
+        validateInputOnChange: ['title', 'piName'],
     })
 
     const { isPending, mutate: createStudy } = useMutation({
