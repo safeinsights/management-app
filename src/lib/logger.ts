@@ -48,7 +48,7 @@ function pretty(a: unknown): string {
     return String(a)
 }
 
-function _logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
+function logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
     const debugInstance = level === 'warn' ? debugWarn : debugError
     const consoleMethod = consoleMethodMap[level]
     const sentrySeverity = sentrySeverityMap[level]
@@ -73,13 +73,9 @@ const logger = {
     debug: debug('app:debug'),
     info: debug('app:info'),
 
-    warn: (...args: unknown[]) => {
-        _logAndReport('warn', ...args)
-    },
+    warn: (...args: unknown[]) => logAndReport('warn', ...args),
 
-    error: (...args: unknown[]) => {
-        _logAndReport('error', ...args)
-    },
+    error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
 // Enable debug output in development
