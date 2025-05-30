@@ -1,47 +1,71 @@
 import debug from 'debug'
 import * as Sentry from '@sentry/nextjs'
+import type { SeverityLevel } from '@sentry/nextjs'
+import { inspect } from 'util'
 
 // keep namespace‐based debug for debug/info
 const debugWarn = debug('app:warn')
 const debugError = debug('app:error')
 
+function pretty(a: unknown): string {
+    if (a === null) return 'null'
+    if (a === undefined) return 'undefined'
+    if (typeof a === 'function') {
+        return `[Function${a.name ? `: ${a.name}` : ''}]`
+    }
+    if (a instanceof Error) {
+        return a.stack ?? a.message
+    }
+    if (typeof a === 'object') {
+        try {
+            return JSON.stringify(a)
+        } catch {
+            // fallback: pretty-print circular or deep objects with util.inspect
+            return inspect(a, { depth: null })
+        }
+    }
+    return String(a)
+}
+
+function _logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
+    const debugInstance = level === 'warn' ? debugWarn : debugError
+    const consoleMethod = level === 'warn' ? console.warn : console.error
+    const sentrySeverity: SeverityLevel = level === 'warn' ? 'warning' : 'error'
+
+    consoleMethod(...args)
+
+    const realErr = args.find((a) => a instanceof Error) as Error | undefined
+
+    if (realErr) {
+        debugInstance(realErr.stack ?? realErr.message)
+        try {
+            Sentry.captureException(realErr)
+        } catch (e) {
+            // Use console.warn for Sentry failures to avoid potential loops
+            console.warn(`Failed to send ${level} exception to Sentry:`, e)
+        }
+    } else {
+        // Build a message string for debug and Sentry.captureMessage
+        const msg = args.map(pretty).join(' ')
+        debugInstance(msg)
+        try {
+            Sentry.captureMessage(msg, sentrySeverity)
+        } catch (e) {
+            console.warn(`Failed to send ${level} message to Sentry:`, e)
+        }
+    }
+}
+
 const logger = {
     debug: debug('app:debug'),
     info: debug('app:info'),
 
-    // always console.warn, then forward to Sentry only in prod
     warn: (...args: unknown[]) => {
-        // build a single message string for debug()
-        const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
-        debugWarn(msg)
-        console.warn(...args)
-        try {
-            Sentry.captureMessage(msg, 'warning')
-        } catch (e) {
-            console.warn('Failed to send warning to Sentry:', e)
-        }
+        _logAndReport('warn', ...args)
     },
 
-    // always console.error, then forward real Error or wrapped text in prod
     error: (...args: unknown[]) => {
-        // detect an Error instance or stringify all args
-        const realErr = args.find((a) => a instanceof Error) as Error | undefined
-        if (realErr) {
-            debugError(realErr.stack ?? realErr.message)
-        } else {
-            const msg = args.map((a) => String(a)).join(' ')
-            debugError(msg)
-        }
-        console.error(...args)
-        try {
-            if (realErr) {
-                Sentry.captureException(realErr)
-            } else {
-                Sentry.captureMessage(args.map((a) => String(a)).join(' '), 'error')
-            }
-        } catch (e) {
-            console.error('Failed to send exception to Sentry:', e)
-        }
+        _logAndReport('error', ...args)
     },
 }
 
