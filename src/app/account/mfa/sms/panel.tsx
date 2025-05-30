@@ -19,6 +19,7 @@ export function ManageSMSMFAPanel() {
     const { isLoaded, user } = useUser()
     const [isVerifying, setIsVerifying] = useState(false)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
+    const [isSendingSms, setIsSendingSms] = useState(false)
     const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
@@ -48,8 +49,9 @@ export function ManageSMSMFAPanel() {
     }
 
     async function sendVerificationCode(values: typeof phoneForm.values) {
-        if (!phoneForm.isValid) return
+        if (!phoneForm.isValid() || isSendingSms) return
 
+        setIsSendingSms(true)
         try {
             // Add unverified phone number to user, or use their existing unverified number
             const res = user?.phoneNumbers[0] || (await createPhoneNumber(values.phoneNumber))
@@ -62,11 +64,15 @@ export function ManageSMSMFAPanel() {
             setPhoneObj(phoneNumber)
 
             // Send the user an SMS with the verification code
-            phoneNumber?.prepareVerification()
+            await phoneNumber?.prepareVerification()
 
             setIsVerifying(true)
         } catch (err) {
             phoneForm.setFieldError('phoneNumber', errorToString(err))
+        } finally {
+            setTimeout(() => {
+                setIsSendingSms(false)
+            }, 5000)
         }
     }
 
@@ -120,7 +126,9 @@ export function ManageSMSMFAPanel() {
                                 {...phoneForm.getInputProps('phoneNumber')}
                                 placeholder="Enter phone number with country code"
                             />
-                            <Button type="submit">Send Code</Button>
+                            <Button type="submit" loading={isSendingSms}>
+                                Send Code
+                            </Button>
                         </Stack>
                     </form>
 
