@@ -72,9 +72,7 @@ function logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
 const logger = {
     debug: debug('app:debug'),
     info: debug('app:info'),
-
     warn: (...args: unknown[]) => logAndReport('warn', ...args),
-
     error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
