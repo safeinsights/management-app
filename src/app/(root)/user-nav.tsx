@@ -12,10 +12,10 @@ export const UserNav = () => {
     useEffect(() => {
         if (!auth.isLoaded) return
 
-        if (auth.isResearcher) {
+        if (auth.isReviewer && auth.preferredOrgSlug) {
+            router.push(`/reviewer/${auth.preferredOrgSlug}/dashboard`) // Redirect to the Reviewer dashboard
+        } else if (auth.isResearcher) {
             router.push('/researcher/dashboard') // Redirect to the Researcher dashboard
-        } else if (auth.isReviewer) {
-            router.push(`/reviewer/${auth.orgSlug}/dashboard`) // Redirect to the Reviewer dashboard
         } else if (auth.isAdmin) {
             router.push('/admin/organization') // Redirect to the Admin dashboard
         }
