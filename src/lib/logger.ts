@@ -15,12 +15,10 @@ const logger = {
         const msg = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ')
         debugWarn(msg)
         console.warn(...args)
-        if (process.env.NODE_ENV !== 'development') {
-            try {
-                Sentry.captureMessage(msg, 'warning')
-            } catch (e) {
-                console.warn('Failed to send warning to Sentry:', e)
-            }
+        try {
+            Sentry.captureMessage(msg, 'warning')
+        } catch (e) {
+            console.warn('Failed to send warning to Sentry:', e)
         }
     },
 
@@ -35,17 +33,14 @@ const logger = {
             debugError(msg)
         }
         console.error(...args)
-        if (process.env.NODE_ENV !== 'development') {
-            try {
-                if (realErr) {
-                    Sentry.captureException(realErr)
-                } else {
-                    const msg = args.map((a) => String(a)).join(' ')
-                    Sentry.captureException(new Error(msg))
-                }
-            } catch (e) {
-                console.error('Failed to send exception to Sentry:', e)
+        try {
+            if (realErr) {
+                Sentry.captureException(realErr)
+            } else {
+                Sentry.captureMessage(args.map((a) => String(a)).join(' '), 'error')
             }
+        } catch (e) {
+            console.error('Failed to send exception to Sentry:', e)
         }
     },
 }
