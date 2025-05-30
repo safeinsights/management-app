@@ -19,6 +19,15 @@ const sentrySeverityMap: Record<'warn' | 'error', SeverityLevel> = {
 const debugWarn = debug('app:warn')
 const debugError = debug('app:error')
 
+// wrap any Sentry call in try/catch to avoid infinite loops
+function safeCapture(fn: () => void, warningMsg: string): void {
+    try {
+        fn()
+    } catch (e) {
+        console.warn(warningMsg, e)
+    }
+}
+
 function pretty(a: unknown): string {
     if (a === null) return 'null'
     if (a === undefined) return 'undefined'
@@ -51,21 +60,12 @@ function _logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
 
     if (realErr) {
         debugInstance(realErr.stack ?? realErr.message)
-        try {
-            Sentry.captureException(realErr)
-        } catch (e) {
-            // Use console.warn for Sentry failures to avoid potential loops
-            console.warn(`Failed to send ${level} exception to Sentry:`, e)
-        }
+        safeCapture(() => Sentry.captureException(realErr), `Failed to send ${level} exception to Sentry:`)
     } else {
         // Build a message string for debug and Sentry.captureMessage
         const msg = args.map(pretty).join(' ')
         debugInstance(msg)
-        try {
-            Sentry.captureMessage(msg, sentrySeverity)
-        } catch (e) {
-            console.warn(`Failed to send ${level} message to Sentry:`, e)
-        }
+        safeCapture(() => Sentry.captureMessage(msg, sentrySeverity), `Failed to send ${level} message to Sentry:`)
     }
 }
 
