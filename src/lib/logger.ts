@@ -3,6 +3,18 @@ import * as Sentry from '@sentry/nextjs'
 import type { SeverityLevel } from '@sentry/nextjs'
 import { inspect } from 'util'
 
+// map our log levels to the right console method
+const consoleMethodMap = {
+    warn: console.warn,
+    error: console.error,
+} as const
+
+// map our log levels to Sentry severities
+const sentrySeverityMap: Record<'warn' | 'error', SeverityLevel> = {
+    warn: 'warning',
+    error: 'error',
+}
+
 // keep namespace‐based debug for debug/info
 const debugWarn = debug('app:warn')
 const debugError = debug('app:error')
@@ -29,9 +41,10 @@ function pretty(a: unknown): string {
 
 function _logAndReport(level: 'warn' | 'error', ...args: unknown[]): void {
     const debugInstance = level === 'warn' ? debugWarn : debugError
-    const consoleMethod = level === 'warn' ? console.warn : console.error
-    const sentrySeverity: SeverityLevel = level === 'warn' ? 'warning' : 'error'
+    const consoleMethod = consoleMethodMap[level]
+    const sentrySeverity = sentrySeverityMap[level]
 
+    // print to console
     consoleMethod(...args)
 
     const realErr = args.find((a) => a instanceof Error) as Error | undefined
