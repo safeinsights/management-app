@@ -61,13 +61,15 @@ export default clerkMiddleware(async (auth, req) => {
             return orgSlug == CLERK_ADMIN_ORG_SLUG
         },
         isOrgAdmin(slug: string) {
-            return Boolean(metadata.orgs?.find((org) => org.slug === slug && org.isAdmin))
+            return Boolean(this.isSIAdmin || metadata.orgs?.find((org) => org.slug === slug && org.isAdmin))
         },
         get isReviewer() {
-            return Boolean(metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isReviewer))
+            return Boolean(this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isReviewer))
         },
         get isResearcher() {
-            return Boolean(metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isResearcher))
+            return Boolean(
+                this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isResearcher),
+            )
         },
     }
 

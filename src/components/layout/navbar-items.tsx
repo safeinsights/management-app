@@ -11,7 +11,7 @@ import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin } = useAuthInfo()
+    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
 
     const pathname = usePathname()
 
@@ -19,7 +19,7 @@ export const NavbarItems: FC = () => {
     if (!isLoaded) return null
 
     const dashboardURL = () => {
-        if (isReviewer) return '/reviewer/openstax/dashboard'
+        if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
         if (isResearcher) return '/researcher/dashboard'
         if (isAdmin) return '/admin/dashboard'
         return '/'
