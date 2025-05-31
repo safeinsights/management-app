@@ -49,7 +49,7 @@ export function ManageSMSMFAPanel() {
     }
 
     async function sendVerificationCode(values: typeof phoneForm.values) {
-        if (!phoneForm.isValid() || isSendingSms) return
+        if (!phoneForm.isValid || isSendingSms) return
 
         setIsSendingSms(true)
         try {
@@ -72,7 +72,7 @@ export function ManageSMSMFAPanel() {
         } finally {
             setTimeout(() => {
                 setIsSendingSms(false)
-            }, 5000)
+            }, 3000)
         }
     }
 
