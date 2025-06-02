@@ -10,9 +10,7 @@ const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2x8iPxA
 
 const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
 
-export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
-    PROD_ENV ? [] : ['user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ', 'user_2oiQ37cyMUZuHnEwxjLmFJJY5kR'],
-)
+export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2xxpiScCXELkKuYlrnxqLnQh0c2'])
 
 async function setupUsers() {
     const pubKeyStr = await readTestSupportFile('public_key.pem')
