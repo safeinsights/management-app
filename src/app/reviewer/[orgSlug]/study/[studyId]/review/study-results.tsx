@@ -4,7 +4,7 @@ import React, { FC, useState } from 'react'
 import { Group, Paper, Stack, Text, Title, Divider } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
-import { ViewUnapprovedResults, type FileEntry } from './view-unapproved-results'
+import { DecryptResults, type FileEntry } from './decrypt-results'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 
 export const StudyResults: FC<{
@@ -44,7 +44,7 @@ export const StudyResults: FC<{
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider />
-                <ViewUnapprovedResults job={job} onApproval={setDecryptedResults} />
+                <DecryptResults job={job} onApproval={setDecryptedResults} />
                 {job.latestStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={job} />}
             </Stack>
         </Paper>

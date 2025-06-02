@@ -22,7 +22,7 @@ type Props = {
     onApproval: (decryptedResults: FileEntry[]) => void
 }
 
-export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
+export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
     const [plainTextResults, setPlainTextResults] = useState<string[]>()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
