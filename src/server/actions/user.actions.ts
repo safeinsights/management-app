@@ -36,14 +36,16 @@ export const onUserSignInAction = anonAction(async () => {
     const clerk = await clerkClient()
     const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
 
-    logger.info(`signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`)
+    logger.info(
+        `signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`,
+    )
 
     for (const org of memberships.data) {
         if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
 
         const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
         try {
-            findOrCreateOrgMembership({
+            await findOrCreateOrgMembership({
                 userId: user.id,
                 slug: org.organization.slug,
                 isResearcher: md?.isResearcher,
