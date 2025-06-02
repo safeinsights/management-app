@@ -6,6 +6,7 @@ import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z }
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { findOrCreateOrgMembership } from '../mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import logger from '@/lib/logger'
 
 export const onUserSignInAction = anonAction(async () => {
     const clerkUser = await currentUser()
@@ -34,6 +35,9 @@ export const onUserSignInAction = anonAction(async () => {
 
     const clerk = await clerkClient()
     const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
+
+    logger.info(`signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`)
+
     for (const org of memberships.data) {
         if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
 
