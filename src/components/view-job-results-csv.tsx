@@ -2,12 +2,12 @@
 
 import { FC } from 'react'
 
-import { Alert, Divider, Flex, Group, LoadingOverlay, Stack, Title } from '@mantine/core'
+import { Divider, Group, LoadingOverlay, Stack, Title, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
 import { ErrorAlert } from '@/components/errors'
-import { Download, Notification } from '@phosphor-icons/react/dist/ssr'
+import { Download } from '@phosphor-icons/react/dist/ssr'
 import { resultsDownloadURL } from '@/lib/paths'
 import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
 import { ButtonLink } from '@/components/links'
@@ -40,13 +40,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     })
 
     if (!job.resultsPath) {
-        return (
-            <Flex justify={'center'} w="100%" mt="xl">
-                <Alert variant="light" color="blue" title={'Results not available'} icon={<Notification />}>
-                    <p>Results are not yet available for this study.</p>
-                </Alert>
-            </Flex>
-        )
+        return <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
     }
 
     if (isError) {
