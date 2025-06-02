@@ -68,13 +68,17 @@ export default defineConfig({
         {
             name: 'global setup',
             testMatch: /playwright\.setup\.ts/,
+            teardown: 'global teardown',
         },
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['global setup'],
         },
-
+        {
+            name: 'global teardown',
+            testMatch: /playwright\.teardown\.ts/,
+        },
         // {
         //     name: 'firefox',
         //     use: { ...devices['Desktop Firefox'] },

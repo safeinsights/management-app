@@ -8,6 +8,7 @@ pipeline {
                 anyOf {
                     branch 'main'
                     branch 'PR-*'
+                    tag 'v*'
                 }
             }
             steps {
@@ -31,7 +32,6 @@ pipeline {
                     } else {
                         echo "Not a merge commit"
                     }
-
                 }
                 sh """
                     printenv
