@@ -1,0 +1,34 @@
+import 'dotenv/config'
+import { PROD_ENV } from '@/server/config'
+import { createClerkClient } from '@clerk/backend'
+
+export async function deleteClerkTestUsers() {
+    if (PROD_ENV) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
+
+    const SAFE_TO_DELETE = /^(?!.*dbfyq3).*(?:test|delete).*$/i
+    const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
+    //const clerk = await clerkClient()
+
+    const pageSize = 100
+    let offset = 0
+
+    const users = await clerk.users.getUserList({
+        limit: pageSize,
+        offset,
+    })
+
+    for (const user of users.data) {
+        const emailMatches = user.emailAddresses.some((e) => SAFE_TO_DELETE.test(e.emailAddress))
+        const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
+
+        if (emailMatches || nameMatches) {
+            try {
+                await clerk.users.deleteUser(user.id)
+                console.log(`✅ Deleted user ${user.id} ${user.fullName} (${user.primaryEmailAddress?.emailAddress})`)
+            } catch (err) {
+                console.error(`⚠️  Failed to delete ${user.id}:`, err)
+            }
+        }
+    }
+    offset += pageSize
+}

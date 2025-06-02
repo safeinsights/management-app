@@ -5,27 +5,8 @@ import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
 import { ClerkProvider, useClerk } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
-//import { AsyncLocalStorage } from 'node:async_hooks'
 
 const Headers = new Map()
-
-// type NextRequestContext = {
-//   get(): NextRequestContextValue | undefined
-// }
-
-// type NextRequestContextValue = {
-//   waitUntil?: (promise: Promise<any>) => void
-// }
-
-// const RequestContextStorage = new AsyncLocalStorage<NextRequestContextValue>()
-
-// // Define and inject the accessor that next.js will use
-// const RequestContext: NextRequestContext = {
-//   get() {
-//     return RequestContextStorage.getStore()
-//   },
-// }
-// globalThis[Symbol.for('@next/request-context')] = RequestContext
 
 beforeAll(async () => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
