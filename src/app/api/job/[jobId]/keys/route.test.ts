@@ -1,6 +1,7 @@
 import { expect, describe, it, beforeEach } from 'vitest'
 import * as apiHandler from './route'
 import { insertTestStudyJobUsers, insertTestOrg } from '@/tests/unit.helpers'
+import { db } from '@/database'
 
 describe('get keys', () => {
     let req: Request
@@ -43,5 +44,16 @@ describe('get keys', () => {
                 },
             ]),
         })
+    })
+
+    it('errors when a job has a bad key', async () => {
+        const { job } = await insertTestStudyJobUsers()
+        await db
+            .updateTable('userPublicKey')
+            .set({ publicKey: Buffer.from('') })
+            .execute()
+
+        const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: job.id }) })
+        expect(await response.json()).toThrow(`Invalid encryption key for ${job.id}: Invalid keyData`)
     })
 })
