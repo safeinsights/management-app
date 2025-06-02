@@ -1,9 +1,12 @@
 import 'dotenv/config'
 import { PROD_ENV } from '@/server/config'
 import { createClerkClient } from '@clerk/backend'
+import dayjs from 'dayjs'
 
-export async function deleteClerkTestUsers() {
+export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minutes').toDate()) {
     if (PROD_ENV) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
+
+    console.log(`deleting users created after ${cutoff}`) // eslint-disable-line no-console
 
     const SAFE_TO_DELETE = /^(?!.*dbfyq3).*(?:test|delete).*$/i
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
@@ -18,12 +21,15 @@ export async function deleteClerkTestUsers() {
     })
 
     for (const user of users.data) {
+        if (dayjs(user.createdAt).isBefore(cutoff)) continue
+
         const emailMatches = user.emailAddresses.some((e) => SAFE_TO_DELETE.test(e.emailAddress))
         const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
 
         if (emailMatches || nameMatches) {
             try {
                 await clerk.users.deleteUser(user.id)
+                // eslint-disable-next-line no-console
                 console.log(`✅ Deleted user ${user.id} ${user.fullName} (${user.primaryEmailAddress?.emailAddress})`)
             } catch (err) {
                 console.error(`⚠️  Failed to delete ${user.id}:`, err)
