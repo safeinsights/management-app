@@ -26,6 +26,6 @@ Sentry.init({
 
     enabled: process.env.NODE_ENV === 'production',
 
-    release: process.env.RELEASE_SHA || 'unknown',
+    release: process.env.RELEASE_TAG || 'unknown',
     environment: process.env.ENVIRONMENT_ID || 'development',
 })
