@@ -54,7 +54,7 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 privateKeyBuffer = pemToArrayBuffer(privateKey)
                 const key = await privateKeyFromBuffer(privateKeyBuffer)
                 fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
-            } catch(err) {
+            } catch (err) {
                 form.setFieldError('privateKey', 'Invalid key data, check that key was copied successfully')
                 throw err
             }
@@ -62,7 +62,10 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
                 return await reader.extractFiles()
             } catch (err) {
-                form.setFieldError('privateKey', 'Private key is not valid for these results, check with your administrator')
+                form.setFieldError(
+                    'privateKey',
+                    'Private key is not valid for these results, check with your administrator',
+                )
                 throw err
             }
         },
