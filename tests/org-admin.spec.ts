@@ -62,7 +62,8 @@ test.describe('Organization Admin', () => {
 
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible
-        await expect(page.getByPlaceholder('000000')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Set up Two-Step Verification' })).toBeVisible()
+
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
 
         await page.waitForTimeout(1000)
