@@ -1,4 +1,14 @@
-## [v0.0.3 - 2025-05-30](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.4 - 2025-06-02](https://github.com/safeinsights/management-app/blob/main)
+
+| PR | Author | Title | Merged Date | Tickets |
+|----|--------|-------|-------------|---------|
+| #233 | therealmarv | output to Sentry on production environment for warnings and errors | 2025-06-02 16:10:57 | [OTTER-175](https://openstax.atlassian.net/browse/OTTER-175) |
+| #243 | nathanstitt | support releases based on tags | 2025-06-02 20:01:16 |  |
+
+
+---
+
+%!(EXTRA string=## [v0.0.3 - 2025-05-30](https://github.com/safeinsights/management-app/blob/main)
 
 | PR   | Author      | Title                                                                 | Merged Date         | Tickets                                                                                                                   |
 | ---- | ----------- | --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -45,3 +55,4 @@
 ## [Alpha release - 2025-03-08](https://github.com/safeinsights/management-app/blob/b94ba41ccd1302f035414844ac316774ca6affd5)
 
 ## [First deployment - 2025-02-12](https://github.com/safeinsights/management-app/blob/8e94ebd)
+)
