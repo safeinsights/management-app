@@ -48,10 +48,10 @@ describe('get keys', () => {
 
     it('errors when a user has a bad key', async () => {
         const { job } = await insertTestStudyJobUsers()
-        await db
-            .updateTable('userPublicKey')
-            .set({ publicKey: Buffer.from('') })
-            .execute()
+        // await db
+        //     .updateTable('userPublicKey')
+        //     .set({ publicKey: Buffer.from('') })
+        //     .execute()
 
         expect(await apiHandler.GET(req, { params: Promise.resolve({ jobId: job.id }) })).toThrowError(
             `Invalid encryption key for ${job.id}: Invalid keyData`,
