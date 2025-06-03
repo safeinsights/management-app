@@ -14,33 +14,6 @@ export const GET = wrapApiOrgAction(async (_req: Request, { params }: { params: 
         .select(['studyJob.id as jobId', 'userPublicKey.publicKey', 'userPublicKey.fingerprint'])
         .execute()
 
-    for (const result of results) {
-        try {
-            // Decode the public key
-            const publicKey = await crypto.subtle.importKey(
-                'spki',
-                result.publicKey,
-                {
-                    name: 'RSA-OAEP',
-                    hash: 'SHA-256',
-                },
-                false,
-                ['encrypt'],
-            )
-
-            // Test encrypting with the job's key to make sure it's valid
-            await crypto.subtle.encrypt(
-                {
-                    name: 'RSA-OAEP',
-                },
-                publicKey,
-                Buffer.from('test'),
-            )
-        } catch (err) {
-            throw new Error(`Invalid encryption key for ${result.jobId}: ${(err as Error).message}`)
-        }
-    }
-
     if (!results) {
         return NextResponse.json({ status: 'fail', error: 'Database query failed' }, { status: 404 })
     }
