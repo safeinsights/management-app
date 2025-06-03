@@ -4,6 +4,7 @@ import { Button, Group, Stack, Textarea } from '@mantine/core'
 
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import * as Sentry from '@sentry/nextjs'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileEntry } from 'si-encryption/job-results/types'
@@ -21,7 +22,7 @@ type Props = {
     onApproval: (decryptedResults: FileEntry[]) => void
 }
 
-export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
+export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
     const [plainTextResults, setPlainTextResults] = useState<string[]>()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
@@ -36,6 +37,7 @@ export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
             try {
                 return await fetchJobResultsEncryptedZipAction({ jobId: job.id, orgSlug })
             } catch (error) {
+                Sentry.captureException(error)
                 form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
                 throw error
             }
@@ -46,21 +48,33 @@ export const ViewUnapprovedResults: React.FC<Props> = ({ job, onApproval }) => {
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
             if (!blob) return []
-
-            const privateKeyBuffer = pemToArrayBuffer(privateKey)
-            const key = await privateKeyFromBuffer(privateKeyBuffer)
-
-            const fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
-
-            const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
-            return await reader.extractFiles()
+            let fingerprint = ''
+            let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
+            try {
+                privateKeyBuffer = pemToArrayBuffer(privateKey)
+                const key = await privateKeyFromBuffer(privateKeyBuffer)
+                fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
+            } catch (err) {
+                form.setFieldError('privateKey', 'Invalid key data, check that key was copied successfully')
+                throw err
+            }
+            try {
+                const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
+                return await reader.extractFiles()
+            } catch (err) {
+                form.setFieldError(
+                    'privateKey',
+                    'Private key is not valid for these results, check with your administrator',
+                )
+                throw err
+            }
         },
         onSuccess: async (data: FileEntry[]) => {
             onApproval(data)
             setPlainTextResults(data.map((entry) => new TextDecoder().decode(entry.contents)))
         },
-        onError: async () => {
-            form.setFieldError('privateKey', 'Invalid private key, please double check the key and try again.')
+        onError: async (err) => {
+            Sentry.captureException(err)
         },
     })
     const onSubmit = (values: StudyResultsFormValues) => {

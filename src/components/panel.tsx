@@ -1,4 +1,4 @@
-import { Flex, FlexProps, Paper, Text, Anchor, useMantineTheme } from '@mantine/core'
+import { Flex, FlexProps, Paper, Text, Anchor, useMantineTheme, Title } from '@mantine/core'
 import { CheckCircle, Prohibit } from '@phosphor-icons/react/dist/ssr'
 import React from 'react'
 
@@ -11,9 +11,7 @@ export const Panel: React.FC<PanelProps> = ({ children, title, ...flexProps }) =
     return (
         <Flex direction="column" {...flexProps}>
             <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                <Flex justify="space-between" gap="xl">
-                    <Text ta="left">{title}</Text>
-                </Flex>
+                <Title order={3}>{title}</Title>
             </Paper>
             <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
                 {children}

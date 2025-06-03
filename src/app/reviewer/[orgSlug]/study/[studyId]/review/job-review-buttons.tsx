@@ -66,7 +66,7 @@ export const JobReviewButtons = ({
 
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
-            <Group gap="2">
+            <Group gap="xs">
                 <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
                 <Text fz="xs" fw={600} c="green.9">
                     Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
@@ -77,7 +77,7 @@ export const JobReviewButtons = ({
 
     if (job.latestStatus === 'RESULTS-REJECTED') {
         return (
-            <Group gap="2">
+            <Group gap="xs">
                 <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
                 <Text fz="xs" fw={600} c="red.9">
                     Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
