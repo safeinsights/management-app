@@ -10,6 +10,7 @@ import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
+import { sleep } from '@/lib/util'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,7 @@ export function ManageSMSMFAPanel() {
     const [isVerifying, setIsVerifying] = useState(false)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
+    const [lastSentTime, setLastSentTime] = useState<number | null>(null)
     const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
@@ -51,6 +53,15 @@ export function ManageSMSMFAPanel() {
     async function sendVerificationCode(values: typeof phoneForm.values) {
         if (!phoneForm.isValid || isSendingSms) return
 
+        if (lastSentTime && Date.now() - lastSentTime < 30000) {
+            notifications.show({
+                message: 'You have recently requested a code. Please wait 30 seconds before trying again.',
+                color: 'orange',
+            })
+            return
+        }
+
+        setLastSentTime(Date.now())
         setIsSendingSms(true)
         try {
             // Add unverified phone number to user, or use their existing unverified number
@@ -65,14 +76,17 @@ export function ManageSMSMFAPanel() {
 
             // Send the user an SMS with the verification code
             await phoneNumber?.prepareVerification()
-
+            await sleep({ 3: 'seconds' })
+            setIsSendingSms(false)
             setIsVerifying(true)
-        } catch (err) {
-            phoneForm.setFieldError('phoneNumber', errorToString(err))
-        } finally {
-            setTimeout(() => {
-                setIsSendingSms(false)
-            }, 3000)
+        } catch (error) {
+            const errorMessage = errorToString(error)
+            notifications.show({
+                message: errorMessage,
+                color: 'red',
+            })
+
+            setIsSendingSms(false)
         }
     }
 
