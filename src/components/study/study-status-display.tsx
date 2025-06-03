@@ -11,7 +11,7 @@ const StudyStatusDisplay: FC<{ status: StudyStatus; date?: Date | null }> = ({ s
     const color = status === 'APPROVED' ? 'green.9' : 'red.9'
 
     return (
-        <Group c={color} gap="0.5rem" align="center">
+        <Group c={color} gap="xs" align="center">
             {status === 'APPROVED' ? <CheckCircle weight="fill" size={24} /> : <XCircle weight="fill" size={24} />}
             <Text fz="xs" fw={600} c={color}>
                 {capitalize(status.toLowerCase())} on {dayjs(date).format('MMM DD, YYYY')}
