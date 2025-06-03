@@ -28,6 +28,10 @@ const setOrgUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuffer
 export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
     const userId = await getUserIdFromActionContext()
 
+    if (!publicKey.byteLength) {
+        throw new Error('Invalid public key format')
+    }
+
     await db
         .insertInto('userPublicKey')
         .values({
