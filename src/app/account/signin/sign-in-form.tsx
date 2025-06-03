@@ -1,5 +1,4 @@
-import { Panel } from '@/components/panel'
-import { Flex, Button, TextInput, PasswordInput, Stack } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { isNotEmpty, isEmail, useForm } from '@mantine/form'
 import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
@@ -53,37 +52,39 @@ export const SignInForm: FC<{
                     form.setFieldError('email', emailError.longMessage)
                 }
             }
+            form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
         }
     })
 
     return (
         <form onSubmit={onSubmit}>
-            <Panel title="Welcome To SafeInsights">
-                <TextInput
-                    key={form.key('email')}
-                    {...form.getInputProps('email')}
-                    label="Email"
-                    placeholder="Email address"
-                    aria-label="Email"
-                />
-                <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    key={form.key('password')}
-                    {...form.getInputProps('password')}
-                    mt={10}
-                    placeholder="Password"
-                    aria-label="Password"
-                />
-                <Flex align="center" mt={15} gap="md">
-                    <Button type="submit">Login</Button>
-                    <Stack>
-                        {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
-                        {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                        <Link href="/account/reset-password">Forgot password?</Link>
-                    </Stack>
+            <Paper bg="white" radius="none" p="xxl">
+                <Flex direction="column" gap="xs">
+                    <Title order={3} ta="center">
+                        Welcome To SafeInsights!
+                    </Title>
+                    <TextInput
+                        key={form.key('email')}
+                        {...form.getInputProps('email')}
+                        label="Email"
+                        placeholder="Enter your registered email address"
+                        aria-label="Email"
+                    />
+                    <PasswordInput
+                        label="Password"
+                        key={form.key('password')}
+                        {...form.getInputProps('password')}
+                        mt={10}
+                        placeholder="Password"
+                        aria-label="Password"
+                    />
+                    <Link href="/account/reset-password">Forgot password?</Link>
+                    {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
+                    <Button disabled={!form.isValid()} type="submit">
+                        Login
+                    </Button>
                 </Flex>
-            </Panel>
+            </Paper>
         </form>
     )
 }
