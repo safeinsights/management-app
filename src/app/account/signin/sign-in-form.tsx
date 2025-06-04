@@ -67,7 +67,7 @@ export const SignInForm: FC<{
         <form onSubmit={onSubmit}>
             <Paper bg="white" radius="none" p="xxl">
                 <Flex direction="column" gap="xs">
-                    <Title order={3} ta="center">
+                    <Title mb="xs" order={3} ta="center">
                         Welcome To SafeInsights!
                     </Title>
                     <TextInput
@@ -82,12 +82,13 @@ export const SignInForm: FC<{
                         key={form.key('password')}
                         {...form.getInputProps('password')}
                         mt={10}
+                        mb="xs"
                         placeholder="*********"
                         aria-label="Password"
                     />
                     <Link href="/account/reset-password">Forgot password?</Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button disabled={!form.isValid()} type="submit">
+                    <Button mb="xxl" disabled={!form.isValid()} type="submit">
                         Login
                     </Button>
                 </Flex>
