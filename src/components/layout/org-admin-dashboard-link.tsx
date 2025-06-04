@@ -16,7 +16,7 @@ interface OrgAdminDashboardLinkProps {
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname }) => {
     const { orgSlug } = useOrgInfo()
 
-    const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
+    const orgAdminBaseUrl = `/admin/team/${orgSlug}/admin`
     // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
 

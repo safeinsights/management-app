@@ -122,8 +122,8 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
         })
     }
     // If both DB and Clerk updates are successful
-    revalidatePath(`/organization/${orgSlug}/admin/settings`)
-    revalidatePath(`/organization/${orgSlug}/admin`)
+    revalidatePath(`/admin/team/${orgSlug}/admin/settings`)
+    revalidatePath(`/admin/team/${orgSlug}/admin`)
 
     return { success: true, message: 'Organization settings updated successfully.' }
 }, updateOrgSettingsSchema)

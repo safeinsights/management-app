@@ -94,7 +94,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                 size="sm"
                 variant="subtle"
                 color="blue"
-                onClick={() => router.push(`/organization/${org.slug}/admin`)}
+                onClick={() => router.push(`/admin/team/${org.slug}/admin`)}
             >
                 <Users />
             </ActionIcon>

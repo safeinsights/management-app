@@ -129,8 +129,8 @@ describe('Org Actions', () => {
             expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrg.id, {
                 name: newName,
             })
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin`)
         })
 
         it('successfully updates org name only in DB and Clerk', async () => {
@@ -156,8 +156,8 @@ describe('Org Actions', () => {
                 name: newName,
             })
             // revalidate should still run
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin`)
         })
 
         it('successfully updates description only in DB without calling Clerk', async () => {
@@ -178,8 +178,8 @@ describe('Org Actions', () => {
             // clerk should NOT be called when name is unchanged
             expect(clientMocksForTestScope.organizations.updateOrganization).not.toHaveBeenCalled()
             // revalidate should still run
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin/settings`)
-            expect(revalidatePath).toHaveBeenCalledWith(`/organization/${targetOrgSlug}/admin`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`admin/team/${targetOrgSlug}/admin`)
         })
 
         it('reverts DB change and throws ActionFailure if Clerk update fails', async () => {

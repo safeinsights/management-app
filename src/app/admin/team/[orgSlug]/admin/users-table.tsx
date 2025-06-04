@@ -100,7 +100,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             onSortStatusChange={setSortStatus}
             columns={[
                 {
-                    title: 'Name',
+                    title: 'Full Name',
                     accessor: 'fullName',
                     sortable: true,
                     render: (user: User) => (
@@ -121,7 +121,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         <Flex align="center">
                             <span>Role</span>
                             <InfoTooltip
-                                size={22}
+                                size={14}
                                 text={
                                     <Flex direction="column">
                                         <Text>Shows someone’s role within the organization:</Text>
@@ -146,7 +146,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         <Flex align="center">
                             <span>Permission</span>
                             <InfoTooltip
-                                size={22}
+                                size={14}
                                 text={
                                     <Flex direction="column">
                                         <Text>Shows someone’s permissions within the organization:</Text>
@@ -167,7 +167,7 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 {
                     accessor: 'latestActivityAt',
                     title: 'Last active',
-                    textAlign: 'right',
+                    textAlign: 'left',
                     render: (user: User) =>
                         user.latestActivityAt
                             ? dayjs(user.latestActivityAt).format('MMM DD, YYYY h:mma')
