@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 
-import { Divider, Group, LoadingOverlay, Stack, Title, Text } from '@mantine/core'
+import { Flex, LoadingOverlay, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
@@ -45,12 +45,8 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     }
 
     return (
-        <Stack mt="xl">
-            <Group justify="space-between">
-                <Title order={4} size="xl">
-                    Study Results
-                </Title>
-                <Divider />
+        <Stack>
+            <Flex justify={'end'}>
                 <ButtonLink
                     target="_blank"
                     rightSection={<Download />}
@@ -58,8 +54,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
                 >
                     Download Results
                 </ButtonLink>
-            </Group>
-
+            </Flex>
             <RenderCSV csv={results} />
         </Stack>
     )
