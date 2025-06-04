@@ -9,23 +9,13 @@ import type { StudyJobWithLastStatus } from '@/server/db/queries'
 
 export const StudyResults: FC<{
     job: StudyJobWithLastStatus | null
-    fingerprint: string | undefined
-}> = ({ job, fingerprint }) => {
+}> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<FileEntry[]>()
 
     if (!job) {
         return (
             <Paper bg="white" p="xl">
                 <Text>Study results are not available yet</Text>
-            </Paper>
-        )
-    }
-
-    if (!fingerprint) {
-        return (
-            <Paper bg="white" p="xl">
-                <Text>It looks like you have not generated a key yet.</Text>
-                <Text>You cannot view results without a private key.</Text>
             </Paper>
         )
     }
@@ -45,7 +35,7 @@ export const StudyResults: FC<{
                 </Group>
                 <Divider />
                 <DecryptResults job={job} onApproval={setDecryptedResults} />
-                {job.latestStatus === 'RESULTS-APPROVED' && <ViewJobResultsCSV job={job} />}
+                <ViewJobResultsCSV job={job} />
             </Stack>
         </Paper>
     )

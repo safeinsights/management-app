@@ -5,18 +5,6 @@ import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrap
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 
-export const getReviewerFingerprintAction = userAction(async () => {
-    const userId = await getUserIdFromActionContext()
-
-    const result = await db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.fingerprint
-})
-
 export const getReviewerPublicKeyAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
 
