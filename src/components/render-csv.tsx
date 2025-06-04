@@ -26,7 +26,6 @@ export const RenderCSV: FC<{ csv: string }> = ({ csv: txt }) => {
                           results.data.forEach((row, i) => {
                               row['INDEX_KEY_FOR_RENDERING'] = i
                           })
-                          return results
                       },
                   })
             : skipToken,
@@ -44,5 +43,11 @@ export const RenderCSV: FC<{ csv: string }> = ({ csv: txt }) => {
         return <LoadingOverlay />
     }
 
-    return <DataTable records={csv.data} columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))} />
+    return (
+        <DataTable
+            records={csv.data}
+            columns={(csv?.meta?.fields || []).map((f) => ({ accessor: f }))}
+            idAccessor="INDEX_KEY_FOR_RENDERING"
+        />
+    )
 }
