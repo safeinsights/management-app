@@ -42,4 +42,6 @@ class FileSender extends DebugRequest {
 }
 
 const sender = new FileSender()
-sender.perform()
+sender.perform().then(() => {
+    console.log('Results must be decrypted using ONLY tests/support/private_key.pem.  normal reviewer keys will not work.  use:\ncat tests/support/private_key.pem | pbcopy')
+})
