@@ -77,10 +77,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 <Stack>
                     <Title order={3}>Review Studies</Title>
                     <Divider c="charcoal.1" />
-                    <Text>
-                        Review all the studies submitted to your organization. Studies that need your attention will be
-                        labeled ‘Needs review’.
-                    </Text>
                     <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                         {!rows.length && (
                             <TableCaption>

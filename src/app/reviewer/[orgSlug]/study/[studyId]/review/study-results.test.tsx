@@ -81,7 +81,6 @@ describe('View Study Results', () => {
 
         await waitFor(() => {
             expect(screen.getByText(RegExp(csv))).toBeDefined()
-            fireEvent.click(screen.getByRole('button', { name: /Download/i }))
         })
     })
 })
