@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, PasswordInput, Anchor } from '@mantine/core'
+import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
@@ -18,10 +18,9 @@ interface VerificationFormValues {
 
 interface PendingResetProps {
     pendingReset: SignInResource
-    onBack: () => void
 }
 
-export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
+export function PendingReset({ pendingReset }: PendingResetProps) {
     const { isLoaded, setActive } = useSignIn()
     const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
     const router = useRouter()
@@ -87,16 +86,12 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
     return (
-        <Stack>
-            <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                    <Group justify="space-between" gap="xl">
-                        <Text ta="left">Reset Your Password</Text>
-                        <CloseButton aria-label="Close password reset form" onClick={() => router.push('/')} />
-                    </Group>
-                </Paper>
-                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>Enter the verification code from your email and choose a new password.</Text>
+        <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
+            <Paper bg="#f5f5f5" shadow="none" p="xxl" radius="sm">
+                <Flex direction="column" gap="sm">
+                    <Title mb="sm" ta="center" order={3}>
+                        Reset your password
+                    </Title>
                     <TextInput
                         key={verificationForm.key('code')}
                         {...verificationForm.getInputProps('code')}
@@ -108,18 +103,28 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
                         key={verificationForm.key('password')}
                         {...verificationForm.getInputProps('password')}
                         label="New Password"
-                        placeholder="Enter new password"
+                        placeholder="********"
                         aria-label="New password"
                         mt={10}
                     />
-                    <Stack align="center" mt={15}>
-                        <Button type="submit" loading={isPending}>
-                            Reset Password
+                    <PasswordInput
+                        key={verificationForm.key('password')}
+                        {...verificationForm.getInputProps('password')}
+                        label="Confirm New Password"
+                        placeholder="********"
+                        aria-label="Confirm New password"
+                        mt={10}
+                    />
+                    <Flex direction="row" justify="space-between" mt={15} mb="xxl" gap="xxl">
+                        <Button type="submit" loading={isPending} variant="outline">
+                            Resend verification code
                         </Button>
-                        <Anchor onClick={onBack}>Back to Email Entry</Anchor>
-                    </Stack>
-                </Paper>
-            </form>
-        </Stack>
+                        <Button type="submit" loading={isPending}>
+                            Update new password
+                        </Button>
+                    </Flex>
+                </Flex>
+            </Paper>
+        </form>
     )
 }
