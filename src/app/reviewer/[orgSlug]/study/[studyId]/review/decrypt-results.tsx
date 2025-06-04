@@ -11,6 +11,7 @@ import type { FileEntry } from 'si-encryption/job-results/types'
 import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
 import { useParams } from 'next/navigation'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import { RenderCSV } from '@/components/render-csv'
 export type { FileEntry }
 
 interface StudyResultsFormValues {
@@ -23,7 +24,7 @@ type Props = {
 }
 
 export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
-    const [plainTextResults, setPlainTextResults] = useState<string[]>()
+    const [plainTextResults, setPlainTextResults] = useState<string[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
@@ -89,7 +90,9 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
 
     return (
         <Stack>
-            {plainTextResults?.length && plainTextResults.map((text, index) => <Stack key={index}>{text}</Stack>)}
+            {plainTextResults.map((txt, i) => (
+                <RenderCSV csv={txt} key={i} />
+            ))}
             {job.latestStatus === 'RUN-COMPLETE' && !plainTextResults?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>
