@@ -22,7 +22,10 @@ export const SignInForm: FC<{
         },
 
         validate: {
-            email: isEmail('Invalid email'),
+            email: (value) => {
+                if (value.length > 250) return 'Email too long'
+                return isEmail('Invalid email')(value)
+            },
             password: isNotEmpty('Required'),
         },
     })
@@ -50,8 +53,11 @@ export const SignInForm: FC<{
                 const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
                 if (emailError) {
                     form.setFieldError('email', emailError.longMessage)
+                    return
                 }
             }
+
+            form.setFieldError('email', ' ')
             form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
         }
     })
@@ -75,7 +81,7 @@ export const SignInForm: FC<{
                         key={form.key('password')}
                         {...form.getInputProps('password')}
                         mt={10}
-                        placeholder="Password"
+                        placeholder="*********"
                         aria-label="Password"
                     />
                     <Link href="/account/reset-password">Forgot password?</Link>
