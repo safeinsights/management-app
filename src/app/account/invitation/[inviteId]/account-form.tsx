@@ -115,5 +115,9 @@ export const AccountPanel: FC<InviteProps> = (props) => {
         return <SignOutPanel />
     }
 
-    return inviteCompleted ? <Success /> : <SetupAccountForm {...props} onComplete={() => setInviteCompleted(true)} />
+    return inviteCompleted && isSignedIn ? (
+        <Success />
+    ) : (
+        <SetupAccountForm {...props} onComplete={() => setInviteCompleted(true)} />
+    )
 }
