@@ -184,7 +184,9 @@ describe('Org Actions', () => {
         })
 
         it('reverts DB change and throws ActionFailure if Clerk update fails', async () => {
-            clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(new Error('Clerk API error 500 from test mock'))
+            clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(
+                new Error('Clerk API error 500 from test mock'),
+            )
             vi.spyOn(logger, 'error').mockImplementation(() => {})
             vi.spyOn(logger, 'warn').mockImplementation(() => {})
             await expect(
