@@ -92,7 +92,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                             <TableTr>
                                 <TableTh fw={600}>Study Name</TableTh>
                                 <TableTh fw={600}>Submitted On</TableTh>
-                                <TableTh fw={600}>Researcher</TableTh>
+                                <TableTh fw={600}>Submitted By</TableTh>
                                 <TableTh fw={600}>Reviewed By</TableTh>
                                 <TableTh fw={600}>Status</TableTh>
                                 <TableTh fw={600}>Details</TableTh>
