@@ -17,8 +17,8 @@ This document outlines the coding conventions and best practices used in this pr
 
 - The project uses ESLint and Prettier to ensure consistent code style.
 - Use the following npm scripts:
-  - `npm run lint` - Check for lint issues.
-  - `npm run lint:fix` - Automatically fix lint issues.
+    - `npm run lint` - Check for lint issues.
+    - `npm run lint:fix` - Automatically fix lint issues.
 - Also run `npm run checks` to run type checking and linting together.
 
 ## Type Checking
@@ -29,8 +29,8 @@ This document outlines the coding conventions and best practices used in this pr
 ## Git Hooks
 
 - The project runs pre-commit and pre-push linting and type checks:
-  - `pre:commit` - Runs linting and type checking before committing.
-  - `pre:push` - Runs linting and type checking before pushing.
+    - `pre:commit` - Runs linting and type checking before committing.
+    - `pre:push` - Runs linting and type checking before pushing.
 
 ## Dependencies and Scripts
 
