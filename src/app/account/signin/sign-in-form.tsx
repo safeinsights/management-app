@@ -1,11 +1,19 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { isNotEmpty, isEmail, useForm } from '@mantine/form'
+import { useForm, zodResolver } from '@mantine/form'
 import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC } from 'react'
 import { useRouter } from 'next/navigation'
+import { z } from 'zod'
+
+const signInSchema = z.object({
+    email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
+    password: z.string().min(1, 'Required'),
+})
+
+type SignInFormData = z.infer<typeof signInSchema>
 
 export const SignInForm: FC<{
     mfa: MFAState
@@ -15,19 +23,12 @@ export const SignInForm: FC<{
     const { isSignedIn } = useUser()
     const router = useRouter()
 
-    const form = useForm({
+    const form = useForm<SignInFormData>({
         initialValues: {
             email: '',
             password: '',
         },
-
-        validate: {
-            email: (value) => {
-                if (value.length > 250) return 'Email too long'
-                return isEmail('Invalid email')(value)
-            },
-            password: isNotEmpty('Required'),
-        },
+        validate: zodResolver(signInSchema),
     })
 
     if (isSignedIn || !signIn || mfa) return null
