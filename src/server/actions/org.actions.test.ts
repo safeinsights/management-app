@@ -12,6 +12,7 @@ import {
     upsertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
+import logger from '@/lib/logger'
 
 // Mock the 'next/cache' module to prevent real cache operations during tests.
 vi.mock('next/cache', async (importOriginal) => {
@@ -183,16 +184,15 @@ describe('Org Actions', () => {
         })
 
         it('reverts DB change and throws ActionFailure if Clerk update fails', async () => {
-            const newName = 'Update Attempt (Clerk Fail Test)'
-            const clerkErrorMessage = 'Clerk API error 500 from test mock'
-            clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(new Error(clerkErrorMessage))
-            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-            const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
+            clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(
+                new Error('Clerk API error 500 from test mock'),
+            )
+            vi.spyOn(logger, 'error').mockImplementation(() => {})
+            vi.spyOn(logger, 'warn').mockImplementation(() => {})
             await expect(
                 updateOrgSettingsAction({
                     orgSlug: targetOrgSlug,
-                    name: newName,
+                    name: 'Update Attempt (Clerk Fail Test)',
                     description: initialDescription,
                 }),
             ).rejects.toThrow(ActionFailure)
@@ -200,9 +200,6 @@ describe('Org Actions', () => {
             const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
             expect(dbOrg?.name).toBe(initialName)
             expect(dbOrg?.description).toBe(initialDescription)
-
-            consoleErrorSpy.mockRestore()
-            consoleWarnSpy.mockRestore()
         })
 
         it('throws ActionFailure if target org for update is not found in DB', async () => {

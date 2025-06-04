@@ -127,7 +127,7 @@ jobs:
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
             - name: Display server log
-              run: cat server_output.log
+              run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
