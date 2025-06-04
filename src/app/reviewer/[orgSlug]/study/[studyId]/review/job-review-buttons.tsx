@@ -86,6 +86,8 @@ export const JobReviewButtons = ({
         )
     }
 
+    if (!decryptedResults) return null
+
     return (
         <Group>
             <DownloadResults results={decryptedResults?.[0]} />
