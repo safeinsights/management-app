@@ -59,7 +59,7 @@ export const StudyProposalForm: FC<{
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Study Lead" inputId={studyProposalForm.key('lead')} />
+                        <FormFieldLabel label="Submitted by" inputId={studyProposalForm.key('lead')} />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <TextInput
