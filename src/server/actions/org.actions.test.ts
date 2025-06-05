@@ -179,7 +179,7 @@ describe('Org Actions', () => {
             // clerk should NOT be called when name is unchanged
             expect(clientMocksForTestScope.organizations.updateOrganization).not.toHaveBeenCalled()
             // revalidate should still run
-            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/admin/settings`)
+            expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
         })
 
