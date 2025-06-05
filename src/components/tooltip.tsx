@@ -3,7 +3,6 @@ import { InfoIcon } from './icons'
 
 type InfoTooltipProps = {
     text: React.ReactNode
-    size?: number
 }
 
 export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text, size }) => (
