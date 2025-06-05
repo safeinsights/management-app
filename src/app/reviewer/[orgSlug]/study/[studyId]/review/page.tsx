@@ -11,7 +11,6 @@ import { StudyDetails } from '@/components/study/study-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from './study-results'
 import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
-import { getReviewerFingerprintAction } from '@/server/actions/user-keys.actions'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -19,8 +18,6 @@ export default async function StudyReviewPage(props: {
         studyId: string
     }>
 }) {
-    const fingerprint = await getReviewerFingerprintAction()
-
     const params = await props.params
 
     const { orgSlug, studyId } = params
@@ -72,7 +69,7 @@ export default async function StudyReviewPage(props: {
                 </Stack>
             </Paper>
 
-            <StudyResults job={latestJob} fingerprint={fingerprint} />
+            <StudyResults job={latestJob} />
         </Stack>
     )
 }

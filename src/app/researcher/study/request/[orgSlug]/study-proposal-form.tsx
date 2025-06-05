@@ -53,14 +53,13 @@ export const StudyProposalForm: FC<{
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
-                            maxLength={50}
                         />
                     </Grid.Col>
                 </Grid>
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Study Lead" inputId={studyProposalForm.key('lead')} />
+                        <FormFieldLabel label="Submitted by" inputId={studyProposalForm.key('lead')} />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <TextInput
@@ -82,7 +81,6 @@ export const StudyProposalForm: FC<{
                             aria-label="Principal Investigator"
                             placeholder="Full Name (max. 100 characters)"
                             {...studyProposalForm.getInputProps('piName')}
-                            maxLength={100}
                         />
                     </Grid.Col>
                 </Grid>

@@ -26,6 +26,7 @@ export function useOrgInfo(orgSlugFallback = '') {
         return {
             isLoaded,
             orgSlug,
+            preferredOrgSlug: paramOrgSlug || currentOrgSlug, // preferred is what the user has indicated a preference for,  either via url or org switcher
             org: { ...org, isAdmin: org?.isAdmin || !!adminOrg },
         }
     }, [isLoaded, user, currentOrgSlug, paramOrgSlug, orgSlugFallback])

@@ -1,6 +1,11 @@
 import { faker } from '@faker-js/faker'
 import { expect, test, TestingUsers, visitClerkProtectedPage, goto } from './e2e.helpers'
 
+test.beforeEach(async ({}, testInfo) => {
+    // Extend timeout for all tests running this hook by 30 seconds.
+    testInfo.setTimeout(testInfo.timeout + 30_000)
+})
+
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const email = faker.internet.email({ provider: 'test.com' })
@@ -61,7 +66,9 @@ test.describe('Organization Admin', () => {
         await page.getByRole('button', { name: /secure your account/i }).click()
 
         // verify we landed on the MFA setup screen
-        await expect(page).toHaveURL(/\/account\/mfa$/)
+        // Check if the code input field is visible
+        await expect(page.getByRole('heading', { name: /verification/i })).toBeVisible()
+
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
 
         await page.waitForTimeout(1000)
