@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
@@ -12,6 +12,9 @@ import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { onPendingUserLoginAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
+import { notifications } from '@mantine/notifications'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -19,7 +22,7 @@ type DisplayFormat = 'qr' | 'uri'
 
 export const dynamic = 'force-dynamic'
 
-function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function AddTotpScreenContent({ setStep, onMfaSuccess }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>; onMfaSuccess: () => Promise<void> }) {
     const { user } = useUser()
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
@@ -51,6 +54,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     const verifyTotp = async (values: { code: string }) => {
         try {
             await user?.verifyTOTP({ code: values.code })
+            await onMfaSuccess() // Call the success handler
             setStep('success')
         } catch (err: unknown) {
             form.setErrors({ code: errorToString(err) || 'Invalid Code' })
@@ -63,7 +67,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
             .then((totp: TOTPResource) => {
                 setTOTP(totp)
             })
-            .catch((err) => reportError(err, 'Error generating MFA'))
+            .catch((err) => reportError(err, 'Error generating TOTP for MFA'))
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
@@ -188,11 +192,39 @@ function SuccessScreenContent() {
 export function AddMFAPanel() {
     const [step, setStep] = React.useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
+    const handleMfaSuccess = async () => {
+        const inviteId = searchParams.get('inviteId')
+        const clerkUserId = searchParams.get('clerkUserId')
+        const postMfaAction = searchParams.get('postMfaAction')
+
+        if (postMfaAction === 'claimInvite' && inviteId && clerkUserId) {
+            try {
+                await onPendingUserLoginAction({ inviteId, userId: clerkUserId })
+                notifications.show({
+                    title: 'Invitation Claimed',
+                    message: 'You have successfully joined the organization.',
+                    color: 'green',
+                })
+            } catch (error) {
+                reportError(error, 'Failed to claim invitation after MFA setup.')
+                notifications.show({
+                    title: 'Error Finalizing Invite',
+                    message: 'MFA setup was successful, but there was an issue finalizing your organization membership. Please contact support.',
+                    color: 'red',
+                    autoClose: false,
+                })
+            }
+        }
+    }
 
     if (!isLoaded) return null
-
     if (!user) {
-        return <Text>You must be logged in to access this page</Text>
+        notifications.show({ message: 'You must be logged in to access this page. Redirecting...', color: 'blue' })
+        router.push('/account/signin') // Or appropriate sign-in page
+        return <LoadingMessage message="Redirecting to sign in..." />
     }
 
     let panelTitle = ''
@@ -213,7 +245,7 @@ export function AddMFAPanel() {
     return (
         <Container>
             <Panel title={panelTitle}>
-                {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
+                {step === 'add' && <AddTotpScreenContent setStep={setStep} onMfaSuccess={handleMfaSuccess} />}
                 {step === 'verify' && <VerifyTotpScreenContent setStep={setStep} />}
                 {step === 'success' && <SuccessScreenContent />}
             </Panel>

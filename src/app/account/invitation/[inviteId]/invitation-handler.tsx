@@ -1,0 +1,94 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useAuth } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
+import { Button, Text, Stack } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { AccountPanel } from './account-form'
+import { acceptInviteForExistingUserAction } from './invite.actions'
+import { LoadingMessage } from '@/components/loading'
+import { SuccessPanel } from '@/components/panel'
+import { reportError } from '@/components/errors'
+// import { useAuthInfo } from '@/hooks/useAuthInfo'; // Assuming this hook provides dashboardURL or similar
+
+interface InvitationHandlerProps {
+    inviteId: string
+    invitedEmail: string
+}
+
+export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerProps) {
+    const { isLoaded, isSignedIn, userId } // userId from useAuth can be used for debugging or conditional logic if needed
+     = useAuth()
+    const router = useRouter()
+    const [isLoadingAction, setIsLoadingAction] = useState(false)
+    const [orgName, setOrgName] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    // const { preferredOrgSlug } = useAuthInfo(); // For dashboard redirection
+
+    const getDashboardUrl = () => {
+        // Placeholder: Adapt based on your actual dashboardURL logic
+        // For example, if useAuthInfo provides a direct dashboard URL:
+        // const { dashboardURL } = useAuthInfo(); return dashboardURL();
+        // Or, if it's based on preferredOrgSlug:
+        // if (preferredOrgSlug) return `/organization/${preferredOrgSlug}/dashboard`;
+        return '/' // Fallback to homepage
+    }
+
+    useEffect(() => {
+        if (isLoaded && isSignedIn) {
+            setIsLoadingAction(true)
+            acceptInviteForExistingUserAction({ inviteId })
+                .then((result) => {
+                    if (result.success && result.organizationName) {
+                        setOrgName(result.organizationName)
+                        // The success message is now part of the SuccessPanel
+                    } else {
+                        setError(result.error || 'Failed to accept invitation.')
+                        notifications.show({
+                            title: 'Error',
+                            message: result.error || 'Could not process your invitation.',
+                            color: 'red',
+                        })
+                    }
+                })
+                .catch((err) => {
+                    reportError(err, 'Error accepting invitation for existing user')
+                    setError('An unexpected error occurred while processing your invitation.')
+                    notifications.show({
+                        title: 'Error',
+                        message: 'An unexpected error occurred.',
+                        color: 'red',
+                    })
+                })
+                .finally(() => {
+                    setIsLoadingAction(false)
+                })
+        }
+    }, [isLoaded, isSignedIn, inviteId])
+
+    if (!isLoaded || (isSignedIn && isLoadingAction)) {
+        return <LoadingMessage message="Processing your invitation..." />
+    }
+
+    if (isSignedIn) {
+        if (error) {
+            return <Text color="red">{error}</Text>
+        }
+        if (orgName) {
+            return (
+                <SuccessPanel
+                    title={`You're now a member of ${orgName}!`}
+                    onContinue={() => router.push(getDashboardUrl())}
+                >
+                    Visit your dashboard to get started.
+                </SuccessPanel>
+            )
+        }
+        // This state should be brief, while waiting for orgName
+        return <LoadingMessage message="Finalizing your membership..." />
+    }
+
+    // Not signed in, show the account creation panel
+    return <AccountPanel inviteId={inviteId} email={invitedEmail} />
+}
