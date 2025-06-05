@@ -47,8 +47,6 @@ jobs:
                 env:
                     MINIO_ROOT_USER: si-local-minio
                     MINIO_ROOT_PASSWORD: si-local-minio
-            # minio-mc:
-            #     image: minio/mc
         permissions:
             pull-requests: write
             contents: write
@@ -98,6 +96,8 @@ jobs:
               run: |
                   curl --create-dirs -o ~/.cache/mc  https://dl.min.io/client/mc/release/linux-amd64/mc
                   chmod +x ~/.cache/mc
+            - name: provision minio
+              run: |
                   ~/.cache/mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
                   ~/.cache/mc mb siminio/mgmt-app-local
             - name: npm install
@@ -127,7 +127,7 @@ jobs:
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
             - name: Display server log
-              run: cat server_output.log
+              run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
