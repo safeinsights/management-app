@@ -68,7 +68,7 @@ For developing locally without docker compose, you will need to:
 - Researcher dashboard is located at: `/researcher/dashboard`
 - Reviewers can access the review dashboard at: `/reviewer/<org slug>/dashboard`
 - There are two admin types and screens:
-    - A organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/organization/<org slug>` From their they can administer the users in their organization.
+    - A organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>` From their they can administer the users in their organization.
     - A SI Staff admin is an user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in codebase). The screen at `/admin/safeinisghts` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
 ### Authentication Configuration 🔐
