@@ -121,7 +121,6 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         <Flex align="center">
                             <span>Role</span>
                             <InfoTooltip
-                                size={14}
                                 text={
                                     <Flex direction="column">
                                         <Text>Shows someone’s role within the organization:</Text>
@@ -146,7 +145,6 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         <Flex align="center">
                             <span>Permission</span>
                             <InfoTooltip
-                                size={14}
                                 text={
                                     <Flex direction="column">
                                         <Text>Shows someone’s permissions within the organization:</Text>

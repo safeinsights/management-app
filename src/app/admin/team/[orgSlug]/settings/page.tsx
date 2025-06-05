@@ -11,7 +11,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
     const org = await getOrgFromSlugAction(orgSlug)
 
     const items = [
-        <Link href={`/admin/team/${orgSlug}/admin`} key="1">
+        <Link href={`/admin/team/${orgSlug}`} key="1">
             Dashboard
         </Link>,
         <Text key="2">Admin</Text>,
