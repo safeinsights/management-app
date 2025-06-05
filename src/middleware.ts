@@ -5,7 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
 
 const middlewareDebug = debug('app:middleware')
 
-const isSIAdminRoute = createRouteMatcher(['/admin(.*)'])
+const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
 const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
