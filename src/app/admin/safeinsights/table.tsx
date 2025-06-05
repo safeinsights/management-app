@@ -90,12 +90,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
             <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>
-            <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="blue"
-                onClick={() => router.push(`/admin/team/${org.slug}`)}
-            >
+            <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => router.push(`/admin/team/${org.slug}`)}>
                 <Users />
             </ActionIcon>
             <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
