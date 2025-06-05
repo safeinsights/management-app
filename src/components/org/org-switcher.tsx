@@ -8,7 +8,7 @@ import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 
 const onOrgSwitch = (org: { slug: string | null }): string => {
     if (org.slug === CLERK_ADMIN_ORG_SLUG) {
-        return `/admin/organization`
+        return `/admin/safeinsights`
     }
     return `/reviewer/${org.slug}/dashboard`
 }

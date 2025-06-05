@@ -16,7 +16,9 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
             <Title my="lg">Manage team</Title>
             <Paper shadow="xs" p="xl">
                 <Flex direction="row" justify={'space-between'} align="center">
-                    <Title mb="lg">People</Title>
+                    <Title order={3} mb="lg">
+                        People
+                    </Title>
                     <InviteButton orgSlug={orgSlug} />
                 </Flex>
 
