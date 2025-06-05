@@ -1,7 +1,20 @@
 'use client'
 
-import { Stack, TextInput, Textarea, Grid, Text, Flex, Title, Button, Group, Divider } from '@mantine/core'
+import {
+    Stack,
+    TextInput,
+    Textarea,
+    Grid,
+    Text,
+    Flex,
+    Title,
+    Button,
+    Group,
+    Divider,
+    useMantineTheme,
+} from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
+import { WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { useMutation } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
@@ -12,6 +25,7 @@ import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm } from '@/components/errors'
 
 export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
+    name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
     description: z.string().max(250, 'Word limit is 250 characters').default(''),
 })
 
@@ -24,6 +38,7 @@ interface OrganizationSettingsEditProps {
 }
 
 export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: OrganizationSettingsEditProps) {
+    const theme = useMantineTheme()
     const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
     const inputSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
@@ -34,6 +49,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
         },
         validate: zodResolver(settingsFormSchema),
         validateInputOnBlur: true,
+        validateInputOnChange: true,
     })
 
     const { mutate: updateOrgSettings, isPending: isOrgUpdating } = useMutation({
@@ -90,10 +106,18 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 aria-label="Name"
                                 required
                                 aria-required="true"
-                                maxLength={50}
                                 autoFocus
                                 key={form.key('name')}
                                 {...form.getInputProps('name')}
+                                error={
+                                    form.errors.name && (
+                                        <Group gap="xs">
+                                            <WarningCircle size={14} color={theme.colors.red[7]} weight="fill" />
+                                            {form.errors.name}
+                                            <span>{(form.values.name || '').length} /50 characters</span>
+                                        </Group>
+                                    )
+                                }
                             />
                         </Grid.Col>
                     </Grid>
@@ -105,15 +129,27 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                             <Textarea
                                 id={form.key('description')}
                                 aria-label="Description"
-                                maxLength={250}
                                 key={form.key('description')}
                                 {...form.getInputProps('description')}
                                 autosize
                                 minRows={3}
+                                placeholder="Consider adding a sentence to publicly introduce your organization."
+                                error={
+                                    form.errors.description && (
+                                        <Group c="red.7" gap="xs">
+                                            <WarningCircle size={14} color={theme.colors.red[7]} weight="fill" />
+                                            {form.errors.description}
+                                            <span>{(form.values.description || '').length} /250 characters</span>
+                                        </Group>
+                                    )
+                                }
                             />
-                            <Text size="xs" c="dimmed" mt="xs">
-                                {(form.values.description || '').length}/250 characters
-                            </Text>
+                            {/* If there is no description error show the characters count */}
+                            {!form.errors.description && (
+                                <Text size="xs" c="dimmed" mt="xs">
+                                    {(form.values.description || '').length}/250 characters
+                                </Text>
+                            )}
                         </Grid.Col>
                     </Grid>
                 </Stack>
