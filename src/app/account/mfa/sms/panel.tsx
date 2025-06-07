@@ -87,10 +87,18 @@ export function ManageSMSMFAPanel() {
             setIsVerifying(true)
         } catch (error) {
             const errorMessage = errorToString(error)
-            notifications.show({
-                message: errorMessage,
-                color: 'red',
-            })
+
+            if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
+                notifications.show({
+                    message: 'Please enter a valid phone number.',
+                    color: 'red',
+                })
+            } else {
+                notifications.show({
+                    message: errorMessage,
+                    color: 'red',
+                })
+            }
 
             setIsSendingSms(false)
         }
@@ -147,7 +155,6 @@ export function ManageSMSMFAPanel() {
                                 value={phoneForm.values.phoneNumber}
                                 onChange={(value) => phoneForm.setFieldValue('phoneNumber', value ?? '')}
                                 placeholder="Enter phone number"
-                                maxLength={15} // 15 chars = 10 digits + country code
                                 countries={['US']} // limited to US code
                                 className={styles.phoneInput}
                             />
