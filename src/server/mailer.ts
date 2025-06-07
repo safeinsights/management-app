@@ -113,7 +113,7 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
             submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
         },
     })
 }
