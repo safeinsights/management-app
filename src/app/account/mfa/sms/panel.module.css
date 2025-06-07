@@ -1,0 +1,18 @@
+/* Style the phone input to match the Mantine input */
+.phoneInput input {
+    border: 1px solid var(--mantine-color-gray-4);
+    border-radius: var(--mantine-radius-sm);
+    padding: var(--mantine-spacing-md);
+    width: 100%;
+    height: var(--mantine-input-height, 36px);
+    font-size: var(--mantine-font-size-sm);
+    transition: none;
+    background-color: white;
+}
+
+.phoneInput input:focus-within,
+.phoneInput input:focus {
+    outline: 2px solid var(--mantine-color-purple-5);
+    border-color: transparent;
+    outline-offset: 0;
+}
