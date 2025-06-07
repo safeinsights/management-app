@@ -157,6 +157,7 @@ export function ManageSMSMFAPanel() {
                                 placeholder="Enter phone number"
                                 countries={['US']} // limited to US code
                                 className={styles.phoneInput}
+                                label="Phone Number"
                             />
                             <Button type="submit" loading={isSendingSms}>
                                 Send Code
