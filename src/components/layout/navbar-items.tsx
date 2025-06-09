@@ -21,7 +21,7 @@ export const NavbarItems: FC = () => {
     const dashboardURL = () => {
         if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
         if (isResearcher) return '/researcher/dashboard'
-        if (isAdmin) return '/admin/dashboard'
+        if (isAdmin) return `/admin/safeinsights`
         return '/'
     }
 

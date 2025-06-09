@@ -68,8 +68,8 @@ For developing locally without docker compose, you will need to:
 - Researcher dashboard is located at: `/researcher/dashboard`
 - Reviewers can access the review dashboard at: `/reviewer/<org slug>/dashboard`
 - There are two admin types and screens:
-    - A organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/organization/<org slug>/admin` From their they can administer the users in their organization.
-    - A SI Staff admin is an user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in codebase). The screen at `/admin/organization` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
+    - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.
+    - An SI Staff admin is a user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in the codebase). The screen at `/admin/safeinsights` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
 ### Authentication Configuration 🔐
 
@@ -84,7 +84,7 @@ You can configure test accounts in one of two ways:
 - `docker compose build` - Rebuild the docker image (needed after packages are installed)
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` - Run migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` - Delete the database, allowing it to be migrated freshly
-- `docker compose down -v` - Gentler "reset switch" that stops and removes containers, networks, volumes but keeps images
+- `docker compose down -v` - Gentler "reset switch" that stops and removes containers, networks, volumes, but keeps images
 - `docker compose down -v --rmi all` - Full "reset switch" for DB errors (stops and removes Docker containers, networks, volumes, and all images)
 - `docker system prune -a` or `docker builder prune` - Clear your docker cache in case of emergency
 
@@ -105,7 +105,7 @@ The connection details for the development database (`mgmnt_dev`) are pre-config
 
 API routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held by the organization. The public key is stored in the organization admin panel.
 
-To generate a public private key you can run:
+To generate a public/private key pair you can run:
 
 ```bash
 openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:4096
