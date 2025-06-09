@@ -2,18 +2,11 @@
 
 import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
-import { Divider, FileInput, Grid, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { Divider, FileInput, Grid, Paper, Stack, TextInput, Title, useMantineTheme, Text } from '@mantine/core'
+import { FormFieldLabel } from '@/components/form-field-label' // adjust path if needed
 import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
-
-const FormLabel = ({ label }: { label: string }) => {
-    return (
-        <Title order={5} fw="semibold" style={{ overflowWrap: 'normal' }}>
-            {label}
-        </Title>
-    )
-}
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
@@ -52,47 +45,56 @@ export const StudyProposalForm: FC<{
                 </Text>
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormLabel label="Study Title" />
+                        <FormFieldLabel label="Study Title" inputId={studyProposalForm.key('title')} />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <TextInput
+                            id={studyProposalForm.key('title')}
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
-                            maxLength={50}
                         />
                     </Grid.Col>
                 </Grid>
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormLabel label="Study Lead" />
-                    </Grid.Col>
-                    <Grid.Col span={inputSpan}>
-                        <TextInput aria-label="Study Lead" disabled value={user?.fullName ?? ''} />
-                    </Grid.Col>
-                </Grid>
-
-                <Grid align="flex-start">
-                    <Grid.Col span={titleSpan}>
-                        <FormLabel label="Principal Investigator" />
+                        <FormFieldLabel label="Submitted by" inputId={studyProposalForm.key('lead')} />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <TextInput
-                            aria-label="Principal Investigator"
-                            placeholder="Full Name (max. 100 characters)"
-                            {...studyProposalForm.getInputProps('piName')}
-                            maxLength={100}
+                            id={studyProposalForm.key('lead')}
+                            aria-label="Study Lead"
+                            disabled
+                            value={user?.fullName ?? ''}
                         />
                     </Grid.Col>
                 </Grid>
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormLabel label="Study Description" />
+                        <FormFieldLabel label="Principal Investigator" inputId={studyProposalForm.key('piName')} />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <TextInput
+                            id={studyProposalForm.key('piName')}
+                            aria-label="Principal Investigator"
+                            placeholder="Full Name (max. 100 characters)"
+                            {...studyProposalForm.getInputProps('piName')}
+                        />
+                    </Grid.Col>
+                </Grid>
+
+                <Grid align="flex-start">
+                    <Grid.Col span={titleSpan}>
+                        <FormFieldLabel
+                            label="Study Description"
+                            inputId={studyProposalForm.key('descriptionDocument')}
+                        />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <FileInput
+                            id={studyProposalForm.key('descriptionDocument')}
                             name="descriptionDocument"
                             leftSection={fileUpload}
                             aria-label="Upload Study Description Document"
@@ -106,10 +108,11 @@ export const StudyProposalForm: FC<{
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormLabel label="IRB Document" />
+                        <FormFieldLabel label="IRB Document" inputId={studyProposalForm.key('irbDocument')} />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <FileInput
+                            id={studyProposalForm.key('irbDocument')}
                             leftSection={irbFileUpload}
                             {...studyProposalForm.getInputProps('irbDocument')}
                             name="irbDocument"
@@ -123,10 +126,14 @@ export const StudyProposalForm: FC<{
 
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
-                        <FormLabel label="Agreement Document" />
+                        <FormFieldLabel
+                            label="Agreement Document"
+                            inputId={studyProposalForm.key('agreementDocument')}
+                        />
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <FileInput
+                            id={studyProposalForm.key('agreementDocument')}
                             leftSection={agreementFileUpload}
                             name="agreementDocument"
                             aria-label="Upload Agreement Document"

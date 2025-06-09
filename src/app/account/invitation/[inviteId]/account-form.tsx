@@ -67,9 +67,9 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
             })
 
             if (attempt.status === 'complete') {
+                onComplete()
                 await setActive({ session: attempt.createdSessionId })
                 await onPendingUserLoginAction(inviteId)
-                onComplete()
             } else {
                 reportError('unable to sign in')
             }
@@ -115,5 +115,9 @@ export const AccountPanel: FC<InviteProps> = (props) => {
         return <SignOutPanel />
     }
 
-    return inviteCompleted ? <Success /> : <SetupAccountForm {...props} onComplete={() => setInviteCompleted(true)} />
+    return inviteCompleted && isSignedIn ? (
+        <Success />
+    ) : (
+        <SetupAccountForm {...props} onComplete={() => setInviteCompleted(true)} />
+    )
 }

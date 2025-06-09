@@ -2,22 +2,23 @@
 
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useDisclosure, useClickOutside } from '@mantine/hooks'
-import { CaretRight, SignOut, User } from '@phosphor-icons/react/dist/ssr'
-import { useClerk } from '@clerk/nextjs'
+import { CaretRight, SignOut, User, Lock } from '@phosphor-icons/react/dist/ssr'
+import { Protect, useClerk } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import { useRef } from 'react'
 import styles from './navbar-items.module.css'
 import { useKeyboardNav } from './nabar-hotkeys-hook'
+import { useRouter } from 'next/router'
+import { AuthRole } from '@/lib/types'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
     const [opened, { toggle, close }] = useDisclosure()
-
+    const router = useRouter()
     const toggleButtonRef = useRef<HTMLAnchorElement>(null)
     const accountMenuItemRef = useRef<HTMLAnchorElement>(null)
-    // TODO: restore once reviewkey page is built
-    // const reviewerKeyMenuItemRef = useRef<HTMLAnchorElement>(null)
+    const reviewerKeyMenuItemRef = useRef<HTMLAnchorElement>(null)
     const signOutMenuItemRef = useRef<HTMLAnchorElement>(null)
 
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
@@ -32,7 +33,6 @@ export function NavbarProfileMenu() {
         fn()
         close()
     }
-
 
     useKeyboardNav({
         elements: elementRefs,
@@ -60,20 +60,23 @@ export function NavbarProfileMenu() {
                     tabIndex={opened ? 0 : -1}
                     ref={accountMenuItemRef}
                 />
-                {/* TODO: restore once page is built*/}
-                {/* <NavLink
-                    label="Reviewer Key"
-                    leftSection={<Lock aria-hidden="true" />}
-                    onClick={() => {
-                        window.alert('404. Design under construction')
-                    }}
-                    c="white"
-                    className={styles.navLinkProfileHover}
-                    role="menuitem"
-                    aria-label="Reviewer Key" 
-                    tabIndex={opened ? 0 : -1}
-                    ref={reviewerKeyMenuItemRef}
-                /> */}
+
+                <Protect role={AuthRole.Reviewer}>
+                    <NavLink
+                        label="Reviewer Key"
+                        leftSection={<Lock aria-hidden="true" />}
+                        onClick={() => {
+                            router.push('/account/keys')
+                        }}
+                        c="white"
+                        className={styles.navLinkProfileHover}
+                        role="menuitem"
+                        aria-label="Reviewer Key"
+                        tabIndex={opened ? 0 : -1}
+                        ref={reviewerKeyMenuItemRef}
+                    />
+                </Protect>
+
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOut aria-hidden="true" />}

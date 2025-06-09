@@ -68,8 +68,8 @@ For developing locally without docker compose, you will need to:
 - Researcher dashboard is located at: `/researcher/dashboard`
 - Reviewers can access the review dashboard at: `/reviewer/<org slug>/dashboard`
 - There are two admin types and screens:
-    - A organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/organization/<org slug>/admin` From their they can administer the users in their organization.
-    - A SI Staff admin is an user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in codebase). The screen at `/admin/organization` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
+    - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.
+    - An SI Staff admin is a user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in the codebase). The screen at `/admin/safeinsights` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
 ### Authentication Configuration 🔐
 
@@ -84,7 +84,7 @@ You can configure test accounts in one of two ways:
 - `docker compose build` - Rebuild the docker image (needed after packages are installed)
 - `docker compose exec mgmnt-app ./bin/migrate-dev-db` - Run migrations (needs running `docker compose up` at same time)
 - `docker volume rm management-app_pgdata` - Delete the database, allowing it to be migrated freshly
-- `docker compose down -v` - Gentler "reset switch" that stops and removes containers, networks, volumes but keeps images
+- `docker compose down -v` - Gentler "reset switch" that stops and removes containers, networks, volumes, but keeps images
 - `docker compose down -v --rmi all` - Full "reset switch" for DB errors (stops and removes Docker containers, networks, volumes, and all images)
 - `docker system prune -a` or `docker builder prune` - Clear your docker cache in case of emergency
 
@@ -105,7 +105,7 @@ The connection details for the development database (`mgmnt_dev`) are pre-config
 
 API routes are protected by an authorization header containing a JWT Bearer which is signed with an RSA private key held by the organization. The public key is stored in the organization admin panel.
 
-To generate a public private key you can run:
+To generate a public/private key pair you can run:
 
 ```bash
 openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:4096
@@ -148,15 +148,25 @@ The new way to deploy is from the IaC repo, run:
 There are a few CLI applications to debug the API end endpoints:
 
 ```bash
-npx tsx bin/debug/fetch-runnable.ts -o http://localhost:4000 -m openstax -k <path to private key>
-npx tsx bin/debug/set-status.ts -o http://localhost:4000 -m openstax -k <path to private key> -s <status: RUNNING | ERRORED> -j <uuid of job>
-npx tsx bin/debug/upload-results.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
-npx tsx bin/debug/keys.ts -o http://localhost:4000 -m openstax -k <path to private key> -j <uuid of job>
+npx tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
+npx tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
+npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
+npx tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
 ```
 
-The origin will default to http://localhost:4000 and organization to `openstax`, the values are shown above for illustration purposes and could be omitted.
+The scripts will use default values tailored for local development:
 
-> **Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
+- origin will default to http://localhost:4000
+- organization to `openstax`
+- key to `tests/support/private_key.pem` (local dev `openstax` defaults to using the public key pair of this)
+
+Examples:
+
+- view runnable jobs details (useful for obtaining job uuids): `npx tsx bin/debug/fetch-runnable.ts`
+- set a job as running: `npx tsx bin/debug/set-status.ts -s JOB-RUNNING -j <job uuid>`
+- upload results: `npx tsx bin/debug/set-status.ts -f tests/assets/results-with-pii.csv -j <job uuid>`
+
+**Currently,** it is possible to upload results and then set status back to RUNNING to force the run to re-appear in the runnable api results and repeatedly upload files. While useful for testing, do not depend on that behavior: it's likely we'll not allow it in later versions.
 
 ## Resources 📚
 

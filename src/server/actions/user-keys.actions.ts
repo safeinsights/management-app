@@ -1,21 +1,10 @@
 'use server'
 
 import { db } from '@/database'
-import { z, userAction, getUserIdFromActionContext } from './wrappers'
+import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrappers'
 import { getReviewerPublicKey } from '@/server/db/queries'
-import { ensureUserIsMemberOfOrg } from '../mutations'
-
-export const getReviewerFingerprintAction = userAction(async () => {
-    const userId = await getUserIdFromActionContext()
-
-    const result = await db
-        .selectFrom('userPublicKey')
-        .select(['userPublicKey.fingerprint'])
-        .where('userPublicKey.userId', '=', userId)
-        .executeTakeFirst()
-
-    return result?.fingerprint
-})
+import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
+import { revalidatePath } from 'next/cache'
 
 export const getReviewerPublicKeyAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
@@ -28,9 +17,9 @@ const setOrgUserPublicKeySchema = z.object({ publicKey: z.instanceof(ArrayBuffer
 export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
     const userId = await getUserIdFromActionContext()
 
-    // during MVP, we have several users who were set up in clerk without invites
-    // those accounts are not associated with any organization
-    await ensureUserIsMemberOfOrg()
+    if (!publicKey.byteLength) {
+        throw new Error('Invalid public key format')
+    }
 
     await db
         .insertInto('userPublicKey')
@@ -39,5 +28,24 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
             publicKey: Buffer.from(publicKey),
             fingerprint,
         })
-        .execute()
+        .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to set reviewer public key' }))
+
+    onUserPublicKeyCreated({ userId })
+    revalidatePath('/reviewer')
+}, setOrgUserPublicKeySchema)
+
+export const updateReviewerPublicKeyAction = userAction(async ({ publicKey, fingerprint }) => {
+    const userId = await getUserIdFromActionContext()
+
+    await db
+        .updateTable('userPublicKey')
+        .set({
+            publicKey: Buffer.from(publicKey),
+            fingerprint,
+            updatedAt: new Date(),
+        })
+        .where('userId', '=', userId)
+        .executeTakeFirstOrThrow(() => new ActionFailure({ message: 'Failed to update reviewer public key.' }))
+
+    onUserPublicKeyUpdated({ userId })
 }, setOrgUserPublicKeySchema)

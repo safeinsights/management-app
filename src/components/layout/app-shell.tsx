@@ -29,7 +29,11 @@ type Props = { children: ReactNode }
 
 export function AppShell({ children }: Props) {
     const theme = useMantineTheme()
-    const isDesktop = useMediaQuery(`(min-width: ${theme.breakpoints.sm})`)
+    const isDesktop = useMediaQuery(
+        `(min-width: ${theme.breakpoints.sm})`,
+        true, // initialValue to prevent hydration error
+        { getInitialValueInEffect: true },
+    )
     const [opened, { toggle }] = useDisclosure(false)
 
     return (

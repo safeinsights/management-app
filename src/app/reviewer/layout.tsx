@@ -1,16 +1,17 @@
-import React, { ReactNode } from 'react'
-import { UserLayout } from '@/components/layout/user-layout'
-import { RequireReviewerKeys } from '@/components/require-reviewer-keys'
+export const dynamic = 'force-dynamic'
 
-export default function ReviewerLayout({
-    children,
-}: Readonly<{
-    children: ReactNode
-}>) {
-    return (
-        <UserLayout>
-            <RequireReviewerKeys />
-            {children}
-        </UserLayout>
-    )
+import { getReviewerPublicKeyAction } from '@/server/actions/org.actions'
+import { UserLayout } from '@/components/layout/user-layout'
+import { redirect } from 'next/navigation'
+
+type Props = { children: React.ReactNode }
+
+export default async function ReviewerLayout({ children }: Props) {
+    const key = await getReviewerPublicKeyAction()
+
+    if (!key) {
+        redirect('/account/keys')
+    }
+
+    return <UserLayout>{children}</UserLayout>
 }

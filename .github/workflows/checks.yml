@@ -47,8 +47,6 @@ jobs:
                 env:
                     MINIO_ROOT_USER: si-local-minio
                     MINIO_ROOT_PASSWORD: si-local-minio
-            minio-mc:
-                image: minio/mc
         permissions:
             pull-requests: write
             contents: write
@@ -73,43 +71,50 @@ jobs:
             AWS_SECRET_ACCESS_KEY: 'si-local-minio'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
+            PORT: '4000'
+            NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
                   cache: 'npm'
-            - name: Download mc CLI
-              run: |
-                  curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
-                  chmod +x mc
-                  ./mc --version
-            - name: Setup minio bucket
-              run: |
-                  ./mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
-                  ./mc mb siminio/mgmt-app-local
+            - uses: actions/cache@v4
+              id: cache-all-the-things
+              with:  # https://nextjs.org/docs/pages/guides/ci-build-caching
+                  key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+                  path: |
+                      ~/.npm
+                      ~/.cache
+                      ${{ github.workspace }}/.next/cache
+                      # Generate a new cache whenever packages or source files change.
+                  restore-keys: |
+                      ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
+            - name: Download mc CLI
+              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
+              run: |
+                  curl --create-dirs -o ~/.cache/mc  https://dl.min.io/client/mc/release/linux-amd64/mc
+                  chmod +x ~/.cache/mc
+            - name: provision minio
+              run: |
+                  ~/.cache/mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
+                  ~/.cache/mc mb siminio/mgmt-app-local
             - name: npm install
               run: npm ci
-
-            # If this becomes an issue long term with time, we can try re-implementing caching
-            # https://github.com/microsoft/playwright/issues/7249#issuecomment-2664215505
-            - name: install playwright dependencies
-              run: npx playwright install --with-deps --only-shell chromium
-
             - name: provision db
               run: npm run db:migrate
-
-            - name: start NextJS server
-              run: npm run dev &
-
             - name: npm run test:unit
-              run: npm run test:unit
+              run: npm run test:unit -- --reporter=verbose
+            - name: build and run server
+              run: npm run ci:server -- server_output.log
+            - name: install playwright dependencies
+              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
+              run: npx playwright install --with-deps --only-shell chromium
             - name: npm run test:e2e
               run: npm run test:e2e
             - name: npm run test:coverage
               run: npm run test:coverage
-
             - name: Add code coverage to actions summary
               run: |
                   cat test-results/coverage/coverage-summary.md >> $GITHUB_STEP_SUMMARY
@@ -121,30 +126,12 @@ jobs:
                   base-summary-filename: base-summary.json
                   coverage-filename: test-results/coverage/coverage-summary.json
                   allowed-to-fail: true
-
+            - name: Display server log
+              run: if [ -f server_output.log ]; then cat server_output.log; fi
+              if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
               with:
                   name: playwright-report
                   path: test-results/e2e
                   retention-days: 30
-
-    build:
-        timeout-minutes: 15
-        runs-on: ubuntu-latest
-        permissions: {}
-        steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-                  cache: 'npm'
-            - name: npm install
-              run: npm ci
-            - name: Test build
-              run: |
-                  unset DATABASE_URL
-                  unset NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-                  unset CLERK_SECRET_KEY
-                  echo NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }} > .env
-                  npm run build

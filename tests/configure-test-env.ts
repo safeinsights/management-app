@@ -6,13 +6,11 @@ import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 
-const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2x7LYQXvGNmiYhcVB60LtxJegRK'])
+const CLERK_ADMIN_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2x8iPxAfMZg5EJoZcrALjqXXEFD'])
 
-const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2srdGHaPWEGccVS6hzftdroHADi'])
+const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2xxt9CAEXzHV9rrMEDQ7UOQgK6Z'])
 
-export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(
-    PROD_ENV ? [] : ['user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ', 'user_2oiQ37cyMUZuHnEwxjLmFJJY5kR'],
-)
+export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2xxpiScCXELkKuYlrnxqLnQh0c2'])
 
 async function setupUsers() {
     const pubKeyStr = await readTestSupportFile('public_key.pem')
@@ -34,7 +32,14 @@ async function setupUsers() {
             firstName: 'Test Admin User',
             lastName: 'Test Admin User',
         })
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true, isAdmin: true })
+        await findOrCreateOrgMembership({
+            userId,
+            slug: 'openstax',
+            isReviewer: false,
+            isResearcher: true,
+            isAdmin: true,
+        })
+        console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
@@ -42,7 +47,8 @@ async function setupUsers() {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
         })
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
+        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
+        console.log(`setup researcher user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 
     for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
@@ -56,7 +62,8 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
+        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
+        console.log(`setup reviewer user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 }
 

@@ -4,7 +4,7 @@ import type { NextConfig } from 'next'
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 
 const nextConfig: NextConfig = async (phase: string) => {
-    const isDev = phase === PHASE_DEVELOPMENT_SERVER
+    const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
     const nextConfig: NextConfig = {
         productionBrowserSourceMaps: true,

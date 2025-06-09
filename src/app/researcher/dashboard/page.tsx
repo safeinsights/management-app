@@ -1,8 +1,6 @@
 import * as React from 'react'
 import {
     Alert,
-    Anchor,
-    Button,
     Divider,
     Flex,
     Group,
@@ -20,15 +18,25 @@ import {
     Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import Link from 'next/link'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { ensureUserIsMemberOfOrg } from '@/server/mutations'
+
 import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { currentUser } from '@clerk/nextjs/server'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { ButtonLink, Link } from '@/components/links'
+import { Plus } from '@phosphor-icons/react/dist/ssr'
 
 export const dynamic = 'force-dynamic'
+
+const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+    return (
+        <ButtonLink data-testid="new-study" leftSection={<Plus />} href={`/researcher/study/request/${orgSlug}`}>
+            Propose New Study
+        </ButtonLink>
+    )
+}
 
 const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
     if (!visible) return null
@@ -38,9 +46,7 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
             <Alert variant="transparent">
                 You haven&apos;t started a study yet
                 <Stack>
-                    <Link style={{ textDecoration: 'underline' }} href={`/researcher/study/request/${slug}`}>
-                        Propose New Study
-                    </Link>
+                    <NewStudyLink orgSlug={slug} />
                 </Stack>
             </Alert>
         </TableCaption>
@@ -48,13 +54,10 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    let org: { slug: string } | null = null
-    // FIXME: it should be possible to remove this once we ensure all users have an org
-    try {
-        org = await ensureUserIsMemberOfOrg()
-    } catch {
-        return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
-    }
+    const clerkUser = await currentUser()
+    const org = clerkUser?.publicMetadata?.orgs?.find((o) => o.slug !== CLERK_ADMIN_ORG_SLUG)
+    if (!org) return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
+
     const studies = await fetchStudiesForCurrentResearcherAction()
 
     const rows = studies.map((study) => (
@@ -76,9 +79,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 />
             </TableTd>
             <TableTd>
-                <Anchor component={Link} href={`/researcher/study/${study.id}/review`}>
-                    View
-                </Anchor>
+                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
             </TableTd>
         </TableTr>
     ))
@@ -100,16 +101,13 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Group justify="space-between">
                         <Title order={3}>Proposed Studies</Title>
                         <Flex justify="flex-end">
-                            <Link href={`/researcher/study/request/${org.slug}`}>
-                                <Button leftSection={<Plus />}>Propose New Study</Button>
-                            </Link>
+                            <NewStudyLink orgSlug={org.slug} />
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
-                    <Text>Review submitted studies and check status below. </Text>
-                    <Table layout="fixed" verticalSpacing="md" striped highlightOnHover stickyHeader>
+                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                         <NoStudiesCaption visible={!studies.length} slug={org.slug} />
-                        <TableThead fz="sm" bg="charcoal.1">
+                        <TableThead fz="sm">
                             <TableTr>
                                 <TableTh>Study Name</TableTh>
                                 <TableTh>Submitted On</TableTh>

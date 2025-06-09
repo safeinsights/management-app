@@ -2,6 +2,8 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
+export const CI_ENV = !!process && !!process.env.CI
+
 export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
 
 export const PROD_ENV = process.env.NODE_ENV === 'production'

@@ -13,27 +13,29 @@ const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     </>
 )
 
+const TagLink = () => {
+    const tag = process.env.RELEASE_TAG
+    const sha = process.env.RELEASE_SHA
+    if (!tag && !sha) {
+        return 'not deployed'
+    }
+    const path = tag ? `releases/tag/${tag}` : `commit/${sha}`
+
+    return (
+        <a href={`https://github.com/safeinsights/management-app/${path}`} target="_blank" rel="noopener noreferrer">
+            <Flex gap="md" align={'center'}>
+                <span>{tag || sha}</span>
+                <Eye />
+            </Flex>
+        </a>
+    )
+}
+
 export default function AboutPage() {
     return (
         <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm" miw={500} maw={800} mx="auto">
             <Card withBorder radius="md" padding="xl" bg="var(--mantine-color-body)">
-                <Stat
-                    title="Release SHA"
-                    value={
-                        process.env.RELEASE_SHA ? (
-                            <Flex gap="md" align={'center'}>
-                                {process.env.RELEASE_SHA}
-                                <a
-                                    href={`https://github.com/safeinsights/management-app/commit/${process.env.RELEASE_SHA}`}
-                                >
-                                    <Eye />
-                                </a>
-                            </Flex>
-                        ) : (
-                            'not deployed'
-                        )
-                    }
-                />
+                <Stat title="Release" value={<TagLink />} />
 
                 <Divider my="md" />
 

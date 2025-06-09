@@ -15,8 +15,8 @@ vi.mock('@/server/actions/user-keys.actions', () => ({
     setReviewerPublicKeyAction: vi.fn(),
 }))
 
-describe('User keypair generation', () => {
-    it('renders help text and generate button', async () => {
+describe('Reviewer keypair generation', () => {
+    it('should generate a reviewer key pair and display private key for copying', async () => {
         vi.mocked(useUser).mockReturnValue({
             user: {
                 firstName: 'Tester',
@@ -38,11 +38,28 @@ describe('User keypair generation', () => {
 
         renderWithProviders(<GenerateKeys />)
 
-        expect(screen.getByText(/create private key/i)).toBeDefined()
-        const generateKeypairButton = screen.getByRole('button', { name: /create private key/i })
-        expect(generateKeypairButton).toBeDefined()
+        await waitFor(() => {
+            expect(vi.mocked(generateKeyPair)).toHaveBeenCalled()
+            expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()
+        })
 
-        fireEvent.click(generateKeypairButton)
+        // Simulate copy button click
+        const copyKeyButton = screen.getByRole('button', { name: /copy key/i })
+        expect(copyKeyButton).toBeDefined()
+        fireEvent.click(copyKeyButton)
+        await waitFor(() => {
+            expect(screen.getByText('Copied!')).toBeDefined()
+        })
+
+        const dashboardButton = screen.getByRole('button', { name: 'Go to dashboard' })
+        expect(dashboardButton).toBeDefined()
+        fireEvent.click(dashboardButton)
+
+        await waitFor(() => {
+            expect(screen.getByText('Make sure you have securely saved your reviewer key.')).toBeDefined()
+        })
+
+        fireEvent.click(screen.getByRole('button', { name: 'Yes, go to dashboard' }))
 
         // Wait for state updates
         await waitFor(() => {
@@ -53,11 +70,6 @@ describe('User keypair generation', () => {
                     fingerprint: mockKeys.fingerprint,
                 }),
             )
-
-            expect(screen.getByText('Private key')).toBeDefined()
         })
-
-        // Simulate copy button click
-        fireEvent.click(screen.getByRole('button', { name: /copy private key/i }))
     })
 })

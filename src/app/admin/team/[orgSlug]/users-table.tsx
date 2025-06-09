@@ -10,6 +10,7 @@ import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUse
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { reportMutationError } from '@/components/errors'
 import { UserAvatar } from '@/components/user-avatar'
+import { InfoTooltip } from '@/components/tooltip'
 
 type User = OrgUserReturn
 
@@ -94,17 +95,20 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
         <DataTable
             sortStatus={sort}
+            minHeight={100}
+            rowBackgroundColor={() => 'white'}
             onSortStatusChange={setSortStatus}
             columns={[
                 {
+                    title: 'Full Name',
                     accessor: 'fullName',
                     sortable: true,
                     render: (user: User) => (
                         <Flex align={'center'} gap="lg">
-                            <UserAvatar />
+                            <UserAvatar user={user} />
                             <Flex direction="column">
-                                <Text>{user.fullName}</Text>
-                                <Text size="sm" c="gray.6">
+                                <Text c="dark.9">{user.fullName}</Text>
+                                <Text size="sm" c="gray.7">
                                     {user.email}
                                 </Text>
                             </Flex>
@@ -113,18 +117,59 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 },
                 {
                     accessor: 'role',
+                    title: (
+                        <Flex align="center">
+                            <span>Role</span>
+                            <InfoTooltip
+                                text={
+                                    <Flex direction="column">
+                                        <Text>Shows someone’s role within the organization:</Text>
+                                        <Text>
+                                            <b>Researcher</b> – can submit studies and access results
+                                        </Text>
+                                        <Text>
+                                            <b>Reviewer</b> – can review and approve studies
+                                        </Text>
+                                        <Text>
+                                            <b>Multiple</b> – holds both roles
+                                        </Text>
+                                    </Flex>
+                                }
+                            />
+                        </Flex>
+                    ),
                     render: (user: User) => <RoleSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
                 {
+                    title: (
+                        <Flex align="center">
+                            <span>Permission</span>
+                            <InfoTooltip
+                                text={
+                                    <Flex direction="column">
+                                        <Text>Shows someone’s permissions within the organization:</Text>
+                                        <Text>
+                                            <b>Contributor</b> – full access within their role; no admin privileges
+                                        </Text>
+                                        <Text>
+                                            <b>Administrator</b> – manages team-level settings and contributors
+                                        </Text>
+                                    </Flex>
+                                }
+                            />
+                        </Flex>
+                    ),
                     accessor: 'permission',
                     render: (user: User) => <PermissionSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
                 {
                     accessor: 'latestActivityAt',
                     title: 'Last active',
-                    textAlign: 'right',
+                    textAlign: 'left',
                     render: (user: User) =>
-                        user.latestActivityAt ? dayjs(user.latestActivityAt).format('MMM DD, YYYY') : 'no activity',
+                        user.latestActivityAt
+                            ? dayjs(user.latestActivityAt).format('MMM DD, YYYY h:mma')
+                            : 'no activity',
                 },
             ]}
             fetching={isLoading}

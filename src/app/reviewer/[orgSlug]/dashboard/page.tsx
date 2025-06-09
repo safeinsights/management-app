@@ -77,11 +77,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 <Stack>
                     <Title order={3}>Review Studies</Title>
                     <Divider c="charcoal.1" />
-                    <Text>
-                        Review all the studies submitted to your organization. Studies that need your attention will be
-                        labeled ‘Needs review’.
-                    </Text>
-                    <Table layout="fixed" highlightOnHover withRowBorders stickyHeader>
+                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                         {!rows.length && (
                             <TableCaption>
                                 <Text>You have no studies to review.</Text>
@@ -89,10 +85,10 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                         )}
 
                         <TableThead>
-                            <TableTr bg="#F1F3F5">
+                            <TableTr>
                                 <TableTh fw={600}>Study Name</TableTh>
                                 <TableTh fw={600}>Submitted On</TableTh>
-                                <TableTh fw={600}>Researcher</TableTh>
+                                <TableTh fw={600}>Submitted By</TableTh>
                                 <TableTh fw={600}>Reviewed By</TableTh>
                                 <TableTh fw={600}>Status</TableTh>
                                 <TableTh fw={600}>Details</TableTh>

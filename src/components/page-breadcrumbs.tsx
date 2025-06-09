@@ -7,7 +7,7 @@ export const PageBreadcrumbs: FC<{
 }> = ({ crumbs }) => {
     return (
         <>
-            <Breadcrumbs separator=">">
+            <Breadcrumbs separator="/">
                 {crumbs.map(([title, href], index) =>
                     href ? (
                         <Anchor c="blue.7" component={Link} href={href} key={index}>

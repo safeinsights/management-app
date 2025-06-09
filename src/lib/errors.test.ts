@@ -11,9 +11,9 @@ import {
 
 describe('AccessDeniedError', () => {
     it('should be an instance of Error', () => {
-        const err = new AccessDeniedError('Access Denied')
+        const err = new AccessDeniedError({ user: 'Access Denied' })
         expect(err).toBeInstanceOf(Error)
-        expect(err.message).toBe('Access Denied')
+        expect(err.message).toContain('Access Denied')
     })
 })
 

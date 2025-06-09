@@ -3,10 +3,11 @@
 import { FC, useState, useEffect } from 'react'
 import { NavLink } from '@mantine/core'
 import Link from 'next/link'
-import { Gear, UsersThree } from '@phosphor-icons/react/dist/ssr'
+import { Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { Protect } from '../auth'
 import { useOrgInfo } from '../org-info'
+import { AuthRole } from '@/lib/types'
 
 interface OrgAdminDashboardLinkProps {
     pathname: string
@@ -15,7 +16,7 @@ interface OrgAdminDashboardLinkProps {
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname }) => {
     const { orgSlug } = useOrgInfo()
 
-    const orgAdminBaseUrl = `/organization/${orgSlug}/admin`
+    const orgAdminBaseUrl = `/admin/team/${orgSlug}`
     // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
 
@@ -36,7 +37,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
     }
 
     return (
-        <Protect role="admin">
+        <Protect role={AuthRole.Admin}>
             <NavLink
                 label="Admin"
                 leftSection={<Gear />}
@@ -63,8 +64,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
                     className={styles.navLinkHover}
                     pl="xl"
                 />
-                {/* TODO: re-add if we have a org admin settings page */}
-                {/* <NavLink
+                <NavLink
                     label="Settings"
                     leftSection={<Sliders size={20} />}
                     component={Link}
@@ -75,7 +75,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
                     variant="filled"
                     className={styles.navLinkHover}
                     pl="xl"
-                /> */}
+                />
             </NavLink>
         </Protect>
     )

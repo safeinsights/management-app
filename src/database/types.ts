@@ -3,141 +3,162 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from "kysely"
+import type { ColumnType } from 'kysely'
 
-export type AuditEventType = "ACCEPTED_INVITE" | "APPROVED" | "CREATED" | "DELETED" | "INVITED" | "LOGGED_IN" | "REJECTED" | "RESET_PASSWORD" | "UPDATED";
+export type AuditEventType =
+    | 'ACCEPTED_INVITE'
+    | 'APPROVED'
+    | 'CREATED'
+    | 'DELETED'
+    | 'INVITED'
+    | 'LOGGED_IN'
+    | 'REJECTED'
+    | 'RESET_PASSWORD'
+    | 'UPDATED'
 
-export type AuditRecordType = "STUDY" | "USER";
+export type AuditRecordType = 'STUDY' | 'USER'
 
-export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S, I | undefined, U>
-  : ColumnType<T, T | undefined, T>;
+export type Generated<T> =
+    T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
-export type Json = JsonValue;
+export type Json = JsonValue
 
-export type JsonArray = JsonValue[];
+export type JsonArray = JsonValue[]
 
 export type JsonObject = {
-  [x: string]: JsonValue | undefined;
-};
+    [x: string]: JsonValue | undefined
+}
 
-export type JsonPrimitive = boolean | number | string | null;
+export type JsonPrimitive = boolean | number | string | null
 
-export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type ResultFormat = "SI_V1_ENCRYPT";
+export type ResultFormat = 'SI_V1_ENCRYPT'
 
-export type StudyJobStatus = "CODE-APPROVED" | "CODE-REJECTED" | "CODE-SUBMITTED" | "INITIATED" | "JOB-ERRORED" | "JOB-PACKAGING" | "JOB-PROVISIONING" | "JOB-READY" | "JOB-RUNNING" | "RESULTS-APPROVED" | "RESULTS-REJECTED" | "RUN-COMPLETE";
+export type StudyJobStatus =
+    | 'CODE-APPROVED'
+    | 'CODE-REJECTED'
+    | 'CODE-SUBMITTED'
+    | 'INITIATED'
+    | 'JOB-ERRORED'
+    | 'JOB-PACKAGING'
+    | 'JOB-PROVISIONING'
+    | 'JOB-READY'
+    | 'JOB-RUNNING'
+    | 'RESULTS-APPROVED'
+    | 'RESULTS-REJECTED'
+    | 'RUN-COMPLETE'
 
-export type StudyStatus = "APPROVED" | "ARCHIVED" | "INITIATED" | "PENDING-REVIEW" | "REJECTED";
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
 
-export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
 export interface Audit {
-  createdAt: Generated<Timestamp>;
-  eventType: AuditEventType;
-  id: Generated<string>;
-  metadata: Json | null;
-  recordId: string;
-  recordType: AuditRecordType;
-  userId: string;
+    createdAt: Generated<Timestamp>
+    eventType: AuditEventType
+    id: Generated<string>
+    metadata: Json | null
+    recordId: string
+    recordType: AuditRecordType
+    userId: string
 }
 
 export interface JobStatusChange {
-  createdAt: Generated<Timestamp>;
-  id: Generated<string>;
-  message: string | null;
-  status: Generated<StudyJobStatus>;
-  studyJobId: string;
-  userId: string | null;
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    message: string | null
+    status: Generated<StudyJobStatus>
+    studyJobId: string
+    userId: string | null
 }
 
 export interface Org {
-  createdAt: Generated<Timestamp>;
-  email: string;
-  id: Generated<string>;
-  name: string;
-  publicKey: string;
-  slug: string;
-  updatedAt: Generated<Timestamp>;
+    createdAt: Generated<Timestamp>
+    description: string | null
+    email: string
+    id: Generated<string>
+    name: string
+    publicKey: string
+    slug: string
+    updatedAt: Generated<Timestamp>
 }
 
 export interface OrgUser {
-  id: Generated<string>;
-  isAdmin: boolean;
-  isResearcher: Generated<boolean>;
-  isReviewer: boolean;
-  joinedAt: Generated<Timestamp>;
-  orgId: string;
-  userId: string;
+    id: Generated<string>
+    isAdmin: boolean
+    isResearcher: Generated<boolean>
+    isReviewer: boolean
+    joinedAt: Generated<Timestamp>
+    orgId: string
+    userId: string
 }
 
 export interface PendingUser {
-  claimedByUserId: string | null;
-  createdAt: Generated<Timestamp>;
-  email: string;
-  id: Generated<string>;
-  isResearcher: boolean;
-  isReviewer: boolean;
-  orgId: string;
+    claimedByUserId: string | null
+    createdAt: Generated<Timestamp>
+    email: string
+    id: Generated<string>
+    isResearcher: boolean
+    isReviewer: boolean
+    orgId: string
 }
 
 export interface Study {
-  agreementDocPath: string | null;
-  approvedAt: Timestamp | null;
-  containerLocation: string;
-  createdAt: Generated<Timestamp>;
-  dataSources: Generated<string[]>;
-  descriptionDocPath: string | null;
-  id: Generated<string>;
-  irbDocPath: string | null;
-  irbProtocols: string | null;
-  orgId: string;
-  outputMimeType: string | null;
-  piName: string;
-  rejectedAt: Timestamp | null;
-  researcherId: string;
-  reviewerId: string | null;
-  status: Generated<StudyStatus>;
-  title: string;
+    agreementDocPath: string | null
+    approvedAt: Timestamp | null
+    containerLocation: string
+    createdAt: Generated<Timestamp>
+    dataSources: Generated<string[]>
+    descriptionDocPath: string | null
+    id: Generated<string>
+    irbDocPath: string | null
+    irbProtocols: string | null
+    orgId: string
+    outputMimeType: string | null
+    piName: string
+    rejectedAt: Timestamp | null
+    researcherId: string
+    reviewerId: string | null
+    status: Generated<StudyStatus>
+    title: string
 }
 
 export interface StudyJob {
-  createdAt: Generated<Timestamp>;
-  id: Generated<string>;
-  resultFormat: ResultFormat | null;
-  resultsPath: string | null;
-  studyId: string;
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    resultFormat: ResultFormat | null
+    resultsPath: string | null
+    studyId: string
 }
 
 export interface User {
-  clerkId: string;
-  createdAt: Generated<Timestamp>;
-  email: string | null;
-  firstName: string;
-  fullName: Generated<string>;
-  id: Generated<string>;
-  lastName: string | null;
-  updatedAt: Generated<Timestamp>;
+    clerkId: string
+    createdAt: Generated<Timestamp>
+    email: string | null
+    firstName: string
+    fullName: Generated<string>
+    id: Generated<string>
+    lastName: string | null
+    updatedAt: Generated<Timestamp>
 }
 
 export interface UserPublicKey {
-  createdAt: Generated<Timestamp>;
-  fingerprint: string;
-  id: Generated<string>;
-  publicKey: Buffer;
-  updatedAt: Generated<Timestamp>;
-  userId: string;
+    createdAt: Generated<Timestamp>
+    fingerprint: string
+    id: Generated<string>
+    publicKey: Buffer
+    updatedAt: Generated<Timestamp>
+    userId: string
 }
 
 export interface DB {
-  audit: Audit;
-  jobStatusChange: JobStatusChange;
-  org: Org;
-  orgUser: OrgUser;
-  pendingUser: PendingUser;
-  study: Study;
-  studyJob: StudyJob;
-  user: User;
-  userPublicKey: UserPublicKey;
+    audit: Audit
+    jobStatusChange: JobStatusChange
+    org: Org
+    orgUser: OrgUser
+    pendingUser: PendingUser
+    study: Study
+    studyJob: StudyJob
+    user: User
+    userPublicKey: UserPublicKey
 }

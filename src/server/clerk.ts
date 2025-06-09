@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
+import { PROD_ENV } from './config'
 
 type ClerkOrganizationProps = {
     adminUserId?: string

@@ -43,8 +43,7 @@ export default defineConfig({
     /* Fail the build on CI if you accidentally left test.only in the source code. */
     forbidOnly: IS_CI,
 
-    /* Retry on CI only */
-    retries: IS_CI ? 1 : 0,
+    retries: 1,
     /* Opt out of parallel tests on CI. */
     workers: IS_CI ? 1 : undefined,
     /* Reporter to use. See https://playwright.dev/docs/test-reporters */
@@ -69,13 +68,17 @@ export default defineConfig({
         {
             name: 'global setup',
             testMatch: /playwright\.setup\.ts/,
+            teardown: 'global teardown',
         },
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['global setup'],
         },
-
+        {
+            name: 'global teardown',
+            testMatch: /playwright\.teardown\.ts/,
+        },
         // {
         //     name: 'firefox',
         //     use: { ...devices['Desktop Firefox'] },

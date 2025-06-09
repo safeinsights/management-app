@@ -37,7 +37,7 @@ describe('mailgun email functions', () => {
 
         expect(deliver).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || ''),
+                bcc: expect.stringContaining(user1.email || ''),
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
@@ -127,7 +127,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
-                    studyURL: expect.stringContaining(`/organization/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/researcher/study/${study.id}/review`),
                 }),
             }),
         )

@@ -4,15 +4,25 @@ import { FC } from 'react'
 import { Group } from '@mantine/core'
 import { OrganizationSwitcher } from '@clerk/nextjs'
 import { useHasMultipleRoles } from '../org-info'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+
+const onOrgSwitch = (org: { slug: string | null }): string => {
+    if (org.slug === CLERK_ADMIN_ORG_SLUG) {
+        return `/admin/safeinsights`
+    }
+    return `/reviewer/${org.slug}/dashboard`
+}
 
 export const OrgSwitcher: FC = () => {
     const isMultiple = useHasMultipleRoles()
 
     if (!isMultiple) return null
+
     return (
         <Group justify="left" pl="xs" c="white">
             <OrganizationSwitcher
-                afterSelectOrganizationUrl="/"
+                afterSelectOrganizationUrl={onOrgSwitch}
+                afterSelectPersonalUrl={`/researcher/dashboard`}
                 appearance={{
                     elements: {
                         rootBox: {

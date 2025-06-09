@@ -12,7 +12,7 @@ import { OrgSwitcher } from '../org/org-switcher'
 import { RefWrapper, useKeyboardNav } from './nabar-hotkeys-hook'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin } = useAuthInfo()
+    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
 
     const pathname = usePathname()
 
@@ -21,9 +21,9 @@ export const NavbarItems: FC = () => {
     const orgSwitcherRef = useRef<HTMLDivElement>(null)
 
     const dashboardURL = () => {
-        if (isReviewer) return '/reviewer/openstax/dashboard'
+        if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
         if (isResearcher) return '/researcher/dashboard'
-        if (isAdmin) return '/admin/dashboard'
+        if (isAdmin) return `/admin/safeinsights`
         return '/'
     }
 

@@ -21,6 +21,11 @@ export type CollectV8CodeCoverageOptions = {
     enableCssCoverage: boolean
 }
 
+export async function goto(page: Page, url: string) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' })
+    await page.waitForFunction(() => window.isReactHydrated)
+}
+
 function browserSupportsV8CodeCoverage(browserType: BrowserType): boolean {
     return browserType.name() === 'chromium'
 }
@@ -106,6 +111,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
 const clerkLoaded = async (page: Page) => {
     await page.waitForFunction(() => window.Clerk !== undefined)
     await page.waitForFunction(() => window.Clerk.loaded)
+    return await page.evaluate(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
 }
 
 // This function is serialized and executed in the browser context
@@ -121,6 +127,7 @@ export const CLERK_MFA_CODE = '424242'
 export const clerkSignInHelper = async (params: ClerkSignInParams) => {
     const w = window
     if (!w.Clerk.client) {
+        console.error('Clerk client not found')
         return
     }
 
@@ -145,7 +152,7 @@ export const clerkSignInHelper = async (params: ClerkSignInParams) => {
         code: params.mfa,
     })
     if (result.status !== 'complete') {
-        reportError(`Unknown signIn status: ${result.status}`)
+        console.error(`Unknown signIn status: ${result.status}`)
     }
 
     await w.Clerk.setActive({ session: result.createdSessionId })
@@ -179,20 +186,37 @@ export const TestingUsers: Record<TestingRole, ClerkSignInParams> = {
 type VisitClerkProtectedPageOptions = { url: string; role: TestingRole; page: Page }
 
 export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkProtectedPageOptions) => {
-    await setupClerkTestingToken({ page })
-    await page.goto('/account/signin')
+    const creds = TestingUsers[role]
 
-    await clerkLoaded(page)
+    await setupClerkTestingToken({ page })
+    await goto(page, url)
+    const currentEmail = await clerkLoaded(page)
+    if (currentEmail == creds.identifier) {
+        return
+    }
+
     await page.evaluate(() => {
-        window.Clerk.session?.end()
+        return window.Clerk.session?.end()
     })
 
-    await page.goto('/account/signin')
-    await clerkLoaded(page)
-    await page.evaluate(clerkSignInHelper, TestingUsers[role])
+    await goto(page, '/account/signin')
 
-    //  the earlier page.goto likely navigated to signin
+    await page.getByLabel('email').fill(creds.identifier)
+    await page.getByLabel('password').fill(creds.password)
+    await page.getByRole('button', { name: 'login' }).click()
+
+    await page.getByLabel('code').fill(creds.mfa)
+    await page.getByRole('button', { name: 'login' }).click()
+    await page.waitForLoadState()
+
+    await page.waitForFunction(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
+    const updatedEmail = await clerkLoaded(page)
+    if (updatedEmail != creds.identifier) {
+        throw new Error(`Failed to sign in as ${role} with email ${creds.identifier}, user was: ${updatedEmail}`)
+    }
+    //  the earlier goto likely navigated to signin
     if (page.url() != url) {
-        await page.goto(url)
+        await goto(page, url)
+        await clerkLoaded(page)
     }
 }

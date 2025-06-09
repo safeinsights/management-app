@@ -82,6 +82,7 @@ export const onUserInvited = deferred(
 )
 
 export const onUserAcceptInvite = deferred(async (userId: string) => {
+    await updateClerkUserMetadata(userId)
     await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId })
 })
 
@@ -97,3 +98,11 @@ export const onUserRoleUpdate = deferred(
         await updateClerkUserMetadata(userId)
     },
 )
+
+export const onUserPublicKeyCreated = deferred(async ({ userId }: { userId: string }) => {
+    await audit({ userId, eventType: 'CREATED', recordType: 'USER', recordId: userId })
+})
+
+export const onUserPublicKeyUpdated = deferred(async ({ userId }: { userId: string }) => {
+    await audit({ userId, eventType: 'UPDATED', recordType: 'USER', recordId: userId })
+})

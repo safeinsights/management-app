@@ -2,7 +2,7 @@
 
 import React, { FC } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { Button, Group, Text, Flex, useMantineTheme } from '@mantine/core'
+import { Button, Group } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -10,18 +10,14 @@ import {
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-
-import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
-import dayjs from 'dayjs'
 import { reportMutationError } from '@/components/errors'
+import StudyStatusDisplay from '@/components/study/study-status-display'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const backPath = `/reviewer/${orgSlug}/dashboard`
-
-    const theme = useMantineTheme()
 
     const {
         mutate: updateStudy,
@@ -33,37 +29,14 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             if (status === 'APPROVED') {
                 return approveStudyProposalAction({ orgSlug, studyId: study.id })
             }
-
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
         onError: reportMutationError,
         onSuccess: () => router.push(backPath),
     })
 
-    if (study.status === 'APPROVED' && study.approvedAt) {
-        return (
-            <Flex align="center">
-                <Group gap="2">
-                    <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
-                    <Text fz="xs" fw={600} c="green.9">
-                        Approved on {dayjs(study.approvedAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
-        )
-    }
-
-    if (study.status === 'REJECTED' && study.rejectedAt) {
-        return (
-            <Flex align="center">
-                <Group gap="2">
-                    <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
-                    <Text fz="xs" fw={600} c="red.9">
-                        Rejected on {dayjs(study.rejectedAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
-        )
+    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+        return <StudyStatusDisplay status={study.status} date={study.approvedAt ?? study.rejectedAt} />
     }
 
     return (

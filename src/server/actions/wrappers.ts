@@ -5,7 +5,8 @@ import { UnknownKeysParam, z, ZodObject, ZodString, ZodTypeAny, type Schema } fr
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
-import { AccessDeniedError } from '@/lib/errors'
+import { AccessDeniedError, ActionFailure } from '@/lib/errors'
+import { JwtPayload } from 'jsonwebtoken'
 
 export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
@@ -13,6 +14,8 @@ export { z } from 'zod'
 export type ActionContextOrgInfo = {
     id: string
     slug: string
+    name: string
+    description: string | null
     isResearcher: boolean
     isStaff?: boolean
     isAdmin: boolean
@@ -20,6 +23,10 @@ export type ActionContextOrgInfo = {
 }
 
 export type OptionalActionContextOrgInfo = Partial<ActionContextOrgInfo>
+
+const orgSlugFromSessionClaims = (sessionClaims: JwtPayload | null) => {
+    return (sessionClaims?.org_slug as string) || sessionClaims?.userMetadata?.orgs?.[0]?.slug || undefined
+}
 
 export type ActionContext = {
     user: SiUser | Partial<SiUser>
@@ -36,7 +43,7 @@ export async function actionContext() {
         return {
             user: user,
             org: {
-                slug: sessionClaims?.org_slug as string | undefined,
+                slug: orgSlugFromSessionClaims(sessionClaims),
             },
         } as ActionContext
     }
@@ -68,7 +75,7 @@ export async function getOrgInfoFromActionContext(
     throwIfNotFound = true,
 ): Promise<OptionalActionContextOrgInfo | ActionContextOrgInfo> {
     const ctx = await actionContext()
-    if (!ctx.org?.slug && throwIfNotFound) throw new AccessDeniedError('user is not a member of organization?')
+    if (!ctx.org?.slug && throwIfNotFound) throw new AccessDeniedError({ orgSlug: `not present` })
     return ctx.org
 }
 
@@ -98,7 +105,7 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
                 {
                     user: user,
                     org: {
-                        slug: sessionClaims?.org_slug as string | undefined,
+                        slug: orgSlugFromSessionClaims(sessionClaims),
                     },
                 } as ActionContext,
                 async () => {
@@ -107,7 +114,18 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
                         const result = await func(arg)
                         resolve(result)
                     } catch (error) {
-                        reject(error)
+                        if (error instanceof z.ZodError) {
+                            const fieldErrors = error.flatten().fieldErrors
+                            const sanitizedErrors: Record<string, string> = {}
+                            for (const key in fieldErrors) {
+                                if (fieldErrors[key]) {
+                                    sanitizedErrors[key] = (fieldErrors[key] as string[]).join(', ')
+                                }
+                            }
+                            reject(new ActionFailure(sanitizedErrors))
+                        } else {
+                            reject(error)
+                        }
                     }
                 },
             )
@@ -120,7 +138,7 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
     return wrappedFunction as F
 }
 
-export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
+export function siAdminAction<S extends Schema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const ctx = await actionContext()
@@ -128,7 +146,7 @@ export function adminAction<S extends Schema, F extends WrappedFunc<S>>(func: F,
         const { orgSlug } = auth || {}
         if (orgSlug !== CLERK_ADMIN_ORG_SLUG) {
             logger.error('Current orgSlug in adminAction:', ctx?.org.slug)
-            throw new AccessDeniedError('Only admins are allowed to perform this action')
+            throw new AccessDeniedError({ user: 'only admins are allowed to perform this action' })
         }
         return await func(arg)
     }
@@ -155,7 +173,7 @@ export function researcherAction<S extends Schema, F extends WrappedFunc<S>>(fun
                 }
                 return eb.and(filters)
             })
-            .executeTakeFirstOrThrow(() => new AccessDeniedError(`user is not a researcher`))
+            .executeTakeFirstOrThrow(() => new AccessDeniedError({ user: `${ctx.user?.id} is not a researcher` }))
 
         Object.assign(ctx, { org: orgInfo })
 
@@ -175,16 +193,24 @@ export type OrgActionSchema = ZodObject<WithOrgSlug, UnknownKeysParam, ZodTypeAn
 export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        if (!arg.orgSlug) throw new AccessDeniedError(`'orgSlug' property not present`)
+        if (!arg.orgSlug) throw new AccessDeniedError({ orgSlug: 'must be an property, was not present' })
         const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
         const { sessionClaims } = await clerkAuth()
-        // // SI staff user is admin on everything
+        // SI staff users are admin on everything
         if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
-            const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+            const org = await db
+                .selectFrom('org')
+                .select(['id', 'name', 'description'])
+                .where('slug', '=', orgSlug)
+                .executeTakeFirstOrThrow(
+                    () => new ActionFailure({ organization: `${orgSlug} was not found for admin operation.` }),
+                )
             Object.assign(ctx, {
                 org: {
                     id: org.id,
+                    name: org.name,
+                    description: org.description,
                     isResearcher: true,
                     isReviewer: true,
                     isAdmin: true,
@@ -196,11 +222,14 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
             const orgInfo = await db
                 .selectFrom('orgUser')
                 .innerJoin('org', 'org.id', 'orgUser.orgId')
-                .select(['org.id', 'org.slug', 'isResearcher', 'isAdmin', 'isReviewer'])
+                .select(['org.id', 'org.slug', 'org.name', 'org.description', 'isResearcher', 'isAdmin', 'isReviewer'])
                 .where('org.slug', '=', orgSlug) // we are wrapped by orgAction which ensures orgSlug is set
                 .where('orgUser.userId', '=', ctx.user?.id || '')
                 .executeTakeFirstOrThrow(
-                    () => new AccessDeniedError(`user is not an member of organization ${arg.orgSlug}`),
+                    () =>
+                        new AccessDeniedError({
+                            user: `${ctx.user?.id} is not a member of organization ${arg.orgSlug}`,
+                        }),
                 )
 
             Object.assign(ctx, { org: orgInfo })
@@ -214,9 +243,11 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
 export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(func: F, schema?: S): F {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
-        const { org } = await actionContext()
+        const { org, user } = await actionContext()
         if (!org.isAdmin) {
-            throw new AccessDeniedError(`user is not an admin of organization ${arg.orgSlug}`)
+            throw new AccessDeniedError({
+                user: `${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`,
+            })
         }
         return await func(arg)
     }
@@ -225,6 +256,6 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
 
 export async function checkMemberOfOrgWithSlug(orgSlug: string) {
     const org = await getOrgInfoFromActionContext()
-    if (!org.isStaff && org.slug != orgSlug) throw new AccessDeniedError(`not a member of ${orgSlug}`)
+    if (!org.isStaff && org.slug != orgSlug) throw new AccessDeniedError({ user: `not a member of ${orgSlug}` })
     return true
 }

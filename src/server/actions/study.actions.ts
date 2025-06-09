@@ -232,7 +232,7 @@ export const rejectStudyProposalAction = orgAction(
                 .where('id', '=', studyId)
                 .execute()
 
-            const latestJob = await latestJobForStudy(studyId, { userId }, trx)
+            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
             if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
 
             await trx

@@ -25,7 +25,8 @@ export function OrgsAdminTable() {
     })
 
     const sortedMembers = useMemo(() => {
-        const newOrgs = R.sortBy(data, R.prop(sortStatus.columnAccessor as keyof Org))
+        const accessor = sortStatus.columnAccessor as keyof Org
+        const newOrgs = R.sortBy(data, (org: Org) => org[accessor] as string | number | Date | boolean)
         return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
@@ -89,12 +90,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
             <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>
-            <ActionIcon
-                size="sm"
-                variant="subtle"
-                color="blue"
-                onClick={() => router.push(`/organization/${org.slug}/admin`)}
-            >
+            <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => router.push(`/admin/team/${org.slug}`)}>
                 <Users />
             </ActionIcon>
             <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>

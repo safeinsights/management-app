@@ -2,9 +2,11 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import debug from 'debug'
 import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
+
 const middlewareDebug = debug('app:middleware')
 
-const isAdminRoute = createRouteMatcher(['/admin(.*)'])
+const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
+const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
 const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
 const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
@@ -18,27 +20,33 @@ const ANON_ROUTES: Array<string> = [
 // Clerk middleware reference
 // https://clerk.com/docs/references/nextjs/clerk-middleware
 
-type Roles = {
-    isAdmin: boolean
+type UserInfo = {
+    orgSlug: string
+
+    userId: string
+    isSIAdmin: boolean
+    isOrgAdmin: (slug: string) => boolean
     isReviewer: boolean
     isResearcher: boolean
 }
 
-function redirectToRole(request: NextRequest, route: string, roles: Roles) {
-    middlewareDebug(`Blocking unauthorized ${route} route access: %o`, roles)
-    if (roles.isResearcher) {
+function redirectToRole(request: NextRequest, route: string, clerkUser: string, info: UserInfo) {
+    middlewareDebug(`Blocking unauthorized ${route} route access: %s roles: %s`, clerkUser, JSON.stringify(info))
+    if (info.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
-    if (roles.isReviewer) {
-        return NextResponse.redirect(new URL('/reviewer/openstax/dashboard', request.url))
+    if (info.isReviewer) {
+        return NextResponse.redirect(new URL(`/reviewer/${info.orgSlug}/dashboard`, request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
 }
 
 export default clerkMiddleware(async (auth, req) => {
-    const { userId, orgSlug } = await auth()
+    const { userId: clerkUserId, orgSlug, sessionClaims } = await auth()
 
-    if (!userId) {
+    const metadata = sessionClaims?.userMetadata || { orgs: [], userId: '' }
+
+    if (!clerkUserId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
@@ -46,26 +54,39 @@ export default clerkMiddleware(async (auth, req) => {
     }
 
     // Define user roles
-    const userRoles: Roles = {
-        isAdmin: orgSlug === CLERK_ADMIN_ORG_SLUG,
+    const info: UserInfo = {
+        orgSlug: orgSlug || metadata.orgs?.[0]?.slug || '',
+        userId: metadata.userId,
+        get isSIAdmin() {
+            return orgSlug == CLERK_ADMIN_ORG_SLUG
+        },
+        isOrgAdmin(slug: string) {
+            return Boolean(this.isSIAdmin || metadata.orgs?.find((org) => org.slug === slug && org.isAdmin))
+        },
         get isReviewer() {
-            return Boolean(orgSlug && !this.isAdmin)
+            return Boolean(this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isReviewer))
         },
         get isResearcher() {
-            return Boolean(!this.isAdmin && !this.isReviewer)
+            return Boolean(
+                this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isResearcher),
+            )
         },
     }
 
-    if (isAdminRoute(req) && !userRoles.isAdmin) {
-        return redirectToRole(req, 'admin', userRoles)
+    if (isSIAdminRoute(req) && !info.isSIAdmin) {
+        return redirectToRole(req, 'si admin', clerkUserId, info)
     }
 
-    if (isReviewerRoute(req) && !userRoles.isReviewer) {
-        return redirectToRole(req, 'reviewer', userRoles)
+    if (isOrgAdminRoute(req) && !info.isOrgAdmin(req.nextUrl.pathname.split('/')[2])) {
+        return redirectToRole(req, 'org-admin', clerkUserId, info)
     }
 
-    if (isResearcherRoute(req) && !userRoles.isResearcher) {
-        return redirectToRole(req, 'researcher', userRoles)
+    if (isReviewerRoute(req) && !info.isReviewer) {
+        return redirectToRole(req, 'reviewer', clerkUserId, info)
+    }
+
+    if (isResearcherRoute(req) && !info.isResearcher) {
+        return redirectToRole(req, 'researcher', clerkUserId, info)
     }
 
     return NextResponse.next()

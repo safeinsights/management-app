@@ -23,7 +23,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
     await deliver({
-        to: emails.join(', '),
+        bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
         vars: {
@@ -113,7 +113,7 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
             submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
         },
     })
 }

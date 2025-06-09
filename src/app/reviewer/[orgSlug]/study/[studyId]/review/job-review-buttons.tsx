@@ -3,7 +3,7 @@ import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
-import { Button, Divider, Group, Text, Flex, useMantineTheme } from '@mantine/core'
+import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
@@ -12,6 +12,17 @@ import { useParams, useRouter } from 'next/navigation'
 type FileEntry = {
     path: string
     contents: ArrayBuffer
+}
+
+const DownloadResults: React.FC<{ results?: FileEntry }> = ({ results }) => {
+    if (!results) return null
+    return (
+        <>
+            <Divider />
+            <DownloadLink target="_blank" filename={results.path} content={results.contents} />
+            <Divider />
+        </>
+    )
 }
 
 export const JobReviewButtons = ({
@@ -53,39 +64,33 @@ export const JobReviewButtons = ({
         },
     })
 
-    if (!decryptedResults?.length) return null
-
     if (job.latestStatus === 'RESULTS-APPROVED') {
         return (
-            <Flex align="center">
-                <Group gap="2">
-                    <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
-                    <Text fz="xs" fw={600} c="green.9">
-                        Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
+            <Group gap="xs">
+                <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
+                <Text fz="xs" fw={600} c="green.9">
+                    Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
         )
     }
 
     if (job.latestStatus === 'RESULTS-REJECTED') {
         return (
-            <Flex align="center">
-                <Group gap="2">
-                    <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
-                    <Text fz="xs" fw={600} c="red.9">
-                        Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
-                    </Text>
-                </Group>
-            </Flex>
+            <Group gap="xs">
+                <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
+                <Text fz="xs" fw={600} c="red.9">
+                    Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                </Text>
+            </Group>
         )
     }
 
+    if (!decryptedResults) return null
+
     return (
         <Group>
-            <Divider />
-            <DownloadLink target="_blank" filename={decryptedResults[0].path} content={decryptedResults[0].contents} />
-            <Divider />
+            <DownloadResults results={decryptedResults?.[0]} />
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
