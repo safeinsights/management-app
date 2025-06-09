@@ -90,7 +90,7 @@ export const JobReviewButtons = ({
 
     return (
         <Group>
-            <DownloadResults results={decryptedResults?.[0]} />
+            <DownloadResults results={decryptedResults[0]} />
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
