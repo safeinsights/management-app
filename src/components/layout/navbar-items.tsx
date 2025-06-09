@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useRef } from 'react'
+import { FC } from 'react'
 import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -9,16 +9,11 @@ import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
-import { RefWrapper, useKeyboardNav } from './nabar-hotkeys-hook'
+import { RefWrapper } from './nav-ref-wrapper'
 
 export const NavbarItems: FC = () => {
     const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
-
     const pathname = usePathname()
-
-    const dashboardLinkRef = useRef<HTMLDivElement>(null)
-    const orgAdminDashboardLinkRef = useRef<HTMLDivElement>(null)
-    const orgSwitcherRef = useRef<HTMLDivElement>(null)
 
     const dashboardURL = () => {
         if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
@@ -27,23 +22,11 @@ export const NavbarItems: FC = () => {
         return '/'
     }
 
-    const navElements = [dashboardLinkRef]
-
-    if (isAdmin) {
-        navElements.push(orgAdminDashboardLinkRef)
-    }
-
-    navElements.push(orgSwitcherRef)
-
-    useKeyboardNav({
-        elements: navElements,
-    })
-
     if (!isLoaded) return null
 
     return (
         <Stack gap="sm">
-            <RefWrapper ref={dashboardLinkRef} role="menuitem" tabIndex={0}>
+            <RefWrapper>
                 <NavLink
                     label="Dashboard"
                     leftSection={<House />}
@@ -57,17 +40,14 @@ export const NavbarItems: FC = () => {
                     aria-label="Dashboard"
                 />
             </RefWrapper>
+
             {isAdmin && (
-                <RefWrapper
-                    ref={orgAdminDashboardLinkRef}
-                    role="menuitem"
-                    tabIndex={1}
-                    aria-label="Org Admin Dashboard"
-                >
+                <RefWrapper>
                     <OrgAdminDashboardLink pathname={pathname} />
                 </RefWrapper>
             )}
-            <RefWrapper ref={orgSwitcherRef} role="menuitem" tabIndex={2} aria-label="Org Switcher">
+
+            <RefWrapper>
                 <OrgSwitcher />
             </RefWrapper>
         </Stack>
