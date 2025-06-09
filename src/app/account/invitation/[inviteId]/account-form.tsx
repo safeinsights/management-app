@@ -4,7 +4,7 @@ import { Flex, Button, TextInput, PasswordInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { onCreateAccountAction } from './invite.actions' // Updated import
+import { onCreateAccountAction } from './invite.actions'
 import { Title } from '@mantine/core'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -12,7 +12,6 @@ import { handleMutationErrorsWithForm, reportError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
-// import { SignOutPanel } from './signout-panel' // REMOVE: Handled by InvitationHandler
 import { LoadingMessage } from '@/components/loading'
 
 const Success: FC<{ inviteId: string; clerkUserId: string }> = ({ inviteId, clerkUserId }) => {
