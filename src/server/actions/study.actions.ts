@@ -179,11 +179,12 @@ export const approveStudyProposalAction = orgAction(
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
             // Update the status of the study
-            await trx
+            const updatedStudy = await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
-                .execute()
+                .returning(['orgId'])
+                .executeTakeFirstOrThrow()
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
             if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
@@ -194,11 +195,15 @@ export const approveStudyProposalAction = orgAction(
             if (SIMULATE_IMAGE_BUILD) {
                 status = 'JOB-READY'
             } else {
-                await triggerBuildImageForJob({
-                    studyJobId: latestJob.id,
-                    studyId,
-                    orgSlug: orgSlug,
-                })
+                await triggerBuildImageForJob(
+                    {
+                        studyJobId: latestJob.id,
+                        studyId,
+                        orgSlug: orgSlug,
+                    },
+                    trx,
+                    updatedStudy.orgId,
+                )
             }
             await trx
                 .insertInto('jobStatusChange')

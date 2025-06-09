@@ -68,6 +68,43 @@ export async function seed(db: Kysely<DB>): Promise<void> {
         isReviewer: true,
         joinedAt: new Date(),
     })
+
+    // insert base images for org
+    await db
+        .insertInto('orgBaseImage')
+        .values([
+            {
+                id: uuidv7(),
+                orgId: org.id,
+                url: '123456789.dkr.ecr.us-east-1.amazonaws.com/openstax/r-base:latest',
+                language: 'r',
+                accessPermissions: {
+                    ecrRole: 'arn:aws:iam::123456789:role/ECRAccessRole',
+                    region: 'us-east-1',
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+            {
+                id: uuidv7(),
+                orgId: org.id,
+                url: '123456789.dkr.ecr.us-east-1.amazonaws.com/openstax/python-base:latest',
+                language: 'python',
+                accessPermissions: {
+                    ecrRole: 'arn:aws:iam::123456789:role/ECRAccessRole',
+                    region: 'us-east-1',
+                },
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            },
+        ])
+        .onConflict((oc) =>
+            oc.columns(['orgId', 'language']).doUpdateSet((eb) => ({
+                url: eb.ref('excluded.url'),
+                updatedAt: new Date(),
+            })),
+        )
+        .execute()
 }
 
 const findOrCreateUser = async (db: Kysely<DB>, values: Omit<Selectable<User>, 'fullName'>) => {

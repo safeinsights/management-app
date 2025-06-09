@@ -11,6 +11,9 @@ import { Readable } from 'stream'
 import { createHash } from 'crypto'
 import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
+import type { Kysely } from 'kysely'
+import type { DB } from '@/database/types'
+import { getOrgBaseImage } from './actions/org.actions'
 
 export function objectToAWSTags(tags: Record<string, string>) {
     const Environment = AWS_ACCOUNT_ENVIRONMENT[process.env.AWS_ACCOUNT_ID || ''] || 'Unknown'
@@ -160,34 +163,54 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
-export async function triggerBuildImageForJob(info: MinimalJobInfo) {
+export async function triggerBuildImageForJob(info: MinimalJobInfo, db: Kysely<DB>, orgId: string) {
     const codebuild = new CodeBuildClient({})
+
+    // get the base image (defaulting to 'r' for now)
+    const baseImage = await getOrgBaseImage(db, orgId, 'r')
+
+    const environmentVariables = [
+        {
+            name: 'ON_START_PAYLOAD',
+            value: JSON.stringify({
+                jobId: info.studyJobId,
+                status: 'JOB-PACKAGING',
+            }),
+        },
+        {
+            name: 'ON_SUCCESS_PAYLOAD',
+            value: JSON.stringify({
+                jobId: info.studyJobId,
+                status: 'JOB-READY',
+            }),
+        },
+        { name: 'S3_PATH', value: pathForStudyJobCode(info) },
+        { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
+        { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
+        { name: 'DOCKER_REPOSITORY_URL', value: await codeBuildRepositoryUrl(info) },
+        { name: 'DOCKER_TAG', value: info.studyJobId },
+    ]
+
+    if (baseImage) {
+        environmentVariables.push({
+            name: 'DOCKER_BASE_IMAGE',
+            value: baseImage.url,
+        })
+
+        if (baseImage.accessPermissions) {
+            environmentVariables.push({
+                name: 'BASE_IMAGE_ACCESS_PERMISSIONS',
+                value: JSON.stringify(baseImage.accessPermissions),
+            })
+        }
+    }
 
     const result = await codebuild.send(
         new StartBuildCommand({
             projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
-            environmentVariablesOverride: [
-                {
-                    name: 'ON_START_PAYLOAD',
-                    value: JSON.stringify({
-                        jobId: info.studyJobId,
-                        status: 'JOB-PACKAGING',
-                    }),
-                },
-                {
-                    name: 'ON_SUCCESS_PAYLOAD',
-                    value: JSON.stringify({
-                        jobId: info.studyJobId,
-                        status: 'JOB-READY',
-                    }),
-                },
-                { name: 'S3_PATH', value: pathForStudyJobCode(info) },
-                { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
-                { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
-                { name: 'DOCKER_REPOSITORY_URL', value: await codeBuildRepositoryUrl(info) },
-                { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
-            ],
+            environmentVariablesOverride: environmentVariables,
         }),
     )
+
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }

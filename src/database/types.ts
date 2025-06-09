@@ -155,10 +155,21 @@ export interface DB {
     audit: Audit
     jobStatusChange: JobStatusChange
     org: Org
+    orgBaseImage: OrgBaseImage
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study
     studyJob: StudyJob
     user: User
     userPublicKey: UserPublicKey
+}
+
+export interface OrgBaseImage {
+    accessPermissions: Json | null
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    language: string
+    orgId: string
+    updatedAt: Generated<Timestamp>
+    url: string
 }

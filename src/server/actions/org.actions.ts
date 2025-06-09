@@ -16,6 +16,8 @@ import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { clerkClient } from '@clerk/nextjs/server'
 import { revalidatePath } from 'next/cache'
 import logger from '@/lib/logger'
+import { DB } from '@/database/types'
+import { Kysely } from 'kysely'
 
 export const upsertOrgAction = siAdminAction(async (org) => {
     // Check for duplicate organization name for new organizations only
@@ -169,3 +171,14 @@ export const getUsersForOrgAction = orgAdminAction(
         }),
     }),
 )
+
+export async function getOrgBaseImage(db: Kysely<DB>, orgId: string, language: string = 'r') {
+    const baseImage = await db
+        .selectFrom('orgBaseImage')
+        .select(['url', 'accessPermissions'])
+        .where('orgId', '=', orgId)
+        .where('language', '=', language)
+        .executeTakeFirst()
+
+    return baseImage
+}
