@@ -1,12 +1,13 @@
 'use server'
 
 import { z } from 'zod'
-import { clerkClient, currentUser } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
+import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
 
 // Schema for onCreateAccountAction input
 const CreateAccountSchema = z.object({
@@ -19,12 +20,10 @@ const CreateAccountSchema = z.object({
     }),
 })
 
-export async function onCreateAccountAction(input: z.infer<typeof CreateAccountSchema>) {
-    const { inviteId, email, form } = CreateAccountSchema.parse(input)
-
+export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }) => {
     const pendingUser = await db
         .selectFrom('pendingUser')
-        .selectAll()
+        .selectAll('pendingUser')
         .where('id', '=', inviteId)
         .where('email', '=', email) // Verify email matches the invite
         .where('claimedByUserId', 'is', null)
@@ -35,14 +34,17 @@ export async function onCreateAccountAction(input: z.infer<typeof CreateAccountS
     }
 
     try {
-        const existingClerkUsers = await clerkClient.users.getUserList({ emailAddress: [email] })
+        const client = await clerkClient()
+        const existingClerkUsers = await client.users.getUserList({ emailAddress: [email] })
         if (existingClerkUsers.data.length > 0) {
             // This case should ideally be handled by InvitationHandler routing to existing user flow.
             // If an existing user somehow reaches here, it's an anomaly.
-            throw new ActionFailure({ email: 'An account with this email already exists. Please sign in to accept the invitation.' })
+            throw new ActionFailure({
+                email: 'An account with this email already exists. Please sign in to accept the invitation.',
+            })
         }
 
-        const clerkUser = await clerkClient.users.createUser({
+        const clerkUser = await client.users.createUser({
             emailAddress: [email],
             password: form.password,
             firstName: form.firstName,
@@ -50,7 +52,7 @@ export async function onCreateAccountAction(input: z.infer<typeof CreateAccountS
             // publicMetadata for roles will be set by onPendingUserLoginAction
         })
         return clerkUser.id // Return Clerk User ID
-    } catch (error: any) {
+    } catch (error: unknown) {
         if (isClerkApiError(error)) {
             const clerkError = error.errors[0]
             logger.warn({ message: 'Clerk API error during user creation', clerkError, email })
@@ -59,16 +61,14 @@ export async function onCreateAccountAction(input: z.infer<typeof CreateAccountS
         logger.error({ message: 'Non-Clerk error during user creation', error, email })
         throw new ActionFailure({ form: 'Could not create account due to an unexpected error.' })
     }
-}
+}, CreateAccountSchema)
 
 const PendingUserLoginSchema = z.object({
     inviteId: z.string(),
     userId: z.string(), // Clerk User ID
 })
 
-export async function onPendingUserLoginAction(input: z.infer<typeof PendingUserLoginSchema>) {
-    const { inviteId, userId: clerkUserId } = PendingUserLoginSchema.parse(input)
-
+export const onPendingUserLoginAction = userAction(async ({ inviteId, userId: clerkUserId }) => {
     const siUserId = await findOrCreateSiUserId(clerkUserId) // Ensure SI user record exists
 
     const pendingUser = await db
@@ -100,15 +100,16 @@ export async function onPendingUserLoginAction(input: z.infer<typeof PendingUser
     })
 
     try {
+        const client = await clerkClient()
         // 2. Add to Clerk Organization
-        await clerkClient.organizations.createOrganizationMembership({
+        await client.organizations.createOrganizationMembership({
             organizationId: pendingUser.orgClerkId, // This MUST be the Clerk Organization ID
             userId: clerkUserId,
             role: orgMembershipDetails.isAdmin ? 'org:admin' : 'org:member', // Adjust role mapping as needed
         })
 
         // 3. Update Clerk User Public Metadata
-        const clerkUser = await clerkClient.users.getUser(clerkUserId)
+        const clerkUser = await client.users.getUser(clerkUserId)
         const existingMetadataOrgs = (clerkUser.publicMetadata?.orgs as UserPublicMetadata['orgs']) || []
         const newOrgEntry = {
             slug: pendingUser.orgSlug,
@@ -120,14 +121,22 @@ export async function onPendingUserLoginAction(input: z.infer<typeof PendingUser
         const updatedOrgs = existingMetadataOrgs.filter((o) => o.slug !== pendingUser.orgSlug)
         updatedOrgs.push(newOrgEntry)
 
-        await clerkClient.users.updateUser(clerkUserId, {
+        await client.users.updateUser(clerkUserId, {
             publicMetadata: { ...clerkUser.publicMetadata, userId: siUserId, orgs: updatedOrgs },
         })
-    } catch (clerkError: any) {
-        logger.error({ message: 'Clerk update failed during onPendingUserLoginAction', error: clerkError, clerkUserId, orgSlug: pendingUser.orgSlug });
+    } catch (clerkError: unknown) {
+        logger.error({
+            message: 'Clerk update failed during onPendingUserLoginAction',
+            error: clerkError,
+            clerkUserId,
+            orgSlug: pendingUser.orgSlug,
+        })
         // Note: DB changes are not reverted here. This could lead to inconsistency.
         // For critical apps, consider a transaction or a cleanup mechanism.
-        throw new ActionFailure({ message: 'Failed to update your membership details with our authentication provider. Please contact support.' })
+        throw new ActionFailure({
+            message:
+                'Failed to update your membership details with our authentication provider. Please contact support.',
+        })
     }
 
     // 4. Mark invite as claimed in local DB
@@ -138,26 +147,21 @@ export async function onPendingUserLoginAction(input: z.infer<typeof PendingUser
         .execute()
 
     return { success: true }
-}
+}, PendingUserLoginSchema)
 
 const AcceptInviteExistingUserSchema = z.object({
     inviteId: z.string(),
 })
 
-export async function acceptInviteForExistingUserAction(input: z.infer<typeof AcceptInviteExistingUserSchema>) {
-    const { inviteId } = AcceptInviteExistingUserSchema.parse(input)
-    const authUser = await currentUser() // Clerk user from session
+export const acceptInviteForExistingUserAction = userAction(async ({ inviteId }) => {
+    const { user: authUser } = await actionContext()
 
-    if (!authUser) {
-        throw new ActionFailure({ message: 'User not authenticated.' })
-    }
-    const clerkUserId = authUser.id
-    const siUserId = await findOrCreateSiUserId(clerkUserId, {
-        firstName: authUser.firstName,
-        lastName: authUser.lastName,
-        email: authUser.emailAddresses.find(e => e.id === authUser.primaryEmailAddressId)?.emailAddress
-    })
-
+    const siUserId = authUser.id!
+    const { clerkId: clerkUserId } = await db
+        .selectFrom('user')
+        .select('clerkId')
+        .where('id', '=', siUserId)
+        .executeTakeFirstOrThrow()
 
     const pendingUser = await db
         .selectFrom('pendingUser')
@@ -189,25 +193,28 @@ export async function acceptInviteForExistingUserAction(input: z.infer<typeof Ac
     })
 
     try {
+        const client = await clerkClient()
         // 2. Add to Clerk Organization (or update role if already member)
         try {
-             await clerkClient.organizations.createOrganizationMembership({
+            await client.organizations.createOrganizationMembership({
                 organizationId: pendingUser.orgClerkId, // This MUST be the Clerk Organization ID
                 userId: clerkUserId,
                 role: orgMembershipDetails.isAdmin ? 'org:admin' : 'org:member',
             })
-        } catch (e: any) {
-            if (e.errors && e.errors[0] && e.errors[0].code === 'duplicate_organization_membership') {
-                logger.info(`User ${clerkUserId} already member of Clerk org ${pendingUser.orgClerkId}. Role update might be needed separately if changed.`);
+        } catch (e: unknown) {
+            if (isClerkApiError(e) && e.errors?.[0]?.code === 'duplicate_organization_membership') {
+                logger.info(
+                    `User ${clerkUserId} already member of Clerk org ${pendingUser.orgClerkId}. Role update might be needed separately if changed.`,
+                )
                 // If roles can change via invite for existing members, you might need:
                 // await clerkClient.organizations.updateOrganizationMembership({ organizationId: pendingUser.orgClerkId, userId: clerkUserId, role: ... });
             } else {
-                throw e; // Re-throw if it's another error
+                throw e // Re-throw if it's another error
             }
         }
 
         // 3. Update Clerk User Public Metadata
-        const clerkUserToUpdate = authUser; // Already have this from currentUser()
+        const clerkUserToUpdate = authUser // Already have this from actionContext
         const existingMetadataOrgs = (clerkUserToUpdate.publicMetadata?.orgs as UserPublicMetadata['orgs']) || []
         const newOrgEntry = {
             slug: pendingUser.orgSlug,
@@ -218,12 +225,20 @@ export async function acceptInviteForExistingUserAction(input: z.infer<typeof Ac
         const updatedOrgs = existingMetadataOrgs.filter((o) => o.slug !== pendingUser.orgSlug)
         updatedOrgs.push(newOrgEntry)
 
-        await clerkClient.users.updateUser(clerkUserId, {
+        await client.users.updateUser(clerkUserId, {
             publicMetadata: { ...clerkUserToUpdate.publicMetadata, userId: siUserId, orgs: updatedOrgs },
         })
-    } catch (clerkError: any) {
-        logger.error({ message: 'Clerk update failed during acceptInviteForExistingUserAction', error: clerkError, clerkUserId, orgSlug: pendingUser.orgSlug });
-        throw new ActionFailure({ message: 'Failed to update your membership details with our authentication provider. Please contact support.' })
+    } catch (clerkError: unknown) {
+        logger.error({
+            message: 'Clerk update failed during acceptInviteForExistingUserAction',
+            error: clerkError,
+            clerkUserId,
+            orgSlug: pendingUser.orgSlug,
+        })
+        throw new ActionFailure({
+            message:
+                'Failed to update your membership details with our authentication provider. Please contact support.',
+        })
     }
 
     // 4. Mark invite as claimed in local DB
@@ -234,4 +249,4 @@ export async function acceptInviteForExistingUserAction(input: z.infer<typeof Ac
         .execute()
 
     return { success: true, organizationName: pendingUser.orgName }
-}
+}, AcceptInviteExistingUserSchema)

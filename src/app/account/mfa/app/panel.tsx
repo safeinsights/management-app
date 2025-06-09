@@ -2,7 +2,7 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { QRCodeSVG } from 'qrcode.react'
@@ -15,6 +15,7 @@ import logger from '@/lib/logger'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { onPendingUserLoginAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
 import { notifications } from '@mantine/notifications'
+import { LoadingMessage } from '@/components/loading'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -22,7 +23,13 @@ type DisplayFormat = 'qr' | 'uri'
 
 export const dynamic = 'force-dynamic'
 
-function AddTotpScreenContent({ setStep, onMfaSuccess }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>; onMfaSuccess: () => Promise<void> }) {
+function AddTotpScreenContent({
+    setStep,
+    onMfaSuccess,
+}: {
+    setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
+    onMfaSuccess: () => Promise<void>
+}) {
     const { user } = useUser()
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
@@ -212,7 +219,8 @@ export function AddMFAPanel() {
                 reportError(error, 'Failed to claim invitation after MFA setup.')
                 notifications.show({
                     title: 'Error Finalizing Invite',
-                    message: 'MFA setup was successful, but there was an issue finalizing your organization membership. Please contact support.',
+                    message:
+                        'MFA setup was successful, but there was an issue finalizing your organization membership. Please contact support.',
                     color: 'red',
                     autoClose: false,
                 })

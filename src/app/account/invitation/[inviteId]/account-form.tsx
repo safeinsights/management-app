@@ -43,10 +43,14 @@ type InviteProps = {
 
 // Storing clerkUserId temporarily to pass to Success component
 type SetupAccountFormState = {
-    clerkUserId: string | null;
+    clerkUserId: string | null
 }
 
-const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => void }> = ({ inviteId, email, onComplete }) => {
+const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => void }> = ({
+    inviteId,
+    email,
+    onComplete,
+}) => {
     const { setActive, signIn } = useSignIn()
 
     const form = useForm({
@@ -61,7 +65,8 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: (formData: FormValues) => onCreateAccountAction({ inviteId, email, form: formData }), // Pass email
         onError: handleMutationErrorsWithForm(form),
-        async onSuccess(clerkUserId, vals) { // clerkUserId is returned by onCreateAccountAction
+        async onSuccess(clerkUserId, vals) {
+            // clerkUserId is returned by onCreateAccountAction
             if (!signIn) {
                 reportError(new Error('SignIn object not available'), 'SignIn not available post account creation')
                 return
@@ -78,7 +83,10 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(clerkUserId) // Pass clerkUserId to parent to trigger Success panel
             } else {
-                reportError(new Error(`Sign-in attempt not complete: ${attempt.status}`), 'unable to sign in after account creation')
+                reportError(
+                    new Error(`Sign-in attempt not complete: ${attempt.status}`),
+                    'unable to sign in after account creation',
+                )
             }
         },
     })
@@ -112,8 +120,8 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
 }
 
 export const AccountPanel: FC<InviteProps> = (props) => {
-    const [formCompletedState, setFormCompletedState] = useState<SetupAccountFormState>({ clerkUserId: null });
-    const { isLoaded, isSignedIn } = useAuth()
+    const [formCompletedState, setFormCompletedState] = useState<SetupAccountFormState>({ clerkUserId: null })
+    const { isLoaded } = useAuth()
 
     if (!isLoaded) return <LoadingMessage message="Loading" />
 

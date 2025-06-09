@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { Button, Text, Stack } from '@mantine/core'
+import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { AccountPanel } from './account-form'
 import { acceptInviteForExistingUserAction } from './invite.actions'
@@ -18,8 +18,7 @@ interface InvitationHandlerProps {
 }
 
 export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerProps) {
-    const { isLoaded, isSignedIn, userId } // userId from useAuth can be used for debugging or conditional logic if needed
-     = useAuth()
+    const { isLoaded, isSignedIn } = useAuth()
     const router = useRouter()
     const [isLoadingAction, setIsLoadingAction] = useState(false)
     const [orgName, setOrgName] = useState<string | null>(null)
