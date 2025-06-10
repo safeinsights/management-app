@@ -177,7 +177,7 @@ export function ManageSMSMFAPanel() {
                     {user?.hasVerifiedPhoneNumber && user?.twoFactorEnabled && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
-                            <ButtonLink href={dashboardUrl}>Done – Return to dashboard</ButtonLink>
+                            <ButtonLink href={dashboardUrl}>Visit your dashboard</ButtonLink>
                         </Stack>
                     )}
                 </Stack>

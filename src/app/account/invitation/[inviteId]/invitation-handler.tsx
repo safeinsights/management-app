@@ -69,7 +69,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         if (orgName) {
             return (
                 <SuccessPanel title={`You're now a member of ${orgName}!`} onContinue={() => router.push(dashboardUrl)}>
-                    Visit your dashboard to get started.
+                    Visit your dashboard
                 </SuccessPanel>
             )
         }

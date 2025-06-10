@@ -193,7 +193,7 @@ function SuccessScreenContent() {
     return (
         <Stack gap="lg">
             <Text>You have successfully added TOTP MFA with an authentication application.</Text>
-            <ButtonLink href={dashboardUrl}>Return to dashboard</ButtonLink>
+            <ButtonLink href={dashboardUrl}>Visit your dashboard</ButtonLink>
         </Stack>
     )
 }
