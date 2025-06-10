@@ -11,6 +11,10 @@ import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
 import { sleep } from '@/lib/util'
+import PhoneInput from 'react-phone-number-input'
+import 'react-phone-number-input/style.css'
+import styles from './panel.module.css'
+import { InputError } from '@/components/errors'
 import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const dynamic = 'force-dynamic'
@@ -66,8 +70,11 @@ export function ManageSMSMFAPanel() {
         setLastSentTime(Date.now())
         setIsSendingSms(true)
         try {
-            // Add unverified phone number to user, or use their existing unverified number
-            const res = user?.phoneNumbers[0] || (await createPhoneNumber(values.phoneNumber))
+            // Find the phone number from the form values, or create it if it doesn't exist.
+            let res = user?.phoneNumbers.find((p) => p.phoneNumber === values.phoneNumber)
+            if (!res) {
+                res = await createPhoneNumber(values.phoneNumber)
+            }
 
             // Reload user to get updated User object
             await user?.reload()
@@ -83,10 +90,12 @@ export function ManageSMSMFAPanel() {
             setIsVerifying(true)
         } catch (error) {
             const errorMessage = errorToString(error)
-            notifications.show({
-                message: errorMessage,
-                color: 'red',
-            })
+
+            if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
+                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
+            } else {
+                phoneForm.setFieldError('phoneNumber', errorMessage)
+            }
 
             setIsSendingSms(false)
         }
@@ -136,12 +145,18 @@ export function ManageSMSMFAPanel() {
 
                     <form onSubmit={phoneForm.onSubmit((values) => sendVerificationCode(values))}>
                         <Stack>
-                            <TextInput
-                                type="tel"
+                            <PhoneInput
+                                international
+                                countryCallingCodeEditable={false}
+                                defaultCountry="US"
+                                value={phoneForm.values.phoneNumber}
+                                onChange={(value) => phoneForm.setFieldValue('phoneNumber', value ?? '')}
+                                placeholder="Enter phone number"
+                                countries={['US']} // limited to US code
+                                className={styles.phoneInput}
                                 label="Phone Number"
-                                {...phoneForm.getInputProps('phoneNumber')}
-                                placeholder="Enter phone number with country code"
                             />
+                            {phoneForm.errors.phoneNumber && <InputError error={phoneForm.errors.phoneNumber} />}
                             <Button type="submit" loading={isSendingSms}>
                                 Send Code
                             </Button>
