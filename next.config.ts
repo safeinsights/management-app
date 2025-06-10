@@ -16,6 +16,16 @@ const nextConfig: NextConfig = async (phase: string) => {
                 bodySizeLimit: '6mb',
             },
         },
+
+        webpack: (config, { isServer }) => {
+            if (!isServer) {
+                config.resolve.fallback.fs = false;
+                config.resolve.fallback.module = false;
+                config.resolve.fallback.vm = false;
+            }
+
+            return config;
+        },
     }
     return nextConfig
 }
@@ -50,6 +60,7 @@ const configWithSentry = withSentryConfig(nextConfig, {
 
     // Automatically tree-shake Sentry logger statements to reduce bundle size
     disableLogger: true,
+
 })
 
 export default configWithSentry
