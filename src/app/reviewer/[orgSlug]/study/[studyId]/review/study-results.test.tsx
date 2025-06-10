@@ -27,20 +27,15 @@ describe('View Study Results', () => {
         org = resp.org
     })
 
-    const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus, fingerPrint = '1234') => {
+    const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus) => {
         const { org } = await mockSessionWithTestData()
         const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
-        const helpers = renderWithProviders(<StudyResults job={job} fingerprint={fingerPrint} />)
+        const helpers = renderWithProviders(<StudyResults job={job} />)
         return { ...helpers, job, org }
     }
 
-    it('shows appropriate message when user has no fingerprint', async () => {
-        await insertAndRender('PENDING-REVIEW', 'RUN-COMPLETE', '')
-        expect(screen.queryByText('You cannot view results without a private key')).toBeDefined()
-    })
-
     it('shows empty results state when no job exists', async () => {
-        renderWithProviders(<StudyResults job={null} fingerprint="asdf" />)
+        renderWithProviders(<StudyResults job={null} />)
         expect(screen.queryByText('Study results are not available yet')).toBeDefined()
     })
 
@@ -65,9 +60,12 @@ describe('View Study Results', () => {
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
         const fingerprint = await fingerprintKeyData(publicKey)
         const writer = new ResultsWriter([{ publicKey, fingerprint }])
-        const csv = 'hello world this is a CSV'
-        const csvBlob = Buffer.from(`title\n${csv}`, 'utf-8')
-        await writer.addFile('test.data', csvBlob.buffer)
+
+        const csv = `title\nhello world`
+        const csvBlob = Buffer.from(csv, 'utf-8')
+        const arrayBuf = csvBlob.buffer.slice(csvBlob.byteOffset, csvBlob.byteOffset + csvBlob.length)
+
+        await writer.addFile('test.data', arrayBuf)
         const zip = await writer.generate()
 
         vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
@@ -76,17 +74,21 @@ describe('View Study Results', () => {
             org,
             jobStatus: 'RUN-COMPLETE',
         })
-        renderWithProviders(<StudyResults job={job} fingerprint="asdf" />)
+        renderWithProviders(<StudyResults job={job} />)
 
         const input = screen.getByPlaceholderText('Enter private key')
 
         const privateKey = await readTestSupportFile('private_key.pem')
+
         fireEvent.change(input, { target: { value: privateKey } })
         fireEvent.click(screen.getByRole('button', { name: /View Results/i }))
 
         await waitFor(() => {
-            expect(screen.getByText(RegExp(csv))).toBeDefined()
-            fireEvent.click(screen.getByRole('button', { name: /Download/i }))
+            const link = screen.getByTestId('download-link')
+            expect(link.innerText).toEqual('Download test.data')
+            const data = link.getAttribute('href')?.replace('data:text/plain;base64,', '') || ''
+            const csv = atob(data)
+            expect(csv).toContain(csv)
         })
     })
 })

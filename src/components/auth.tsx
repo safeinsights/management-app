@@ -22,7 +22,7 @@ export const useAuthInfo = () => {
                     ? AuthRole.Researcher
                     : null,
         }),
-        [authLoaded, orgLoaded, userId, org],
+        [authLoaded, orgLoaded, userId, org, preferredOrgSlug],
     )
 }
 

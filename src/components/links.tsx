@@ -41,6 +41,7 @@ export const DownloadLink: React.FC<DownloadLinkProps> = ({ filename, content, t
         <NextLink
             href={'data:text/plain;base64,' + btoa(String.fromCharCode(...new Uint8Array(content)))}
             target={target}
+            data-testid="download-link"
             download={filename}
         >
             <Button rightSection={<Download />}>Download {filename}</Button>

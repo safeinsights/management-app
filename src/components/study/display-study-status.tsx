@@ -1,3 +1,5 @@
+'use client'
+
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
@@ -13,7 +15,9 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
     return (
         <Popover width={200} position="bottom" withArrow shadow="md">
             <PopoverTarget>
-                <InfoIcon />
+                <div style={{ cursor: 'pointer' }}>
+                    <InfoIcon />
+                </div>
             </PopoverTarget>
             <PopoverDropdown miw={'350px'}>
                 <Text size="xs" fw="bold">
@@ -70,16 +74,8 @@ export const DisplayStudyStatus: FC<{
     jobStatus: StudyJobStatus | null
     jobId?: string | null
 }> = ({ studyStatus, jobStatus, jobId }) => {
-    if (jobStatus) {
-        const props = StatusLabels[jobStatus] || null
-        if (props) {
-            return <StatusBlock {...props} jobId={jobId} />
-        }
-    }
-    const props = StatusLabels[studyStatus] || null
-    if (props) {
-        return <StatusBlock {...props} jobId={jobId} />
-    }
+    const statusToDisplay = jobStatus ?? studyStatus
+    const props = StatusLabels[statusToDisplay]
 
-    return null
+    return props ? <StatusBlock {...props} jobId={jobId} /> : null
 }

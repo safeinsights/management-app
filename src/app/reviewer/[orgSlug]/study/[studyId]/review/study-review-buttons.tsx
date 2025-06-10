@@ -29,7 +29,6 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             if (status === 'APPROVED') {
                 return approveStudyProposalAction({ orgSlug, studyId: study.id })
             }
-
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
         onError: reportMutationError,

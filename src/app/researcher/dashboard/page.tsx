@@ -105,7 +105,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
-                    <Text>Review submitted studies and check status below. </Text>
                     <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                         <NoStudiesCaption visible={!studies.length} slug={org.slug} />
                         <TableThead fz="sm">
