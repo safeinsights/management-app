@@ -29,6 +29,7 @@ export const orgAdminInviteUserAction = orgAdminAction(
             .selectFrom('pendingUser')
             .select(['id', 'email'])
             .where('email', '=', invite.email)
+            .where('orgId', '=', org.id)
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
