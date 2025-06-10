@@ -77,7 +77,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
 
     // returning user: prompt them to sign in instead of sign up
     if (userExists && !isSignedIn) {
-        return <SignIn />
+        return <SignIn noPanel={true} />
     }
 
     if (isSignedIn) {

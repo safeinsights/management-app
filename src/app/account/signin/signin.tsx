@@ -9,7 +9,7 @@ import { SignInForm } from './sign-in-form'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { reportError } from '@/components/errors'
 
-export function SignIn() {
+export function SignIn({ noPanel }: { noPanel?: boolean }) {
     const { isLoaded } = useSignIn()
 
     const [state, setState] = useState<MFAState>(false)
@@ -32,7 +32,7 @@ export function SignIn() {
 
     return (
         <Container>
-            <SignInForm onComplete={setPending} mfa={state} />
+            <SignInForm onComplete={setPending} mfa={state} noPanel={noPanel} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
         </Container>
     )
