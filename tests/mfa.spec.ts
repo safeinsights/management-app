@@ -29,7 +29,7 @@ test.describe('MFA Setup Visibility', () => {
         await visitClerkProtectedPage({ page, url: '/account/mfa/sms?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
 
         // Check if the Phone Number input is visible
-        await page.getByLabel('Phone Number').fill('+15555550101')
+        await page.getByPlaceholder('Enter phone number').fill('+15555550101')
         await page.getByRole('button', { name: /send code/i }).click()
 
         await page.getByLabel('Input Code').fill('424242')
