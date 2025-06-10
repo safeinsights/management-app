@@ -10,9 +10,8 @@ import { useRouter } from 'next/navigation'
 
 export const SignInForm: FC<{
     mfa: MFAState
-    onComplete: (state: MFAState) => void
-    noPanel?: boolean
-}> = ({ mfa, onComplete, noPanel }) => {
+    onComplete: (state: MFAState) => void;
+}> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
@@ -57,38 +56,34 @@ export const SignInForm: FC<{
         }
     })
 
-    const formInner = (
-        <>
-            <TextInput
-                key={form.key('email')}
-                {...form.getInputProps('email')}
-                label="Email"
-                placeholder="Email address"
-                aria-label="Email"
-            />
-            <PasswordInput
-                withAsterisk
-                label="Password"
-                key={form.key('password')}
-                {...form.getInputProps('password')}
-                mt={10}
-                placeholder="Password"
-                aria-label="Password"
-            />
-            <Flex align="center" mt={15} gap="md">
-                <Button type="submit">Login</Button>
-                <Stack>
-                    {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
-                    {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Link href="/account/reset-password">Forgot password?</Link>
-                </Stack>
-            </Flex>
-        </>
-    )
-
     return (
         <form onSubmit={onSubmit}>
-            {noPanel ? formInner : <Panel title="Welcome To SafeInsights">{formInner}</Panel>}
+            <Panel title="Welcome To SafeInsights">
+                <TextInput
+                    key={form.key('email')}
+                    {...form.getInputProps('email')}
+                    label="Email"
+                    placeholder="Email address"
+                    aria-label="Email"
+                />
+                <PasswordInput
+                    withAsterisk
+                    label="Password"
+                    key={form.key('password')}
+                    {...form.getInputProps('password')}
+                    mt={10}
+                    placeholder="Password"
+                    aria-label="Password"
+                />
+                <Flex align="center" mt={15} gap="md">
+                    <Button type="submit">Login</Button>
+                    <Stack>
+                        {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
+                        {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
+                        <Link href="/account/reset-password">Forgot password?</Link>
+                    </Stack>
+                </Flex>
+            </Panel>
         </form>
     )
 }

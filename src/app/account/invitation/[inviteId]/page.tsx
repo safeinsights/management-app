@@ -20,9 +20,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     return (
         <Container>
-            <Panel title="Welcome To SafeInsights">
-                <InvitationHandler inviteId={inviteId} invitedEmail={invite.email} />
-            </Panel>
+            <InvitationHandler inviteId={inviteId} invitedEmail={invite.email} />
         </Container>
     )
 }
