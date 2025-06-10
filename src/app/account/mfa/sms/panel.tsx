@@ -14,6 +14,7 @@ import { sleep } from '@/lib/util'
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import styles from './panel.module.css'
+import { InputError } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,15 +90,9 @@ export function ManageSMSMFAPanel() {
             const errorMessage = errorToString(error)
 
             if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
-                notifications.show({
-                    message: 'Please enter a valid phone number.',
-                    color: 'red',
-                })
+                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
             } else {
-                notifications.show({
-                    message: errorMessage,
-                    color: 'red',
-                })
+                phoneForm.setFieldError('phoneNumber', errorMessage)
             }
 
             setIsSendingSms(false)
@@ -159,6 +154,7 @@ export function ManageSMSMFAPanel() {
                                 className={styles.phoneInput}
                                 label="Phone Number"
                             />
+                            {phoneForm.errors.phoneNumber && <InputError error={phoneForm.errors.phoneNumber} />}
                             <Button type="submit" loading={isSendingSms}>
                                 Send Code
                             </Button>
