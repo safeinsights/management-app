@@ -3,7 +3,6 @@
 import { z } from 'zod'
 import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
-import { findOrCreateSiUserId } from '@/server/db/mutations'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
