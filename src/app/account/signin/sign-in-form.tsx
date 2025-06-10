@@ -10,8 +10,8 @@ import { useRouter } from 'next/navigation'
 
 export const SignInForm: FC<{
     mfa: MFAState
-    onComplete: (state: MFAState) => void;
-    noPanel?: boolean;
+    onComplete: (state: MFAState) => void
+    noPanel?: boolean
 }> = ({ mfa, onComplete, noPanel }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
@@ -87,6 +87,8 @@ export const SignInForm: FC<{
     )
 
     return (
-        <form onSubmit={onSubmit}>{noPanel ? formInner : <Panel title="Welcome To SafeInsights">{formInner}</Panel>}</form>
+        <form onSubmit={onSubmit}>
+            {noPanel ? formInner : <Panel title="Welcome To SafeInsights">{formInner}</Panel>}
+        </form>
     )
 }

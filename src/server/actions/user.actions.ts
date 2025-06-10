@@ -52,7 +52,12 @@ export const onUserSignInAction = anonAction(async () => {
                 isAdmin: md?.isAdmin,
                 isReviewer: md?.isReviewer,
             })
-        } catch {}
+        } catch (e) {
+            logger.warn(
+                `During login, user ${user.id} was found to be a member of clerk org ${org.organization.slug}, which was not found in the SI database. Skipping membership creation.`,
+                e,
+            )
+        }
     }
     onUserLogIn({ userId: user.id })
 })
