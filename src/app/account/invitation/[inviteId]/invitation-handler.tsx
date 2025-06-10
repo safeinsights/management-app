@@ -10,7 +10,7 @@ import { acceptInviteForExistingUserAction } from './invite.actions'
 import { LoadingMessage } from '@/components/loading'
 import { SuccessPanel } from '@/components/panel'
 import { reportError } from '@/components/errors'
-// import { useAuthInfo } from '@/hooks/useAuthInfo'; // Assuming this hook provides dashboardURL or similar
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 interface InvitationHandlerProps {
     inviteId: string
@@ -23,16 +23,8 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const [isLoadingAction, setIsLoadingAction] = useState(false)
     const [orgName, setOrgName] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
-    // const { preferredOrgSlug } = useAuthInfo(); // For dashboard redirection
-
-    const getDashboardUrl = () => {
-        // Placeholder: Adapt based on your actual dashboardURL logic
-        // For example, if useAuthInfo provides a direct dashboard URL:
-        // const { dashboardURL } = useAuthInfo(); return dashboardURL();
-        // Or, if it's based on preferredOrgSlug:
-        // if (preferredOrgSlug) return `/organization/${preferredOrgSlug}/dashboard`;
-        return '/' // Fallback to homepage
-    }
+    // use dynamic dashboard resolution
+    const dashboardUrl = useDashboardUrl()
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
@@ -76,10 +68,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         }
         if (orgName) {
             return (
-                <SuccessPanel
-                    title={`You're now a member of ${orgName}!`}
-                    onContinue={() => router.push(getDashboardUrl())}
-                >
+                <SuccessPanel title={`You're now a member of ${orgName}!`} onContinue={() => router.push(dashboardUrl)}>
                     Visit your dashboard to get started.
                 </SuccessPanel>
             )

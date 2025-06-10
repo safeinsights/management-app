@@ -16,6 +16,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { onPendingUserLoginAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
 import { notifications } from '@mantine/notifications'
 import { LoadingMessage } from '@/components/loading'
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -188,10 +189,11 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
 }
 
 function SuccessScreenContent() {
+    const dashboardUrl = useDashboardUrl()
     return (
         <Stack gap="lg">
             <Text>You have successfully added TOTP MFA with an authentication application.</Text>
-            <ButtonLink href="/">Return to homepage</ButtonLink>
+            <ButtonLink href={dashboardUrl}>Return to dashboard</ButtonLink>
         </Stack>
     )
 }

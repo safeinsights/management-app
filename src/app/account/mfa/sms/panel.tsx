@@ -11,6 +11,7 @@ import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
 import { sleep } from '@/lib/util'
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +28,7 @@ export function ManageSMSMFAPanel() {
         phone.setReservedForSecondFactor({ reserved: true }),
     )
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
+    const dashboardUrl = useDashboardUrl()
 
     const phoneForm = useForm({
         initialValues: {
@@ -160,7 +162,7 @@ export function ManageSMSMFAPanel() {
                     {user?.hasVerifiedPhoneNumber && user?.twoFactorEnabled && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
-                            <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
+                            <ButtonLink href={dashboardUrl}>Done – Return to dashboard</ButtonLink>
                         </Stack>
                     )}
                 </Stack>
