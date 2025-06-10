@@ -12,8 +12,8 @@ import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { onPendingUserLoginAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
+import { useRouter } from 'next/navigation'
+import { claimInviteAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
 import { notifications } from '@mantine/notifications'
 import { LoadingMessage } from '@/components/loading'
 import { useDashboardUrl } from '@/lib/dashboard-url'
@@ -202,30 +202,26 @@ export function AddMFAPanel() {
     const [step, setStep] = React.useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
     const router = useRouter()
-    const searchParams = useSearchParams()
 
     const handleMfaSuccess = async () => {
-        const inviteId = searchParams.get('inviteId')
-        const clerkUserId = searchParams.get('clerkUserId')
-        const postMfaAction = searchParams.get('postMfaAction')
+        const inviteId = localStorage.getItem('pendingInviteId')
 
-        if (postMfaAction === 'claimInvite' && inviteId && clerkUserId) {
+        if (inviteId) {
+            localStorage.removeItem('pendingInviteId')
             try {
-                await onPendingUserLoginAction({ inviteId, userId: clerkUserId })
-                notifications.show({
-                    title: 'Invitation Claimed',
-                    message: 'You have successfully joined the organization.',
-                    color: 'green',
-                })
+                const result = await claimInviteAction({ inviteId })
+                if (result.success) {
+                    notifications.show({
+                        title: 'Invitation Claimed',
+                        message: `You have successfully joined ${result.organizationName}.`,
+                        color: 'green',
+                    })
+                } else {
+                    // This case is unlikely to be hit since the action throws, but is good for robustness
+                    reportError(result.error || 'Failed to claim invitation after MFA setup.')
+                }
             } catch (error) {
                 reportError(error, 'Failed to claim invitation after MFA setup.')
-                notifications.show({
-                    title: 'Error Finalizing Invite',
-                    message:
-                        'MFA setup was successful, but there was an issue finalizing your organization membership. Please contact support.',
-                    color: 'red',
-                    autoClose: false,
-                })
             }
         }
     }

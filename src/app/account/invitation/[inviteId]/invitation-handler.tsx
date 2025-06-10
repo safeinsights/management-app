@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { AccountPanel } from './account-form'
-import { acceptInviteForExistingUserAction } from './invite.actions'
+import { claimInviteAction } from './invite.actions'
 import { LoadingMessage } from '@/components/loading'
 import { SuccessPanel } from '@/components/panel'
 import { reportError } from '@/components/errors'
@@ -29,7 +29,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     useEffect(() => {
         if (isLoaded && isSignedIn) {
             setIsLoadingAction(true)
-            acceptInviteForExistingUserAction({ inviteId })
+            claimInviteAction({ inviteId })
                 .then((result) => {
                     if (result.success && result.organizationName) {
                         setOrgName(result.organizationName)

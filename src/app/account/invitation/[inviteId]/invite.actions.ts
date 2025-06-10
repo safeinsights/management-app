@@ -63,97 +63,11 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
     }
 }, CreateAccountSchema)
 
-const PendingUserLoginSchema = z.object({
-    inviteId: z.string(),
-    userId: z.string(), // Clerk User ID
-})
-
-export const onPendingUserLoginAction = userAction(async ({ inviteId, userId: clerkUserId }) => {
-    const siUserId = await findOrCreateSiUserId(clerkUserId) // Ensure SI user record exists
-
-    const pendingUser = await db
-        .selectFrom('pendingUser')
-        .innerJoin('org', 'org.id', 'pendingUser.orgId')
-        .select([
-            'pendingUser.id as pendingUserId',
-            'pendingUser.orgId as localOrgDbId', // Local DB org ID
-            'pendingUser.isResearcher',
-            'pendingUser.isReviewer',
-            'org.slug as orgSlug',
-            'org.id as orgClerkId', // Assuming org.id in DB is the Clerk Organization ID
-        ])
-        .where('pendingUser.id', '=', inviteId)
-        .where('pendingUser.claimedByUserId', 'is', null)
-        .executeTakeFirst()
-
-    if (!pendingUser) {
-        throw new ActionFailure({ message: 'Invalid or already claimed invitation for login action.' })
-    }
-
-    // 1. Update local DB using existing findOrCreateOrgMembership
-    const orgMembershipDetails = await findOrCreateOrgMembership({
-        userId: siUserId,
-        slug: pendingUser.orgSlug,
-        isResearcher: pendingUser.isResearcher,
-        isReviewer: pendingUser.isReviewer,
-        isAdmin: false, // Default for new invitees; orgAdminAction is for existing admins to manage
-    })
-
-    try {
-        const client = await clerkClient()
-        // 2. Add to Clerk Organization
-        await client.organizations.createOrganizationMembership({
-            organizationId: pendingUser.orgClerkId, // This MUST be the Clerk Organization ID
-            userId: clerkUserId,
-            role: orgMembershipDetails.isAdmin ? 'org:admin' : 'org:member', // Adjust role mapping as needed
-        })
-
-        // 3. Update Clerk User Public Metadata
-        const clerkUser = await client.users.getUser(clerkUserId)
-        const existingMetadataOrgs = (clerkUser.publicMetadata?.orgs as UserPublicMetadata['orgs']) || []
-        const newOrgEntry = {
-            slug: pendingUser.orgSlug,
-            isAdmin: orgMembershipDetails.isAdmin,
-            isResearcher: orgMembershipDetails.isResearcher,
-            isReviewer: orgMembershipDetails.isReviewer,
-        }
-        // Remove if existing, then add updated
-        const updatedOrgs = existingMetadataOrgs.filter((o) => o.slug !== pendingUser.orgSlug)
-        updatedOrgs.push(newOrgEntry)
-
-        await client.users.updateUser(clerkUserId, {
-            publicMetadata: { ...clerkUser.publicMetadata, userId: siUserId, orgs: updatedOrgs },
-        })
-    } catch (clerkError: unknown) {
-        logger.error({
-            message: 'Clerk update failed during onPendingUserLoginAction',
-            error: clerkError,
-            clerkUserId,
-            orgSlug: pendingUser.orgSlug,
-        })
-        // Note: DB changes are not reverted here. This could lead to inconsistency.
-        // For critical apps, consider a transaction or a cleanup mechanism.
-        throw new ActionFailure({
-            message:
-                'Failed to update your membership details with our authentication provider. Please contact support.',
-        })
-    }
-
-    // 4. Mark invite as claimed in local DB
-    await db
-        .updateTable('pendingUser')
-        .set({ claimedByUserId: siUserId })
-        .where('id', '=', pendingUser.pendingUserId)
-        .execute()
-
-    return { success: true }
-}, PendingUserLoginSchema)
-
-const AcceptInviteExistingUserSchema = z.object({
+const ClaimInviteSchema = z.object({
     inviteId: z.string(),
 })
 
-export const acceptInviteForExistingUserAction = userAction(async ({ inviteId }) => {
+export const claimInviteAction = userAction(async ({ inviteId }) => {
     const { user: authUser } = await actionContext()
 
     const siUserId = authUser.id!
@@ -189,7 +103,7 @@ export const acceptInviteForExistingUserAction = userAction(async ({ inviteId })
         slug: pendingUser.orgSlug,
         isResearcher: pendingUser.isResearcher,
         isReviewer: pendingUser.isReviewer,
-        isAdmin: false, // Default for invitees, even existing users joining a new org
+        isAdmin: false, // Default for invitees
     })
 
     try {
@@ -206,15 +120,13 @@ export const acceptInviteForExistingUserAction = userAction(async ({ inviteId })
                 logger.info(
                     `User ${clerkUserId} already member of Clerk org ${pendingUser.orgClerkId}. Role update might be needed separately if changed.`,
                 )
-                // If roles can change via invite for existing members, you might need:
-                // await clerkClient.organizations.updateOrganizationMembership({ organizationId: pendingUser.orgClerkId, userId: clerkUserId, role: ... });
             } else {
                 throw e // Re-throw if it's another error
             }
         }
 
         // 3. Update Clerk User Public Metadata
-        const clerkUserToUpdate = authUser // Already have this from actionContext
+        const clerkUserToUpdate = await client.users.getUser(clerkUserId)
         const existingMetadataOrgs = (clerkUserToUpdate.publicMetadata?.orgs as UserPublicMetadata['orgs']) || []
         const newOrgEntry = {
             slug: pendingUser.orgSlug,
@@ -230,7 +142,7 @@ export const acceptInviteForExistingUserAction = userAction(async ({ inviteId })
         })
     } catch (clerkError: unknown) {
         logger.error({
-            message: 'Clerk update failed during acceptInviteForExistingUserAction',
+            message: 'Clerk update failed during invite claim',
             error: clerkError,
             clerkUserId,
             orgSlug: pendingUser.orgSlug,
@@ -249,4 +161,4 @@ export const acceptInviteForExistingUserAction = userAction(async ({ inviteId })
         .execute()
 
     return { success: true, organizationName: pendingUser.orgName }
-}, AcceptInviteExistingUserSchema)
+}, ClaimInviteSchema)

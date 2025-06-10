@@ -14,12 +14,14 @@ import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
 
-const Success: FC<{ inviteId: string; clerkUserId: string }> = ({ inviteId, clerkUserId }) => {
+const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
     const router = useRouter()
 
     const onContinue = () => {
-        // Redirect to MFA page, passing inviteId and clerkUserId
-        router.push(`/account/mfa/app?inviteId=${inviteId}&clerkUserId=${clerkUserId}&postMfaAction=claimInvite`)
+        // Store inviteId for use after MFA setup
+        localStorage.setItem('pendingInviteId', inviteId)
+        // Redirect to generic MFA page
+        router.push(`/account/mfa/app`)
     }
     return (
         <SuccessPanel title="Your account has been created successfully!" onContinue={onContinue}>
@@ -128,7 +130,7 @@ export const AccountPanel: FC<InviteProps> = (props) => {
     // This component (AccountPanel) is now only rendered if the user is NOT signed in by InvitationHandler.
 
     return formCompletedState.clerkUserId ? (
-        <Success inviteId={props.inviteId} clerkUserId={formCompletedState.clerkUserId} />
+        <Success inviteId={props.inviteId} />
     ) : (
         <SetupAccountForm {...props} onComplete={(clerkUserId) => setFormCompletedState({ clerkUserId })} />
     )
