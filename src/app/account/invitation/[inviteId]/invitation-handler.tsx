@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@clerk/nextjs'
+import { useQuery } from '@tanstack/react-query'
+import { userExistsAction } from '@/server/actions/user.actions'
+import { SignIn } from '@/app/account/signin/signin'
 import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -25,6 +28,11 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const [error, setError] = useState<string | null>(null)
     // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
+
+    // remember the inviteId so that once they sign in we auto-claim
+    useEffect(() => {
+        window.localStorage.setItem('pendingInviteId', inviteId)
+    }, [inviteId])
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
@@ -52,14 +60,24 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
                         color: 'red',
                     })
                 })
-                .finally(() => {
-                    setIsLoadingAction(false)
-                })
+                .finally(() => setIsLoadingAction(false))
         }
     }, [isLoaded, isSignedIn, inviteId])
 
-    if (!isLoaded || (isSignedIn && isLoadingAction)) {
+    // fetch whether this email is already in our SI user table
+    const { data: userExists } = useQuery({
+        queryKey: ['userExists', invitedEmail],
+        queryFn: () => userExistsAction(invitedEmail),
+        enabled: isLoaded,
+    })
+
+    if (!isLoaded || isLoadingAction) {
         return <LoadingMessage message="Processing your invitation..." />
+    }
+
+    // returning user: prompt them to sign in instead of sign up
+    if (userExists && !isSignedIn) {
+        return <SignIn />
     }
 
     if (isSignedIn) {
@@ -77,6 +95,6 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         return <LoadingMessage message="Finalizing your membership..." />
     }
 
-    // Not signed in, show the account creation panel
+    // first‐time SI users get our old sign‐up + MFA flow
     return <AccountPanel inviteId={inviteId} email={invitedEmail} />
 }

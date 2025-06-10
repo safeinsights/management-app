@@ -84,3 +84,10 @@ export const updateUserRoleAction = orgAdminAction(
         isReviewer: z.boolean(),
     }),
 )
+
+//–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––+
+// Action to let the client know if an email already exists in SI
+export const userExistsAction = anonAction(async (email: string) => {
+    const row = await db.selectFrom('user').select('id').where('email', '=', email).executeTakeFirst()
+    return Boolean(row)
+}, z.string())
