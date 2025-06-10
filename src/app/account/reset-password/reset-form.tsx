@@ -68,7 +68,7 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                         aria-label="Email"
                     />
 
-                    <Button w="100%" mt="md" mb="xl" type="submit" loading={isPending}>
+                    <Button w="100%" mt="md" mb="xl" type="submit" loading={isPending} disabled={!emailForm.isValid()}>
                         Send Verification Code
                     </Button>
                 </Flex>

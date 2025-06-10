@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
+import { Button, TextInput, Paper, PasswordInput, Title, Flex, Text, ThemeIcon } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
@@ -10,10 +10,12 @@ import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/li
 import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
+import { Check, X } from '@phosphor-icons/react'
 
 interface VerificationFormValues {
     code: string
     password: string
+    confirmPassword: string
 }
 
 interface PendingResetProps {
@@ -29,10 +31,12 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         initialValues: {
             code: '',
             password: '',
+            confirmPassword: '',
         },
         validate: {
             code: isNotEmpty('Verification code is required'),
             password: isNotEmpty('New password is required'),
+            confirmPassword: (value, values) => (value !== values.password ? 'Passwords do not match' : null),
         },
     })
 
@@ -83,11 +87,28 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         },
     })
 
+    const requirements = [
+        { re: /[0-9]/, label: 'One number' },
+        { re: /[A-Z]/, label: 'One uppercase letter' },
+        { re: /[$&+,:;=?@#|'<>.^*()%!-]/, label: 'One special symbol' },
+        { re: /^.{8,}$/, label: '8 character minimum' },
+    ]
+
+    const checkRequirements = (password: string) => {
+        return requirements.map((requirement) => ({
+            ...requirement,
+            meets: requirement.re.test(password),
+        }))
+    }
+
+    const passwordRequirements = checkRequirements(verificationForm.values.password)
+    const allRequirementsMet = passwordRequirements.every((req) => req.meets)
+
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
     return (
         <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
-            <Paper bg="#f5f5f5" shadow="none" p="xxl" radius="sm">
+            <Paper shadow="none" p="xxl" radius="sm">
                 <Flex direction="column" gap="sm">
                     <Title mb="sm" ta="center" order={3}>
                         Reset your password
@@ -95,8 +116,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                     <TextInput
                         key={verificationForm.key('code')}
                         {...verificationForm.getInputProps('code')}
-                        label="Verification Code"
-                        placeholder="Enter code from email"
+                        label="Enter verification code"
+                        placeholder="A code has been sent to your registered email"
                         aria-label="Verification code"
                     />
                     <PasswordInput
@@ -107,19 +128,54 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         aria-label="New password"
                         mt={10}
                     />
+
+                    {verificationForm.values.password && (
+                        <Paper>
+                            <Flex direction="column" gap="xs">
+                                {[0, 2].map((rowStart) => (
+                                    <Flex key={rowStart} direction="row" gap="md">
+                                        {passwordRequirements
+                                            .slice(rowStart, rowStart + 2)
+                                            .map((requirement, index) => (
+                                                <Flex
+                                                    key={rowStart + index}
+                                                    align="center"
+                                                    gap="xs"
+                                                    style={{ flex: 1 }}
+                                                >
+                                                    <ThemeIcon
+                                                        color={requirement.meets ? 'teal' : 'red'}
+                                                        size={16}
+                                                        radius="xl"
+                                                    >
+                                                        {requirement.meets ? <Check size={12} /> : <X size={12} />}
+                                                    </ThemeIcon>
+                                                    <Text size="sm">{requirement.label}</Text>
+                                                </Flex>
+                                            ))}
+                                    </Flex>
+                                ))}
+                            </Flex>
+                        </Paper>
+                    )}
+
                     <PasswordInput
-                        key={verificationForm.key('password')}
-                        {...verificationForm.getInputProps('password')}
+                        key={verificationForm.key('confirmPassword')}
+                        {...verificationForm.getInputProps('confirmPassword')}
                         label="Confirm New Password"
                         placeholder="********"
                         aria-label="Confirm New password"
                         mt={10}
                     />
-                    <Flex direction="row" justify="space-between" mt={15} mb="xxl" gap="xxl">
+                    <Flex direction="row" justify="space-between" mt={15} mb="xxl">
                         <Button type="submit" loading={isPending} variant="outline">
                             Resend verification code
                         </Button>
-                        <Button type="submit" loading={isPending}>
+                        <Button
+                            type="submit"
+                            loading={isPending}
+                            disabled={!verificationForm.isValid() || !allRequirementsMet}
+                        >
                             Update new password
                         </Button>
                     </Flex>

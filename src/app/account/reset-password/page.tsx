@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export default function ResetPasswordPage() {
     return (
-        <Container>
+        <Container w={600}>
             <ResetPassword />
         </Container>
     )
