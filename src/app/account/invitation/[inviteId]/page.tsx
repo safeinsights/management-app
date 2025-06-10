@@ -1,6 +1,5 @@
 import { db } from '@/database'
 import { ErrorAlert } from '@/components/errors'
-import { Panel } from '@/components/panel'
 import { Container } from '@mantine/core'
 import { InvitationHandler } from './invitation-handler' // New client component
 

@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation'
 
 export const SignInForm: FC<{
     mfa: MFAState
-    onComplete: (state: MFAState) => void;
+    onComplete: (state: MFAState) => void
 }> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
