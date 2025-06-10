@@ -6,6 +6,7 @@ import { db } from '@/database'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
+import { findClerkOrganization } from '@/server/clerk'
 import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
 
 // Schema for onCreateAccountAction input
@@ -86,7 +87,6 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
             'pendingUser.isReviewer',
             'org.slug as orgSlug',
             'org.name as orgName',
-            'org.id as orgClerkId', // Assuming org.id in DB is the Clerk Organization ID
         ])
         .where('pendingUser.id', '=', inviteId)
         .where('pendingUser.claimedByUserId', 'is', null)
@@ -95,6 +95,10 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
     if (!pendingUser) {
         return { success: false, error: 'Invalid or already claimed invitation.' }
     }
+
+    const clerkOrg = await findClerkOrganization({
+        slug: pendingUser.orgSlug,
+    })
 
     // 1. Update local DB
     const orgMembershipDetails = await findOrCreateOrgMembership({
@@ -110,14 +114,14 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         // 2. Add to Clerk Organization (or update role if already member)
         try {
             await client.organizations.createOrganizationMembership({
-                organizationId: pendingUser.orgClerkId, // This MUST be the Clerk Organization ID
+                organizationId: clerkOrg.id, // This MUST be the Clerk Organization ID
                 userId: clerkUserId,
                 role: orgMembershipDetails.isAdmin ? 'org:admin' : 'org:member',
             })
         } catch (e: unknown) {
             if (isClerkApiError(e) && e.errors?.[0]?.code === 'duplicate_organization_membership') {
                 logger.info(
-                    `User ${clerkUserId} already member of Clerk org ${pendingUser.orgClerkId}. Role update might be needed separately if changed.`,
+                    `User ${clerkUserId} already member of Clerk org ${clerkOrg.id}. Role update might be needed separately if changed.`,
                 )
             } else {
                 throw e // Re-throw if it's another error
