@@ -11,7 +11,6 @@ import {
     Button,
     Group,
     Divider,
-    useMantineTheme,
 } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
