@@ -22,7 +22,19 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
 import { orgSchema as baseOrgSchema, type Org } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
-import { handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
+
+interface FormFieldMessageProps {
+    message: string;
+   }
+   
+   export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) => {
+     return (
+       <Text size="xs" c="dimmed" mt="xs">
+         {message}
+       </Text>
+     )
+   }
 
 export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
     name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
@@ -112,13 +124,16 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 error={
                                     form.errors.name && (
                                         <Group gap="xs">
-                                            <WarningCircle size={14} color={theme.colors.red[7]} weight="fill" />
-                                            {form.errors.name}
+                                            <InputError error={form.errors.name} />
                                             <span>{(form.values.name || '').length} /50 characters</span>
                                         </Group>
                                     )
                                 }
                             />
+                            {/* If there is no name error show the characters count */}
+                            {form.errors.name && <FormFieldMessage message={((form.values.name || '').length)+ ' /50 characters'} />}
+                            
+                       
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
@@ -136,20 +151,15 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 placeholder="Consider adding a sentence to publicly introduce your organization."
                                 error={
                                     form.errors.description && (
-                                        <Group c="red.7" gap="xs">
-                                            <WarningCircle size={14} color={theme.colors.red[7]} weight="fill" />
-                                            {form.errors.description}
+                                        <Group gap="xs">
+                                           <InputError error={form.errors.description} />
                                             <span>{(form.values.description || '').length} /250 characters</span>
                                         </Group>
                                     )
                                 }
                             />
                             {/* If there is no description error show the characters count */}
-                            {!form.errors.description && (
-                                <Text size="xs" c="dimmed" mt="xs">
-                                    {(form.values.description || '').length}/250 characters
-                                </Text>
-                            )}
+                             <FormFieldMessage message={((form.values.description || '').length) + '/250 characters'} />
                         </Grid.Col>
                     </Grid>
                 </Stack>

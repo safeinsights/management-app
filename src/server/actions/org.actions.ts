@@ -90,7 +90,7 @@ export const updateOrgSettingsAction = orgAdminAction(async ({ orgSlug, name, de
     // Check for duplicate name for existing organizations
     const existingOrg = await db.selectFrom('org').select('id').where('name', '=', name).executeTakeFirst()
     if (existingOrg && existingOrg.id !== orgFromContext.id) {
-        throw new ActionFailure({ name: 'Team name is already in use. Enter a unique name.' })
+        throw new ActionFailure({ name: 'Name is already in use. Enter a unique name.' })
     }
 
     // Update the database first, Clerk second
