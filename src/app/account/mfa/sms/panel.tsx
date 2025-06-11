@@ -7,6 +7,7 @@ import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
 import { useForm } from '@mantine/form'
+import { claimInviteAction } from '@/app/account/invitation/[inviteId]/invite.actions'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
@@ -131,6 +132,28 @@ export function ManageSMSMFAPanel() {
             await user.reload()
         } catch {
             notifications.show({ message: 'Error setting phone number as MFA', color: 'red' })
+        }
+
+        // ── claim the pending invite, if any ──
+        const inviteId = localStorage.getItem('pendingInviteId')
+        if (inviteId) {
+            try {
+                const result = await claimInviteAction({ inviteId })
+                localStorage.removeItem('pendingInviteId')
+                if (!result.success) {
+                    notifications.show({
+                        title: 'Error',
+                        message: result.error || 'Could not process your invitation.',
+                        color: 'red',
+                    })
+                }
+            } catch (err) {
+                notifications.show({
+                    title: 'Error',
+                    message: errorToString(err),
+                    color: 'red',
+                })
+            }
         }
     }
 

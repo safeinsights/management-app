@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser } from '@clerk/nextjs'
+import { useUser, useClerk } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import React, { useState, useMemo } from 'react'
 import { z } from 'zod'
@@ -201,6 +201,7 @@ function SuccessScreenContent() {
 export function AddMFAPanel() {
     const [step, setStep] = React.useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
+    const { setActive } = useClerk()
     const router = useRouter()
 
     const handleMfaSuccess = async () => {
@@ -216,6 +217,15 @@ export function AddMFAPanel() {
                         message: `You have successfully joined ${result.organizationName}.`,
                         color: 'green',
                     })
+                    // switch active org for reviewer-only invitees
+                    if (result.orgSlug) {
+                        const orgMeta = user?.publicMetadata?.orgs?.find((o) => o.slug === result.orgSlug)
+                        if (orgMeta?.isReviewer) {
+                            try {
+                                await setActive({ organization: { slug: result.orgSlug } })
+                            } catch { /* ignore */ }
+                        }
+                    }
                 } else {
                     // This case is unlikely to be hit since the action throws, but is good for robustness
                     reportError(result.error || 'Failed to claim invitation after MFA setup.')
