@@ -1,19 +1,12 @@
-import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { useForm, zodResolver } from '@mantine/form'
+import { Panel } from '@/components/panel'
+import { Flex, Button, TextInput, PasswordInput, Stack } from '@mantine/core'
+import { isNotEmpty, isEmail, useForm } from '@mantine/form'
 import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC } from 'react'
 import { useRouter } from 'next/navigation'
-import { z } from 'zod'
-
-const signInSchema = z.object({
-    email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
-    password: z.string().min(1, 'Required'),
-})
-
-type SignInFormData = z.infer<typeof signInSchema>
 
 export const SignInForm: FC<{
     mfa: MFAState
@@ -23,12 +16,16 @@ export const SignInForm: FC<{
     const { isSignedIn } = useUser()
     const router = useRouter()
 
-    const form = useForm<SignInFormData>({
+    const form = useForm({
         initialValues: {
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+
+        validate: {
+            email: isEmail('Invalid email'),
+            password: isNotEmpty('Required'),
+        },
     })
 
     if (isSignedIn || !signIn || mfa) return null
@@ -54,44 +51,39 @@ export const SignInForm: FC<{
                 const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
                 if (emailError) {
                     form.setFieldError('email', emailError.longMessage)
-                    return
                 }
             }
-
-            form.setFieldError('email', ' ')
-            form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
         }
     })
 
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg="white" radius="none" p="xxl">
-                <Flex direction="column" gap="xs">
-                    <Title order={3} ta="center">
-                        Welcome To SafeInsights!
-                    </Title>
-                    <TextInput
-                        key={form.key('email')}
-                        {...form.getInputProps('email')}
-                        label="Email"
-                        placeholder="Enter your registered email address"
-                        aria-label="Email"
-                    />
-                    <PasswordInput
-                        label="Password"
-                        key={form.key('password')}
-                        {...form.getInputProps('password')}
-                        mt={10}
-                        placeholder="*********"
-                        aria-label="Password"
-                    />
-                    <Link href="/account/reset-password">Forgot password?</Link>
-                    {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button disabled={!form.isValid()} type="submit">
-                        Login
-                    </Button>
+            <Panel title="Welcome To SafeInsights">
+                <TextInput
+                    key={form.key('email')}
+                    {...form.getInputProps('email')}
+                    label="Email"
+                    placeholder="Email address"
+                    aria-label="Email"
+                />
+                <PasswordInput
+                    withAsterisk
+                    label="Password"
+                    key={form.key('password')}
+                    {...form.getInputProps('password')}
+                    mt={10}
+                    placeholder="Password"
+                    aria-label="Password"
+                />
+                <Flex align="center" mt={15} gap="md">
+                    <Button type="submit">Login</Button>
+                    <Stack>
+                        {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
+                        {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
+                        <Link href="/account/reset-password">Forgot password?</Link>
+                    </Stack>
                 </Flex>
-            </Paper>
+            </Panel>
         </form>
     )
 }
