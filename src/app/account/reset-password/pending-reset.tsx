@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button, TextInput, Paper, PasswordInput, Title, Flex, Text, ThemeIcon } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
+import { useForm, zodResolver } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -11,12 +11,41 @@ import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { Check, X } from '@phosphor-icons/react'
+import { z } from 'zod'
 
-interface VerificationFormValues {
-    code: string
-    password: string
-    confirmPassword: string
+const PASSWORD_REQUIREMENTS = [
+    { re: /[0-9]/, label: 'One number', message: 'Password must contain at least one number' },
+    { re: /[A-Z]/, label: 'One uppercase letter', message: 'Password must contain at least one uppercase letter' },
+    {
+        re: /[$&+,:;=?@#|'<>.^*()%!-]/,
+        label: 'One special symbol',
+        message: 'Password must contain at least one special symbol',
+    },
+    { re: /^.{8,}$/, label: '8 character minimum', message: '8 character minimum' },
+] as const
+
+const createPasswordSchema = () => {
+    let schema = z.string()
+
+    PASSWORD_REQUIREMENTS.forEach((req) => {
+        schema = schema.regex(req.re, req.message)
+    })
+
+    return schema
 }
+
+const verificationFormSchema = z
+    .object({
+        code: z.string().min(1, 'Verification code is required'),
+        password: createPasswordSchema(),
+        confirmPassword: z.string().min(1, 'Password confirmation is required'),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+        message: 'Passwords do not match',
+        path: ['confirmPassword'],
+    })
+
+type VerificationFormValues = z.infer<typeof verificationFormSchema>
 
 interface PendingResetProps {
     pendingReset: SignInResource
@@ -33,11 +62,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
             password: '',
             confirmPassword: '',
         },
-        validate: {
-            code: isNotEmpty('Verification code is required'),
-            password: isNotEmpty('New password is required'),
-            confirmPassword: (value, values) => (value !== values.password ? 'Passwords do not match' : null),
-        },
+        validate: zodResolver(verificationFormSchema),
     })
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
@@ -87,15 +112,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         },
     })
 
-    const requirements = [
-        { re: /[0-9]/, label: 'One number' },
-        { re: /[A-Z]/, label: 'One uppercase letter' },
-        { re: /[$&+,:;=?@#|'<>.^*()%!-]/, label: 'One special symbol' },
-        { re: /^.{8,}$/, label: '8 character minimum' },
-    ]
-
     const checkRequirements = (password: string) => {
-        return requirements.map((requirement) => ({
+        return PASSWORD_REQUIREMENTS.map((requirement) => ({
             ...requirement,
             meets: requirement.re.test(password),
         }))
@@ -103,6 +121,25 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const passwordRequirements = checkRequirements(verificationForm.values.password)
     const allRequirementsMet = passwordRequirements.every((req) => req.meets)
+
+    const renderRequirementRows = () => {
+        const rows = []
+        for (let i = 0; i < passwordRequirements.length; i += 2) {
+            rows.push(
+                <Flex key={i} direction="row" gap="md">
+                    {passwordRequirements.slice(i, i + 2).map((requirement, index) => (
+                        <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
+                            <ThemeIcon color={requirement.meets ? 'teal' : 'red'} size={16} radius="xl">
+                                {requirement.meets ? <Check size={12} /> : <X size={12} />}
+                            </ThemeIcon>
+                            <Text size="sm">{requirement.label}</Text>
+                        </Flex>
+                    ))}
+                </Flex>,
+            )
+        }
+        return rows
+    }
 
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
@@ -132,29 +169,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                     {verificationForm.values.password && (
                         <Paper>
                             <Flex direction="column" gap="xs">
-                                {[0, 2].map((rowStart) => (
-                                    <Flex key={rowStart} direction="row" gap="md">
-                                        {passwordRequirements
-                                            .slice(rowStart, rowStart + 2)
-                                            .map((requirement, index) => (
-                                                <Flex
-                                                    key={rowStart + index}
-                                                    align="center"
-                                                    gap="xs"
-                                                    style={{ flex: 1 }}
-                                                >
-                                                    <ThemeIcon
-                                                        color={requirement.meets ? 'teal' : 'red'}
-                                                        size={16}
-                                                        radius="xl"
-                                                    >
-                                                        {requirement.meets ? <Check size={12} /> : <X size={12} />}
-                                                    </ThemeIcon>
-                                                    <Text size="sm">{requirement.label}</Text>
-                                                </Flex>
-                                            ))}
-                                    </Flex>
-                                ))}
+                                {renderRequirementRows()}
                             </Flex>
                         </Paper>
                     )}
