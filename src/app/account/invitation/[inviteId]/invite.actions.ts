@@ -7,6 +7,7 @@ import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
 import { findClerkOrganization } from '@/server/clerk'
+import { onUserAcceptInvite } from '@/server/events'
 import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
 
 // Schema for onCreateAccountAction input
@@ -162,6 +163,9 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         .set({ claimedByUserId: siUserId })
         .where('id', '=', pendingUser.pendingUserId)
         .execute()
+
+    // record audit & update Clerk metadata
+    onUserAcceptInvite(siUserId)
 
     return { success: true, organizationName: pendingUser.orgName }
 }, ClaimInviteSchema)

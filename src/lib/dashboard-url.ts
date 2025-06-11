@@ -8,11 +8,14 @@ import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
  * Falls back to “/” while auth info is still loading or no role found.
  */
 export function useDashboardUrl(): string {
-    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
+    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug, orgSlug } = useAuthInfo()
 
     if (!isLoaded) return '/'
 
-    if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
+    if (isReviewer) {
+        const slug = preferredOrgSlug ?? orgSlug
+        if (slug) return `/reviewer/${slug}/dashboard`
+    }
     if (isResearcher) return '/researcher/dashboard'
 
     if (isAdmin) {
