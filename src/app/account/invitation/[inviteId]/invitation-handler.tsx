@@ -74,7 +74,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         const orgMeta = user.publicMetadata?.orgs?.find((o) => o.slug === newOrgSlug)
         if (orgMeta?.isReviewer) {
             // update Clerk’s active organization so useDashboardUrl picks it up
-            setActive({ organization: { slug: newOrgSlug } }).catch(() => {})
+            setActive({ organization: newOrgSlug }).catch(() => {})
         }
     }, [newOrgSlug, user, setActive])
 

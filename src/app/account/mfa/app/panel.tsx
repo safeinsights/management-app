@@ -222,8 +222,10 @@ export function AddMFAPanel() {
                         const orgMeta = user?.publicMetadata?.orgs?.find((o) => o.slug === result.orgSlug)
                         if (orgMeta?.isReviewer) {
                             try {
-                                await setActive({ organization: { slug: result.orgSlug } })
-                            } catch { /* ignore */ }
+                                await setActive({ organization: result.orgSlug })
+                            } catch {
+                                /* ignore */
+                            }
                         }
                     }
                 } else {
