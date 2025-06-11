@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, TextInput, Paper, PasswordInput, Title, Flex, Text, ThemeIcon } from '@mantine/core'
+import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
@@ -10,7 +10,7 @@ import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/li
 import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { Check, X } from '@phosphor-icons/react'
+import { Requirements } from './password-requirements'
 import { z } from 'zod'
 
 const PASSWORD_REQUIREMENTS = [
@@ -122,25 +122,6 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     const passwordRequirements = checkRequirements(verificationForm.values.password)
     const allRequirementsMet = passwordRequirements.every((req) => req.meets)
 
-    const renderRequirementRows = () => {
-        const rows = []
-        for (let i = 0; i < passwordRequirements.length; i += 2) {
-            rows.push(
-                <Flex key={i} direction="row" gap="md">
-                    {passwordRequirements.slice(i, i + 2).map((requirement, index) => (
-                        <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
-                            <ThemeIcon color={requirement.meets ? 'teal' : 'red'} size={16} radius="xl">
-                                {requirement.meets ? <Check size={12} /> : <X size={12} />}
-                            </ThemeIcon>
-                            <Text size="sm">{requirement.label}</Text>
-                        </Flex>
-                    ))}
-                </Flex>,
-            )
-        }
-        return rows
-    }
-
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
     return (
@@ -166,13 +147,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         mt={10}
                     />
 
-                    {verificationForm.values.password && (
-                        <Paper>
-                            <Flex direction="column" gap="xs">
-                                {renderRequirementRows()}
-                            </Flex>
-                        </Paper>
-                    )}
+                    {verificationForm.values.password && <Requirements requirements={passwordRequirements} />}
 
                     <PasswordInput
                         key={verificationForm.key('confirmPassword')}

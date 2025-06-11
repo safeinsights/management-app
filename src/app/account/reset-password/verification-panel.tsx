@@ -1,7 +1,7 @@
 import { Paper, Text, CloseButton, Group, Stack } from '@mantine/core'
 import Link from 'next/link'
 
-export function VerificationModal({ onCompleteAction, onBack }: { onCompleteAction: () => void; onBack: () => void }) {
+export function VerificationPanel({ onCompleteAction, onBack }: { onCompleteAction: () => void; onBack: () => void }) {
     return (
         <Paper bg="white" shadow="none">
             <Paper bg="grey.10" shadow="none" p={'lg'} mt={30} radius="sm">

@@ -6,7 +6,7 @@ import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { PendingReset } from './pending-reset'
 import { ResetForm } from './reset-form'
-import { VerificationModal } from './verification-modal'
+import { VerificationPanel } from './verification-panel'
 import { onUserResetPWAction } from '@/server/actions/user.actions'
 
 export function ResetPassword() {
@@ -30,7 +30,7 @@ export function ResetPassword() {
 
     if (pendingReset && showVerification) {
         return (
-            <VerificationModal
+            <VerificationPanel
                 onCompleteAction={onVerificationComplete}
                 onBack={() => {
                     setPendingReset(null)
