@@ -42,8 +42,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
                 await onUserSignInAction()
-                const pendingInviteId =
-                    typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
+                const pendingInviteId = typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
                 if (!pendingInviteId) {
                     router.push('/')
                 }

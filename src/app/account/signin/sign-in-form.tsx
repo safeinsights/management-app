@@ -47,8 +47,7 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
-                const pendingInviteId =
-                    typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
+                const pendingInviteId = typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
                 if (!pendingInviteId) {
                     router.push('/')
                 }
