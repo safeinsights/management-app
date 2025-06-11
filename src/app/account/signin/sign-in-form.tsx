@@ -7,6 +7,8 @@ import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMutation } from '@tanstack/react-query'
+import { checkPendingInviteForMfaUserAction, verifyPendingInviteAction } from '@/server/actions/user.actions'
 
 export const SignInForm: FC<{
     mfa: MFAState
@@ -15,6 +17,12 @@ export const SignInForm: FC<{
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
+    const { mutateAsync: checkPendingInvite, isPending: isCheckingInvite } = useMutation({
+        mutationFn: checkPendingInviteForMfaUserAction,
+    })
+    const { mutateAsync: verifyInvite, isPending: isVerifyingInvite } = useMutation({
+        mutationFn: verifyPendingInviteAction,
+    })
 
     const form = useForm({
         initialValues: {
@@ -42,6 +50,28 @@ export const SignInForm: FC<{
                 router.push('/')
             }
             if (attempt.status === 'needs_second_factor') {
+                const pendingInviteId = localStorage.getItem('pendingInviteId')
+                let canProceed = false
+
+                if (pendingInviteId) {
+                    // Invitation ID is present in local storage. Verify it belongs to this user.
+                    canProceed = await verifyInvite({ inviteId: pendingInviteId, email: values.email })
+                }
+
+                if (!canProceed) {
+                    // No valid invite ID in local storage. Check on the server if one exists.
+                    // This handles the "switched browser" or stale ID case.
+                    const isPending = await checkPendingInvite(values.email)
+                    if (isPending) {
+                        form.setErrors({
+                            email: 'To complete your account setup, please use the link from your invitation email.',
+                        })
+                        return
+                    }
+                }
+
+                // If we're here, either the localStorage invite was valid, or there was no pending invite.
+                // It's safe to proceed to MFA.
                 const state = await signInToMFAState(attempt)
                 onComplete(state)
             }
@@ -76,7 +106,9 @@ export const SignInForm: FC<{
                     aria-label="Password"
                 />
                 <Flex align="center" mt={15} gap="md">
-                    <Button type="submit">Login</Button>
+                    <Button type="submit" loading={isCheckingInvite || isVerifyingInvite}>
+                        Login
+                    </Button>
                     <Stack>
                         {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
                         {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}

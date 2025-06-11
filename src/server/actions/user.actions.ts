@@ -96,3 +96,36 @@ export const userExistsAction = anonAction(async (email: string) => {
     const row = await db.selectFrom('user').select('id').where('email', '=', email).executeTakeFirst()
     return Boolean(row)
 }, z.string())
+
+// Action to check for a pending invite for a user who needs to set up MFA.
+// This is used as a fail-safe in the sign-in flow to prevent users from getting
+// stuck if they sign up via invite but then sign in from a different browser
+// before completing MFA setup.
+export const checkPendingInviteForMfaUserAction = anonAction(async (email: string) => {
+    const pendingInvite = await db
+        .selectFrom('pendingUser')
+        .select('id')
+        .where('email', '=', email)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
+    return !!pendingInvite
+}, z.string())
+
+export const verifyPendingInviteAction = anonAction(
+    async ({ inviteId, email }) => {
+        const pendingInvite = await db
+            .selectFrom('pendingUser')
+            .select('id')
+            .where('id', '=', inviteId)
+            .where('email', '=', email)
+            .where('claimedByUserId', 'is', null)
+            .executeTakeFirst()
+
+        return !!pendingInvite
+    },
+    z.object({
+        inviteId: z.string(),
+        email: z.string().email(),
+    }),
+)
