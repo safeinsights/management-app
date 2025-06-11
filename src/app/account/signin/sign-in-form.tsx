@@ -47,7 +47,11 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
-                router.push('/')
+                const pendingInviteId =
+                    typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
+                if (!pendingInviteId) {
+                    router.push('/')
+                }
             }
             if (attempt.status === 'needs_second_factor') {
                 const pendingInviteId = localStorage.getItem('pendingInviteId')

@@ -42,7 +42,11 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
                 await onUserSignInAction()
-                router.push('/')
+                const pendingInviteId =
+                    typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
+                if (!pendingInviteId) {
+                    router.push('/')
+                }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
