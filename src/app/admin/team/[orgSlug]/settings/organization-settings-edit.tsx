@@ -14,7 +14,6 @@ import {
     useMantineTheme,
 } from '@mantine/core'
 import { useForm, type UseFormReturnType } from '@mantine/form'
-import { WarningCircle } from '@phosphor-icons/react/dist/ssr'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { useMutation } from '@tanstack/react-query'
 import { notifications } from '@mantine/notifications'
@@ -25,16 +24,16 @@ import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 
 interface FormFieldMessageProps {
-    message: string;
-   }
-   
-   export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) => {
-     return (
-       <Text size="xs" c="dimmed" mt="xs">
-         {message}
-       </Text>
-     )
-   }
+    message: string
+}
+
+export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) => {
+    return (
+        <Text size="xs" c="dimmed" mt="xs">
+            {message}
+        </Text>
+    )
+}
 
 export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
     name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
@@ -50,7 +49,6 @@ interface OrganizationSettingsEditProps {
 }
 
 export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: OrganizationSettingsEditProps) {
-    const theme = useMantineTheme()
     const labelSpan = { base: 12, sm: 3, md: 2, lg: 2 }
     const inputSpan = { base: 12, sm: 9, md: 6, lg: 4 }
 
@@ -131,9 +129,9 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 }
                             />
                             {/* If there is no name error show the characters count */}
-                            {form.errors.name && <FormFieldMessage message={((form.values.name || '').length)+ ' /50 characters'} />}
-                            
-                       
+                            {form.errors.name && (
+                                <FormFieldMessage message={(form.values.name || '').length + ' /50 characters'} />
+                            )}
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
@@ -152,14 +150,14 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 error={
                                     form.errors.description && (
                                         <Group gap="xs">
-                                           <InputError error={form.errors.description} />
+                                            <InputError error={form.errors.description} />
                                             <span>{(form.values.description || '').length} /250 characters</span>
                                         </Group>
                                     )
                                 }
                             />
                             {/* If there is no description error show the characters count */}
-                             <FormFieldMessage message={((form.values.description || '').length) + '/250 characters'} />
+                            <FormFieldMessage message={(form.values.description || '').length + '/250 characters'} />
                         </Grid.Col>
                     </Grid>
                 </Stack>
