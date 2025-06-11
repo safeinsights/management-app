@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'
 import { userExistsAction } from '@/server/actions/user.actions'
 import { SignIn } from '@/app/account/signin/signin'
@@ -22,8 +22,11 @@ interface InvitationHandlerProps {
 
 export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerProps) {
     const { isLoaded, isSignedIn } = useAuth()
+    const { setActive } = useClerk()
+    const { user } = useUser()
     const router = useRouter()
     const [isLoadingAction, setIsLoadingAction] = useState(false)
+    const [newOrgSlug, setNewOrgSlug] = useState<string | null>(null)
     const [orgName, setOrgName] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     // use dynamic dashboard resolution
@@ -41,6 +44,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
                 .then((result) => {
                     if (result.success && result.organizationName) {
                         setOrgName(result.organizationName)
+                        setNewOrgSlug(result.orgSlug || null)
                         // The success message is now part of the SuccessPanel
                     } else {
                         setError(result.error || 'Failed to accept invitation.')
@@ -63,6 +67,16 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
                 .finally(() => setIsLoadingAction(false))
         }
     }, [isLoaded, isSignedIn, inviteId])
+
+    useEffect(() => {
+        if (!newOrgSlug || !user) return
+
+        const orgMeta = user.publicMetadata?.orgs?.find((o) => o.slug === newOrgSlug)
+        if (orgMeta?.isReviewer) {
+            // update Clerk’s active organization so useDashboardUrl picks it up
+            setActive({ organization: { slug: newOrgSlug } }).catch(() => {})
+        }
+    }, [newOrgSlug, user, setActive])
 
     // fetch whether this email is already in our SI user table
     const { data: userExists } = useQuery({

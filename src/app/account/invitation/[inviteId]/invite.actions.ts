@@ -167,5 +167,9 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
     // record audit & update Clerk metadata
     onUserAcceptInvite(siUserId)
 
-    return { success: true, organizationName: pendingUser.orgName }
+    return {
+        success: true,
+        organizationName: pendingUser.orgName,
+        orgSlug: pendingUser.orgSlug,
+    }
 }, ClaimInviteSchema)
