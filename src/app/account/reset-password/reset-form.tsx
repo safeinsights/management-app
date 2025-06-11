@@ -1,13 +1,11 @@
 'use client'
 
-import { Button, Group, Stack, Text, TextInput, Paper, CloseButton } from '@mantine/core'
+import { Button, TextInput, Paper, Title, Flex } from '@mantine/core'
 import { isEmail, useForm } from '@mantine/form'
-import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString } from '@/lib/errors'
 import { useMutation } from '@tanstack/react-query'
-import { Link } from '@/components/links'
 
 interface ResetFormValues {
     email: string
@@ -19,7 +17,6 @@ interface ResetFormProps {
 
 export function ResetForm({ onCompleteAction }: ResetFormProps) {
     const { signIn } = useSignIn()
-    const router = useRouter()
 
     const emailForm = useForm<ResetFormValues>({
         initialValues: {
@@ -56,31 +53,26 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
     })
 
     return (
-        <Stack>
-            <form onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                    <Group justify="space-between" gap="xl">
-                        <Text ta="left">Reset Password</Text>
-                        <CloseButton aria-label="Close password reset form" onClick={() => router.push('/')} />
-                    </Group>
-                </Paper>
-                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>Enter your email address and we&#39;ll send you a verification code.</Text>
+        <form onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}>
+            <Paper bg="white" shadow="none" p="xxl">
+                <Flex direction="column" gap="md">
+                    <Title mb="sm" ta="center" order={3}>
+                        Reset your password
+                    </Title>
+
                     <TextInput
                         key={emailForm.key('email')}
                         {...emailForm.getInputProps('email')}
-                        label="Email"
+                        label="Enter registered email"
                         placeholder="Email address"
                         aria-label="Email"
                     />
-                    <Stack align="center" mt={15}>
-                        <Button type="submit" loading={isPending}>
-                            Send Reset Code
-                        </Button>
-                        <Link href="/account/signin">Back to Login</Link>
-                    </Stack>
-                </Paper>
-            </form>
-        </Stack>
+
+                    <Button w="100%" mt="md" mb="xl" type="submit" loading={isPending} disabled={!emailForm.isValid()}>
+                        Send Verification Code
+                    </Button>
+                </Flex>
+            </Paper>
+        </form>
     )
 }

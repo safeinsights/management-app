@@ -24,16 +24,18 @@ export function AnonLayoutShell({ children }: Props) {
     const theme = useMantineTheme()
 
     return (
-        <AppShell footer={{ height: 60 }} navbar={{ width: 250, breakpoint: 'xs' }} padding="md">
+        <AppShell footer={{ height: 60 }}>
             <Notifications position="top-right" />
-            <AppShellNavbar bg={theme.colors.purple[8]}>
+            <AppShellNavbar bg={theme.colors.purple[8]} withBorder={false}>
                 <Stack py="md">
                     <AppShellSection>
                         <SafeInsightsLogo />
                     </AppShellSection>
                 </Stack>
             </AppShellNavbar>
-            <AppShellMain bg="#F1F3F5">{children}</AppShellMain>
+            <AppShellMain style={{ display: 'flex', alignItems: 'center' }} bg="purple.8">
+                {children}
+            </AppShellMain>
             <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">
                 <Group justify="left" c="white">
                     <Text c="white">© 2025 - SafeInsights, Rice University</Text>
