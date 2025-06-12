@@ -43,5 +43,5 @@ export function formatClerkErrorCode(str: string) {
     return str
         .replace(/\*\*/g, '') // remove asterisks
         .replace(/_/g, ' ') // replace underscores with spaces
-        .replace(/\b\w/g, char => char.toUpperCase()) // capitalize first letter of each word
+        .replace(/\b\w/g, (char) => char.toUpperCase()) // capitalize first letter of each word
 }
