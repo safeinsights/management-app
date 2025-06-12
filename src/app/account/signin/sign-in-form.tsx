@@ -1,12 +1,13 @@
-import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { isClerkApiError, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
+import { formatClerkErrorCode } from '@/lib/string'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -22,6 +23,7 @@ export const SignInForm: FC<{
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
+    const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
 
     const form = useForm<SignInFormData>({
         initialValues: {
@@ -56,9 +58,37 @@ export const SignInForm: FC<{
                     form.setFieldError('email', emailError.longMessage)
                     return
                 }
+
+                const passwordError = err.errors?.find((error) => error.meta?.paramName === 'password')
+                if (passwordError) {
+                    form.setFieldError('password', passwordError.longMessage)
+                    return
+                }
+
+                const authError = err.errors?.find(
+                    (error) =>
+                        error.code === 'form_password_incorrect' ||
+                        error.code === 'session_invalid' ||
+                        error.code === 'form_identifier_not_found',
+                )
+                if (authError) {
+                    form.setFieldError(
+                        'password',
+                        'Invalid login credentials. Please double-check your email and password.',
+                    )
+                    return
+                }
+
+                if (err.errors?.length) {
+                    setClerkError({
+                        title: formatClerkErrorCode(err.errors[0].code),
+                        message: err.errors[0].longMessage || 'An error occurred during sign-in. Please try again.',
+                    })
+                    return
+                }
             }
 
-            form.setFieldError('email', ' ')
+            // fallback for non-clerk errors
             form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
         }
     })
@@ -86,6 +116,21 @@ export const SignInForm: FC<{
                         placeholder="*********"
                         aria-label="Password"
                     />
+                    {clerkError && (
+                        <Paper bg="#FFEFEF" shadow="none" p={'lg'} mt="sm" mb="sm" radius="sm">
+                            <Group justify="space-between" gap="xl">
+                                <Text ta="left" c="red" fw="bold">
+                                    {clerkError.title}
+                                </Text>
+                                <CloseButton
+                                    c="red"
+                                    aria-label="Close password reset form"
+                                    onClick={() => setClerkError(null)}
+                                />
+                            </Group>
+                            <Text mt="md">{clerkError.message}</Text>
+                        </Paper>
+                    )}
                     <Link href="/account/reset-password">Forgot password?</Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
                     <Button mb="xxl" disabled={!form.isValid()} type="submit">
