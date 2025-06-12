@@ -3,12 +3,26 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
+import { captureConsoleIntegration } from '@sentry/nextjs'
 
 Sentry.init({
-    dsn: 'https://d4562cb5b99d711ed739824eb3a79aa2@o484761.ingest.us.sentry.io/4508129783906304',
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
     // Add optional integrations for additional features
-    integrations: [Sentry.replayIntegration()],
+    integrations: [
+        // send console.error and console.warn logs to Sentry
+        captureConsoleIntegration({
+            levels: ['warn', 'error'],
+        }),
+        ...(typeof Sentry.replayIntegration === 'function'
+            ? [
+                  Sentry.replayIntegration({
+                      maskAllText: false,
+                      minReplayDuration: 5000,
+                  }),
+              ]
+            : []),
+    ],
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
     tracesSampleRate: 1,
@@ -16,7 +30,7 @@ Sentry.init({
     // Define how likely Replay events are sampled.
     // This sets the sample rate to be 10%. You may want this to be 100% while
     // in development and sample at a lower rate in production
-    replaysSessionSampleRate: 0.1,
+    replaysSessionSampleRate: 1,
 
     // Define how likely Replay events are sampled when an error occurs.
     replaysOnErrorSampleRate: 1.0,
