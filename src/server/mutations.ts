@@ -47,18 +47,19 @@ export async function findOrCreateOrgMembership({
             'orgUser.id as orgUserId',
             'orgUser.isResearcher',
             'orgUser.isReviewer',
+            'orgUser.isAdmin',
         ])
         .where('orgUser.userId', '=', userId)
         .executeTakeFirst()
 
     if (orgInfo) {
-        if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer) {
+        if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer || orgInfo.isAdmin != isAdmin) {
             db.updateTable('orgUser')
                 .set({ isResearcher, isReviewer, isAdmin })
                 .where('id', '=', orgInfo.orgUserId)
                 .executeTakeFirstOrThrow()
         }
-        return { ...orgInfo, isReviewer, isResearcher }
+        return { ...orgInfo, isReviewer, isResearcher, isAdmin }
     } else {
         const org = await db
             .selectFrom('org')

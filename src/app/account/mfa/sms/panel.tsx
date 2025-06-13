@@ -7,6 +7,7 @@ import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
 import { useForm } from '@mantine/form'
+import { claimInviteAction } from '@/server/actions/invite.actions'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
@@ -15,6 +16,7 @@ import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import styles from './panel.module.css'
 import { InputError } from '@/components/errors'
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +33,7 @@ export function ManageSMSMFAPanel() {
         phone.setReservedForSecondFactor({ reserved: true }),
     )
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
+    const dashboardUrl = useDashboardUrl()
 
     const phoneForm = useForm({
         initialValues: {
@@ -130,6 +133,28 @@ export function ManageSMSMFAPanel() {
         } catch {
             notifications.show({ message: 'Error setting phone number as MFA', color: 'red' })
         }
+
+        // ── claim the pending invite, if any ──
+        const inviteId = localStorage.getItem('pendingInviteId')
+        if (inviteId) {
+            try {
+                const result = await claimInviteAction({ inviteId })
+                localStorage.removeItem('pendingInviteId')
+                if (!result.success) {
+                    notifications.show({
+                        title: 'Error',
+                        message: result.error || 'Could not process your invitation.',
+                        color: 'red',
+                    })
+                }
+            } catch (err) {
+                notifications.show({
+                    title: 'Error',
+                    message: errorToString(err),
+                    color: 'red',
+                })
+            }
+        }
     }
 
     return (
@@ -175,7 +200,7 @@ export function ManageSMSMFAPanel() {
                     {user?.hasVerifiedPhoneNumber && user?.twoFactorEnabled && (
                         <Stack gap="lg">
                             <Text>Phone number verified and enabled for MFA!</Text>
-                            <ButtonLink href="/">Done - Return to Homepage</ButtonLink>
+                            <ButtonLink href={dashboardUrl}>Visit your dashboard</ButtonLink>
                         </Stack>
                     )}
                 </Stack>

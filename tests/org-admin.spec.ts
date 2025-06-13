@@ -44,10 +44,17 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
-        await page.getByRole('button', { name: /signout/i }).click()
-        await page.waitForTimeout(1000)
+        await expect(
+            page.getByText('This invitation is for a different user. Please log out and try again.'),
+        ).toBeVisible()
+
+        // The user is still logged in, so sign out to continue the test as a new user.
+        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+        await page.getByRole('menuitem', { name: 'Sign Out' }).click()
+        await page.waitForURL('**/signin**')
+
+        // Now, as a logged-out user, accept the invitation
+        await goto(page, `/account/invitation/${inviteId}`)
 
         await page.getByRole('button', { name: /create account/i }).click()
         await expect(page.getByText('cannot be left blank')).toHaveCount(2)
@@ -75,7 +82,6 @@ test.describe('Organization Admin', () => {
 
         // test invitation no longer works
         await goto(page, `/account/invitation/${inviteId}`)
-        // action waits for 100ms to delete
-        await expect(page.getByText(`invalid invitation`)).toBeVisible({ timeout: 200 })
+        await expect(page.getByText(`Invalid or already claimed invitation.`)).toBeVisible()
     })
 })

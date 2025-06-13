@@ -11,27 +11,34 @@ type ClerkOrganizationProps = {
     slug: string
 }
 
-export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }: ClerkOrganizationProps) => {
+export const findClerkOrganization = async ({ slug }: { slug: string }) => {
     const client = await clerkClient()
+    // .getOrganization throws an error if not found, which is desired behavior.
+    return await client.organizations.getOrganization({ slug })
+}
 
+export const createClerkOrganization = async ({ name, slug, adminUserId }: ClerkOrganizationProps) => {
+    const client = await clerkClient()
+    let userId: string | null | undefined = adminUserId
+    if (!userId) {
+        const cu = await auth()
+        userId = cu.userId
+        if (!userId) throw new Error('Not logged in and no adminUserId provided for creating organization')
+    }
+
+    return await client.organizations.createOrganization({
+        name: name || `${capitalize(slug)}`,
+        createdBy: userId,
+        slug,
+    })
+}
+
+export const findOrCreateClerkOrganization = async (props: ClerkOrganizationProps) => {
     try {
-        const clerkOrg = await client.organizations.getOrganization({ slug: slug })
-        return clerkOrg
+        return await findClerkOrganization({ slug: props.slug })
     } catch {
-        let userId: string | null | undefined = adminUserId
-        if (!userId) {
-            const cu = await auth()
-            userId = cu.userId
-            if (!userId) throw new Error('Not logged in')
-        }
-
-        const clerkOrg = await client.organizations.createOrganization({
-            name: name || `${capitalize(slug)}`,
-            createdBy: userId,
-            slug,
-        })
-
-        return clerkOrg
+        // if we get an error, we assume it's because the org doesn't exist.
+        return await createClerkOrganization(props)
     }
 }
 

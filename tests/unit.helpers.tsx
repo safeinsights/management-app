@@ -16,6 +16,9 @@ vi.mock('@clerk/nextjs/server', async (importOriginal) => {
             },
             users: {
                 createUser: vi.fn(),
+                getUser: vi.fn(),
+                updateUser: vi.fn(),
+                getUserList: vi.fn(),
             },
         }),
         auth: vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
@@ -188,6 +191,31 @@ export const insertTestUser = async ({
     return { user, orgUser }
 }
 
+export const insertPendingUser = async ({
+    org,
+    email,
+    isResearcher = true,
+    isReviewer = false,
+}: {
+    org: MinimalTestOrg
+    email: string
+    isResearcher?: boolean
+    isReviewer?: boolean
+}) => {
+    const pendingUser = await db
+        .insertInto('pendingUser')
+        .values({
+            orgId: org.id,
+            email,
+            isResearcher,
+            isReviewer,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    return pendingUser
+}
+
 type MinimalTestOrg = { slug: string; id: string }
 
 export const insertTestStudyJobData = async ({
@@ -321,6 +349,7 @@ export const insertTestOrgStudyJobUsers = async () => {
 type MockSession = {
     clerkUserId: string
     org_slug: string
+    email?: string
     imageUrl?: string
     org_id?: string
     publicMetadata?: UserPublicMetadata
@@ -348,6 +377,7 @@ export const mockClerkSession = (values: MockSession) => {
                 },
             ],
         },
+        primaryEmailAddress: { emailAddress: values.email ?? faker.internet.email() },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -363,6 +393,9 @@ export const mockClerkSession = (values: MockSession) => {
         },
         users: {
             createUser: vi.fn(async () => ({ id: '1234' })),
+            getUser: vi.fn(),
+            updateUser: vi.fn(),
+            getUserList: vi.fn(),
         },
     }
     const useUserReturn = {
@@ -408,6 +441,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         clerkUserId: user.clerkId,
         org_slug: org.slug,
         org_id: org.id,
+        email: user.email!,
     })
     return { org, user, orgUser, ...mocks }
 }

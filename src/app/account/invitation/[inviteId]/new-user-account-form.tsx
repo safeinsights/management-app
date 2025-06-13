@@ -1,25 +1,34 @@
-'use client'
+/**
+ * This file defines the user interface for a new user accepting an invitation.
+ * It acts as a controller that displays either an account creation form (`SetupAccountForm`)
+ * or a success message (`Success`) upon completion.
+ *
+ * This component is rendered by `InvitationHandler` only when a user is new and not authenticated.
+ */
+'use-client'
 
 import { Flex, Button, TextInput, PasswordInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
+import { onCreateAccountAction } from '@/server/actions/invite.actions'
 import { Title } from '@mantine/core'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
-import { handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm, reportError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
-import { SignOutPanel } from './signout-panel'
 import { LoadingMessage } from '@/components/loading'
 
-const Success: FC = () => {
+const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
     const router = useRouter()
 
     const onContinue = () => {
-        router.push('/account/mfa')
+        // Store inviteId for use after MFA setup
+        localStorage.setItem('pendingInviteId', inviteId)
+        // Redirect to generic MFA page
+        router.push(`/account/mfa/app`)
     }
     return (
         <SuccessPanel title="Your account has been created successfully!" onContinue={onContinue}>
@@ -40,7 +49,16 @@ type InviteProps = {
     email: string
 }
 
-const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, email, onComplete }) => {
+// Storing clerkUserId temporarily to pass to Success component
+type SetupAccountFormState = {
+    clerkUserId: string | null
+}
+
+const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => void }> = ({
+    inviteId,
+    email,
+    onComplete,
+}) => {
     const { setActive, signIn } = useSignIn()
 
     const form = useForm({
@@ -53,25 +71,30 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
     })
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
-        mutationFn: (form: FormValues) => onCreateAccountAction({ inviteId, form }),
+        mutationFn: (formData: FormValues) => onCreateAccountAction({ inviteId, email, form: formData }), // Pass email
         onError: handleMutationErrorsWithForm(form),
-        async onSuccess(_, vals) {
+        async onSuccess(clerkUserId, vals) {
+            // clerkUserId is returned by onCreateAccountAction
             if (!signIn) {
-                reportError('unable to signin')
+                reportError(new Error('SignIn object not available'), 'SignIn not available post account creation')
                 return
             }
-
+            if (!clerkUserId) {
+                reportError(new Error('Clerk User ID not returned from account creation'), 'Clerk User ID missing')
+                return
+            }
             const attempt = await signIn.create({
                 identifier: email,
                 password: vals.password,
             })
-
             if (attempt.status === 'complete') {
-                onComplete()
                 await setActive({ session: attempt.createdSessionId })
-                await onPendingUserLoginAction(inviteId)
+                onComplete(clerkUserId) // Pass clerkUserId to parent to trigger Success panel
             } else {
-                reportError('unable to sign in')
+                reportError(
+                    new Error(`Sign-in attempt not complete: ${attempt.status}`),
+                    'unable to sign in after account creation',
+                )
             }
         },
     })
@@ -104,20 +127,15 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
     )
 }
 
-export const AccountPanel: FC<InviteProps> = (props) => {
-    const [inviteCompleted, setInviteCompleted] = useState(false)
-
-    const { isLoaded, isSignedIn } = useAuth()
+export const NewUserAccountForm: FC<InviteProps> = (props) => {
+    const [formCompletedState, setFormCompletedState] = useState<SetupAccountFormState>({ clerkUserId: null })
+    const { isLoaded } = useAuth()
 
     if (!isLoaded) return <LoadingMessage message="Loading" />
 
-    if (!inviteCompleted && isSignedIn == true) {
-        return <SignOutPanel />
-    }
-
-    return inviteCompleted && isSignedIn ? (
-        <Success />
+    return formCompletedState.clerkUserId ? (
+        <Success inviteId={props.inviteId} />
     ) : (
-        <SetupAccountForm {...props} onComplete={() => setInviteCompleted(true)} />
+        <SetupAccountForm {...props} onComplete={(clerkUserId) => setFormCompletedState({ clerkUserId })} />
     )
 }

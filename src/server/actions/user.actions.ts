@@ -52,7 +52,12 @@ export const onUserSignInAction = anonAction(async () => {
                 isAdmin: md?.isAdmin,
                 isReviewer: md?.isReviewer,
             })
-        } catch {}
+        } catch (e) {
+            logger.warn(
+                `During login, user ${user.id} was found to be a member of clerk org ${org.organization.slug}, which was not found in the SI database. Skipping membership creation.`,
+                e,
+            )
+        }
     }
     onUserLogIn({ userId: user.id })
 })
@@ -82,5 +87,46 @@ export const updateUserRoleAction = orgAdminAction(
         isAdmin: z.boolean(),
         isResearcher: z.boolean(),
         isReviewer: z.boolean(),
+    }),
+)
+
+// Action to let the client know if an email already exists in SI
+export const userExistsAction = anonAction(async (email: string) => {
+    const row = await db.selectFrom('user').select('id').where('email', '=', email).executeTakeFirst()
+    return Boolean(row)
+}, z.string())
+
+// Action to check for a pending invite for a user who needs to set up MFA.
+// This is used as a fail-safe in the sign-in flow to prevent users from getting
+// stuck if they sign up via invite but then sign in from a different browser
+// before completing MFA setup.
+export const checkPendingInviteForMfaUserAction = anonAction(async (email: string) => {
+    const pendingInvite = await db
+        .selectFrom('pendingUser')
+        .select('id')
+        .where('email', '=', email)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
+    return !!pendingInvite
+}, z.string())
+
+// Verifies that a pending, unclaimed invite exists for a given invite ID and email.
+// This ensures the user claiming the invite is the one it was intended for.
+export const verifyPendingInviteAction = anonAction(
+    async ({ inviteId, email }) => {
+        const pendingInvite = await db
+            .selectFrom('pendingUser')
+            .select('id')
+            .where('id', '=', inviteId)
+            .where('email', '=', email)
+            .where('claimedByUserId', 'is', null)
+            .executeTakeFirst()
+
+        return !!pendingInvite
+    },
+    z.object({
+        inviteId: z.string(),
+        email: z.string().email(),
     }),
 )
