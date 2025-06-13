@@ -349,7 +349,7 @@ export const insertTestOrgStudyJobUsers = async () => {
 type MockSession = {
     clerkUserId: string
     org_slug: string
-    email: string
+    email?: string
     imageUrl?: string
     org_id?: string
     publicMetadata?: UserPublicMetadata
@@ -377,7 +377,7 @@ export const mockClerkSession = (values: MockSession) => {
                 },
             ],
         },
-        primaryEmailAddress: { emailAddress: values.email },
+        primaryEmailAddress: { emailAddress: values.email ?? faker.internet.email() },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
