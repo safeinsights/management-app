@@ -13,7 +13,7 @@ import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
 import { useRouter } from 'next/navigation'
-import { claimInviteAction } from '@/app/account/invitation/[inviteId]/invite.actions' // Adjust path if needed
+import { claimInviteAction } from '@/server/actions/invite.actions'
 import { notifications } from '@mantine/notifications'
 import { LoadingMessage } from '@/components/loading'
 import { useDashboardUrl } from '@/lib/dashboard-url'
