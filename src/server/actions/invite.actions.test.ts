@@ -181,5 +181,27 @@ describe('Invite Actions', () => {
                 .executeTakeFirst()
             expect(claimedInvite?.claimedByUserId).toBe(user.id)
         })
+
+        it('returns an error if the invite is for a different user', async () => {
+            // Logged in as `user`.
+            const { org } = await mockSessionWithTestData()
+            const otherUserEmail = faker.internet.email()
+            // Invite is for `otherUserEmail`
+            const pendingUser = await insertPendingUser({ org, email: otherUserEmail })
+
+            // Action is called by the logged in user.
+            const result = await claimInviteAction({ inviteId: pendingUser.id })
+
+            expect(result.success).toBe(false)
+            expect(result.error).toContain('This invitation is for a different user. Please log out and try again.')
+
+            // Verify invite was not claimed
+            const claimedInvite = await db
+                .selectFrom('pendingUser')
+                .where('id', '=', pendingUser.id)
+                .select('claimedByUserId')
+                .executeTakeFirst()
+            expect(claimedInvite?.claimedByUserId).toBeNull()
+        })
     })
 })

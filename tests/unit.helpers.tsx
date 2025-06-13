@@ -349,6 +349,7 @@ export const insertTestOrgStudyJobUsers = async () => {
 type MockSession = {
     clerkUserId: string
     org_slug: string
+    email: string
     imageUrl?: string
     org_id?: string
     publicMetadata?: UserPublicMetadata
@@ -376,6 +377,7 @@ export const mockClerkSession = (values: MockSession) => {
                 },
             ],
         },
+        primaryEmailAddress: { emailAddress: values.email },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -439,6 +441,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         clerkUserId: user.clerkId,
         org_slug: org.slug,
         org_id: org.id,
+        email: user.email!,
     })
     return { org, user, orgUser, ...mocks }
 }

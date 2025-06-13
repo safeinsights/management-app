@@ -95,6 +95,7 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         .innerJoin('org', 'org.id', 'pendingUser.orgId')
         .select([
             'pendingUser.id as pendingUserId',
+            'pendingUser.email',
             'pendingUser.orgId as localOrgDbId',
             'pendingUser.isResearcher',
             'pendingUser.isReviewer',
@@ -107,6 +108,10 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
 
     if (!pendingUser) {
         return { success: false, error: 'Invalid or already claimed invitation.' }
+    }
+
+    if (pendingUser.email !== authUser.primaryEmailAddress?.emailAddress) {
+        return { success: false, error: 'This invitation is for a different user. Please log out and try again.' }
     }
 
     const clerkOrg = await findClerkOrganization({
