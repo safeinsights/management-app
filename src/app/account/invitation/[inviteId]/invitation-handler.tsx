@@ -12,7 +12,7 @@
  * 4. New User: Renders the <AccountPanel /> for account creation.
  *
  * It also uses localStorage to persist the invite ID across different parts of the sign-up/sign-in flow,
- * especially when MFA is required.
+ * especially with MFA required.
  */
 import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
@@ -22,7 +22,7 @@ import { SignIn } from '@/app/account/signin/signin'
 import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { AccountPanel } from './account-form'
+import { NewUserAccountForm } from './new-user-account-form'
 import { claimInviteAction } from '@/server/actions/invite.actions'
 import { LoadingMessage } from '@/components/loading'
 import { SuccessPanel } from '@/components/panel'
@@ -124,5 +124,5 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     }
 
     // first‐time SI users get our old sign‐up + MFA flow
-    return <AccountPanel inviteId={inviteId} email={invitedEmail} />
+    return <NewUserAccountForm inviteId={inviteId} email={invitedEmail} />
 }

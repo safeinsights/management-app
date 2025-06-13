@@ -1,4 +1,11 @@
-'use client'
+/**
+ * This file defines the user interface for a new user accepting an invitation.
+ * It acts as a controller that displays either an account creation form (`SetupAccountForm`)
+ * or a success message (`Success`) upon completion.
+ *
+ * This component is rendered by `InvitationHandler` only when a user is new and not authenticated.
+ */
+'use-client'
 
 import { Flex, Button, TextInput, PasswordInput } from '@mantine/core'
 import { useForm } from '@mantine/form'
@@ -120,15 +127,11 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
     )
 }
 
-export const AccountPanel: FC<InviteProps> = (props) => {
+export const NewUserAccountForm: FC<InviteProps> = (props) => {
     const [formCompletedState, setFormCompletedState] = useState<SetupAccountFormState>({ clerkUserId: null })
     const { isLoaded } = useAuth()
 
     if (!isLoaded) return <LoadingMessage message="Loading" />
-
-    // This component handles only the account creation step for new, unauthenticated users.
-    // The parent InvitationHandler component is responsible for checking the user's
-    // authentication state and routing them here only if they need to create an account.
 
     return formCompletedState.clerkUserId ? (
         <Success inviteId={props.inviteId} />
