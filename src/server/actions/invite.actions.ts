@@ -1,3 +1,15 @@
+/**
+ * This file defines the server-side logic for handling user invitations. It contains two main server actions:
+ *
+ * 1.  `onCreateAccountAction`: This action is for new users who do not have an account yet. It receives an invitation
+ *     ID and user details from a sign-up form. It validates the invitation, checks that the email isn't already in use,
+ *     and then creates a new user in Clerk.
+ *
+ * 2.  `claimInviteAction`: This action is for users who are already logged in. It takes an invitation ID and performs
+ *     all the necessary steps to add the user to the new organization. This includes updating the local database,
+ *     adding the user to the organization in Clerk, updating their public metadata with the new roles, and finally
+ *     marking the invitation as claimed.
+ */
 'use server'
 
 import { z } from 'zod'
