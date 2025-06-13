@@ -188,6 +188,31 @@ export const insertTestUser = async ({
     return { user, orgUser }
 }
 
+export const insertPendingUser = async ({
+    org,
+    email,
+    isResearcher = true,
+    isReviewer = false,
+}: {
+    org: MinimalTestOrg
+    email: string
+    isResearcher?: boolean
+    isReviewer?: boolean
+}) => {
+    const pendingUser = await db
+        .insertInto('pendingUser')
+        .values({
+            orgId: org.id,
+            email,
+            isResearcher,
+            isReviewer,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    return pendingUser
+}
+
 type MinimalTestOrg = { slug: string; id: string }
 
 export const insertTestStudyJobData = async ({
