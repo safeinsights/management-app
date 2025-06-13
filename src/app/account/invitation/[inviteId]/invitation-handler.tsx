@@ -1,5 +1,19 @@
 'use client'
 
+/**
+ * InvitationHandler is the main component for the invitation acceptance flow.
+ * It acts as a state machine to determine which component to render based on the user's authentication status
+ * and whether they already have an account with SafeInsights.
+ *
+ * State Logic:
+ * 1. Loading: Shows a loading message while checking auth state.
+ * 2. Existing User, Logged Out: Renders the <SignIn /> component.
+ * 3. Existing User, Logged In: Automatically calls `claimInviteAction` and shows a success/error message.
+ * 4. New User: Renders the <AccountPanel /> for account creation.
+ *
+ * It also uses localStorage to persist the invite ID across different parts of the sign-up/sign-in flow,
+ * especially when MFA is required.
+ */
 import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'

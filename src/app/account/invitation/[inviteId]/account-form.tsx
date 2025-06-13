@@ -126,8 +126,9 @@ export const AccountPanel: FC<InviteProps> = (props) => {
 
     if (!isLoaded) return <LoadingMessage message="Loading" />
 
-    // The SignOutPanel logic is removed as InvitationHandler handles the isSignedIn case.
-    // This component (AccountPanel) is now only rendered if the user is NOT signed in by InvitationHandler.
+    // This component handles only the account creation step for new, unauthenticated users.
+    // The parent InvitationHandler component is responsible for checking the user's
+    // authentication state and routing them here only if they need to create an account.
 
     return formCompletedState.clerkUserId ? (
         <Success inviteId={props.inviteId} />
