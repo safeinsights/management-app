@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { mockSessionWithTestData, insertTestOrg, insertPendingUser } from '@/tests/unit.helpers'
 import { onCreateAccountAction, claimInviteAction } from './invite.actions'
 import { faker } from '@faker-js/faker'
@@ -11,7 +11,7 @@ vi.mock('@/server/events', () => ({
     onUserAcceptInvite: vi.fn(),
 }))
 
-const clerkClientMock = clerkClient as vi.Mock
+const clerkClientMock = clerkClient as Mock
 
 describe('Invite Actions', () => {
     describe('onCreateAccountAction', () => {
@@ -31,7 +31,7 @@ describe('Invite Actions', () => {
         })
 
         it('creates a new user when invite is valid and user does not exist', async () => {
-            clerkClientMock.mockReturnValue({
+            clerkClientMock.mockResolvedValue({
                 users: {
                     getUserList: vi.fn().mockResolvedValue({ data: [] }),
                     createUser: vi.fn().mockResolvedValue({ id: 'new_clerk_user_123' }),
@@ -41,7 +41,7 @@ describe('Invite Actions', () => {
             const result = await onCreateAccountAction({ inviteId: pendingUser.id, email, form })
 
             expect(result).toBe('new_clerk_user_123')
-            const client = clerkClient()
+            const client = await clerkClient()
             expect(client.users.createUser).toHaveBeenCalledWith({
                 emailAddress: [email],
                 password: form.password,
@@ -51,9 +51,9 @@ describe('Invite Actions', () => {
         })
 
         it('throws ActionFailure if invite is invalid', async () => {
-            await expect(
-                onCreateAccountAction({ inviteId: faker.string.uuid(), email, form }),
-            ).rejects.toThrow(ActionFailure)
+            await expect(onCreateAccountAction({ inviteId: faker.string.uuid(), email, form })).rejects.toThrow(
+                ActionFailure,
+            )
         })
 
         it('throws ActionFailure if email does not match invite', async () => {
@@ -63,7 +63,7 @@ describe('Invite Actions', () => {
         })
 
         it('throws ActionFailure if user already exists in Clerk', async () => {
-            clerkClientMock.mockReturnValue({
+            clerkClientMock.mockResolvedValue({
                 users: {
                     getUserList: vi.fn().mockResolvedValue({ data: [{ id: 'existing_user' }] }),
                 },
@@ -101,10 +101,14 @@ describe('Invite Actions', () => {
                 isReviewer: false,
             })
 
-            client.organizations.getOrganization.mockResolvedValue({ id: 'clerk_org_id' })
-            client.users.getUser = vi.fn().mockResolvedValue({ publicMetadata: {} })
-            client.users.updateUser = vi.fn()
-            client.organizations.createOrganizationMembership.mockResolvedValue({})
+            client.organizations.getOrganization.mockResolvedValue({
+                id: 'clerk_org_id',
+                slug: org.slug,
+                name: org.name,
+            })
+            client.users.getUser.mockResolvedValue({ publicMetadata: {} })
+            client.users.updateUser.mockResolvedValue({})
+            client.organizations.createOrganizationMembership.mockResolvedValue({ id: 'mem_123' })
 
             const result = await claimInviteAction({ inviteId: pendingUser.id })
 
@@ -116,7 +120,7 @@ describe('Invite Actions', () => {
                 .selectFrom('orgUser')
                 .where('userId', '=', user.id)
                 .where('orgId', '=', org.id)
-                .selectAll()
+                .select(['isResearcher', 'isReviewer'])
                 .executeTakeFirst()
             expect(orgUser?.isResearcher).toBe(true)
             expect(orgUser?.isReviewer).toBe(false)
@@ -156,12 +160,16 @@ describe('Invite Actions', () => {
             const { user, org, client } = await mockSessionWithTestData()
             const pendingUser = await insertPendingUser({ org, email: user.email! })
 
-            client.organizations.getOrganization.mockResolvedValue({ id: 'clerk_org_id' })
+            client.organizations.getOrganization.mockResolvedValue({
+                id: 'clerk_org_id',
+                slug: org.slug,
+                name: org.name,
+            })
             client.organizations.createOrganizationMembership.mockRejectedValue({
                 errors: [{ code: 'duplicate_organization_membership' }],
             })
-            client.users.getUser = vi.fn().mockResolvedValue({ publicMetadata: {} })
-            client.users.updateUser = vi.fn()
+            client.users.getUser.mockResolvedValue({ publicMetadata: {} })
+            client.users.updateUser.mockResolvedValue({})
 
             const result = await claimInviteAction({ inviteId: pendingUser.id })
             expect(result.success).toBe(true)

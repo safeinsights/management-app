@@ -16,6 +16,9 @@ vi.mock('@clerk/nextjs/server', async (importOriginal) => {
             },
             users: {
                 createUser: vi.fn(),
+                getUser: vi.fn(),
+                updateUser: vi.fn(),
+                getUserList: vi.fn(),
             },
         }),
         auth: vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
@@ -388,6 +391,9 @@ export const mockClerkSession = (values: MockSession) => {
         },
         users: {
             createUser: vi.fn(async () => ({ id: '1234' })),
+            getUser: vi.fn(),
+            updateUser: vi.fn(),
+            getUserList: vi.fn(),
         },
     }
     const useUserReturn = {
