@@ -18,10 +18,11 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
             return await func(...args)
         }
 
-        const org = await orgFromAuthToken()
-        if (!org) {
-            // return 404
-            return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
+        let org
+        try {
+            org = await orgFromAuthToken()
+        } catch (e) {
+            return new NextResponse(JSON.stringify({ error: `Token error: ${e}` }), {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' },
             })

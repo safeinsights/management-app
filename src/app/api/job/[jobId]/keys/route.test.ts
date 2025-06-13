@@ -15,7 +15,7 @@ describe('get keys', () => {
         const response = await apiHandler.GET(req, { params: Promise.resolve({ jobId: 'jobId' }) })
 
         expect(response.status).toBe(401)
-        expect(await response.json()).toStrictEqual({ error: 'Invalid or expired token' })
+        expect(await response.json()).toStrictEqual({ error: 'Token error: Error: Header missing or not well formed' })
     })
 
     it('if data not present, return empty array', async () => {

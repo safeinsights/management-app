@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken'
 test('missing JWT is rejected', async () => {
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
+    expect(await resp.json()).toEqual({ error: 'Token error: Error: Header missing or not well formed' })
 })
 
 test('jwt with invalid iss is rejected', async () => {
@@ -18,7 +18,7 @@ test('jwt with invalid iss is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
+    expect(await resp.json()).toEqual({ error: 'Token error: Error: Org not found' })
 })
 
 test('jwt with expired token is rejected', async () => {
@@ -29,7 +29,7 @@ test('jwt with expired token is rejected', async () => {
     hdr.set('Authorization', `Bearer ${token}`)
     const resp = await apiHandler.GET()
     expect(resp.status).toBe(401)
-    expect(await resp.json()).toEqual({ error: 'Invalid or expired token' })
+    expect(await resp.json()).toEqual({ error: 'Token error: TokenExpiredError: jwt expired' })
 })
 
 test('return study jobs', async () => {
