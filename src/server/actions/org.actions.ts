@@ -41,8 +41,8 @@ export const upsertOrgAction = siAdminAction(async (org) => {
 
         return results
     } catch (e) {
-        logger.error(e)
-        throw new ActionFailure({ message: 'Failed to upsert organization' })
+        logger.error('Failed to upsert organization', e)
+        throw e
     }
 }, orgSchema)
 
