@@ -1,5 +1,6 @@
 'use client'
 
+import '../../sentry.client.config'
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
@@ -9,6 +10,7 @@ import { useEffect } from 'react'
 //
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FC, ReactNode } from 'react'
+import SentryUserProvider from '@/components/sentry-user-provider'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -53,6 +55,7 @@ export const Providers: FC<Props> = ({ children }) => {
 
     return (
         <QueryClientProvider client={queryClient}>
+            <SentryUserProvider />
             <MantineProvider theme={theme}>
                 <ModalsProvider>{children}</ModalsProvider>
             </MantineProvider>

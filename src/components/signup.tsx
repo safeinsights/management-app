@@ -19,6 +19,7 @@ import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignUp } from '@clerk/nextjs'
 import { ClerkAPIError } from '@clerk/types'
+import logger from '@/lib/logger'
 
 interface SignUpFormValues {
     email: string
@@ -57,7 +58,7 @@ const EmailVerificationStep = () => {
             } else {
                 // If the status is not complete, check why. User may need to
                 // complete further steps.
-                console.error(JSON.stringify(completeSignUp, null, 2))
+                logger.warn('Unexpected signup status', completeSignUp)
             }
         } catch (err: unknown) {
             reportError(err, 'failed to verify email address')
