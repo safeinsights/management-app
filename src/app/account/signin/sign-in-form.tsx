@@ -90,7 +90,6 @@ export const SignInForm: FC<{
 
             // fallback for non-clerk errors
             form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
-            }
         }
     })
 
@@ -137,30 +136,6 @@ export const SignInForm: FC<{
                     <Button mb="xxl" disabled={!form.isValid()} type="submit">
                         Login
                     </Button>
-            <Panel title="Welcome To SafeInsights">
-                <TextInput
-                    key={form.key('email')}
-                    {...form.getInputProps('email')}
-                    label="Email"
-                    placeholder="Email address"
-                    aria-label="Email"
-                />
-                <PasswordInput
-                    withAsterisk
-                    label="Password"
-                    key={form.key('password')}
-                    {...form.getInputProps('password')}
-                    mt={10}
-                    placeholder="Password"
-                    aria-label="Password"
-                />
-                <Flex align="center" mt={15} gap="md">
-                    <Button type="submit">Login</Button>
-                    <Stack>
-                        {/* https://openstax.atlassian.net/browse/OTTER-107 Temporarily remove signup page on production*/}
-                        {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                        <Link href="/account/reset-password">Forgot password?</Link>
-                    </Stack>
                 </Flex>
             </Paper>
         </form>
