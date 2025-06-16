@@ -1,24 +1,34 @@
-'use client';
+"use client";
 
-import React from 'react'
-import dynamic from 'next/dynamic'
+import {
+  toSocket,
+  WebSocketMessageReader,
+  WebSocketMessageWriter,
+} from "vscode-ws-jsonrpc";
 
-const DynamicMonacoEditorReact = dynamic(async () => {
-    const { Editor } = await import('./editor')
-    // const { buildJsonClientUserConfig } = await import('monaco-languageclient-examples/json-client');
-    // const comp = await import('@typefox/monaco-editor-react');
-    // const wrapperConfig = buildJsonClientUserConfig();
-    return () => <Editor />
-}, {
-    ssr: false
-});
+import { DEFAULT_CODE } from "./code";
+import MonacoEditor from '@monaco-editor/react';
+import { Flex } from "@mantine/core";
+import { EditorToolbar } from "./toolbar";
+import { useEditorStore } from "./state";
 
+export default function Home() {
 
-export default function Page() {
+    const configureEditor = useEditorStore(state => state.configureEditor)
+
     return (
-        <div style={{ 'height': '80vh', padding: '5px' }} >
-            <DynamicMonacoEditorReact />
-        </div>
+        <Flex direction="column">
+            <EditorToolbar />
+            <MonacoEditor
+                theme="vs-dark"
+                height={'80vh'}
+                defaultLanguage="r"
+                defaultValue={DEFAULT_CODE}
+                path="file:///main.r"
+                onMount={configureEditor}
+                options={{ automaticLayout: true }}
+                loading={<div>Loading editor...</div>}
+            />
+        </Flex>
     );
 }
-

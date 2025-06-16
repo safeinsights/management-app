@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
-
+import { z, ZodIssueCode } from 'zod'
 type TimeOpts = { [key: number]: 'ms' } | { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
 
 export async function sleep(opts: TimeOpts): Promise<void> {
@@ -31,3 +31,19 @@ export function sanitizeFileName(fileName: string) {
         .replace(/\.\./g, '') // no directory traversal with ..
         .replace(/[^\x00-\x7F]/g, '') // non-ascii
 }
+
+
+export function strToZod(value: unnknown, ctx: z.RefinementCtx) {
+    if (typeof value === 'string') {
+        try {
+            return JSON.parse(value);
+        } catch (e) {
+            ctx.addIssue({
+                code: ZodIssueCode.custom,
+                message: (e as Error).message,
+            });
+        }
+    }
+
+    return value;
+};
