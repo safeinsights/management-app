@@ -42,6 +42,12 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
 
+        // ── close the modal so the rest of the page (incl. profile menu) is accessible ──
+        await page.keyboard.press('Escape')                 // Mantine modal closes on ESC
+        await page.waitForSelector('[role="dialog"]', {     // ensure it is gone
+            state: 'detached',
+        })
+
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
         await expect(
