@@ -166,7 +166,12 @@ export const SignInForm: FC<{
                     )}
                     <Link href="/account/reset-password">Forgot password?</Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button mb="xxl" disabled={!form.isValid()} loading={isCheckingInvite || isVerifyingInvite} type="submit">
+                    <Button
+                        mb="xxl"
+                        disabled={!form.isValid()}
+                        loading={isCheckingInvite || isVerifyingInvite}
+                        type="submit"
+                    >
                         Login
                     </Button>
                 </Flex>
