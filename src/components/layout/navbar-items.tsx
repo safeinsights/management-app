@@ -9,10 +9,11 @@ import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
+import { RefWrapper } from './nav-ref-wrapper'
 import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded } = useAuthInfo()
+    const { isLoaded, isAdmin } = useAuthInfo()
 
     const pathname = usePathname()
     const dashboardURL = useDashboardUrl()
@@ -22,20 +23,30 @@ export const NavbarItems: FC = () => {
 
     return (
         <Stack gap="sm">
-            <NavLink
-                label="Dashboard"
-                leftSection={<House />}
-                component={Link}
-                href={dashboardURL}
-                active={pathname === dashboardURL}
-                c="white"
-                color="blue.7"
-                variant="filled"
-                className={styles.navLinkHover}
-            />
+            <RefWrapper>
+                <NavLink
+                    label="Dashboard"
+                    leftSection={<House />}
+                    component={Link}
+                    href={dashboardURL}
+                    active={pathname === dashboardURL}
+                    c="white"
+                    color="blue.7"
+                    variant="filled"
+                    className={styles.navLinkHover}
+                    aria-label="Dashboard"
+                />
+            </RefWrapper>
 
-            <OrgAdminDashboardLink pathname={pathname} />
-            <OrgSwitcher />
+            {isAdmin && (
+                <RefWrapper>
+                    <OrgAdminDashboardLink pathname={pathname} />
+                </RefWrapper>
+            )}
+
+            <RefWrapper>
+                <OrgSwitcher />
+            </RefWrapper>
         </Stack>
     )
 }

@@ -3,6 +3,7 @@ import { Link } from '@/components/links'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
+import { ApiKeySettingsDisplay } from './api-key-settings-display'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
             </Title>
 
             <OrganizationSettingsManager org={org} />
+            <ApiKeySettingsDisplay />
         </Stack>
     )
 }

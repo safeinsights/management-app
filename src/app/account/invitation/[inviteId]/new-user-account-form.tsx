@@ -38,9 +38,9 @@ const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
 }
 
 const formSchema = z.object({
-    firstName: z.string().nonempty('cannot be left blank'),
-    lastName: z.string().nonempty('cannot be left blank'),
-    password: z.string().min(8, 'must be at least 8 characters'),
+    firstName: z.string().trim().nonempty('cannot be left blank'),
+    lastName: z.string().trim().nonempty('cannot be left blank'),
+    password: z.string().trim().min(8, 'must be at least 8 characters'),
 })
 
 type FormValues = z.infer<typeof formSchema>
