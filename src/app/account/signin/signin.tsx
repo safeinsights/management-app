@@ -31,7 +31,7 @@ export function SignIn() {
     }
 
     return (
-        <Container>
+        <Container w={500}>
             <SignInForm onComplete={setPending} mfa={state} />
             <RequestMFA onReset={() => setState(false)} mfa={state} />
         </Container>
