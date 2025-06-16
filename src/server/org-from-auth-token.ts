@@ -31,7 +31,7 @@ export const orgFromAuthToken = async (): Promise<Org> => {
     const decodedToken = jwt.verify(token, org.publicKey, { algorithms: ['RS256'] })
 
     if (!decodedToken) {
-        throw new Error('Token must exist')
+        throw new Error(`public key validation failed for JWT.  Org ${org.slug} public key was:\n${org.publicKey}`)
     }
 
     return org
