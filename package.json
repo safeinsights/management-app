@@ -15,7 +15,7 @@
         "build:docker:production": "./bin/prod-docker-build",
         "build:docker:ci": "./bin/prod-docker-build ci-only-do-not-push",
         "ci:server": "./bin/ci-server",
-        "dev": "next dev --turbo -p 4000",
+        "dev": "next dev --turbopack -p 4000",
         "prepare": "panda codegen",
         "build": "next build",
         "db:migrate": "./bin/migrate-dev-db",

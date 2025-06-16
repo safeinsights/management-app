@@ -27,13 +27,10 @@ const Message: React.FC<{ msg: AiMessage }> = ({ msg }) => {
 }
 
 export function AiPanel() {
-    //    const isOpen = useEditorStore(state => state.isDrawerOpen)
     const inputRef = useRef<HTMLTextAreaElement>(null)
 
     const [editor, messages, appendMessagePair] = useEditorStore(useShallow(s => [s.editor, s.aiMessages, s.appendMessagePair]))
-    // const editor = useEditorStore(state => state.editor)
-    // const messages = useEditorStore(state => state.aiMessages)
-    // const appendMessagePair = useEditorStore(state => state.appendMessagePair)
+
     const close = () => useEditorStore.setState({ isDrawerOpen: false })
 
     const { isPending, mutate: sendMessage } = useMutation({
@@ -45,8 +42,7 @@ export function AiPanel() {
                 code,
                 history: messages.concat({ message, sender: 'user' }),
             })
-            console.log(resp)
-            appendMessagePair(message, `${resp.description}${resp.questions.join('\n\n')}`, code)
+            appendMessagePair(message, `${resp.description}${(resp.questions || []).join('\n\n')}`, code)
             if (resp.updated_code) {
                 editor.setValue(resp.updated_code)
             }
