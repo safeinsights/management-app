@@ -9,9 +9,22 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
 import { orgSchema as baseOrgSchema, type Org } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
-import { handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
+
+interface FormFieldMessageProps {
+    message: string
+}
+
+export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) => {
+    return (
+        <Text size="xs" c="dimmed" mt="xs">
+            {message}
+        </Text>
+    )
+}
 
 export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
+    name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
     description: z.string().max(250, 'Word limit is 250 characters').default(''),
 })
 
@@ -34,6 +47,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
         },
         validate: zodResolver(settingsFormSchema),
         validateInputOnBlur: true,
+        validateInputOnChange: true,
     })
 
     const { mutate: updateOrgSettings, isPending: isOrgUpdating } = useMutation({
@@ -90,11 +104,22 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 aria-label="Name"
                                 required
                                 aria-required="true"
-                                maxLength={50}
                                 autoFocus
                                 key={form.key('name')}
                                 {...form.getInputProps('name')}
+                                error={
+                                    form.errors.name && (
+                                        <Group gap="xs">
+                                            <InputError error={form.errors.name} />
+                                            <span>{(form.values.name || '').length} /50 characters</span>
+                                        </Group>
+                                    )
+                                }
                             />
+                            {/* If there is no name error show the characters count */}
+                            {form.errors.name && (
+                                <FormFieldMessage message={(form.values.name || '').length + ' /50 characters'} />
+                            )}
                         </Grid.Col>
                     </Grid>
                     <Grid align="flex-start">
@@ -105,15 +130,22 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                             <Textarea
                                 id={form.key('description')}
                                 aria-label="Description"
-                                maxLength={250}
                                 key={form.key('description')}
                                 {...form.getInputProps('description')}
                                 autosize
                                 minRows={3}
+                                placeholder="Consider adding a sentence to publicly introduce your organization."
+                                error={
+                                    form.errors.description && (
+                                        <Group gap="xs">
+                                            <InputError error={form.errors.description} />
+                                            <span>{(form.values.description || '').length} /250 characters</span>
+                                        </Group>
+                                    )
+                                }
                             />
-                            <Text size="xs" c="dimmed" mt="xs">
-                                {(form.values.description || '').length}/250 characters
-                            </Text>
+                            {/* If there is no description error show the characters count */}
+                            <FormFieldMessage message={(form.values.description || '').length + '/250 characters'} />
                         </Grid.Col>
                     </Grid>
                 </Stack>
