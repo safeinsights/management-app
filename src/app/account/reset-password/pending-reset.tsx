@@ -120,7 +120,6 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     }
 
     const passwordRequirements = checkRequirements(verificationForm.values.password)
-    const allRequirementsMet = passwordRequirements.every((req) => req.meets)
 
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
@@ -161,11 +160,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         <Button type="submit" loading={isPending} variant="outline">
                             Resend verification code
                         </Button>
-                        <Button
-                            type="submit"
-                            loading={isPending}
-                            disabled={!verificationForm.isValid() || !allRequirementsMet}
-                        >
+                        <Button type="submit" loading={isPending} disabled={!verificationForm.isValid()}>
                             Update new password
                         </Button>
                     </Flex>
