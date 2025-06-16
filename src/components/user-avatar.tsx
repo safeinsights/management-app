@@ -23,7 +23,7 @@ export function UserAvatar({ user: providedUser }: { user?: { fullName: string; 
             bg="purple.3"
             color="gray.1"
             key={user.fullName}
-            name={getInitials(user.fullName)}
+            name={user.fullName ? getInitials(user.fullName) : ''}
             alt="User profile"
         />
     )
