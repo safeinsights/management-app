@@ -37,53 +37,58 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const { setActive } = useClerk()
     const { user } = useUser()
     const router = useRouter()
-    const [isLoadingAction, setIsLoadingAction] = useState(false)
-    const [newOrgSlug, setNewOrgSlug] = useState<string | null>(null)
-    const [orgName, setOrgName] = useState<string | null>(null)
-    const [error, setError] = useState<string | null>(null)
+    interface InvitationState {
+        isLoadingAction: boolean
+        newOrgSlug: string | null
+        orgName: string | null
+        error: string | null
+    }
+
+    const [state, setState] = useState<InvitationState>({
+        isLoadingAction: false,
+        newOrgSlug: null,
+        orgName: null,
+        error: null,
+    })
     // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
-            setIsLoadingAction(true)
+            setState((s) => ({ ...s, isLoadingAction: true, error: null }))
             claimInviteAction({ inviteId })
                 .then((result) => {
                     if (result.success && result.organizationName) {
-                        setOrgName(result.organizationName)
-                        setNewOrgSlug(result.orgSlug || null)
-                        // The success message is now part of the SuccessPanel
-                    } else {
-                        setError(result.error || 'Failed to accept invitation.')
-                        notifications.show({
-                            title: 'Error',
-                            message: result.error || 'Could not process your invitation.',
-                            color: 'red',
+                        setState({
+                            isLoadingAction: false,
+                            orgName: result.organizationName,
+                            newOrgSlug: result.orgSlug || null,
+                            error: null,
                         })
+                    } else {
+                        const error = result.error || 'Failed to accept invitation.'
+                        setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
+                        notifications.show({ title: 'Error', message: error, color: 'red' })
                     }
                 })
                 .catch((err) => {
+                    const error = 'An unexpected error occurred while processing your invitation.'
                     reportError(err, 'Error accepting invitation for existing user')
-                    setError('An unexpected error occurred while processing your invitation.')
-                    notifications.show({
-                        title: 'Error',
-                        message: 'An unexpected error occurred.',
-                        color: 'red',
-                    })
+                    setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
+                    notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
                 })
-                .finally(() => setIsLoadingAction(false))
         }
     }, [isLoaded, isSignedIn, inviteId])
 
     useEffect(() => {
-        if (!newOrgSlug || !user) return
+        if (!state.newOrgSlug || !user) return
 
-        const orgMeta = user.publicMetadata?.orgs?.find((o) => o.slug === newOrgSlug)
+        const orgMeta = user.publicMetadata?.orgs?.find((o) => o.slug === state.newOrgSlug)
         if (orgMeta?.isReviewer) {
             // update Clerk’s active organization so useDashboardUrl picks it up
-            setActive({ organization: newOrgSlug }).catch(() => {})
+            setActive({ organization: state.newOrgSlug }).catch(() => {})
         }
-    }, [newOrgSlug, user, setActive])
+    }, [state.newOrgSlug, user, setActive])
 
     // fetch whether this email is already in our SI user table
     const { data: userExists } = useQuery({
@@ -98,7 +103,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         }
     }, [userExists, isSignedIn, router, inviteId])
 
-    if (!isLoaded || isLoadingAction) {
+    if (!isLoaded || state.isLoadingAction) {
         return <LoadingMessage message="Processing your invitation..." />
     }
 
@@ -108,12 +113,15 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     }
 
     if (isSignedIn) {
-        if (error) {
-            return <Text color="red">{error}</Text>
+        if (state.error) {
+            return <Text color="red">{state.error}</Text>
         }
-        if (orgName) {
+        if (state.orgName) {
             return (
-                <SuccessPanel title={`You're now a member of ${orgName}!`} onContinue={() => router.push(dashboardUrl)}>
+                <SuccessPanel
+                    title={`You're now a member of ${state.orgName}!`}
+                    onContinue={() => router.push(dashboardUrl)}
+                >
                     Visit your dashboard
                 </SuccessPanel>
             )
