@@ -17,6 +17,7 @@ import { claimInviteAction } from '@/server/actions/invite.actions'
 import { notifications } from '@mantine/notifications'
 import { LoadingMessage } from '@/components/loading'
 import { useDashboardUrl } from '@/lib/dashboard-url'
+import { useMutation } from '@tanstack/react-query'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -204,25 +205,26 @@ export function AddMFAPanel() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
+    const { mutate: claimInvite } = useMutation({
+        mutationFn: claimInviteAction,
+        onError: (err) => reportError(err, 'Failed to claim invitation after MFA setup.'),
+        onSuccess: (result) => {
+            if (result.success) {
+                notifications.show({
+                    title: 'Invitation Claimed',
+                    message: `You have successfully joined ${result.organizationName}.`,
+                    color: 'green',
+                })
+            } else {
+                reportError(result.error || 'Failed to claim invitation after MFA setup.')
+            }
+        },
+    })
+
     const handleMfaSuccess = async () => {
         const inviteId = searchParams.get('inviteId')
-
         if (inviteId) {
-            try {
-                const result = await claimInviteAction({ inviteId })
-                if (result.success) {
-                    notifications.show({
-                        title: 'Invitation Claimed',
-                        message: `You have successfully joined ${result.organizationName}.`,
-                        color: 'green',
-                    })
-                } else {
-                    // This case is unlikely to be hit since the action throws, but is good for robustness
-                    reportError(result.error || 'Failed to claim invitation after MFA setup.')
-                }
-            } catch (error) {
-                reportError(error, 'Failed to claim invitation after MFA setup.')
-            }
+            claimInvite({ inviteId })
         }
     }
 

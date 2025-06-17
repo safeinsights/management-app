@@ -17,6 +17,7 @@ import 'react-phone-number-input/style.css'
 import styles from './panel.module.css'
 import { InputError } from '@/components/errors'
 import { useDashboardUrl } from '@/lib/dashboard-url'
+import { useMutation } from '@tanstack/react-query'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +36,26 @@ export function ManageSMSMFAPanel() {
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const dashboardUrl = useDashboardUrl()
     const searchParams = useSearchParams()
+
+    const { mutate: claimInvite } = useMutation({
+        mutationFn: claimInviteAction,
+        onError: (err) => {
+            notifications.show({
+                title: 'Error',
+                message: errorToString(err),
+                color: 'red',
+            })
+        },
+        onSuccess: (result) => {
+            if (!result.success) {
+                notifications.show({
+                    title: 'Error',
+                    message: result.error || 'Could not process your invitation.',
+                    color: 'red',
+                })
+            }
+        },
+    })
 
     const phoneForm = useForm({
         initialValues: {
@@ -138,22 +159,7 @@ export function ManageSMSMFAPanel() {
         // ── claim the pending invite, if any ──
         const inviteId = searchParams.get('inviteId')
         if (inviteId) {
-            try {
-                const result = await claimInviteAction({ inviteId })
-                if (!result.success) {
-                    notifications.show({
-                        title: 'Error',
-                        message: result.error || 'Could not process your invitation.',
-                        color: 'red',
-                    })
-                }
-            } catch (err) {
-                notifications.show({
-                    title: 'Error',
-                    message: errorToString(err),
-                    color: 'red',
-                })
-            }
+            claimInvite({ inviteId })
         }
     }
 
