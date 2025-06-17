@@ -10,7 +10,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     const invite = await db
         .selectFrom('pendingUser')
-        .select(['email', 'orgId']) // Fetch orgId to potentially get orgName later if needed
+        .select(['email'])
         .where('claimedByUserId', 'is', null)
         .where('id', '=', inviteId)
         .executeTakeFirst()
