@@ -15,7 +15,7 @@
  */
 import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { userExistsForInviteAction } from '@/server/actions/user.actions'
 import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
@@ -38,14 +38,12 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const { user } = useUser()
     const router = useRouter()
     interface InvitationState {
-        isLoadingAction: boolean
         newOrgSlug: string | null
         orgName: string | null
         error: string | null
     }
 
     const [state, setState] = useState<InvitationState>({
-        isLoadingAction: false,
         newOrgSlug: null,
         orgName: null,
         error: null,
@@ -53,34 +51,34 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
 
-    useEffect(() => {
-        if (!isLoaded || !isSignedIn) {
-            return
-        }
+    const { mutate, isPending } = useMutation({
+        mutationFn: claimInviteAction,
+        onSuccess: (result) => {
+            if (result.success && result.organizationName) {
+                setState({
+                    orgName: result.organizationName,
+                    newOrgSlug: result.orgSlug || null,
+                    error: null,
+                })
+            } else {
+                const error = result.error || 'Failed to accept invitation.'
+                setState({ orgName: null, newOrgSlug: null, error })
+                notifications.show({ title: 'Error', message: error, color: 'red' })
+            }
+        },
+        onError: (err) => {
+            const error = 'An unexpected error occurred while processing your invitation.'
+            reportError(err, 'Error accepting invitation for existing user')
+            setState({ orgName: null, newOrgSlug: null, error })
+            notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
+        },
+    })
 
-        setState((s) => ({ ...s, isLoadingAction: true, error: null }))
-        claimInviteAction({ inviteId })
-            .then((result) => {
-                if (result.success && result.organizationName) {
-                    setState({
-                        isLoadingAction: false,
-                        orgName: result.organizationName,
-                        newOrgSlug: result.orgSlug || null,
-                        error: null,
-                    })
-                } else {
-                    const error = result.error || 'Failed to accept invitation.'
-                    setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
-                    notifications.show({ title: 'Error', message: error, color: 'red' })
-                }
-            })
-            .catch((err) => {
-                const error = 'An unexpected error occurred while processing your invitation.'
-                reportError(err, 'Error accepting invitation for existing user')
-                setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
-                notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
-            })
-    }, [isLoaded, isSignedIn, inviteId])
+    useEffect(() => {
+        if (isLoaded && isSignedIn) {
+            mutate({ inviteId })
+        }
+    }, [isLoaded, isSignedIn, inviteId, mutate])
 
     useEffect(() => {
         if (!state.newOrgSlug || !user) return
@@ -105,7 +103,7 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         }
     }, [userExists, isSignedIn, router, inviteId])
 
-    if (!isLoaded || state.isLoadingAction) {
+    if (!isLoaded || isPending) {
         return <LoadingMessage message="Processing your invitation..." />
     }
 
