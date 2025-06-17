@@ -33,6 +33,41 @@ import { onUserAcceptInvite } from '@/server/events'
 import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
 
+/**
+ * Associates a user with an organization in both the local DB and Clerk.
+ */
+async function _associateUserWithOrg(
+    siUserId: string,
+    clerkUserId: string,
+    pendingUser: { orgSlug: string; isResearcher: boolean; isReviewer: boolean },
+) {
+    // Create/update the database membership record.
+    await findOrCreateOrgMembership({
+        userId: siUserId,
+        slug: pendingUser.orgSlug,
+        isResearcher: pendingUser.isResearcher,
+        isReviewer: pendingUser.isReviewer,
+        isAdmin: false,
+    })
+
+    // Create the membership in Clerk.
+    try {
+        const client = await clerkClient()
+        const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
+        await client.organizations.createOrganizationMembership({
+            organizationId: clerkOrg.id,
+            userId: clerkUserId,
+            role: 'org:member',
+        })
+    } catch (error: unknown) {
+        if (isClerkApiError(error) && error.errors[0].code === 'duplicate_organization_membership') {
+            logger.info(`User ${clerkUserId} is already a member of Clerk org ${pendingUser.orgSlug}.`)
+        } else {
+            throw error
+        }
+    }
+}
+
 // Schema for onCreateAccountAction input
 const CreateAccountSchema = z.object({
     inviteId: z.string(),
@@ -86,21 +121,7 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         })
 
         // 3. Associate user with organization
-        const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
-
-        await findOrCreateOrgMembership({
-            userId: siUserId,
-            slug: pendingUser.orgSlug,
-            isResearcher: pendingUser.isResearcher,
-            isReviewer: pendingUser.isReviewer,
-            isAdmin: false, // Default for invitees
-        })
-
-        await client.organizations.createOrganizationMembership({
-            organizationId: clerkOrg.id,
-            userId: clerkUser.id,
-            role: 'org:member',
-        })
+        await _associateUserWithOrg(siUserId, clerkUser.id, pendingUser)
 
         await updateClerkUserMetadata(siUserId)
 
@@ -152,6 +173,19 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
 
     if (pendingUser.email !== authUser.primaryEmailAddress?.emailAddress) {
         return { success: false, error: 'This invitation is for a different user. Please log out and try again.' }
+    }
+
+    // Check if the org membership already exists. If not, this is an existing user flow.
+    const existingMembership = await db
+        .selectFrom('orgUser')
+        .select('id')
+        .where('userId', '=', siUserId)
+        .where('orgId', '=', pendingUser.localOrgDbId)
+        .executeTakeFirst()
+
+    if (!existingMembership) {
+        // This is an existing user being added to a new org.
+        await _associateUserWithOrg(siUserId, clerkUserId, pendingUser)
     }
 
     // The user and organization membership should already be created by onCreateAccountAction
