@@ -1,6 +1,6 @@
 'use client'
 
-import { Flex, Button, TextInput, PasswordInput, Text, Group, SimpleGrid, Alert } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
 import { LoadingMessage } from '@/components/loading'
 import { InputError } from '@/components/errors'
-import { CheckCircle, XCircle } from '@phosphor-icons/react'
+import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
 
 const Success: FC = () => {
     const router = useRouter()
@@ -33,13 +33,13 @@ const formSchema = z
     .object({
         firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
         lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
-        password: z
-            .string()
-            .min(8, '8 character minimum')
-            .max(64)
-            .refine((val) => /[0-9]/.test(val), 'One number')
-            .refine((val) => /[A-Z]/.test(val), 'One uppercase letter')
-            .refine((val) => /[^A-Za-z0-9]/.test(val), 'One special character *&^'),
+        password: (() => {
+            let schema = z.string().max(64)
+            PASSWORD_REQUIREMENTS.forEach((req) => {
+                schema = schema.regex(req.re, req.message)
+            })
+            return schema
+        })(),
         confirmPassword: z.string(),
     })
     .superRefine(({ confirmPassword, password }, ctx) => {
@@ -57,18 +57,6 @@ type InviteProps = {
     inviteId: string
     email: string
     orgName: string
-}
-
-const Requirement: FC<{ meets: boolean; label: string }> = ({ meets, label }) => {
-    const Icon = meets ? CheckCircle : XCircle
-    return (
-        <Group gap="xs" align="center">
-            <Icon size={16} color={meets ? 'green' : 'red'} />
-            <Text size="sm" fw={400}>
-                {label}
-            </Text>
-        </Group>
-    )
 }
 
 const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, email, orgName, onComplete }) => {
@@ -145,22 +133,16 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
                 />
 
                 {(() => {
-                    const lengthMet = form.values.password.length >= 8
-                    const numberMet = /[0-9]/.test(form.values.password)
-                    const upperMet = /[A-Z]/.test(form.values.password)
-                    const specialMet = /[^A-Za-z0-9]/.test(form.values.password)
-                    const allMet = lengthMet && numberMet && upperMet && specialMet
+                    const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
+                        ...req,
+                        meets: req.re.test(form.values.password),
+                    }))
+
+                    const allMet = requirements.every((r) => r.meets)
 
                     if (!(form.values.password || form.errors.password) || allMet) return null
 
-                    return (
-                        <SimpleGrid cols={2} spacing={4}>
-                            <Requirement meets={lengthMet} label="8 character minimum" />
-                            <Requirement meets={numberMet} label="One number" />
-                            <Requirement meets={upperMet} label="One uppercase letter" />
-                            <Requirement meets={specialMet} label="One special character *&^" />
-                        </SimpleGrid>
-                    )
+                    return <Requirements requirements={requirements} />
                 })()}
 
                 <PasswordInput
