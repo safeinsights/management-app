@@ -53,10 +53,17 @@ export const onUserSignInAction = anonAction(async () => {
                 isReviewer: md?.isReviewer,
             })
         } catch (e) {
-            logger.warn(
-                `During login, user ${user.id} was found to be a member of clerk org ${org.organization.slug}, which was not found in the SI database. Skipping membership creation.`,
-                e,
-            )
+            if (e instanceof Error && e.message.includes('No organization found with slug')) {
+                logger.warn(
+                    `During login, user ${user.id} was found to be a member of clerk org ${org.organization.slug}, which was not found in the SI database. Skipping membership creation.`,
+                    e,
+                )
+            } else {
+                logger.error(
+                    `An unexpected error occurred while creating or updating membership for user ${user.id} in org ${org.organization.slug}.`,
+                    e,
+                )
+            }
         }
     }
     onUserLogIn({ userId: user.id })
