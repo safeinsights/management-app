@@ -16,7 +16,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'
-import { userExistsAction } from '@/server/actions/user.actions'
+import { userExistsForInviteAction } from '@/server/actions/user.actions'
 import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -87,8 +87,8 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
 
     // fetch whether this email is already in our SI user table
     const { data: userExists } = useQuery({
-        queryKey: ['userExists', invitedEmail],
-        queryFn: () => userExistsAction(invitedEmail),
+        queryKey: ['userExistsForInvite', inviteId],
+        queryFn: () => userExistsForInviteAction(inviteId),
         enabled: isLoaded,
     })
 

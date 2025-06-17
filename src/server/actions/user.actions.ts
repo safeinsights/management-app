@@ -97,10 +97,19 @@ export const updateUserRoleAction = orgAdminAction(
     }),
 )
 
-// Action to let the client know if an email already exists in SI
-export const userExistsAction = anonAction(async (email: string) => {
-    const row = await db.selectFrom('user').select('id').where('email', '=', email).executeTakeFirst()
-    return Boolean(row)
+// Action to let the client know if an email for a given invite already exists in SI
+export const userExistsForInviteAction = anonAction(async (inviteId: string) => {
+    const invite = await db
+        .selectFrom('pendingUser')
+        .select('email')
+        .where('id', '=', inviteId)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
+    if (!invite) return false
+
+    const user = await db.selectFrom('user').select('id').where('email', '=', invite.email).executeTakeFirst()
+    return Boolean(user)
 }, z.string())
 
 // Action to check for a pending invite for a user who needs to set up MFA.
