@@ -18,6 +18,14 @@ export type AuditEventType =
 
 export type AuditRecordType = 'STUDY' | 'USER'
 
+export type FileType =
+    | 'APPROVED-LOG'
+    | 'APPROVED-RESULT'
+    | 'ENCRYPTED-LOG'
+    | 'ENCRYPTED-RESULT'
+    | 'MAIN-CODE'
+    | 'SUPPLEMENTAL-CODE'
+
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
@@ -34,8 +42,6 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'R'
-
-export type ResultFormat = 'SI_V1_ENCRYPT'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
@@ -139,9 +145,17 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    resultFormat: ResultFormat | null
-    resultsPath: string | null
+    language: Language
     studyId: string
+}
+
+export interface StudyJobFile {
+    createdAt: Generated<Timestamp>
+    fileType: FileType
+    id: Generated<string>
+    name: string
+    path: string
+    studyJobId: string
 }
 
 export interface User {
@@ -173,6 +187,7 @@ export interface DB {
     pendingUser: PendingUser
     study: Study
     studyJob: StudyJob
+    studyJobFile: StudyJobFile
     user: User
     userPublicKey: UserPublicKey
 }
