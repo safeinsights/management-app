@@ -3,6 +3,8 @@
 import { Stack, Title, Divider, Paper, Text } from '@mantine/core'
 
 export function ApiKeySettingsDisplay() {
+    return null // Placeholder for future implementation
+
     return (
         <Paper bg="white" p="xxl">
             <Stack>

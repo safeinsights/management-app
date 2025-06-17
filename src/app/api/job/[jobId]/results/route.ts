@@ -17,10 +17,9 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     const logs = formData.get('log')
     const results = formData.get('result')
 
-
     const contents = logs || results // TODO: handle both logs and results
     if (!contents || !(contents instanceof File)) {
-            return NextResponse.json({ status: 'fail', error: 'logs or results file is required' }, { status: 400 })
+        return NextResponse.json({ status: 'fail', error: 'logs or results file is required' }, { status: 400 })
     }
 
     // join is a security check to ensure the job is owned by the org
@@ -44,11 +43,10 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         contents,
     )
 
-
     await db
         .insertInto('jobStatusChange')
         .values({
-            status: (logs && !results) ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: figure out correct status,
+            status: logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: figure out correct status,
             studyJobId: info.studyJobId,
         })
         .execute()

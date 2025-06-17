@@ -13,7 +13,7 @@ interface PendingUsersProps {
 const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: string } }> = ({ pending, orgSlug }) => {
     const { mutate: reInviteUser, isPending: isReinviting } = useMutation({
         mutationFn: () => reInviteUserAction({ orgSlug, pendingUserId: pending.id }),
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to re-invite user'),
         onSuccess() {
             notifications.show({ message: `${pending.email} has been re-invited`, color: 'green' })
         },

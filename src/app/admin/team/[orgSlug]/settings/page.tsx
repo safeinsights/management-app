@@ -4,6 +4,7 @@ import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
+import { BaseImages } from './base-images'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,6 +33,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
 
             <OrganizationSettingsManager org={org} />
             <ApiKeySettingsDisplay />
+            <BaseImages />
         </Stack>
     )
 }
