@@ -16,7 +16,7 @@ export const orgAdminInviteUserAction = orgAdminAction(
             .selectFrom('user')
             .innerJoin('orgUser', 'user.id', 'orgUser.userId')
             .select('user.id')
-            .where('user.email', '=', invite.email)
+            .where((eb) => eb.fn('lower', ['user.email']), '=', invite.email.toLowerCase())
             .where('orgUser.orgId', '=', org.id)
             .executeTakeFirst()
 
@@ -28,7 +28,7 @@ export const orgAdminInviteUserAction = orgAdminAction(
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id', 'email'])
-            .where('email', '=', invite.email)
+            .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', invite.email.toLowerCase())
             .where('orgId', '=', org.id)
             .executeTakeFirst()
         if (existingPendingUser) {

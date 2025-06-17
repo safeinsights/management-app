@@ -51,6 +51,7 @@ async function _associateUserWithOrg(
     })
 
     // Create the membership in Clerk.
+    // TODO: maybe wrong for researchers here
     try {
         const client = await clerkClient()
         const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
@@ -86,7 +87,7 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         .selectAll('pendingUser')
         .select(['org.slug as orgSlug'])
         .where('pendingUser.id', '=', inviteId)
-        .where('pendingUser.email', '=', email) // Verify email matches the invite
+        .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', email.toLowerCase()) // Verify email matches the invite
         .where('claimedByUserId', 'is', null)
         .executeTakeFirst()
 
@@ -171,7 +172,7 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         return { success: false, error: 'Invalid or already claimed invitation.' }
     }
 
-    if (pendingUser.email !== authUser.primaryEmailAddress?.emailAddress) {
+    if (pendingUser.email.toLowerCase() !== authUser.primaryEmailAddress?.emailAddress.toLowerCase()) {
         return { success: false, error: 'This invitation is for a different user. Please log out and try again.' }
     }
 

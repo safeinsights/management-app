@@ -108,7 +108,11 @@ export const userExistsForInviteAction = anonAction(async (inviteId: string) => 
 
     if (!invite) return false
 
-    const user = await db.selectFrom('user').select('id').where('email', '=', invite.email).executeTakeFirst()
+    const user = await db
+        .selectFrom('user')
+        .select('id')
+        .where((eb) => eb.fn('lower', ['email']), '=', invite.email.toLowerCase())
+        .executeTakeFirst()
     return Boolean(user)
 }, z.string())
 
@@ -120,7 +124,7 @@ export const checkPendingInviteForMfaUserAction = anonAction(async (email: strin
     const pendingInvite = await db
         .selectFrom('pendingUser')
         .select('id')
-        .where('email', '=', email)
+        .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', email.toLowerCase())
         .where('claimedByUserId', 'is', null)
         .executeTakeFirst()
 
