@@ -20,9 +20,6 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     })
 }
 
-export const reportMutationError = (error: unknown) => {
-    reportError(error, 'update failed')
-}
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
     values: Record<string, string>
@@ -43,10 +40,15 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
                 reportMutationError(err)
             }
         } else {
-            reportMutationError(err)
+            reportError(err)
         }
     }
 }
+
+export const reportMutationError =
+    (title = 'An error occurred') =>
+    (err: unknown) =>
+        reportError(err, title)
 
 type ErrorAlertProps = { error: string | Error } & AlertProps
 
