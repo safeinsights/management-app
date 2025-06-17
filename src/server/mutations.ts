@@ -54,7 +54,8 @@ export async function findOrCreateOrgMembership({
 
     if (orgInfo) {
         if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer || orgInfo.isAdmin != isAdmin) {
-            db.updateTable('orgUser')
+            await db
+                .updateTable('orgUser')
                 .set({ isResearcher, isReviewer, isAdmin })
                 .where('id', '=', orgInfo.orgUserId)
                 .executeTakeFirstOrThrow()

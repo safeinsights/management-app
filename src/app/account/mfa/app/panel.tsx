@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser, useClerk } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import React, { useState, useMemo } from 'react'
 import { z } from 'zod'
@@ -12,7 +12,7 @@ import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { claimInviteAction } from '@/server/actions/invite.actions'
 import { notifications } from '@mantine/notifications'
 import { LoadingMessage } from '@/components/loading'
@@ -201,14 +201,13 @@ function SuccessScreenContent() {
 export function AddMFAPanel() {
     const [step, setStep] = React.useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
-    const { setActive } = useClerk()
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const handleMfaSuccess = async () => {
-        const inviteId = localStorage.getItem('pendingInviteId')
+        const inviteId = searchParams.get('inviteId')
 
         if (inviteId) {
-            localStorage.removeItem('pendingInviteId')
             try {
                 const result = await claimInviteAction({ inviteId })
                 if (result.success) {
@@ -217,17 +216,6 @@ export function AddMFAPanel() {
                         message: `You have successfully joined ${result.organizationName}.`,
                         color: 'green',
                     })
-                    // switch active org for reviewer-only invitees
-                    if (result.orgSlug) {
-                        const orgMeta = user?.publicMetadata?.orgs?.find((o) => o.slug === result.orgSlug)
-                        if (orgMeta?.isReviewer) {
-                            try {
-                                await setActive({ organization: result.orgSlug })
-                            } catch {
-                                /* ignore */
-                            }
-                        }
-                    }
                 } else {
                     // This case is unlikely to be hit since the action throws, but is good for robustness
                     reportError(result.error || 'Failed to claim invitation after MFA setup.')

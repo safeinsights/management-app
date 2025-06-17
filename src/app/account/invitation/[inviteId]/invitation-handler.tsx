@@ -7,9 +7,8 @@
  *
  * State Logic:
  * 1. Loading: Shows a loading message while checking auth state.
- * 2. Existing User, Logged Out: Renders the <SignIn /> component.
- * 3. Existing User, Logged In: Automatically calls `claimInviteAction` and shows a success/error message.
- * 4. New User: Renders the <NewUserAccountForm /> for account creation.
+ * 2. Existing User, Logged In: Automatically calls `claimInviteAction` and shows a success/error message.
+ * 3. New User: Renders the <NewUserAccountForm /> for account creation.
  *
  * It also uses localStorage to persist the invite ID across different parts of the sign-up/sign-in flow,
  * especially with MFA required.
@@ -45,11 +44,6 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const [error, setError] = useState<string | null>(null)
     // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
-
-    // remember the inviteId so that once they sign in we auto-claim
-    useEffect(() => {
-        window.localStorage.setItem('pendingInviteId', inviteId)
-    }, [inviteId])
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
@@ -123,6 +117,6 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         return <LoadingMessage message="Finalizing your membership..." />
     }
 
-    // first‐time SI users get our old sign‐up + MFA flow
+    // first‐time SI users get our new sign‐up + MFA flow
     return <NewUserAccountForm inviteId={inviteId} email={invitedEmail} />
 }

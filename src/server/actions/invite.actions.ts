@@ -1,14 +1,24 @@
 /**
- * This file defines the server-side logic for handling user invitations. It contains two main server actions:
+ * This file defines the server-side logic for handling user invitations, which follows two distinct paths
+ * depending on whether the user is new or already has an account.
  *
- * 1.  `onCreateAccountAction`: This action is for new users who do not have an account yet. It receives an invitation
- *     ID and user details from a sign-up form. It validates the invitation, checks that the email isn't already in use,
- *     and then creates a new user in Clerk.
+ * 1. New User Flow:
+ *    - A new user follows a multi-step process starting with the `onCreateAccountAction`.
+ *    - `onCreateAccountAction`: Triggered from the sign-up form on the invitation page. It creates the user in
+ *      both Clerk and the local database, and immediately associates them with the organization from the invite.
+ *      This includes creating the database `orgUser` record and the Clerk organization membership.
+ *    - After account creation and MFA setup, the `claimInviteAction` is called as the final step.
  *
- * 2.  `claimInviteAction`: This action is for users who are already logged in. It takes an invitation ID and performs
- *     all the necessary steps to add the user to the new organization. This includes updating the local database,
- *     adding the user to the organization in Clerk, updating their public metadata with the new roles, and finally
- *     marking the invitation as claimed.
+ * 2. Existing User Flow:
+ *    - An existing user who clicks an invitation link is prompted to sign in.
+ *    - Once authenticated, the `claimInviteAction` is called directly.
+ *
+ * `claimInviteAction`: This action serves as the final step for both new and existing users.
+ *    - It validates that the authenticated user's email matches the invitation.
+ *    - For existing users, it performs the crucial step of associating them with the new organization,
+ *      creating the necessary database and Clerk records.
+ *    - For all users, it marks the invitation as claimed in the database and triggers follow-up events like
+ *      auditing and updating Clerk user metadata.
  */
 'use server'
 
@@ -18,9 +28,10 @@ import { db } from '@/database'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
-import { findClerkOrganization } from '@/server/clerk'
+import { findClerkOrganization, updateClerkUserMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
+import { findOrCreateSiUserId } from '@/server/db/mutations'
 
 // Schema for onCreateAccountAction input
 const CreateAccountSchema = z.object({
@@ -36,7 +47,9 @@ const CreateAccountSchema = z.object({
 export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }) => {
     const pendingUser = await db
         .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
         .selectAll('pendingUser')
+        .select(['org.slug as orgSlug'])
         .where('id', '=', inviteId)
         .where('email', '=', email) // Verify email matches the invite
         .where('claimedByUserId', 'is', null)
@@ -57,13 +70,40 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
             })
         }
 
+        // 1. Create Clerk user
         const clerkUser = await client.users.createUser({
             emailAddress: [email],
             password: form.password,
             firstName: form.firstName,
             lastName: form.lastName,
-            // publicMetadata for roles will be set by onPendingUserLoginAction
         })
+
+        // 2. Create SI user
+        const siUserId = await findOrCreateSiUserId(clerkUser.id, {
+            email: email,
+            firstName: form.firstName,
+            lastName: form.lastName,
+        })
+
+        // 3. Associate user with organization
+        const clerkOrg = await findClerkOrganization({ slug: pendingUser.orgSlug })
+
+        await findOrCreateOrgMembership({
+            userId: siUserId,
+            slug: pendingUser.orgSlug,
+            isResearcher: pendingUser.isResearcher,
+            isReviewer: pendingUser.isReviewer,
+            isAdmin: false, // Default for invitees
+        })
+
+        await client.organizations.createOrganizationMembership({
+            organizationId: clerkOrg.id,
+            userId: clerkUser.id,
+            role: 'org:member',
+        })
+
+        await updateClerkUserMetadata(siUserId)
+
         return clerkUser.id // Return Clerk User ID
     } catch (error: unknown) {
         if (isClerkApiError(error)) {
@@ -114,63 +154,20 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         return { success: false, error: 'This invitation is for a different user. Please log out and try again.' }
     }
 
-    const clerkOrg = await findClerkOrganization({
-        slug: pendingUser.orgSlug,
-    })
-
-    // 1. Update local DB
-    const orgMembershipDetails = await findOrCreateOrgMembership({
-        userId: siUserId,
-        slug: pendingUser.orgSlug,
-        isResearcher: pendingUser.isResearcher,
-        isReviewer: pendingUser.isReviewer,
-        isAdmin: false, // Default for invitees
-    })
-
+    // The user and organization membership should already be created by onCreateAccountAction
+    // This action primarily marks the invite as claimed.
     try {
-        const client = await clerkClient()
-        // 2. Add to Clerk Organization (or update role if already member)
-        try {
-            await client.organizations.createOrganizationMembership({
-                organizationId: clerkOrg.id, // This MUST be the Clerk Organization ID
-                userId: clerkUserId,
-                role: orgMembershipDetails.isAdmin ? 'org:admin' : 'org:member',
-            })
-        } catch (e: unknown) {
-            if (isClerkApiError(e) && e.errors?.[0]?.code === 'duplicate_organization_membership') {
-                logger.info(
-                    `User ${clerkUserId} already member of Clerk org ${clerkOrg.id}. Role update might be needed separately if changed.`,
-                )
-            } else {
-                throw e // Re-throw if it's another error
-            }
-        }
-
-        // 3. Update Clerk User Public Metadata
-        const clerkUserToUpdate = await client.users.getUser(clerkUserId)
-        const existingMetadataOrgs = (clerkUserToUpdate.publicMetadata?.orgs as UserPublicMetadata['orgs']) || []
-        const newOrgEntry = {
-            slug: pendingUser.orgSlug,
-            isAdmin: orgMembershipDetails.isAdmin,
-            isResearcher: orgMembershipDetails.isResearcher,
-            isReviewer: orgMembershipDetails.isReviewer,
-        }
-        const updatedOrgs = existingMetadataOrgs.filter((o) => o.slug !== pendingUser.orgSlug)
-        updatedOrgs.push(newOrgEntry)
-
-        await client.users.updateUser(clerkUserId, {
-            publicMetadata: { ...clerkUserToUpdate.publicMetadata, userId: siUserId, orgs: updatedOrgs },
-        })
+        // Ensure Clerk user metadata is up-to-date after claiming the invite
+        await updateClerkUserMetadata(siUserId)
     } catch (clerkError: unknown) {
         logger.error({
-            message: 'Clerk update failed during invite claim',
+            message: 'Clerk metadata update failed during invite claim',
             error: clerkError,
             clerkUserId,
             orgSlug: pendingUser.orgSlug,
         })
         throw new ActionFailure({
-            message:
-                'Failed to update your membership details with our authentication provider. Please contact support.',
+            message: 'Failed to update your user information. Please contact support.',
         })
     }
 

@@ -25,10 +25,8 @@ const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
     const router = useRouter()
 
     const onContinue = () => {
-        // Store inviteId for use after MFA setup
-        localStorage.setItem('pendingInviteId', inviteId)
-        // Redirect to generic MFA page
-        router.push(`/account/mfa/app`)
+        // Redirect to generic MFA page with inviteId in query params
+        router.push(`/account/mfa/app?inviteId=${inviteId}`)
     }
     return (
         <SuccessPanel title="Your account has been created successfully!" onContinue={onContinue}>

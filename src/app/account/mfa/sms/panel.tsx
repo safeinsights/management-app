@@ -9,7 +9,7 @@ import { PhoneNumberResource } from '@clerk/types'
 import { useForm } from '@mantine/form'
 import { claimInviteAction } from '@/server/actions/invite.actions'
 import { notifications } from '@mantine/notifications'
-import { redirect } from 'next/navigation'
+import { redirect, useSearchParams } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
 import { sleep } from '@/lib/util'
 import PhoneInput from 'react-phone-number-input'
@@ -34,6 +34,7 @@ export function ManageSMSMFAPanel() {
     )
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
     const dashboardUrl = useDashboardUrl()
+    const searchParams = useSearchParams()
 
     const phoneForm = useForm({
         initialValues: {
@@ -135,11 +136,10 @@ export function ManageSMSMFAPanel() {
         }
 
         // ── claim the pending invite, if any ──
-        const inviteId = localStorage.getItem('pendingInviteId')
+        const inviteId = searchParams.get('inviteId')
         if (inviteId) {
             try {
                 const result = await claimInviteAction({ inviteId })
-                localStorage.removeItem('pendingInviteId')
                 if (!result.success) {
                     notifications.show({
                         title: 'Error',

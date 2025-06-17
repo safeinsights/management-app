@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { formatClerkErrorCode } from '@/lib/string'
 import { useMutation } from '@tanstack/react-query'
-import { checkPendingInviteForMfaUserAction, verifyPendingInviteAction } from '@/server/actions/user.actions'
+import { checkPendingInviteForMfaUserAction } from '@/server/actions/user.actions'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -28,9 +28,6 @@ export const SignInForm: FC<{
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
     const { mutateAsync: checkPendingInvite, isPending: isCheckingInvite } = useMutation({
         mutationFn: checkPendingInviteForMfaUserAction,
-    })
-    const { mutateAsync: verifyInvite, isPending: isVerifyingInvite } = useMutation({
-        mutationFn: verifyPendingInviteAction,
     })
 
     const form = useForm<SignInFormData>({
@@ -52,33 +49,19 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
-                const pendingInviteId = typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
-                if (!pendingInviteId) {
-                    router.push('/')
-                }
+                router.push('/')
             }
             if (attempt.status === 'needs_second_factor') {
-                const pendingInviteId = localStorage.getItem('pendingInviteId')
-                let canProceed = false
-
-                if (pendingInviteId) {
-                    // Invitation ID is present in local storage. Verify it belongs to this user.
-                    canProceed = await verifyInvite({ inviteId: pendingInviteId, email: values.email })
+                // This handles the "switched browser" or stale ID case.
+                const isPending = await checkPendingInvite(values.email)
+                if (isPending) {
+                    form.setErrors({
+                        email: 'To complete your account setup, please use the link from your invitation email.',
+                    })
+                    return
                 }
 
-                if (!canProceed) {
-                    // No valid invite ID in local storage. Check on the server if one exists.
-                    // This handles the "switched browser" or stale ID case.
-                    const isPending = await checkPendingInvite(values.email)
-                    if (isPending) {
-                        form.setErrors({
-                            email: 'To complete your account setup, please use the link from your invitation email.',
-                        })
-                        return
-                    }
-                }
-
-                // If we're here, either the localStorage invite was valid, or there was no pending invite.
+                // If we're here, there was no pending invite.
                 // It's safe to proceed to MFA.
                 const state = await signInToMFAState(attempt)
                 onComplete(state)
@@ -166,12 +149,7 @@ export const SignInForm: FC<{
                     )}
                     <Link href="/account/reset-password">Forgot password?</Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button
-                        mb="xxl"
-                        disabled={!form.isValid()}
-                        loading={isCheckingInvite || isVerifyingInvite}
-                        type="submit"
-                    >
+                    <Button mb="xxl" disabled={!form.isValid()} loading={isCheckingInvite} type="submit">
                         Login
                     </Button>
                 </Flex>

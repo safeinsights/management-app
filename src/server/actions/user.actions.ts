@@ -117,23 +117,3 @@ export const checkPendingInviteForMfaUserAction = anonAction(async (email: strin
 
     return !!pendingInvite
 }, z.string())
-
-// Verifies that a pending, unclaimed invite exists for a given invite ID and email.
-// This ensures the user claiming the invite is the one it was intended for.
-export const verifyPendingInviteAction = anonAction(
-    async ({ inviteId, email }) => {
-        const pendingInvite = await db
-            .selectFrom('pendingUser')
-            .select('id')
-            .where('id', '=', inviteId)
-            .where('email', '=', email)
-            .where('claimedByUserId', 'is', null)
-            .executeTakeFirst()
-
-        return !!pendingInvite
-    },
-    z.object({
-        inviteId: z.string(),
-        email: z.string().email(),
-    }),
-)
