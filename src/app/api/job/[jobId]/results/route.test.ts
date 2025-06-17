@@ -15,7 +15,7 @@ test('handling upload', async () => {
     const file = new File([new Uint8Array([1, 2, 3])], 'testfile.txt', { type: 'text/plain' })
 
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('result', file)
 
     const req = new Request('http://localhost', {
         method: 'PUT',
