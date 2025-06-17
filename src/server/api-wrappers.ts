@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { localStorageContext } from './api-context'
 import { orgFromAuthToken } from './org-from-auth-token'
+import { captureException } from '@sentry/nextjs'
 
 export * from './api-context'
 
@@ -37,6 +38,7 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
                         const result = await func(...args)
                         resolve(result)
                     } catch (error) {
+                        captureException(error)
                         reject(error)
                     }
                 },
