@@ -74,11 +74,7 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
         async onSuccess(clerkUserId, vals) {
             // clerkUserId is returned by onCreateAccountAction
             if (!signIn) {
-                reportError(new Error('SignIn object not available'), 'SignIn not available post account creation')
-                return
-            }
-            if (!clerkUserId) {
-                reportError(new Error('Clerk User ID not returned from account creation'), 'Clerk User ID missing')
+                reportError('SignIn not available post account creation')
                 return
             }
             const attempt = await signIn.create({

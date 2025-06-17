@@ -124,6 +124,10 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         // 3. Associate user with organization
         await _associateUserWithOrg(siUserId, clerkUser.id, pendingUser)
 
+        if (!clerkUser.id) {
+            throw new ActionFailure({ form: 'Failed to create user account. No user ID was returned.' })
+        }
+
         await updateClerkUserMetadata(siUserId)
 
         return clerkUser.id // Return Clerk User ID
