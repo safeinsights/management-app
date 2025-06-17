@@ -377,7 +377,7 @@ export const mockClerkSession = (values: MockSession) => {
                 },
             ],
         },
-        primaryEmailAddress: { emailAddress: values.email ?? faker.internet.email() },
+        primaryEmailAddress: { emailAddress: values.email ?? faker.internet.email({ provider: 'test.com' }) },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
