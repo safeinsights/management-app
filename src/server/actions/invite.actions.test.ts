@@ -53,6 +53,24 @@ describe('Invite Actions', () => {
                 firstName: form.firstName,
                 lastName: form.lastName,
             })
+
+            // Verify user and org membership were created in the database
+            const newUser = await db.selectFrom('user').where('email', '=', email).selectAll('user').executeTakeFirst()
+            expect(newUser).toBeDefined()
+            expect(newUser?.firstName).toBe(form.firstName)
+            expect(newUser?.lastName).toBe(form.lastName)
+            expect(newUser?.clerkId).toBe('new_clerk_user_123')
+
+            const orgUser = await db
+                .selectFrom('orgUser')
+                .where('userId', '=', newUser!.id)
+                .where('orgId', '=', org.id)
+                .selectAll('orgUser')
+                .executeTakeFirst()
+            expect(orgUser).toBeDefined()
+            expect(orgUser?.isResearcher).toBe(pendingUser.isResearcher)
+            expect(orgUser?.isReviewer).toBe(pendingUser.isReviewer)
+            expect(orgUser?.isAdmin).toBe(false)
         })
 
         it('throws ActionFailure if invite is invalid', async () => {
