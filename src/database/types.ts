@@ -33,6 +33,8 @@ export type JsonPrimitive = boolean | number | string | null
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
+export type Language = 'R'
+
 export type ResultFormat = 'SI_V1_ENCRYPT'
 
 export type StudyJobStatus =
@@ -81,6 +83,17 @@ export interface Org {
     publicKey: string
     slug: string
     updatedAt: Generated<Timestamp>
+}
+
+export interface OrgBaseImage {
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    isTesting: Generated<boolean>
+    language: Language
+    name: string
+    orgId: string
+    updatedAt: Generated<Timestamp>
+    url: string
 }
 
 export interface OrgUser {
@@ -155,6 +168,7 @@ export interface DB {
     audit: Audit
     jobStatusChange: JobStatusChange
     org: Org
+    orgBaseImage: OrgBaseImage
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study

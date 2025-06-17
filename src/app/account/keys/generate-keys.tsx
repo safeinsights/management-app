@@ -153,7 +153,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
                 })
             }
         },
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to save reviewer key'),
         onSuccess() {
             router.push('/')
         },

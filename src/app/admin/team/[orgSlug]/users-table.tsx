@@ -29,7 +29,7 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () 
                 isAdmin: label == 'Administrator',
             }),
         onSuccess,
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to update user permission'),
     })
 
     return (
@@ -62,7 +62,7 @@ const RoleSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () => voi
                 isAdmin: user.isAdmin,
             }),
         onSuccess,
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to update user role'),
     })
 
     return (
