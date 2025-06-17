@@ -28,7 +28,7 @@ import { db } from '@/database'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
 import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
 import logger from '@/lib/logger'
-import { findClerkOrganization, updateClerkUserMetadata } from '@/server/clerk'
+import { updateClerkUserMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { anonAction, userAction, actionContext } from '@/server/actions/wrappers'
 import { findOrCreateSiUserId } from '@/server/db/mutations'
@@ -86,7 +86,7 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         })
 
         // 3. Associate user with organization
-        const clerkOrg = await findClerkOrganization({ slug: pendingUser.orgSlug })
+        const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
 
         await findOrCreateOrgMembership({
             userId: siUserId,
