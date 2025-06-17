@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
-import { storeStudyResultsFile } from '@/server/storage'
+import { storeStudyEncryptedResultsFile } from '@/server/storage'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -26,7 +26,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     const info = await db
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id))
-        .select(['studyJob.id as studyJobId', 'studyId'])
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['studyJob.id as studyJobId', 'studyId', 'org.slug as orgSlug', 'studyJob.id as studyJobId'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirst()
 
@@ -34,14 +35,8 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
     }
 
-    await storeStudyResultsFile(
-        {
-            ...info,
-            orgSlug: org.slug,
-            resultsType: 'ENCRYPTED',
-        },
-        contents,
-    )
+    // TODO: add methods for storing logs and results separately
+    await storeStudyEncryptedResultsFile(info, contents)
 
     await db
         .insertInto('jobStatusChange')
