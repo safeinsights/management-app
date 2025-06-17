@@ -1,5 +1,5 @@
 import { db } from '@/database'
-import { Container, Title, Flex } from '@mantine/core'
+import { Paper, Title } from '@mantine/core'
 import { redirect } from 'next/navigation'
 import { AccountPanel } from './account-form'
 
@@ -21,13 +21,11 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     }
 
     return (
-        <Flex h="90vh" align="center" justify="center">
-            <Container bg="white" p="xxl">
-                <Title mb="md" ta="center" order={3}>
-                    Welcome to SafeInsights!
-                </Title>
-                <AccountPanel inviteId={inviteId} email={invite.email} orgName={invite.orgName} />
-            </Container>
-        </Flex>
+        <Paper bg="white" p="xxl" radius="sm" maw={600}>
+            <Title mb="md" ta="center" order={3}>
+                Welcome to SafeInsights!
+            </Title>
+            <AccountPanel inviteId={inviteId} email={invite.email} orgName={invite.orgName} />
+        </Paper>
     )
 }

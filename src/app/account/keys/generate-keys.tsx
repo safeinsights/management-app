@@ -58,8 +58,8 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
 
     if (keys) {
         return (
-            <Stack p="xl" w="90%" mx="sm">
-                <Title my="xxl">Reviewer key</Title>
+            <Paper p="xl" mx="sm" radius="sm" maw={1000}>
+                <Title mb="xxl">Reviewer key</Title>
                 <Paper shadow="xs" p="xl">
                     <Stack>
                         <Title size="xl">Store reviewer key</Title>
@@ -124,7 +124,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                     keys={keys}
                     isRegenerating={isRegenerating}
                 />
-            </Stack>
+            </Paper>
         )
     }
 }

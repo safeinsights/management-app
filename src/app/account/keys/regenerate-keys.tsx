@@ -23,7 +23,7 @@ export const RegenerateKeys: FC = () => {
     }
 
     return (
-        <Stack p="xl" w="90%" mx="sm">
+        <Paper p="xl" radius="sm" maw={1000}>
             <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${orgSlug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xl">
@@ -58,7 +58,7 @@ export const RegenerateKeys: FC = () => {
                 isOpen={isModalOpen}
                 onConfirmAndClose={handleConfirmAndProceed}
             />
-        </Stack>
+        </Paper>
     )
 }
 
