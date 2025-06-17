@@ -13,50 +13,47 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    try {
-        const formData = await req.formData()
-        const contents = formData.get('file') as File
+    const formData = await req.formData()
+    const logs = formData.get('log')
+    const results = formData.get('result')
 
-        if (!contents) {
-            return NextResponse.json({ status: 'fail', error: 'no "file" entry in post data' }, { status: 500 })
-        }
 
-        // join is a security check to ensure the job is owned by the org
-        const info = await db
-            .selectFrom('studyJob')
-            .innerJoin('study', (join) =>
-                join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id),
-            )
-            .select(['studyJob.id as studyJobId', 'studyId'])
-            .where('studyJob.id', '=', jobId)
-            .executeTakeFirst()
-
-        if (!info) {
-            return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
-        }
-
-        await storeStudyResultsFile(
-            {
-                ...info,
-                orgSlug: org.slug,
-                resultsType: 'ENCRYPTED',
-            },
-            contents,
-        )
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                status: 'RUN-COMPLETE',
-                studyJobId: info.studyJobId,
-            })
-            .execute()
-
-        await sendResultsReadyForReviewEmail(info.studyId)
-
-        return NextResponse.json({ status: 'success' }, { status: 200 })
-    } catch (e) {
-        console.error(e)
-        return NextResponse.json({ status: 'fail', error: e }, { status: 500 })
+    const contents = logs || results // TODO: handle both logs and results
+    if (!contents || !(contents instanceof File)) {
+            return NextResponse.json({ status: 'fail', error: 'logs or results file is required' }, { status: 400 })
     }
+
+    // join is a security check to ensure the job is owned by the org
+    const info = await db
+        .selectFrom('studyJob')
+        .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('study.orgId', '=', org.id))
+        .select(['studyJob.id as studyJobId', 'studyId'])
+        .where('studyJob.id', '=', jobId)
+        .executeTakeFirst()
+
+    if (!info) {
+        return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
+    }
+
+    await storeStudyResultsFile(
+        {
+            ...info,
+            orgSlug: org.slug,
+            resultsType: 'ENCRYPTED',
+        },
+        contents,
+    )
+
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            status: (logs && !results) ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: figure out correct status,
+            studyJobId: info.studyJobId,
+        })
+        .execute()
+
+    await sendResultsReadyForReviewEmail(info.studyId)
+
+    return NextResponse.json({ status: 'success' }, { status: 200 })
 })
