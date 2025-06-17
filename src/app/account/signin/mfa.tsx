@@ -6,13 +6,15 @@ import { useMutation } from '@tanstack/react-query'
 import type { SignInResource } from '@clerk/types'
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
     const router = useRouter()
     const { isSignedIn } = useUser()
+    const searchParams = useSearchParams()
+    const inviteId = searchParams.get('inviteId')
 
     const form = useForm({
         initialValues: {
@@ -42,8 +44,9 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
                 await onUserSignInAction()
-                const pendingInviteId = typeof window !== 'undefined' ? localStorage.getItem('pendingInviteId') : null
-                if (!pendingInviteId) {
+                if (inviteId) {
+                    router.push(`/account/invitation/${inviteId}`)
+                } else {
                     router.push('/')
                 }
             } else {

@@ -5,7 +5,7 @@ import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { formatClerkErrorCode } from '@/lib/string'
 import { useMutation } from '@tanstack/react-query'
@@ -25,6 +25,8 @@ export const SignInForm: FC<{
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const inviteId = searchParams.get('inviteId')
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
     const { mutateAsync: checkPendingInvite, isPending: isCheckingInvite } = useMutation({
         mutationFn: checkPendingInviteForMfaUserAction,
@@ -49,7 +51,11 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
-                router.push('/')
+                if (inviteId) {
+                    router.push(`/account/invitation/${inviteId}`)
+                } else {
+                    router.push('/')
+                }
             }
             if (attempt.status === 'needs_second_factor') {
                 // This handles the "switched browser" or stale ID case.

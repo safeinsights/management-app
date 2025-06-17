@@ -17,7 +17,6 @@ import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { useQuery } from '@tanstack/react-query'
 import { userExistsAction } from '@/server/actions/user.actions'
-import { SignIn } from '@/app/account/signin/signin'
 import { useRouter } from 'next/navigation'
 import { Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -93,13 +92,19 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
         enabled: isLoaded,
     })
 
+    useEffect(() => {
+        if (userExists && !isSignedIn) {
+            router.replace(`/account/signin?inviteId=${inviteId}`)
+        }
+    }, [userExists, isSignedIn, router, inviteId])
+
     if (!isLoaded || isLoadingAction) {
         return <LoadingMessage message="Processing your invitation..." />
     }
 
     // returning user: prompt them to sign in instead of sign up
     if (userExists && !isSignedIn) {
-        return <SignIn />
+        return <LoadingMessage message="Redirecting to sign-in…" />
     }
 
     if (isSignedIn) {
