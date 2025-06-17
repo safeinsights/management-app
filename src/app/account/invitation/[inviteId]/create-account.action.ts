@@ -57,6 +57,12 @@ export const onCreateAccountAction = anonAction(
             clerkUserId = clerkUser.id
         } catch (error) {
             if (isClerkApiError(error)) {
+                const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
+                if (pwnedError) {
+                    throw new ActionFailure({
+                        form: 'This password has recently been added to the compromised password database, putting your account at risk. Please change your password to continue.',
+                    })
+                }
                 // the user is an admin, they can see the clerk error
                 throw new ActionFailure({ password: error.errors[0].message })
             }

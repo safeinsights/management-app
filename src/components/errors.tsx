@@ -30,8 +30,18 @@ type FormErrorHandler = {
 export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {
         const failure = extractActionFailure(err)
-        if (failure && difference(Object.keys(failure), Object.keys(form.values)).length == 0) {
-            form.setErrors(failure)
+        if (failure) {
+            const formErrorKeys = Object.keys(failure)
+            const fieldKeys = Object.keys(form.values)
+            const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
+
+            const unknownKeys = difference(nonFieldKeys, fieldKeys)
+
+            if (unknownKeys.length === 0) {
+                form.setErrors(failure)
+            } else {
+                reportMutationError(err)
+            }
         } else {
             reportMutationError(err)
         }

@@ -1,6 +1,6 @@
 'use client'
 
-import { Flex, Button, TextInput, PasswordInput, Text, Group, SimpleGrid } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Text, Group, SimpleGrid, Alert } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -170,6 +170,17 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
                     {...form.getInputProps('confirmPassword')}
                     error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
                 />
+
+                {form.errors.form && (
+                    <Alert
+                        color="red"
+                        title="Compromised Password"
+                        withCloseButton
+                        onClose={() => form.clearFieldError('form')}
+                    >
+                        {form.errors.form}
+                    </Alert>
+                )}
 
                 <Flex mt="sm">
                     <Button type="submit" loading={isCreating} disabled={!form.isValid()} w="100%" size="md">
