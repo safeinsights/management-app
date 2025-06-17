@@ -35,6 +35,11 @@ describe('Invite Actions', () => {
                 users: {
                     getUserList: vi.fn().mockResolvedValue({ data: [] }),
                     createUser: vi.fn().mockResolvedValue({ id: 'new_clerk_user_123' }),
+                    updateUserMetadata: vi.fn().mockResolvedValue({}),
+                },
+                organizations: {
+                    getOrganization: vi.fn().mockResolvedValue({ id: 'clerk_org_id' }),
+                    createOrganizationMembership: vi.fn().mockResolvedValue({}),
                 },
             })
 
@@ -92,38 +97,38 @@ describe('Invite Actions', () => {
             vi.clearAllMocks()
         })
 
-        it('claims an invite for an existing user and updates roles', async () => {
-            const { user, org, client } = await mockSessionWithTestData({ isResearcher: false, isReviewer: false })
+        it('claims an invite for an existing user and adds them to a new organization', async () => {
+            const { user, client } = await mockSessionWithTestData()
+            const orgB = await insertTestOrg({ name: 'Org B', slug: 'org-b' })
             const pendingUser = await insertPendingUser({
-                org,
+                org: orgB,
                 email: user.email!,
                 isResearcher: true,
-                isReviewer: false,
+                isReviewer: true,
             })
 
             client.organizations.getOrganization.mockResolvedValue({
-                id: 'clerk_org_id',
-                slug: org.slug,
-                name: org.name,
+                id: 'clerk_org_b_id',
+                slug: orgB.slug,
+                name: orgB.name,
             })
-            client.users.getUser.mockResolvedValue({ publicMetadata: {} })
-            client.users.updateUser.mockResolvedValue({})
-            client.organizations.createOrganizationMembership.mockResolvedValue({ id: 'mem_123' })
+            client.organizations.createOrganizationMembership.mockResolvedValue({ id: 'mem_456' })
+            Object.assign(client.users, { updateUserMetadata: vi.fn().mockResolvedValue({}) })
 
             const result = await claimInviteAction({ inviteId: pendingUser.id })
 
             expect(result.success).toBe(true)
-            expect(result.organizationName).toBe(org.name)
-            expect(result.orgSlug).toBe(org.slug)
+            expect(result.organizationName).toBe(orgB.name)
+            expect(result.orgSlug).toBe(orgB.slug)
 
-            const orgUser = await db
+            const orgBMembership = await db
                 .selectFrom('orgUser')
                 .where('userId', '=', user.id)
-                .where('orgId', '=', org.id)
+                .where('orgId', '=', orgB.id)
                 .select(['isResearcher', 'isReviewer'])
                 .executeTakeFirst()
-            expect(orgUser?.isResearcher).toBe(true)
-            expect(orgUser?.isReviewer).toBe(false)
+            expect(orgBMembership?.isResearcher).toBe(true)
+            expect(orgBMembership?.isReviewer).toBe(true)
 
             const claimedInvite = await db
                 .selectFrom('pendingUser')
@@ -169,7 +174,7 @@ describe('Invite Actions', () => {
                 errors: [{ code: 'duplicate_organization_membership' }],
             })
             client.users.getUser.mockResolvedValue({ publicMetadata: {} })
-            client.users.updateUser.mockResolvedValue({})
+            Object.assign(client.users, { updateUserMetadata: vi.fn().mockResolvedValue({}) })
 
             const result = await claimInviteAction({ inviteId: pendingUser.id })
             expect(result.success).toBe(true)

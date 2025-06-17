@@ -85,8 +85,8 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         .innerJoin('org', 'org.id', 'pendingUser.orgId')
         .selectAll('pendingUser')
         .select(['org.slug as orgSlug'])
-        .where('id', '=', inviteId)
-        .where('email', '=', email) // Verify email matches the invite
+        .where('pendingUser.id', '=', inviteId)
+        .where('pendingUser.email', '=', email) // Verify email matches the invite
         .where('claimedByUserId', 'is', null)
         .executeTakeFirst()
 
