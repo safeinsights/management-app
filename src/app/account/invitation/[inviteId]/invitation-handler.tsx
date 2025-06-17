@@ -54,30 +54,32 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     const dashboardUrl = useDashboardUrl()
 
     useEffect(() => {
-        if (isLoaded && isSignedIn) {
-            setState((s) => ({ ...s, isLoadingAction: true, error: null }))
-            claimInviteAction({ inviteId })
-                .then((result) => {
-                    if (result.success && result.organizationName) {
-                        setState({
-                            isLoadingAction: false,
-                            orgName: result.organizationName,
-                            newOrgSlug: result.orgSlug || null,
-                            error: null,
-                        })
-                    } else {
-                        const error = result.error || 'Failed to accept invitation.'
-                        setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
-                        notifications.show({ title: 'Error', message: error, color: 'red' })
-                    }
-                })
-                .catch((err) => {
-                    const error = 'An unexpected error occurred while processing your invitation.'
-                    reportError(err, 'Error accepting invitation for existing user')
-                    setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
-                    notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
-                })
+        if (!isLoaded || !isSignedIn) {
+            return
         }
+
+        setState((s) => ({ ...s, isLoadingAction: true, error: null }))
+        claimInviteAction({ inviteId })
+            .then((result) => {
+                if (result.success && result.organizationName) {
+                    setState({
+                        isLoadingAction: false,
+                        orgName: result.organizationName,
+                        newOrgSlug: result.orgSlug || null,
+                        error: null,
+                    })
+                } else {
+                    const error = result.error || 'Failed to accept invitation.'
+                    setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
+                    notifications.show({ title: 'Error', message: error, color: 'red' })
+                }
+            })
+            .catch((err) => {
+                const error = 'An unexpected error occurred while processing your invitation.'
+                reportError(err, 'Error accepting invitation for existing user')
+                setState({ isLoadingAction: false, orgName: null, newOrgSlug: null, error })
+                notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
+            })
     }, [isLoaded, isSignedIn, inviteId])
 
     useEffect(() => {
