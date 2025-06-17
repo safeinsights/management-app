@@ -1,12 +1,16 @@
 'use server'
 
 import { db } from '@/database'
-import { CodeManifest, minimalJobInfoSchema } from '@/lib/types'
+import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import { minimalJobInfoSchema } from '@/lib/types'
 import {
-    fetchCodeManifest,
-    fetchStudyApprovedResultsFile,
-    fetchStudyEncryptedResultsFile,
-    storeStudyResultsFile,
+    fetchFileContents,
+    storeStudyApprovedResultsFile,
+    //    fetchCodeManifest,
+    // fetchFileContents,
+    // fetchStudyApprovedResultsFile,
+    // fetchStudyEncryptedResultsFile,
+    // storeStudyResultsFile,
 } from '@/server/storage'
 import {
     actionContext,
@@ -17,10 +21,13 @@ import {
     z,
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
-import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } from '@/server/db/queries'
+import { checkUserAllowedJobView, getStudyJobFileOfType, latestJobForStudy, siUser } from '@/server/db/queries'
+//    queryJobApprovedResult, queryJobApprovedResultFilePath, queryJobResult, siUser
 import { checkUserAllowedStudyReview } from '../db/queries'
-import { ActionFailure } from '@/lib/errors'
+//import { ActionFailure } from '@/lib/errors'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { throwNotFound } from '@/lib/errors'
+//import { getStaticPaths } from 'next/dist/build/templates/pages'
 
 const approveStudyJobResultsActionSchema = z.object({
     orgSlug: z.string(),
@@ -40,14 +47,10 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
     const result = jobResults[0]
 
     const resultsFile = new File([result.contents], result.path)
-    await storeStudyResultsFile({ ...info, resultsType: 'APPROVED', resultsPath: resultsFile.name }, resultsFile)
+
+    await storeStudyApprovedResultsFile(info, resultsFile)
 
     const user = await siUser()
-    await db
-        .updateTable('studyJob')
-        .set({ resultsPath: resultsFile.name })
-        .where('id', '=', info.studyJobId)
-        .executeTakeFirstOrThrow()
 
     await db
         .insertInto('jobStatusChange')
@@ -96,40 +99,32 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
         .innerJoin('orgUser', (join) =>
             join.on('orgUser.userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'),
         )
-        .leftJoin('jobStatusChange', (join) =>
-            join
-                .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                .on('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED']),
-        )
-        .select([
+        .select((eb) => [
             'studyJob.id as studyJobId',
             'studyJob.studyId',
             'studyJob.createdAt',
             'study.title as studyTitle',
             'org.slug as orgSlug',
-            'jobStatusChange.status as jobStatus',
-            'jobStatusChange.createdAt as jobStatusCreatedAt',
+            // 'jobStatusChange.status as jobStatus',
+            // 'jobStatusChange.createdAt as jobStatusCreatedAt',
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['status', 'createdAt'])
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
+                    .orderBy('createdAt', 'desc'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
         ])
         .where('studyJob.id', '=', studyJobId)
-        .executeTakeFirst()
+        .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 
-    let manifest: CodeManifest = {
-        jobId: '',
-        language: 'r',
-        files: {},
-        size: 0,
-        tree: { label: '', value: '', size: 0, children: [] },
-    }
-
-    if (jobInfo) {
-        try {
-            manifest = await fetchCodeManifest(jobInfo)
-        } catch (e) {
-            console.error('Failed to fetch code manifest', e)
-        }
-    }
-
-    return { jobInfo, manifest }
+    return jobInfo
 }, z.string())
 
 export const latestJobForStudyAction = userAction(async (studyId) => {
@@ -145,28 +140,17 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
 
 export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {
     await checkUserAllowedJobView(jobId)
-
-    const job = await queryJobResult(jobId)
-
-    if (!job || job.resultsType != 'APPROVED') {
-        throw new Error(`Job ${jobId} not found or does not have approved results`)
-    }
-
-    const body = await fetchStudyApprovedResultsFile(job)
+    const info = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
+    const body = await fetchFileContents(info.path)
     return body.text()
 }, z.string())
 
 export const fetchJobResultsEncryptedZipAction = orgAction(
     async ({ jobId, orgSlug }) => {
         await checkMemberOfOrgWithSlug(orgSlug)
-
-        const job = await queryJobResult(jobId)
-
-        if (!job) {
-            throw new ActionFailure({ job: `${jobId} not found or does not have results` })
-        }
-
-        return await fetchStudyEncryptedResultsFile(job)
+        const info = await getStudyJobFileOfType(jobId, 'ENCRYPTED-RESULT')
+        const body = await fetchFileContents(info.path)
+        return body
     },
     z.object({
         jobId: z.string(),

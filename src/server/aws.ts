@@ -9,7 +9,7 @@ import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { isMinimalStudyJobInfo, MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo } from '@/lib/types'
+import { MinimalJobInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
@@ -89,19 +89,12 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeS3File = async (
-    info: MinimalStudyInfo | MinimalJobResultsInfo,
-    body: ReadableStream,
-    Key: string,
-) => {
+export const storeS3File = async (info: MinimalStudyInfo | MinimalJobInfo, body: ReadableStream, Key: string) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
         client: getS3Client(),
-        tags: objectToAWSTags({
-            studyId: info.studyId,
-            ...(isMinimalStudyJobInfo(info) ? { studyJobId: info.studyJobId } : {}),
-        }),
+        tags: objectToAWSTags(info),
         params: {
             Bucket: s3BucketName(),
             ChecksumSHA256: hash,
@@ -160,9 +153,10 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
-export async function triggerBuildImageForJob(info: MinimalJobInfo) {
+export async function triggerBuildImageForJob(
+    info: MinimalJobInfo & { baseImageURL: string; codeEntryPointFileName: string },
+) {
     const codebuild = new CodeBuildClient({})
-
     const result = await codebuild.send(
         new StartBuildCommand({
             projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
@@ -182,7 +176,8 @@ export async function triggerBuildImageForJob(info: MinimalJobInfo) {
                     }),
                 },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
-                { name: 'DOCKER_TEMPLATE_FILE_NAME', value: `Dockerfile.template.r` },
+                { name: 'CODE_ENTRYPOINT', value: info.codeEntryPointFileName },
+                { name: 'DOCKER_BASE_IMAGE_URL', value: info.baseImageURL },
                 { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
                 { name: 'DOCKER_REPOSITORY_URL', value: await codeBuildRepositoryUrl(info) },
                 { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },

@@ -51,22 +51,22 @@ export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
 // there's probably a way to do this with zod schema
 // but don't need it yet so i haven't investigated how
-export type MinimalJobResultsInfo = MinimalJobInfo &
-    (
-        | {
-              resultsType: 'APPROVED'
-              resultsPath: string
-          }
-        | {
-              resultsType: 'ENCRYPTED'
-          }
-    )
+// export type MinimalJobResultsInfo = MinimalJobInfo &
+//     (
+//         | {
+//               resultsType: 'APPROVED'
+//               resultsPath: string
+//           }
+//         | {
+//               resultsType: 'ENCRYPTED'
+//           }
+//     )
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
-export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
-    return 'studyJobId' in info
-}
+// export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobInfo): info is MinimalJobInfo {
+//     return 'studyJobId' in info
+// }
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 

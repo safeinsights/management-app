@@ -15,9 +15,9 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
         queryFn: () => loadStudyJobAction(job.id),
     })
 
-    if (isLoading) return <Text>Loading files...</Text>
+    if (isLoading || !data) return <Text>Loading files...</Text>
 
-    if (!data || Object.keys(data?.manifest?.files || {}).length === 0) {
+    if (!data.files.length) {
         return (
             <Stack>
                 <Text c="dimmed" size="sm">
@@ -27,7 +27,12 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
         )
     }
 
-    const fileNames = Object.keys(data?.manifest.files || {})
+    const fileNames = data.files.reduce((acc, file) => {
+        if (file.fileType === 'MAIN-CODE' || file.fileType === 'SUPPLEMENTAL-CODE') {
+            acc.push(file.name)
+        }
+        return acc
+    }, [] as string[])
 
     const fileChips = fileNames.map((fileName) => {
         return (

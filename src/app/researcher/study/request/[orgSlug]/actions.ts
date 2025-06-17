@@ -45,6 +45,7 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
     const studyJob = await db
         .insertInto('studyJob')
         .values({
+            language: 'R', // TODO: make this dynamic based on user selection
             studyId: studyId,
         })
         .returning('id')

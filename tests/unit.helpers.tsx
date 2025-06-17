@@ -96,7 +96,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            resultFormat: 'SI_V1_ENCRYPT',
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -109,7 +109,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            resultFormat: 'SI_V1_ENCRYPT',
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -122,7 +122,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            resultFormat: 'SI_V1_ENCRYPT',
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -228,8 +228,7 @@ export const insertTestStudyJobData = async ({
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            resultsPath: jobStatus == 'RESULTS-APPROVED' ? 'test-results.csv' : null,
-            resultFormat: jobStatus == 'RUN-COMPLETE' ? 'SI_V1_ENCRYPT' : null,
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
