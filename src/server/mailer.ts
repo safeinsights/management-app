@@ -30,7 +30,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }
@@ -71,7 +71,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
             submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
         },
     })
 }
@@ -92,7 +92,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/organization/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }

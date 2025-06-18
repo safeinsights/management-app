@@ -36,7 +36,7 @@ export const ButtonLink: React.FC<ButtonLinkProps> = ({ href, target, children, 
     </Button>
 )
 
-export const DownloadLink: React.FC<DownloadLinkProps> = ({ filename, content, target }) => {
+export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, content, target }) => {
     return (
         <NextLink
             href={'data:text/plain;base64,' + btoa(String.fromCharCode(...new Uint8Array(content)))}
@@ -44,7 +44,7 @@ export const DownloadLink: React.FC<DownloadLinkProps> = ({ filename, content, t
             data-testid="download-link"
             download={filename}
         >
-            <Button rightSection={<Download />}>Download {filename}</Button>
+            <Button rightSection={<Download />}>Download Results</Button>
         </NextLink>
     )
 }
