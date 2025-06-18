@@ -50,21 +50,22 @@ async function _associateUserWithOrg(
         isAdmin: false,
     })
 
-    // Create the membership in Clerk.
-    // TODO: maybe wrong for researchers here
-    try {
-        const client = await clerkClient()
-        const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
-        await client.organizations.createOrganizationMembership({
-            organizationId: clerkOrg.id,
-            userId: clerkUserId,
-            role: 'org:member',
-        })
-    } catch (error: unknown) {
-        if (isClerkApiError(error) && error.errors[0].code === 'duplicate_organization_membership') {
-            logger.info(`User ${clerkUserId} is already a member of Clerk org ${pendingUser.orgSlug}.`)
-        } else {
-            throw error
+    // Create the membership in Clerk only if user is a reviewer.
+    if (pendingUser.isReviewer) {
+        try {
+            const client = await clerkClient()
+            const clerkOrg = await client.organizations.getOrganization({ slug: pendingUser.orgSlug })
+            await client.organizations.createOrganizationMembership({
+                organizationId: clerkOrg.id,
+                userId: clerkUserId,
+                role: 'org:member',
+            })
+        } catch (error: unknown) {
+            if (isClerkApiError(error) && error.errors[0].code === 'duplicate_organization_membership') {
+                logger.info(`User ${clerkUserId} is already a member of Clerk org ${pendingUser.orgSlug}.`)
+            } else {
+                throw error
+            }
         }
     }
 }
