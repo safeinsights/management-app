@@ -10,19 +10,8 @@ import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/li
 import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { Requirements } from './password-requirements'
+import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
 import { z } from 'zod'
-
-const PASSWORD_REQUIREMENTS = [
-    { re: /[0-9]/, label: 'One number', message: 'Password must contain at least one number' },
-    { re: /[A-Z]/, label: 'One uppercase letter', message: 'Password must contain at least one uppercase letter' },
-    {
-        re: /[$&+,:;=?@#|'<>.^*()%!-]/,
-        label: 'One special symbol',
-        message: 'Password must contain at least one special symbol',
-    },
-    { re: /^.{8,}$/, label: '8 character minimum', message: '8 character minimum' },
-] as const
 
 const createPasswordSchema = () => {
     let schema = z.string()

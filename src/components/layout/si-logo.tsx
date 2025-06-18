@@ -1,6 +1,7 @@
 import * as React from 'react'
+import { SVGProps } from 'react'
 
-export const SafeInsightsLogo = () => (
+export const SafeInsightsLogo = (props: SVGProps<SVGSVGElement>) => (
     <svg
         width="164"
         height="36"
@@ -8,6 +9,7 @@ export const SafeInsightsLogo = () => (
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         xmlnsXlink="http://www.w3.org/1999/xlink"
+        {...props}
     >
         <rect width="164" height="35.1228" fill="url(#pattern0_1136_572)" />
         <defs>
