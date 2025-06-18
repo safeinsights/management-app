@@ -9,25 +9,45 @@ class FileSender extends DebugRequest {
         super()
         this.program
             .option('-p, --publicKey <path>', 'Path to the public key file')
-            .option('-f, --file <path to file>', 'file to send as results')
+            .option('-r, --resultFile <path to file>', 'file to send as results')
+            .option('-l, --logFile <path to file>', 'file to send as logs')
             .option('-j, --jobId <jobId>', 'jobId to set status for')
         this.parse()
     }
 
-    get publicKey() {
-        return fs.readFileSync(this.program.opts().publicKey || 'tests/support/public_key.pem', 'utf8')
+    async writerArgs() {
+        const publicKey = pemToArrayBuffer(
+            fs.readFileSync(this.program.opts().publicKey || 'tests/support/public_key.pem', 'utf8'),
+        )
+
+        return [{ fingerprint: await fingerprintKeyData(publicKey), publicKey }]
     }
 
-    async perform() {
-        const { file: filePath, jobId } = this.program.opts()
-        const publicKey = pemToArrayBuffer(this.publicKey)
-        const writer = new ResultsWriter([{ fingerprint: await fingerprintKeyData(publicKey), publicKey }])
+    async zipForFile(filePath: string) {
+        const writer = new ResultsWriter(await this.writerArgs())
         const buffer = fs.readFileSync(filePath)
         const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
         await writer.addFile(path.basename(filePath), arrayBuffer as ArrayBuffer)
-        const zip = await writer.generate()
+        return await writer.generate()
+    }
+
+    async perform() {
+        const { resultFile, logFile, jobId } = this.program.opts()
+
+        if (!resultFile && !logFile) {
+            console.log(this.program.opts())
+            console.warn('must supply either logs or results')
+            process.exit(1)
+        }
+
         const form = new FormData()
-        form.append('file', zip)
+
+        if (resultFile) {
+            form.append('result', await this.zipForFile(resultFile))
+        }
+        if (logFile) {
+            form.append('log', await this.zipForFile(logFile))
+        }
 
         const response = await fetch(`${this.baseURL}/api/job/${jobId}/results`, {
             method: 'POST',
