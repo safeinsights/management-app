@@ -85,7 +85,7 @@ describe('View Study Results', () => {
 
         await waitFor(() => {
             const link = screen.getByTestId('download-link')
-            expect(link.innerText).toEqual('Download test.data')
+            expect(link.innerText).toEqual('Download Results')
             const data = link.getAttribute('href')?.replace('data:text/plain;base64,', '') || ''
             const csv = atob(data)
             expect(csv).toContain(csv)
