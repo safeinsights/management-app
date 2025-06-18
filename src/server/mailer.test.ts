@@ -43,7 +43,7 @@ describe('mailgun email functions', () => {
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/researcher/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/researcher/study/${study.id}/review`),
                 }),
             }),
         )
