@@ -10,7 +10,7 @@ vi.spyOn(actions, 'approveStudyJobResultsAction')
 vi.spyOn(actions, 'rejectStudyJobResultsAction')
 
 vi.mock('@/server/storage', () => ({
-    storeStudyResultsFile: vi.fn(),
+    storeStudyApprovedResultsFile: vi.fn(),
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {

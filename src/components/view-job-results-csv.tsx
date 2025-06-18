@@ -1,7 +1,6 @@
 'use client'
 
 import { FC } from 'react'
-
 import { Flex, LoadingOverlay, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
@@ -13,7 +12,7 @@ import { StudyJobStatus, type StudyStatus } from '@/database/types'
 import { RenderCSV } from './render-csv'
 
 type JobResultsProps = {
-    job: { id: string; resultsPath?: string | null; latestStatus: StudyStatus | StudyJobStatus }
+    job: { id: string; latestStatus: StudyStatus | StudyJobStatus }
 }
 
 export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
@@ -23,14 +22,10 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         isError,
         error,
     } = useQuery({
-        enabled: !!job.resultsPath,
+        enabled: job.latestStatus == 'RESULTS-APPROVED',
         queryKey: ['job-results', job.id],
         queryFn: async () => await fetchJobResultsCsvAction(job.id || ''),
     })
-
-    if (job.latestStatus !== 'RESULTS-APPROVED' || !job.resultsPath) {
-        return null
-    }
 
     if (isError) {
         return <ErrorAlert error={error} />
@@ -46,12 +41,12 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
                 <ButtonLink
                     target="_blank"
                     rightSection={<Download />}
-                    href={resultsDownloadURL({ id: job.id, resultsPath: job.resultsPath })}
+                    href={resultsDownloadURL({ id: job.id, resultsPath: results.path })}
                 >
                     Download Results
                 </ButtonLink>
             </Flex>
-            <RenderCSV csv={results} />
+            <RenderCSV csv={results.contents} />
         </Stack>
     )
 }
