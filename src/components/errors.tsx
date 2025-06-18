@@ -47,17 +47,14 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     }
 }
 
-export const reportMutationError =
-    (title = 'An error occurred') =>
-    (err: unknown) =>
-        reportError(err, title)
+export const reportMutationError = (title: string) => (err: unknown) => reportError(err, title)
 
-type ErrorAlertProps = { error: string | Error } & AlertProps
+type ErrorAlertProps = { error: unknown } & AlertProps
 
 export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occurred', error }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
-            {error.toString()}
+            {errorToString(error)}
         </Alert>
     )
 }
