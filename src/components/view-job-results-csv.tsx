@@ -1,8 +1,7 @@
 'use client'
 
 import { FC } from 'react'
-
-import { Flex, LoadingOverlay, Stack, Text } from '@mantine/core'
+import { Flex, LoadingOverlay, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
@@ -13,7 +12,7 @@ import { StudyJobStatus, type StudyStatus } from '@/database/types'
 import { RenderCSV } from './render-csv'
 
 type JobResultsProps = {
-    job: { id: string; resultsPath?: string | null; latestStatus: StudyStatus | StudyJobStatus }
+    job: { id: string; latestStatus: StudyStatus | StudyJobStatus }
 }
 
 export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
@@ -23,17 +22,13 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         isError,
         error,
     } = useQuery({
-        enabled: !!job.resultsPath,
+        enabled: job.latestStatus == 'RESULTS-APPROVED',
         queryKey: ['job-results', job.id],
         queryFn: async () => await fetchJobResultsCsvAction(job.id || ''),
     })
 
     if (job.latestStatus !== 'RESULTS-APPROVED') {
         return null
-    }
-
-    if (!job.resultsPath) {
-        return <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
     }
 
     if (isError) {
@@ -50,12 +45,12 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
                 <ButtonLink
                     target="_blank"
                     rightSection={<Download />}
-                    href={resultsDownloadURL({ id: job.id, resultsPath: job.resultsPath })}
+                    href={resultsDownloadURL({ id: job.id, resultsPath: results.path })}
                 >
                     Download Results
                 </ButtonLink>
             </Flex>
-            <RenderCSV csv={results} />
+            <RenderCSV csv={results.contents} />
         </Stack>
     )
 }

@@ -45,13 +45,9 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
 
     // FIXME: handle more than a single result. will require a db schema change
     const result = jobResults[0]
-
     const resultsFile = new File([result.contents], result.path)
-
     await storeStudyApprovedResultsFile(info, resultsFile)
-
     const user = await siUser()
-
     await db
         .insertInto('jobStatusChange')
         .values({
@@ -138,11 +134,12 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string> => {
+export const fetchJobResultsCsvAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
     const info = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
     const body = await fetchFileContents(info.path)
-    return body.text()
+
+    return { path: info.path, contents: await body.text() }
 }, z.string())
 
 export const fetchJobResultsEncryptedZipAction = orgAction(

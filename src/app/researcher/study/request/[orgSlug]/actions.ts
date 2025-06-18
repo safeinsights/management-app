@@ -6,7 +6,7 @@ import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { getUserIdFromActionContext, researcherAction, z } from '@/server/actions/wrappers'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { pathForStudyDocuments, pathForStudyJobCode } from '@/lib/paths'
+import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { onStudyCreated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
@@ -14,9 +14,10 @@ import { revalidatePath } from 'next/cache'
 const onCreateStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     studyInfo: studyProposalApiSchema,
+    codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo }) => {
+export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo, codeFileNames }) => {
     const userId = await getUserIdFromActionContext()
 
     const org = await getOrgFromSlugAction(orgSlug)
@@ -67,6 +68,18 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo 
             studyJobId: studyJob.id,
         })
         .execute()
+
+    for (const fileName of codeFileNames) {
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                name: fileName,
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
+                studyJobId: studyJob.id,
+                fileType: fileName.match(/main/i) ? 'MAIN-CODE' : 'SUPPLEMENTAL-CODE', // TODO: assuming 'MAIN-CODE' is the file type, make dynamic if needed
+            })
+            .executeTakeFirstOrThrow()
+    }
 
     onStudyCreated({ userId, studyId })
 

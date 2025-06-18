@@ -5,6 +5,7 @@ import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { difference } from 'remeda'
+import logger from '@/lib/logger'
 
 export * from '@/lib/errors'
 
@@ -13,6 +14,7 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     if (isServerActionError(error)) {
         captureException(error)
     }
+    logger.error('An error occurred:\n', error)
     notifications.show({
         color: 'red',
         title,
