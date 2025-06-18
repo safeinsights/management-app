@@ -30,6 +30,7 @@ import { useDashboardUrl } from '@/lib/dashboard-url'
 interface InvitationHandlerProps {
     inviteId: string
     invitedEmail: string
+    orgName: string
 }
 
 export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerProps) {
@@ -131,5 +132,5 @@ export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerP
     }
 
     // first‐time SI users get our new sign‐up + MFA flow
-    return <NewUserAccountForm inviteId={inviteId} email={invitedEmail} />
+    return <NewUserAccountForm inviteId={inviteId} email={invitedEmail} orgName={orgName} />
 }

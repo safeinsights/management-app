@@ -5,14 +5,13 @@
  *
  * This component is rendered by `InvitationHandler` only when a user is new and not authenticated.
  */
-'use-client'
+'use client'
 
 import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateAccountAction } from '@/server/actions/invite.actions'
-import { Title } from '@mantine/core'
 import { z } from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { handleMutationErrorsWithForm, reportError } from '@/components/errors'
@@ -75,6 +74,7 @@ type SetupAccountFormState = {
 const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => void }> = ({
     inviteId,
     email,
+    orgName,
     onComplete,
 }) => {
     const { setActive, signIn } = useSignIn()

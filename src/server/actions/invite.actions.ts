@@ -133,6 +133,13 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         return clerkUser.id // Return Clerk User ID
     } catch (error: unknown) {
         if (isClerkApiError(error)) {
+            const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
+            if (pwnedError) {
+                throw new ActionFailure({
+                    form: 'This password has recently been added to the compromised password database, putting your account at risk. Please choose a different password.',
+                })
+            }
+
             const clerkError = error.errors[0]
             logger.warn({ message: 'Clerk API error during user creation', clerkError, email })
             throw new ActionFailure({ form: clerkError.longMessage || clerkError.message })

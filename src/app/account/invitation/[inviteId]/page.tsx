@@ -10,16 +10,17 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     const invite = await db
         .selectFrom('pendingUser')
-        .select(['email'])
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
+        .select(['pendingUser.email', 'org.name as orgName'])
         .where('claimedByUserId', 'is', null)
-        .where('id', '=', inviteId)
+        .where('pendingUser.id', '=', inviteId)
         .executeTakeFirst()
 
     if (!invite) return <ErrorAlert error="Invalid or already claimed invitation." />
 
     return (
         <Container>
-            <InvitationHandler inviteId={inviteId} invitedEmail={invite.email} />
+            <InvitationHandler inviteId={inviteId} invitedEmail={invite.email} orgName={invite.orgName} />
         </Container>
     )
 }
