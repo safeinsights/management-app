@@ -8,6 +8,7 @@ This document outlines the coding conventions and best practices used in this pr
   Use spaces for indentation with an indent size of 4.
 - **Line Endings:**
   Use LF (Unix style).
+  Do not use semicolons
 - **Max Line Length:**
   Limit lines to 120 characters.
 - **Whitespace:**
@@ -21,10 +22,25 @@ This document outlines the coding conventions and best practices used in this pr
     - `npm run lint:fix` - Automatically fix lint issues.
 - Also run `npm run checks` to run type checking and linting together.
 
+After making code changes, always run `npm run pre:push` to correct code structure before committing it
+
 ## Type Checking
 
 - TypeScript is used for static type checking.
 - Use `npm run typecheck` to run the TypeScript compiler for validation.
+
+## Unit Testing
+
+Run `npm run test:unit` to test all changes
+
+When creating or modifying unit tests:
+
+- unit tests use vitest, import it and other helper methods from '@/tests/unit.helpers.ts'
+- create unit tests in the same directory as the component being tested, with the same filename but with a .test.t(x) suffix
+- do not mock database when writing unit tests. Do not test db calls are performed, instead test the records exist in the db
+- do not mock clerk or NextJS methods, they are mocked already
+- do not test for the appearance of every single UI element, instead only test for critical functionality such as button clicks update state.
+- do not cleanup mocks or other state.
 
 ## Git Hooks
 
