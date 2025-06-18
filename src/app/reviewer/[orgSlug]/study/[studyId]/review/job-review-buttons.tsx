@@ -1,4 +1,5 @@
 import { DownloadResultsLink } from '@/components/links'
+import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
@@ -59,6 +60,7 @@ export const JobReviewButtons = ({
                 await rejectStudyJobResultsAction(jobInfo)
             }
         },
+        onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
             router.push('/')
         },

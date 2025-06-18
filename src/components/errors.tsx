@@ -5,6 +5,7 @@ import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { difference } from 'remeda'
+import logger from '@/lib/logger'
 
 export * from '@/lib/errors'
 
@@ -13,6 +14,7 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     if (isServerActionError(error)) {
         captureException(error)
     }
+    logger.error('An error occurred:\n', error)
     notifications.show({
         color: 'red',
         title,
@@ -20,9 +22,6 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     })
 }
 
-export const reportMutationError = (error: unknown) => {
-    reportError(error, 'update failed')
-}
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
     values: Record<string, string>
@@ -40,20 +39,22 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
             if (unknownKeys.length === 0) {
                 form.setErrors(failure)
             } else {
-                reportMutationError(err)
+                reportError(err)
             }
         } else {
-            reportMutationError(err)
+            reportError(err)
         }
     }
 }
 
-type ErrorAlertProps = { error: string | Error } & AlertProps
+export const reportMutationError = (title: string) => (err: unknown) => reportError(err, title)
+
+type ErrorAlertProps = { error: unknown } & AlertProps
 
 export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occurred', error }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
-            {error.toString()}
+            {errorToString(error)}
         </Alert>
     )
 }

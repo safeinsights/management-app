@@ -10,7 +10,7 @@ describe('Study Job Actions', () => {
     test('loadStudyJobAction', async () => {
         const { org } = await mockSessionWithTestData()
         const { job, study } = await insertTestStudyJobData({ org })
-        const { jobInfo } = await loadStudyJobAction(job.id)
+        const jobInfo = await loadStudyJobAction(job.id)
 
         expect(jobInfo).toMatchObject({
             studyJobId: job.id,
