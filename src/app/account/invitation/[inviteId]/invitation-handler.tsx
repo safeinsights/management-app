@@ -10,8 +10,8 @@
  * 2. Existing User, Logged In: Automatically calls `claimInviteAction` and shows a success/error message.
  * 3. New User: Renders the <NewUserAccountForm /> for account creation.
  *
- * It also uses localStorage to persist the invite ID across different parts of the sign-up/sign-in flow,
- * especially with MFA required.
+ * The `inviteId` is passed as a URL query parameter to persist it across different parts of the
+ * sign-up/sign-in flow, especially with MFA required.
  */
 import { useState, useEffect } from 'react'
 import { useAuth, useClerk, useUser } from '@clerk/nextjs'
