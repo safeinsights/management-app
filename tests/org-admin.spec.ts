@@ -58,7 +58,7 @@ test.describe('Organization Admin', () => {
         // The user is still logged in, so sign out to continue the test as a new user.
         await goto(page, '/')
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
-        await page.getByRole('menuitem', { name: 'Sign Out' }).click()
+        await page.getByLabel('Sign Out').click()
         await page.waitForURL('**/signin**')
 
         // Now, as a logged-out user, accept the invitation
