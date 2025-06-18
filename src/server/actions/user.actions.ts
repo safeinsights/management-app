@@ -52,7 +52,19 @@ export const onUserSignInAction = anonAction(async () => {
                 isAdmin: md?.isAdmin,
                 isReviewer: md?.isReviewer,
             })
-        } catch {}
+        } catch (e) {
+            if (e instanceof Error && e.message.includes('No organization found with slug')) {
+                logger.warn(
+                    `During login, user ${user.id} was found to be a member of clerk org ${org.organization.slug}, which was not found in the SI database. Skipping membership creation.`,
+                    e,
+                )
+            } else {
+                logger.error(
+                    `An unexpected error occurred while creating or updating membership for user ${user.id} in org ${org.organization.slug}.`,
+                    e,
+                )
+            }
+        }
     }
     onUserLogIn({ userId: user.id })
 })
@@ -84,3 +96,37 @@ export const updateUserRoleAction = orgAdminAction(
         isReviewer: z.boolean(),
     }),
 )
+
+// Action to let the client know if an email for a given invite already exists in SI
+export const userExistsForInviteAction = anonAction(async (inviteId: string) => {
+    const invite = await db
+        .selectFrom('pendingUser')
+        .select('email')
+        .where('id', '=', inviteId)
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
+    if (!invite) return false
+
+    const user = await db
+        .selectFrom('user')
+        .select('id')
+        .where((eb) => eb.fn('lower', ['email']), '=', invite.email.toLowerCase())
+        .executeTakeFirst()
+    return Boolean(user)
+}, z.string())
+
+// Action to check for a pending invite for a user who needs to set up MFA.
+// This is used as a fail-safe in the sign-in flow to prevent users from getting
+// stuck if they sign up via invite but then sign in from a different browser
+// before completing MFA setup.
+export const checkPendingInviteForMfaUserAction = anonAction(async (email: string) => {
+    const pendingInvite = await db
+        .selectFrom('pendingUser')
+        .select('id')
+        .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', email.toLowerCase())
+        .where('claimedByUserId', 'is', null)
+        .executeTakeFirst()
+
+    return !!pendingInvite
+}, z.string())

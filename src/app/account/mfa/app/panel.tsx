@@ -12,6 +12,12 @@ import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
 import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { claimInviteAction } from '@/server/actions/invite.actions'
+import { notifications } from '@mantine/notifications'
+import { LoadingMessage } from '@/components/loading'
+import { useDashboardUrl } from '@/lib/dashboard-url'
+import { useMutation } from '@tanstack/react-query'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -19,7 +25,13 @@ type DisplayFormat = 'qr' | 'uri'
 
 export const dynamic = 'force-dynamic'
 
-function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function AddTotpScreenContent({
+    setStep,
+    onMfaSuccess,
+}: {
+    setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
+    onMfaSuccess: () => Promise<void>
+}) {
     const { user } = useUser()
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
@@ -51,6 +63,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     const verifyTotp = async (values: { code: string }) => {
         try {
             await user?.verifyTOTP({ code: values.code })
+            await onMfaSuccess() // Call the success handler
             setStep('success')
         } catch (err: unknown) {
             form.setErrors({ code: errorToString(err) || 'Invalid Code' })
@@ -63,7 +76,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
             .then((totp: TOTPResource) => {
                 setTOTP(totp)
             })
-            .catch((err) => reportError(err, 'Error generating MFA'))
+            .catch((err) => reportError(err, 'Error generating TOTP for MFA'))
     }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
@@ -177,10 +190,11 @@ function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.Se
 }
 
 function SuccessScreenContent() {
+    const dashboardUrl = useDashboardUrl()
     return (
         <Stack gap="lg">
             <Text>You have successfully added TOTP MFA with an authentication application.</Text>
-            <ButtonLink href="/">Return to homepage</ButtonLink>
+            <ButtonLink href={dashboardUrl}>Visit your dashboard</ButtonLink>
         </Stack>
     )
 }
@@ -188,11 +202,37 @@ function SuccessScreenContent() {
 export function AddMFAPanel() {
     const [step, setStep] = React.useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
+    const { mutate: claimInvite } = useMutation({
+        mutationFn: claimInviteAction,
+        onError: (err) => reportError(err, 'Failed to claim invitation after MFA setup.'),
+        onSuccess: (result) => {
+            if (result.success) {
+                notifications.show({
+                    title: 'Invitation Claimed',
+                    message: `You have successfully joined ${result.organizationName}.`,
+                    color: 'green',
+                })
+            } else {
+                reportError(result.error || 'Failed to claim invitation after MFA setup.')
+            }
+        },
+    })
+
+    const handleMfaSuccess = async () => {
+        const inviteId = searchParams.get('inviteId')
+        if (inviteId) {
+            claimInvite({ inviteId })
+        }
+    }
 
     if (!isLoaded) return null
-
     if (!user) {
-        return <Text>You must be logged in to access this page</Text>
+        notifications.show({ message: 'You must be logged in to access this page. Redirecting...', color: 'blue' })
+        router.push('/account/signin') // Or appropriate sign-in page
+        return <LoadingMessage message="Redirecting to sign in..." />
     }
 
     let panelTitle = ''
@@ -213,7 +253,7 @@ export function AddMFAPanel() {
     return (
         <Container>
             <Panel title={panelTitle}>
-                {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
+                {step === 'add' && <AddTotpScreenContent setStep={setStep} onMfaSuccess={handleMfaSuccess} />}
                 {step === 'verify' && <VerifyTotpScreenContent setStep={setStep} />}
                 {step === 'success' && <SuccessScreenContent />}
             </Panel>

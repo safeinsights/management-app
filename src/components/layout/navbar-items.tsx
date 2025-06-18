@@ -10,18 +10,15 @@ import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 import { RefWrapper } from './nav-ref-wrapper'
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
+    const { isLoaded, isAdmin } = useAuthInfo()
+
     const pathname = usePathname()
+    const dashboardURL = useDashboardUrl()
 
-    const dashboardURL = () => {
-        if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
-        if (isResearcher) return '/researcher/dashboard'
-        if (isAdmin) return `/admin/safeinsights`
-        return '/'
-    }
-
+    // wait for Clerk to finish loading before showing nav links
     if (!isLoaded) return null
 
     return (
@@ -31,8 +28,8 @@ export const NavbarItems: FC = () => {
                     label="Dashboard"
                     leftSection={<House />}
                     component={Link}
-                    href={dashboardURL()}
-                    active={pathname === dashboardURL()}
+                    href={dashboardURL}
+                    active={pathname === dashboardURL}
                     c="white"
                     color="blue.7"
                     variant="filled"
