@@ -43,7 +43,7 @@ describe('mailgun email functions', () => {
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/organization/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/researcher/${org.slug}/study/${study.id}/review`),
                 }),
             }),
         )
@@ -84,7 +84,7 @@ describe('mailgun email functions', () => {
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
                     submittedTo: org.name,
-                    studyURL: expect.stringContaining(`/organization/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/researcher/${org.slug}/study/${study.id}/review`),
                 }),
             }),
         )
@@ -105,7 +105,7 @@ describe('mailgun email functions', () => {
                     userFullName: reviewer.fullName,
                     studyTitle: study.title,
                     submittedBy: expect.any(String),
-                    studyURL: expect.stringContaining(`/organization/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/reviewer/${org.slug}/study/${study.id}/review`),
                 }),
             }),
         )
