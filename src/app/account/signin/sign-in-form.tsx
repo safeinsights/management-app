@@ -1,13 +1,13 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
-import { isClerkApiError, reportError } from '@/components/errors'
+import { reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
-import { formatClerkErrorCode } from '@/lib/string'
+import { errorToString } from '@/components/errors'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -52,36 +52,24 @@ export const SignInForm: FC<{
             }
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
-            if (isClerkApiError(err)) {
-                const authError = err.errors?.find(
-                    (error) =>
-                        error.code === 'form_password_incorrect' ||
-                        error.code === 'form_param_format_invalid' ||
-                        error.code === 'form_identifier_not_found' ||
-                        error.meta?.paramName === 'email_address' ||
-                        error.meta?.paramName === 'password',
-                )
-                if (authError) {
-                    form.setFieldError('email', ' ')
-                    form.setFieldError(
-                        'password',
-                        'Invalid login credentials. Please double-check your email and password.',
-                    )
-                    return
-                }
 
-                if (err.errors?.length) {
-                    setClerkError({
-                        title: formatClerkErrorCode(err.errors[0].code),
-                        message: err.errors[0].longMessage || 'An error occurred during sign-in. Please try again.',
-                    })
-                    return
-                }
+            const errorMessage = errorToString(err)
+
+            //incorrect email or password
+            if (errorMessage?.includes('Password') || errorMessage?.includes('Identifier')) {
+                form.setFieldError('email', ' ')
+                form.setFieldError(
+                    'password',
+                    'Invalid login credentials. Please double-check your email and password.',
+                )
+                return
             }
 
-            // fallback for non-clerk errors
-            form.setFieldError('email', ' ')
-            form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
+            // any other clerk error
+            setClerkError({
+                title: 'Sign-in Error',
+                message: errorMessage || 'An error occurred during sign-in. Please try again.',
+            })
         }
     })
 
