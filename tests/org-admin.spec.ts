@@ -50,7 +50,8 @@ test.describe('Organization Admin', () => {
         })
 
         // test invite
-        await goto(page, `/account/invitation/${inviteId}`)        await expect(
+        await goto(page, `/account/invitation/${inviteId}`)
+        await expect(
             page.getByText('This invitation is for a different user. Please log out and try again.').first(),
         ).toBeVisible()
 
@@ -75,6 +76,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
+        const createAccountBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled
         await expect(createAccountBtn).toBeEnabled()
 

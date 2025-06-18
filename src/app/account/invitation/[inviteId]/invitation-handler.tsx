@@ -33,7 +33,7 @@ interface InvitationHandlerProps {
     orgName: string
 }
 
-export function InvitationHandler({ inviteId, invitedEmail }: InvitationHandlerProps) {
+export function InvitationHandler({ inviteId, invitedEmail, orgName }: InvitationHandlerProps) {
     const { isLoaded, isSignedIn } = useAuth()
     const { setActive } = useClerk()
     const { user } = useUser()
