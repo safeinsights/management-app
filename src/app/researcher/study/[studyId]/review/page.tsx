@@ -47,9 +47,21 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4} size="xl">
-                        Study Code
-                    </Title>
+                    <Group justify="space-between" align="center">
+                        <Title order={4} size="xl">
+                            Study Code
+                        </Title>
+                        <StudyStatusDisplay
+                            status={
+                                job?.latestStatus === 'CODE-APPROVED'
+                                    ? 'APPROVED'
+                                    : job?.latestStatus === 'CODE-REJECTED'
+                                      ? 'REJECTED'
+                                      : null
+                            }
+                            date={job?.latestStatusChangeOccurredAt}
+                        />
+                    </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
@@ -57,9 +69,21 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4} size="xl">
-                        Study Results
-                    </Title>
+                    <Group justify="space-between" align="center">
+                        <Title order={4} size="xl">
+                            Study Results
+                        </Title>
+                        <StudyStatusDisplay
+                            status={
+                                job?.latestStatus === 'RESULTS-APPROVED'
+                                    ? 'APPROVED'
+                                    : job?.latestStatus === 'RESULTS-REJECTED'
+                                      ? 'REJECTED'
+                                      : null
+                            }
+                            date={job?.latestStatusChangeOccurredAt}
+                        />
+                    </Group>
                     <Divider c="dimmed" />
                     <ViewJobResultsCSV job={job} />
                 </Stack>
