@@ -3,15 +3,7 @@
 import { db } from '@/database'
 import { jsonArrayFrom } from 'kysely/helpers/postgres'
 import { minimalJobInfoSchema } from '@/lib/types'
-import {
-    fetchFileContents,
-    storeStudyApprovedResultsFile,
-    //    fetchCodeManifest,
-    // fetchFileContents,
-    // fetchStudyApprovedResultsFile,
-    // fetchStudyEncryptedResultsFile,
-    // storeStudyResultsFile,
-} from '@/server/storage'
+import { fetchFileContents, storeStudyApprovedResultsFile } from '@/server/storage'
 import {
     actionContext,
     checkMemberOfOrgWithSlug,
@@ -22,12 +14,9 @@ import {
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, getStudyJobFileOfType, latestJobForStudy, siUser } from '@/server/db/queries'
-//    queryJobApprovedResult, queryJobApprovedResultFilePath, queryJobResult, siUser
 import { checkUserAllowedStudyReview } from '../db/queries'
-//import { ActionFailure } from '@/lib/errors'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
-//import { getStaticPaths } from 'next/dist/build/templates/pages'
 
 const approveStudyJobResultsActionSchema = z.object({
     orgSlug: z.string(),
@@ -101,8 +90,6 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             'studyJob.createdAt',
             'study.title as studyTitle',
             'org.slug as orgSlug',
-            // 'jobStatusChange.status as jobStatus',
-            // 'jobStatusChange.createdAt as jobStatusCreatedAt',
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
