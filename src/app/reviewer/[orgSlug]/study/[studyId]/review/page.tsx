@@ -37,34 +37,32 @@ export default async function StudyReviewPage(props: {
 
     return (
         <Stack px="xl" gap="xl">
-            <Stack mt="xl" gap="lg">
-                <OrgBreadcrumbs
-                    crumbs={{
-                        orgSlug: orgSlug,
-                        current: 'Study Details',
-                    }}
-                />
-            </Stack>
+            <OrgBreadcrumbs
+                crumbs={{
+                    orgSlug: orgSlug,
+                    current: 'Study Details',
+                }}
+            />
 
-            <Title>Study details</Title>
+            <Title order={1}>Study details</Title>
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Group justify="space-between">
+                    <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
                         <StudyReviewButtons study={study} />
                     </Group>
-                    <Stack mt="md">{studyId && <StudyDetails studyId={study.id} />}</Stack>
+                    {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
             </Paper>
 
             <Paper bg="white" p="xxl">
-                <Stack mt="md">
+                <Stack>
                     <Title order={4} size="xl">
                         Study Code
                     </Title>
-                    <Divider my="md" c="dimmed" />
+                    <Divider c="dimmed" />
                     <StudyCodeDetails job={latestJob} />
                 </Stack>
             </Paper>

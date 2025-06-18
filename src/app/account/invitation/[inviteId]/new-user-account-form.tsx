@@ -7,7 +7,7 @@
  */
 'use-client'
 
-import { Flex, Button, TextInput, PasswordInput } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
@@ -20,6 +20,8 @@ import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
+import { InputError } from '@/components/errors'
+import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
 
 const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
     const router = useRouter()
@@ -35,16 +37,34 @@ const Success: FC<{ inviteId: string }> = ({ inviteId }) => {
     )
 }
 
-const formSchema = z.object({
-    firstName: z.string().trim().nonempty('cannot be left blank'),
-    lastName: z.string().trim().nonempty('cannot be left blank'),
-    password: z.string().trim().min(8, 'must be at least 8 characters'),
-})
+const formSchema = z
+    .object({
+        firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+        lastName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
+        password: (() => {
+            let schema = z.string().max(64)
+            PASSWORD_REQUIREMENTS.forEach((req) => {
+                schema = schema.regex(req.re, req.message)
+            })
+            return schema
+        })(),
+        confirmPassword: z.string(),
+    })
+    .superRefine(({ confirmPassword, password }, ctx) => {
+        if (confirmPassword !== password) {
+            ctx.addIssue({
+                code: 'custom',
+                message: 'Passwords do not match. Please re-enter them.',
+                path: ['confirmPassword'],
+            })
+        }
+    })
 
 type FormValues = z.infer<typeof formSchema>
 type InviteProps = {
     inviteId: string
     email: string
+    orgName: string
 }
 
 // Storing clerkUserId temporarily to pass to Success component
@@ -61,10 +81,13 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
 
     const form = useForm({
         validate: zodResolver(formSchema),
+        validateInputOnBlur: true,
+        validateInputOnChange: ['password'],
         initialValues: {
             firstName: '',
             lastName: '',
             password: '',
+            confirmPassword: '',
         },
     })
 
@@ -95,24 +118,72 @@ const SetupAccountForm: FC<InviteProps & { onComplete: (clerkUserId: string) => 
 
     return (
         <form onSubmit={form.onSubmit((values) => createAccount(values))}>
-            <Title order={3} mb="md" ta="center">
-                Enter the below information to configure your account
-            </Title>
+            <Flex direction="column" gap="lg" maw={500} mx="auto">
+                <Text size="md">
+                    You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
+                    account.
+                </Text>
+                <TextInput label="Email" value={email} disabled />
 
-            <Flex direction="column" gap="lg" w={500} mx="auto">
-                <TextInput key={form.key('firstName')} {...form.getInputProps('firstName')} label="First Name" />
+                <Group grow gap="md">
+                    <TextInput
+                        key={form.key('firstName')}
+                        {...form.getInputProps('firstName')}
+                        label="First name"
+                        placeholder="Enter your first name"
+                        error={form.errors.firstName && <InputError error={form.errors.firstName} />}
+                    />
 
-                <TextInput key={form.key('lastName')} {...form.getInputProps('lastName')} label="Last Name" />
-
+                    <TextInput
+                        key={form.key('lastName')}
+                        {...form.getInputProps('lastName')}
+                        label="Last name"
+                        placeholder="Enter your last name"
+                        error={form.errors.lastName && <InputError error={form.errors.lastName} />}
+                    />
+                </Group>
                 <PasswordInput
-                    withAsterisk
-                    label="Password"
+                    label="Enter password"
                     key={form.key('password')}
+                    placeholder="********"
                     {...form.getInputProps('password')}
+                    error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
                 />
 
-                <Flex justify="flex-end" mt={15}>
-                    <Button type="submit" loading={isCreating}>
+                {(() => {
+                    const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
+                        ...req,
+                        meets: req.re.test(form.values.password),
+                    }))
+
+                    const allMet = requirements.every((r) => r.meets)
+
+                    if (!(form.values.password || form.errors.password) || allMet) return null
+
+                    return <Requirements requirements={requirements} />
+                })()}
+
+                <PasswordInput
+                    label="Confirm password"
+                    key={form.key('confirmPassword')}
+                    placeholder="********"
+                    {...form.getInputProps('confirmPassword')}
+                    error={form.errors.confirmPassword && <InputError error={form.errors.confirmPassword} />}
+                />
+
+                {form.errors.form && (
+                    <Alert
+                        color="red"
+                        title="Compromised Password"
+                        withCloseButton
+                        onClose={() => form.clearFieldError('form')}
+                    >
+                        {form.errors.form}
+                    </Alert>
+                )}
+
+                <Flex mt="sm">
+                    <Button type="submit" loading={isCreating} disabled={!form.isValid()} w="100%" size="md">
                         Create Account
                     </Button>
                 </Flex>

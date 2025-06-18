@@ -50,8 +50,7 @@ test.describe('Organization Admin', () => {
         })
 
         // test invite
-        await goto(page, `/account/invitation/${inviteId}`)
-        await expect(
+        await goto(page, `/account/invitation/${inviteId}`)        await expect(
             page.getByText('This invitation is for a different user. Please log out and try again.').first(),
         ).toBeVisible()
 
@@ -70,9 +69,17 @@ test.describe('Organization Admin', () => {
 
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
-        await page.getByLabel(/password/i).fill(faker.internet.password())
 
-        await page.getByRole('button', { name: /create account/i }).click()
+        // Create a valid password that meets all requirements (8+ chars, number, uppercase, special)
+        const validPassword = 'TestPass1*'
+        await page.getByLabel(/^enter password$/i).fill(validPassword)
+        await page.getByLabel(/confirm password/i).fill(validPassword)
+
+        // Wait for the button to become enabled
+        await expect(createAccountBtn).toBeEnabled()
+
+        // Submit the form
+        await createAccountBtn.click()
 
         await expect(page.getByText(/account has been created/i)).toBeVisible()
 
@@ -87,7 +94,7 @@ test.describe('Organization Admin', () => {
 
         await page.waitForTimeout(1000)
 
-        // test invitation no longer works
+        // test invitation link now redirects to home once the invite is claimed
         await goto(page, `/account/invitation/${inviteId}`)
         await expect(page.getByText(`Invalid or already claimed invitation.`)).toBeVisible()
     })

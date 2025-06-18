@@ -117,7 +117,7 @@ export const SignInForm: FC<{
 
     return (
         <form onSubmit={onSubmit}>
-            <Paper bg="white" radius="none" p="xxl">
+            <Paper bg="white" radius="sm" p="xxl">
                 <Flex direction="column" gap="xs">
                     <Title mb="xs" order={3} ta="center">
                         Welcome To SafeInsights!
