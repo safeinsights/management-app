@@ -14,7 +14,7 @@ export function AnonLayoutShell({ children }: Props) {
     const theme = useMantineTheme()
 
     return (
-        <AppShell header={{ height: 60 }} footer={{ height: 60 }}>
+        <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
             <Notifications position="top-right" />
 
             <AppShellHeader bg="purple.8" withBorder={false}>
@@ -23,7 +23,11 @@ export function AnonLayoutShell({ children }: Props) {
                 </Group>
             </AppShellHeader>
 
-            <AppShellMain bg="purple.8" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AppShellMain
+                bg="purple.8"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                px="md"
+            >
                 {children}
             </AppShellMain>
             <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">

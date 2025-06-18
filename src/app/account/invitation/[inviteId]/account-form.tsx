@@ -100,7 +100,7 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
 
     return (
         <form onSubmit={form.onSubmit((values) => createAccount(values))}>
-            <Flex direction="column" gap="lg" w={500} mx="auto">
+            <Flex direction="column" gap="lg" maw={500} mx="auto">
                 <Text size="md">
                     You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
                     account.

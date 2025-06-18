@@ -10,11 +10,17 @@ export const PageBreadcrumbs: FC<{
             <Breadcrumbs separator="/">
                 {crumbs.map(([title, href], index) =>
                     href ? (
-                        <Anchor c="blue.7" component={Link} href={href} key={index}>
+                        <Anchor
+                            c="blue.7"
+                            component={Link}
+                            href={href}
+                            key={index}
+                            style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
+                        >
                             {title}
                         </Anchor>
                     ) : (
-                        <Text c="grey.5" key={index}>
+                        <Text c="grey.5" key={index} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                             {title}
                         </Text>
                     ),

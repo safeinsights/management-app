@@ -21,7 +21,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     }
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" maw={600}>
+        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Title mb="md" ta="center" order={3}>
                 Welcome to SafeInsights!
             </Title>

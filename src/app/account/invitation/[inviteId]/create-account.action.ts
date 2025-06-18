@@ -114,6 +114,7 @@ export const onCreateAccountAction = anonAction(
             firstName: z.string(),
             lastName: z.string(),
             password: z.string(),
+            confirmPassword: z.string(),
         }),
     }),
 )
