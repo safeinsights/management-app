@@ -10,7 +10,7 @@ import styles from './navbar-items.module.css'
 import { AuthRole } from '@/lib/types'
 import { useRouter } from 'next-router-mock'
 import { RefWrapper } from './nav-ref-wrapper'
-import { useRef } from 'react'
+import { useRef, useCallback } from 'react'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
@@ -23,6 +23,18 @@ export function NavbarProfileMenu() {
         fn()
         close()
     }
+
+    const handleToggle = useCallback(() => {
+        const wasOpened = opened
+        toggle()
+
+        if (!wasOpened) {
+            // focus the first menu item
+            setTimeout(() => {
+                firstMenuItemRef.current?.focus()
+            }, 0)
+        }
+    }, [opened, toggle])
 
     return (
         <AppShellSection ref={menuRef}>
@@ -74,7 +86,7 @@ export function NavbarProfileMenu() {
                     rightSection={<CaretRight aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
-                    onClick={toggle}
+                    onClick={handleToggle}
                     role="button"
                     aria-haspopup="true"
                     aria-expanded={opened}
@@ -82,10 +94,7 @@ export function NavbarProfileMenu() {
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault()
-                            toggle()
-                            if (!opened) {
-                                setTimeout(() => firstMenuItemRef.current?.focus(), 100)
-                            }
+                            handleToggle()
                         }
                     }}
                 />
