@@ -53,25 +53,17 @@ export const SignInForm: FC<{
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
             if (isClerkApiError(err)) {
-                const emailError = err.errors?.find((error) => error.meta?.paramName === 'email_address')
-                if (emailError) {
-                    form.setFieldError('email', emailError.longMessage)
-                    return
-                }
-
-                const passwordError = err.errors?.find((error) => error.meta?.paramName === 'password')
-                if (passwordError) {
-                    form.setFieldError('password', passwordError.longMessage)
-                    return
-                }
-
                 const authError = err.errors?.find(
                     (error) =>
                         error.code === 'form_password_incorrect' ||
                         error.code === 'session_invalid' ||
-                        error.code === 'form_identifier_not_found',
+                        error.code === 'form_param_format_invalid' ||
+                        error.code === 'form_identifier_not_found' ||
+                        error.meta?.paramName === 'email_address' ||
+                        error.meta?.paramName === 'password',
                 )
                 if (authError) {
+                    form.setFieldError('email', ' ')
                     form.setFieldError(
                         'password',
                         'Invalid login credentials. Please double-check your email and password.',
@@ -89,6 +81,7 @@ export const SignInForm: FC<{
             }
 
             // fallback for non-clerk errors
+            form.setFieldError('email', ' ')
             form.setFieldError('password', 'Invalid login credentials. Please double-check your email and password.')
         }
     })
