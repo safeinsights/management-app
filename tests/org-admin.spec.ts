@@ -56,6 +56,7 @@ test.describe('Organization Admin', () => {
         ).toBeVisible()
 
         // The user is still logged in, so sign out to continue the test as a new user.
+        await goto(page, '/')
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
         await page.getByRole('menuitem', { name: 'Sign Out' }).click()
         await page.waitForURL('**/signin**')
