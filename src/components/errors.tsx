@@ -39,7 +39,7 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
             if (unknownKeys.length === 0) {
                 form.setErrors(failure)
             } else {
-                reportMutationError(err)
+                reportError(err)
             }
         } else {
             reportError(err)
