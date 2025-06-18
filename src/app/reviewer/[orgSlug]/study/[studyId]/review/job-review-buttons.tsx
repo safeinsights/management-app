@@ -1,4 +1,4 @@
-import { DownloadLink } from '@/components/links'
+import { DownloadResultsLink } from '@/components/links'
 import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
@@ -19,7 +19,7 @@ const DownloadResults: React.FC<{ results?: FileEntry }> = ({ results }) => {
     return (
         <>
             <Divider />
-            <DownloadLink target="_blank" filename={results.path} content={results.contents} />
+            <DownloadResultsLink target="_blank" filename={results.path} content={results.contents} />
             <Divider />
         </>
     )
