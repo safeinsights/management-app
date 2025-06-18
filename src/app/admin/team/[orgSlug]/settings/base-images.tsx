@@ -1,6 +1,6 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Table, Loader, Button, Group } from '@mantine/core'
+import { Stack, Title, Divider, Paper, Text, Table, Button, Group } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
@@ -12,6 +12,7 @@ import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
+import { LoadingMessage } from '@/components/loading'
 
 type BaseImage = Awaited<ReturnType<typeof fetchOrgBaseImagesAction>>[number]
 
@@ -64,7 +65,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
                     <Table.Th>Name</Table.Th>
                     <Table.Th>Language</Table.Th>
                     <Table.Th>URL</Table.Th>
-                    <Table.Th>Is Testing</Table.Th> {/* Added Is Testing header */}
+                    <Table.Th>Is Testing</Table.Th>
                     <Table.Th>Actions</Table.Th>
                 </Table.Tr>
             </Table.Thead>
@@ -77,7 +78,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
     )
 }
 
-export function BaseImages() {
+export const BaseImages: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const queryClient = useQueryClient()
@@ -105,7 +106,7 @@ export function BaseImages() {
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">
-                        Approved base images for researcher code
+                        Base images for researcher code
                     </Title>
                     <Button leftSection={<PlusCircle size={16} />} onClick={openAddModal}>
                         Add Image
@@ -113,7 +114,7 @@ export function BaseImages() {
                 </Group>
                 <Divider c="dimmed" />
 
-                {isLoading && <Loader />}
+                {isLoading && <LoadingMessage message="Loading base images" />}
 
                 {isError && (
                     <ErrorPanel
