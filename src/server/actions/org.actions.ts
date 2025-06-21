@@ -18,32 +18,28 @@ import { revalidatePath } from 'next/cache'
 import logger from '@/lib/logger'
 
 export const upsertOrgAction = siAdminAction(async (org) => {
-    try {
-        // Check for duplicate organization name for new organizations only
-        if (!('id' in org)) {
-            const duplicate = await db.selectFrom('org').select('id').where('name', '=', org.name).executeTakeFirst()
-            if (duplicate) {
-                throw new Error('Organization with this name already exists')
-            }
+    // Check for duplicate organization name for new organizations only
+    if (!('id' in org)) {
+        const duplicate = await db.selectFrom('org').select('id').where('name', '=', org.name).executeTakeFirst()
+        if (duplicate) {
+            throw new Error('Organization with this name already exists')
         }
-        const results = await db
-            .insertInto('org')
-            .values(org)
-            .onConflict((oc) =>
-                oc.column('id').doUpdateSet({
-                    ...org,
-                }),
-            )
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
-
-        return results
-    } catch (e) {
-        logger.error('Failed to upsert organization', e)
-        throw e
     }
+
+    const results = await db
+        .insertInto('org')
+        .values(org)
+        .onConflict((oc) =>
+            oc.column('id').doUpdateSet({
+                ...org,
+            }),
+        )
+        .returningAll()
+        .executeTakeFirstOrThrow()
+
+    await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
+
+    return results
 }, orgSchema)
 
 export const getOrgFromIdAction = userAction(async (id) => {

@@ -2,99 +2,84 @@
 
 import { db } from '@/database'
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
-import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z, ActionFailure } from './wrappers'
+import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { findOrCreateOrgMembership } from '../mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
 
 export const onUserSignInAction = anonAction(async () => {
-    try {
-        const clerkUser = await currentUser()
+    const clerkUser = await currentUser()
 
-        if (!clerkUser) {
-            logger.error('User not authenticated during sign-in action')
-            throw new Error('User not authenticated')
-        }
-
-        const userAttrs = {
-            firstName: clerkUser.firstName ?? '',
-            lastName: clerkUser.lastName ?? '',
-            email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
-        }
-
-        let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
-        if (user) {
-            await db.updateTable('user').set(userAttrs).where('id', '=', user.id).executeTakeFirstOrThrow()
-        } else {
-            user = await db
-                .insertInto('user')
-                .values({
-                    clerkId: clerkUser.id,
-                    ...userAttrs,
-                })
-                .returningAll()
-                .executeTakeFirstOrThrow()
-        }
-
-        const clerk = await clerkClient()
-        const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
-
-        logger.info(
-            `signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`,
-        )
-
-        for (const org of memberships.data) {
-            if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
-
-            const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
-            try {
-                await findOrCreateOrgMembership({
-                    userId: user.id,
-                    slug: org.organization.slug,
-                    isResearcher: md?.isResearcher,
-                    isAdmin: md?.isAdmin,
-                    isReviewer: md?.isReviewer,
-                })
-            } catch (e) {
-                logger.error(`Failed to find or create org membership for ${org.organization.slug}`, e)
-            }
-        }
-        onUserLogIn({ userId: user.id })
-    } catch (e) {
-        logger.error('Failed to handle user sign in', e)
-        throw new ActionFailure({ message: 'Failed to handle user sign in' })
+    if (!clerkUser) {
+        logger.error('User not authenticated during sign-in action')
+        throw new Error('User not authenticated')
     }
+
+    const userAttrs = {
+        firstName: clerkUser.firstName ?? '',
+        lastName: clerkUser.lastName ?? '',
+        email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+    }
+
+    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
+    if (user) {
+        await db.updateTable('user').set(userAttrs).where('id', '=', user.id).executeTakeFirstOrThrow()
+    } else {
+        user = await db
+            .insertInto('user')
+            .values({
+                clerkId: clerkUser.id,
+                ...userAttrs,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+    }
+
+    const clerk = await clerkClient()
+    const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
+
+    logger.info(
+        `signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`,
+    )
+
+    for (const org of memberships.data) {
+        if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
+
+        const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
+        try {
+            await findOrCreateOrgMembership({
+                userId: user.id,
+                slug: org.organization.slug,
+                isResearcher: md?.isResearcher,
+                isAdmin: md?.isAdmin,
+                isReviewer: md?.isReviewer,
+            })
+        } catch (e) {
+            logger.error(`Failed to find or create org membership for ${org.organization.slug}`, e)
+        }
+    }
+    onUserLogIn({ userId: user.id })
 })
 
 export const onUserResetPWAction = userAction(async () => {
-    try {
-        const userId = await getUserIdFromActionContext()
-        onUserResetPW(userId)
-    } catch (e) {
-        logger.error('Failed to handle user password reset', e)
-        throw new ActionFailure({ message: 'Failed to handle user password reset' })
-    }
+    const userId = await getUserIdFromActionContext()
+    onUserResetPW(userId)
 })
 
 export const updateUserRoleAction = orgAdminAction(
     async ({ orgSlug, userId, ...update }) => {
-        try {
-            const { id, ...before } = await db
-                .selectFrom('orgUser')
-                .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
-                .innerJoin('org', 'org.id', 'orgUser.orgId')
-                .where('org.slug', '=', orgSlug as string)
-                .where('orgUser.userId', '=', userId)
-                .executeTakeFirstOrThrow()
+        const { id, ...before } = await db
+            .selectFrom('orgUser')
+            .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .where('org.slug', '=', orgSlug as string)
+            .where('orgUser.userId', '=', userId)
+            .executeTakeFirstOrThrow()
 
-            await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
+        await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
 
-            onUserRoleUpdate({ userId, before, after: update })
-        } catch (e) {
-            logger.error('Failed to update user role', e)
-            throw new ActionFailure({ message: 'Failed to update user role' })
-        }
+        onUserRoleUpdate({ userId, before, after: update })
     },
     z.object({
         orgSlug: z.string(),
