@@ -1,4 +1,4 @@
-import { clerkClient, clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import debug from 'debug'
 import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
@@ -47,13 +47,9 @@ export default clerkMiddleware(async (auth, req) => {
 
     const metadata = sessionClaims?.userMetadata || { orgs: [], userId: '' }
 
-    // Retrieve user email and set Sentry user context for server-side requests
     if (clerkUserId) {
-        const client = await clerkClient()
-        const user = await client.users.getUser(clerkUserId)
         Sentry.setUser({
             id: clerkUserId,
-            email: user?.primaryEmailAddress?.emailAddress ?? '',
         })
         if (orgSlug) Sentry.setTag('org', orgSlug)
     }

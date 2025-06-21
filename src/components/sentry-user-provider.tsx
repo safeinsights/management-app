@@ -17,7 +17,6 @@ export default function SentryUserProvider() {
         if (user) {
             Sentry.setUser({
                 id: user.id,
-                email: user.primaryEmailAddress?.emailAddress ?? '',
             })
             if (orgSlug) {
                 Sentry.setTag('org', orgSlug)

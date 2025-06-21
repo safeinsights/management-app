@@ -28,17 +28,17 @@ export const sendStudyProposalEmails = async (studyId: string) => {
 
         const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
-    await deliver({
-        bcc: emails.join(', '),
-        subject: 'New study proposal',
-        template: 'vb - new research proposal',
-        vars: {
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
-        },
-    })
+        await deliver({
+            bcc: emails.join(', '),
+            subject: 'New study proposal',
+            template: 'vb - new research proposal',
+            vars: {
+                studyTitle: study.title,
+                submittedBy: study.researcherFullName,
+                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+                studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
+            },
+        })
     } catch (e) {
         logger.error('Failed to send study proposal emails', e)
     }
@@ -75,19 +75,19 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
 
         if (!researcher.email) return
 
-    await deliver({
-        to: researcher.email,
-        subject: 'Study Proposal Rejected',
-        template: 'vb - research proposal rejected',
-        vars: {
-            fullName: researcher.fullName,
-            studyTitle: study.title,
-            submittedBy: study.researcherFullName,
-            submittedTo: study.orgName,
-            submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
-        },
-    })
+        await deliver({
+            to: researcher.email,
+            subject: 'Study Proposal Rejected',
+            template: 'vb - research proposal rejected',
+            vars: {
+                fullName: researcher.fullName,
+                studyTitle: study.title,
+                submittedBy: study.researcherFullName,
+                submittedTo: study.orgName,
+                submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
+                studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
+            },
+        })
     } catch (e) {
         logger.error('Failed to send study proposal rejected email', e)
     }
