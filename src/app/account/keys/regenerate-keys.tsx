@@ -23,7 +23,7 @@ export const RegenerateKeys: FC = () => {
     }
 
     return (
-        <Stack p="xl" w="90%" mx="sm">
+        <Paper p="xl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
             <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${orgSlug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xl">
@@ -49,7 +49,13 @@ export const RegenerateKeys: FC = () => {
                         </Text>
                     </Stack>
                     <Group>
-                        <Button onClick={() => openModal()}>Lost key? Generate a new one</Button>
+                        <Button
+                            onClick={() => openModal()}
+                            size="sm"
+                            styles={{ label: { whiteSpace: 'normal', wordBreak: 'break-word' } }}
+                        >
+                            Lost key? Generate a new one
+                        </Button>
                     </Group>
                 </Stack>
             </Paper>
@@ -58,7 +64,7 @@ export const RegenerateKeys: FC = () => {
                 isOpen={isModalOpen}
                 onConfirmAndClose={handleConfirmAndProceed}
             />
-        </Stack>
+        </Paper>
     )
 }
 

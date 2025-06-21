@@ -25,15 +25,15 @@ export const StudyResults: FC<{
     }
 
     return (
-        <Paper bg="white" p="xl">
+        <Paper bg="white" p="xxl">
             <Stack>
-                <Group justify="space-between">
+                <Group justify="space-between" align="center">
                     <Title order={4} size="xl">
                         Study Results
                     </Title>
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
-                <Divider />
+                <Divider c="dimmed" />
                 <DecryptResults job={job} onApproval={setDecryptedResults} />
                 <ViewJobResultsCSV job={job} />
             </Stack>

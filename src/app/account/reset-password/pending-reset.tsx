@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Group, Stack, Text, TextInput, Paper, CloseButton, PasswordInput, Anchor } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
+import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
+import { useForm, zodResolver } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -10,18 +10,37 @@ import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/li
 import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
+import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
+import { z } from 'zod'
 
-interface VerificationFormValues {
-    code: string
-    password: string
+const createPasswordSchema = () => {
+    let schema = z.string()
+
+    PASSWORD_REQUIREMENTS.forEach((req) => {
+        schema = schema.regex(req.re, req.message)
+    })
+
+    return schema
 }
+
+const verificationFormSchema = z
+    .object({
+        code: z.string().min(1, 'Verification code is required'),
+        password: createPasswordSchema(),
+        confirmPassword: z.string().min(1, 'Password confirmation is required'),
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+        message: 'Passwords do not match',
+        path: ['confirmPassword'],
+    })
+
+type VerificationFormValues = z.infer<typeof verificationFormSchema>
 
 interface PendingResetProps {
     pendingReset: SignInResource
-    onBack: () => void
 }
 
-export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
+export function PendingReset({ pendingReset }: PendingResetProps) {
     const { isLoaded, setActive } = useSignIn()
     const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
     const router = useRouter()
@@ -30,11 +49,9 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
         initialValues: {
             code: '',
             password: '',
+            confirmPassword: '',
         },
-        validate: {
-            code: isNotEmpty('Verification code is required'),
-            password: isNotEmpty('New password is required'),
-        },
+        validate: zodResolver(verificationFormSchema),
     })
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
@@ -84,42 +101,60 @@ export function PendingReset({ pendingReset, onBack }: PendingResetProps) {
         },
     })
 
+    const checkRequirements = (password: string) => {
+        return PASSWORD_REQUIREMENTS.map((requirement) => ({
+            ...requirement,
+            meets: requirement.re.test(password),
+        }))
+    }
+
+    const passwordRequirements = checkRequirements(verificationForm.values.password)
+
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
     return (
-        <Stack>
-            <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
-                <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
-                    <Group justify="space-between" gap="xl">
-                        <Text ta="left">Reset Your Password</Text>
-                        <CloseButton aria-label="Close password reset form" onClick={() => router.push('/')} />
-                    </Group>
-                </Paper>
-                <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
-                    <Text>Enter the verification code from your email and choose a new password.</Text>
+        <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
+            <Paper shadow="none" p="xxl" radius="sm">
+                <Flex direction="column" gap="sm">
+                    <Title mb="sm" ta="center" order={3}>
+                        Reset your password
+                    </Title>
                     <TextInput
                         key={verificationForm.key('code')}
                         {...verificationForm.getInputProps('code')}
-                        label="Verification Code"
-                        placeholder="Enter code from email"
+                        label="Enter verification code"
+                        placeholder="A code has been sent to your registered email"
                         aria-label="Verification code"
                     />
                     <PasswordInput
                         key={verificationForm.key('password')}
                         {...verificationForm.getInputProps('password')}
                         label="New Password"
-                        placeholder="Enter new password"
+                        placeholder="********"
                         aria-label="New password"
                         mt={10}
                     />
-                    <Stack align="center" mt={15}>
-                        <Button type="submit" loading={isPending}>
-                            Reset Password
+
+                    {verificationForm.values.password && <Requirements requirements={passwordRequirements} />}
+
+                    <PasswordInput
+                        key={verificationForm.key('confirmPassword')}
+                        {...verificationForm.getInputProps('confirmPassword')}
+                        label="Confirm New Password"
+                        placeholder="********"
+                        aria-label="Confirm New password"
+                        mt={10}
+                    />
+                    <Flex direction="row" justify="space-between" mt={15} mb="xxl">
+                        <Button type="submit" loading={isPending} variant="outline">
+                            Resend verification code
                         </Button>
-                        <Anchor onClick={onBack}>Back to Email Entry</Anchor>
-                    </Stack>
-                </Paper>
-            </form>
-        </Stack>
+                        <Button type="submit" loading={isPending} disabled={!verificationForm.isValid()}>
+                            Update new password
+                        </Button>
+                    </Flex>
+                </Flex>
+            </Paper>
+        </form>
     )
 }

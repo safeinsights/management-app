@@ -49,16 +49,24 @@ test.describe('Organization Admin', () => {
         await page.getByRole('button', { name: /signout/i }).click()
         await page.waitForTimeout(1000)
 
-        await page.getByRole('button', { name: /create account/i }).click()
-        await expect(page.getByText('cannot be left blank')).toHaveCount(2)
+        // Ensure the Create Account button is initially disabled
+        const createAccountBtn = page.getByRole('button', { name: /create account/i })
+        await expect(createAccountBtn).toBeDisabled()
 
-        await expect(page.getByText('must be at least 8 characters')).toBeVisible()
-
+        // Fill in the required form fields
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
-        await page.getByLabel(/password/i).fill(faker.internet.password())
 
-        await page.getByRole('button', { name: /create account/i }).click()
+        // Create a valid password that meets all requirements (8+ chars, number, uppercase, special)
+        const validPassword = 'TestPass1*'
+        await page.getByLabel(/^enter password$/i).fill(validPassword)
+        await page.getByLabel(/confirm password/i).fill(validPassword)
+
+        // Wait for the button to become enabled
+        await expect(createAccountBtn).toBeEnabled()
+
+        // Submit the form
+        await createAccountBtn.click()
 
         await expect(page.getByText(/account has been created/i)).toBeVisible()
 
@@ -73,9 +81,8 @@ test.describe('Organization Admin', () => {
 
         await page.waitForTimeout(1000)
 
-        // test invitation no longer works
+        // test invitation link now redirects to home once the invite is claimed
         await goto(page, `/account/invitation/${inviteId}`)
-        // action waits for 100ms to delete
-        await expect(page.getByText(`invalid invitation`)).toBeVisible({ timeout: 200 })
+        await page.waitForURL('/')
     })
 })

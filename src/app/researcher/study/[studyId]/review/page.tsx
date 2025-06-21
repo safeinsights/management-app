@@ -37,7 +37,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
-                            Study Details
+                            Study Proposal
                         </Title>
                         <StudyStatusDisplay status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
