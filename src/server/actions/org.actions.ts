@@ -25,6 +25,7 @@ export const upsertOrgAction = siAdminAction(async (org) => {
             throw new Error('Organization with this name already exists')
         }
     }
+
     const results = await db
         .insertInto('org')
         .values(org)

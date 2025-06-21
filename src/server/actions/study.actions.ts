@@ -15,6 +15,7 @@ import {
     userAction,
     z,
 } from './wrappers'
+import logger from '@/lib/logger'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -186,7 +187,10 @@ export const approveStudyProposalAction = orgAction(
                 .execute()
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
-            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            if (!latestJob) {
+                logger.error(`No job found for study id: ${studyId}`)
+                throw new Error(`No job found for study id: ${studyId}`)
+            }
 
             let status: StudyJobStatus = 'CODE-APPROVED'
 
@@ -233,7 +237,10 @@ export const rejectStudyProposalAction = orgAction(
                 .execute()
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
-            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            if (!latestJob) {
+                logger.error(`No job found for study id: ${studyId}`)
+                throw new Error(`No job found for study id: ${studyId}`)
+            }
 
             await trx
                 .insertInto('jobStatusChange')

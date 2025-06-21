@@ -1,10 +1,10 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, useEffect } from 'react'
 
 import { Flex, LoadingOverlay, Stack, Text } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { ErrorAlert } from '@/components/errors'
+import { ErrorAlert, reportError } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { resultsDownloadURL } from '@/lib/paths'
 import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
@@ -27,6 +27,12 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         queryKey: ['job-results', job.id],
         queryFn: async () => await fetchJobResultsCsvAction(job.id || ''),
     })
+
+    useEffect(() => {
+        if (isError) {
+            reportError(error, 'Failed to fetch job results')
+        }
+    }, [isError, error])
 
     if (job.latestStatus !== 'RESULTS-APPROVED') {
         return null
