@@ -8,6 +8,8 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 import StudyStatusDisplay from '@/components/study/study-status-display'
+import JobStatusDisplay from '@/components/study/job-status-display'
+import type { StudyJobStatus } from '@/database/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,15 +53,9 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <StudyStatusDisplay
-                            status={
-                                job?.latestStatus === 'CODE-APPROVED'
-                                    ? 'APPROVED'
-                                    : job?.latestStatus === 'CODE-REJECTED'
-                                      ? 'REJECTED'
-                                      : null
-                            }
-                            date={job?.latestStatusChangeOccurredAt}
+                        <JobStatusDisplay
+                            status={job?.codeStatus as StudyJobStatus | undefined}
+                            date={job?.codeStatusOccurredAt}
                         />
                     </Group>
                     <Divider c="dimmed" />
@@ -73,15 +69,9 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Results
                         </Title>
-                        <StudyStatusDisplay
-                            status={
-                                job?.latestStatus === 'RESULTS-APPROVED'
-                                    ? 'APPROVED'
-                                    : job?.latestStatus === 'RESULTS-REJECTED'
-                                      ? 'REJECTED'
-                                      : null
-                            }
-                            date={job?.latestStatusChangeOccurredAt}
+                        <JobStatusDisplay
+                            status={job?.resultsStatus as StudyJobStatus | undefined}
+                            date={job?.resultsStatusOccurredAt}
                         />
                     </Group>
                     <Divider c="dimmed" />
