@@ -18,12 +18,15 @@ export default function SentryUserProvider() {
             Sentry.setUser({
                 id: user.id,
                 email: user.primaryEmailAddress?.emailAddress ?? '',
-                org: orgSlug ?? '',
             })
+            if (orgSlug) {
+                Sentry.setTag('org', orgSlug)
+            }
         } else {
             Sentry.setUser(null)
+            Sentry.setTag('org', '')
         }
-    }, [user])
+    }, [user, orgSlug])
 
     return null
 }

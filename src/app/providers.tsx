@@ -11,6 +11,8 @@ import { useEffect } from 'react'
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FC, ReactNode } from 'react'
 import SentryUserProvider from '@/components/sentry-user-provider'
+import { ClerkProvider } from '@clerk/nextjs'
+import { ErrorAlert } from '@/components/errors'
 
 function makeQueryClient() {
     return new QueryClient({
@@ -49,16 +51,31 @@ export function getQueryClient() {
 export const Providers: FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
 
+    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
     useEffect(() => {
         window.isReactHydrated = true
     }, [])
 
+    if (!clerkPublishableKey) {
+        return <ErrorAlert error={'missing clerk key'} />
+    }
+
     return (
-        <QueryClientProvider client={queryClient}>
-            <SentryUserProvider />
-            <MantineProvider theme={theme}>
-                <ModalsProvider>{children}</ModalsProvider>
-            </MantineProvider>
-        </QueryClientProvider>
+        <ClerkProvider
+            publishableKey={clerkPublishableKey}
+            localization={{
+                organizationSwitcher: {
+                    personalWorkspace: 'Researcher Account',
+                },
+            }}
+        >
+            <QueryClientProvider client={queryClient}>
+                <SentryUserProvider />
+                <MantineProvider theme={theme}>
+                    <ModalsProvider>{children}</ModalsProvider>
+                </MantineProvider>
+            </QueryClientProvider>
+        </ClerkProvider>
     )
 }

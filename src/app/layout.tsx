@@ -9,8 +9,6 @@ import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from './providers'
 import { type ReactNode } from 'react'
-import { ClerkProvider } from '@clerk/nextjs'
-import { ErrorAlert } from '@/components/errors'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -27,23 +25,11 @@ export default async function RootLayout({
 }: Readonly<{
     children: ReactNode
 }>) {
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-    if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
-
     return (
-        <ClerkProvider
-            publishableKey={clerkPublishableKey}
-            localization={{
-                organizationSwitcher: {
-                    personalWorkspace: 'Researcher Account',
-                },
-            }}
-        >
-            <html lang="en">
-                <body>
-                    <Providers>{children}</Providers>
-                </body>
-            </html>
-        </ClerkProvider>
+        <html lang="en">
+            <body>
+                <Providers>{children}</Providers>
+            </body>
+        </html>
     )
 }
