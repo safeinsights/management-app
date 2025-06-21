@@ -148,7 +148,44 @@ export const latestJobForStudy = async (
                     .as('latestStatusChange'),
             (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
         )
-        .select(['latestStatusChange.latestStatus', 'latestStatusChange.latestStatusChangeOccurredAt'])
+        .leftJoin(
+            // latest CODE-APPROVED or CODE-REJECTED status
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .where('jobStatusChange.status', 'in', ['CODE-APPROVED', 'CODE-REJECTED'])
+                    .orderBy('studyJobId', 'desc')
+                    .orderBy('id', 'desc')
+                    .distinctOn('studyJobId')
+                    .select(['jobStatusChange.studyJobId', 'status as codeStatus', 'createdAt as codeStatusOccurredAt'])
+                    .as('codeStatusChange'),
+            (join) => join.onRef('codeStatusChange.studyJobId', '=', 'studyJob.id'),
+        )
+        .leftJoin(
+            // latest RESULTS-APPROVED or RESULTS-REJECTED status
+            (eb) =>
+                eb
+                    .selectFrom('jobStatusChange')
+                    .where('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED'])
+                    .orderBy('studyJobId', 'desc')
+                    .orderBy('id', 'desc')
+                    .distinctOn('studyJobId')
+                    .select([
+                        'jobStatusChange.studyJobId',
+                        'status as resultsStatus',
+                        'createdAt as resultsStatusOccurredAt',
+                    ])
+                    .as('resultsStatusChange'),
+            (join) => join.onRef('resultsStatusChange.studyJobId', '=', 'studyJob.id'),
+        )
+        .select([
+            'latestStatusChange.latestStatus',
+            'latestStatusChange.latestStatusChangeOccurredAt',
+            'codeStatusChange.codeStatus',
+            'codeStatusChange.codeStatusOccurredAt',
+            'resultsStatusChange.resultsStatus',
+            'resultsStatusChange.resultsStatusOccurredAt',
+        ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
         .limit(1)
