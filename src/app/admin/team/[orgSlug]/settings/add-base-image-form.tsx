@@ -53,24 +53,17 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <TextInput
-                    label="Name"
-                    placeholder="e.g., R 4.2.0 Base Image"
-                    {...form.getInputProps('name')}
-                    required
-                />
+                <TextInput label="Name" placeholder="e.g., R 4.2.0 Base Image" {...form.getInputProps('name')} />
                 <Select
                     label="Language"
                     placeholder="Select language"
                     data={[{ value: 'R', label: 'R' }]}
                     {...form.getInputProps('language')}
-                    required
                 />
                 <TextInput
                     label="URL"
                     placeholder="e.g., https://example.com/my-r-image:latest"
                     {...form.getInputProps('url')}
-                    required
                 />
                 <Checkbox
                     label="Is Testing Image"
