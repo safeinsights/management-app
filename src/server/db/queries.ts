@@ -1,4 +1,4 @@
-import { db, type DBExecutor } from '@/database'
+import { db, type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
@@ -115,59 +115,14 @@ export const latestJobForStudy = async (
             qb.innerJoin('org', (join) => join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId')),
         )
         .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
-        .innerJoin(
-            // join to the latest status change
-            (eb) =>
+        .select((eb) => [
+            jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'createdAt as latestStatusChangeOccurredAt',
-                        'status as latestStatus',
-                    ])
-                    .as('latestStatusChange'),
-            (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .leftJoin(
-            // latest CODE-APPROVED or CODE-REJECTED status
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .where('jobStatusChange.status', 'in', ['CODE-APPROVED', 'CODE-REJECTED'])
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select(['jobStatusChange.studyJobId', 'status as codeStatus', 'createdAt as codeStatusOccurredAt'])
-                    .as('codeStatusChange'),
-            (join) => join.onRef('codeStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .leftJoin(
-            // latest RESULTS-APPROVED or RESULTS-REJECTED status
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .where('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED'])
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'status as resultsStatus',
-                        'createdAt as resultsStatusOccurredAt',
-                    ])
-                    .as('resultsStatusChange'),
-            (join) => join.onRef('resultsStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .select([
-            'latestStatusChange.latestStatus',
-            'latestStatusChange.latestStatusChangeOccurredAt',
-            'codeStatusChange.codeStatus',
-            'codeStatusChange.codeStatusOccurredAt',
-            'resultsStatusChange.resultsStatus',
-            'resultsStatusChange.resultsStatusOccurredAt',
+                    .select(['status', 'createdAt'])
+                    .orderBy('createdAt', 'desc')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')

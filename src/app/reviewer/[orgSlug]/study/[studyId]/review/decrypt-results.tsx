@@ -43,7 +43,7 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 throw error
             }
         },
-        enabled: job.latestStatus == 'RUN-COMPLETE',
+        enabled: !!job.statusChanges.find((sc) => sc.status == 'RUN-COMPLETE'),
     })
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
@@ -93,7 +93,7 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
             {plainTextResults.map((txt, i) => (
                 <RenderCSV csv={txt} key={i} />
             ))}
-            {job.latestStatus === 'RUN-COMPLETE' && !plainTextResults?.length && (
+            {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !plainTextResults?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>
                         <Textarea

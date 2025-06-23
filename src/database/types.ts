@@ -98,7 +98,6 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
-    updatedAt: Generated<Timestamp>
     url: string
 }
 
