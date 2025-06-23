@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { localStorageContext } from './api-context'
 import { orgFromAuthToken } from './org-from-auth-token'
-import logger from '@/lib/logger'
+import * as Sentry from '@sentry/nextjs'
 
 export * from './api-context'
 
@@ -38,7 +38,7 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
                         const result = await func(...args)
                         resolve(result)
                     } catch (error) {
-                        logger.error(error)
+                        Sentry.captureException(error)
                         reject(error)
                     }
                 },

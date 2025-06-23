@@ -11,10 +11,7 @@ import logger from '@/lib/logger'
 export const onUserSignInAction = anonAction(async () => {
     const clerkUser = await currentUser()
 
-    if (!clerkUser) {
-        logger.error('User not authenticated during sign-in action')
-        throw new Error('User not authenticated')
-    }
+    if (!clerkUser) throw new Error('User not authenticated')
 
     const userAttrs = {
         firstName: clerkUser.firstName ?? '',

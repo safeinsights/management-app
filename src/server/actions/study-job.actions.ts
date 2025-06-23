@@ -21,7 +21,6 @@ import { checkUserAllowedJobView, latestJobForStudy, queryJobResult, siUser } fr
 import { checkUserAllowedStudyReview } from '../db/queries'
 import { ActionFailure } from '@/lib/errors'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
-import logger from '@/lib/logger'
 
 const approveStudyJobResultsActionSchema = z.object({
     orgSlug: z.string(),
@@ -124,10 +123,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
 
     if (jobInfo) {
         try {
-            const fetchedManifest = await fetchCodeManifest(jobInfo)
-            if (fetchedManifest) {
-                manifest = fetchedManifest
-            }
+            manifest = await fetchCodeManifest(jobInfo)
         } catch (e) {
             console.error('Failed to fetch code manifest', e)
         }
@@ -142,7 +138,6 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
 
     // We should always have a job, something is wrong if we don't
     if (!latestJob) {
-        logger.error(`No job found for study id: ${studyId}`)
         throw new Error(`No job found for study id: ${studyId}`)
     }
     return latestJob
@@ -154,7 +149,6 @@ export const fetchJobResultsCsvAction = userAction(async (jobId): Promise<string
     const job = await queryJobResult(jobId)
 
     if (!job || job.resultsType != 'APPROVED') {
-        logger.error(`Job ${jobId} not found or does not have approved results`)
         throw new Error(`Job ${jobId} not found or does not have approved results`)
     }
 
@@ -172,7 +166,6 @@ export const fetchJobResultsEncryptedZipAction = orgAction(
         const job = await queryJobResult(jobId)
 
         if (!job) {
-            logger.error(`Job ${jobId} not found or does not have results`)
             throw new ActionFailure({ job: `${jobId} not found or does not have results` })
         }
 

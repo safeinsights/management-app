@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { db } from '@/database'
 import jwt from 'jsonwebtoken'
 import { Org } from '@/schema/org'
-import logger from '@/lib/logger'
 
 export const orgFromAuthToken = async (): Promise<Org | null> => {
     const authHeader = (await headers()).get('Authorization') || ''
@@ -36,7 +35,6 @@ export const orgFromAuthToken = async (): Promise<Org | null> => {
 
         return org
     } catch {
-        logger.error('Failed to get org from auth token')
         return null
     }
 }

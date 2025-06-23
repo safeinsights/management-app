@@ -5,7 +5,6 @@ import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
 import { storeStudyResultsFile } from '@/server/storage'
-import logger from '@/lib/logger'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -57,7 +56,6 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
 
         return NextResponse.json({ status: 'success' }, { status: 200 })
     } catch (e) {
-        logger.error(e)
         return NextResponse.json({ status: 'fail', error: e }, { status: 500 })
     }
 })

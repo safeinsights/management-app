@@ -5,7 +5,6 @@ import { z, userAction, getUserIdFromActionContext, ActionFailure } from './wrap
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
-import logger from '@/lib/logger'
 
 export const getReviewerPublicKeyAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
@@ -18,7 +17,6 @@ export const setReviewerPublicKeyAction = userAction(async ({ publicKey, fingerp
     const userId = await getUserIdFromActionContext()
 
     if (!publicKey.byteLength) {
-        logger.error('Invalid public key format provided')
         throw new Error('Invalid public key format')
     }
 
