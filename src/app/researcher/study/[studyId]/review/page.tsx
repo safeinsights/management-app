@@ -1,4 +1,4 @@
-import { Paper, Stack, Title, Divider, Group } from '@mantine/core'
+import { Paper, Stack, Title, Divider, Group, Text } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
@@ -61,7 +61,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         Study Results
                     </Title>
                     <Divider c="dimmed" />
-                    <ViewJobResultsCSV job={job} />
+                    {job?.resultsPath ? (
+                        <ViewJobResultsCSV job={job} />
+                    ) : (
+                        <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
+                    )}
                 </Stack>
             </Paper>
         </Stack>
