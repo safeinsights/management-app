@@ -117,7 +117,7 @@ export function ManageSMSMFAPanel() {
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
-        } catch (err) {
+        } catch {
             otpForm.setFieldError('code', 'Invalid code. Please try again.')
         }
 
