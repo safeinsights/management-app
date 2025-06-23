@@ -65,4 +65,5 @@ export enum AuthRole {
     Researcher = 'researcher',
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>
