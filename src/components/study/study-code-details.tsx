@@ -17,7 +17,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
 
     if (isLoading || !data) return <Text>Loading files...</Text>
 
-    if (!data.files.length) {
+    if (!data.files?.length) {
         return (
             <Stack>
                 <Text c="dimmed" size="sm">

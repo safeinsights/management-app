@@ -35,6 +35,10 @@ async function storeJobFile(info: MinimalJobInfo, path: string, file: File, file
         .executeTakeFirstOrThrow()
 }
 
+export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-LOG')
+}
+
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }

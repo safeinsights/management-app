@@ -41,8 +41,8 @@ export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('study_job_file').execute()
     await db.schema.dropType('file_type').execute()
 
-    db.schema.alterTable('study_job').dropColumn('language').execute()
+    await db.schema.alterTable('study_job').dropColumn('language').execute()
 
-    db.schema.alterTable('study_job').addColumn('results_path', 'text').execute()
-    db.schema.alterTable('study_job').addColumn('result_format', 'text').execute()
+    await db.schema.alterTable('study_job').addColumn('results_path', 'text').execute()
+    await db.schema.alterTable('study_job').addColumn('result_format', 'text').execute()
 }
