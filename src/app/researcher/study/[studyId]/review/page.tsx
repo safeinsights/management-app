@@ -1,4 +1,4 @@
-import { Paper, Stack, Title, Divider, Group, Text } from '@mantine/core'
+import { Paper, Stack, Title, Divider, Group } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
@@ -9,7 +9,6 @@ import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 import StudyStatusDisplay from '@/components/study/study-status-display'
 import JobStatusDisplay from '@/components/study/job-status-display'
-import type { StudyJobStatus } from '@/database/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,8 +53,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                             Study Code
                         </Title>
                         <JobStatusDisplay
-                            status={job?.codeStatus as StudyJobStatus | undefined}
-                            date={job?.codeStatusOccurredAt}
+                            statusChange={job.statusChanges.find((s) => s.status.startsWith('RESULTS'))}
                         />
                     </Group>
                     <Divider c="dimmed" />
@@ -69,17 +67,10 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Results
                         </Title>
-                        <JobStatusDisplay
-                            status={job?.resultsStatus as StudyJobStatus | undefined}
-                            date={job?.resultsStatusOccurredAt}
-                        />
+                        <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('CODE'))} />
                     </Group>
                     <Divider c="dimmed" />
-                    {job?.resultsPath ? (
-                        <ViewJobResultsCSV job={job} />
-                    ) : (
-                        <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
-                    )}
+                    <ViewJobResultsCSV job={job} />
                 </Stack>
             </Paper>
         </Stack>

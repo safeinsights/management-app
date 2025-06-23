@@ -1,7 +1,6 @@
 'use server'
 
-import { db } from '@/database'
-import { jsonArrayFrom } from 'kysely/helpers/postgres'
+import { db, jsonArrayFrom } from '@/database'
 import { minimalJobInfoSchema } from '@/lib/types'
 import { fetchFileContents, storeStudyApprovedResultsFile } from '@/server/storage'
 import {
@@ -13,8 +12,14 @@ import {
     z,
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
-import { checkUserAllowedJobView, getStudyJobFileOfType, latestJobForStudy, siUser } from '@/server/db/queries'
-import { checkUserAllowedStudyReview } from '../db/queries'
+
+import {
+    checkUserAllowedStudyReview,
+    checkUserAllowedJobView,
+    getStudyJobFileOfType,
+    latestJobForStudy,
+    siUser,
+} from '@/server/db/queries'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
 
