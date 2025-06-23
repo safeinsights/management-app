@@ -1,4 +1,26 @@
-## [v0.0.5 - 2025-06-09](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.6 - 2025-06-23](https://github.com/safeinsights/management-app/blob/main)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #257 | stetradis | OTTER-206 - mfa phone input | 2025-06-10 01:27:40 | [OTTER-206](https://openstax.atlassian.net/browse/OTTER-206) |
+| #256 | jbwilson8 | Otter 178 error fixes and api key placeholder section | 2025-06-11 15:20:03 | [OTTER-178](https://openstax.atlassian.net/browse/OTTER-178) |
+| #247 | Rod0352 | OTTER-208 : login flow v2 | 2025-06-16 16:00:41 | [OTTER-208](https://openstax.atlassian.net/browse/OTTER-208) |
+| #261 | jbwilson8 | implement logic to override Mantine Avatar component initials parser | 2025-06-16 16:40:28 | [OTTER-212](https://openstax.atlassian.net/browse/OTTER-212) |
+| #258 | Rod0352 | Otter 210 clerk forgot password screen v.2 | 2025-06-16 16:57:21 | [OTTER-210](https://openstax.atlassian.net/browse/OTTER-210) |
+| #223 | Rod0352 | OTTER-180 nav panel accessibility | 2025-06-16 18:20:06 | [OTTER-180](https://openstax.atlassian.net/browse/OTTER-180) |
+| #265 | jbwilson8 | padding consistency and small text update | 2025-06-17 20:43:12 | [OTTER-176](https://openstax.atlassian.net/browse/OTTER-176) |
+| #263 | stetradis | OTTER-67: Sign up flow | 2025-06-18 01:47:13 | [OTTER-67](https://openstax.atlassian.net/browse/OTTER-67) |
+| #268 | Rod0352 | OTTER-180 improve profile menu toggle handling and focus management | 2025-06-18 18:24:05 | [OTTER-180](https://openstax.atlassian.net/browse/OTTER-180) |
+| #266 | Rod0352 | OTTER-193 Study Results - Improve Download button UI | 2025-06-18 18:24:40 | [OTTER-193](https://openstax.atlassian.net/browse/OTTER-193) |
+| #269 | jbwilson8 | update mailgun (transactional email) urls | 2025-06-18 18:39:42 | [OTTER-187](https://openstax.atlassian.net/browse/OTTER-187) |
+| #270 | Rod0352 | Otter 208 log in flow v.2 refactor | 2025-06-23 01:47:23 | [OTTER-208](https://openstax.atlassian.net/browse/OTTER-208) |
+| #271 | stetradis | OTTER-192 fix study results secondary text | 2025-06-23 14:26:14 | [OTTER-192](https://openstax.atlassian.net/browse/OTTER-192) |
+| #267 | stetradis | OTTER-147 - add timestamps for study code and results | 2025-06-23 14:26:27 | [OTTER-147](https://openstax.atlassian.net/browse/OTTER-147) |
+
+
+---
+
+%!(EXTRA string=## [v0.0.5 - 2025-06-09](https://github.com/safeinsights/management-app/blob/main)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
 |----|--------|-------|-------------|-------------------|
@@ -78,4 +100,4 @@
 ## [Alpha release - 2025-03-08](https://github.com/safeinsights/management-app/blob/b94ba41ccd1302f035414844ac316774ca6affd5)
 
 ## [First deployment - 2025-02-12](https://github.com/safeinsights/management-app/blob/8e94ebd)
-))
+)))
