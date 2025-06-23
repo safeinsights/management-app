@@ -32,7 +32,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
             name: '',
             language: 'R' as Language,
             url: '',
-            isTesting: false, // Added isTesting to initial values
+            isTesting: false,
         },
         validate: zodResolver(formSchema),
     })
@@ -68,7 +68,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                 <Checkbox
                     label="Is Testing Image"
                     description="Only admins will be able to select testinng images"
-                    {...form.getInputProps('isTesting', { type: 'checkbox' })} // Added Checkbox
+                    {...form.getInputProps('isTesting', { type: 'checkbox' })}
                     mt="sm"
                 />
                 <Button type="submit" loading={isPending} mt="md">

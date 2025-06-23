@@ -19,9 +19,6 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
-// export const pathForStudyJobResults = (parts: MinimalJobInfo, approved: boolean, path: string) =>
-//     `${pathForStudyJob(parts)}/results/${approved ? `approved/${parts.resultsPath}` : 'encrypted.zip'}`
-
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 

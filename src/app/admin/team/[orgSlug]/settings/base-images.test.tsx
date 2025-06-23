@@ -65,7 +65,6 @@ describe('BaseImages', async () => {
         const urlInput = screen.getByLabelText(/URL/i)
         const submitButton = screen.getByRole('button', { name: /Save Image/i })
 
-        //const user = userEvent.setup();
         const imageName = faker.hacker.noun() + ' Base Image'
         await userEvent.type(nameInput, imageName)
 

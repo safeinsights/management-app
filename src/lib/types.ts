@@ -64,3 +64,5 @@ export enum AuthRole {
     Reviewer = 'reviewer',
     Researcher = 'researcher',
 }
+
+export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>

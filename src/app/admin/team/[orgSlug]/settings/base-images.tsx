@@ -13,8 +13,9 @@ import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
+import { ActionReturnType } from '@/lib/types'
 
-type BaseImage = Awaited<ReturnType<typeof fetchOrgBaseImagesAction>>[number]
+type BaseImage = ActionReturnType<typeof fetchOrgBaseImagesAction>[number]
 
 const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
