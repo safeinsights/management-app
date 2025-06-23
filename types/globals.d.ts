@@ -3,6 +3,7 @@ export {}
 declare global {
     interface UserPublicMetadata {
         userId: string
+        createdByCIJobId?: string
         orgs?: Array<{
             slug: string
             isAdmin: boolean

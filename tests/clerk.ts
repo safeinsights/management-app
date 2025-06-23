@@ -20,13 +20,16 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
         offset,
     })
 
-    for (const user of users.data) {
-        if (dayjs(user.createdAt).isBefore(cutoff)) continue
+    const ciJobId = process.env.GITHUB_JOB
 
+    for (const user of users.data) {
         const emailMatches = user.emailAddresses.some((e) => SAFE_TO_DELETE.test(e.emailAddress))
         const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
 
-        if (emailMatches || nameMatches) {
+        if (
+            (ciJobId && user.publicMetadata.createdByCIJobId == ciJobId) ||
+            (dayjs(user.createdAt).isBefore(cutoff) && (emailMatches || nameMatches))
+        ) {
             try {
                 await clerk.users.deleteUser(user.id)
                 // eslint-disable-next-line no-console
