@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
-import { storeStudyEncryptedResultsFile } from '@/server/storage'
+import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -15,11 +15,12 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
 
     const formData = await req.formData()
     const logs = formData.get('log')
-    const results = formData.get('result')
+    let results = formData.get('result')
+    const file = formData.get('file')
 
-    const contents = logs || results // TODO: handle both logs and results
-    if (!contents || !(contents instanceof File)) {
-        return NextResponse.json({ status: 'fail', error: 'logs or results file is required' }, { status: 400 })
+    // TODO: remove this once TOA no longer sends 'file' property
+    if (!results && file) {
+        results = file
     }
 
     // join is a security check to ensure the job is owned by the org
@@ -35,13 +36,19 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return NextResponse.json({ status: 'fail', error: 'job not found' }, { status: 404 })
     }
 
-    // TODO: add methods for storing logs and results separately
-    await storeStudyEncryptedResultsFile(info, contents)
+    if (logs instanceof File) {
+        await storeStudyEncryptedLogFile(info, logs)
+    }
+
+
+    if (results instanceof File) {
+        await storeStudyEncryptedResultsFile(info, results)
+    }
 
     await db
         .insertInto('jobStatusChange')
         .values({
-            status: logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: figure out correct status,
+            status: logs && !results ? 'JOB-ERRORED' : 'RUN-COMPLETE', // TODO: verify this is correct status,
             studyJobId: info.studyJobId,
         })
         .execute()
