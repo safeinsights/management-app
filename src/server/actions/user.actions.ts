@@ -130,11 +130,13 @@ export const checkPendingInviteForMfaUserAction = anonAction(async () => {
         return false
     }
 
-    const amr = sessionClaims?.amr as ({ method: string; timestamp: number }[] | undefined)
+    // should never happen: Calling checkPendingInviteForMfaUserAction with a user who has mfa set up.
+    const amr = sessionClaims?.amr as { method: string; timestamp: number }[] | undefined
     const hasMfa = amr?.some((entry) => entry.method === 'mfa')
-
     if (hasMfa) {
-        return false
+        logger.warn(
+            `checkPendingInviteForMfaUserAction was called for a user (${userId}) who already has an active MFA session. This is an unexpected flow.`,
+        )
     }
 
     const email = sessionClaims?.primaryEmail as string | undefined
