@@ -1,4 +1,4 @@
-'use client'
+'use server'
 
 import { AppShell } from './app-shell'
 import { LoadingOverlay } from '@mantine/core'
@@ -9,6 +9,6 @@ type Props = {
     showOverlay?: boolean
 }
 
-export function UserLayout({ children, showOverlay = false }: Props) {
+export async function UserLayout({ children, showOverlay = false }: Props) {
     return <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
 }
