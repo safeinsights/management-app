@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Select, Stack, TextInput, Checkbox } from '@mantine/core' // Added Checkbox
+import { Button, Select, Stack, TextInput, Checkbox } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { z } from 'zod'
@@ -15,7 +15,7 @@ const formSchema = z.object({
     name: z.string().min(1, 'Name is required'),
     language: z.enum(['R'], { message: 'Language must be R' }),
     url: z.string().url('Must be a valid URL').min(1, 'URL is required'),
-    isTesting: z.boolean().default(false), // Added isTesting to schema
+    isTesting: z.boolean().default(false),
 })
 
 type FormValues = z.infer<typeof formSchema>
