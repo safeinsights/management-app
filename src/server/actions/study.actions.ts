@@ -195,7 +195,7 @@ export const approveStudyProposalAction = orgAction(
             if (SIMULATE_IMAGE_BUILD) {
                 status = 'JOB-READY'
             } else {
-                // TODO: the base image should be chosen by the user when they create the study
+                // TODO: the base image should be chosen by the user (if admin) when they create the study
                 // but for now we just use the latest base image for the org and language
                 const image = await db
                     .selectFrom('orgBaseImage')
@@ -203,7 +203,7 @@ export const approveStudyProposalAction = orgAction(
                         join.on('org.slug', '=', orgSlug).onRef('orgBaseImage.orgId', '=', 'org.id'),
                     )
                     .where('language', '=', latestJob.language)
-                    .orderBy('createdAt', 'desc')
+                    .orderBy('orgBaseImage.createdAt', 'desc')
                     .select(['url', 'cmdLine'])
                     .executeTakeFirstOrThrow(
                         throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
