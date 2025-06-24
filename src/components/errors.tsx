@@ -1,5 +1,3 @@
-'use client'
-
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
 import { Lock, Warning, WarningCircle } from '@phosphor-icons/react/dist/ssr'

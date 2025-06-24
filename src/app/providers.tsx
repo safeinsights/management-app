@@ -62,20 +62,20 @@ export const Providers: FC<Props> = ({ children }) => {
     }
 
     return (
-        <ClerkProvider
-            publishableKey={clerkPublishableKey}
-            localization={{
-                organizationSwitcher: {
-                    personalWorkspace: 'Researcher Account',
-                },
-            }}
-        >
-            <QueryClientProvider client={queryClient}>
-                <SentryUserProvider />
-                <MantineProvider theme={theme}>
+        <MantineProvider theme={theme}>
+            <ClerkProvider
+                publishableKey={clerkPublishableKey}
+                localization={{
+                    organizationSwitcher: {
+                        personalWorkspace: 'Researcher Account',
+                    },
+                }}
+            >
+                <QueryClientProvider client={queryClient}>
+                    <SentryUserProvider />
                     <ModalsProvider>{children}</ModalsProvider>
-                </MantineProvider>
-            </QueryClientProvider>
-        </ClerkProvider>
+                </QueryClientProvider>
+            </ClerkProvider>
+        </MantineProvider>
     )
 }

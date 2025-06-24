@@ -1,22 +1,19 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useAuth, useUser } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 import * as Sentry from '@sentry/nextjs'
 
 /**
  * This component ensures that the Sentry user context is set on the client-side.
- *
- * It should be placed in a central location, like the root layout, to run on every page load.
  */
 export default function SentryUserProvider() {
-    const { user } = useUser()
-    const { orgSlug } = useAuth()
+    const { userId, orgSlug } = useAuth()
 
     useEffect(() => {
-        if (user) {
+        if (userId) {
             Sentry.setUser({
-                id: user.id,
+                id: userId,
             })
             if (orgSlug) {
                 Sentry.setTag('org', orgSlug)
@@ -25,7 +22,7 @@ export default function SentryUserProvider() {
             Sentry.setUser(null)
             Sentry.setTag('org', '')
         }
-    }, [user, orgSlug])
+    }, [userId, orgSlug])
 
     return null
 }
