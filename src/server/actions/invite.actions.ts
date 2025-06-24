@@ -113,10 +113,6 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
             password: form.password,
             firstName: form.firstName,
             lastName: form.lastName,
-            publicMetadata: {
-                // mark user when created inside a github action so it can be later cleaned up after test run
-                createdByCIJobId: process.env.GITHUB_JOB,
-            },
         })
 
         // 2. Create SI user
@@ -124,6 +120,14 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
             email: email,
             firstName: form.firstName,
             lastName: form.lastName,
+        })
+
+        await client.users.updateUserMetadata(clerkUser.id, {
+            publicMetadata: {
+                userId: siUserId,
+                // mark user when created inside a github action so it can be later cleaned up after test run
+                createdByCIJobId: process.env.GITHUB_JOB,
+            },
         })
 
         // 3. Associate user with organization
