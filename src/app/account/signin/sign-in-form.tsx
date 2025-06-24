@@ -62,7 +62,7 @@ export const SignInForm: FC<{
                 // proceed to MFA setup to complete their account creation.
                 if (!inviteId) {
                     // This handles the "switched browser" case for users not in an invite flow.
-                    const isPending = await checkPendingInvite(values.email)
+                    const isPending = await checkPendingInvite()
                     if (isPending) {
                         form.setErrors({
                             email: 'To complete your account setup, please use the link from your invitation email.',

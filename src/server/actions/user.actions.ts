@@ -1,7 +1,7 @@
 'use server'
 
 import { db } from '@/database'
-import { clerkClient, currentUser } from '@clerk/nextjs/server'
+import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { findOrCreateOrgMembership } from '../mutations'
@@ -117,10 +117,31 @@ export const userExistsForInviteAction = anonAction(async (inviteId: string) => 
 }, z.string())
 
 // Action to check for a pending invite for a user who needs to set up MFA.
-// This is used as a fail-safe in the sign-in flow to prevent users from getting
-// stuck if they sign up via invite but then sign in from a different browser
-// before completing MFA setup.
-export const checkPendingInviteForMfaUserAction = anonAction(async (email: string) => {
+// This is used as a fail-safe in the sign-in flow. If a user signs up via invite,
+// but then signs in from a different browser before completing MFA, the original
+// invite ID from the URL is lost. This action checks if an unclaimed invite exists
+// for the user, allowing the UI to provide a more helpful message.
+export const checkPendingInviteForMfaUserAction = anonAction(async () => {
+    const { userId, sessionClaims } = await auth()
+
+    // This action should only be callable by users who are signed in but have not yet set up MFA.
+    // This prevents email enumeration attacks by anonymous users.
+    if (!userId) {
+        return false
+    }
+
+    const amr = sessionClaims?.amr as ({ method: string; timestamp: number }[] | undefined)
+    const hasMfa = amr?.some((entry) => entry.method === 'mfa')
+
+    if (hasMfa) {
+        return false
+    }
+
+    const email = sessionClaims?.primaryEmail as string | undefined
+    if (!email) {
+        return false
+    }
+
     const pendingInvite = await db
         .selectFrom('pendingUser')
         .select('id')
@@ -129,4 +150,4 @@ export const checkPendingInviteForMfaUserAction = anonAction(async (email: strin
         .executeTakeFirst()
 
     return !!pendingInvite
-}, z.string())
+})
