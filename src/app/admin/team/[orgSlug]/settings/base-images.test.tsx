@@ -65,7 +65,7 @@ describe('BaseImages', async () => {
         const imageName = faker.hacker.noun() + ' Base Image'
         await userEvent.type(screen.getByLabelText(/Name/i), imageName)
         await userEvent.type(screen.getByLabelText(/Command Line/i), 'Rscript %f')
-        await userEvent.type(screen.getByLabelText(/URL/i), 'http://example.com/test-image')
+        await userEvent.type(screen.getByLabelText(/Location/i), 'example.com/test-image:tag-1234')
         await userEvent.click(screen.getByRole('button', { name: /Save Image/i }))
 
         await waitFor(() => {
