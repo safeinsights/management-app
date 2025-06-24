@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
@@ -8,6 +8,7 @@ import { useForm } from '@mantine/form'
 import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
+import { ConfirmSubmissionModal } from './confirmation-modal'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
@@ -44,6 +45,7 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
+    const [confirmModalOpened, setConfirmModalOpened] = useState(false)
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -94,6 +96,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             return { studyId, studyJobId }
         },
         onSuccess() {
+            setConfirmModalOpened(false)
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:
@@ -104,6 +107,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
+            setConfirmModalOpened(false)
             notifications.show({
                 color: 'red',
                 title: 'Failed to upload file',
@@ -119,8 +123,24 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
     })
 
+    const handleSubmit = (values: StudyProposalFormValues) => {
+        setConfirmModalOpened(true)
+        studyProposalForm.setValues(values)
+    }
+
+    const handleConfirmSubmission = () => {
+        const values = studyProposalForm.getValues()
+        createStudy(values)
+    }
+
+    const handleCloseModal = () => {
+        if (!isPending) {
+            setConfirmModalOpened(false)
+        }
+    }
+
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+        <form onSubmit={studyProposalForm.onSubmit(handleSubmit)}>
             <Stack>
                 <StudyProposalForm studyProposalForm={studyProposalForm} />
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} />
@@ -132,11 +152,17 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 <Group gap="xl" justify="flex-end">
                     {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <Button disabled={!studyProposalForm.isValid || isPending} type="submit" variant="filled">
-                        Submit
+                    <Button disabled={!studyProposalForm.isValid} type="submit" variant="filled">
+                        Submit proposal
                     </Button>
                 </Group>
             </Stack>
+            <ConfirmSubmissionModal
+                opened={confirmModalOpened}
+                onClose={handleCloseModal}
+                onConfirm={handleConfirmSubmission}
+                isLoading={isPending}
+            />
         </form>
     )
 }

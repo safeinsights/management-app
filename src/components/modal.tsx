@@ -6,6 +6,7 @@ interface AppModalProps extends Omit<ModalProps, 'opened'> {
     onClose: () => void
     children: React.ReactNode
     title: React.ReactNode
+    styles?: ModalProps['styles']
 }
 
 /**
@@ -20,6 +21,7 @@ export function AppModal({
     centered = true,
     closeOnClickOutside = true,
     trapFocus = true,
+    styles,
 }: AppModalProps) {
     const theme = useMantineTheme()
 
@@ -47,6 +49,7 @@ export function AppModal({
                     borderRadius: '32px',
                     padding: '4px',
                 },
+                ...styles,
             }}
         >
             {children}
