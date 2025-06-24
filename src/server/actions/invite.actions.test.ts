@@ -36,6 +36,7 @@ describe('Invite Actions', () => {
                     getUserList: vi.fn().mockResolvedValue({ data: [] }),
                     createUser: vi.fn().mockResolvedValue({ id: 'new_clerk_user_123' }),
                     updateUserMetadata: vi.fn().mockResolvedValue({}),
+                    getUser: vi.fn().mockResolvedValue({ id: 'new_clerk_user_123', publicMetadata: {} }),
                 },
                 organizations: {
                     getOrganization: vi.fn().mockResolvedValue({ id: 'clerk_org_id' }),
@@ -131,6 +132,7 @@ describe('Invite Actions', () => {
                 name: orgB.name,
             })
             client.organizations.createOrganizationMembership.mockResolvedValue({ id: 'mem_456' })
+            client.users.getUser = vi.fn().mockResolvedValue({ publicMetadata: {} })
             Object.assign(client.users, { updateUserMetadata: vi.fn().mockResolvedValue({}) })
 
             const result = await claimInviteAction({ inviteId: pendingUser.id })
