@@ -92,6 +92,7 @@ export interface Org {
 }
 
 export interface OrgBaseImage {
+    cmdLine: string
     createdAt: Generated<Timestamp>
     id: Generated<string>
     isTesting: Generated<boolean>

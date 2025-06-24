@@ -3,27 +3,26 @@
 import { db } from '@/database'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { orgAdminAction } from './wrappers'
+import { orgAdminAction } from '@/server/actions/wrappers'
 import { throwNotFound } from '@/lib/errors'
 
-const createOrgBaseImageSchema = z.object({
-    orgSlug: z.string().min(1, 'Organization slug is required'),
-    name: z.string().min(1, 'Name is required'),
-    language: z.enum(['R'], { message: 'Language must be R' }),
-    url: z.string().url('Must be a valid URL').min(1, 'URL is required'),
-    isTesting: z.boolean().default(false), // Added isTesting field
+import { orgBaseImageSchema } from './base-images.schema'
+
+const actionSchema = orgBaseImageSchema.extend({
+    orgSlug: z.string(),
 })
 
 export const createOrgBaseImageAction = orgAdminAction(async (input) => {
     const newBaseImage = await db
         .insertInto('orgBaseImage')
-        .columns(['orgId', 'name', 'language', 'url', 'isTesting'])
+        .columns(['orgId', 'name', 'cmdLine', 'language', 'url', 'isTesting'])
         .expression((eb) =>
             eb
                 .selectFrom('org')
                 .select([
                     'id',
                     eb.val(input.name).as('name'),
+                    eb.val(input.cmdLine).as('cmdLine'),
                     eb.val(input.language).as('lang'),
                     eb.val(input.url).as('url'),
                     eb.val(input.isTesting).as('isTesting'),
@@ -37,7 +36,7 @@ export const createOrgBaseImageAction = orgAdminAction(async (input) => {
     revalidatePath(`/admin/team/${input.orgSlug}/settings`)
 
     return newBaseImage
-}, createOrgBaseImageSchema)
+}, actionSchema)
 
 const deleteOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
