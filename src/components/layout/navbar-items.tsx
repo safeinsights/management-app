@@ -13,13 +13,10 @@ import { RefWrapper } from './nav-ref-wrapper'
 import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isAdmin } = useAuthInfo()
+    const { isAdmin } = useAuthInfo()
 
     const pathname = usePathname()
     const dashboardURL = useDashboardUrl()
-
-    // wait for Clerk to finish loading before showing nav links
-    if (!isLoaded) return null
 
     return (
         <Stack gap="sm">
