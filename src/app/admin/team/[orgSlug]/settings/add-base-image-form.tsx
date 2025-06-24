@@ -67,7 +67,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                 />
                 <Checkbox
                     label="Is Testing Image"
-                    description="Only admins will be able to select testinng images"
+                    description="Only admins will be able to select testing images"
                     {...form.getInputProps('isTesting', { type: 'checkbox' })}
                     mt="sm"
                 />
