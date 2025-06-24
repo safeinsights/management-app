@@ -19,7 +19,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
                     <Title order={3} mb="lg">
                         People
                     </Title>
-                    <InviteButton orgSlug={orgSlug} />
+                    <InviteButton />
                 </Flex>
 
                 <UsersTable orgSlug={orgSlug} />

@@ -13,6 +13,7 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
 import { PendingUsers } from './pending-invites'
 import { SuccessPanel } from '@/components/panel'
+import { useAuth } from '@clerk/nextjs'
 
 interface InviteFormProps {
     orgSlug: string
@@ -90,8 +91,11 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     )
 }
 
-export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
+export const InviteButton: FC = () => {
     const [inviteUserOpened, { open: openInviteUser, close: closeInviteUser }] = useDisclosure(false)
+    const { orgSlug } = useAuth()
+
+    if (!orgSlug) return
 
     return (
         <>
