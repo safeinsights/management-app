@@ -204,7 +204,7 @@ export const approveStudyProposalAction = orgAction(
                     )
                     .where('language', '=', latestJob.language)
                     .orderBy('createdAt', 'desc')
-                    .select('url')
+                    .select(['url', 'cmdLine'])
                     .executeTakeFirstOrThrow(
                         throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
                     )
@@ -216,6 +216,7 @@ export const approveStudyProposalAction = orgAction(
                     studyId,
                     orgSlug: orgSlug,
                     codeEntryPointFileName: mainCode.name,
+                    cmdLine: image.cmdLine,
                     baseImageURL: image.url,
                 })
             }
