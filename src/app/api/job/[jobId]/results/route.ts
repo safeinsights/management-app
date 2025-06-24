@@ -4,7 +4,11 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
-import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
+import {
+    storeStudyEncryptedJobFile,
+    storeStudyEncryptedLogFile,
+    storeStudyEncryptedResultsFile,
+} from '@/server/storage'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()

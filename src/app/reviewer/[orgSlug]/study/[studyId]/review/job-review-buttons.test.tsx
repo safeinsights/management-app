@@ -7,7 +7,7 @@ import * as actions from '@/server/actions/study-job.actions'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.spyOn(actions, 'approveStudyJobResultsAction')
-vi.spyOn(actions, 'rejectStudyJobResultsAction')
+vi.spyOn(actions, 'rejectStudyJobFilesAction')
 
 vi.mock('@/server/storage', () => ({
     storeStudyApprovedResultsFile: vi.fn(),
@@ -60,6 +60,6 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can reject results', async () => {
-        await clickNTest('Reject', actions.rejectStudyJobResultsAction as Mock, 'RESULTS-REJECTED')
+        await clickNTest('Reject', actions.rejectStudyJobFilesAction as Mock, 'RESULTS-REJECTED')
     })
 })

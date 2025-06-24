@@ -46,3 +46,7 @@ export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file:
 export async function storeStudyApprovedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
 }
+
+export async function storeStudyApprovedLogFile(info: MinimalJobInfo, file: File) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-LOG')
+}

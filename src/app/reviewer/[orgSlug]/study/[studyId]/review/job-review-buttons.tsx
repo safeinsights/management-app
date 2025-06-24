@@ -2,20 +2,21 @@ import { DownloadResultsLink } from '@/components/links'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
-import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
+import { approveStudyJobResultsAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
+import { FC } from 'react'
 
 type FileEntry = {
     path: string
     contents: ArrayBuffer
 }
 
-const DownloadResults: React.FC<{ results?: FileEntry }> = ({ results }) => {
+const DownloadResults: FC<{ results?: FileEntry }> = ({ results }) => {
     if (!results) return null
     return (
         <>
@@ -53,11 +54,11 @@ export const JobReviewButtons = ({
             }
 
             if (status === 'RESULTS-APPROVED') {
-                await approveStudyJobResultsAction({ orgSlug, jobInfo, jobResults: decryptedResults })
+                await approveStudyJobResultsAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
             }
 
             if (status === 'RESULTS-REJECTED') {
-                await rejectStudyJobResultsAction(jobInfo)
+                await rejectStudyJobFilesAction(jobInfo)
             }
         },
         onError: reportMutationError('Failed to update study job status'),

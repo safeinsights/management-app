@@ -2,7 +2,7 @@
 
 import { db, jsonArrayFrom } from '@/database'
 import { minimalJobInfoSchema } from '@/lib/types'
-import { fetchFileContents, storeStudyApprovedResultsFile } from '@/server/storage'
+import { fetchFileContents, storeStudyApprovedLogFile, storeStudyApprovedResultsFile } from '@/server/storage'
 import {
     actionContext,
     checkMemberOfOrgWithSlug,
@@ -14,8 +14,8 @@ import {
 import { revalidatePath } from 'next/cache'
 
 import {
-    checkUserAllowedStudyReview,
     checkUserAllowedJobView,
+    checkUserAllowedStudyReview,
     getStudyJobFileOfType,
     latestJobForStudy,
     siUser,
@@ -23,10 +23,10 @@ import {
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
 
-const approveStudyJobResultsActionSchema = z.object({
+const approveStudyJobFileActionSchema = z.object({
     orgSlug: z.string(),
     jobInfo: minimalJobInfoSchema,
-    jobResults: z.array(
+    jobFiles: z.array(
         z.object({
             path: z.string(),
             contents: z.instanceof(ArrayBuffer),
@@ -34,11 +34,33 @@ const approveStudyJobResultsActionSchema = z.object({
     ),
 })
 
-export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobResults }) => {
+export const approveStudyJobLogsAction = orgAction(async ({ jobInfo: info, jobFiles }) => {
     await checkUserAllowedStudyReview(info.studyId)
 
     // FIXME: handle more than a single result. will require a db schema change
-    const result = jobResults[0]
+    const log = jobFiles[0]
+    const logFile = new File([log.contents], log.path)
+    await storeStudyApprovedLogFile(info, logFile)
+    const user = await siUser()
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: user.id,
+            status: 'RESULTS-APPROVED',
+            studyJobId: info.studyJobId,
+        })
+        .executeTakeFirstOrThrow()
+
+    await sendStudyResultsApprovedEmail(info.studyId)
+
+    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+}, approveStudyJobFileActionSchema)
+
+export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobFiles }) => {
+    await checkUserAllowedStudyReview(info.studyId)
+
+    // FIXME: handle more than a single result. will require a db schema change
+    const result = jobFiles[0]
     const resultsFile = new File([result.contents], result.path)
     await storeStudyApprovedResultsFile(info, resultsFile)
     const user = await siUser()
@@ -53,9 +75,9 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
 
     await sendStudyResultsApprovedEmail(info.studyId)
     revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-}, approveStudyJobResultsActionSchema)
+}, approveStudyJobFileActionSchema)
 
-export const rejectStudyJobResultsAction = orgAction(
+export const rejectStudyJobFilesAction = orgAction(
     async (info) => {
         await checkUserAllowedStudyReview(info.studyId)
 
@@ -69,7 +91,6 @@ export const rejectStudyJobResultsAction = orgAction(
             .executeTakeFirstOrThrow()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
-
         await sendStudyResultsRejectedEmail(info.studyId)
 
         revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
@@ -125,6 +146,27 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     }
     return latestJob
 }, z.string())
+
+export const fetchJobLogsAction = userAction(async (jobId) => {
+    await checkUserAllowedJobView(jobId)
+    const info = await getStudyJobFileOfType(jobId, 'APPROVED-LOG')
+    const body = await fetchFileContents(info.path)
+
+    return { path: info.path, contents: await body.text() }
+}, z.string())
+
+export const fetchJobLogsZipAction = orgAction(
+    async ({ jobId, orgSlug }) => {
+        await checkMemberOfOrgWithSlug(orgSlug)
+        const info = await getStudyJobFileOfType(jobId, 'ENCRYPTED-LOG')
+        const body = await fetchFileContents(info.path)
+        return body
+    },
+    z.object({
+        jobId: z.string(),
+        orgSlug: z.string(),
+    }),
+)
 
 export const fetchJobResultsCsvAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
