@@ -2,7 +2,7 @@
 
 import { FC, useEffect } from 'react'
 
-import { Flex, LoadingOverlay, Stack, Text } from '@mantine/core'
+import { Flex, LoadingOverlay, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert, reportError } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
@@ -28,18 +28,8 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
         queryFn: async () => await fetchJobResultsCsvAction(job.id || ''),
     })
 
-    useEffect(() => {
-        if (isError) {
-            reportError(error, 'Failed to fetch job results')
-        }
-    }, [isError, error])
-
-    if (job.latestStatus !== 'RESULTS-APPROVED') {
+    if (job.latestStatus !== 'RESULTS-APPROVED' || !job.resultsPath) {
         return null
-    }
-
-    if (!job.resultsPath) {
-        return <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
     }
 
     if (isError) {
