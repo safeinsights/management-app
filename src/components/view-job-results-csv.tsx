@@ -1,10 +1,10 @@
 'use client'
 
-import { FC, useEffect } from 'react'
+import { FC } from 'react'
 
 import { Flex, LoadingOverlay, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
-import { ErrorAlert, reportError } from '@/components/errors'
+import { ErrorAlert } from '@/components/errors'
 import { Download } from '@phosphor-icons/react/dist/ssr'
 import { resultsDownloadURL } from '@/lib/paths'
 import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
