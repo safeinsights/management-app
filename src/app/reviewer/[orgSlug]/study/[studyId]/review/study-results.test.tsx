@@ -40,12 +40,12 @@ describe('View Study Results', () => {
     })
 
     it('shows results rejected state', async () => {
-        await insertAndRender('PENDING-REVIEW', 'RESULTS-REJECTED')
+        await insertAndRender('PENDING-REVIEW', 'FILES-REJECTED')
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
     })
 
     it('renders the results if the job has been approved', async () => {
-        await insertAndRender('APPROVED', 'RESULTS-APPROVED')
+        await insertAndRender('APPROVED', 'FILES-APPROVED')
         await waitFor(() => {
             expect(screen.getByRole('link', { name: /Download/i })).toBeDefined()
         })

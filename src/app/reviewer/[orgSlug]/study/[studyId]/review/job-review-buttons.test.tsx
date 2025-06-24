@@ -56,10 +56,10 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can approve results', async () => {
-        await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'RESULTS-APPROVED')
+        await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'FILES-APPROVED')
     })
 
     it('can reject results', async () => {
-        await clickNTest('Reject', actions.rejectStudyJobFilesAction as Mock, 'RESULTS-REJECTED')
+        await clickNTest('Reject', actions.rejectStudyJobFilesAction as Mock, 'FILES-REJECTED')
     })
 })

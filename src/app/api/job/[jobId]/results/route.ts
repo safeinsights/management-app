@@ -4,11 +4,7 @@ export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
-import {
-    storeStudyEncryptedJobFile,
-    storeStudyEncryptedLogFile,
-    storeStudyEncryptedResultsFile,
-} from '@/server/storage'
+import { storeStudyEncryptedLogFile, storeStudyEncryptedResultsFile } from '@/server/storage'
 
 export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
     const org = apiRequestingOrg()
@@ -23,6 +19,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     const file = formData.get('file')
 
     // TODO: remove this once TOA no longer sends 'file' property
+    //  reference PR: https://github.com/safeinsights/trusted-output-app/pull/35/files
     if (!results && file) {
         results = file
     }

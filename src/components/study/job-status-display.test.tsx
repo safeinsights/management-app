@@ -13,7 +13,7 @@ describe('JobStatusDisplay', () => {
         expect(screen.getByText(new RegExp(dayjs(createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
 
-    it('shows rejected status for RESULTS-REJECTED', () => {
+    it('shows rejected status for FILES-REJECTED', () => {
         const createdAt = new Date('2024-04-04T00:00:00Z')
         renderWithProviders(<JobStatusDisplay statusChange={{ status: 'CODE-REJECTED', createdAt }} />)
         expect(screen.getByText(/Rejected/)).toBeDefined()

@@ -49,13 +49,13 @@ describe('DisplayStudyStatus', () => {
         },
         {
             studyStatus: 'APPROVED',
-            jobStatus: 'RESULTS-REJECTED',
+            jobStatus: 'FILES-REJECTED',
             expectedProposalText: 'Results',
             expectedStatusText: 'Rejected',
         },
         {
             studyStatus: 'APPROVED',
-            jobStatus: 'RESULTS-APPROVED',
+            jobStatus: 'FILES-APPROVED',
             expectedProposalText: 'Results',
             expectedStatusText: 'Approved',
         },

@@ -2,7 +2,11 @@ import { DownloadResultsLink } from '@/components/links'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
-import { approveStudyJobResultsAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
+import {
+    approveStudyJobLogsAction,
+    approveStudyJobResultsAction,
+    rejectStudyJobFilesAction,
+} from '@/server/actions/study-job.actions'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
@@ -53,11 +57,18 @@ export const JobReviewButtons = ({
                 orgSlug: orgSlug,
             }
 
-            if (status === 'RESULTS-APPROVED') {
-                await approveStudyJobResultsAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
+            if (status === 'FILES-APPROVED') {
+                // Eventually we might support multiple files, so this logic will have to change with that
+                const isLogFile = job.files.some((file) => file.fileType === 'ENCRYPTED-LOG')
+
+                if (!isLogFile) {
+                    await approveStudyJobResultsAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
+                }
+
+                await approveStudyJobLogsAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
             }
 
-            if (status === 'RESULTS-REJECTED') {
+            if (status === 'FILES-REJECTED') {
                 await rejectStudyJobFilesAction(jobInfo)
             }
         },
@@ -67,7 +78,7 @@ export const JobReviewButtons = ({
         },
     })
 
-    const approved = job.statusChanges.find((sc) => sc.status == 'RESULTS-APPROVED')
+    const approved = job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
     if (approved) {
         return (
             <Group gap="xs">
@@ -79,7 +90,7 @@ export const JobReviewButtons = ({
         )
     }
 
-    const rejected = job.statusChanges.find((sc) => sc.status == 'RESULTS-REJECTED')
+    const rejected = job.statusChanges.find((sc) => sc.status == 'FILES-REJECTED')
     if (rejected) {
         return (
             <Group gap="xs">
@@ -98,16 +109,16 @@ export const JobReviewButtons = ({
             <DownloadResults results={decryptedResults[0]} />
             <Button
                 disabled={isPending || isSuccess}
-                loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
-                onClick={() => updateStudyJob({ status: 'RESULTS-REJECTED' })}
+                loading={isPending && pendingStatus == 'FILES-REJECTED'}
+                onClick={() => updateStudyJob({ status: 'FILES-REJECTED' })}
                 variant="outline"
             >
                 Reject
             </Button>
             <Button
                 disabled={isPending || isSuccess}
-                loading={isPending && pendingStatus == 'RESULTS-APPROVED'}
-                onClick={() => updateStudyJob({ status: 'RESULTS-APPROVED' })}
+                loading={isPending && pendingStatus == 'FILES-APPROVED'}
+                onClick={() => updateStudyJob({ status: 'FILES-APPROVED' })}
             >
                 Approve
             </Button>

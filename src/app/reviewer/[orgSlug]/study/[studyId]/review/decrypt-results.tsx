@@ -88,11 +88,18 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
         }
     }
 
+    // Eventually we might support multiple files, so this logic will have to change with that
+    const isLogFile = job.files.some((file) => file.fileType === 'ENCRYPTED-LOG')
+
+    // TODO Confirm with iris/devika on if we want to
+    //  1. display results in browser
+    //  or
+    //  2. just display links to download file
     return (
         <Stack>
-            {plainTextResults.map((txt, i) => (
-                <RenderCSV csv={txt} key={i} />
-            ))}
+            {/*{plainTextResults.map((txt, i) => (*/}
+            {/*    <RenderCSV csv={txt} key={i} />*/}
+            {/*))}*/}
             {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !plainTextResults?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>

@@ -46,7 +46,7 @@ export const approveStudyJobLogsAction = orgAction(async ({ jobInfo: info, jobFi
         .insertInto('jobStatusChange')
         .values({
             userId: user.id,
-            status: 'RESULTS-APPROVED',
+            status: 'FILES-APPROVED',
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
@@ -68,7 +68,7 @@ export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jo
         .insertInto('jobStatusChange')
         .values({
             userId: user.id,
-            status: 'RESULTS-APPROVED',
+            status: 'FILES-APPROVED',
             studyJobId: info.studyJobId,
         })
         .executeTakeFirstOrThrow()
@@ -85,7 +85,7 @@ export const rejectStudyJobFilesAction = orgAction(
             .insertInto('jobStatusChange')
             .values({
                 userId: (await siUser()).id,
-                status: 'RESULTS-REJECTED',
+                status: 'FILES-REJECTED',
                 studyJobId: info.studyJobId,
             })
             .executeTakeFirstOrThrow()
