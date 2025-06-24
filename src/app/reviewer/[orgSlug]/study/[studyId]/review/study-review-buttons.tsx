@@ -31,7 +31,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             }
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to update study status'),
         onSuccess: () => router.push(backPath),
     })
 

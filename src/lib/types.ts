@@ -49,24 +49,7 @@ export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
 })
 export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
-// there's probably a way to do this with zod schema
-// but don't need it yet so i haven't investigated how
-export type MinimalJobResultsInfo = MinimalJobInfo &
-    (
-        | {
-              resultsType: 'APPROVED'
-              resultsPath: string
-          }
-        | {
-              resultsType: 'ENCRYPTED'
-          }
-    )
-
 export type AllStatus = StudyJobStatus | StudyStatus
-
-export function isMinimalStudyJobInfo(info: MinimalStudyInfo | MinimalJobResultsInfo): info is MinimalJobResultsInfo {
-    return 'studyJobId' in info
-}
 
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
@@ -81,3 +64,6 @@ export enum AuthRole {
     Reviewer = 'reviewer',
     Researcher = 'researcher',
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>
