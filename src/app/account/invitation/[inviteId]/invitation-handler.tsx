@@ -42,12 +42,14 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         newOrgSlug: string | null
         orgName: string | null
         error: string | null
+        isFinalized: boolean
     }
 
     const [state, setState] = useState<InvitationState>({
         newOrgSlug: null,
         orgName: null,
         error: null,
+        isFinalized: false,
     })
     // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
@@ -56,21 +58,22 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         mutationFn: claimInviteAction,
         onSuccess: (result) => {
             if (result.success && result.organizationName) {
-                setState({
+                setState((s) => ({
+                    ...s,
                     orgName: result.organizationName,
                     newOrgSlug: result.orgSlug || null,
                     error: null,
-                })
+                }))
             } else {
                 const error = result.error || 'Failed to accept invitation.'
-                setState({ orgName: null, newOrgSlug: null, error })
+                setState((s) => ({ ...s, orgName: null, newOrgSlug: null, error, isFinalized: true }))
                 notifications.show({ title: 'Error', message: error, color: 'red' })
             }
         },
         onError: (err) => {
             const error = 'An unexpected error occurred while processing your invitation.'
             reportError(err, 'Error accepting invitation for existing user')
-            setState({ orgName: null, newOrgSlug: null, error })
+            setState((s) => ({ ...s, orgName: null, newOrgSlug: null, error, isFinalized: true }))
             notifications.show({ title: 'Error', message: 'An unexpected error occurred.', color: 'red' })
         },
     })
@@ -87,15 +90,22 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         const orgMeta = user.publicMetadata?.orgs?.find((o) => o.slug === state.newOrgSlug)
         if (orgMeta?.isReviewer) {
             // update Clerk’s active organization so useDashboardUrl picks it up
-            setActive({ organization: state.newOrgSlug }).catch(() => {})
+            setActive({ organization: state.newOrgSlug })
+                .catch(() => {})
+                .finally(() => {
+                    setState((s) => ({ ...s, isFinalized: true }))
+                })
+        } else {
+            // If not a reviewer, no need to wait for setActive
+            setState((s) => ({ ...s, isFinalized: true }))
         }
     }, [state.newOrgSlug, user, setActive])
 
     // fetch whether this email is already in our SI user table
-    const { data: userExists } = useQuery({
+    const { data: userExists, isLoading: isLoadingUserExists } = useQuery({
         queryKey: ['userExistsForInvite', inviteId],
         queryFn: () => userExistsForInviteAction(inviteId),
-        enabled: isLoaded,
+        enabled: isLoaded && !isSignedIn, // Only run for non-signed-in users
     })
 
     useEffect(() => {
@@ -104,7 +114,7 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         }
     }, [userExists, isSignedIn, router, inviteId])
 
-    if (!isLoaded || isPending) {
+    if (!isLoaded || isPending || isLoadingUserExists) {
         return <LoadingMessage message="Processing your invitation..." />
     }
 
@@ -117,7 +127,7 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         if (state.error) {
             return <Text color="red">{state.error}</Text>
         }
-        if (state.orgName) {
+        if (state.orgName && state.isFinalized) {
             return (
                 <SuccessPanel
                     title={`You're now a member of ${state.orgName}!`}
@@ -127,7 +137,7 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
                 </SuccessPanel>
             )
         }
-        // This state should be brief, while waiting for orgName
+        // This state should be brief, while waiting for orgName and finalization
         return <LoadingMessage message="Finalizing your membership..." />
     }
 
