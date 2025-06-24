@@ -48,7 +48,14 @@ test.describe('Studies', () => {
         // await page.setInputFiles('input[type="file"]', largeFile)
         // await expect(page.getByText('File size cannot exceed')).toBeVisible()
 
-        await page.getByRole('button', { name: 'Submit', exact: true }).click()
+        await page.getByRole('button', { name: 'Submit proposal', exact: true }).click()
+        await expect(page.getByText('Confirm proposal submission')).toBeVisible()
+
+        await page.getByRole('button', { name: 'No, continue editing', exact: true }).click()
+        await expect(page.getByText('Confirm proposal submission')).not.toBeVisible()
+
+        await page.getByRole('button', { name: 'Submit proposal', exact: true }).click()
+        await page.getByRole('button', { name: 'Yes, submit proposal', exact: true }).click()
 
         // TODO Final step changed? these aren't in the mockups :thinking:
         // await expect(page.getByTestId('study-title')).toHaveValue(studyFeatures.studyTitle)
@@ -58,6 +65,7 @@ test.describe('Studies', () => {
         // await page.getByRole('button', { name: /submit proposal/i }).click()
         //
         // await page.getByRole('button', { name: /all studies/i }).click()
+
         await page.waitForLoadState('networkidle')
 
         await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
