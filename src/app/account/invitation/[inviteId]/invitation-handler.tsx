@@ -24,7 +24,7 @@ import { NewUserAccountForm } from './new-user-account-form'
 import { claimInviteAction } from '@/server/actions/invite.actions'
 import { LoadingMessage } from '@/components/loading'
 import { SuccessPanel } from '@/components/panel'
-import { reportError } from '@/components/errors'
+import { ErrorAlert, reportError } from '@/components/errors'
 import { useDashboardUrl } from '@/lib/dashboard-url'
 
 interface InvitationHandlerProps {
@@ -102,7 +102,12 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
     }, [state.newOrgSlug, user, setActive])
 
     // fetch whether this email is already in our SI user table
-    const { data: userExists, isLoading: isLoadingUserExists } = useQuery({
+    const {
+        data: userExists,
+        isLoading: isLoadingUserExists,
+        isError: isUserExistsError,
+        error: userExistsError,
+    } = useQuery({
         queryKey: ['userExistsForInvite', inviteId],
         queryFn: () => userExistsForInviteAction(inviteId),
         enabled: isLoaded && !isSignedIn, // Only run for non-signed-in users
@@ -116,6 +121,10 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
 
     if (!isLoaded || isPending || isLoadingUserExists) {
         return <LoadingMessage message="Processing your invitation..." />
+    }
+
+    if (isUserExistsError) {
+        return <ErrorAlert error={userExistsError} />
     }
 
     // returning user: prompt them to sign in instead of sign up
