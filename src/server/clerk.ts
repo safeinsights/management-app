@@ -38,8 +38,13 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 export const updateClerkUserMetadata = async (userId: string) => {
     const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
     const client = await clerkClient()
+    const clerkUser = await client.users.getUser(clerkId)
+    // Do not delete existing public metadata with help of existingPublicMetadata
+    const existingPublicMetadata = clerkUser.publicMetadata || {}
+
     await client.users.updateUserMetadata(clerkId, {
         publicMetadata: {
+            ...existingPublicMetadata,
             userId,
             orgs: await getOrgInfoForUserId(userId),
         },

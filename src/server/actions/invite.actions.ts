@@ -113,6 +113,10 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
             password: form.password,
             firstName: form.firstName,
             lastName: form.lastName,
+            publicMetadata: {
+                // mark user when created inside a github action so it can be later cleaned up after test run
+                createdByCIJobId: process.env.GITHUB_JOB,
+            },
         })
 
         // 2. Create SI user
