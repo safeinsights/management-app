@@ -58,17 +58,20 @@ export const SignInForm: FC<{
                 }
             }
             if (attempt.status === 'needs_second_factor') {
-                // This handles the "switched browser" or stale ID case.
-                const isPending = await checkPendingInvite(values.email)
-                if (isPending) {
-                    form.setErrors({
-                        email: 'To complete your account setup, please use the link from your invitation email.',
-                    })
-                    return
+                // If the user arrived via an invitation link, allow them to
+                // proceed to MFA setup to complete their account creation.
+                if (!inviteId) {
+                    // This handles the "switched browser" case for users not in an invite flow.
+                    const isPending = await checkPendingInvite(values.email)
+                    if (isPending) {
+                        form.setErrors({
+                            email: 'To complete your account setup, please use the link from your invitation email.',
+                        })
+                        return
+                    }
                 }
 
-                // If we're here, there was no pending invite.
-                // It's safe to proceed to MFA.
+                // If we're here, it's safe to proceed to MFA.
                 const state = await signInToMFAState(attempt)
                 onComplete(state)
             }
