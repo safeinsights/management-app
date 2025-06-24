@@ -154,8 +154,9 @@ export async function fetchS3File(Key: string) {
 }
 
 export async function triggerBuildImageForJob(
-    info: MinimalJobInfo & { baseImageURL: string; codeEntryPointFileName: string },
+    info: MinimalJobInfo & { baseImageURL: string; codeEntryPointFileName: string; cmdLine: string },
 ) {
+    const cmd = info.cmdLine.replace('%f', info.codeEntryPointFileName)
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(
         new StartBuildCommand({
@@ -176,10 +177,8 @@ export async function triggerBuildImageForJob(
                     }),
                 },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
-                { name: 'CODE_ENTRYPOINT', value: info.codeEntryPointFileName },
                 { name: 'DOCKER_BASE_IMAGE_URL', value: info.baseImageURL },
-                { name: 'DOCKER_CMD_LINE', value: `CMD ["Rscript", "main.r"]` },
-                { name: 'DOCKER_REPOSITORY_URL', value: await codeBuildRepositoryUrl(info) },
+                { name: 'DOCKER_CMD_LINE', value: cmd },
                 { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
             ],
         }),

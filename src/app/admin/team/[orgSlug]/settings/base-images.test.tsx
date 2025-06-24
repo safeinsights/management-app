@@ -38,6 +38,7 @@ describe('BaseImages', async () => {
             .values({
                 name: 'R Base Image 1',
                 language: 'R',
+                cmdLine: 'Rscript %f',
                 url: 'http://example.com/r-base-1',
                 isTesting: false,
                 orgId: org.id,
@@ -61,16 +62,11 @@ describe('BaseImages', async () => {
             expect(screen.getByRole('heading', { name: /Add New Base Image/i })).toBeInTheDocument()
         })
 
-        const nameInput = screen.getByLabelText(/Name/i)
-        const urlInput = screen.getByLabelText(/URL/i)
-        const submitButton = screen.getByRole('button', { name: /Save Image/i })
-
         const imageName = faker.hacker.noun() + ' Base Image'
-        await userEvent.type(nameInput, imageName)
-
-        await userEvent.type(urlInput, 'http://example.com/test-image')
-
-        await userEvent.click(submitButton)
+        await userEvent.type(screen.getByLabelText(/Name/i), imageName)
+        await userEvent.type(screen.getByLabelText(/Command Line/i), 'Rscript %f')
+        await userEvent.type(screen.getByLabelText(/URL/i), 'http://example.com/test-image')
+        await userEvent.click(screen.getByRole('button', { name: /Save Image/i }))
 
         await waitFor(() => {
             expect(screen.getByText(imageName)).toBeInTheDocument()
