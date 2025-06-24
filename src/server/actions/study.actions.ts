@@ -200,7 +200,7 @@ export const approveStudyProposalAction = orgAction(
                 const image = await db
                     .selectFrom('orgBaseImage')
                     .innerJoin('org', (join) =>
-                        join.on('org.slug', '=', orgSlug).onRef('orgBaseImage.orgId', '=', 'org.id'),
+                        join.onRef('orgBaseImage.orgId', '=', 'org.id').on('org.slug', '=', orgSlug),
                     )
                     .where('language', '=', latestJob.language)
                     .orderBy('orgBaseImage.createdAt', 'desc')
