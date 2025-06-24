@@ -1,29 +1,12 @@
-import { db, type DBExecutor } from '@/database'
+import { db, type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { CLERK_ADMIN_ORG_SLUG, MinimalJobResultsInfo } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { getUserIdFromActionContext } from '../actions/wrappers'
-
-export const queryJobResult = async (jobId: string): Promise<MinimalJobResultsInfo | null> => {
-    const results = await db
-        .selectFrom('studyJob')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .innerJoin('org', 'study.orgId', 'org.id')
-        .innerJoin('jobStatusChange', (st) =>
-            st
-                .onRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                .on('jobStatusChange.status', '=', 'RUN-COMPLETE'),
-        )
-        .select(['org.slug as orgSlug', 'studyJob.id as studyJobId', 'studyId', 'resultsPath'])
-        .where('studyJob.id', '=', jobId)
-        .executeTakeFirst()
-
-    if (!results) return null
-
-    return { ...results, resultsType: results.resultsPath ? 'APPROVED' : 'ENCRYPTED' } as MinimalJobResultsInfo
-}
+import { FileType } from '@/database/types'
+import { Selectable } from 'kysely'
 
 export const checkUserAllowedJobView = async (jobId?: string) => {
     if (!jobId) throw new AccessDeniedError({ user: `not allowed access to job ${jobId}` })
@@ -132,59 +115,14 @@ export const latestJobForStudy = async (
             qb.innerJoin('org', (join) => join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId')),
         )
         .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
-        .innerJoin(
-            // join to the latest status change
-            (eb) =>
+        .select((eb) => [
+            jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'createdAt as latestStatusChangeOccurredAt',
-                        'status as latestStatus',
-                    ])
-                    .as('latestStatusChange'),
-            (join) => join.onRef('latestStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .leftJoin(
-            // latest CODE-APPROVED or CODE-REJECTED status
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .where('jobStatusChange.status', 'in', ['CODE-APPROVED', 'CODE-REJECTED'])
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select(['jobStatusChange.studyJobId', 'status as codeStatus', 'createdAt as codeStatusOccurredAt'])
-                    .as('codeStatusChange'),
-            (join) => join.onRef('codeStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .leftJoin(
-            // latest RESULTS-APPROVED or RESULTS-REJECTED status
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .where('jobStatusChange.status', 'in', ['RESULTS-APPROVED', 'RESULTS-REJECTED'])
-                    .orderBy('studyJobId', 'desc')
-                    .orderBy('id', 'desc')
-                    .distinctOn('studyJobId')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'status as resultsStatus',
-                        'createdAt as resultsStatusOccurredAt',
-                    ])
-                    .as('resultsStatusChange'),
-            (join) => join.onRef('resultsStatusChange.studyJobId', '=', 'studyJob.id'),
-        )
-        .select([
-            'latestStatusChange.latestStatus',
-            'latestStatusChange.latestStatusChangeOccurredAt',
-            'codeStatusChange.codeStatus',
-            'codeStatusChange.codeStatusOccurredAt',
-            'resultsStatusChange.resultsStatus',
-            'resultsStatusChange.resultsStatusOccurredAt',
+                    .select(['status', 'createdAt'])
+                    .orderBy('createdAt', 'desc')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')
@@ -197,13 +135,7 @@ export const jobInfoForJobId = async (jobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select([
-            'studyId',
-            'studyJob.id as studyJobId',
-            'org.slug as orgSlug',
-            'studyJob.resultsPath',
-            'studyJob.resultFormat',
-        ])
+        .select(['studyId', 'studyJob.id as studyJobId', 'org.slug as orgSlug'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
 }
@@ -292,4 +224,34 @@ export const getOrgInfoForUserId = async (userId: string) => {
         .select(['org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
         .where('userId', '=', userId)
         .execute()
+}
+
+type JobDetails = { id: string; name: string; path: string }
+
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound?: true,
+): Promise<Selectable<JobDetails>>
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound?: false,
+): Promise<Selectable<JobDetails> | undefined>
+export async function getStudyJobFileOfType(
+    studyJobId: string,
+    fileType: FileType,
+    throwIfNotFound = true,
+): Promise<Selectable<JobDetails> | undefined> {
+    const file = await db
+        .selectFrom('studyJobFile')
+        .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path'])
+        .where('studyJobId', '=', studyJobId)
+        .where('fileType', '=', fileType)
+        .executeTakeFirst()
+
+    if (!file && throwIfNotFound) {
+        throw new Error(`File of type ${fileType} not found for study job ${studyJobId}`)
+    }
+    return file
 }

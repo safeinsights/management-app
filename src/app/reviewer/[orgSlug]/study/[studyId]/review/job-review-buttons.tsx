@@ -1,4 +1,5 @@
 import { DownloadResultsLink } from '@/components/links'
+import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
@@ -59,28 +60,31 @@ export const JobReviewButtons = ({
                 await rejectStudyJobResultsAction(jobInfo)
             }
         },
+        onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
             router.push('/')
         },
     })
 
-    if (job.latestStatus === 'RESULTS-APPROVED') {
+    const approved = job.statusChanges.find((sc) => sc.status == 'RESULTS-APPROVED')
+    if (approved) {
         return (
             <Group gap="xs">
                 <CheckCircle weight="fill" size={24} color={theme.colors.green[9]} />
                 <Text fz="xs" fw={600} c="green.9">
-                    Approved on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                    Approved on {dayjs(approved.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
         )
     }
 
-    if (job.latestStatus === 'RESULTS-REJECTED') {
+    const rejected = job.statusChanges.find((sc) => sc.status == 'RESULTS-REJECTED')
+    if (rejected) {
         return (
             <Group gap="xs">
                 <XCircle weight="fill" size={24} color={theme.colors.red[9]} />
                 <Text fz="xs" fw={600} c="red.9">
-                    Rejected on {dayjs(job.latestStatusChangeOccurredAt).format('MMM DD, YYYY')}
+                    Rejected on {dayjs(rejected.createdAt).format('MMM DD, YYYY')}
                 </Text>
             </Group>
         )
