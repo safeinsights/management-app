@@ -1,6 +1,6 @@
 import { db, type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { ActionReturnType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
@@ -99,7 +99,7 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
     return result?.publicKey
 }
 
-export type StudyJobWithLastStatus = Awaited<ReturnType<typeof latestJobForStudy>>
+export type StudyJobWithLastStatus = ActionReturnType<typeof latestJobForStudy>
 export const latestJobForStudy = async (
     studyId: string,
     { orgSlug, userId }: { orgSlug?: null | string; userId?: null | string } = {},
@@ -123,6 +123,12 @@ export const latestJobForStudy = async (
                     .orderBy('createdAt', 'desc')
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType', 'createdAt'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
         ])
         .where('studyJob.studyId', '=', studyId)
         .orderBy('createdAt', 'desc')

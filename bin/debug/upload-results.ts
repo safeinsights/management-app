@@ -5,7 +5,7 @@ import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
 // npx tsx bin/debug/upload-results.ts -j 0196cee0-9865-7b56-a167-7053bbcec3a9 -r tests/assets/results-with-pii.csv -l tests/assets/error-log.txt
-
+// npx tsx bin/debug/upload-results.ts -j 0197a310-ebe0-7e07-af9d-8bfe94841b4b -r tests/assets/results-with-pii.csv -l tests/assets/error-log.txt
 class FileSender extends DebugRequest {
     constructor() {
         super()
