@@ -140,6 +140,9 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
 
         return clerkUser.id // Return Clerk User ID
     } catch (error: unknown) {
+        if (error instanceof ActionFailure) {
+            throw error
+        }
         if (isClerkApiError(error)) {
             const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
             if (pwnedError) {
