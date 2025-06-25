@@ -1,9 +1,12 @@
-import type { MinimalJobInfo, MinimalJobResultsInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import type { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from './util'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
 
 export const pathForStudyJob = (parts: MinimalJobInfo) => `${pathForStudy(parts)}/jobs/${parts.studyJobId}`
+
+export const pathForStudyJobFile = (parts: MinimalJobInfo, file: { path: string }) =>
+    `${pathForStudyJob(parts)}/${file.path}`
 
 export const pathForStudyJobCode = (parts: MinimalJobInfo) => `${pathForStudyJob(parts)}/code`
 
@@ -15,9 +18,6 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
-
-export const pathForStudyJobResults = (parts: MinimalJobResultsInfo) =>
-    `${pathForStudyJob(parts)}/results/${parts.resultsType == 'APPROVED' ? `approved/${parts.resultsPath}` : 'encrypted.zip'}`
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`

@@ -3,7 +3,7 @@
 import { db } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
-import { latestJobForStudy } from '@/server/db/queries'
+import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { checkUserAllowedStudyReview } from '../db/queries'
@@ -15,6 +15,7 @@ import {
     userAction,
     z,
 } from './wrappers'
+import { throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -196,10 +197,29 @@ export const approveStudyProposalAction = orgAction(
             if (SIMULATE_IMAGE_BUILD) {
                 status = 'JOB-READY'
             } else {
+                // TODO: the base image should be chosen by the user (if admin) when they create the study
+                // but for now we just use the latest base image for the org and language
+                const image = await db
+                    .selectFrom('orgBaseImage')
+                    .innerJoin('org', (join) =>
+                        join.onRef('orgBaseImage.orgId', '=', 'org.id').on('org.slug', '=', orgSlug),
+                    )
+                    .where('language', '=', latestJob.language)
+                    .orderBy('orgBaseImage.createdAt', 'desc')
+                    .select(['url', 'cmdLine'])
+                    .executeTakeFirstOrThrow(
+                        throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
+                    )
+
+                const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
+
                 await triggerBuildImageForJob({
                     studyJobId: latestJob.id,
                     studyId,
                     orgSlug: orgSlug,
+                    codeEntryPointFileName: mainCode.name,
+                    cmdLine: image.cmdLine,
+                    baseImageURL: image.url,
                 })
             }
             await trx
