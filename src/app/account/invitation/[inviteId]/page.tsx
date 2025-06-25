@@ -1,7 +1,7 @@
 import { db } from '@/database'
 import { ErrorAlert } from '@/components/errors'
 import { Container } from '@mantine/core'
-import { InvitationHandler } from './invitation-handler' // New client component
+import { InvitationHandler } from './invitation-handler'
 
 export const dynamic = 'force-dynamic'
 

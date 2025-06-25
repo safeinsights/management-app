@@ -156,7 +156,6 @@ export function ManageSMSMFAPanel() {
             notifications.show({ message: 'Error setting phone number as MFA', color: 'red' })
         }
 
-        // ── claim the pending invite, if any ──
         const inviteId = searchParams.get('inviteId')
         if (inviteId) {
             claimInvite({ inviteId })

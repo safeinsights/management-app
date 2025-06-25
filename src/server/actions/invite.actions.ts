@@ -26,7 +26,7 @@ import { z } from 'zod'
 import { clerkClient } from '@clerk/nextjs/server'
 import { db } from '@/database'
 import { ActionFailure, isClerkApiError } from '@/lib/errors'
-import { findOrCreateOrgMembership } from '@/server/mutations' // DB only
+import { findOrCreateOrgMembership } from '@/server/mutations'
 import logger from '@/lib/logger'
 import { updateClerkUserMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
@@ -70,10 +70,9 @@ async function _associateUserWithOrg(
     }
 }
 
-// Schema for onCreateAccountAction input
 const CreateAccountSchema = z.object({
     inviteId: z.string(),
-    email: z.string().email(), // Added email to ensure it matches invite
+    email: z.string().email(),
     form: z.object({
         firstName: z.string().nonempty(),
         lastName: z.string().nonempty(),
@@ -88,7 +87,7 @@ export const onCreateAccountAction = anonAction(async ({ inviteId, email, form }
         .selectAll('pendingUser')
         .select(['org.slug as orgSlug'])
         .where('pendingUser.id', '=', inviteId)
-        .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', email.toLowerCase()) // Verify email matches the invite
+        .where((eb) => eb.fn('lower', ['pendingUser.email']), '=', email.toLowerCase())
         .where('claimedByUserId', 'is', null)
         .executeTakeFirst()
 
@@ -209,8 +208,6 @@ export const claimInviteAction = userAction(async ({ inviteId }) => {
         await _associateUserWithOrg(siUserId, clerkUserId, pendingUser)
     }
 
-    // The user and organization membership should already be created by onCreateAccountAction
-    // This action primarily marks the invite as claimed.
     try {
         // Ensure Clerk user metadata is up-to-date after claiming the invite
         await updateClerkUserMetadata(siUserId)

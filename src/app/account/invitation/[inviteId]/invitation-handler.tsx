@@ -51,7 +51,6 @@ export function InvitationHandler({ inviteId, invitedEmail, orgName }: Invitatio
         error: null,
         isFinalized: false,
     })
-    // use dynamic dashboard resolution
     const dashboardUrl = useDashboardUrl()
 
     const { mutate, isPending } = useMutation({
