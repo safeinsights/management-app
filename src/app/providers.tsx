@@ -14,6 +14,13 @@ import SentryUserProvider from '@/components/sentry-user-provider'
 import { ClerkProvider } from '@clerk/nextjs'
 import { ErrorAlert } from '@/components/errors'
 
+// NOTE ‼️
+// The MantineProvider must wrap every Mantine component that can be rendered during build (static prerender).  If the
+// `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is missing, which is the case in CI, we render an <ErrorAlert/> fallback that uses Mantine components.
+// Returning early before mounting the provider would therefore make Mantine throw “MantineProvider was not found in component tree”, aborting the build.
+//
+// To ensure a successful build, we always mount <MantineProvider/> at the top level and only switch the inner tree depending on whether the Clerk key is present.
+
 function makeQueryClient() {
     return new QueryClient({
         defaultOptions: {
@@ -49,33 +56,31 @@ export function getQueryClient() {
 }
 
 export const Providers: FC<Props> = ({ children }) => {
-    const queryClient = getQueryClient()
-
-    const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    const key = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
     useEffect(() => {
         window.isReactHydrated = true
     }, [])
 
-    if (!clerkPublishableKey) {
-        return <ErrorAlert error={'missing clerk key'} />
-    }
-
     return (
         <MantineProvider theme={theme}>
-            <ClerkProvider
-                publishableKey={clerkPublishableKey}
-                localization={{
-                    organizationSwitcher: {
-                        personalWorkspace: 'Researcher Account',
-                    },
-                }}
-            >
-                <QueryClientProvider client={queryClient}>
-                    <SentryUserProvider />
-                    <ModalsProvider>{children}</ModalsProvider>
-                </QueryClientProvider>
-            </ClerkProvider>
+            {key ? (
+                <ClerkProvider
+                    publishableKey={key}
+                    localization={{
+                        organizationSwitcher: {
+                            personalWorkspace: 'Researcher Account',
+                        },
+                    }}
+                >
+                    <QueryClientProvider client={getQueryClient()}>
+                        <SentryUserProvider />
+                        <ModalsProvider>{children}</ModalsProvider>
+                    </QueryClientProvider>
+                </ClerkProvider>
+            ) : (
+                <ErrorAlert error="missing clerk key" />
+            )}
         </MantineProvider>
     )
 }
