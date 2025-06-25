@@ -20,7 +20,6 @@ export default function SentryUserProvider() {
             }
         } else {
             Sentry.setUser(null)
-            Sentry.setTag('org', '')
         }
     }, [userId, orgSlug])
 
