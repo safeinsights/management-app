@@ -1,6 +1,11 @@
 'use server'
 
 import type { Metadata } from 'next'
+import { Open_Sans } from 'next/font/google'
+
+const globalFont = Open_Sans({
+    subsets: ['latin'],
+})
 
 import './globals.css'
 import '@mantine/core/styles.layer.css'
@@ -26,7 +31,7 @@ export default async function RootLayout({
     children: ReactNode
 }>) {
     return (
-        <html lang="en">
+        <html lang="en" className={globalFont.className}>
             <body>
                 <Providers>{children}</Providers>
             </body>
