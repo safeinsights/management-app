@@ -13,7 +13,8 @@ test.describe('Organization Admin', () => {
         await visitClerkProtectedPage({ page, role: 'admin', url: '/admin/team/openstax' })
 
         // the admin user should also appear in the list, wait for it to load
-        await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })
+        await expect(page.locator('table > tbody > tr').first()).toBeVisible()
+        await expect(page.getByText(TestingUsers.admin.identifier)).toBeVisible()
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
@@ -57,6 +58,7 @@ test.describe('Organization Admin', () => {
 
         // The user is still logged in, so sign out to continue the test as a new user.
         await goto(page, '/')
+        await page.waitForTimeout(1000)
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
         await page.getByRole('link', { name: 'Sign Out' }).click()
         await page.waitForURL('**/signin**')
