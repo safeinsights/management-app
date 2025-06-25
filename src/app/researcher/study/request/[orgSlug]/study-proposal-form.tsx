@@ -4,7 +4,7 @@ import React, { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { Divider, FileInput, Grid, Paper, Stack, TextInput, Title, useMantineTheme, Text } from '@mantine/core'
 import { FormFieldLabel } from '@/components/form-field-label' // adjust path if needed
-import { FileDoc, FilePdf, FileText, UploadSimple } from '@phosphor-icons/react/dist/ssr'
+import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
@@ -15,14 +15,14 @@ export const StudyProposalForm: FC<{
     const color = theme.colors.blue[7]
 
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimple size={14} color={theme.colors.purple[5]} weight="fill" />
+        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
+            [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
+            [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],
+            [/\.pdf$/i, <FilePdfIcon key="pdf" size={14} color={color} />],
         ]
         const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
+        return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
     }
 
     const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')

@@ -26,13 +26,13 @@ import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { currentUser } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { ButtonLink, Link } from '@/components/links'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
+import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 
 export const dynamic = 'force-dynamic'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
-        <ButtonLink data-testid="new-study" leftSection={<Plus />} href={`/researcher/study/request/${orgSlug}`}>
+        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/researcher/study/request/${orgSlug}`}>
             Propose New Study
         </ButtonLink>
     )

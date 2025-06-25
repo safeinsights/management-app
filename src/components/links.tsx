@@ -1,7 +1,7 @@
 'use client'
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 import { AnchorProps, Button, ButtonProps, Anchor as MantineAnchor } from '@mantine/core'
-import { Download } from '@phosphor-icons/react/dist/ssr'
+import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import NextLink from 'next/link'
 
 export type LinkProps = AnchorProps & {
@@ -44,7 +44,7 @@ export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, con
             data-testid="download-link"
             download={filename}
         >
-            <Button rightSection={<Download />}>Download Results</Button>
+            <Button rightSection={<DownloadIcon />}>Download Results</Button>
         </NextLink>
     )
 }

@@ -1,12 +1,12 @@
 import { showNotification } from '@mantine/notifications'
-import { CheckCircle } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon } from '@phosphor-icons/react'
 
 export const reportSuccess = (message: string, title = 'Success') => {
     showNotification({
         title,
         message,
         color: 'teal',
-        icon: <CheckCircle size={18} />,
+        icon: <CheckCircleIcon size={18} />,
     })
 }
 

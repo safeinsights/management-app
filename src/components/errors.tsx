@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
-import { Lock, Warning, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
@@ -51,7 +51,7 @@ export const reportMutationError = (title: string) => (err: unknown) => reportEr
 
 type ErrorAlertProps = { error: unknown } & AlertProps
 
-export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occurred', error }) => {
+export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <WarningIcon />, title = 'An error occurred', error }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
             {errorToString(error)}
@@ -62,7 +62,7 @@ export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'A
 type AccessDeniedAlertProps = { message?: string } & Omit<AlertProps, 'title'>
 
 export const AccessDeniedAlert: FC<AccessDeniedAlertProps> = ({
-    icon = <Lock />,
+    icon = <LockIcon />,
     message = 'You do not have permission to access this resource.',
     ...props
 }) => {
@@ -81,7 +81,7 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
     if (hideIf) return null
 
     return (
-        <Alert w="400" m="auto" variant="filled" color="red" icon={<Warning />} title={title}>
+        <Alert w="400" m="auto" variant="filled" color="red" icon={<WarningIcon />} title={title}>
             {message}
         </Alert>
     )
@@ -93,7 +93,7 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
 
     return (
         <Flex align="center" gap={4} my={2} component="span" data-testid="input-error">
-            <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
+            <WarningCircleIcon size={20} color={theme.colors.red[7]} weight="fill" />
             <Text c="red.7" size="xs" component="span">
                 {error}
             </Text>

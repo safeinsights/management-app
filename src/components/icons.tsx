@@ -1,6 +1,6 @@
 'use client'
 
-import { Info } from '@phosphor-icons/react/dist/ssr'
+import { InfoIcon as SVGIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, ActionIconProps, useMantineTheme } from '@mantine/core'
 
 type InfoIconProps = ActionIconProps & {
@@ -15,7 +15,7 @@ export const InfoIcon: React.FC<InfoIconProps> = ({ innerRef, size, ...iconProps
 
     return (
         <ActionIcon variant="transparent" {...iconProps} ref={innerRef}>
-            <Info color={blue[7]} weight="fill" size={size} />
+            <SVGIcon color={blue[7]} weight="fill" size={size} />
         </ActionIcon>
     )
 }
