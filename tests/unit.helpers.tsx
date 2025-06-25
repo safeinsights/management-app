@@ -18,6 +18,7 @@ vi.mock('@clerk/nextjs/server', async (importOriginal) => {
                 createUser: vi.fn(),
                 getUser: vi.fn(),
                 updateUser: vi.fn(),
+                updateUserMetadata: vi.fn(),
                 getUserList: vi.fn(),
             },
         }),
@@ -402,6 +403,7 @@ export const mockClerkSession = (values: MockSession) => {
             createUser: vi.fn(async () => ({ id: '1234' })),
             getUser: vi.fn(),
             updateUser: vi.fn(),
+            updateUserMetadata: vi.fn(),
             getUserList: vi.fn(),
         },
     }
