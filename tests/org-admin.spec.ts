@@ -58,7 +58,11 @@ test.describe('Organization Admin', () => {
 
         // The user is still logged in, so sign out to continue the test as a new user.
         await goto(page, '/')
-        await page.waitForTimeout(1000)
+        // automatic redirect for org-admin lands here
+        await page.waitForURL('**/admin/team/openstax')
+        await expect(
+            page.getByRole('button', { name: 'Toggle profile menu' })
+        ).toBeVisible()
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
         await page.getByRole('link', { name: 'Sign Out' }).click()
         await page.waitForURL('**/signin**')
