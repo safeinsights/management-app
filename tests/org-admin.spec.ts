@@ -84,6 +84,9 @@ test.describe('Organization Admin', () => {
         await expect(page.getByText('Your account has been created successfully!')).toBeVisible()
         await page.getByRole('button', { name: /next, secure your account with mfa/i }).click()
 
+        // After navigation, wait for Clerk to be fully loaded and have a user.
+        await page.waitForFunction(() => (window as any).Clerk?.user)
+
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible
         await expect(page.getByRole('heading', { name: /verification/i })).toBeVisible()
