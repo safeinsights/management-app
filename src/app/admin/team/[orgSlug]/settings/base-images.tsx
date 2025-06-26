@@ -1,10 +1,9 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Table, Button, Group } from '@mantine/core'
+import { Stack, Title, Divider, Paper, Text, Table, Button, Group, Modal } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modal'
 import { AddBaseImageForm } from './add-base-image-form'
 import { Trash, PlusCircle } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction } from './base-images.actions'
@@ -129,9 +128,9 @@ export const BaseImages: React.FC = () => {
                 {!isLoading && !isError && <BaseImagesTable images={baseImages || []} />}
             </Stack>
 
-            <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add New Base Image">
+            <Modal opened={addModalOpened} onClose={closeAddModal} title="Add New Base Image">
                 <AddBaseImageForm onCompleteAction={handleFormComplete} />
-            </AppModal>
+            </Modal>
         </Paper>
     )
 }
