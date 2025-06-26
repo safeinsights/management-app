@@ -10,7 +10,7 @@ vi.spyOn(actions, 'approveStudyJobResultsAction')
 vi.spyOn(actions, 'rejectStudyJobResultsAction')
 
 vi.mock('@/server/storage', () => ({
-    storeStudyResultsFile: vi.fn(),
+    storeStudyApprovedResultsFile: vi.fn(),
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {
@@ -35,7 +35,7 @@ describe('Study Results Approve/Reject buttons', async () => {
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
             const latest = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
-            expect(latest?.latestStatus).toEqual(statusChange)
+            expect(latest.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
         })
     }
 

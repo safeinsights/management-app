@@ -88,6 +88,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             } = await onCreateStudyAction({
                 orgSlug,
                 studyInfo: valuesWithFilenames,
+                codeFileNames: formValues.codeFiles.map((file) => file.name),
             })
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
