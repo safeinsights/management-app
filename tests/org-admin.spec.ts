@@ -44,10 +44,23 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
-        await page.getByRole('button', { name: /signout/i }).click()
-        await page.waitForTimeout(1000)
+        await expect(
+            page.getByText('This invitation is for a different user. Please log out and try again.'),
+        ).toBeVisible()
+
+        // The user is still logged in, so sign out to continue the test as a new user.
+        await goto(page, '/')
+        // automatic redirect for org-admin lands here
+        await page.waitForURL('**/admin/team/openstax')
+        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+
+        const signOutBtn = page.getByRole('button', { name: 'Sign Out' })
+        await expect(signOutBtn).toBeVisible() // wait for menu content to render
+        await signOutBtn.click()
+        await page.waitForURL('**/signin**')
+
+        // Now, as a logged-out user, accept the invitation
+        await goto(page, `/account/invitation/${inviteId}`)
 
         // Ensure the Create Account button is initially disabled
         const createAccountBtn = page.getByRole('button', { name: /create account/i })
