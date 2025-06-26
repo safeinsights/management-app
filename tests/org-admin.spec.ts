@@ -45,7 +45,7 @@ test.describe('Organization Admin', () => {
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
         await expect(
-            page.getByText('This invitation is for a different user. Please log out and try again.'),
+            page.getByRole('paragraph', { name: 'This invitation is for a different user. Please log out and try again.' }),
         ).toBeVisible()
 
         // The user is still logged in, so sign out to continue the test as a new user.
