@@ -12,18 +12,19 @@ export function useDashboardUrl(): string {
 
     if (!isLoaded) return '/'
 
-    if (isReviewer) {
-        const slug = preferredOrgSlug ?? orgSlug
-        if (slug) return `/reviewer/${slug}/dashboard`
-    }
-    if (isResearcher) return '/researcher/dashboard'
-
+    // Admin role wins over reviewer / researcher
     if (isAdmin) {
         // SI admin or no org preference → try global admin page
         if (!preferredOrgSlug || preferredOrgSlug === CLERK_ADMIN_ORG_SLUG) return '/admin/safeinsights'
         // per-organization admin dashboard
         return `/admin/team/${preferredOrgSlug}`
     }
+
+    if (isReviewer) {
+        const slug = preferredOrgSlug ?? orgSlug
+        if (slug) return `/reviewer/${slug}/dashboard`
+    }
+    if (isResearcher) return '/researcher/dashboard'
 
     return '/'
 }

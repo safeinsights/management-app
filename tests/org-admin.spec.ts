@@ -60,9 +60,7 @@ test.describe('Organization Admin', () => {
         await goto(page, '/')
         // automatic redirect for org-admin lands here
         await page.waitForURL('**/admin/team/openstax')
-        await expect(
-            page.getByRole('button', { name: 'Toggle profile menu' })
-        ).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Toggle profile menu' })).toBeVisible()
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
         await page.getByRole('link', { name: 'Sign Out' }).click()
         await page.waitForURL('**/signin**')
