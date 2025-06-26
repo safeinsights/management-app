@@ -64,7 +64,7 @@ test.describe('Organization Admin', () => {
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
 
         const signOutBtn = page.getByRole('button', { name: 'Sign Out' })
-        await expect(signOutBtn).toBeVisible()   // wait for menu content to render
+        await expect(signOutBtn).toBeVisible() // wait for menu content to render
         await signOutBtn.click()
         await page.waitForURL('**/signin**')
 
