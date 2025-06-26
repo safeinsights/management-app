@@ -81,6 +81,9 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await createAccountBtn.click()
 
+        await expect(page.getByText('Your account has been created successfully!')).toBeVisible()
+        await page.getByRole('button', { name: /next, secure your account with mfa/i }).click()
+
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible
         await expect(page.getByRole('heading', { name: /verification/i })).toBeVisible()
@@ -89,8 +92,8 @@ test.describe('Organization Admin', () => {
 
         await page.waitForTimeout(1000)
 
-        // test invitation link now shows an error once the invite is claimed
+        // test that visiting the invite link again claims the invite and shows success
         await goto(page, `/account/invitation/${inviteId}`)
-        await expect(page.getByText('Invalid or already claimed invitation.')).toBeVisible()
+        await expect(page.getByText(/You're now a member of/i)).toBeVisible()
     })
 })
