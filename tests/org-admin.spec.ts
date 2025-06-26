@@ -62,7 +62,7 @@ test.describe('Organization Admin', () => {
         await page.waitForURL('**/admin/team/openstax')
         await expect(page.getByRole('button', { name: 'Toggle profile menu' })).toBeVisible()
         await page.getByRole('button', { name: 'Toggle profile menu' }).click()
-        await page.getByRole('link', { name: 'Sign Out' }).click()
+        await page.getByRole('button', { name: 'Sign Out' }).click()
         await page.waitForURL('**/signin**')
 
         // Now, as a logged-out user, accept the invitation
