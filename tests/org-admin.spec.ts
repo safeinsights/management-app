@@ -26,7 +26,7 @@ test.describe('Organization Admin', () => {
         await page.keyboard.press('Tab')
         await expect(page.getByText('role must be selected')).toBeVisible()
 
-        await page.getByLabel('Reviewer (can review and approve studies)').click()
+        await page.getByLabel('Researcher (can submit studies and access results)').click()
 
         await page.getByRole('button', { name: /send/i }).click()
         await expect(page.getByText('sent successfully')).toBeVisible({ timeout: 10000 })
