@@ -1,6 +1,5 @@
 import React from 'react'
-import { Text, Button, Group, Stack } from '@mantine/core'
-import { AppModal } from '@/components/modal'
+import { Text, Button, Group, Stack, Modal } from '@mantine/core'
 
 interface ConfirmationModalProps {
     opened: boolean
@@ -16,8 +15,8 @@ export const ConfirmSubmissionModal: React.FC<ConfirmationModalProps> = ({
     isLoading = false,
 }) => {
     return (
-        <AppModal
-            isOpen={opened}
+        <Modal
+            opened={opened}
             onClose={() => !isLoading && onClose()}
             title="Confirm proposal submission"
             closeButtonProps={{
@@ -44,6 +43,6 @@ export const ConfirmSubmissionModal: React.FC<ConfirmationModalProps> = ({
                     Yes, submit proposal
                 </Button>
             </Group>
-        </AppModal>
+        </Modal>
     )
 }

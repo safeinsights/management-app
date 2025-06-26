@@ -20,35 +20,18 @@ test.describe('Studies', () => {
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
 
-        // Invalid file testing
-        // const invalidFileType = 'tests/assets/invalid.txt'
-        // await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
-        // await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
-
+        // Upload required documents
         await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
 
         await expect(page.getByText('Upload File')).toBeVisible()
 
-        //TODO: Test that will validate the upload without a main.r file
-        //Test upload without main.r file
-        // const missingMainFile = 'tests/assets/study-no-main.zip'
-        // await page.setInputFiles('input[type="file"]', missingMainFile)
-        // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
         // Test valid file upload with main.r
         const mainR = 'tests/assets/main.r'
         await page.setInputFiles('input[type="file"][name="codeFiles"]', mainR)
 
-        // // Verify main.r was detected
-        // await expect(page.getByText('main.r detected')).toBeVisible()
-
-        // Test file size limit (Commenting out for now, we will likely test this on the fly as to not bog down the repo)
-        // const largeFile = 'tests/assets/large-file.zip'
-        // await page.setInputFiles('input[type="file"]', largeFile)
-        // await expect(page.getByText('File size cannot exceed')).toBeVisible()
-
-        await page.getByRole('button', { name: 'Submit proposal', exact: true }).click()
+    await page.getByRole('button', { name: 'Submit proposal', exact: true }).click()
         await expect(page.getByText('Confirm proposal submission')).toBeVisible()
 
         await page.getByRole('button', { name: 'No, continue editing', exact: true }).click()
@@ -56,15 +39,6 @@ test.describe('Studies', () => {
 
         await page.getByRole('button', { name: 'Submit proposal', exact: true }).click()
         await page.getByRole('button', { name: 'Yes, submit proposal', exact: true }).click()
-
-        // TODO Final step changed? these aren't in the mockups :thinking:
-        // await expect(page.getByTestId('study-title')).toHaveValue(studyFeatures.studyTitle)
-        //
-        // await page.getByRole('checkbox', { name: /highlights/i }).check()
-        //
-        // await page.getByRole('button', { name: /submit proposal/i }).click()
-        //
-        // await page.getByRole('button', { name: /all studies/i }).click()
 
         await page.waitForLoadState('networkidle')
 

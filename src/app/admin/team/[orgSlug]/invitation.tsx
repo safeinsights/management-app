@@ -1,14 +1,13 @@
 'use client'
 
 import { useDisclosure } from '@mantine/hooks'
-import { TextInput, Button, Flex, Radio } from '@mantine/core'
+import { TextInput, Button, Flex, Radio, Modal } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { InputError, reportMutationError } from '@/components/errors'
 import { Plus } from '@phosphor-icons/react/dist/ssr'
-import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
 import { PendingUsers } from './pending-invites'
@@ -95,14 +94,14 @@ export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     return (
         <>
-            <AppModal
-                isOpen={inviteUserOpened}
+            <Modal
+                opened={inviteUserOpened}
                 onClose={closeInviteUser}
                 title="Invite others to join your team"
                 size="lg"
             >
                 <InvitePanel orgSlug={orgSlug} />
-            </AppModal>
+            </Modal>
 
             <Button leftSection={<Plus />} onClick={openInviteUser}>
                 Invite People
