@@ -26,23 +26,29 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
     return urlForFile(pathForStudyDocumentFile(info, fileType, fileName))
 }
 
-async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType) {
+async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
     await storeS3File(info, file.stream(), path)
 
     return await db
         .insertInto('studyJobFile')
-        .values({ path, name: file.name, studyJobId: info.studyJobId, fileType })
+        .values({ path, name: file.name, studyJobId: info.studyJobId, fileType, sourceId })
         .executeTakeFirstOrThrow()
 }
 
 export async function storeStudyEncryptedLogFile(info: MinimalJobInfo, file: File) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-LOG')
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-logs.zip`, file, 'ENCRYPTED-LOG')
 }
 
 export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }
 
+// export async function storeApprovedJobFile(info: MinimalJobInfo, file: File) {
+//
+// }
+
+// TODO Just use generic function that takes the StudyJobFile and uses .fileType
+// TODO Also, store the `sourceId` from the encrypted file so it can reference the original zip file
 export async function storeStudyApprovedResultsFile(info: MinimalJobInfo, file: File) {
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
 }

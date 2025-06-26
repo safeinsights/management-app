@@ -22,60 +22,50 @@ import {
 } from '@/server/db/queries'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
+import { pathForStudyJob } from '@/lib/paths'
 
-const approveStudyJobFileActionSchema = z.object({
-    orgSlug: z.string(),
-    jobInfo: minimalJobInfoSchema,
-    jobFiles: z.array(
-        z.object({
-            path: z.string(),
-            contents: z.instanceof(ArrayBuffer),
-        }),
-    ),
-})
+export const approveStudyJobFilesAction = orgAction(
+    async ({ jobInfo: info, jobFiles }) => {
+        await checkUserAllowedStudyReview(info.studyId)
+        const user = await siUser()
 
-export const approveStudyJobLogsAction = orgAction(async ({ jobInfo: info, jobFiles }) => {
-    await checkUserAllowedStudyReview(info.studyId)
+        const job = await loadStudyJobAction(info.studyJobId)
 
-    // FIXME: handle more than a single result. will require a db schema change
-    const log = jobFiles[0]
-    const logFile = new File([log.contents], log.path)
-    await storeStudyApprovedLogFile(info, logFile)
-    const user = await siUser()
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: user.id,
-            status: 'FILES-APPROVED',
-            studyJobId: info.studyJobId,
-        })
-        .executeTakeFirstOrThrow()
+        console.log('Job Files ', jobFiles)
+        return
+        for (const jobFile of jobFiles) {
+            const file = new File([jobFile.contents], jobFile.path)
+            // await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
+        }
 
-    await sendStudyResultsApprovedEmail(info.studyId)
+        // const log = jobFiles[0]
+        // const logFile = new File([log.contents], log.path)
+        // await storeStudyApprovedLogFile(info, logFile)
 
-    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-}, approveStudyJobFileActionSchema)
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: user.id,
+                status: 'FILES-APPROVED',
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
 
-export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobFiles }) => {
-    await checkUserAllowedStudyReview(info.studyId)
+        await sendStudyResultsApprovedEmail(info.studyId)
 
-    // FIXME: handle more than a single result. will require a db schema change
-    const result = jobFiles[0]
-    const resultsFile = new File([result.contents], result.path)
-    await storeStudyApprovedResultsFile(info, resultsFile)
-    const user = await siUser()
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: user.id,
-            status: 'FILES-APPROVED',
-            studyJobId: info.studyJobId,
-        })
-        .executeTakeFirstOrThrow()
-
-    await sendStudyResultsApprovedEmail(info.studyId)
-    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-}, approveStudyJobFileActionSchema)
+        revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+    },
+    z.object({
+        orgSlug: z.string(),
+        jobInfo: minimalJobInfoSchema,
+        jobFiles: z.array(
+            z.object({
+                path: z.string(),
+                contents: z.instanceof(ArrayBuffer),
+            }),
+        ),
+    }),
+)
 
 export const rejectStudyJobFilesAction = orgAction(
     async (info) => {
@@ -126,7 +116,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType'])
+                    .select(['name', 'fileType', 'path'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -147,6 +137,7 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
+// TODO Used for researcher???
 export const fetchJobLogsAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
     const info = await getStudyJobFileOfType(jobId, 'APPROVED-LOG')
@@ -176,12 +167,21 @@ export const fetchJobResultsCsvAction = userAction(async (jobId) => {
     return { path: info.path, contents: await body.text() }
 }, z.string())
 
-export const fetchJobResultsEncryptedZipAction = orgAction(
+export const fetchEncryptedJobFilesAction = orgAction(
     async ({ jobId, orgSlug }) => {
         await checkMemberOfOrgWithSlug(orgSlug)
-        const info = await getStudyJobFileOfType(jobId, 'ENCRYPTED-RESULT')
-        const body = await fetchFileContents(info.path)
-        return body
+        const job = await loadStudyJobAction(jobId)
+
+        const encryptedFiles = job.files.filter(
+            (file) => file.fileType === 'ENCRYPTED-LOG' || file.fileType === 'ENCRYPTED-RESULT',
+        )
+        const encryptedFileBlobs = []
+        for (const encryptedFile of encryptedFiles) {
+            const blob = await fetchFileContents(encryptedFile.path)
+            encryptedFileBlobs.push(blob)
+        }
+
+        return encryptedFileBlobs
     },
     z.object({
         jobId: z.string(),

@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Button, Group, Stack, Textarea } from '@mantine/core'
+import { Button, Group, Stack, Textarea, Title } from '@mantine/core'
 
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -8,11 +8,10 @@ import * as Sentry from '@sentry/nextjs'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import type { FileEntry } from 'si-encryption/job-results/types'
-import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { useParams } from 'next/navigation'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 import { RenderCSV } from '@/components/render-csv'
-export type { FileEntry }
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -23,8 +22,8 @@ type Props = {
     onApproval: (decryptedResults: FileEntry[]) => void
 }
 
-export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
-    const [plainTextResults, setPlainTextResults] = useState<string[]>([])
+export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
+    const [decryptedFiles, setDecryptedFiles] = useState<FileEntry[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
@@ -32,11 +31,11 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
         initialValues: { privateKey: '' },
     })
 
-    const { isLoading: isLoadingBlob, data: blob } = useQuery({
+    const { isLoading: isLoadingBlob, data: encryptedBlobs } = useQuery({
         queryKey: ['study-job', job.id],
         queryFn: async () => {
             try {
-                return await fetchJobResultsEncryptedZipAction({ jobId: job.id, orgSlug })
+                return await fetchEncryptedJobFilesAction({ jobId: job.id, orgSlug })
             } catch (error) {
                 Sentry.captureException(error)
                 form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
@@ -48,7 +47,7 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!blob) return []
+            if (!encryptedBlobs) return []
             let fingerprint = ''
             let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
             try {
@@ -60,8 +59,13 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
             try {
-                const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
-                return await reader.extractFiles()
+                const decryptedFiles: FileEntry[] = []
+                for (const encryptedBlob of encryptedBlobs) {
+                    const reader = new ResultsReader(encryptedBlob, privateKeyBuffer, fingerprint)
+                    const decryptedFileEntry = await reader.extractFiles()
+                    decryptedFiles.push(...decryptedFileEntry)
+                }
+                return decryptedFiles
             } catch (err) {
                 form.setFieldError(
                     'privateKey',
@@ -70,14 +74,15 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
         },
-        onSuccess: async (data: FileEntry[]) => {
-            onApproval(data)
-            setPlainTextResults(data.map((entry) => new TextDecoder().decode(entry.contents)))
+        onSuccess: async (files: FileEntry[]) => {
+            onApproval(files)
+            setDecryptedFiles(files)
         },
         onError: async (err) => {
             Sentry.captureException(err)
         },
     })
+
     const onSubmit = (values: StudyResultsFormValues) => {
         decryptResults({ privateKey: values.privateKey })
     }
@@ -88,19 +93,10 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
         }
     }
 
-    // Eventually we might support multiple files, so this logic will have to change with that
-    const isLogFile = job.files.some((file) => file.fileType === 'ENCRYPTED-LOG')
-
-    // TODO Confirm with iris/devika on if we want to
-    //  1. display results in browser
-    //  or
-    //  2. just display links to download file
     return (
         <Stack>
-            {/*{plainTextResults.map((txt, i) => (*/}
-            {/*    <RenderCSV csv={txt} key={i} />*/}
-            {/*))}*/}
-            {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !plainTextResults?.length && (
+            <FileResults fileResults={decryptedFiles} />
+            {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>
                         <Textarea
@@ -118,4 +114,19 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
             )}
         </Stack>
     )
+}
+
+const FileResults: FC<{ fileResults: FileEntry[] }> = ({ fileResults }) => {
+    return fileResults.map((fileResult) => (
+        <Stack key={fileResult.path}>
+            <Title order={4}>{fileResult.path}</Title>
+            {/* TODO Remake the renderCSV to be in a modal? and either
+                 A) make it generic
+                 or
+                 B) Conditionally render results in CSV and logs in text?
+
+             */}
+            <RenderCSV csv={new TextDecoder().decode(fileResult.contents)} />
+        </Stack>
+    ))
 }

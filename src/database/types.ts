@@ -155,6 +155,7 @@ export interface StudyJobFile {
     id: Generated<string>
     name: string
     path: string
+    sourceId: string | null
     studyJobId: string
 }
 

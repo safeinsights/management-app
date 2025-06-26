@@ -4,8 +4,8 @@ import { DebugRequest } from './request'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
-// npx tsx bin/debug/upload-results.ts -j 0197a33f-0683-704d-968c-d09a914a88c7 -r tests/assets/results-with-pii.csv -l tests/assets/error-log.txt
-// npx tsx bin/debug/upload-results.ts -j 0197a33f-0683-704d-968c-d09a914a88c7 -l tests/assets/error-log.txt
+// npx tsx bin/debug/upload-results.ts -j 0197a365-aeb3-7c3e-b43f-b6c251a494ef -r tests/assets/results-with-pii.csv -l tests/assets/error-log.txt
+// npx tsx bin/debug/upload-results.ts -j 0197a365-aeb3-7c3e-b43f-b6c251a494ef -l tests/assets/error-log.txt
 
 class FileSender extends DebugRequest {
     constructor() {

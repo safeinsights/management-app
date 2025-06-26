@@ -4,7 +4,8 @@ import React, { FC, useState } from 'react'
 import { Group, Paper, Stack, Text, Title, Divider } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
-import { DecryptResults, type FileEntry } from './decrypt-results'
+import { DecryptResults } from './decrypt-results'
+import type { FileEntry } from 'si-encryption/job-results/types'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED']
