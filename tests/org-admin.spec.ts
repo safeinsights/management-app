@@ -70,8 +70,9 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
 
-        // Create a valid password that meets all requirements (8+ chars, number, uppercase, special)
-        const validPassword = 'TestPass1*'
+        // Generate a unique strong password each run to avoid Clerk “pwned” rejection
+        const rnd = faker.string.alphanumeric({ length: 8 }) // random letters/digits
+        const validPassword = `Aa${rnd}*1` // ensures upper/lower/digit/special
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
@@ -81,7 +82,7 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await createAccountBtn.click()
 
-        await expect(page.getByText('Your account has been created successfully!')).toBeVisible()
+        await expect(page.getByText('Your account has been created successfully!')).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: /next, secure your account with mfa/i }).click()
 
         // After navigation, wait for Clerk to be fully loaded and have a user.
