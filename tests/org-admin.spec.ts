@@ -13,8 +13,7 @@ test.describe('Organization Admin', () => {
         await visitClerkProtectedPage({ page, role: 'admin', url: '/admin/team/openstax' })
 
         // the admin user should also appear in the list, wait for it to load
-        await expect(page.locator('table > tbody > tr').first()).toBeVisible()
-        await expect(page.getByText(TestingUsers.admin.identifier)).toBeVisible()
+        await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })
 
         // create an invite
         await page.getByRole('button', { name: /invite people/i }).click()
@@ -43,39 +42,18 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByText(`${email} has been re-invited`)).toBeVisible()
 
-        // ── close the modal so the rest of the page (incl. profile menu) is accessible ──
-        await page.keyboard.press('Escape') // Mantine modal closes on ESC
-        await page.waitForSelector('[role="dialog"]', {
-            // ensure it is gone
-            state: 'detached',
-        })
-
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await expect(
-            page.getByText('This invitation is for a different user. Please log out and try again.').first(),
-        ).toBeVisible()
+        await page.waitForTimeout(1000)
+        await expect(page.getByText(`must be signed out`)).toBeVisible()
+        await page.getByRole('button', { name: /signout/i }).click()
+        await page.waitForTimeout(1000)
 
-        // The user is still logged in, so sign out to continue the test as a new user.
-        await goto(page, '/')
-        // automatic redirect for org-admin lands here
-        await page.waitForURL('**/admin/team/openstax')
-        await expect(page.getByRole('button', { name: 'Toggle profile menu' })).toBeVisible()
-        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+        // Ensure the Create Account button is initially disabled
+        const createAccountBtn = page.getByRole('button', { name: /create account/i })
+        await expect(createAccountBtn).toBeDisabled()
 
-        const signOutBtn = page.getByRole('button', { name: 'Sign Out' })
-        await expect(signOutBtn).toBeVisible() // wait for menu content to render
-        await signOutBtn.click()
-        await page.waitForURL('**/signin**')
-
-        // Now, as a logged-out user, accept the invitation
-        await goto(page, `/account/invitation/${inviteId}`)
-
-        await page.getByRole('button', { name: /create account/i }).click()
-        await expect(page.getByText('cannot be left blank')).toHaveCount(2)
-
-        await expect(page.getByText('must be at least 8 characters')).toBeVisible()
-
+        // Fill in the required form fields
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
 
@@ -84,7 +62,6 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
-        const createAccountBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled
         await expect(createAccountBtn).toBeEnabled()
 
@@ -106,6 +83,6 @@ test.describe('Organization Admin', () => {
 
         // test invitation link now redirects to home once the invite is claimed
         await goto(page, `/account/invitation/${inviteId}`)
-        await expect(page.getByText(`Invalid or already claimed invitation.`)).toBeVisible()
+        await page.waitForURL('/')
     })
 })
