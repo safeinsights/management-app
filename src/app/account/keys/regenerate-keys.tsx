@@ -1,7 +1,6 @@
 'use client'
 
-import { Button, Stack, Text, Group, Title, Paper, Divider } from '@mantine/core'
-import { AppModal } from '@/components/modal'
+import { Button, Stack, Text, Group, Title, Paper, Divider, Modal } from '@mantine/core'
 import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { GenerateKeys } from './generate-keys'
@@ -74,7 +73,7 @@ const GenerateNewKeyModal: FC<{
     onConfirmAndClose: () => void
 }> = ({ onClose, isOpen, onConfirmAndClose }) => {
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Confirm key reset">
+        <Modal opened={isOpen} onClose={onClose} title="Confirm key reset">
             <Stack>
                 <Text size="md">
                     Generating a new reviewer key will permanently remove access to study results tied to your old key.
@@ -89,6 +88,6 @@ const GenerateNewKeyModal: FC<{
                     <Button onClick={onConfirmAndClose}>Generate new key</Button>
                 </Group>
             </Stack>
-        </AppModal>
+        </Modal>
     )
 }

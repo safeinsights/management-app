@@ -12,12 +12,12 @@ import {
     useMantineTheme,
     CopyButton,
     Flex,
+    Modal,
 } from '@mantine/core'
 import { useMutation } from '@tanstack/react-query'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
-import { AppModal } from '@/components/modal'
 import { Check } from '@phosphor-icons/react/dist/ssr'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
@@ -160,7 +160,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
     })
 
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Have you stored your reviewer key?">
+        <Modal opened={isOpen} onClose={onClose} title="Have you stored your reviewer key?">
             <Stack>
                 <Text size="md">Make sure you have securely saved your reviewer key. </Text>
                 <Text size="sm" c="red.9">
@@ -177,6 +177,6 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
                     </Button>
                 </Group>
             </Stack>
-        </AppModal>
+        </Modal>
     )
 }

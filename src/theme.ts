@@ -128,6 +128,30 @@ export const theme = createTheme({
                 },
             }),
         },
+        Modal: {
+            defaultProps: {
+                size: 'lg',
+                centered: true,
+                closeOnClickOutside: true,
+                trapFocus: true,
+                closeButtonProps: { size: 'md' },
+            },
+            styles: {
+                header: {
+                    padding: '0px 40px',
+                    backgroundColor: grey[10],
+                },
+                body: {
+                    padding: '40px 80px',
+                },
+                close: {
+                    backgroundColor: charcoal[4],
+                    color: 'white',
+                    borderRadius: '32px',
+                    padding: '4px',
+                },
+            },
+        },
     },
     primaryShade: 5,
     primaryColor: 'purple',
