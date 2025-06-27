@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { House } from '@phosphor-icons/react/dist/ssr'
+import { HouseIcon } from '@phosphor-icons/react/dist/ssr'
 import { useAuthInfo } from '@/components/auth'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
@@ -29,7 +29,7 @@ export const NavbarItems: FC = () => {
             <RefWrapper>
                 <NavLink
                     label="Dashboard"
-                    leftSection={<House />}
+                    leftSection={<HouseIcon />}
                     component={Link}
                     href={dashboardURL()}
                     active={pathname === dashboardURL()}

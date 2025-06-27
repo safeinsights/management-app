@@ -6,7 +6,7 @@ import { FC, useMemo, useState } from 'react'
 import { deleteOrgAction, fetchOrgsAction } from '@/server/actions/org.actions'
 import { getNewOrg, type Org } from '@/schema/org'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Trash, Users } from '@phosphor-icons/react/dist/ssr'
+import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
@@ -38,7 +38,7 @@ export function OrgsAdminTable() {
                 withColumnBorders
                 idAccessor="slug"
                 noRecordsText="No organisations yet, add some using button below"
-                noRecordsIcon={<Users />}
+                noRecordsIcon={<UsersIcon />}
                 records={sortedMembers}
                 sortStatus={sortStatus}
                 onSortStatusChange={setSortStatus}
@@ -91,14 +91,14 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>
             <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => router.push(`/admin/team/${org.slug}`)}>
-                <Users />
+                <UsersIcon />
             </ActionIcon>
             <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
-                <Pencil />
+                <PencilIcon />
             </ActionIcon>
 
             <SuretyGuard onConfirmed={() => deleteOrg(org.slug)}>
-                <Trash />
+                <TrashIcon />
             </SuretyGuard>
         </Group>
     )

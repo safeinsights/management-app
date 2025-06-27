@@ -2,7 +2,7 @@ import { FC, use } from 'react'
 import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { Download } from '@phosphor-icons/react/dist/ssr'
+import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
@@ -27,7 +27,7 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
             component="a"
             href={studyDocumentURL(studyId, type, path)}
             target="_blank"
-            rightSection={<Download />}
+            rightSection={<DownloadIcon />}
             style={{ cursor: 'pointer' }}
         >
             {truncatedText}

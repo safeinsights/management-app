@@ -1,5 +1,5 @@
 import { Flex, FlexProps, Paper, Text, Anchor, useMantineTheme, Title } from '@mantine/core'
-import { CheckCircle, Prohibit } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, ProhibitIcon } from '@phosphor-icons/react/dist/ssr'
 import React from 'react'
 
 export type PanelProps = FlexProps & {
@@ -30,7 +30,7 @@ export const SuccessPanel: React.FC<PanelProps & { onContinue(): void }> = ({
 
     return (
         <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <CheckCircle size={28} color={theme.colors.green[9]} weight="fill" />
+            <CheckCircleIcon size={28} color={theme.colors.green[9]} weight="fill" />
             <Text c="green.9" size="md" fw="bold">
                 {title}
             </Text>
@@ -51,7 +51,7 @@ export const ErrorPanel: React.FC<PanelProps & { onContinue(): void }> = ({
 
     return (
         <Flex direction="column" justify="center" align="center" gap="xs" mb="sm" fw="semibold" {...flexProps}>
-            <Prohibit size={28} color={theme.colors.red[9]} weight="fill" />
+            <ProhibitIcon size={28} color={theme.colors.red[9]} weight="fill" />
             <Text c="red.9" size="md" fw="bold">
                 {title}
             </Text>
