@@ -4,13 +4,17 @@ import { DebugRequest } from './request'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
+// TODO Just for testing reference, remove on final PR
+// npx tsx bin/debug/upload-results.ts -j 0197a365-aeb3-7c3e-b43f-b6c251a494ef -r tests/assets/results-with-pii.csv -l tests/assets/error-log.txt
+// npx tsx bin/debug/upload-results.ts -j 0197a365-aeb3-7c3e-b43f-b6c251a494ef -l tests/assets/error-log.txt
+
 class FileSender extends DebugRequest {
     constructor() {
         super()
         this.program
             .option('-p, --publicKey <path>', 'Path to the public key file')
-            .option('-r, --resultFile <path to file>', 'file to send as results')
-            .option('-l, --logFile <path to file>', 'file to send as logs')
+            .option('-r, --resultFile <path/to/file>', 'file to send as results')
+            .option('-l, --logFile <path/to/file>', 'file to send as logs')
             .option('-j, --jobId <jobId>', 'jobId to set status for')
         this.parse()
     }

@@ -9,14 +9,14 @@ import {
 import { fireEvent, waitFor } from '@testing-library/react'
 import { screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
-import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
-    fetchJobResultsEncryptedZipAction: vi.fn(() => 'Encrypted Results'),
+    fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
 }))
 
 describe('View Study Results', () => {
@@ -29,7 +29,7 @@ describe('View Study Results', () => {
 
     const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus) => {
         const { org } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
         const helpers = renderWithProviders(<StudyResults job={job} />)
         return { ...helpers, job, org }
     }
@@ -40,12 +40,12 @@ describe('View Study Results', () => {
     })
 
     it('shows results rejected state', async () => {
-        await insertAndRender('PENDING-REVIEW', 'RESULTS-REJECTED')
+        await insertAndRender('PENDING-REVIEW', 'FILES-REJECTED')
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
     })
 
     it('renders the results if the job has been approved', async () => {
-        await insertAndRender('APPROVED', 'RESULTS-APPROVED')
+        await insertAndRender('APPROVED', 'FILES-APPROVED')
         await waitFor(() => {
             expect(screen.getByRole('link', { name: /Download/i })).toBeDefined()
         })
@@ -68,9 +68,15 @@ describe('View Study Results', () => {
         await writer.addFile('test.data', arrayBuf)
         const zip = await writer.generate()
 
-        vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
+        const file = {
+            blob: zip,
+            sourceId: '123',
+            fileType: 'ENCRYPTED-RESULT' as FileType,
+        }
 
-        const { latestJobithStatus: job } = await insertTestStudyJobData({
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
+
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })

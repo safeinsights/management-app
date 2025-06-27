@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import JobStatusDisplay from './job-status-display'
@@ -13,7 +13,7 @@ describe('JobStatusDisplay', () => {
         expect(screen.getByText(new RegExp(dayjs(createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
 
-    it('shows rejected status for RESULTS-REJECTED', () => {
+    it('shows rejected status for FILES-REJECTED', () => {
         const createdAt = new Date('2024-04-04T00:00:00Z')
         renderWithProviders(<JobStatusDisplay statusChange={{ status: 'CODE-REJECTED', createdAt }} />)
         expect(screen.getByText(/Rejected/)).toBeDefined()

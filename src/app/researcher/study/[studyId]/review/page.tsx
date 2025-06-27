@@ -65,7 +65,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
-                            Study Results
+                            Study Status
                         </Title>
                         <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('CODE'))} />
                     </Group>

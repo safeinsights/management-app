@@ -66,6 +66,7 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
                     placeholder="123456"
                     key={form.key('code')}
                     {...form.getInputProps('code')}
+                    autoFocus
                 />
                 <Flex justify="space-between" mt="md">
                     <Button variant="light" onClick={onReset}>

@@ -1,18 +1,19 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { Group, Paper, Stack, Text, Title, Divider } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
-import { DecryptResults, type FileEntry } from './decrypt-results'
+import { DecryptResults } from './decrypt-results'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import { FileEntryWithJobFileInfo } from '@/lib/types'
 
-const ALLOWED_STATUS = ['RESULTS-APPROVED', 'RUN-COMPLETE', 'RESULTS-REJECTED']
+const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED']
 
 export const StudyResults: FC<{
     job: StudyJobWithLastStatus | null
 }> = ({ job }) => {
-    const [decryptedResults, setDecryptedResults] = useState<FileEntry[]>()
+    const [decryptedResults, setDecryptedResults] = useState<FileEntryWithJobFileInfo[]>()
 
     if (!job) {
         return (
@@ -23,7 +24,19 @@ export const StudyResults: FC<{
     }
 
     if (!job.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
-        return null // nothing to display
+        return (
+            <Paper bg="white" p="xxl">
+                <Stack>
+                    <Title order={4} size="xl">
+                        Study Status
+                    </Title>
+                    <Divider c="dimmed" />
+                    <Text>
+                        Study results will become available once the proposal and code are approved and processed.
+                    </Text>
+                </Stack>
+            </Paper>
+        )
     }
 
     return (
@@ -31,7 +44,7 @@ export const StudyResults: FC<{
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={4} size="xl">
-                        Study Results
+                        Study Status
                     </Title>
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>

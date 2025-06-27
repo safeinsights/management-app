@@ -19,7 +19,7 @@ type JobResultsProps = {
 }
 
 export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
-    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'RESULTS-APPROVED')
+    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
 
     const {
         data: results,
@@ -33,7 +33,11 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     })
 
     if (!isApproved) {
-        return <Text size="md">Study results will be displayed after the data organization reviews them.</Text>
+        return (
+            <Text size="md">
+                Study results will become available once the data organization reviews and approves them.
+            </Text>
+        )
     }
 
     if (isError) {
