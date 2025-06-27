@@ -120,9 +120,7 @@ export function ManageSMSMFAPanel() {
         } catch (err) {
             otpForm.setFieldError(
                 'code',
-                errorToString(err, { code: 'form_code_incorrect' })
-                    ? 'Invalid code. Please try again.'
-                    : errorToString(err),
+                errorToString(err, { form_code_incorrect: 'Invalid code. Please try again.' }),
             )
         }
 
