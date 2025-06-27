@@ -62,9 +62,9 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                     {...form.getInputProps('language')}
                 />
                 <TextInput
-                    label="URL"
-                    description="Location of image repository"
-                    placeholder="e.g., https://example.com/my-r-image:latest"
+                    label="Location"
+                    description="network path where base image is stored, including tag"
+                    placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
                 <Checkbox

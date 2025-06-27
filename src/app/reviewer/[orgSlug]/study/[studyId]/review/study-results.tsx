@@ -1,19 +1,19 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { Group, Paper, Stack, Text, Title, Divider } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
 import { DecryptResults } from './decrypt-results'
-import type { FileEntry } from 'si-encryption/job-results/types'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import { FileEntryWithJobFileInfo } from '@/lib/types'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED']
 
 export const StudyResults: FC<{
     job: StudyJobWithLastStatus | null
 }> = ({ job }) => {
-    const [decryptedResults, setDecryptedResults] = useState<FileEntry[]>()
+    const [decryptedResults, setDecryptedResults] = useState<FileEntryWithJobFileInfo[]>()
 
     if (!job) {
         return (

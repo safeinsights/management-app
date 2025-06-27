@@ -1,7 +1,6 @@
 import { fetchS3File, signedUrlForFile, storeS3File } from './aws'
 import { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
-import { pathForStudyJob, pathForStudyJobCodeFile, pathForStudyDocumentFile } from '@/lib/paths'
-
+import { pathForStudyDocumentFile, pathForStudyJob, pathForStudyJobCodeFile } from '@/lib/paths'
 import { db } from '@/database'
 import { FileType } from '@/database/types'
 

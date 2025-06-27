@@ -50,6 +50,7 @@ export const JobReviewButtons = ({
     })
 
     const approved = job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
+
     if (approved) {
         return (
             <Group gap="xs">
@@ -62,6 +63,7 @@ export const JobReviewButtons = ({
     }
 
     const rejected = job.statusChanges.find((sc) => sc.status == 'FILES-REJECTED')
+
     if (rejected) {
         return (
             <Group gap="xs">
@@ -77,7 +79,6 @@ export const JobReviewButtons = ({
 
     return (
         <Group>
-            {/*<DownloadResults results={decryptedResults[0]} />*/}
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'FILES-REJECTED'}

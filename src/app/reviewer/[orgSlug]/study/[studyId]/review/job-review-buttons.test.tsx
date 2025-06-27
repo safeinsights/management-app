@@ -1,10 +1,10 @@
-import { describe, expect, it, vi, Mock } from 'vitest'
+import { describe, expect, it, Mock, vi } from 'vitest'
 import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from './job-review-buttons'
-import { fireEvent, screen, waitFor, act } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
 import * as actions from '@/server/actions/study-job.actions'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.spyOn(actions, 'approveStudyJobFilesAction')
 vi.spyOn(actions, 'rejectStudyJobFilesAction')
@@ -14,7 +14,14 @@ vi.mock('@/server/storage', () => ({
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {
-    const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
+    const testResults = [
+        {
+            path: 'test.csv',
+            contents: new TextEncoder().encode('test123').buffer as ArrayBuffer,
+            sourceId: 'test',
+            fileType: 'DECRYPTED-RESULTS' as FileType,
+        },
+    ]
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
         const { org } = await mockSessionWithTestData()

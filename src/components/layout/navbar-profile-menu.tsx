@@ -3,14 +3,15 @@
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useDisclosure, useClickOutside } from '@mantine/hooks'
 import { CaretRight, SignOut, User, Lock } from '@phosphor-icons/react/dist/ssr'
-import { Protect, useClerk } from '@clerk/nextjs'
+import { useClerk } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import styles from './navbar-items.module.css'
 import { AuthRole } from '@/lib/types'
-import { useRouter } from 'next-router-mock'
+import { useRouter } from 'next/navigation'
 import { RefWrapper } from './nav-ref-wrapper'
 import { useRef, useCallback } from 'react'
+import { Protect } from '../auth'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()

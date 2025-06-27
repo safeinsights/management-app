@@ -70,7 +70,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('CODE'))} />
                     </Group>
                     <Divider c="dimmed" />
-                    {/* TODO Cleanup where this View Results is, and also do something similar for logs */}
                     <ViewJobResultsCSV job={job} />
                 </Stack>
             </Paper>

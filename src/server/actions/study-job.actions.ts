@@ -114,7 +114,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'fileType', 'path'])
+                    .select(['id', 'name', 'studyJobFile.fileType', 'path'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])

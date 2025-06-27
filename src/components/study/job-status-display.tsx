@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
@@ -18,7 +18,7 @@ const JobStatusDisplay: FC<{ statusChange?: Status }> = ({ statusChange }) => {
 
     return (
         <Group c={color} gap="xs" align="center">
-            {isApproved ? <CheckCircle weight="fill" size={24} /> : <XCircle weight="fill" size={24} />}
+            {isApproved ? <CheckCircleIcon weight="fill" size={24} /> : <XCircleIcon weight="fill" size={24} />}
             <Text fz="xs" fw={600} c={color}>
                 {statusDisplay} on {dayjs(statusChange.createdAt).format('MMM DD, YYYY')}
             </Text>

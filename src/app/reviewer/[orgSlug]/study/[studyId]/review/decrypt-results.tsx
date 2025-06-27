@@ -1,7 +1,6 @@
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
 import { Button, Group, Modal, Stack, Textarea, Title } from '@mantine/core'
-
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as Sentry from '@sentry/nextjs'
@@ -22,7 +21,7 @@ interface StudyResultsFormValues {
 
 type Props = {
     job: NonNullable<StudyJobWithLastStatus>
-    onApproval: (decryptedResults: FileEntry[]) => void
+    onApproval: (decryptedResults: FileEntryWithJobFileInfo[]) => void
 }
 
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {

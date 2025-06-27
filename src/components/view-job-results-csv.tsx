@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { Flex, LoadingOverlay, Text, Stack } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
-import { Download } from '@phosphor-icons/react/dist/ssr'
+import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { resultsDownloadURL } from '@/lib/paths'
 import { fetchJobResultsCsvAction } from '@/server/actions/study-job.actions'
 import { ButtonLink } from '@/components/links'
@@ -53,7 +53,7 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
             <Flex justify={'end'}>
                 <ButtonLink
                     target="_blank"
-                    rightSection={<Download />}
+                    rightSection={<DownloadIcon />}
                     href={resultsDownloadURL({ id: job.id, resultsPath: results.path })}
                 >
                     Download Results

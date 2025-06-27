@@ -9,14 +9,14 @@ import {
 import { fireEvent, waitFor } from '@testing-library/react'
 import { screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
-import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
-    fetchJobResultsEncryptedZipAction: vi.fn(() => 'Encrypted Results'),
+    fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
 }))
 
 describe('View Study Results', () => {
@@ -68,7 +68,13 @@ describe('View Study Results', () => {
         await writer.addFile('test.data', arrayBuf)
         const zip = await writer.generate()
 
-        vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
+        const file = {
+            blob: zip,
+            sourceId: '123',
+            fileType: 'ENCRYPTED-RESULT' as FileType,
+        }
+
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
 
         const { latestJobWithStatus: job } = await insertTestStudyJobData({
             org,
