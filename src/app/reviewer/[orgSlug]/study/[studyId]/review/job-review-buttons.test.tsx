@@ -42,7 +42,6 @@ describe('Study Results Approve/Reject buttons', async () => {
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
             const latestJob = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
-            console.log(latestJob.statusChanges)
             expect(latestJob.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
         })
     }
