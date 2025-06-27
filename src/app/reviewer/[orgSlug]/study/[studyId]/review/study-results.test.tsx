@@ -29,7 +29,7 @@ describe('View Study Results', () => {
 
     const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus) => {
         const { org } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
         const helpers = renderWithProviders(<StudyResults job={job} />)
         return { ...helpers, job, org }
     }
@@ -70,7 +70,7 @@ describe('View Study Results', () => {
 
         vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
 
-        const { latestJobithStatus: job } = await insertTestStudyJobData({
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })

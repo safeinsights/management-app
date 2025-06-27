@@ -31,13 +31,14 @@ export const RenderCSV: FC<{ csv: string }> = ({ csv: txt }) => {
             : skipToken,
     })
 
-    if (isError)
+    if (isError) {
         return (
             <Flex direction={'column'}>
                 <ErrorAlert error={error} />
                 <div>{txt}</div>
             </Flex>
         )
+    }
 
     if (isLoading || !csv) {
         return <LoadingOverlay />

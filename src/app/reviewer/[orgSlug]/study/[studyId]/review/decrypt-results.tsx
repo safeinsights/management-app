@@ -1,6 +1,6 @@
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Button, Group, Stack, Textarea, Title } from '@mantine/core'
+import { Button, Group, Modal, Stack, Textarea, Title } from '@mantine/core'
 
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -12,6 +12,9 @@ import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions
 import { useParams } from 'next/navigation'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
 import { RenderCSV } from '@/components/render-csv'
+import { FileEntryWithJobFileInfo } from '@/lib/types'
+import { DownloadResultsLink, ViewResultsLink } from '@/components/links'
+import { useDisclosure } from '@mantine/hooks'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -23,7 +26,7 @@ type Props = {
 }
 
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<FileEntry[]>([])
+    const [decryptedFiles, setDecryptedFiles] = useState<FileEntryWithJobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
@@ -31,7 +34,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
         initialValues: { privateKey: '' },
     })
 
-    const { isLoading: isLoadingBlob, data: encryptedBlobs } = useQuery({
+    const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
         queryKey: ['study-job', job.id],
         queryFn: async () => {
             try {
@@ -47,7 +50,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!encryptedBlobs) return []
+            if (!encryptedFiles) return []
             let fingerprint = ''
             let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
             try {
@@ -59,11 +62,17 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
             try {
-                const decryptedFiles: FileEntry[] = []
-                for (const encryptedBlob of encryptedBlobs) {
-                    const reader = new ResultsReader(encryptedBlob, privateKeyBuffer, fingerprint)
-                    const decryptedFileEntry = await reader.extractFiles()
-                    decryptedFiles.push(...decryptedFileEntry)
+                const decryptedFiles: FileEntryWithJobFileInfo[] = []
+                for (const encryptedBlob of encryptedFiles) {
+                    const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
+                    const extractedFiles = await reader.extractFiles()
+                    for (const extractedFile of extractedFiles) {
+                        decryptedFiles.push({
+                            ...extractedFile,
+                            sourceId: encryptedBlob.sourceId,
+                            fileType: encryptedBlob.fileType,
+                        })
+                    }
                 }
                 return decryptedFiles
             } catch (err) {
@@ -74,7 +83,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
         },
-        onSuccess: async (files: FileEntry[]) => {
+        onSuccess: async (files: FileEntryWithJobFileInfo[]) => {
             onApproval(files)
             setDecryptedFiles(files)
         },
@@ -95,7 +104,9 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
 
     return (
         <Stack>
-            <FileResults fileResults={decryptedFiles} />
+            {decryptedFiles.map((decryptedFile) => (
+                <FileResult fileResult={decryptedFile} key={decryptedFile.path} />
+            ))}
             {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Group>
@@ -116,17 +127,18 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     )
 }
 
-const FileResults: FC<{ fileResults: FileEntry[] }> = ({ fileResults }) => {
-    return fileResults.map((fileResult) => (
-        <Stack key={fileResult.path}>
-            <Title order={4}>{fileResult.path}</Title>
-            {/* TODO Remake the renderCSV to be in a modal? and either
-                 A) make it generic
-                 or
-                 B) Conditionally render results in CSV and logs in text?
+const FileResult: FC<{ fileResult: FileEntryWithJobFileInfo }> = ({ fileResult }) => {
+    const [opened, { open, close }] = useDisclosure(false)
 
-             */}
-            <RenderCSV csv={new TextDecoder().decode(fileResult.contents)} />
-        </Stack>
-    ))
+    return (
+        <Group>
+            <Title order={4}>{fileResult.path}</Title>
+            <DownloadResultsLink target="_blank" filename={fileResult.path} content={fileResult.contents} />
+            <ViewResultsLink filename={fileResult.path} content={fileResult.contents} />
+            <Modal size="80%" opened={opened} onClose={close} title={fileResult.path}>
+                <RenderCSV csv={new TextDecoder().decode(fileResult.contents)} />
+            </Modal>
+            <Button onClick={open}>View Results</Button>
+        </Group>
+    )
 }

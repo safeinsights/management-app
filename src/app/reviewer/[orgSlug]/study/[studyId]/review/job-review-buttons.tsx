@@ -16,17 +16,6 @@ type FileEntry = {
     contents: ArrayBuffer
 }
 
-const DownloadResults: FC<{ results?: FileEntry }> = ({ results }) => {
-    if (!results) return null
-    return (
-        <>
-            <Divider />
-            <DownloadResultsLink target="_blank" filename={results.path} content={results.contents} />
-            <Divider />
-        </>
-    )
-}
-
 export const JobReviewButtons = ({
     job,
     decryptedResults,
@@ -96,7 +85,7 @@ export const JobReviewButtons = ({
 
     return (
         <Group>
-            <DownloadResults results={decryptedResults[0]} />
+            {/*<DownloadResults results={decryptedResults[0]} />*/}
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'FILES-REJECTED'}

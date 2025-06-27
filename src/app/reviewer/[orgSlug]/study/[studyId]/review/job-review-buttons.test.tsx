@@ -5,12 +5,13 @@ import { fireEvent, screen, waitFor, act } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
 import * as actions from '@/server/actions/study-job.actions'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { storeApprovedJobFile } from '@/server/storage'
 
 vi.spyOn(actions, 'approveStudyJobFilesAction')
 vi.spyOn(actions, 'rejectStudyJobFilesAction')
 
 vi.mock('@/server/storage', () => ({
-    storeStudyApprovedResultsFile: vi.fn(),
+    storeApprovedJobFile: vi.fn(),
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {
@@ -18,7 +19,7 @@ describe('Study Results Approve/Reject buttons', async () => {
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
         const { org } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         return await act(async () => {
             const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)
             return { ...helpers, job, org }

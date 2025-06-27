@@ -2,7 +2,7 @@
 
 import { db, jsonArrayFrom } from '@/database'
 import { minimalJobInfoSchema } from '@/lib/types'
-import { fetchFileContents, storeStudyApprovedLogFile, storeStudyApprovedResultsFile } from '@/server/storage'
+import { fetchFileContents } from '@/server/storage'
 import {
     actionContext,
     checkMemberOfOrgWithSlug,
@@ -22,7 +22,6 @@ import {
 } from '@/server/db/queries'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
-import { pathForStudyJob } from '@/lib/paths'
 
 export const approveStudyJobFilesAction = orgAction(
     async ({ jobInfo: info, jobFiles }) => {
@@ -35,6 +34,7 @@ export const approveStudyJobFilesAction = orgAction(
         return
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
+            // await store
             // await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
         }
 
@@ -116,7 +116,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType', 'path'])
+                    .select(['id', 'name', 'fileType', 'path'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -175,13 +175,18 @@ export const fetchEncryptedJobFilesAction = orgAction(
         const encryptedFiles = job.files.filter(
             (file) => file.fileType === 'ENCRYPTED-LOG' || file.fileType === 'ENCRYPTED-RESULT',
         )
-        const encryptedFileBlobs = []
+
+        const encryptedJobFiles = []
         for (const encryptedFile of encryptedFiles) {
             const blob = await fetchFileContents(encryptedFile.path)
-            encryptedFileBlobs.push(blob)
+            encryptedJobFiles.push({
+                fileType: encryptedFile.fileType,
+                sourceId: encryptedFile.id,
+                blob: blob,
+            })
         }
 
-        return encryptedFileBlobs
+        return encryptedJobFiles
     },
     z.object({
         jobId: z.string(),

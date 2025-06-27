@@ -1,16 +1,17 @@
 'use client'
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 import { AnchorProps, Button, ButtonProps, Anchor as MantineAnchor } from '@mantine/core'
-import { Download } from '@phosphor-icons/react/dist/ssr'
+import { Download, Eye } from '@phosphor-icons/react/dist/ssr'
 import NextLink from 'next/link'
+import { FC, ReactNode } from 'react'
 
 export type LinkProps = AnchorProps & {
     href: string
     target?: string
-    children: React.ReactNode
+    children: ReactNode
 }
 
-export const Link: React.FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
+export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
     <NextLink href={href} target={target} passHref>
         <MantineAnchor component="span" {...anchorProps}>
             {children}
@@ -21,7 +22,7 @@ export const Link: React.FC<LinkProps> = ({ href, target, children, ...anchorPro
 export type ButtonLinkProps = ButtonProps & {
     href: string
     target?: string
-    children: React.ReactNode
+    children: ReactNode
 }
 
 export type DownloadLinkProps = AnchorProps & {
@@ -30,13 +31,13 @@ export type DownloadLinkProps = AnchorProps & {
     target?: string
 }
 
-export const ButtonLink: React.FC<ButtonLinkProps> = ({ href, target, children, ...anchorProps }) => (
+export const ButtonLink: FC<ButtonLinkProps> = ({ href, target, children, ...anchorProps }) => (
     <Button component={Link} href={href} target={target} {...anchorProps}>
         {children}
     </Button>
 )
 
-export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, content, target }) => {
+export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, target }) => {
     return (
         <NextLink
             href={'data:text/plain;base64,' + btoa(String.fromCharCode(...new Uint8Array(content)))}
@@ -46,5 +47,19 @@ export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, con
         >
             <Button rightSection={<Download />}>Download Results</Button>
         </NextLink>
+    )
+}
+
+export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
+    const handleClick = () => {
+        const blob = new Blob([new Uint8Array(content)], { type: 'text/plain' })
+        const url = URL.createObjectURL(blob)
+        window.open(url, '_blank')
+    }
+
+    return (
+        <Button onClick={handleClick} rightSection={<Eye />}>
+            View Results
+        </Button>
     )
 }

@@ -43,16 +43,7 @@ export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file:
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }
 
-// export async function storeApprovedJobFile(info: MinimalJobInfo, file: File) {
-//
-// }
-
-// TODO Just use generic function that takes the StudyJobFile and uses .fileType
-// TODO Also, store the `sourceId` from the encrypted file so it can reference the original zip file
-export async function storeStudyApprovedResultsFile(info: MinimalJobInfo, file: File) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
-}
-
-export async function storeStudyApprovedLogFile(info: MinimalJobInfo, file: File) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-LOG')
+// Add sourceId at some point?
+export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType)
 }
