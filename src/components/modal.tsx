@@ -47,6 +47,10 @@ export function AppModal({
                     borderRadius: '32px',
                     padding: '4px',
                 },
+                title: {
+                    fontWeight: 600,
+                    fontSize: '18px',
+                },
             }}
         >
             {children}
