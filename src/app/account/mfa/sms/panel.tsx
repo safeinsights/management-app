@@ -118,7 +118,10 @@ export function ManageSMSMFAPanel() {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
         } catch (err) {
-            otpForm.setFieldError('code', String(err))
+            otpForm.setFieldError(
+                'code',
+                errorToString(err, { form_code_incorrect: 'Invalid code. Please try again.' }),
+            )
         }
 
         // Set phone number as MFA
