@@ -39,6 +39,40 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
     const [isApproveModalOpen, { open: openApproveModal, close: closeApproveModal }] = useDisclosure(false)
 
+    // Show the confirmation modal again only if 48 hours have passed since the last action.
+    const HOURS_MS = 48 * 60 * 60 * 1000 // 48 hours
+    const ACTION_TIMESTAMP_KEY = 'studyApprovalActionAt'
+
+    // Persist a timestamp in localStorage whenever the user either approves the study or chooses to generate a new key from the modal.
+    const saveActionTimestamp = () => {
+        try {
+            localStorage.setItem(ACTION_TIMESTAMP_KEY, Date.now().toString())
+        } catch (error) {
+            console.error('Failed to write to localStorage', error)
+        }
+    }
+
+    // When the "Approve" button is clicked:
+    // • If a modal action (approve or generate key) occurred within the past 48 hours, skip the modal and approve immediately.
+    // • Otherwise, display the confirmation modal.
+    const showConfirmationModal = () => {
+        if (isPending || isSuccess) {
+            return
+        }
+
+        try {
+            const lastAction = localStorage.getItem(ACTION_TIMESTAMP_KEY)
+            if (lastAction && Date.now() - parseInt(lastAction, 10) < HOURS_MS) {
+                updateStudy('APPROVED')
+                return
+            }
+        } catch (error) {
+            console.error('Failed to read from localStorage', error)
+        }
+
+        openApproveModal()
+    }
+
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
         return <StudyStatusDisplay status={study.status} date={study.approvedAt ?? study.rejectedAt} />
     }
@@ -56,7 +90,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             <Button
                 disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'APPROVED'}
-                onClick={openApproveModal}
+                onClick={showConfirmationModal}
             >
                 Approve
             </Button>
@@ -64,9 +98,11 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
                 isOpen={isApproveModalOpen}
                 onClose={closeApproveModal}
                 onApprove={() => {
+                    saveActionTimestamp()
                     updateStudy('APPROVED')
                     closeApproveModal()
                 }}
+                handleActionTimestamp={saveActionTimestamp}
                 isPending={isPending}
             />
         </Group>
@@ -78,8 +114,15 @@ const ConfirmStudyApprovalModal: FC<{
     onClose: () => void
     onApprove: () => void
     isPending: boolean
-}> = ({ isOpen, onClose, onApprove, isPending }) => {
+    handleActionTimestamp: () => void
+}> = ({ isOpen, onClose, onApprove, isPending, handleActionTimestamp }) => {
     const router = useRouter()
+
+    const handleGenerateKey = () => {
+        handleActionTimestamp()
+        router.push('/account/keys')
+    }
+
     return (
         <AppModal isOpen={isOpen} onClose={onClose} title="Confirm decision" size="xl">
             <Stack>
@@ -96,7 +139,7 @@ const ConfirmStudyApprovalModal: FC<{
                     Do you want to proceed?
                 </Text>
                 <Group justify="flex-start">
-                    <Button variant="outline" size="sm" onClick={() => router.push('/account/keys')}>
+                    <Button variant="outline" size="sm" onClick={handleGenerateKey}>
                         Lost key? Generate new one
                     </Button>
                     <Button loading={isPending} onClick={onApprove}>
