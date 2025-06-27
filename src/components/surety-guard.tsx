@@ -1,6 +1,6 @@
 import { ActionIcon, Button, Flex, Popover, Text } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { Trash } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, useState } from 'react'
 
 export const SuretyGuard: FC<{
@@ -22,7 +22,7 @@ export const SuretyGuard: FC<{
         <Popover width={300} trapFocus withArrow shadow="md" opened={opened} onChange={close} closeOnClickOutside>
             <Popover.Target>
                 <ActionIcon size="sm" variant="subtle" color="red" onClick={open} disabled={opened}>
-                    {children || <Trash />}
+                    {children || <TrashIcon />}
                 </ActionIcon>
             </Popover.Target>
             <Popover.Dropdown>

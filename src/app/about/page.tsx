@@ -1,5 +1,5 @@
 import { Paper, Card, Text, Divider, Flex } from '@mantine/core'
-import { Eye } from '@phosphor-icons/react/dist/ssr'
+import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
 export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
@@ -25,7 +25,7 @@ const TagLink = () => {
         <a href={`https://github.com/safeinsights/management-app/${path}`} target="_blank" rel="noopener noreferrer">
             <Flex gap="md" align={'center'}>
                 <span>{tag || sha}</span>
-                <Eye />
+                <EyeIcon />
             </Flex>
         </a>
     )

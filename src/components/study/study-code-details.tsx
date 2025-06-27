@@ -5,7 +5,7 @@ import { Badge, Stack, Text } from '@mantine/core'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@tanstack/react-query'
-import { Download } from '@phosphor-icons/react/dist/ssr'
+import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { studyCodeURL } from '@/lib/paths'
 
 export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
@@ -42,7 +42,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
                 component="a"
                 href={studyCodeURL(job.id, fileName)}
                 target="_blank"
-                rightSection={<Download />}
+                rightSection={<DownloadIcon />}
                 style={{ cursor: 'pointer' }}
                 key={fileName}
             >

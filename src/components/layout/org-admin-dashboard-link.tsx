@@ -3,7 +3,7 @@
 import { FC, useState, useEffect } from 'react'
 import { NavLink } from '@mantine/core'
 import Link from 'next/link'
-import { Gear, UsersThree, Sliders } from '@phosphor-icons/react/dist/ssr'
+import { GearIcon, UsersThreeIcon, SlidersIcon } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { Protect } from '../auth'
 import { useOrgInfo } from '../org-info'
@@ -40,7 +40,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
         <Protect role={AuthRole.Admin}>
             <NavLink
                 label="Admin"
-                leftSection={<Gear />}
+                leftSection={<GearIcon />}
                 onClick={() => {
                     if (!pathname.startsWith(orgAdminBaseUrl)) {
                         setIsAdminMenuOpen((prev) => !prev)
@@ -54,7 +54,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
             >
                 <NavLink
                     label="Manage Team"
-                    leftSection={<UsersThree size={20} />}
+                    leftSection={<UsersThreeIcon size={20} />}
                     component={Link}
                     href={`${orgAdminBaseUrl}`}
                     active={pathname === `${orgAdminBaseUrl}`}
@@ -66,7 +66,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
                 />
                 <NavLink
                     label="Settings"
-                    leftSection={<Sliders size={20} />}
+                    leftSection={<SlidersIcon size={20} />}
                     component={Link}
                     href={`${orgAdminBaseUrl}/settings`}
                     active={pathname === `${orgAdminBaseUrl}/settings`}

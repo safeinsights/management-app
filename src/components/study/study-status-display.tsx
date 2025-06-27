@@ -1,5 +1,5 @@
 import { StudyStatus } from '@/database/types'
-import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
@@ -13,7 +13,11 @@ const StudyStatusDisplay: FC<{ status: StudyStatus; date?: Date | null }> = ({ s
 
     return (
         <Group c={color} gap="xs" align="center">
-            {status === 'APPROVED' ? <CheckCircle weight="fill" size={24} /> : <XCircle weight="fill" size={24} />}
+            {status === 'APPROVED' ? (
+                <CheckCircleIcon weight="fill" size={24} />
+            ) : (
+                <XCircleIcon weight="fill" size={24} />
+            )}
             <Text fz="xs" fw={600} c={color}>
                 {statusDisplay} on {dayjs(date).format('MMM DD, YYYY')}
             </Text>
