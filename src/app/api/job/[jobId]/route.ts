@@ -14,11 +14,20 @@ const schema = z.object({
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
+
     const org = apiRequestingOrg()
     const { jobId } = await params
     if (!jobId || !org) {
         return new NextResponse('Unauthorized', { status: 401 })
     }
+
+    const alreadyCompleted = await db
+        .selectFrom('jobStatusChange')
+        .where('jobStatusChange.studyJobId', '=', jobId)
+        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
+        .executeTakeFirst()
+    if (alreadyCompleted) return new NextResponse('job is already complete', { status: 422 })
+
     const job = await db
         .selectFrom('studyJob')
         .innerJoin('study', (join) => join.onRef('study.id', '=', 'studyJob.studyId').on('orgId', '=', org.id))
