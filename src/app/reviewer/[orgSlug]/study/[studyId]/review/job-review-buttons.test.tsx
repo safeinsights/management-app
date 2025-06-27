@@ -19,7 +19,7 @@ describe('Study Results Approve/Reject buttons', async () => {
             path: 'test.csv',
             contents: new TextEncoder().encode('test123').buffer as ArrayBuffer,
             sourceId: 'test',
-            fileType: 'DECRYPTED-RESULTS' as FileType,
+            fileType: 'APPROVED-RESULT' as FileType,
         },
     ]
 
@@ -41,8 +41,9 @@ describe('Study Results Approve/Reject buttons', async () => {
         })
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
-            const latest = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
-            expect(latest.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
+            const latestJob = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
+            console.log(latestJob.statusChanges)
+            expect(latestJob.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
         })
     }
 
