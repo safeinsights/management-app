@@ -67,11 +67,12 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         onError(error: unknown) {
             if (isClerkApiError(error)) {
                 const { code, message } = extractClerkCodeAndMessage(error)
-                verificationForm.setErrors({
-                    // clerk seems to send verification_expired for all code verification errors
-                    [`${code == 'verification_expired' || code == 'form_code_incorrect' ? 'code' : 'password'}`]:
-                        message == 'Incorrect code' ? 'Incorrect Verification Code' : message,
-                })
+                verificationForm.setFieldError(
+                    'code',
+                    errorToString(error, { code: 'form_code_incorrect' || code == 'verification_expired' })
+                        ? 'Incorrect Verification Code.'
+                        : errorToString(error),
+                )
             } else {
                 verificationForm.setErrors({
                     code: errorToString(error),
