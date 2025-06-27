@@ -8,6 +8,8 @@ export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
 
 export const PROD_ENV = process.env.NODE_ENV === 'production'
 
+export const APP_BASE_URL = `http${PROD_ENV ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
+
 export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 
 export const SIMULATE_IMAGE_BUILD =
