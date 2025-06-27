@@ -64,7 +64,9 @@ export async function findOrCreateOrgMembership({
             .selectFrom('org')
             .select(['org.id', 'org.slug', 'org.name'])
             .where('org.slug', '=', slug)
-            .executeTakeFirstOrThrow(() => new Error(`No organization found with slug ${slug}`))
+            .executeTakeFirstOrThrow(() => {
+                return new Error(`No organization found with slug ${slug}`)
+            })
 
         await db
             .insertInto('orgUser')

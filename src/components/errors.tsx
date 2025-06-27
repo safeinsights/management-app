@@ -1,20 +1,17 @@
+'use client'
+
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
 import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode } from 'react'
-import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
+import { errorToString, extractActionFailure } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { difference } from 'remeda'
-import logger from '@/lib/logger'
 
 export * from '@/lib/errors'
 
 export const reportError = (error: unknown, title = 'An error occurred') => {
-    // TODO: consider whether we should send everything to sentry?
-    if (isServerActionError(error)) {
-        captureException(error)
-    }
-    logger.error('An error occurred:\n', error)
+    captureException(error)
     notifications.show({
         color: 'red',
         title,

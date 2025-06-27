@@ -187,7 +187,9 @@ export const approveStudyProposalAction = orgAction(
                 .execute()
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
-            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            if (!latestJob) {
+                throw new Error(`No job found for study id: ${studyId}`)
+            }
 
             let status: StudyJobStatus = 'CODE-APPROVED'
 
@@ -253,7 +255,9 @@ export const rejectStudyProposalAction = orgAction(
                 .execute()
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
-            if (!latestJob) throw new Error(`No job found for study id: ${studyId}`)
+            if (!latestJob) {
+                throw new Error(`No job found for study id: ${studyId}`)
+            }
 
             await trx
                 .insertInto('jobStatusChange')

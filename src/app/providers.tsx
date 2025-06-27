@@ -1,5 +1,6 @@
 'use client'
 
+import '../../sentry.client.config' // this is needed to make sure the client side config is loaded
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
@@ -23,13 +24,10 @@ function makeQueryClient() {
         },
     })
 }
-
 let browserQueryClient: QueryClient | undefined = undefined
-
 type Props = {
     children: ReactNode
 }
-
 export function getQueryClient() {
     if (isServer) {
         // Server: always make a new query client
