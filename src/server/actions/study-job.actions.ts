@@ -2,7 +2,7 @@
 
 import { db, jsonArrayFrom } from '@/database'
 import { minimalJobInfoSchema } from '@/lib/types'
-import { fetchFileContents } from '@/server/storage'
+import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import {
     actionContext,
     checkMemberOfOrgWithSlug,
@@ -28,17 +28,10 @@ export const approveStudyJobFilesAction = orgAction(
         await checkUserAllowedStudyReview(info.studyId)
         const user = await siUser()
 
-        const job = await loadStudyJobAction(info.studyJobId)
-
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
-            // await store
-            // await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, 'APPROVED-RESULT')
+            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
         }
-
-        // const log = jobFiles[0]
-        // const logFile = new File([log.contents], log.path)
-        // await storeStudyApprovedLogFile(info, logFile)
 
         await db
             .insertInto('jobStatusChange')
@@ -60,6 +53,15 @@ export const approveStudyJobFilesAction = orgAction(
             z.object({
                 path: z.string(),
                 contents: z.instanceof(ArrayBuffer),
+                sourceId: z.string(),
+                fileType: z.enum([
+                    'APPROVED-LOG',
+                    'APPROVED-RESULT',
+                    'ENCRYPTED-LOG',
+                    'ENCRYPTED-RESULT',
+                    'MAIN-CODE',
+                    'SUPPLEMENTAL-CODE',
+                ]),
             }),
         ),
     }),
@@ -114,7 +116,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'studyJobFile.fileType', 'path'])
+                    .select(['id', 'name', 'fileType', 'path'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])

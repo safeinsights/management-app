@@ -42,7 +42,6 @@ export async function storeStudyEncryptedResultsFile(info: MinimalJobInfo, file:
     return await storeJobFile(info, `${pathForStudyJob(info)}/results/encrypted-results.zip`, file, 'ENCRYPTED-RESULT')
 }
 
-// Add sourceId at some point?
-export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType) {
-    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType)
+export async function storeApprovedJobFile(info: MinimalJobInfo, file: File, fileType: FileType, sourceId: string) {
+    return await storeJobFile(info, `${pathForStudyJob(info)}/results/approved/${file.name}`, file, fileType, sourceId)
 }

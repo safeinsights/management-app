@@ -11,10 +11,8 @@ export const ActivityContext = () => {
     const { session } = useSession()
     const { signOut } = useClerk()
 
-    if (DEV_ENV) return null
-
     useEffect(() => {
-        if (!session) return
+        if (DEV_ENV || !session) return
 
         const checkInactivity = () => {
             if (!session.lastActiveAt) return
