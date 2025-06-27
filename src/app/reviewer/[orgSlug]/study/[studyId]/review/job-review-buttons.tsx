@@ -1,27 +1,20 @@
-import { DownloadResultsLink } from '@/components/links'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
-import { MinimalJobInfo } from '@/lib/types'
+import { FileEntryWithJobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { StudyJobWithLastStatus } from '@/server/db/queries'
-import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
+import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircle, XCircle } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
-import { FC } from 'react'
-
-type FileEntry = {
-    path: string
-    contents: ArrayBuffer
-}
 
 export const JobReviewButtons = ({
     job,
     decryptedResults,
 }: {
     job: NonNullable<StudyJobWithLastStatus>
-    decryptedResults?: FileEntry[]
+    decryptedResults?: FileEntryWithJobFileInfo[]
 }) => {
     const theme = useMantineTheme()
     const router = useRouter()
@@ -44,7 +37,6 @@ export const JobReviewButtons = ({
 
             if (status === 'FILES-APPROVED') {
                 await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
-                // await approveStudyJobLogsAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
             }
 
             if (status === 'FILES-REJECTED') {

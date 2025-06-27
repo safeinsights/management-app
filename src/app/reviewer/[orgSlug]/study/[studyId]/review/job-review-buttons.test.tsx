@@ -5,7 +5,6 @@ import { fireEvent, screen, waitFor, act } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
 import * as actions from '@/server/actions/study-job.actions'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { storeApprovedJobFile } from '@/server/storage'
 
 vi.spyOn(actions, 'approveStudyJobFilesAction')
 vi.spyOn(actions, 'rejectStudyJobFilesAction')

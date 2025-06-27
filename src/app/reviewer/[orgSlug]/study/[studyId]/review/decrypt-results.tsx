@@ -134,7 +134,7 @@ const FileResult: FC<{ fileResult: FileEntryWithJobFileInfo }> = ({ fileResult }
         <Group>
             <Title order={4}>{fileResult.path}</Title>
             <DownloadResultsLink target="_blank" filename={fileResult.path} content={fileResult.contents} />
-            <ViewResultsLink filename={fileResult.path} content={fileResult.contents} />
+            <ViewResultsLink content={fileResult.contents} />
             <Modal size="80%" opened={opened} onClose={close} title={fileResult.path}>
                 <RenderCSV csv={new TextDecoder().decode(fileResult.contents)} />
             </Modal>

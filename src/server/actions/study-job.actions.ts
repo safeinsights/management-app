@@ -30,8 +30,6 @@ export const approveStudyJobFilesAction = orgAction(
 
         const job = await loadStudyJobAction(info.studyJobId)
 
-        console.log('Job Files ', jobFiles)
-        return
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
             // await store
@@ -137,7 +135,7 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-// TODO Used for researcher???
+// TODO Used for researcher??? or not needed? maybe just make a fetchJobFilesAction
 export const fetchJobLogsAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
     const info = await getStudyJobFileOfType(jobId, 'APPROVED-LOG')
