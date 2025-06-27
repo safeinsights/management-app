@@ -66,7 +66,6 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         },
         onError(error: unknown) {
             if (isClerkApiError(error)) {
-                const { code } = extractClerkCodeAndMessage(error)
                 verificationForm.setFieldError(
                     'code',
                     errorToString(error, { form_code_incorrect: 'Incorrect Verification Code.' }),
