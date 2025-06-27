@@ -1,6 +1,6 @@
 import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
-import { getConfigValue, PROD_ENV, CI_ENV } from './config'
+import { getConfigValue, PROD_ENV, CI_ENV, APP_BASE_URL } from './config'
 
 const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 
@@ -43,7 +43,11 @@ export async function deliver({
     template: string
     vars: Record<string, unknown>
 }) {
-    const tmplVars = JSON.stringify(vars, null, 2)
+
+    const tmplVars = JSON.stringify({
+        applicationURL: APP_BASE_URL,
+        ...vars
+    }, null, 2)
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
