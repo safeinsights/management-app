@@ -5,9 +5,11 @@ import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
+import { useMutation } from '@tanstack/react-query'
+import { checkPendingInviteForMfaUserAction } from '@/server/actions/user.actions'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -23,7 +25,12 @@ export const SignInForm: FC<{
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const inviteId = searchParams.get('inviteId')
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
+    const { mutateAsync: checkPendingInvite, isPending: isCheckingInvite } = useMutation({
+        mutationFn: checkPendingInviteForMfaUserAction,
+    })
 
     const form = useForm<SignInFormData>({
         initialValues: {
@@ -44,9 +51,27 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 onComplete(false)
-                router.push('/')
+                if (inviteId) {
+                    router.push(`/account/invitation/${inviteId}`)
+                } else {
+                    router.push('/')
+                }
             }
             if (attempt.status === 'needs_second_factor') {
+                // If the user arrived via an invitation link, allow them to
+                // proceed to MFA setup to complete their account creation.
+                if (!inviteId) {
+                    // This handles the "switched browser" case for users not in an invite flow.
+                    const isPending = await checkPendingInvite()
+                    if (isPending) {
+                        form.setErrors({
+                            email: 'To complete your account setup, please use the link from your invitation email.',
+                        })
+                        return
+                    }
+                }
+
+                // If we're here, it's safe to proceed to MFA.
                 const state = await signInToMFAState(attempt)
                 onComplete(state)
             }
@@ -113,7 +138,7 @@ export const SignInForm: FC<{
                     )}
                     <Link href="/account/reset-password">Forgot password?</Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button mb="xxl" disabled={!form.isValid()} type="submit">
+                    <Button mb="xxl" disabled={!form.isValid()} loading={isCheckingInvite} type="submit">
                         Login
                     </Button>
                 </Flex>
