@@ -74,8 +74,16 @@ test.describe('Studies', () => {
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
+        // Click approve – modal should appear
         await page.getByRole('button', { name: /approve/i }).click()
 
+        // Confirm within modal
+        await page.getByRole('button', { name: 'Yes, approve code' }).click()
+
+        // Wait for redirect back to dashboard
+        await page.waitForURL('/reviewer/openstax/dashboard')
+
+        // Re-open study details and verify approval timestamp is displayed
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
         await expect(page.getByText(/approved on/i)).toBeVisible()
