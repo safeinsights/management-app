@@ -29,27 +29,31 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
     )
 }
 
-type StatusLabels = {
+type StatusLabel = {
     type: 'Code' | 'Results' | 'Proposal'
     label: string
     InfoComponent?: PopOverComponent
 }
 
-const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
+const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     APPROVED: { type: 'Proposal', label: 'Approved' },
     REJECTED: { type: 'Proposal', label: 'Rejected' },
+    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
+    'CODE-APPROVED': { type: 'Code', label: 'Approved' },
+    'CODE-REJECTED': { type: 'Code', label: 'Rejected' },
+    'CODE-SUBMITTED': { type: 'Code', label: 'Submitted' },
     'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
     'JOB-RUNNING': { type: 'Code', label: 'Running' },
+    'JOB-READY': { type: 'Code', label: 'Ready' },
     'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
     'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
     'RESULTS-REJECTED': { type: 'Results', label: 'Rejected' },
     'RESULTS-APPROVED': { type: 'Results', label: 'Approved' },
-    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
 }
 
-const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
+const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
     const color =
-        [StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1
+        [STATUS_LABELS['RUN-COMPLETE']?.label, STATUS_LABELS['PENDING-REVIEW']?.label].indexOf(label) > -1
             ? 'red.9'
             : 'dark.8'
     return (
@@ -74,8 +78,7 @@ export const DisplayStudyStatus: FC<{
     jobStatus: StudyJobStatus | null
     jobId?: string | null
 }> = ({ studyStatus, jobStatus, jobId }) => {
-    const statusToDisplay = jobStatus ?? studyStatus
-    const props = StatusLabels[statusToDisplay]
+    const props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
 
     return props ? <StatusBlock {...props} jobId={jobId} /> : null
 }
