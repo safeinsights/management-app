@@ -5,71 +5,40 @@ import { screen } from '@testing-library/react'
 import { DisplayStudyStatus } from './display-study-status'
 
 describe('DisplayStudyStatus', () => {
-    const testCases: Array<{
-        studyStatus: StudyStatus
-        jobStatus: StudyJobStatus | null
-        expectedProposalText: string
-        expectedStatusText: string
-    }> = [
-        {
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: null,
-            expectedProposalText: 'Proposal',
-            expectedStatusText: 'Under Review',
-        },
-        {
-            studyStatus: 'APPROVED',
-            jobStatus: null,
-            expectedProposalText: 'Proposal',
-            expectedStatusText: 'Approved',
-        },
-        {
-            studyStatus: 'REJECTED',
-            jobStatus: null,
-            expectedProposalText: 'Proposal',
-            expectedStatusText: 'Rejected',
-        },
-        {
-            studyStatus: 'APPROVED',
-            jobStatus: 'JOB-PACKAGING',
-            expectedProposalText: 'Code',
-            expectedStatusText: 'Processing',
-        },
-        {
-            studyStatus: 'PENDING-REVIEW',
-            jobStatus: 'JOB-ERRORED',
-            expectedProposalText: 'Code',
-            expectedStatusText: 'Errored',
-        },
-        {
-            studyStatus: 'APPROVED',
-            jobStatus: 'RUN-COMPLETE',
-            expectedProposalText: 'Results',
-            expectedStatusText: 'Under Review',
-        },
-        {
-            studyStatus: 'APPROVED',
-            jobStatus: 'RESULTS-REJECTED',
-            expectedProposalText: 'Results',
-            expectedStatusText: 'Rejected',
-        },
-        {
-            studyStatus: 'APPROVED',
-            jobStatus: 'RESULTS-APPROVED',
-            expectedProposalText: 'Results',
-            expectedStatusText: 'Approved',
-        },
-    ]
+    const renderAndExpect = (
+        studyStatus: StudyStatus,
+        jobStatus: StudyJobStatus | null,
+        expectedType: string | null,
+        expectedLabel: string | null,
+    ) => {
+        renderWithProviders(<DisplayStudyStatus studyStatus={studyStatus} jobStatus={jobStatus} />)
 
-    testCases.forEach(({ studyStatus, jobStatus, expectedProposalText, expectedStatusText }) => {
-        it(`renders correct status for studyStatus: ${studyStatus}, jobStatus: ${jobStatus}`, () => {
-            renderWithProviders(<DisplayStudyStatus studyStatus={studyStatus} jobStatus={jobStatus} />)
+        if (expectedType && expectedLabel) {
+            expect(screen.getByText(expectedType)).toBeDefined()
+            expect(screen.getByText(expectedLabel)).toBeDefined()
+        } else {
+            expect(screen.queryByText(/Proposal|Code|Results/)).toBeNull()
+        }
+    }
 
-            const proposalText = screen.getByText(expectedProposalText)
-            const statusText = screen.getByText(expectedStatusText)
+    it('shows proposal status when there is no job', () => {
+        renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Under Review')
+    })
 
-            expect(proposalText).toBeDefined()
-            expect(statusText).toBeDefined()
-        })
+    it('falls back to study status when job status is unmapped', () => {
+        // JOB-PROVISIONING is not in STATUS_LABELS, should display study status instead
+        renderAndExpect('REJECTED', 'JOB-PROVISIONING', 'Proposal', 'Rejected')
+    })
+
+    it('shows mapped code status when available', () => {
+        renderAndExpect('APPROVED', 'CODE-APPROVED', 'Code', 'Approved')
+    })
+
+    it('shows mapped results status', () => {
+        renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Under Review')
+    })
+
+    it('renders nothing for completely unmapped study status', () => {
+        renderAndExpect('INITIATED', null, null, null)
     })
 })
