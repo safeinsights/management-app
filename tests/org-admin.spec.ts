@@ -26,7 +26,7 @@ test.describe('Organization Admin', () => {
         await page.keyboard.press('Tab')
         await expect(page.getByText('role must be selected')).toBeVisible()
 
-        await page.getByLabel('Reviewer (can review and approve studies)').click()
+        await page.getByLabel('Researcher (can submit studies and access results)').click()
 
         await page.getByRole('button', { name: /send/i }).click()
         await expect(page.getByText('sent successfully')).toBeVisible({ timeout: 10000 })
@@ -44,10 +44,23 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
-        await page.getByRole('button', { name: /signout/i }).click()
-        await page.waitForTimeout(1000)
+        await expect(
+            page.locator('main').getByText('This invitation is for a different user. Please log out and try again.'),
+        ).toBeVisible()
+
+        // The user is still logged in, so sign out to continue the test as a new user.
+        await goto(page, '/')
+        // automatic redirect for org-admin lands here
+        await page.waitForURL('**/admin/team/openstax')
+        await page.getByRole('button', { name: 'Toggle profile menu' }).click()
+
+        const signOutBtn = page.getByLabel('Sign Out')
+        await expect(signOutBtn).toBeVisible() // wait for menu content to render
+        await signOutBtn.click()
+        await page.waitForURL('**/signin**')
+
+        // Now, as a logged-out user, accept the invitation
+        await goto(page, `/account/invitation/${inviteId}`)
 
         // Ensure the Create Account button is initially disabled
         const createAccountBtn = page.getByRole('button', { name: /create account/i })
@@ -57,8 +70,9 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
         await page.getByLabel(/last name/i).fill(faker.person.lastName())
 
-        // Create a valid password that meets all requirements (8+ chars, number, uppercase, special)
-        const validPassword = 'TestPass1*'
+        // Generate a unique strong password each run to avoid Clerk “pwned” rejection
+        const rnd = faker.string.alphanumeric({ length: 8 }) // random letters/digits
+        const validPassword = `Aa${rnd}*1` // ensures upper/lower/digit/special
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
@@ -68,10 +82,11 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await createAccountBtn.click()
 
-        await expect(page.getByText(/account has been created/i)).toBeVisible()
+        await expect(page.getByText('Your account has been created successfully!')).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('button', { name: /next, secure your account with mfa/i }).click()
 
-        // test nav to mfa page
-        await page.getByRole('button', { name: /secure your account/i }).click()
+        // After navigation, wait for Clerk to be fully loaded and have a user.
+        await page.waitForFunction(() => (window as any).Clerk?.user)
 
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible
@@ -81,8 +96,8 @@ test.describe('Organization Admin', () => {
 
         await page.waitForTimeout(1000)
 
-        // test invitation link now redirects to home once the invite is claimed
+        // test that visiting the invite link again claims the invite and shows success
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForURL('/')
+        await expect(page.getByText(/You're now a member of/i)).toBeVisible()
     })
 })

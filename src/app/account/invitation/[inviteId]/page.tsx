@@ -1,7 +1,7 @@
 import { db } from '@/database'
-import { Paper, Title } from '@mantine/core'
-import { redirect } from 'next/navigation'
-import { AccountPanel } from './account-form'
+import { ErrorAlert } from '@/components/errors'
+import { Container } from '@mantine/core'
+import { InvitationHandler } from './invitation-handler'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,23 +9,18 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     const { inviteId } = await params
 
     const invite = await db
-        .selectFrom(['pendingUser', 'org'])
+        .selectFrom('pendingUser')
+        .innerJoin('org', 'org.id', 'pendingUser.orgId')
         .select(['pendingUser.email', 'org.name as orgName'])
-        .whereRef('org.id', '=', 'pendingUser.orgId')
-        .where('pendingUser.claimedByUserId', 'is', null)
+        .where('claimedByUserId', 'is', null)
         .where('pendingUser.id', '=', inviteId)
         .executeTakeFirst()
 
-    if (!invite) {
-        redirect('/')
-    }
+    if (!invite) return <ErrorAlert error="Invalid or already claimed invitation." />
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-            <Title mb="md" ta="center" order={3}>
-                Welcome to SafeInsights!
-            </Title>
-            <AccountPanel inviteId={inviteId} email={invite.email} orgName={invite.orgName} />
-        </Paper>
+        <Container>
+            <InvitationHandler inviteId={inviteId} invitedEmail={invite.email} orgName={invite.orgName} />
+        </Container>
     )
 }

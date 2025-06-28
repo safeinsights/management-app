@@ -10,19 +10,13 @@ import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 import { RefWrapper } from './nav-ref-wrapper'
+import { useDashboardUrl } from '@/lib/dashboard-url'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
+    const { isAdmin } = useAuthInfo()
+
     const pathname = usePathname()
-
-    const dashboardURL = () => {
-        if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
-        if (isResearcher) return '/researcher/dashboard'
-        if (isAdmin) return `/admin/safeinsights`
-        return '/'
-    }
-
-    if (!isLoaded) return null
+    const dashboardURL = useDashboardUrl()
 
     return (
         <Stack gap="sm">
@@ -31,8 +25,8 @@ export const NavbarItems: FC = () => {
                     label="Dashboard"
                     leftSection={<HouseIcon />}
                     component={Link}
-                    href={dashboardURL()}
-                    active={pathname === dashboardURL()}
+                    href={dashboardURL}
+                    active={pathname === dashboardURL}
                     c="white"
                     color="blue.7"
                     variant="filled"
