@@ -43,11 +43,14 @@ export async function deliver({
     template: string
     vars: Record<string, unknown>
 }) {
-
-    const tmplVars = JSON.stringify({
-        applicationURL: APP_BASE_URL,
-        ...vars
-    }, null, 2)
+    const tmplVars = JSON.stringify(
+        {
+            applicationURL: APP_BASE_URL,
+            ...vars,
+        },
+        null,
+        2,
+    )
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
