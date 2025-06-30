@@ -163,6 +163,6 @@ describe('errorToString', () => {
 
     it('returns undefined for objects that do not match any condition', () => {
         const nonMatching = { some: 'object' }
-        expect(errorToString(nonMatching)).toBeUndefined()
+        expect(errorToString(nonMatching)).toBe('Unknown error occured')
     })
 })

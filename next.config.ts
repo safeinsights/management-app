@@ -12,6 +12,8 @@ const nextConfig: NextConfig = async (phase: string) => {
         output: 'standalone',
         transpilePackages: ['si-encryption'],
         experimental: {
+            // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
+            optimizePackageImports: ['@phosphor-icons/react'],
             serverActions: {
                 bodySizeLimit: '6mb',
             },

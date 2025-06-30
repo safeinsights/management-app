@@ -7,7 +7,7 @@ import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { InputError, reportMutationError } from '@/components/errors'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
+import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
@@ -40,9 +40,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
-        onError: (error) => {
-            reportMutationError(error)
-        },
+        onError: reportMutationError('Failed to invite user'),
         onSuccess() {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
@@ -104,7 +102,7 @@ export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 <InvitePanel orgSlug={orgSlug} />
             </AppModal>
 
-            <Button leftSection={<Plus />} onClick={openInviteUser}>
+            <Button leftSection={<PlusIcon />} onClick={openInviteUser}>
                 Invite People
             </Button>
         </>

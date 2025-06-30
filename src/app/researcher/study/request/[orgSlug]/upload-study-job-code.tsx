@@ -1,7 +1,13 @@
 'use client'
 import { FC } from 'react'
 import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme } from '@mantine/core'
-import { CheckCircle, Upload, UploadSimple, X as PhosphorX, Trash } from '@phosphor-icons/react/dist/ssr'
+import {
+    CheckCircleIcon,
+    UploadIcon,
+    UploadSimpleIcon,
+    XIcon as PhosphorX,
+    TrashIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
@@ -62,13 +68,13 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
                             <Text fw="bold">Upload File</Text>
                             <Dropzone.Accept>
-                                <Upload />
+                                <UploadIcon />
                             </Dropzone.Accept>
                             <Dropzone.Reject>
                                 <PhosphorX />
                             </Dropzone.Reject>
                             <Dropzone.Idle>
-                                <UploadSimple />
+                                <UploadSimpleIcon />
                             </Dropzone.Idle>
                             <Group gap="xs">
                                 <Text size="md">Drop your files or</Text>
@@ -87,10 +93,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     {studyProposalForm.getValues().codeFiles.map((file) => (
                         <Group key={file.name} gap="md" w="100%">
                             <Group>
-                                <CheckCircle weight="fill" color="#2F9844" />
+                                <CheckCircleIcon weight="fill" color="#2F9844" />
                                 <Text>{file.name}</Text>
                             </Group>
-                            <Trash
+                            <TrashIcon
                                 onClick={() => removeFile(file)}
                                 style={{ cursor: 'pointer' }}
                                 color={theme.colors.grey[2]}

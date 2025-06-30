@@ -18,6 +18,14 @@ export type AuditEventType =
 
 export type AuditRecordType = 'STUDY' | 'USER'
 
+export type FileType =
+    | 'APPROVED-LOG'
+    | 'APPROVED-RESULT'
+    | 'ENCRYPTED-LOG'
+    | 'ENCRYPTED-RESULT'
+    | 'MAIN-CODE'
+    | 'SUPPLEMENTAL-CODE'
+
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
@@ -33,7 +41,7 @@ export type JsonPrimitive = boolean | number | string | null
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type ResultFormat = 'SI_V1_ENCRYPT'
+export type Language = 'R'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
@@ -83,6 +91,17 @@ export interface Org {
     updatedAt: Generated<Timestamp>
 }
 
+export interface OrgBaseImage {
+    cmdLine: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    isTesting: Generated<boolean>
+    language: Language
+    name: string
+    orgId: string
+    url: string
+}
+
 export interface OrgUser {
     id: Generated<string>
     isAdmin: boolean
@@ -126,9 +145,17 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    resultFormat: ResultFormat | null
-    resultsPath: string | null
+    language: Language
     studyId: string
+}
+
+export interface StudyJobFile {
+    createdAt: Generated<Timestamp>
+    fileType: FileType
+    id: Generated<string>
+    name: string
+    path: string
+    studyJobId: string
 }
 
 export interface User {
@@ -155,10 +182,12 @@ export interface DB {
     audit: Audit
     jobStatusChange: JobStatusChange
     org: Org
+    orgBaseImage: OrgBaseImage
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study
     studyJob: StudyJob
+    studyJobFile: StudyJobFile
     user: User
     userPublicKey: UserPublicKey
 }

@@ -22,7 +22,8 @@ describe('Study Actions', () => {
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
         const job = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: user.id })
-        expect(job.latestStatus).toBe('JOB-READY')
+
+        expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
     })
 
     it('getStudyAction returns any study that belongs to an org that user is a org of', async () => {

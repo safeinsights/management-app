@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { localStorageContext } from './api-context'
 import { orgFromAuthToken } from './org-from-auth-token'
+import { captureException } from '@sentry/nextjs'
 
 export * from './api-context'
 
@@ -18,10 +19,11 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
             return await func(...args)
         }
 
-        const org = await orgFromAuthToken()
-        if (!org) {
-            // return 404
-            return new NextResponse(JSON.stringify({ error: 'Invalid or expired token' }), {
+        let org
+        try {
+            org = await orgFromAuthToken()
+        } catch (e) {
+            return new NextResponse(JSON.stringify({ error: `Token error: ${e}` }), {
                 status: 401,
                 headers: { 'Content-Type': 'application/json' },
             })
@@ -37,6 +39,7 @@ export function wrapApiOrgAction<F extends WrappedFunc>(func: F): F {
                         const result = await func(...args)
                         resolve(result)
                     } catch (error) {
+                        captureException(error)
                         reject(error)
                     }
                 },
