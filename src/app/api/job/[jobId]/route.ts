@@ -14,7 +14,6 @@ const schema = z.object({
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
-
     const org = apiRequestingOrg()
     const { jobId } = await params
     if (!jobId || !org) {
