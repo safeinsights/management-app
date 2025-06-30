@@ -1,4 +1,12 @@
-## [v0.0.6a - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6a)
+## [v0.0.6-b - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6-b)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #283 | nathanstitt | Prevent duplicate results | 2025-06-27 | [OTTER-232](https://openstax.atlassian.net/browse/OTTER-232) |
+
+--- 
+ 
+ ## [v0.0.6a - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6a)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
 |----|--------|-------|-------------|-------------------|
