@@ -18,13 +18,14 @@ export function SignIn() {
         return <Loader />
     }
 
-    const setPending = (pending: MFAState) => {
+    const setPending = async (pending: MFAState) => {
         if (pending === false) {
-            onUserSignInAction()
-                .then(() => {
-                    setState(pending)
-                })
-                .catch(reportError)
+            try {
+                await onUserSignInAction()
+                setState(pending)
+            } catch (error) {
+                reportError(error)
+            }
         } else {
             setState(pending)
         }
@@ -33,7 +34,7 @@ export function SignIn() {
     return (
         <Container w={500}>
             <SignInForm onComplete={setPending} mfa={state} />
-            <RequestMFA onReset={() => setState(false)} mfa={state} />
+            <RequestMFA onReset={async () => setState(false)} mfa={state} />
         </Container>
     )
 }

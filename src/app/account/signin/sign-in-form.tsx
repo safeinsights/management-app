@@ -18,7 +18,7 @@ type SignInFormData = z.infer<typeof signInSchema>
 
 export const SignInForm: FC<{
     mfa: MFAState
-    onComplete: (state: MFAState) => void
+    onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
@@ -43,12 +43,12 @@ export const SignInForm: FC<{
             })
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
-                onComplete(false)
+                await onComplete(false)
                 router.push('/')
             }
             if (attempt.status === 'needs_second_factor') {
                 const state = await signInToMFAState(attempt)
-                onComplete(state)
+                await onComplete(state)
             }
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
