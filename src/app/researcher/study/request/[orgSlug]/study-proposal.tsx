@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { Button, Group, Stack, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
@@ -8,7 +8,7 @@ import { useForm } from '@mantine/form'
 import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
-import { ConfirmSubmissionModal } from './confirmation-modal'
+import { openConfirmSubmissionModal } from './confirmation-modal'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
@@ -45,7 +45,6 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
-    const [confirmModalOpened, setConfirmModalOpened] = useState(false)
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -97,7 +96,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             return { studyId, studyJobId }
         },
         onSuccess() {
-            setConfirmModalOpened(false)
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:
@@ -108,7 +106,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
-            setConfirmModalOpened(false)
             notifications.show({
                 color: 'red',
                 title: 'Failed to upload file',
@@ -125,19 +122,9 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     const handleSubmit = (values: StudyProposalFormValues) => {
-        setConfirmModalOpened(true)
-        studyProposalForm.setValues(values)
-    }
-
-    const handleConfirmSubmission = () => {
-        const values = studyProposalForm.getValues()
-        createStudy(values)
-    }
-
-    const handleCloseModal = () => {
-        if (!isPending) {
-            setConfirmModalOpened(false)
-        }
+        openConfirmSubmissionModal(() => {
+            createStudy(values)
+        }, isPending)
     }
 
     return (
@@ -158,12 +145,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     </Button>
                 </Group>
             </Stack>
-            <ConfirmSubmissionModal
-                opened={confirmModalOpened}
-                onClose={handleCloseModal}
-                onConfirm={handleConfirmSubmission}
-                isLoading={isPending}
-            />
         </form>
     )
 }
