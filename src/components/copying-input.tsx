@@ -1,7 +1,7 @@
 'use client'
 
 import { Input, Tooltip, UnstyledButton } from '@mantine/core'
-import { Check, Copy } from '@phosphor-icons/react/dist/ssr'
+import { CheckIcon, CopyIcon } from '@phosphor-icons/react/dist/ssr'
 import { useClipboard } from '@mantine/hooks'
 import { FC } from 'react'
 
@@ -20,7 +20,7 @@ export const CopyingInput: FC<{ value: string; tooltipLabel?: string }> = ({ val
             rightSection={
                 <Tooltip label={clipboard.copied ? 'Copied' : tooltipLabel} offset={10}>
                     <UnstyledButton type="button" onClick={() => clipboard.copy(value)} display="flex">
-                        {clipboard.copied ? <Check color="green" /> : <Copy />}
+                        {clipboard.copied ? <CheckIcon color="green" /> : <CopyIcon />}
                     </UnstyledButton>
                 </Tooltip>
             }

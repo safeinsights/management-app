@@ -1,4 +1,22 @@
-## [v0.0.6 - 2025-06-23](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.6-b - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6-b)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #283 | nathanstitt | Prevent duplicate results | 2025-06-27 | [OTTER-232](https://openstax.atlassian.net/browse/OTTER-232) |
+
+--- 
+ 
+ ## [v0.0.6a - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6a)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #277 | nathanstitt | Fix font loading and access to reviewer key | 2025-06-24 | |
+| #274 | nathanstitt | hide api key panel while it's being worked on | 2025-06-24 | |
+ 
+  
+---
+
+## [v0.0.6 - 2025-06-23](https://github.com/safeinsights/management-app/releases/tag/v0.0.6)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
 |----|--------|-------|-------------|-------------------|
@@ -20,7 +38,7 @@
 
 ---
 
-%!(EXTRA string=## [v0.0.5 - 2025-06-09](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.5 - 2025-06-09](https://github.com/safeinsights/management-app/releases/tag/v0.0.5)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
 |----|--------|-------|-------------|-------------------|
@@ -43,7 +61,7 @@
 
 ---
 
-%!(EXTRA string=## [v0.0.4 - 2025-06-02](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.4 - 2025-06-02](https://github.com/safeinsights/management-app/releases/tag/v0.0.4)
 
 | PR | Author | Title | Merged Date | Tickets |
 |----|--------|-------|-------------|---------|
@@ -53,7 +71,7 @@
 
 ---
 
-%!(EXTRA string=## [v0.0.3 - 2025-05-30](https://github.com/safeinsights/management-app/blob/main)
+## [v0.0.3 - 2025-05-30](https://github.com/safeinsights/management-app/releases/tag/v0.0.3)
 
 | PR   | Author      | Title                                                                 | Merged Date         | Tickets                                                                                                                   |
 | ---- | ----------- | --------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------- |

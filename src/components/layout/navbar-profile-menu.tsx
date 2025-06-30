@@ -2,7 +2,7 @@
 
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useDisclosure, useClickOutside } from '@mantine/hooks'
-import { CaretRight, SignOut, User, Lock } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, SignOutIcon, UserIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
 import { useClerk } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
@@ -43,7 +43,7 @@ export function NavbarProfileMenu() {
                 <RefWrapper ref={firstMenuItemRef}>
                     <NavLink
                         label="My Account"
-                        leftSection={<User aria-hidden="true" />}
+                        leftSection={<UserIcon aria-hidden="true" />}
                         c="white"
                         className={styles.navLinkProfileHover}
                         onClick={closeAndCall(() => openUserProfile())}
@@ -55,7 +55,7 @@ export function NavbarProfileMenu() {
                     <RefWrapper>
                         <NavLink
                             label="Reviewer Key"
-                            leftSection={<Lock aria-hidden="true" />}
+                            leftSection={<LockIcon aria-hidden="true" />}
                             onClick={() => router.push('/account/keys')}
                             c="white"
                             className={styles.navLinkProfileHover}
@@ -67,7 +67,7 @@ export function NavbarProfileMenu() {
                 <RefWrapper>
                     <NavLink
                         label="Sign Out"
-                        leftSection={<SignOut aria-hidden="true" />}
+                        leftSection={<SignOutIcon aria-hidden="true" />}
                         onClick={closeAndCall(() => signOut())}
                         c="white"
                         className={styles.navLinkProfileHover}
@@ -84,7 +84,7 @@ export function NavbarProfileMenu() {
                         </>
                     }
                     leftSection={<UserAvatar />}
-                    rightSection={<CaretRight aria-hidden="true" />}
+                    rightSection={<CaretRightIcon aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
                     onClick={handleToggle}

@@ -18,7 +18,8 @@ import { useMutation } from '@tanstack/react-query'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
-import { Check } from '@phosphor-icons/react/dist/ssr'
+import { AppModal } from '@/components/modal'
+import { CheckIcon } from '@phosphor-icons/react/dist/ssr'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
 import { reportMutationError } from '@/components/errors'
@@ -112,7 +113,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                         </Group>
                         {isKeyCopied && (
                             <Flex gap="xs">
-                                <Check size={16} color={theme.colors.green[9]} />
+                                <CheckIcon size={16} color={theme.colors.green[9]} />
                                 <Text c="green.9" size="xs" fw={500}>
                                     Copied!
                                 </Text>

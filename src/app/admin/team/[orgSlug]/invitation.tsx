@@ -7,7 +7,7 @@ import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { InputError, reportMutationError } from '@/components/errors'
-import { Plus } from '@phosphor-icons/react/dist/ssr'
+import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
 import { PendingUsers } from './pending-invites'
@@ -101,7 +101,7 @@ export const InviteButton: FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 <InvitePanel orgSlug={orgSlug} />
             </Modal>
 
-            <Button leftSection={<Plus />} onClick={openInviteUser}>
+            <Button leftSection={<PlusIcon />} onClick={openInviteUser}>
                 Invite People
             </Button>
         </>

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AddBaseImageForm } from './add-base-image-form'
-import { Trash, PlusCircle } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction } from './base-images.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
@@ -42,7 +42,7 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
                     onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
                     message="Are you sure you want to delete this base image? This cannot be undone."
                 >
-                    <Trash />
+                    <TrashIcon />
                 </SuretyGuard>
             </Table.Td>
         </Table.Tr>
@@ -108,7 +108,7 @@ export const BaseImages: React.FC = () => {
                     <Title order={3} size="lg">
                         Base images for researcher code
                     </Title>
-                    <Button leftSection={<PlusCircle size={16} />} onClick={openAddModal}>
+                    <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
                         Add Image
                     </Button>
                 </Group>

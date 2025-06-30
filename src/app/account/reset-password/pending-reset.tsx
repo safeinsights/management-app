@@ -6,7 +6,7 @@ import { useForm, zodResolver } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { errorToString, extractClerkCodeAndMessage, isClerkApiError } from '@/lib/errors'
+import { errorToString, isClerkApiError } from '@/lib/errors'
 import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
@@ -66,12 +66,10 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         },
         onError(error: unknown) {
             if (isClerkApiError(error)) {
-                const { code, message } = extractClerkCodeAndMessage(error)
-                verificationForm.setErrors({
-                    // clerk seems to send verification_expired for all code verification errors
-                    [`${code == 'verification_expired' || code == 'form_code_incorrect' ? 'code' : 'password'}`]:
-                        message == 'Incorrect code' ? 'Incorrect Verification Code' : message,
-                })
+                verificationForm.setFieldError(
+                    'code',
+                    errorToString(error, { form_code_incorrect: 'Incorrect Verification Code.' }),
+                )
             } else {
                 verificationForm.setErrors({
                     code: errorToString(error),
