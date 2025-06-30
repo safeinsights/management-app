@@ -33,11 +33,12 @@ export const ViewJobResultsCSV: FC<JobResultsProps> = ({ job }) => {
     })
 
     if (!isApproved) {
-        return (
-            <Text size="md">
-                Study results will become available once the data organization reviews and approves them.
-            </Text>
-        )
+        return null
+        // return (
+        //     <Text size="md">
+        //         Study results will become available once the data organization reviews and approves them.
+        //     </Text>
+        // )
     }
 
     if (isError) {
