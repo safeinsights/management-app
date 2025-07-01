@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
 import { LoadingMessage } from '@/components/loading'
 import { InputError } from '@/components/errors'
-import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
+import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/(anon)/reset-password/password-requirements'
 
 const Success: FC = () => {
     const router = useRouter()
