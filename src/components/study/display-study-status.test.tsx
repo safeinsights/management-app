@@ -41,4 +41,9 @@ describe('DisplayStudyStatus', () => {
     it('renders nothing for completely unmapped study status', () => {
         renderAndExpect('INITIATED', null, null, null)
     })
+
+    it('renders a fallback status when the status is not in the STATUS_LABELS map', () => {
+        // ARCHIVED and JOB-PROVISIONING are not in STATUS_LABELS, should display titleized status instead
+        renderAndExpect('ARCHIVED', 'JOB-PROVISIONING', null, 'Job Provisioning')
+    })
 })
