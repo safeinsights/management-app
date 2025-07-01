@@ -45,3 +45,10 @@ export function formatClerkErrorCode(str: string) {
         .replace(/_/g, ' ') // replace underscores with spaces
         .replace(/\b\w/g, (char) => char.toUpperCase()) // capitalize first letter of each word
 }
+
+export function titleize(str: string) {
+    if (!str) {
+        return ''
+    }
+    return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
+}
