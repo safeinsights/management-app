@@ -1,6 +1,6 @@
 'use client'
 
-import React, { FC } from 'react'
+import React, { FC, Fragment } from 'react'
 import { Button, Group, LoadingOverlay, Modal, Stack, Text, Title } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
@@ -61,10 +61,10 @@ export const ViewJobResultsCSV: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     return (
         <Stack>
             {approvedFiles?.map((approvedFile) => (
-                <>
+                <Fragment key={approvedFile.path}>
                     <JobStatusText approvedFile={approvedFile} />
-                    <ApprovedFileEntry approvedFile={approvedFile} key={approvedFile.path} />
-                </>
+                    <ApprovedFileEntry approvedFile={approvedFile} />
+                </Fragment>
             ))}
         </Stack>
     )
