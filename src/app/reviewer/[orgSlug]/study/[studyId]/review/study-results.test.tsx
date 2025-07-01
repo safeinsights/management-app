@@ -90,7 +90,7 @@ describe('View Study Results', () => {
         })
         renderWithProviders(<StudyResults job={job} />)
 
-        const input = screen.getByPlaceholderText('Enter private key')
+        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
 
         const privateKey = await readTestSupportFile('private_key.pem')
 
