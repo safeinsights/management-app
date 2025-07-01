@@ -8,7 +8,6 @@ import { revalidatePath } from 'next/cache'
 
 export const getReviewerPublicKeyAction = userAction(async () => {
     const userId = await getUserIdFromActionContext()
-
     return await getReviewerPublicKey(userId)
 })
 

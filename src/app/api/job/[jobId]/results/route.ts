@@ -13,6 +13,14 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
         return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    const alreadyReceived = await db
+        .selectFrom('jobStatusChange')
+        .where('jobStatusChange.studyJobId', '=', jobId)
+        .where('jobStatusChange.status', 'in', ['RUN-COMPLETE'])
+        .executeTakeFirst()
+
+    if (alreadyReceived) return new NextResponse('job is already complete', { status: 422 })
+
     const formData = await req.formData()
     const logs = formData.get('log')
     let results = formData.get('result')

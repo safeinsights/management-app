@@ -3,6 +3,7 @@
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
+import { titleize } from '@/lib/string'
 import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
 import { InfoIcon } from '../icons'
 import React, { FC } from 'react'
@@ -29,34 +30,40 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
     )
 }
 
-type StatusLabels = {
-    type: 'Code' | 'Results' | 'Proposal'
+type StatusLabel = {
+    type?: 'Code' | 'Results' | 'Proposal' | null
     label: string
     InfoComponent?: PopOverComponent
 }
 
-const StatusLabels: Partial<Record<AllStatus, StatusLabels>> = {
+const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     APPROVED: { type: 'Proposal', label: 'Approved' },
     REJECTED: { type: 'Proposal', label: 'Rejected' },
+    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
+    'CODE-APPROVED': { type: 'Code', label: 'Approved' },
+    'CODE-REJECTED': { type: 'Code', label: 'Rejected' },
+    'CODE-SUBMITTED': { type: 'Code', label: 'Submitted' },
     'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
     'JOB-RUNNING': { type: 'Code', label: 'Running' },
+    'JOB-READY': { type: 'Code', label: 'Ready' },
     'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
     'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
     'FILES-REJECTED': { type: 'Results', label: 'Rejected' },
     'FILES-APPROVED': { type: 'Results', label: 'Approved' },
-    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
 }
 
-const StatusBlock: React.FC<StatusLabels & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
+const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
     const color =
-        [StatusLabels['RUN-COMPLETE']?.label, StatusLabels['PENDING-REVIEW']?.label].indexOf(label) > -1
+        [STATUS_LABELS['RUN-COMPLETE']?.label, STATUS_LABELS['PENDING-REVIEW']?.label].indexOf(label) > -1
             ? 'red.9'
             : 'dark.8'
     return (
         <Stack gap="0">
-            <Text size="xs" c="grey.7">
-                {type}
-            </Text>
+            {type && (
+                <Text size="xs" c="grey.7">
+                    {type}
+                </Text>
+            )}
             {InfoComponent && jobId ? (
                 <Flex align="center" gap="xs">
                     <Text>{label}</Text>
@@ -74,8 +81,14 @@ export const DisplayStudyStatus: FC<{
     jobStatus: StudyJobStatus | null
     jobId?: string | null
 }> = ({ studyStatus, jobStatus, jobId }) => {
-    const statusToDisplay = jobStatus ?? studyStatus
-    const props = StatusLabels[statusToDisplay]
+    let props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
+
+    if (!props) {
+        const status = jobStatus || studyStatus
+        props = {
+            label: titleize(status.replace(/-/g, ' ')),
+        }
+    }
 
     return props ? <StatusBlock {...props} jobId={jobId} /> : null
 }
