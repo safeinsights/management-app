@@ -3,6 +3,7 @@
 import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { AllStatus } from '@/lib/types'
+import { titleize } from '@/lib/string'
 import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
 import { InfoIcon } from '../icons'
 import React, { FC } from 'react'
@@ -30,7 +31,7 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
 }
 
 type StatusLabel = {
-    type: 'Code' | 'Results' | 'Proposal'
+    type?: 'Code' | 'Results' | 'Proposal' | null
     label: string
     InfoComponent?: PopOverComponent
 }
@@ -58,9 +59,11 @@ const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, 
             : 'dark.8'
     return (
         <Stack gap="0">
-            <Text size="xs" c="grey.7">
-                {type}
-            </Text>
+            {type && (
+                <Text size="xs" c="grey.7">
+                    {type}
+                </Text>
+            )}
             {InfoComponent && jobId ? (
                 <Flex align="center" gap="xs">
                     <Text>{label}</Text>
@@ -78,7 +81,14 @@ export const DisplayStudyStatus: FC<{
     jobStatus: StudyJobStatus | null
     jobId?: string | null
 }> = ({ studyStatus, jobStatus, jobId }) => {
-    const props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
+    let props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
+
+    if (!props) {
+        const status = jobStatus || studyStatus
+        props = {
+            label: titleize(status.replace(/-/g, ' ')),
+        }
+    }
 
     return props ? <StatusBlock {...props} jobId={jobId} /> : null
 }
