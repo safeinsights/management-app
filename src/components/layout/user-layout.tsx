@@ -5,6 +5,7 @@ import { AppShell } from './app-shell'
 import { LoadingOverlay } from '@mantine/core'
 import { ReactNode } from 'react'
 import { ErrorAlert } from '../errors'
+import SentryUserProvider from '../sentry-user-provider'
 
 type Props = {
     children: ReactNode
@@ -27,6 +28,7 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
                 },
             }}
         >
+            <SentryUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
         </ClerkProvider>
     )
