@@ -3,15 +3,15 @@
 import React, { FC, useState } from 'react'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
-import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
 import { DecryptResults } from './decrypt-results'
-import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import type { LatestJobForStudy } from '@/server/db/queries'
 import { FileEntryWithJobFileInfo } from '@/lib/types'
+import { first } from 'remeda'
 
-const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED']
+const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
 
 export const StudyResults: FC<{
-    job: StudyJobWithLastStatus | null
+    job: LatestJobForStudy | null
 }> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<FileEntryWithJobFileInfo[]>()
 
@@ -23,6 +23,7 @@ export const StudyResults: FC<{
         )
     }
 
+    // Empty state, no results yet
     if (!job.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
         return (
             <Paper bg="white" p="xxl">
@@ -49,9 +50,27 @@ export const StudyResults: FC<{
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider c="dimmed" />
+                <JobStatusHelpText job={job} />
                 <DecryptResults job={job} onApproval={setDecryptedResults} />
-                <ViewJobResultsCSV job={job} />
             </Stack>
         </Paper>
     )
+}
+
+export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const latestStatusChange = first(job.statusChanges)
+
+    if (latestStatusChange?.status === 'JOB-ERRORED') {
+        return <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
+    }
+
+    if (latestStatusChange?.status === 'RUN-COMPLETE') {
+        return (
+            <Text>
+                The code was successfully processed! Review results before these can be released to the researcher.
+            </Text>
+        )
+    }
+
+    return null
 }

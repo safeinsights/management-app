@@ -13,9 +13,17 @@ import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
+import { ApprovedFile } from '@/lib/types'
 
+const mockedApprovedJobFiles: ApprovedFile[] = [
+    {
+        contents: new ArrayBuffer(9),
+        path: 'approved.csv',
+        fileType: 'APPROVED-RESULT',
+    },
+]
 vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
+    fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
     fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
 }))
 

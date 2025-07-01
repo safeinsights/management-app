@@ -73,3 +73,9 @@ export type FileEntryWithJobFileInfo = FileEntry & {
     sourceId: string
     fileType: FileType
 }
+
+export type ApprovedFile = {
+    contents: ArrayBuffer
+    path: string
+    fileType: FileType
+}

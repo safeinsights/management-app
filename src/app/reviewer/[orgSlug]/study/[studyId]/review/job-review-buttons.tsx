@@ -2,7 +2,7 @@ import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
 import { FileEntryWithJobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
-import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
@@ -13,7 +13,7 @@ export const JobReviewButtons = ({
     job,
     decryptedResults,
 }: {
-    job: NonNullable<StudyJobWithLastStatus>
+    job: NonNullable<LatestJobForStudy>
     decryptedResults?: FileEntryWithJobFileInfo[]
 }) => {
     const theme = useMantineTheme()

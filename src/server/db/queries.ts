@@ -99,7 +99,7 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
     return result?.publicKey
 }
 
-export type StudyJobWithLastStatus = ActionReturnType<typeof latestJobForStudy>
+export type LatestJobForStudy = ActionReturnType<typeof latestJobForStudy>
 export const latestJobForStudy = async (
     studyId: string,
     { orgSlug, userId }: { orgSlug?: null | string; userId?: null | string } = {},

@@ -1,7 +1,7 @@
 'use server'
 
 import { db, jsonArrayFrom } from '@/database'
-import { minimalJobInfoSchema } from '@/lib/types'
+import { ApprovedFile, minimalJobInfoSchema } from '@/lib/types'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import {
     actionContext,
@@ -12,14 +12,7 @@ import {
     z,
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
-
-import {
-    checkUserAllowedJobView,
-    checkUserAllowedStudyReview,
-    getStudyJobFileOfType,
-    latestJobForStudy,
-    siUser,
-} from '@/server/db/queries'
+import { checkUserAllowedJobView, checkUserAllowedStudyReview, latestJobForStudy, siUser } from '@/server/db/queries'
 import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
 
@@ -137,34 +130,25 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-// TODO Used for researcher??? or not needed? maybe just make a fetchJobFilesAction
-export const fetchJobLogsAction = userAction(async (jobId) => {
+export const fetchApprovedJobFilesAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
-    const info = await getStudyJobFileOfType(jobId, 'APPROVED-LOG')
-    const body = await fetchFileContents(info.path)
+    const job = await loadStudyJobAction(jobId)
+    const approvedJobFiles = job.files.filter(
+        (jobFile) => jobFile.fileType === 'APPROVED-LOG' || jobFile.fileType === 'APPROVED-RESULT',
+    )
 
-    return { path: info.path, contents: await body.text() }
-}, z.string())
+    const jobFiles: ApprovedFile[] = []
+    for (const jobFile of approvedJobFiles) {
+        const blob = await fetchFileContents(jobFile.path)
+        const contents = await blob.arrayBuffer()
+        jobFiles.push({
+            contents,
+            path: jobFile.name,
+            fileType: jobFile.fileType,
+        })
+    }
 
-export const fetchJobLogsZipAction = orgAction(
-    async ({ jobId, orgSlug }) => {
-        await checkMemberOfOrgWithSlug(orgSlug)
-        const info = await getStudyJobFileOfType(jobId, 'ENCRYPTED-LOG')
-        const body = await fetchFileContents(info.path)
-        return body
-    },
-    z.object({
-        jobId: z.string(),
-        orgSlug: z.string(),
-    }),
-)
-
-export const fetchJobResultsCsvAction = userAction(async (jobId) => {
-    await checkUserAllowedJobView(jobId)
-    const info = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
-    const body = await fetchFileContents(info.path)
-
-    return { path: info.path, contents: await body.text() }
+    return jobFiles
 }, z.string())
 
 export const fetchEncryptedJobFilesAction = orgAction(

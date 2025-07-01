@@ -1,7 +1,7 @@
 'use client'
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 import { AnchorProps, Button, ButtonProps, Anchor as MantineAnchor } from '@mantine/core'
-import { DownloadIcon, EyeIcon } from '@phosphor-icons/react/dist/ssr'
+import { DownloadIcon, ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import NextLink from 'next/link'
 import { FC, ReactNode } from 'react'
 
@@ -58,8 +58,8 @@ export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     }
 
     return (
-        <Button onClick={handleClick} rightSection={<EyeIcon />}>
-            View Results
+        <Button onClick={handleClick} rightSection={<ArrowSquareOutIcon />}>
+            View Results (Opens in new tab)
         </Button>
     )
 }

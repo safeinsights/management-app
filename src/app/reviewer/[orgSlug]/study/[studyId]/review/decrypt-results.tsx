@@ -8,7 +8,7 @@ import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { useParams } from 'next/navigation'
-import type { StudyJobWithLastStatus } from '@/server/db/queries'
+import type { LatestJobForStudy } from '@/server/db/queries'
 import { RenderCSV } from '@/components/render-csv'
 import { FileEntryWithJobFileInfo } from '@/lib/types'
 import { DownloadResultsLink, ViewResultsLink } from '@/components/links'
@@ -19,7 +19,7 @@ interface StudyResultsFormValues {
 }
 
 type Props = {
-    job: NonNullable<StudyJobWithLastStatus>
+    job: NonNullable<LatestJobForStudy>
     onApproval: (decryptedResults: FileEntryWithJobFileInfo[]) => void
 }
 
@@ -65,11 +65,21 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                     const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
                     const extractedFiles = await reader.extractFiles()
                     for (const extractedFile of extractedFiles) {
-                        decryptedFiles.push({
-                            ...extractedFile,
-                            sourceId: encryptedBlob.sourceId,
-                            fileType: encryptedBlob.fileType,
-                        })
+                        if (encryptedBlob.fileType === 'ENCRYPTED-LOG') {
+                            decryptedFiles.push({
+                                ...extractedFile,
+                                sourceId: encryptedBlob.sourceId,
+                                fileType: 'APPROVED-LOG',
+                            })
+                        }
+
+                        if (encryptedBlob.fileType === 'ENCRYPTED-RESULT') {
+                            decryptedFiles.push({
+                                ...extractedFile,
+                                sourceId: encryptedBlob.sourceId,
+                                fileType: 'APPROVED-RESULT',
+                            })
+                        }
                     }
                 }
                 return decryptedFiles
@@ -107,18 +117,20 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
             ))}
             {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
-                    <Group>
+                    <Stack>
                         <Textarea
+                            label="Enter Reviewer Key"
                             resize="vertical"
                             {...form.getInputProps('privateKey')}
-                            label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                            placeholder="Enter private key"
+                            placeholder="Enter your Reviewer key to access encrypted content."
                             key={form.key('privateKey')}
                         />
-                        <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
-                            View Results
-                        </Button>
-                    </Group>
+                        <Group>
+                            <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
+                                View Results
+                            </Button>
+                        </Group>
+                    </Stack>
                 </form>
             )}
         </Stack>
