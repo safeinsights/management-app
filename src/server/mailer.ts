@@ -1,9 +1,7 @@
 import { getStudyAndOrgDisplayInfo, getUserById, getUsersByRoleAndOrgId } from '@/server/db/queries'
 import dayjs from 'dayjs'
-
-const BASE_URL = `https://${process.env.DOMAIN_NAME}`
-
 import { deliver } from './mailgun'
+import { APP_BASE_URL } from './config'
 
 export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
     await deliver({
@@ -11,7 +9,7 @@ export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string;
         subject: 'Get started with SafeInsights',
         template: 'welcome email',
         vars: {
-            inviteLink: `${BASE_URL}/account/invitation/${inviteId}`,
+            inviteLink: `${APP_BASE_URL}/account/invitation/${inviteId}`,
         },
     })
 }
@@ -30,7 +28,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }
@@ -71,7 +69,7 @@ export const sendStudyProposalRejectedEmail = async (studyId: string) => {
             submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/researcher/study/${studyId}/review`,
         },
     })
 }
@@ -92,7 +90,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }
@@ -113,7 +111,7 @@ export const sendStudyResultsApprovedEmail = async (studyId: string) => {
             submittedBy: study.researcherFullName,
             submittedTo: study.orgName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${BASE_URL}/researcher/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/researcher/study/${studyId}/review`,
         },
     })
 }
