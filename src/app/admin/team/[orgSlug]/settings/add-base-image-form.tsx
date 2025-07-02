@@ -53,7 +53,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                     label="Command Line"
                     placeholder="Rscript %f"
                     description="Command used to execute scripts.  %f will be subsituted with main code file"
-                    {...form.getInputProps('cmd_line')}
+                    {...form.getInputProps('cmdLine')}
                 />
                 <Select
                     label="Language"
