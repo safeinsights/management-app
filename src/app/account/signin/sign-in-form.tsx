@@ -5,7 +5,7 @@ import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
 
@@ -23,6 +23,7 @@ export const SignInForm: FC<{
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
 
     const form = useForm<SignInFormData>({
@@ -44,7 +45,8 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
-                router.push('/')
+                const redirectUrl = searchParams.get('redirect_url')
+                router.push(redirectUrl || '/')
             }
             if (attempt.status === 'needs_second_factor') {
                 const state = await signInToMFAState(attempt)
@@ -111,7 +113,11 @@ export const SignInForm: FC<{
                             <Text mt="md">{clerkError.message}</Text>
                         </Paper>
                     )}
-                    <Link href="/account/reset-password">Forgot password?</Link>
+                    <Link
+                        href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
+                    >
+                        Forgot password?
+                    </Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
                     <Button mb="xxl" disabled={!form.isValid()} type="submit">
                         Login
