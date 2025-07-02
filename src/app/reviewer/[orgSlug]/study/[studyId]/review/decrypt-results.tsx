@@ -110,6 +110,10 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
         }
     }
 
+    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
+
+    if (isApproved) return null
+
     return (
         <Stack>
             {decryptedFiles.map((decryptedFile) => (

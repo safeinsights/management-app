@@ -1,14 +1,15 @@
-import { Paper, Stack, Title, Divider, Group } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
-import { ViewJobResultsCSV } from '@/components/view-job-results-csv'
+import { JobResults } from '@/components/job-results'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 import StudyStatusDisplay from '@/components/study/study-status-display'
 import JobStatusDisplay from '@/components/study/job-status-display'
+import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review/job-results-status-message'
 
 export const dynamic = 'force-dynamic'
 
@@ -52,9 +53,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <JobStatusDisplay
-                            statusChange={job.statusChanges.find((s) => s.status.startsWith('RESULTS'))}
-                        />
+                        <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('CODE'))} />
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
@@ -67,10 +66,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('CODE'))} />
+                        <JobStatusDisplay statusChange={job.statusChanges.find((s) => s.status.startsWith('FILES'))} />
                     </Group>
                     <Divider c="dimmed" />
-                    <ViewJobResultsCSV job={job} />
+                    <JobResultsStatusMessage job={job} />
+                    <JobResults job={job} />
                 </Stack>
             </Paper>
         </Stack>
