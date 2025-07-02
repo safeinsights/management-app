@@ -15,7 +15,7 @@ export const RegenerateKeys: FC = () => {
 
     const handleConfirmAndProceed = () => {
         closeModal()
-        router.push('/account/keys?regenerate=true')
+        router.push('/account/keys')
     }
 
     return (
