@@ -8,7 +8,6 @@ import { useForm } from '@mantine/form'
 import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
-import { openConfirmSubmissionModal } from './confirmation-modal'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
@@ -16,6 +15,7 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
+import { modals } from '@mantine/modals'
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -122,9 +122,36 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     const handleSubmit = (values: StudyProposalFormValues) => {
-        openConfirmSubmissionModal(() => {
-            createStudy(values)
-        }, isPending)
+        modals.openConfirmModal({
+            title: 'Confirm proposal submission',
+            styles: {
+                body: {
+                    padding: '40px',
+                },
+            },
+            children: (
+                <Stack>
+                    <Text size="sm">
+                        You&apos;re about to submit your study proposal for review. Once submitted, you won&apos;t be
+                        able to make further edits.
+                    </Text>
+                    <Text size="sm">Do you want to proceed?</Text>
+                </Stack>
+            ),
+            labels: {
+                confirm: 'Yes, submit proposal',
+                cancel: 'No, continue editing',
+            },
+            cancelProps: {
+                variant: 'outline',
+            },
+            groupProps: {
+                justify: 'flex-start',
+                mt: 'xl',
+            },
+            onConfirm: () => createStudy(values),
+            closeOnConfirm: !isPending,
+        })
     }
 
     return (

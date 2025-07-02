@@ -137,6 +137,12 @@ export const theme = createTheme({
                 closeButtonProps: { size: 'md' },
             },
             styles: {
+                closeButtonProps: {
+                    'aria-label': 'Close modal',
+                },
+                title: {
+                    fontWeight: 'bold',
+                },
                 header: {
                     padding: '0px 40px',
                     backgroundColor: grey[10],
