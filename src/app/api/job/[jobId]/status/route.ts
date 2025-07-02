@@ -15,7 +15,7 @@ const handler = async (req: Request, { params }: { params: Promise<{ jobId: stri
         .selectFrom('jobStatusChange')
         .where('studyJobId', '=', jobId)
         .orderBy('createdAt', 'desc')
-        .select(['status', 'message'])
+        .select(['status'])
         .executeTakeFirst()
 
     if (!status) {
