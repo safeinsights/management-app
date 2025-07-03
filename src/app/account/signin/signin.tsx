@@ -18,13 +18,14 @@ export function SignIn() {
         return <Loader />
     }
 
-    const setPending = (pending: MFAState) => {
+    const setPending = async (pending: MFAState) => {
         if (pending === false) {
-            onUserSignInAction()
-                .then(() => {
-                    setState(pending)
-                })
-                .catch(reportError)
+            try {
+                await onUserSignInAction()
+                setState(pending)
+            } catch (error) {
+                reportError(error)
+            }
         } else {
             setState(pending)
         }

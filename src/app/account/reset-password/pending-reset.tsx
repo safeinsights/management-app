@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString, isClerkApiError } from '@/lib/errors'
@@ -44,6 +44,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     const { isLoaded, setActive } = useSignIn()
     const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const verificationForm = useForm<VerificationFormValues>({
         initialValues: {
@@ -86,7 +87,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
-                router.push('/')
+                const redirectUrl = searchParams.get('redirect_url')
+                router.push(redirectUrl || '/')
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)
