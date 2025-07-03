@@ -1,6 +1,7 @@
 'use client'
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 import { AnchorProps, Button, ButtonProps, Anchor as MantineAnchor } from '@mantine/core'
+import { useEffect, useState } from 'react'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import NextLink from 'next/link'
 
@@ -37,13 +38,18 @@ export const ButtonLink: React.FC<ButtonLinkProps> = ({ href, target, children, 
 )
 
 export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, content, target }) => {
+    const [href, setHref] = useState('#')
+
+    useEffect(() => {
+        const blob = new Blob([content])
+        const url = URL.createObjectURL(blob)
+        setHref(url)
+
+        return () => URL.revokeObjectURL(url)
+    }, [content])
+
     return (
-        <NextLink
-            href={'data:text/plain;base64,' + btoa(String.fromCharCode(...new Uint8Array(content)))}
-            target={target}
-            data-testid="download-link"
-            download={filename}
-        >
+        <NextLink href={href} target={target} data-testid="download-link" download={filename}>
             <Button rightSection={<DownloadIcon />}>Download Results</Button>
         </NextLink>
     )
