@@ -14,6 +14,7 @@ import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from './providers'
 import { type ReactNode } from 'react'
+import { PiSymbol } from '../components/pi-symbol'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -34,6 +35,7 @@ export default async function RootLayout({
         <html lang="en" className={globalFont.className}>
             <body>
                 <Providers>{children}</Providers>
+                <PiSymbol />
             </body>
         </html>
     )
