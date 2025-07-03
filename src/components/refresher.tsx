@@ -1,4 +1,4 @@
-import { useTimer } from "./timer"
+import { useTimer } from './timer'
 import { Text, Flex, Loader } from '@mantine/core'
 
 export const Refresher: React.FC<{ isEnabled: boolean; refresh: () => void; isPending: boolean }> = ({
@@ -6,7 +6,6 @@ export const Refresher: React.FC<{ isEnabled: boolean; refresh: () => void; isPe
     refresh,
     isPending,
 }) => {
-
     const remainingMs = useTimer({
         isEnabled,
         every: { 90: 'seconds' },

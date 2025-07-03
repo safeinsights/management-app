@@ -69,15 +69,9 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })
 
-    if (!studies.length)
-        return (
-            <Title order={5}>
-                You have no studies to review.
-            </Title>
-        )
+    if (!studies.length) return <Title order={5}>You have no studies to review.</Title>
 
     const needsRefreshed = !!studies.find((s) => !FINAL_STATUS.includes(s.latestJobStatus || 'INITIATED'))
-
 
     return (
         <Stack>

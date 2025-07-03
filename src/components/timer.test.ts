@@ -123,9 +123,8 @@ describe('useTimer', () => {
         })
         expect(trigger).toHaveBeenCalledTimes(2)
 
-        vi.advanceTimersByTime(5*60*1000)
+        vi.advanceTimersByTime(5 * 60 * 1000)
         expect(trigger).toHaveBeenCalledTimes(3)
-
     })
 
     it('should clean up interval on unmount', () => {

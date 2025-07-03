@@ -15,7 +15,6 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(),
 }))
 
-
 const mockStudies = [
     {
         id: 'study-1',
@@ -89,16 +88,13 @@ beforeEach(() => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-
         renderWithProviders(<StudiesTable orgSlug="test-org" studies={[]} />)
 
         expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-
         renderWithProviders(<StudiesTable orgSlug="test-org" studies={mockStudies} />)
-
 
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()

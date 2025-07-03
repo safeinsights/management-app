@@ -25,20 +25,17 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
             resolvedUpdateInterval = Math.min(5000, totalMS) // Update every 5 seconds
         } else if (unit.startsWith('minute')) {
             resolvedUpdateInterval = Math.min(300000, totalMS) // Update every 5 minutes
-        } else { // likely ms
+        } else {
+            // likely ms
             resolvedUpdateInterval = Math.min(250, totalMS) // do not re-render too often, limit to 1/4 second
         }
-
     }
 
-    useDidUpdate(
-        ()=> {
-            if (intervalRef.current) clearInterval(intervalRef.current)
-            startTimeRef.current = Date.now()
-            setTimeRemaining(totalMS)
-        },
-        [totalMS]
-    )
+    useDidUpdate(() => {
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        startTimeRef.current = Date.now()
+        setTimeRemaining(totalMS)
+    }, [totalMS])
     useEffect(() => {
         if (isEnabled) {
             startTimeRef.current = Date.now()
@@ -48,8 +45,7 @@ export function useTimer({ isEnabled, every, trigger, updateInterval }: UseTimer
                 if (remaining === 0) {
                     try {
                         trigger()
-                    }
-                    finally {
+                    } finally {
                         startTimeRef.current = Date.now()
                         setTimeRemaining(totalMS)
                     }
