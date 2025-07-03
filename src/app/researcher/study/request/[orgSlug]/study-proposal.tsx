@@ -44,7 +44,6 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
-
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(studyProposalFormSchema),
@@ -54,7 +53,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             irbDocument: null,
             descriptionDocument: null,
             agreementDocument: null,
-            mainCodeFile: null,
+            mainCodeFile: [],
             additionalCodeFiles: [],
         },
         validateInputOnChange: ['title', 'piName'],
@@ -125,13 +124,16 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
     })
 
-    const steps = [{ label: 'Study Proposal' }, { label: 'Study Code' }]
     //Form step management
+    const steps = [{ label: 'Study Proposal' }, { label: 'Study Code' }]
+
     const [activeStep, setActiveStep] = useState(0)
 
     const nextStep = () => {
         setActiveStep((current) => (current < steps.length - 1 ? current + 1 : current))
     }
+
+    const prevStep = () => setActiveStep((current) => (current > 0 ? current - 1 : current))
 
     const isStepValid = (step: number) => {
         if (step === 0) {
@@ -149,37 +151,53 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         }
         return false
     }
+
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stepper active={activeStep} onStepClick={setActiveStep} gap={0}>
-                {/* Empty Stepper steps to hide indicators */}
-            </Stepper>
+            <>
+                <Stepper
+                    unstyled
+                    active={activeStep}
+                    styles={{
+                        steps: {
+                            display: 'none',
+                        },
+                    }}
+                >
+                    <Stepper.Step>
+                        <Stack>
+                            <StudyProposalForm studyProposalForm={studyProposalForm} />
+                        </Stack>
+                    </Stepper.Step>
 
-            {activeStep === 0 && (
-                <Stack>
-                    <StudyProposalForm studyProposalForm={studyProposalForm} />
-                    <Group justify="flex-end">
-                        <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <Stepper.Step unstyled>
+                        <Stack mt="xl">
+                            <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                            <Group justify="center">
+                                {studyProposalForm.errors['totalFileSize'] && (
+                                    <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                                )}
+                            </Group>
+                        </Stack>
+                    </Stepper.Step>
+                </Stepper>
+
+                <Group justify="flex-end" mt="xl">
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    {activeStep !== 0 && (
+                        <Button variant="default" onClick={prevStep}>
+                            Back
+                        </Button>
+                    )}
+                    {activeStep !== 1 && (
                         <Button
                             disabled={!studyProposalForm.isValid || isPending || !isStepValid(0)}
                             onClick={nextStep}
                         >
                             Next Step
                         </Button>
-                    </Group>
-                </Stack>
-            )}
-
-            {activeStep === 1 && (
-                <Stack mt="xl">
-                    <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                    <Group justify="center">
-                        {studyProposalForm.errors['totalFileSize'] && (
-                            <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                        )}
-                    </Group>
-                    <Group justify="flex-end">
-                        <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    )}
+                    {activeStep === 1 && (
                         <Button
                             disabled={!studyProposalForm.isValid || isPending || !isStepValid(1)}
                             type="submit"
@@ -187,9 +205,9 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                         >
                             Submit
                         </Button>
-                    </Group>
-                </Stack>
-            )}
+                    )}
+                </Group>
+            </>
         </form>
     )
 }
