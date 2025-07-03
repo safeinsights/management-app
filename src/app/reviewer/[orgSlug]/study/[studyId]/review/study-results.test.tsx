@@ -105,7 +105,7 @@ describe('View Study Results', () => {
         const privateKey = await readTestSupportFile('private_key.pem')
 
         fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: /View Results/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'View Results' }))
 
         await waitFor(() => {
             const link = screen.getByTestId('download-link')
