@@ -58,7 +58,9 @@ export default clerkMiddleware(async (auth, req) => {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
-        return NextResponse.redirect(new URL('/account/signin', req.url))
+        const signInUrl = new URL('/account/signin', req.url)
+        signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
+        return NextResponse.redirect(signInUrl)
     }
 
     // Define user roles

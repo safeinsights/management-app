@@ -20,7 +20,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
 import { CheckIcon } from '@phosphor-icons/react/dist/ssr'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { reportMutationError } from '@/components/errors'
 
 interface Keys {
@@ -138,6 +138,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
     isRegenerating,
 }) => {
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const { mutate: saveReviewerKey, isPending: isSavingKey } = useMutation({
         mutationFn: () => {
@@ -155,7 +156,8 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
         },
         onError: reportMutationError('Failed to save reviewer key'),
         onSuccess() {
-            router.push('/')
+            const redirectUrl = searchParams.get('redirect_url')
+            router.push(redirectUrl || '/')
         },
     })
 
