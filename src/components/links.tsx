@@ -41,7 +41,7 @@ export const DownloadResultsLink: React.FC<DownloadLinkProps> = ({ filename, con
     const [href, setHref] = useState('#')
 
     useEffect(() => {
-        const blob = new Blob([content])
+        const blob = new Blob([content], { type: 'text/csv' })
         const url = URL.createObjectURL(blob)
         setHref(url)
 
