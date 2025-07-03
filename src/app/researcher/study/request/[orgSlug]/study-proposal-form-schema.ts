@@ -39,15 +39,17 @@ export const studyProposalFormSchema = z
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),
-        codeFiles: z
+        mainCodeFile: z
             .array(z.instanceof(File))
             .min(1, { message: 'At least one code file is required.' })
+            .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
+                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
+            }),
+        additionalCodeFiles: z
+            .array(z.instanceof(File))
             .max(10, { message: 'No more than 10 code files are allowed.' })
-            .refine((files) => files.every((file) => /\.(R|r|rmd)$/.test(file.name)), {
-                message: 'Only .R, .r, and .rmd files are allowed for code files.',
-            })
-            .refine((files) => files.find((file) => file.name == 'main.r'), {
-                message: 'a file named main.r must be present.',
+            .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
+                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
             }),
     })
     .superRefine((data, ctx) => {
@@ -55,7 +57,8 @@ export const studyProposalFormSchema = z
             data.descriptionDocument,
             data.irbDocument,
             data.agreementDocument,
-            ...data.codeFiles,
+            data.codeFile,
+            ...data.additionalCodeFiles,
         ].reduce((sum, file) => sum + (file ? file.size : 0), 0)
 
         if (totalSize > 10 * 1024 * 1024) {
@@ -78,4 +81,6 @@ export const studyProposalApiSchema = z.object({
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
+    mainCodeFilePath: z.string(),
+    additionalCodeFilePaths: z.array(z.string()),
 })
