@@ -9,14 +9,22 @@ import {
 import { fireEvent, waitFor } from '@testing-library/react'
 import { screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
-import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
+import { JobFile } from '@/lib/types'
 
+const mockedApprovedJobFiles: JobFile[] = [
+    {
+        contents: new ArrayBuffer(9),
+        path: 'approved.csv',
+        fileType: 'APPROVED-RESULT',
+    },
+]
 vi.mock('@/server/actions/study-job.actions', () => ({
-    fetchJobResultsCsvAction: vi.fn(() => 'Results\n42'),
-    fetchJobResultsEncryptedZipAction: vi.fn(() => 'Encrypted Results'),
+    fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
+    fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
 }))
 
 describe('View Study Results', () => {
@@ -29,7 +37,7 @@ describe('View Study Results', () => {
 
     const insertAndRender = async (studyStatus: StudyStatus, jobStatus: StudyJobStatus) => {
         const { org } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus, jobStatus })
         const helpers = renderWithProviders(<StudyResults job={job} />)
         return { ...helpers, job, org }
     }
@@ -40,12 +48,12 @@ describe('View Study Results', () => {
     })
 
     it('shows results rejected state', async () => {
-        await insertAndRender('PENDING-REVIEW', 'RESULTS-REJECTED')
+        await insertAndRender('PENDING-REVIEW', 'FILES-REJECTED')
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
     })
 
     it('renders the results if the job has been approved', async () => {
-        await insertAndRender('APPROVED', 'RESULTS-APPROVED')
+        await insertAndRender('APPROVED', 'FILES-APPROVED')
         await waitFor(() => {
             expect(screen.getByRole('link', { name: /Download/i })).toBeDefined()
         })
@@ -78,20 +86,26 @@ describe('View Study Results', () => {
         await writer.addFile('test.data', arrayBuf)
         const zip = await writer.generate()
 
-        vi.mocked(fetchJobResultsEncryptedZipAction).mockResolvedValue(zip)
+        const file = {
+            blob: zip,
+            sourceId: '123',
+            fileType: 'ENCRYPTED-RESULT' as FileType,
+        }
 
-        const { latestJobithStatus: job } = await insertTestStudyJobData({
+        vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
+
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })
         renderWithProviders(<StudyResults job={job} />)
 
-        const input = screen.getByPlaceholderText('Enter private key')
+        const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
 
         const privateKey = await readTestSupportFile('private_key.pem')
 
         fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: /View Results/i }))
+        fireEvent.click(screen.getByRole('button', { name: 'View Results' }))
 
         await waitFor(() => {
             const link = screen.getByTestId('download-link')

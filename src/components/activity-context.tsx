@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useClerk, useSession } from '@clerk/clerk-react'
 import { notifications } from '@mantine/notifications'
-import { Button, Text, Space, Stack } from '@mantine/core'
+import { Button, Space, Stack, Text } from '@mantine/core'
 import { INACTIVITY_TIMEOUT_MS, WARNING_THRESHOLD_MS } from '@/lib/types'
 
 export const ActivityContext = () => {

@@ -1,8 +1,8 @@
 'use server'
 
 import { db, jsonArrayFrom } from '@/database'
-import { minimalJobInfoSchema } from '@/lib/types'
-import { fetchFileContents, storeStudyApprovedResultsFile } from '@/server/storage'
+import { JobFile, minimalJobInfoSchema } from '@/lib/types'
+import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import {
     actionContext,
     checkMemberOfOrgWithSlug,
@@ -12,50 +12,54 @@ import {
     z,
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
-
-import {
-    checkUserAllowedStudyReview,
-    checkUserAllowedJobView,
-    getStudyJobFileOfType,
-    latestJobForStudy,
-    siUser,
-} from '@/server/db/queries'
-import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { checkUserAllowedJobView, checkUserAllowedStudyReview, latestJobForStudy, siUser } from '@/server/db/queries'
+import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
+import { onStudyFilesApproved } from '@/server/events'
 
-const approveStudyJobResultsActionSchema = z.object({
-    orgSlug: z.string(),
-    jobInfo: minimalJobInfoSchema,
-    jobResults: z.array(
-        z.object({
-            path: z.string(),
-            contents: z.instanceof(ArrayBuffer),
-        }),
-    ),
-})
+export const approveStudyJobFilesAction = orgAction(
+    async ({ jobInfo: info, jobFiles }) => {
+        await checkUserAllowedStudyReview(info.studyId)
+        const user = await siUser()
 
-export const approveStudyJobResultsAction = orgAction(async ({ jobInfo: info, jobResults }) => {
-    await checkUserAllowedStudyReview(info.studyId)
+        for (const jobFile of jobFiles) {
+            const file = new File([jobFile.contents], jobFile.path)
+            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
+        }
 
-    // FIXME: handle more than a single result. will require a db schema change
-    const result = jobResults[0]
-    const resultsFile = new File([result.contents], result.path)
-    await storeStudyApprovedResultsFile(info, resultsFile)
-    const user = await siUser()
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: user.id,
-            status: 'RESULTS-APPROVED',
-            studyJobId: info.studyJobId,
-        })
-        .executeTakeFirstOrThrow()
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: user.id,
+                status: 'FILES-APPROVED',
+                studyJobId: info.studyJobId,
+            })
+            .executeTakeFirstOrThrow()
 
-    await sendStudyResultsApprovedEmail(info.studyId)
-    revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
-}, approveStudyJobResultsActionSchema)
+        onStudyFilesApproved({ studyId: info.studyId, userId: user.id })
+    },
+    z.object({
+        orgSlug: z.string(),
+        jobInfo: minimalJobInfoSchema,
+        jobFiles: z.array(
+            z.object({
+                path: z.string(),
+                contents: z.instanceof(ArrayBuffer),
+                sourceId: z.string(),
+                fileType: z.enum([
+                    'APPROVED-LOG',
+                    'APPROVED-RESULT',
+                    'ENCRYPTED-LOG',
+                    'ENCRYPTED-RESULT',
+                    'MAIN-CODE',
+                    'SUPPLEMENTAL-CODE',
+                ]),
+            }),
+        ),
+    }),
+)
 
-export const rejectStudyJobResultsAction = orgAction(
+export const rejectStudyJobFilesAction = orgAction(
     async (info) => {
         await checkUserAllowedStudyReview(info.studyId)
 
@@ -63,13 +67,12 @@ export const rejectStudyJobResultsAction = orgAction(
             .insertInto('jobStatusChange')
             .values({
                 userId: (await siUser()).id,
-                status: 'RESULTS-REJECTED',
+                status: 'FILES-REJECTED',
                 studyJobId: info.studyJobId,
             })
             .executeTakeFirstOrThrow()
 
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
-
         await sendStudyResultsRejectedEmail(info.studyId)
 
         revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
@@ -105,7 +108,7 @@ export const loadStudyJobAction = userAction(async (studyJobId) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['name', 'fileType'])
+                    .select(['id', 'name', 'fileType', 'path'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -126,20 +129,47 @@ export const latestJobForStudyAction = userAction(async (studyId) => {
     return latestJob
 }, z.string())
 
-export const fetchJobResultsCsvAction = userAction(async (jobId) => {
+export const fetchApprovedJobFilesAction = userAction(async (jobId) => {
     await checkUserAllowedJobView(jobId)
-    const info = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
-    const body = await fetchFileContents(info.path)
+    const job = await loadStudyJobAction(jobId)
+    const approvedJobFiles = job.files.filter(
+        (jobFile) => jobFile.fileType === 'APPROVED-LOG' || jobFile.fileType === 'APPROVED-RESULT',
+    )
 
-    return { path: info.path, contents: await body.text() }
+    const jobFiles: JobFile[] = []
+    for (const jobFile of approvedJobFiles) {
+        const blob = await fetchFileContents(jobFile.path)
+        const contents = await blob.arrayBuffer()
+        jobFiles.push({
+            contents,
+            path: jobFile.name,
+            fileType: jobFile.fileType,
+        })
+    }
+
+    return jobFiles
 }, z.string())
 
-export const fetchJobResultsEncryptedZipAction = orgAction(
+export const fetchEncryptedJobFilesAction = orgAction(
     async ({ jobId, orgSlug }) => {
         await checkMemberOfOrgWithSlug(orgSlug)
-        const info = await getStudyJobFileOfType(jobId, 'ENCRYPTED-RESULT')
-        const body = await fetchFileContents(info.path)
-        return body
+        const job = await loadStudyJobAction(jobId)
+
+        const encryptedFiles = job.files.filter(
+            (file) => file.fileType === 'ENCRYPTED-LOG' || file.fileType === 'ENCRYPTED-RESULT',
+        )
+
+        const encryptedJobFiles = []
+        for (const encryptedFile of encryptedFiles) {
+            const blob = await fetchFileContents(encryptedFile.path)
+            encryptedJobFiles.push({
+                fileType: encryptedFile.fileType,
+                sourceId: encryptedFile.id,
+                blob: blob,
+            })
+        }
+
+        return encryptedJobFiles
     },
     z.object({
         jobId: z.string(),

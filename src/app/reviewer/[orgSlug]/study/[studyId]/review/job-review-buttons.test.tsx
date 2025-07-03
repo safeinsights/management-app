@@ -1,24 +1,31 @@
-import { describe, expect, it, vi, Mock } from 'vitest'
+import { describe, expect, it, Mock, vi } from 'vitest'
 import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import { JobReviewButtons } from './job-review-buttons'
-import { fireEvent, screen, waitFor, act } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { latestJobForStudy } from '@/server/db/queries'
 import * as actions from '@/server/actions/study-job.actions'
-import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 
-vi.spyOn(actions, 'approveStudyJobResultsAction')
-vi.spyOn(actions, 'rejectStudyJobResultsAction')
+vi.spyOn(actions, 'approveStudyJobFilesAction')
+vi.spyOn(actions, 'rejectStudyJobFilesAction')
 
 vi.mock('@/server/storage', () => ({
-    storeStudyApprovedResultsFile: vi.fn(),
+    storeApprovedJobFile: vi.fn(),
 }))
 
 describe('Study Results Approve/Reject buttons', async () => {
-    const testResults = [{ path: 'test.csv', contents: new TextEncoder().encode('test123').buffer as ArrayBuffer }]
+    const testResults = [
+        {
+            path: 'test.csv',
+            contents: new TextEncoder().encode('test123').buffer as ArrayBuffer,
+            sourceId: 'test',
+            fileType: 'APPROVED-RESULT' as FileType,
+        },
+    ]
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
         const { org } = await mockSessionWithTestData()
-        const { latestJobithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
+        const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         return await act(async () => {
             const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)
             return { ...helpers, job, org }
@@ -34,8 +41,8 @@ describe('Study Results Approve/Reject buttons', async () => {
         })
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
-            const latest = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
-            expect(latest.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
+            const latestJob = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
+            expect(latestJob.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
         })
     }
 
@@ -56,10 +63,10 @@ describe('Study Results Approve/Reject buttons', async () => {
     })
 
     it('can approve results', async () => {
-        await clickNTest('Approve', actions.approveStudyJobResultsAction as Mock, 'RESULTS-APPROVED')
+        await clickNTest('Approve', actions.approveStudyJobFilesAction as Mock, 'FILES-APPROVED')
     })
 
     it('can reject results', async () => {
-        await clickNTest('Reject', actions.rejectStudyJobResultsAction as Mock, 'RESULTS-REJECTED')
+        await clickNTest('Reject', actions.rejectStudyJobFilesAction as Mock, 'FILES-REJECTED')
     })
 })

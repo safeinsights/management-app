@@ -8,8 +8,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
             'INITIATED',        // initial state when a study draft is created
             'CODE-SUBMITTED',   // code is present and awaiting review and approval by Member
             'CODE-REJECTED',    // Member has rejected the initial code
-            'CODE-APPROVED',    // Code has been approved by Member,
-            'JOB-PACKAGING',    // BMA is packageing code for the Setup App to pick up.
+            'CODE-APPROVED',    // Member has approved code,
+            'JOB-PACKAGING',    // BMA is packaging code for the Setup App to pick up.
             'JOB-READY',        // Code is ready and waiting to be picked up by the Setup App
             'JOB-PROVISIONING', // Setup App has picked up the packaged code and is preparing to run it against the enclave data
             'JOB-RUNNING',      // Code is running inside the enclave.

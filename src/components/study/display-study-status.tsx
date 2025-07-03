@@ -48,8 +48,8 @@ const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     'JOB-READY': { type: 'Code', label: 'Ready' },
     'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
     'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
-    'RESULTS-REJECTED': { type: 'Results', label: 'Rejected' },
-    'RESULTS-APPROVED': { type: 'Results', label: 'Approved' },
+    'FILES-REJECTED': { type: 'Results', label: 'Rejected' },
+    'FILES-APPROVED': { type: 'Results', label: 'Approved' },
 }
 
 const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {

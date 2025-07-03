@@ -251,14 +251,14 @@ export const insertTestStudyJobData = async ({
         .returning('id')
         .executeTakeFirstOrThrow()
 
-    const latestJobithStatus = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: researcherId })
+    const latestJobWithStatus = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: researcherId })
 
     return {
         job,
         org,
         study,
         studyJobStatus,
-        latestJobithStatus,
+        latestJobWithStatus,
     }
 }
 
