@@ -1,7 +1,7 @@
 'use server'
 
 import { db, jsonArrayFrom } from '@/database'
-import { ApprovedFile, minimalJobInfoSchema } from '@/lib/types'
+import { JobFile, minimalJobInfoSchema } from '@/lib/types'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import {
     actionContext,
@@ -13,8 +13,9 @@ import {
 } from './wrappers'
 import { revalidatePath } from 'next/cache'
 import { checkUserAllowedJobView, checkUserAllowedStudyReview, latestJobForStudy, siUser } from '@/server/db/queries'
-import { sendStudyResultsApprovedEmail, sendStudyResultsRejectedEmail } from '@/server/mailer'
+import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
+import { onStudyFilesApproved } from '@/server/events'
 
 export const approveStudyJobFilesAction = orgAction(
     async ({ jobInfo: info, jobFiles }) => {
@@ -35,9 +36,7 @@ export const approveStudyJobFilesAction = orgAction(
             })
             .executeTakeFirstOrThrow()
 
-        await sendStudyResultsApprovedEmail(info.studyId)
-
-        revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+        onStudyFilesApproved({ studyId: info.studyId, userId: user.id })
     },
     z.object({
         orgSlug: z.string(),
@@ -137,7 +136,7 @@ export const fetchApprovedJobFilesAction = userAction(async (jobId) => {
         (jobFile) => jobFile.fileType === 'APPROVED-LOG' || jobFile.fileType === 'APPROVED-RESULT',
     )
 
-    const jobFiles: ApprovedFile[] = []
+    const jobFiles: JobFile[] = []
     for (const jobFile of approvedJobFiles) {
         const blob = await fetchFileContents(jobFile.path)
         const contents = await blob.arrayBuffer()

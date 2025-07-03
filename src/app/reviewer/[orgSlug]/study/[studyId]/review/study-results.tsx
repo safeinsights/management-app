@@ -5,7 +5,7 @@ import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { JobReviewButtons } from './job-review-buttons'
 import { DecryptResults } from './decrypt-results'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { FileEntryWithJobFileInfo } from '@/lib/types'
+import { JobFileInfo } from '@/lib/types'
 import { JobResults } from '@/components/job-results'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
@@ -13,7 +13,7 @@ const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB
 export const StudyResults: FC<{
     job: LatestJobForStudy | null
 }> = ({ job }) => {
-    const [decryptedResults, setDecryptedResults] = useState<FileEntryWithJobFileInfo[]>()
+    const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
     // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {

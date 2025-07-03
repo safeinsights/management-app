@@ -1,6 +1,6 @@
 import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
-import { Button, Group, Modal, Stack, Textarea, Title } from '@mantine/core'
+import { Button, Group, Stack, Textarea } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as Sentry from '@sentry/nextjs'
@@ -9,10 +9,10 @@ import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuf
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { useParams } from 'next/navigation'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { RenderCSV } from '@/components/render-csv'
-import { FileEntryWithJobFileInfo } from '@/lib/types'
-import { DownloadResultsLink, ViewResultsLink } from '@/components/links'
-import { useDisclosure } from '@mantine/hooks'
+import { JobFileInfo } from '@/lib/types'
+import { reportMutationError } from '@/components/errors'
+import { first } from 'remeda'
+import { ViewFile } from '@/components/job-results'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -20,11 +20,11 @@ interface StudyResultsFormValues {
 
 type Props = {
     job: NonNullable<LatestJobForStudy>
-    onApproval: (decryptedResults: FileEntryWithJobFileInfo[]) => void
+    onApproval: (decryptedResults: JobFileInfo[]) => void
 }
 
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
-    const [decryptedFiles, setDecryptedFiles] = useState<FileEntryWithJobFileInfo[]>([])
+    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
@@ -60,7 +60,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
             try {
-                const decryptedFiles: FileEntryWithJobFileInfo[] = []
+                const decryptedFiles: JobFileInfo[] = []
                 for (const encryptedBlob of encryptedFiles) {
                     const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
                     const extractedFiles = await reader.extractFiles()
@@ -91,13 +91,11 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
         },
-        onSuccess: async (files: FileEntryWithJobFileInfo[]) => {
+        onSuccess: async (files: JobFileInfo[]) => {
             onApproval(files)
             setDecryptedFiles(files)
         },
-        onError: async (err) => {
-            Sentry.captureException(err)
-        },
+        onError: reportMutationError('decryption failed'),
     })
 
     const onSubmit = (values: StudyResultsFormValues) => {
@@ -114,12 +112,14 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
 
     if (isApproved) return null
 
+    const lastStatusChange = first(job.statusChanges)
+
     return (
         <Stack>
             {decryptedFiles.map((decryptedFile) => (
-                <FileResult fileResult={decryptedFile} key={decryptedFile.path} />
+                <ViewFile file={decryptedFile} key={decryptedFile.path} />
             ))}
-            {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !decryptedFiles?.length && (
+            {lastStatusChange?.status === 'RUN-COMPLETE' && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Stack>
                         <Textarea
@@ -138,21 +138,5 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 </form>
             )}
         </Stack>
-    )
-}
-
-const FileResult: FC<{ fileResult: FileEntryWithJobFileInfo }> = ({ fileResult }) => {
-    const [opened, { open, close }] = useDisclosure(false)
-
-    return (
-        <Group>
-            <Title order={4}>{fileResult.path}</Title>
-            <DownloadResultsLink target="_blank" filename={fileResult.path} content={fileResult.contents} />
-            <ViewResultsLink content={fileResult.contents} />
-            <Modal size="80%" opened={opened} onClose={close} title={fileResult.path}>
-                <RenderCSV csv={new TextDecoder().decode(fileResult.contents)} />
-            </Modal>
-            <Button onClick={open}>View Results</Button>
-        </Group>
     )
 }

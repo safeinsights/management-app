@@ -1,6 +1,6 @@
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
-import { FileEntryWithJobFileInfo, MinimalJobInfo } from '@/lib/types'
+import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
@@ -14,7 +14,7 @@ export const JobReviewButtons = ({
     decryptedResults,
 }: {
     job: NonNullable<LatestJobForStudy>
-    decryptedResults?: FileEntryWithJobFileInfo[]
+    decryptedResults?: JobFileInfo[]
 }) => {
     const theme = useMantineTheme()
     const router = useRouter()

@@ -13,9 +13,9 @@ import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
-import { ApprovedFile } from '@/lib/types'
+import { JobFile } from '@/lib/types'
 
-const mockedApprovedJobFiles: ApprovedFile[] = [
+const mockedApprovedJobFiles: JobFile[] = [
     {
         contents: new ArrayBuffer(9),
         path: 'approved.csv',

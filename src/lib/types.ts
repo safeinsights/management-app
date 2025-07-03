@@ -69,12 +69,12 @@ export enum AuthRole {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>
 
-export type FileEntryWithJobFileInfo = FileEntry & {
+export type JobFileInfo = FileEntry & {
     sourceId: string
     fileType: FileType
 }
 
-export type ApprovedFile = {
+export type JobFile = {
     contents: ArrayBuffer
     path: string
     fileType: FileType
