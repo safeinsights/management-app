@@ -36,6 +36,9 @@ export const StudyProposalForm: FC<{
 
     return (
         <Paper p="xl">
+            <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                Step 1 of 2
+            </Text>
             <Title order={4}>Study Proposal</Title>
             <Divider my="md" />
             <Stack gap="xl">

@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import React, { useState } from 'react'
+import { Button, Group, Stack, Text, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
@@ -44,7 +44,6 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
-
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(studyProposalFormSchema),
@@ -54,7 +53,8 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             irbDocument: null,
             descriptionDocument: null,
             agreementDocument: null,
-            codeFiles: [],
+            mainCodeFile: [],
+            additionalCodeFiles: [],
         },
         validateInputOnChange: ['title', 'piName'],
     })
@@ -66,7 +66,8 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 'agreementDocument',
                 'descriptionDocument',
                 'irbDocument',
-                'codeFiles',
+                'mainCodeFile',
+                'additionalCodeFiles',
             ])
 
             const valuesWithFilenames = {
@@ -74,12 +75,15 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 descriptionDocPath: formValues.descriptionDocument!.name,
                 agreementDocPath: formValues.agreementDocument!.name,
                 irbDocPath: formValues.irbDocument!.name,
+                mainCodeFilePath: formValues.mainCodeFile.map((file) => file.name),
+                additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
             }
 
             const {
                 studyId,
                 studyJobId,
-                urlForCodeUpload,
+                urlForMainCodeUpload,
+                urlForAdditionalCodeUpload,
                 urlForAgreementUpload,
                 urlForIrbUpload,
                 urlForDescriptionUpload,
@@ -91,7 +95,8 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
-            await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
+            await uploadCodeFiles(formValues.mainCodeFile, urlForMainCodeUpload, studyJobId)
+            await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
             return { studyId, studyJobId }
         },
         onSuccess() {
@@ -120,24 +125,90 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
     })
 
+    //Form step management
+    const steps = [{ label: 'Study Proposal' }, { label: 'Study Code' }]
+
+    const [activeStep, setActiveStep] = useState(0)
+
+    const nextStep = () => {
+        setActiveStep((current) => (current < steps.length - 1 ? current + 1 : current))
+    }
+
+    const prevStep = () => setActiveStep((current) => (current > 0 ? current - 1 : current))
+
+    const isStepValid = (step: number) => {
+        if (step === 0) {
+            // Check if the form is valid at step 0
+            return (
+                studyProposalForm.isValid('title') &&
+                studyProposalForm.isValid('piName') &&
+                studyProposalForm.isValid('agreementDocument') &&
+                studyProposalForm.isValid('irbDocument') &&
+                studyProposalForm.isValid('descriptionDocument')
+            )
+        } else if (step === 1) {
+            // Check if the form is valid at step 1. We only need to check the main code file since uplodadng additional code files is optional
+            return studyProposalForm.isValid('mainCodeFile')
+        }
+        return false
+    }
+
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stack>
-                <StudyProposalForm studyProposalForm={studyProposalForm} />
-                <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                <Group justify="center">
-                    {studyProposalForm.errors['totalFileSize'] && (
-                        <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+            <>
+                <Stepper
+                    unstyled
+                    active={activeStep}
+                    styles={{
+                        steps: {
+                            display: 'none',
+                        },
+                    }}
+                >
+                    <Stepper.Step>
+                        <Stack>
+                            <StudyProposalForm studyProposalForm={studyProposalForm} />
+                        </Stack>
+                    </Stepper.Step>
+
+                    <Stepper.Step unstyled>
+                        <Stack mt="xl">
+                            <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                            <Group justify="center">
+                                {studyProposalForm.errors['totalFileSize'] && (
+                                    <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                                )}
+                            </Group>
+                        </Stack>
+                    </Stepper.Step>
+                </Stepper>
+
+                <Group justify="flex-end" mt="xl">
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    {activeStep !== 0 && (
+                        <Button variant="default" onClick={prevStep}>
+                            Back
+                        </Button>
+                    )}
+                    {activeStep !== 1 && (
+                        <Button
+                            disabled={!studyProposalForm.isValid || isPending || !isStepValid(0)}
+                            onClick={nextStep}
+                        >
+                            Next Step
+                        </Button>
+                    )}
+                    {activeStep === 1 && (
+                        <Button
+                            disabled={!studyProposalForm.isValid || isPending || !isStepValid(1)}
+                            type="submit"
+                            variant="filled"
+                        >
+                            Submit
+                        </Button>
                     )}
                 </Group>
-                <Group gap="xl" justify="flex-end">
-                    {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
-                    <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <Button disabled={!studyProposalForm.isValid || isPending} type="submit" variant="filled">
-                        Submit
-                    </Button>
-                </Group>
-            </Stack>
+            </>
         </form>
     )
 }
