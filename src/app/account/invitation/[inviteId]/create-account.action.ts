@@ -43,6 +43,8 @@ export const onCreateAccountAction = anonAction(
                 emailAddress: [invite.email],
                 password: form.password,
                 publicMetadata: {
+                    // mark user when created inside a github action so it can be later cleaned up after test run
+                    createdByCIJobId: process.env.GITHUB_JOB,
                     userId,
                     orgs: [
                         {

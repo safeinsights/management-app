@@ -2,8 +2,9 @@ import { Kysely, CamelCasePlugin, sql, type KyselyConfig, type Transaction as Tr
 import { DB } from './database/types'
 import { dialect } from './database/dialect'
 import { DEV_ENV } from './server/config'
+import { jsonArrayFrom } from 'kysely/helpers/postgres'
 
-export { sql }
+export { sql, jsonArrayFrom }
 
 const kyselyOpts: KyselyConfig = {
     dialect,

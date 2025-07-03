@@ -6,12 +6,13 @@ import { useMutation } from '@tanstack/react-query'
 import type { SignInResource } from '@clerk/types'
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
 
     const form = useForm({
@@ -42,7 +43,8 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
                 await onUserSignInAction()
-                router.push('/')
+                const redirectUrl = searchParams.get('redirect_url')
+                router.push(redirectUrl || '/')
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({

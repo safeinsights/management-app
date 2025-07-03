@@ -1,6 +1,7 @@
 'use server'
 
 import { ErrorAlert } from '../errors'
+import SentryUserProvider from '../sentry-user-provider'
 import { AnonLayoutShell } from './anon-layout-shell'
 import { ClerkProvider } from '@clerk/nextjs'
 
@@ -14,6 +15,7 @@ export async function AnonLayout({ children }: Props) {
 
     return (
         <ClerkProvider publishableKey={clerkPublishableKey}>
+            <SentryUserProvider />
             <AnonLayoutShell>{children}</AnonLayoutShell>
         </ClerkProvider>
     )

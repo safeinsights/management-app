@@ -7,6 +7,7 @@ import { type SiUser, siUser } from '../db/queries'
 import { db } from '@/database'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { JwtPayload } from 'jsonwebtoken'
+import * as Sentry from '@sentry/nextjs'
 
 export { ActionFailure, AccessDeniedError } from '@/lib/errors'
 export { z } from 'zod'
@@ -109,11 +110,17 @@ export function userAction<S extends Schema, F extends WrappedFunc<S>>(func: F, 
                     },
                 } as ActionContext,
                 async () => {
+                    const orgSlug = orgSlugFromSessionClaims(sessionClaims)
+                    if (auth?.userId) Sentry.setUser({ id: auth.userId })
+                    if (orgSlug) {
+                        Sentry.setTag('org', orgSlug)
+                    }
                     try {
                         if (schema && arg != null) schema.parse(arg)
                         const result = await func(arg)
                         resolve(result)
                     } catch (error) {
+                        Sentry.captureException(error)
                         if (error instanceof z.ZodError) {
                             const fieldErrors = error.flatten().fieldErrors
                             const sanitizedErrors: Record<string, string> = {}

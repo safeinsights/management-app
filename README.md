@@ -47,7 +47,6 @@ For developing locally without docker compose, you will need to:
 1. Install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it. [Homebrew instructions](https://wiki.postgresql.org/wiki/Homebrew)
 
 2. Install minio and minio-mc [Homebrew instructions](https://min.io/docs/minio/macos/index.html) and provision it using:
-
     - Start server: `./bin/local-minio`
     - Setup alias (_only needed once_): `mc alias set siminio http://localhost:9198 si-local-minio si-local-minio`
     - Create bucket (_only needed once_): `mc mb siminio/mgmt-app-local`
@@ -150,7 +149,7 @@ There are a few CLI applications to debug the API end endpoints:
 ```bash
 npx tsx bin/debug/fetch-runnable.ts -u http://localhost:4000 -o openstax -k <path to private key>
 npx tsx bin/debug/set-status.ts -u http://localhost:4000 -o openstax -k <path to private key> -s <status: JOB-PROVISIONING | JOB-RUNNING | JOB-ERRORED> -j <uuid of job>
-npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -f <path to file to upload as results>
+npx tsx bin/debug/upload-results.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job> -r <path to file to upload as results> -l <path of file to upload as logs>
 npx tsx bin/debug/keys.ts -u http://localhost:4000 -o openstax -k <path to private key> -j <uuid of job>
 ```
 

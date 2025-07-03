@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import debug from 'debug'
 import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
+import * as Sentry from '@sentry/nextjs'
 
 const middlewareDebug = debug('app:middleware')
 
@@ -46,11 +47,20 @@ export default clerkMiddleware(async (auth, req) => {
 
     const metadata = sessionClaims?.userMetadata || { orgs: [], userId: '' }
 
+    if (clerkUserId) {
+        Sentry.setUser({
+            id: clerkUserId,
+        })
+        if (orgSlug) Sentry.setTag('org', orgSlug)
+    }
+
     if (!clerkUserId) {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
-        return NextResponse.redirect(new URL('/account/signin', req.url))
+        const signInUrl = new URL('/account/signin', req.url)
+        signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
+        return NextResponse.redirect(signInUrl)
     }
 
     // Define user roles

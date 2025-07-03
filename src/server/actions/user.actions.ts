@@ -52,7 +52,9 @@ export const onUserSignInAction = anonAction(async () => {
                 isAdmin: md?.isAdmin,
                 isReviewer: md?.isReviewer,
             })
-        } catch {}
+        } catch (e) {
+            logger.error(`Failed to find or create org membership for ${org.organization.slug}`, e)
+        }
     }
     onUserLogIn({ userId: user.id })
 })

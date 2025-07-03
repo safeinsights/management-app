@@ -1,18 +1,17 @@
+'use client'
+
 import { notifications } from '@mantine/notifications'
 import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
-import { Lock, Warning, WarningCircle } from '@phosphor-icons/react/dist/ssr'
+import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode } from 'react'
-import { errorToString, extractActionFailure, isServerActionError } from '@/lib/errors'
+import { errorToString, extractActionFailure } from '@/lib/errors'
 import { captureException } from '@sentry/nextjs'
 import { difference } from 'remeda'
 
 export * from '@/lib/errors'
 
 export const reportError = (error: unknown, title = 'An error occurred') => {
-    // TODO: consider whether we should send everything to sentry?
-    if (isServerActionError(error)) {
-        captureException(error)
-    }
+    captureException(error)
     notifications.show({
         color: 'red',
         title,
@@ -20,9 +19,6 @@ export const reportError = (error: unknown, title = 'An error occurred') => {
     })
 }
 
-export const reportMutationError = (error: unknown) => {
-    reportError(error, 'update failed')
-}
 type FormErrorHandler = {
     setErrors(errs: Record<string, string>): void
     values: Record<string, string>
@@ -40,20 +36,22 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
             if (unknownKeys.length === 0) {
                 form.setErrors(failure)
             } else {
-                reportMutationError(err)
+                reportError(err)
             }
         } else {
-            reportMutationError(err)
+            reportError(err)
         }
     }
 }
 
-type ErrorAlertProps = { error: string | Error } & AlertProps
+export const reportMutationError = (title: string) => (err: unknown) => reportError(err, title)
 
-export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'An error occurred', error }) => {
+type ErrorAlertProps = { error: unknown } & AlertProps
+
+export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <WarningIcon />, title = 'An error occurred', error }) => {
     return (
         <Alert variant="light" color="red" title={title} icon={icon}>
-            {error.toString()}
+            {errorToString(error)}
         </Alert>
     )
 }
@@ -61,7 +59,7 @@ export const ErrorAlert: FC<ErrorAlertProps> = ({ icon = <Warning />, title = 'A
 type AccessDeniedAlertProps = { message?: string } & Omit<AlertProps, 'title'>
 
 export const AccessDeniedAlert: FC<AccessDeniedAlertProps> = ({
-    icon = <Lock />,
+    icon = <LockIcon />,
     message = 'You do not have permission to access this resource.',
     ...props
 }) => {
@@ -80,7 +78,7 @@ export const AlertNotFound: FC<{ title: string; message: ReactNode; hideIf?: boo
     if (hideIf) return null
 
     return (
-        <Alert w="400" m="auto" variant="filled" color="red" icon={<Warning />} title={title}>
+        <Alert w="400" m="auto" variant="filled" color="red" icon={<WarningIcon />} title={title}>
             {message}
         </Alert>
     )
@@ -92,7 +90,7 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
 
     return (
         <Flex align="center" gap={4} my={2} component="span" data-testid="input-error">
-            <WarningCircle size={20} color={theme.colors.red[7]} weight="fill" />
+            <WarningCircleIcon size={20} color={theme.colors.red[7]} weight="fill" />
             <Text c="red.7" size="xs" component="span">
                 {error}
             </Text>

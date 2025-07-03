@@ -18,9 +18,9 @@ import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
-import { Check } from '@phosphor-icons/react/dist/ssr'
+import { CheckIcon } from '@phosphor-icons/react/dist/ssr'
 import { setReviewerPublicKeyAction, updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { reportMutationError } from '@/components/errors'
 
 interface Keys {
@@ -112,7 +112,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                         </Group>
                         {isKeyCopied && (
                             <Flex gap="xs">
-                                <Check size={16} color={theme.colors.green[9]} />
+                                <CheckIcon size={16} color={theme.colors.green[9]} />
                                 <Text c="green.9" size="xs" fw={500}>
                                     Copied!
                                 </Text>
@@ -138,6 +138,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
     isRegenerating,
 }) => {
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const { mutate: saveReviewerKey, isPending: isSavingKey } = useMutation({
         mutationFn: () => {
@@ -153,9 +154,10 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
                 })
             }
         },
-        onError: reportMutationError,
+        onError: reportMutationError('Failed to save reviewer key'),
         onSuccess() {
-            router.push('/')
+            const redirectUrl = searchParams.get('redirect_url')
+            router.push(redirectUrl || '/')
         },
     })
 

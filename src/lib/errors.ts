@@ -83,7 +83,7 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
-export const errorToString = (error: unknown) => {
+export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) => {
     if (!error) return ''
 
     if (typeof error === 'string') {
@@ -101,12 +101,18 @@ export const errorToString = (error: unknown) => {
     }
 
     if (isClerkApiError(error)) {
+        if (clerkOverrides) {
+            const customError = error.errors.find((e) => clerkOverrides[e.code])
+            if (customError) return clerkOverrides[customError.code]
+        }
         return error.errors.map((e) => `${e.longMessage || e.message}`).join('\n')
     }
 
     if (error instanceof Error) {
         return String(error)
     }
+
+    return 'Unknown error occured'
 }
 
 export class AccessDeniedError extends ActionFailure {}
