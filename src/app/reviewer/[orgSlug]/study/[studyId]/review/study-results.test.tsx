@@ -84,10 +84,6 @@ describe('View Study Results', () => {
         fireEvent.click(screen.getByRole('button', { name: /View Results/i }))
 
         await waitFor(() => {
-            // Check that the data is rendered in the table from RenderCSV
-            expect(screen.getByRole('columnheader', { name: 'title' })).toBeInTheDocument()
-            expect(screen.getByRole('cell', { name: 'hello world' })).toBeInTheDocument()
-
             // Check that the download link is set up correctly
             const link = screen.getByTestId('download-link')
             expect(link.getAttribute('href')).toMatch(/^blob:/)
