@@ -57,6 +57,16 @@ describe('View Study Results', () => {
     })
 
     it('decrypts and displays the results', async () => {
+        // Capture blobs created for the download link so we can verify their contents
+        const createdBlobs: Blob[] = []
+        const originalCreateObjectURL = URL.createObjectURL
+        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
+            const blob = obj as Blob
+            createdBlobs.push(blob)
+            // keep default behaviour so href still looks like a real blob url
+            return originalCreateObjectURL ? originalCreateObjectURL.call(URL, blob) : 'blob://mock'
+        })
+
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
         const fingerprint = await fingerprintKeyData(publicKey)
         const writer = new ResultsWriter([{ publicKey, fingerprint }])
@@ -84,10 +94,14 @@ describe('View Study Results', () => {
         fireEvent.click(screen.getByRole('button', { name: /View Results/i }))
 
         await waitFor(() => {
-            // Check that the download link is set up correctly
             const link = screen.getByTestId('download-link')
             expect(link.getAttribute('href')).toMatch(/^blob:/)
             expect(link.getAttribute('download')).toEqual('test.data')
+            expect(createdBlobs.length).toBeGreaterThan(0)
         })
+
+        // Verify that the blob contains the expected CSV content
+        const blobText = await createdBlobs[0].text()
+        expect(blobText).toEqual(csv)
     })
 })
