@@ -37,6 +37,7 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
             <Table.Td>{image.name}</Table.Td>
             <Table.Td>{image.language}</Table.Td>
             <Table.Td>{image.url}</Table.Td>
+            <Table.Td>{image.cmdLine}</Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
                 <SuretyGuard
@@ -66,6 +67,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
                     <Table.Th>Name</Table.Th>
                     <Table.Th>Language</Table.Th>
                     <Table.Th>URL</Table.Th>
+                    <Table.Th>Command Line</Table.Th>
                     <Table.Th>Is Testing</Table.Th>
                     <Table.Th>Actions</Table.Th>
                 </Table.Tr>
