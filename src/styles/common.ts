@@ -19,9 +19,6 @@ export const mainStyles = css({
     gap: 32,
 })
 
-export const stepperStyles = css({
-    display : 'none',
-})
 
 export const footerStyles = css({
     fontSize: '80%',
