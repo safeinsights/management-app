@@ -15,19 +15,34 @@ export function useOrgInfo(orgSlugFallback = '') {
     const { orgSlug: paramOrgSlug } = useParams<{ orgSlug: string }>()
 
     return useMemo(() => {
+        const isSiAdmin = !!user?.organizationMemberships.find(
+            (membership) => membership.organization.slug === CLERK_ADMIN_ORG_SLUG,
+        )
+
         const orgs = user?.publicMetadata?.orgs || []
-        const orgSlug = paramOrgSlug || orgSlugFallback || currentOrgSlug || orgs[0]?.slug
+        const orgSlug = paramOrgSlug || orgSlugFallback || currentOrgSlug
+
+        // If there's no active organization slug, we are in the researcher context.
+        if (!orgSlug) {
+            return {
+                isLoaded,
+                orgSlug: orgs[0]?.slug, // default to the first org if no org slug is provided
+                preferredOrgSlug: null,
+                org: {
+                    isResearcher: true,
+                    isReviewer: false, // ensure a researcher does not have access to reviewer context such as the reviewer key nav option
+                    isAdmin: isSiAdmin,
+                },
+            }
+        }
 
         const org = orgs.find((org) => org.slug == orgSlug)
-        const adminOrg = user?.organizationMemberships.find(
-            (membership) => membership.organization.slug == CLERK_ADMIN_ORG_SLUG,
-        )
 
         return {
             isLoaded,
             orgSlug,
             preferredOrgSlug: paramOrgSlug || currentOrgSlug, // preferred is what the user has indicated a preference for,  either via url or org switcher
-            org: { ...org, isAdmin: org?.isAdmin || !!adminOrg },
+            org: { ...org, isAdmin: org?.isAdmin || isSiAdmin },
         }
     }, [isLoaded, user, currentOrgSlug, paramOrgSlug, orgSlugFallback])
 }
