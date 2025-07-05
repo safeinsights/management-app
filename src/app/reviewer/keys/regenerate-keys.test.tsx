@@ -4,7 +4,7 @@ import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { GenerateKeys } from '../../(anon)/keys/generate-keys'
+import { GenerateKeys } from '@/app/account/keys/generate-keys'
 import router from 'next-router-mock'
 
 vi.mock('si-encryption/util/keypair', () => ({
