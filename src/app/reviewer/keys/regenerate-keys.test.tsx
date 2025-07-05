@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
-import { RegenerateKeys } from '../manage-key/regenerate-keys'
+import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
