@@ -4,6 +4,8 @@ import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
+import { GenerateKeys } from '../../(anon)/keys/generate-keys'
+import router from 'next-router-mock'
 
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
@@ -46,7 +48,14 @@ describe('Reviewer keypair regeneration', () => {
         })
         fireEvent.click(screen.getByRole('button', { name: /generate new key/i }))
 
-        // GenerateKeys component should now be rendered
+        // Wait for navigation to /account/keys
+        await waitFor(() => {
+            expect(router.asPath).toBe('/account/keys')
+        })
+
+        // Simulate the /account/keys page render which handles key regeneration after navigation
+        renderWithProviders(<GenerateKeys isRegenerating={true} />)
+
         await waitFor(() => {
             expect(vi.mocked(generateKeyPair)).toHaveBeenCalled()
             expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()
