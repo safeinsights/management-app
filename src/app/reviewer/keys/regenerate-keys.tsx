@@ -2,28 +2,24 @@
 
 import { Button, Stack, Text, Group, Title, Paper, Divider } from '@mantine/core'
 import { AppModal } from '@/components/modal'
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { useDisclosure } from '@mantine/hooks'
-import { GenerateKeys } from './generate-keys'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useOrgInfo } from '@/components/org-info'
+import { useRouter } from 'next/navigation'
 
 export const RegenerateKeys: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
-    const [displayGenerateKeys, setDisplayGenerateKeys] = useState(false)
     const { orgSlug } = useOrgInfo()
+    const router = useRouter()
 
     const handleConfirmAndProceed = () => {
         closeModal()
-        setDisplayGenerateKeys(true)
-    }
-
-    if (displayGenerateKeys) {
-        return <GenerateKeys isRegenerating={true} />
+        router.push('/account/keys')
     }
 
     return (
-        <Paper p="xl" mx="sm" radius="sm" maw={900} my={{ base: '1rem', lg: 0 }}>
+        <Stack p="xl" w="90%" mx="sm">
             <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${orgSlug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xl">
@@ -64,7 +60,7 @@ export const RegenerateKeys: FC = () => {
                 isOpen={isModalOpen}
                 onConfirmAndClose={handleConfirmAndProceed}
             />
-        </Paper>
+        </Stack>
     )
 }
 

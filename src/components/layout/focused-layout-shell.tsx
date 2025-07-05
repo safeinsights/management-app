@@ -10,7 +10,7 @@ type Props = {
     children: ReactNode
 }
 
-export function AnonLayoutShell({ children }: Props) {
+export function FocusedLayoutShell({ children }: Props) {
     const theme = useMantineTheme()
 
     return (

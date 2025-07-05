@@ -1,14 +1,14 @@
 import { it } from 'vitest'
-import { AnonLayoutShell } from './anon-layout-shell'
+import { FocusedLayoutShell } from './focused-layout-shell'
 import { render, screen } from '@testing-library/react'
 
 import { TestingProviders } from '@/tests/providers'
 
 it('renders without a user', async () => {
     render(
-        <AnonLayoutShell>
+        <FocusedLayoutShell>
             <div>hello world</div>
-        </AnonLayoutShell>,
+        </FocusedLayoutShell>,
         { wrapper: TestingProviders },
     )
 
