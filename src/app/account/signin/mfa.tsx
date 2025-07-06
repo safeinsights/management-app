@@ -8,6 +8,7 @@ import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { onUserSignInAction } from '@/server/actions/user.actions'
+import logger from '@/lib/logger'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
@@ -42,9 +43,14 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-                await onUserSignInAction()
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push(redirectUrl || '/')
+                const result = await onUserSignInAction()
+                if (result?.redirectToReviewerKey) {
+                    logger.info('User public key not found, redirecting to generate keys')
+                    router.push('/account/keys')
+                } else {
+                    const redirectUrl = searchParams.get('redirect_url')
+                    router.push(redirectUrl || '/')
+                }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({

@@ -7,6 +7,7 @@ import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { findOrCreateOrgMembership } from '../mutations'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import logger from '@/lib/logger'
+import { getReviewerPublicKey } from '../db/queries'
 
 export const onUserSignInAction = anonAction(async () => {
     const clerkUser = await currentUser()
@@ -57,6 +58,20 @@ export const onUserSignInAction = anonAction(async () => {
         }
     }
     onUserLogIn({ userId: user.id })
+
+    // Check if the user is a reviewer and needs to generate a public key
+    const isReviewer = memberships.data.some(
+        (org) =>
+            org.organization.slug !== CLERK_ADMIN_ORG_SLUG &&
+            clerkUser.publicMetadata?.orgs?.find((o) => o.slug === org.organization.slug)?.isReviewer,
+    )
+
+    if (isReviewer) {
+        const publicKey = await getReviewerPublicKey(user.id)
+        if (publicKey === null) {
+            return { redirectToReviewerKey: true }
+        }
+    }
 })
 
 export const onUserResetPWAction = userAction(async () => {
