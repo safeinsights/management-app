@@ -8,7 +8,6 @@ import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import logger from '@/lib/logger'
 
 export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ mfa, onReset }) => {
     const { isLoaded, setActive } = useSignIn()
@@ -45,7 +44,6 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
                 await setActive({ session: signInAttempt.createdSessionId })
                 const result = await onUserSignInAction()
                 if (result?.redirectToReviewerKey) {
-                    logger.info('User public key not found, redirecting to generate keys')
                     router.push('/account/keys')
                 } else {
                     const redirectUrl = searchParams.get('redirect_url')
