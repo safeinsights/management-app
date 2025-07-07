@@ -7,6 +7,7 @@ import { DecryptResults } from './decrypt-results'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { JobFileInfo } from '@/lib/types'
 import { JobResults } from '@/components/job-results'
+import { useJobResultsStatus } from '@/components/use-job-results-status'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
 
@@ -51,8 +52,7 @@ export const StudyResults: FC<{
 }
 
 export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const isComplete = !!job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE')
-    const isErrored = !!job.statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
+    const { isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
         return <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>

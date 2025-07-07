@@ -3,12 +3,10 @@
 import React, { FC } from 'react'
 import { Text } from '@mantine/core'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { useJobResultsStatus } from '@/components/use-job-results-status'
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const isApproved = !!job.statusChanges.find((sc) => sc.status === 'FILES-APPROVED')
-    const isRejected = !!job.statusChanges.find((sc) => sc.status === 'FILES-REJECTED')
-    const isComplete = !!job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE')
-    const isErrored = !!job.statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
+    const { isApproved, isRejected, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
         if (isApproved) {
