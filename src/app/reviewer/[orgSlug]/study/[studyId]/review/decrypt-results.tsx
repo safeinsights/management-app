@@ -13,6 +13,7 @@ import { JobFileInfo } from '@/lib/types'
 import { reportMutationError } from '@/components/errors'
 import { first } from 'remeda'
 import { ViewFile } from '@/components/job-results'
+import { FileType } from '@/database/types'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -21,6 +22,12 @@ interface StudyResultsFormValues {
 type Props = {
     job: NonNullable<LatestJobForStudy>
     onApproval: (decryptedResults: JobFileInfo[]) => void
+}
+
+function approvedTypeForFile(fileType: FileType): FileType {
+    if (fileType === 'ENCRYPTED-RESULT') return 'APPROVED-RESULT'
+    if (fileType === 'ENCRYPTED-LOG') return 'APPROVED-LOG'
+    throw new Error(`Unknown file type ${fileType}`)
 }
 
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
@@ -61,6 +68,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
             }
             try {
                 const decryptedFiles: JobFileInfo[] = []
+
                 for (const encryptedBlob of encryptedFiles) {
                     const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
                     const extractedFiles = await reader.extractFiles()
@@ -69,15 +77,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                             decryptedFiles.push({
                                 ...extractedFile,
                                 sourceId: encryptedBlob.sourceId,
-                                fileType: 'APPROVED-LOG',
-                            })
-                        }
-
-                        if (encryptedBlob.fileType === 'ENCRYPTED-RESULT') {
-                            decryptedFiles.push({
-                                ...extractedFile,
-                                sourceId: encryptedBlob.sourceId,
-                                fileType: 'APPROVED-RESULT',
+                                fileType: approvedTypeForFile(encryptedBlob.fileType),
                             })
                         }
                     }

@@ -17,11 +17,12 @@ import { JobFile } from '@/lib/types'
 
 const mockedApprovedJobFiles: JobFile[] = [
     {
-        contents: new ArrayBuffer(9),
+        contents: new TextEncoder().encode('title\nhello world').buffer,
         path: 'approved.csv',
-        fileType: 'APPROVED-RESULT',
+        fileType: 'APPROVED-RESULT' as FileType,
     },
 ]
+
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
     fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
@@ -71,7 +72,7 @@ describe('View Study Results', () => {
         vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
             const blob = obj as Blob
             createdBlobs.push(blob)
-            // keep default behaviour so href still looks like a real blob url
+            // keep default behavior so href still looks like a real blob url
             return originalCreateObjectURL ? originalCreateObjectURL.call(URL, blob) : 'blob://mock'
         })
 
@@ -110,7 +111,7 @@ describe('View Study Results', () => {
         await waitFor(() => {
             const link = screen.getByTestId('download-link')
             expect(link.getAttribute('href')).toMatch(/^blob:/)
-            expect(link.getAttribute('download')).toEqual('test.data')
+            expect(link.getAttribute('download')).toEqual('approved.csv')
             expect(createdBlobs.length).toBeGreaterThan(0)
         })
 
