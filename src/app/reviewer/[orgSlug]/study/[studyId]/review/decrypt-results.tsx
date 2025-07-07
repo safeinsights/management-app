@@ -51,7 +51,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw error
             }
         },
-        enabled: !!job.statusChanges.find((sc) => sc.status == 'RUN-COMPLETE'),
+        enabled: isApproved || isErrored,
     })
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
