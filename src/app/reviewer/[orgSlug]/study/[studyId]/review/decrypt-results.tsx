@@ -11,7 +11,6 @@ import { useParams } from 'next/navigation'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { JobFileInfo } from '@/lib/types'
 import { reportMutationError } from '@/components/errors'
-import { first } from 'remeda'
 import { ViewFile } from '@/components/job-results'
 import { FileType } from '@/database/types'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
@@ -34,7 +33,7 @@ function approvedTypeForFile(fileType: FileType): FileType {
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { isApproved } = useJobResultsStatus(job.statusChanges)
+    const { isApproved, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -112,14 +111,12 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
 
     if (isApproved) return null
 
-    const lastStatusChange = first(job.statusChanges)
-
     return (
         <Stack>
             {decryptedFiles.map((decryptedFile) => (
                 <ViewFile file={decryptedFile} key={decryptedFile.path} />
             ))}
-            {lastStatusChange?.status === 'RUN-COMPLETE' && !decryptedFiles?.length && (
+            {(isComplete || isErrored) && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Stack>
                         <Textarea
