@@ -17,7 +17,7 @@ import { JobFile } from '@/lib/types'
 
 const mockedApprovedJobFiles: JobFile[] = [
     {
-        contents: new TextEncoder().encode('title\nhello world').buffer,
+        contents: new TextEncoder().encode('title\nhello world').buffer as ArrayBuffer,
         path: 'approved.csv',
         fileType: 'APPROVED-RESULT' as FileType,
     },
