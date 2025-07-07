@@ -3,6 +3,7 @@
 import { db } from '@/database'
 import { orgSchema } from '@/schema/org'
 import { findOrCreateClerkOrganization } from '../clerk'
+import { findOrCreateOrgMembership } from '../mutations'
 import {
     siAdminAction,
     getUserIdFromActionContext,
@@ -24,6 +25,15 @@ export const upsertOrgAction = siAdminAction(async (org) => {
         if (duplicate) {
             throw new Error('Organization with this name already exists')
         }
+
+        const adminUserId = await getUserIdFromActionContext()
+        await findOrCreateOrgMembership({
+            userId: adminUserId,
+            slug: org.slug,
+            isAdmin: true,
+            isResearcher: false, // by default not a researcher. can be changed later
+            isReviewer: false, // by default not a reviewer. can be changed later
+        })
     }
 
     const results = await db

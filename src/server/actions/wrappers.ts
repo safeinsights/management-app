@@ -252,8 +252,18 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
     const wrappedFunction = async (arg: z.infer<S>): Promise<any> => {
         const { org, user } = await actionContext()
         if (!org.isAdmin) {
+            const errorMessage = `${user?.id} is not an admin of organization ${arg.orgSlug}`
+            logger.error(
+                {
+                    message: 'Permission denied in orgAdminAction.',
+                    userId: user?.id,
+                    orgSlug: arg.orgSlug,
+                    resolvedOrgContext: org,
+                },
+                errorMessage,
+            )
             throw new AccessDeniedError({
-                user: `${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`,
+                user: errorMessage,
             })
         }
         return await func(arg)

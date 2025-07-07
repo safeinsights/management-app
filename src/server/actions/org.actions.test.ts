@@ -58,6 +58,26 @@ describe('Org Actions', () => {
         it('throws error with malformed input', async () => {
             await expect(upsertOrgAction({ name: 'bob' } as unknown as Org)).rejects.toThrow()
         })
+
+        it('assigns the creating user as an admin for the new org', async () => {
+            // An org is created in the parent describe's beforeEach hook
+            const org = await db.selectFrom('org').select('id').where('slug', '=', newOrg.slug).executeTakeFirstOrThrow()
+            const user = await db
+                .selectFrom('user')
+                .select('id')
+                .where('clerkId', '=', 'user-id')
+                .executeTakeFirstOrThrow()
+            const orgUser = await db
+                .selectFrom('orgUser')
+                .select(['isAdmin', 'isResearcher', 'isReviewer'])
+                .where('orgId', '=', org.id)
+                .where('userId', '=', user.id)
+                .executeTakeFirstOrThrow()
+
+            expect(orgUser.isAdmin).toBe(true)
+            expect(orgUser.isResearcher).toBe(false)
+            expect(orgUser.isReviewer).toBe(false)
+        })
     })
 
     describe('fetchOrgsAction', () => {
