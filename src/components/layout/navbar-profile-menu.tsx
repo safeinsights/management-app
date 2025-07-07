@@ -56,7 +56,7 @@ export function NavbarProfileMenu() {
                         <NavLink
                             label="Reviewer Key"
                             leftSection={<LockIcon aria-hidden="true" />}
-                            onClick={() => router.push('/account/keys')}
+                            onClick={closeAndCall(() => router.push('/reviewer/keys'))}
                             c="white"
                             className={styles.navLinkProfileHover}
                             aria-label="Reviewer Key"
