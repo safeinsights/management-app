@@ -42,9 +42,13 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-                await onUserSignInAction()
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push(redirectUrl || '/')
+                const result = await onUserSignInAction()
+                if (result?.redirectToReviewerKey) {
+                    router.push('/account/keys')
+                } else {
+                    const redirectUrl = searchParams.get('redirect_url')
+                    router.push(redirectUrl || '/')
+                }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
                 form.setErrors({
