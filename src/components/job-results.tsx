@@ -33,7 +33,7 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     return (
         <Stack>
-            {approvedFiles?.map((approvedFile) => (
+            {approvedFiles.map((approvedFile) => (
                 <ViewFile file={approvedFile} key={approvedFile.path} />
             ))}
         </Stack>

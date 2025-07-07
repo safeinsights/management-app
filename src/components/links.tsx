@@ -61,6 +61,9 @@ export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
         const decoder = new TextDecoder('utf-8')
         const decodedString = decoder.decode(content)
         const tab = window.open('about:blank', '_blank')
+        if (!tab) {
+            reportError('failed to open results window')
+        }
         tab?.document.write(decodedString)
         tab?.document.close()
     }
