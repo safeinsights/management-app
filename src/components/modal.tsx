@@ -32,20 +32,26 @@ export function AppModal({
             centered={centered}
             closeOnClickOutside={closeOnClickOutside}
             trapFocus={trapFocus}
-            closeButtonProps={{ size: 'md' }}
             styles={{
                 header: {
                     padding: '0px 40px',
                     backgroundColor: theme.colors.grey[10],
                 },
                 body: {
-                    padding: '40px 80px',
+                    padding: '40px',
                 },
                 close: {
                     backgroundColor: theme.colors.charcoal[4],
                     color: 'white',
-                    borderRadius: '32px',
-                    padding: '4px',
+                    borderRadius: '100%',
+                    height: '16px',
+                    width: '16px',
+                    minHeight: '16px',
+                    minWidth: '16px',
+                },
+                title: {
+                    fontSize: '20px',
+                    fontWeight: 600,
                 },
             }}
         >
