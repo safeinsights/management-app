@@ -1,30 +1,37 @@
-import React, { useState } from 'react'
+import React, { FC, useState } from 'react'
 import { useForm } from '@mantine/form'
 import { Button, Group, Stack, Textarea } from '@mantine/core'
-
 import { notifications } from '@mantine/notifications'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import * as Sentry from '@sentry/nextjs'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
-import type { FileEntry } from 'si-encryption/job-results/types'
-import { fetchJobResultsEncryptedZipAction } from '@/server/actions/study-job.actions'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { useParams } from 'next/navigation'
-import type { StudyJobWithLastStatus } from '@/server/db/queries'
-import { RenderCSV } from '@/components/render-csv'
-export type { FileEntry }
+import type { LatestJobForStudy } from '@/server/db/queries'
+import { JobFileInfo } from '@/lib/types'
+import { reportMutationError } from '@/components/errors'
+import { first } from 'remeda'
+import { ViewFile } from '@/components/job-results'
+import { FileType } from '@/database/types'
 
 interface StudyResultsFormValues {
     privateKey: string
 }
 
 type Props = {
-    job: NonNullable<StudyJobWithLastStatus>
-    onApproval: (decryptedResults: FileEntry[]) => void
+    job: NonNullable<LatestJobForStudy>
+    onApproval: (decryptedResults: JobFileInfo[]) => void
 }
 
-export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
-    const [plainTextResults, setPlainTextResults] = useState<string[]>([])
+function approvedTypeForFile(fileType: FileType): FileType {
+    if (fileType === 'ENCRYPTED-RESULT') return 'APPROVED-RESULT'
+    if (fileType === 'ENCRYPTED-LOG') return 'APPROVED-LOG'
+    throw new Error(`Unknown file type ${fileType}`)
+}
+
+export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
+    const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const form = useForm({
@@ -32,11 +39,11 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
         initialValues: { privateKey: '' },
     })
 
-    const { isLoading: isLoadingBlob, data: blob } = useQuery({
+    const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
         queryKey: ['study-job', job.id],
         queryFn: async () => {
             try {
-                return await fetchJobResultsEncryptedZipAction({ jobId: job.id, orgSlug })
+                return await fetchEncryptedJobFilesAction({ jobId: job.id, orgSlug })
             } catch (error) {
                 Sentry.captureException(error)
                 form.setFieldError('privateKey', 'Failed to fetch results, please try again later.')
@@ -48,7 +55,7 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
         mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!blob) return []
+            if (!encryptedFiles) return []
             let fingerprint = ''
             let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
             try {
@@ -60,8 +67,22 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
             try {
-                const reader = new ResultsReader(blob, privateKeyBuffer, fingerprint)
-                return await reader.extractFiles()
+                const decryptedFiles: JobFileInfo[] = []
+
+                for (const encryptedBlob of encryptedFiles) {
+                    const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
+                    const extractedFiles = await reader.extractFiles()
+                    for (const extractedFile of extractedFiles) {
+                        if (encryptedBlob.fileType === 'ENCRYPTED-LOG') {
+                            decryptedFiles.push({
+                                ...extractedFile,
+                                sourceId: encryptedBlob.sourceId,
+                                fileType: approvedTypeForFile(encryptedBlob.fileType),
+                            })
+                        }
+                    }
+                }
+                return decryptedFiles
             } catch (err) {
                 form.setFieldError(
                     'privateKey',
@@ -70,14 +91,13 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
                 throw err
             }
         },
-        onSuccess: async (data: FileEntry[]) => {
-            onApproval(data)
-            setPlainTextResults(data.map((entry) => new TextDecoder().decode(entry.contents)))
+        onSuccess: async (files: JobFileInfo[]) => {
+            onApproval(files)
+            setDecryptedFiles(files)
         },
-        onError: async (err) => {
-            Sentry.captureException(err)
-        },
+        onError: reportMutationError('decryption failed'),
     })
+
     const onSubmit = (values: StudyResultsFormValues) => {
         decryptResults({ privateKey: values.privateKey })
     }
@@ -88,25 +108,33 @@ export const DecryptResults: React.FC<Props> = ({ job, onApproval }) => {
         }
     }
 
+    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
+
+    if (isApproved) return null
+
+    const lastStatusChange = first(job.statusChanges)
+
     return (
         <Stack>
-            {plainTextResults.map((txt, i) => (
-                <RenderCSV csv={txt} key={i} />
+            {decryptedFiles.map((decryptedFile) => (
+                <ViewFile file={decryptedFile} key={decryptedFile.path} />
             ))}
-            {job.statusChanges.find((sc) => sc.status === 'RUN-COMPLETE') && !plainTextResults?.length && (
+            {lastStatusChange?.status === 'RUN-COMPLETE' && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
-                    <Group>
+                    <Stack>
                         <Textarea
+                            label="Enter Reviewer Key"
                             resize="vertical"
                             {...form.getInputProps('privateKey')}
-                            label="To unlock and review the results of this analysis, please enter the private key you’ve originally created when first onboarding into SafeInsights"
-                            placeholder="Enter private key"
+                            placeholder="Enter your Reviewer key to access encrypted content."
                             key={form.key('privateKey')}
                         />
-                        <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
-                            View Results
-                        </Button>
-                    </Group>
+                        <Group>
+                            <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
+                                View Results
+                            </Button>
+                        </Group>
+                    </Stack>
                 </form>
             )}
         </Stack>

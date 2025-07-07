@@ -3,15 +3,18 @@ import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
+import { LatestJobForStudy } from '@/server/db/queries'
 
-const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'RESULTS-APPROVED', 'RESULTS-REJECTED']
+const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 type Status = { status: AllStatus; createdAt: Date | string }
 
-const JobStatusDisplay: FC<{ statusChange?: Status }> = ({ statusChange }) => {
-    if (!statusChange || !allowedStatuses.includes(statusChange.status)) return null
+const JobStatusDisplay: FC<{ statusChange: Status }> = ({ statusChange }) => {
+    if (!statusChange || !allowedStatuses.includes(statusChange.status)) {
+        return null
+    }
 
-    const isApproved = statusChange.status === 'CODE-APPROVED' || statusChange.status === 'RESULTS-APPROVED'
+    const isApproved = statusChange.status === 'CODE-APPROVED' || statusChange.status === 'FILES-APPROVED'
 
     const color = isApproved ? 'green.9' : 'red.9'
     const statusDisplay = isApproved ? 'Approved' : 'Rejected'
@@ -26,4 +29,26 @@ const JobStatusDisplay: FC<{ statusChange?: Status }> = ({ statusChange }) => {
     )
 }
 
-export default JobStatusDisplay
+export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const codeStatusChange = job.statusChanges.find((statusChange) => {
+        return statusChange.status === 'CODE-APPROVED' || statusChange.status === 'CODE-REJECTED'
+    })
+
+    if (!codeStatusChange) {
+        return null
+    }
+
+    return <JobStatusDisplay statusChange={codeStatusChange} />
+}
+
+export const FileApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const filesStatusChange = job.statusChanges.find((statusChange) => {
+        return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
+    })
+
+    if (!filesStatusChange) {
+        return null
+    }
+
+    return <JobStatusDisplay statusChange={filesStatusChange} />
+}

@@ -1,5 +1,6 @@
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
+import type { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 import { z } from 'zod'
+import { FileEntry } from 'si-encryption/job-results/types'
 
 export type User = {
     id: string
@@ -67,3 +68,14 @@ export enum AuthRole {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>
+
+export type JobFileInfo = FileEntry & {
+    sourceId: string
+    fileType: FileType
+}
+
+export type JobFile = {
+    contents: ArrayBuffer
+    path: string
+    fileType: FileType
+}

@@ -47,14 +47,14 @@ export type StudyJobStatus =
     | 'CODE-APPROVED'
     | 'CODE-REJECTED'
     | 'CODE-SUBMITTED'
+    | 'FILES-APPROVED'
+    | 'FILES-REJECTED'
     | 'INITIATED'
     | 'JOB-ERRORED'
     | 'JOB-PACKAGING'
     | 'JOB-PROVISIONING'
     | 'JOB-READY'
     | 'JOB-RUNNING'
-    | 'RESULTS-APPROVED'
-    | 'RESULTS-REJECTED'
     | 'RUN-COMPLETE'
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
@@ -155,6 +155,7 @@ export interface StudyJobFile {
     id: Generated<string>
     name: string
     path: string
+    sourceId: string | null
     studyJobId: string
 }
 

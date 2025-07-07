@@ -27,6 +27,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     const file = formData.get('file')
 
     // TODO: remove this once TOA no longer sends 'file' property
+    //  reference PR: https://github.com/safeinsights/trusted-output-app/pull/35/files
     if (!results && file) {
         results = file
     }

@@ -1,37 +1,20 @@
-import { DownloadResultsLink } from '@/components/links'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
-import { MinimalJobInfo } from '@/lib/types'
-import { approveStudyJobResultsAction, rejectStudyJobResultsAction } from '@/server/actions/study-job.actions'
-import type { StudyJobWithLastStatus } from '@/server/db/queries'
-import { Button, Divider, Group, Text, useMantineTheme } from '@mantine/core'
+import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
+import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
+import type { LatestJobForStudy } from '@/server/db/queries'
+import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
 
-type FileEntry = {
-    path: string
-    contents: ArrayBuffer
-}
-
-const DownloadResults: React.FC<{ results?: FileEntry }> = ({ results }) => {
-    if (!results) return null
-    return (
-        <>
-            <Divider />
-            <DownloadResultsLink target="_blank" filename={results.path} content={results.contents} />
-            <Divider />
-        </>
-    )
-}
-
 export const JobReviewButtons = ({
     job,
     decryptedResults,
 }: {
-    job: NonNullable<StudyJobWithLastStatus>
-    decryptedResults?: FileEntry[]
+    job: NonNullable<LatestJobForStudy>
+    decryptedResults?: JobFileInfo[]
 }) => {
     const theme = useMantineTheme()
     const router = useRouter()
@@ -52,12 +35,12 @@ export const JobReviewButtons = ({
                 orgSlug: orgSlug,
             }
 
-            if (status === 'RESULTS-APPROVED') {
-                await approveStudyJobResultsAction({ orgSlug, jobInfo, jobResults: decryptedResults })
+            if (status === 'FILES-APPROVED') {
+                await approveStudyJobFilesAction({ orgSlug, jobInfo, jobFiles: decryptedResults })
             }
 
-            if (status === 'RESULTS-REJECTED') {
-                await rejectStudyJobResultsAction(jobInfo)
+            if (status === 'FILES-REJECTED') {
+                await rejectStudyJobFilesAction(jobInfo)
             }
         },
         onError: reportMutationError('Failed to update study job status'),
@@ -66,7 +49,8 @@ export const JobReviewButtons = ({
         },
     })
 
-    const approved = job.statusChanges.find((sc) => sc.status == 'RESULTS-APPROVED')
+    const approved = job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
+
     if (approved) {
         return (
             <Group gap="xs">
@@ -78,7 +62,8 @@ export const JobReviewButtons = ({
         )
     }
 
-    const rejected = job.statusChanges.find((sc) => sc.status == 'RESULTS-REJECTED')
+    const rejected = job.statusChanges.find((sc) => sc.status == 'FILES-REJECTED')
+
     if (rejected) {
         return (
             <Group gap="xs">
@@ -94,19 +79,18 @@ export const JobReviewButtons = ({
 
     return (
         <Group>
-            <DownloadResults results={decryptedResults[0]} />
             <Button
                 disabled={isPending || isSuccess}
-                loading={isPending && pendingStatus == 'RESULTS-REJECTED'}
-                onClick={() => updateStudyJob({ status: 'RESULTS-REJECTED' })}
+                loading={isPending && pendingStatus == 'FILES-REJECTED'}
+                onClick={() => updateStudyJob({ status: 'FILES-REJECTED' })}
                 variant="outline"
             >
                 Reject
             </Button>
             <Button
                 disabled={isPending || isSuccess}
-                loading={isPending && pendingStatus == 'RESULTS-APPROVED'}
-                onClick={() => updateStudyJob({ status: 'RESULTS-APPROVED' })}
+                loading={isPending && pendingStatus == 'FILES-APPROVED'}
+                onClick={() => updateStudyJob({ status: 'FILES-APPROVED' })}
             >
                 Approve
             </Button>
