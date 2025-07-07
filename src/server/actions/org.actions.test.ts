@@ -61,7 +61,11 @@ describe('Org Actions', () => {
 
         it('assigns the creating user as an admin for the new org', async () => {
             // An org is created in the parent describe's beforeEach hook
-            const org = await db.selectFrom('org').select('id').where('slug', '=', newOrg.slug).executeTakeFirstOrThrow()
+            const org = await db
+                .selectFrom('org')
+                .select('id')
+                .where('slug', '=', newOrg.slug)
+                .executeTakeFirstOrThrow()
             const user = await db
                 .selectFrom('user')
                 .select('id')
