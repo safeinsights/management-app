@@ -14,6 +14,7 @@ import { reportMutationError } from '@/components/errors'
 import { first } from 'remeda'
 import { ViewFile } from '@/components/job-results'
 import { FileType } from '@/database/types'
+import { useJobResultsStatus } from '@/components/use-job-results-status'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -33,6 +34,7 @@ function approvedTypeForFile(fileType: FileType): FileType {
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { isApproved } = useJobResultsStatus(job.statusChanges)
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -107,8 +109,6 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
             notifications.show({ message: 'Invalid private key', color: 'red' })
         }
     }
-
-    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
 
     if (isApproved) return null
 

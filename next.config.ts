@@ -22,7 +22,6 @@ const nextConfig: NextConfig = async (phase: string) => {
     return nextConfig
 }
 
-
 const configWithSentry = withSentryConfig(nextConfig, {
     // For all available options, see:
     // https://github.com/getsentry/sentry-webpack-plugin#options
@@ -43,7 +42,7 @@ const configWithSentry = withSentryConfig(nextConfig, {
         enabled: true,
     },
     sourcemaps: {
-        deleteSourcemapsAfterUpload: false
+        deleteSourcemapsAfterUpload: false,
     },
     // Uncomment to route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
     // This can increase your server load as well as your hosting bill.
