@@ -1,3 +1,4 @@
+import { type StudyJobStatus } from '@/database/types'
 import { useMemo } from 'react'
 
 type StatusFlags = {
@@ -8,10 +9,10 @@ type StatusFlags = {
 }
 
 type StatusChange = {
-    status: string
+    status: StudyJobStatus
 }
 
-const statusMap: Record<string, keyof StatusFlags> = {
+const StatusMap: Partial<Record<StudyJobStatus, keyof StatusFlags>> = {
     'FILES-APPROVED': 'isApproved',
     'FILES-REJECTED': 'isRejected',
     'RUN-COMPLETE': 'isComplete',
@@ -29,7 +30,7 @@ export function useJobResultsStatus(statusChanges: StatusChange[]): StatusFlags 
     return useMemo(() => {
         return statusChanges.reduce(
             (acc, sc) => {
-                const key = statusMap[sc.status]
+                const key = StatusMap[sc.status]
                 if (key) acc[key] = true
                 return acc
             },
