@@ -29,6 +29,8 @@ test.describe('Studies', () => {
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
 
+        await page.getByRole('button', { name: 'Next Step' }).click()
+
         await expect(page.getByText('Upload File')).toBeVisible()
 
         //TODO: Test that will validate the upload without a main.r file
@@ -38,7 +40,10 @@ test.describe('Studies', () => {
         // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
         // Test valid file upload with main.r
         const mainR = 'tests/assets/main.r'
-        await page.setInputFiles('input[type="file"][name="codeFiles"]', mainR)
+        await page.setInputFiles('input[type="file"][name="mainCodeFile"]', mainR)
+
+        const otherCodeR = 'tests/assets/code.r'
+        await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', otherCodeR)
 
         // // Verify main.r was detected
         // await expect(page.getByText('main.r detected')).toBeVisible()

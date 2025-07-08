@@ -16,37 +16,37 @@ import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
 
-//Form step management
-const StepperButtons = React.memo(({ form, stepIndex, isPending, setStepIndex }) => {
-    const handleNextStep = () => {
-        setStepIndex(stepIndex + 1)
-    }
-
-    const handleBackStep = () => {
-        setStepIndex(stepIndex - 1)
-    }
+type StepperButtonsProps = {
+    form: { isValid(): boolean }
+    stepIndex: number
+    isPending: boolean
+    setStepIndex: (i: number) => void
+}
+const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
+    const isValid = form.isValid()
 
     if (stepIndex == 0) {
         return (
-            <Button variant="default" disabled={!form.isValid || isPending} onClick={handleNextStep}>
+            <Button variant="default" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
                 Next Step
             </Button>
         )
     }
+
     if (stepIndex == 1) {
         return (
             <>
-                <Button variant="default" onClick={handleBackStep}>
+                <Button variant="default" onClick={() => setStepIndex(stepIndex - 1)}>
                     Back
                 </Button>
-                <Button disabled={!form.isValid || isPending} type="submit" variant="filled">
+                <Button disabled={!isValid || isPending} type="submit" variant="filled">
                     Submit
                 </Button>
             </>
         )
     }
     return null
-})
+}
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -74,11 +74,13 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
     return await uploadFile(manifestFile, upload)
 }
 
-export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = ({ orgSlug, stepIndex }) => {
+export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+    const [stepIndex, setStepIndex] = useState(0)
+
     const router = useRouter()
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
+        validate: stepIndex == 0 ? zodResolver(studyProposalFormSchema) : zodResolver(codeFilesSchema),
         initialValues: {
             title: '',
             piName: '',
@@ -107,7 +109,7 @@ export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = (
                 descriptionDocPath: formValues.descriptionDocument!.name,
                 agreementDocPath: formValues.agreementDocument!.name,
                 irbDocPath: formValues.irbDocument!.name,
-                mainCodeFilePath: formValues.mainCodeFile.map((file) => file.name),
+                mainCodeFilePath: formValues.mainCodeFile!.name,
                 additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
             }
 
@@ -122,12 +124,12 @@ export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = (
             } = await onCreateStudyAction({
                 orgSlug,
                 studyInfo: valuesWithFilenames,
-                codeFileNames: formValues.codeFiles.map((file) => file.name),
+                codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
             })
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
-            await uploadCodeFiles([formValues.mainCodeFile], urlForMainCodeUpload, studyJobId)
+            await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId)
             await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
             return { studyId, studyJobId }
         },
@@ -157,14 +159,12 @@ export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = (
         },
     })
 
-    const [activeStep, setActiveStep] = useState(0)
-
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
             <>
                 <Stepper
                     unstyled
-                    active={activeStep}
+                    active={stepIndex}
                     styles={{
                         steps: {
                             display: 'none',
@@ -175,7 +175,7 @@ export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = (
                         <StudyProposalForm studyProposalForm={studyProposalForm} />
                     </Stepper.Step>
 
-                    <Stepper.Step unstyled>
+                    <Stepper.Step>
                         <Stack mt="xl">
                             <UploadStudyJobCode studyProposalForm={studyProposalForm} />
                             <Group justify="center">
@@ -191,9 +191,9 @@ export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = (
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
                     <StepperButtons
                         form={studyProposalForm}
-                        stepIndex={activeStep}
+                        stepIndex={stepIndex}
                         isPending={isPending}
-                        setStepIndex={setActiveStep}
+                        setStepIndex={setStepIndex}
                     />
                 </Group>
             </>

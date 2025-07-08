@@ -41,13 +41,10 @@ export const studyProposalFormSchema = z
         agreementDocument: validateDocumentFile('agreement'),
     })
     .superRefine((data, ctx) => {
-        const totalSize = [
-            data.descriptionDocument,
-            data.irbDocument,
-            data.agreementDocument,
-            data.codeFile,
-            ...data.additionalCodeFiles,
-        ].reduce((sum, file) => sum + (file ? file.size : 0), 0)
+        const totalSize = [data.descriptionDocument, data.irbDocument, data.agreementDocument].reduce(
+            (sum, file) => sum + (file ? file.size : 0),
+            0,
+        )
 
         if (totalSize > 10 * 1024 * 1024) {
             ctx.addIssue({
@@ -60,7 +57,7 @@ export const studyProposalFormSchema = z
 
 export const codeFilesSchema = z
     .object({
-        mainCodeFile: z.union([z.instanceof(File, { message: 'code file is required' }), z.null()]).refine(
+        mainCodeFile: z.union([z.instanceof(File, { message: 'Main code file is required' }), z.null()]).refine(
             (file) => {
                 if (file === null) return true // allow null value
                 return /\.r$/i.test(file.name)
@@ -77,13 +74,10 @@ export const codeFilesSchema = z
             }),
     })
     .superRefine((data, ctx) => {
-        const totalSize = [
-            data.descriptionDocument,
-            data.irbDocument,
-            data.agreementDocument,
-            data.codeFile,
-            ...data.additionalCodeFiles,
-        ].reduce((sum, file) => sum + (file ? file.size : 0), 0)
+        const totalSize = [data.mainCodeFile, ...data.additionalCodeFiles].reduce(
+            (sum, file) => sum + (file ? file.size : 0),
+            0,
+        )
 
         if (totalSize > 10 * 1024 * 1024) {
             ctx.addIssue({
@@ -94,9 +88,9 @@ export const codeFilesSchema = z
         }
     })
 
-const actionSchema = studyProposalFormSchema.extend(codeFilesSchema)
+export const StudyProposalActionSchema = z.intersection(studyProposalFormSchema, codeFilesSchema)
 
-export type StudyProposalFormValues = z.infer<typeof actionSchema>
+export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 
 export const studyProposalApiSchema = z.object({
     title: z

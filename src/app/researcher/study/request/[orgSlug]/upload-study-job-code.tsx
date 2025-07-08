@@ -5,12 +5,11 @@ import {
     CheckCircleIcon,
     UploadIcon,
     UploadSimpleIcon,
-    XIcon as PhosphorX,
+    XIcon,
     XCircleIcon,
-    FileDoc,
-    FilePdf,
-    Icon,
-    FileText,
+    FileDocIcon,
+    FilePdfIcon,
+    FileTextIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
@@ -39,9 +38,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
         if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
+            [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
+            [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],
+            [/\.pdf$/i, <FilePdfIcon key="pdf" size={14} color={color} />],
         ]
         const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
         return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
@@ -75,10 +74,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 placeholder="Upload Main Code File"
                                 clearable
                                 accept={'.r,.R'}
-                                error={
-                                    studyProposalForm.errors.mainCodeFile &&
-                                    studyProposalForm.errors.mainCodeFile.message
-                                }
+                                {...studyProposalForm.getInputProps('mainCodeFile')}
                             />
                             <Text size="xs" c="dimmed">
                                 Accepted formats: one .r file only.
@@ -99,6 +95,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             <Dropzone
                                 name="additionalCodeFiles"
                                 onDrop={(files) => {
+                                    debugger
                                     const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
                                     const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
                                     studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
@@ -117,9 +114,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 }
                                 multiple={true}
                                 maxFiles={10}
-                                accept={{
-                                    ACCEPTED_FILE_TYPES,
-                                }}
+                                accept={ACCEPTED_FILE_TYPES}
                             >
                                 <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
                                     <Text fw="bold">Upload File</Text>
@@ -127,7 +122,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                         <UploadIcon />
                                     </Dropzone.Accept>
                                     <Dropzone.Reject>
-                                        <PhosphorX />
+                                        <XIcon />
                                     </Dropzone.Reject>
                                     <Dropzone.Idle>
                                         <UploadSimpleIcon />

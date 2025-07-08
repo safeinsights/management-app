@@ -19,7 +19,6 @@ export const mainStyles = css({
     gap: 32,
 })
 
-
 export const footerStyles = css({
     fontSize: '80%',
     fontStyle: 'oblique',
