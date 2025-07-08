@@ -49,118 +49,116 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
 
     return (
-        <>
-            <Paper p="xl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 2
-                </Text>
-                <Title order={4}>Study Code</Title>
-                <Divider my="sm" mt="sm" mb="md" />
-                <Text mb="md">
-                    Upload the code you intend to run on the data organization&apos;s dataset. This is a critical step
-                    in your proposal, as it defines the analysis that will produce the results you aim to obtain from
-                    the organization&apos;s data.
-                </Text>
-                <Group grow justify="center" align="center" mt="md">
-                    <Grid>
-                        <Grid.Col span={titleSpan}>
-                            <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
-                        </Grid.Col>
-                        <Grid.Col span={inputSpan}>
-                            <FileInput
-                                name="mainCodeFile"
-                                leftSection={mainFileUpload}
-                                aria-label="Upload Main Code File"
-                                placeholder="Upload Main Code File"
-                                clearable
-                                accept={'.r,.R'}
-                                {...studyProposalForm.getInputProps('mainCodeFile')}
-                            />
-                            <Text size="xs" c="dimmed">
-                                Accepted formats: one .r file only.
-                            </Text>
-                        </Grid.Col>
-                    </Grid>
-                </Group>
+        <Paper p="xl">
+            <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                Step 2 of 2
+            </Text>
+            <Title order={4}>Study Code</Title>
+            <Divider my="sm" mt="sm" mb="md" />
+            <Text mb="md">
+                Upload the code you intend to run on the data organization&apos;s dataset. This is a critical step
+                in your proposal, as it defines the analysis that will produce the results you aim to obtain from
+                the organization&apos;s data.
+            </Text>
+            <Group grow justify="center" align="center" mt="md">
+                <Grid>
+                    <Grid.Col span={titleSpan}>
+                        <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
+                    </Grid.Col>
+                    <Grid.Col span={inputSpan}>
+                        <FileInput
+                            name="mainCodeFile"
+                            leftSection={mainFileUpload}
+                            aria-label="Upload Main Code File"
+                            placeholder="Upload Main Code File"
+                            clearable
+                            accept={'.r,.R'}
+                            {...studyProposalForm.getInputProps('mainCodeFile')}
+                        />
+                        <Text size="xs" c="dimmed">
+                            Accepted formats: one .r file only.
+                        </Text>
+                    </Grid.Col>
+                </Grid>
+            </Group>
 
-                <Group grow justify="center" align="center" mt="md">
-                    <Grid>
-                        <Grid.Col span={titleSpan}>
-                            <FormFieldLabel
-                                label="Addtional file(s)"
-                                inputId={studyProposalForm.key('additionalCodeFiles')}
-                            />
-                        </Grid.Col>
-                        <GridCol span={{ base: 6, md: 4 }}>
-                            <Dropzone
-                                name="additionalCodeFiles"
-                                onDrop={(files) => {
-                                    const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
-                                    const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
-                                    studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
-                                }}
-                                onReject={(rejections) =>
-                                    notifications.show({
-                                        color: 'red',
-                                        title: 'Rejected files',
-                                        message: rejections
-                                            .map(
-                                                (rej) =>
-                                                    `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
-                                            )
-                                            .join('\n'),
-                                    })
-                                }
-                                multiple={true}
-                                maxFiles={10}
-                                accept={ACCEPTED_FILE_TYPES}
-                            >
-                                <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                                    <Text fw="bold">Upload File</Text>
-                                    <Dropzone.Accept>
-                                        <UploadIcon />
-                                    </Dropzone.Accept>
-                                    <Dropzone.Reject>
-                                        <XIcon />
-                                    </Dropzone.Reject>
-                                    <Dropzone.Idle>
-                                        <UploadSimpleIcon />
-                                    </Dropzone.Idle>
-                                    <Group gap="xs">
-                                        <Text size="md">Drop your files or</Text>
-                                        <Text td="underline" c="purple.5" fw="bold">
-                                            Browse
-                                        </Text>
-                                    </Group>
-                                    <Text size="xs" c="dimmed">
-                                        {ACCEPTED_FILE_FORMATS_TEXT}
+            <Group grow justify="center" align="center" mt="md">
+                <Grid>
+                    <Grid.Col span={titleSpan}>
+                        <FormFieldLabel
+                            label="Addtional file(s)"
+                            inputId={studyProposalForm.key('additionalCodeFiles')}
+                        />
+                    </Grid.Col>
+                    <GridCol span={{ base: 6, md: 4 }}>
+                        <Dropzone
+                            name="additionalCodeFiles"
+                            onDrop={(files) => {
+                                const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
+                                const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
+                                studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
+                            }}
+                            onReject={(rejections) =>
+                                notifications.show({
+                                    color: 'red',
+                                    title: 'Rejected files',
+                                    message: rejections
+                                        .map(
+                                            (rej) =>
+                                                `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
+                                        )
+                                        .join('\n'),
+                                })
+                            }
+                            multiple={true}
+                            maxFiles={10}
+                            accept={ACCEPTED_FILE_TYPES}
+                        >
+                            <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
+                                <Text fw="bold">Upload File</Text>
+                                <Dropzone.Accept>
+                                    <UploadIcon />
+                                </Dropzone.Accept>
+                                <Dropzone.Reject>
+                                    <XIcon />
+                                </Dropzone.Reject>
+                                <Dropzone.Idle>
+                                    <UploadSimpleIcon />
+                                </Dropzone.Idle>
+                                <Group gap="xs">
+                                    <Text size="md">Drop your files or</Text>
+                                    <Text td="underline" c="purple.5" fw="bold">
+                                        Browse
                                     </Text>
-                                </Stack>
-                            </Dropzone>
-                        </GridCol>
-                        <GridCol span={{ base: 4, md: 6 }}>
-                            <Divider orientation="vertical" />
-                            {studyProposalForm.getValues().additionalCodeFiles.map((file) => (
-                                <Group key={file.name} gap="md" w="100%">
-                                    <Group>
-                                        <CheckCircleIcon weight="fill" color="#2F9844" />
-                                        <Text>{file.name}</Text>
-                                    </Group>
-                                    <XCircleIcon
-                                        onClick={() => removeAdditionalFiles(file)}
-                                        style={{ cursor: 'pointer' }}
-                                        color={theme.colors.grey[2]}
-                                        weight="bold"
-                                    />
                                 </Group>
-                            ))}
-                            {studyProposalForm.errors.additionalCodeFiles && (
-                                <Text c="red">{studyProposalForm.errors.additionalCodeFiles}</Text>
-                            )}
-                        </GridCol>
-                    </Grid>
-                </Group>
-            </Paper>
-        </>
+                                <Text size="xs" c="dimmed">
+                                    {ACCEPTED_FILE_FORMATS_TEXT}
+                                </Text>
+                            </Stack>
+                        </Dropzone>
+                    </GridCol>
+                    <GridCol span={{ base: 4, md: 6 }}>
+                        <Divider orientation="vertical" />
+                        {studyProposalForm.getValues().additionalCodeFiles.map((file) => (
+                            <Group key={file.name} gap="md" w="100%">
+                                <Group>
+                                    <CheckCircleIcon weight="fill" color="#2F9844" />
+                                    <Text>{file.name}</Text>
+                                </Group>
+                                <XCircleIcon
+                                    onClick={() => removeAdditionalFiles(file)}
+                                    style={{ cursor: 'pointer' }}
+                                    color={theme.colors.grey[2]}
+                                    weight="bold"
+                                />
+                            </Group>
+                        ))}
+                        {studyProposalForm.errors.additionalCodeFiles && (
+                            <Text c="red">{studyProposalForm.errors.additionalCodeFiles}</Text>
+                        )}
+                    </GridCol>
+                </Grid>
+            </Group>
+        </Paper>
     )
 }

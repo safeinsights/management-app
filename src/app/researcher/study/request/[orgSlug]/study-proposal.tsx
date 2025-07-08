@@ -161,42 +161,40 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <>
-                <Stepper
-                    unstyled
-                    active={stepIndex}
-                    styles={{
-                        steps: {
-                            display: 'none',
-                        },
-                    }}
-                >
-                    <Stepper.Step>
-                        <StudyProposalForm studyProposalForm={studyProposalForm} />
-                    </Stepper.Step>
+            <Stepper
+                unstyled
+                active={stepIndex}
+                styles={{
+                    steps: {
+                        display: 'none',
+                    },
+                }}
+            >
+                <Stepper.Step>
+                    <StudyProposalForm studyProposalForm={studyProposalForm} />
+                </Stepper.Step>
 
-                    <Stepper.Step>
-                        <Stack mt="xl">
-                            <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                            <Group justify="center">
-                                {studyProposalForm.errors['totalFileSize'] && (
-                                    <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                                )}
-                            </Group>
-                        </Stack>
-                    </Stepper.Step>
-                </Stepper>
+                <Stepper.Step>
+                    <Stack mt="xl">
+                        <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                        <Group justify="center">
+                            {studyProposalForm.errors['totalFileSize'] && (
+                                <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                            )}
+                        </Group>
+                    </Stack>
+                </Stepper.Step>
+            </Stepper>
 
-                <Group justify="flex-end" mt="xl">
-                    <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <StepperButtons
-                        form={studyProposalForm}
-                        stepIndex={stepIndex}
-                        isPending={isPending}
-                        setStepIndex={setStepIndex}
-                    />
-                </Group>
-            </>
+            <Group justify="flex-end" mt="xl">
+                <CancelButton isDirty={studyProposalForm.isDirty()} />
+                <StepperButtons
+                    form={studyProposalForm}
+                    stepIndex={stepIndex}
+                    isPending={isPending}
+                    setStepIndex={setStepIndex}
+                />
+            </Group>
         </form>
     )
 }
