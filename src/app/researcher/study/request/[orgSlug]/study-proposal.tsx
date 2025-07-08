@@ -80,7 +80,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const router = useRouter()
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: stepIndex == 0 ? zodResolver(studyProposalFormSchema) : zodResolver(codeFilesSchema),
+        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
             title: '',
             piName: '',

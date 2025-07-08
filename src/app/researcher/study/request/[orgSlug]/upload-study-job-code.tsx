@@ -95,7 +95,6 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             <Dropzone
                                 name="additionalCodeFiles"
                                 onDrop={(files) => {
-                                    debugger
                                     const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
                                     const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
                                     studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
