@@ -4,7 +4,6 @@ library(httr)  # For sending files to an API
 library(readr) # For writing CSV files
 library(jsonlite)
 
-bang()
 
 # Set Trusted Output App API Endpoint
 trusted_output_endpoint <- Sys.getenv("TRUSTED_OUTPUT_ENDPOINT")
