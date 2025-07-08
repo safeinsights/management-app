@@ -18,7 +18,7 @@ import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
-import { ACCEPTED_FILE_TYPES } from '@/lib/types'
+import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
@@ -139,7 +139,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                         </Text>
                                     </Group>
                                     <Text size="xs" c="dimmed">
-                                        Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.
+                                        {ACCEPTED_FILE_FORMATS_TEXT}
                                     </Text>
                                 </Stack>
                             </Dropzone>
