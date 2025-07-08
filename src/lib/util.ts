@@ -1,22 +1,31 @@
 import * as Sentry from '@sentry/nextjs'
 
-type TimeOpts = { [key: number]: 'ms' } | { [key: number]: 'seconds' } | { [key: number]: 'minutes' }
+export type TimeOpts =
+    | { [key: number]: 'ms' }
+    | { 1: 'second' }
+    | { [key: number]: 'seconds' }
+    | { 1: 'minute' }
+    | { [key: number]: 'minutes' }
 
-export async function sleep(opts: TimeOpts): Promise<void> {
+export function timeOptsToMS(opts: TimeOpts) {
     let ms = 0
     for (const [key, unit] of Object.entries(opts)) {
         const duration = parseInt(key, 10)
         if (unit === 'ms') {
             ms += duration
-        } else if (unit === 'seconds') {
+        } else if (unit.startsWith('second')) {
             ms += duration * 1000
-        } else if (unit === 'minutes') {
+        } else if (unit.startsWith('minute')) {
             ms += duration * 60 * 1000
         }
     }
+    return ms
+}
+
+export async function sleep(opts: TimeOpts): Promise<void> {
     return new Promise<void>((resolve, reject) => {
         try {
-            setTimeout(resolve, ms)
+            setTimeout(resolve, timeOptsToMS(opts))
         } catch (error) {
             Sentry.captureException(error)
             reject(error)

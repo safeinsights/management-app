@@ -1,1 +1,30 @@
 @layer reset, base, tokens, recipes, utilities;
+
+.pi-symbol {
+    position: fixed;
+    bottom: 0px;
+    right: 5px;
+    font-size: 24px;
+    cursor: pointer;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 9999;
+    user-select: none;
+    pointer-events: auto;
+}
+
+.pi-symbol:hover {
+    opacity: 1;
+}
+
+.pi-symbol.visible {
+    opacity: 1;
+}
+.spy-mode-element {
+    display: none;
+}
+
+.spy-mode .spy-mode-element {
+    display: block;
+}
