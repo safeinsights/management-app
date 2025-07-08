@@ -85,7 +85,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                                 {keys.privateKey}
                             </Code>
                             <Text size="sm" mb="xs">
-                                Note: Please store your reviewer key securely, such as in your password manager
+                                Note: Please store your reviewer key securely, such as in your password manager.
                             </Text>
                         </Stack>
                         <Group>
@@ -98,6 +98,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                                                 copy()
                                                 setIsKeyCopied(true)
                                             }}
+                                            w="150px"
                                         >
                                             Copy key
                                         </Button>
@@ -105,7 +106,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
                                 </CopyButton>
                             </Group>
                             <Group>
-                                <Button variant="outline" onClick={() => openConfirmKeyCopied()}>
+                                <Button variant="outline" onClick={() => openConfirmKeyCopied()} w="150px">
                                     Go to dashboard
                                 </Button>
                             </Group>
@@ -169,7 +170,9 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
                     <b>Note:</b> SafeInsights does not store your reviewer key. If you lose your key, you won&apos;t be
                     able to access study results and will need to generate a new key.
                 </Text>
-                <Text size="md">Do you want to proceed?</Text>
+                <Text size="md" mb="md">
+                    Do you want to proceed?
+                </Text>
                 <Group>
                     <Button variant="outline" onClick={onClose}>
                         Take me back

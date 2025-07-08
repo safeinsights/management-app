@@ -19,18 +19,18 @@ export const RegenerateKeys: FC = () => {
     }
 
     return (
-        <Stack p="xl" w="90%" mx="sm">
+        <Stack p="xl" mx="sm">
             <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${orgSlug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
-            <Paper shadow="xs" p="xl">
+            <Paper shadow="xs" p="xxl">
                 <Stack>
                     <Title size="xl">Reviewer key details</Title>
                     <Divider c="charcoal.1" />
-                    <Stack>
+                    <Stack gap={8}>
                         <Text size="sm" fw={600}>
                             Reviewer key already exists
                         </Text>
-                        <Text size="md" mb="xs">
+                        <Text size="md" mb={16}>
                             You have already generated a reviewer key. For security reasons, SafeInsights does not store
                             or display it again.
                         </Text>
@@ -39,7 +39,7 @@ export const RegenerateKeys: FC = () => {
                         </Text>
 
                         <Text size="md">If you have lost your reviewer key, you will need to generate a new one.</Text>
-                        <Text size="md" c="red.9">
+                        <Text size="md" c="red.9" mb={8}>
                             Note: If you generate a new reviewer key, you will no longer have access to any study
                             results associated with your previous key. This action cannot be undone.
                         </Text>

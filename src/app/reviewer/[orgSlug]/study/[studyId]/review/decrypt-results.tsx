@@ -11,9 +11,9 @@ import { useParams } from 'next/navigation'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { JobFileInfo } from '@/lib/types'
 import { reportMutationError } from '@/components/errors'
-import { first } from 'remeda'
 import { ViewFile } from '@/components/job-results'
 import { FileType } from '@/database/types'
+import { useJobResultsStatus } from '@/components/use-job-results-status'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -33,6 +33,7 @@ function approvedTypeForFile(fileType: FileType): FileType {
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { isApproved, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     const form = useForm({
         mode: 'uncontrolled',
@@ -50,7 +51,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                 throw error
             }
         },
-        enabled: !!job.statusChanges.find((sc) => sc.status == 'RUN-COMPLETE'),
+        enabled: isApproved || isErrored,
     })
 
     const { mutate: decryptResults, isPending: isDecrypting } = useMutation({
@@ -68,18 +69,15 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
             }
             try {
                 const decryptedFiles: JobFileInfo[] = []
-
                 for (const encryptedBlob of encryptedFiles) {
                     const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
                     const extractedFiles = await reader.extractFiles()
                     for (const extractedFile of extractedFiles) {
-                        if (encryptedBlob.fileType === 'ENCRYPTED-LOG') {
-                            decryptedFiles.push({
-                                ...extractedFile,
-                                sourceId: encryptedBlob.sourceId,
-                                fileType: approvedTypeForFile(encryptedBlob.fileType),
-                            })
-                        }
+                        decryptedFiles.push({
+                            ...extractedFile,
+                            sourceId: encryptedBlob.sourceId,
+                            fileType: approvedTypeForFile(encryptedBlob.fileType),
+                        })
                     }
                 }
                 return decryptedFiles
@@ -108,18 +106,14 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
         }
     }
 
-    const isApproved = !!job.statusChanges.find((sc) => sc.status == 'FILES-APPROVED')
-
     if (isApproved) return null
-
-    const lastStatusChange = first(job.statusChanges)
 
     return (
         <Stack>
             {decryptedFiles.map((decryptedFile) => (
                 <ViewFile file={decryptedFile} key={decryptedFile.path} />
             ))}
-            {lastStatusChange?.status === 'RUN-COMPLETE' && !decryptedFiles?.length && (
+            {(isComplete || isErrored) && !decryptedFiles?.length && (
                 <form onSubmit={form.onSubmit((values) => onSubmit(values), handleError)}>
                     <Stack>
                         <Textarea
