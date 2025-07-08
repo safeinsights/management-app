@@ -56,9 +56,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
-                Upload the code you intend to run on the data organization&apos;s dataset. This is a critical step
-                in your proposal, as it defines the analysis that will produce the results you aim to obtain from
-                the organization&apos;s data.
+                Upload the code you intend to run on the data organization&apos;s dataset. This is a critical step in
+                your proposal, as it defines the analysis that will produce the results you aim to obtain from the
+                organization&apos;s data.
             </Text>
             <Group grow justify="center" align="center" mt="md">
                 <Grid>
