@@ -69,18 +69,15 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
             }
             try {
                 const decryptedFiles: JobFileInfo[] = []
-
                 for (const encryptedBlob of encryptedFiles) {
                     const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
                     const extractedFiles = await reader.extractFiles()
                     for (const extractedFile of extractedFiles) {
-                        if (encryptedBlob.fileType === 'ENCRYPTED-LOG') {
-                            decryptedFiles.push({
-                                ...extractedFile,
-                                sourceId: encryptedBlob.sourceId,
-                                fileType: approvedTypeForFile(encryptedBlob.fileType),
-                            })
-                        }
+                        decryptedFiles.push({
+                            ...extractedFile,
+                            sourceId: encryptedBlob.sourceId,
+                            fileType: approvedTypeForFile(encryptedBlob.fileType),
+                        })
                     }
                 }
                 return decryptedFiles
