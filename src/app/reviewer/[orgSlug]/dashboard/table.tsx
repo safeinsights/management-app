@@ -55,7 +55,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
     )
 }
 
-const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'RESULTS-APPROVED', 'RESULTS-REJECTED']
+const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
 export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studies: initialStudies, orgSlug }) => {
     const {

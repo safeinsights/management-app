@@ -90,7 +90,8 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo,
     })
 
     // s3 signed urls for client to upload
-    const urlForCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+    const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+    const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
 
     const urlForAgreementUpload = await signedUrlForStudyUpload(
         pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
@@ -109,7 +110,8 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo,
     return {
         studyId: studyId,
         studyJobId: studyJob.id,
-        urlForCodeUpload,
+        urlForMainCodeUpload,
+        urlForAdditionalCodeUpload,
         urlForAgreementUpload,
         urlForIrbUpload,
         urlForDescriptionUpload,

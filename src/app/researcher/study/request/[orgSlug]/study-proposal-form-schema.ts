@@ -39,24 +39,12 @@ export const studyProposalFormSchema = z
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),
-        codeFiles: z
-            .array(z.instanceof(File))
-            .min(1, { message: 'At least one code file is required.' })
-            .max(10, { message: 'No more than 10 code files are allowed.' })
-            .refine((files) => files.every((file) => /\.(R|r|rmd)$/.test(file.name)), {
-                message: 'Only .R, .r, and .rmd files are allowed for code files.',
-            })
-            .refine((files) => files.find((file) => file.name == 'main.r'), {
-                message: 'a file named main.r must be present.',
-            }),
     })
     .superRefine((data, ctx) => {
-        const totalSize = [
-            data.descriptionDocument,
-            data.irbDocument,
-            data.agreementDocument,
-            ...data.codeFiles,
-        ].reduce((sum, file) => sum + (file ? file.size : 0), 0)
+        const totalSize = [data.descriptionDocument, data.irbDocument, data.agreementDocument].reduce(
+            (sum, file) => sum + (file ? file.size : 0),
+            0,
+        )
 
         if (totalSize > 10 * 1024 * 1024) {
             ctx.addIssue({
@@ -67,7 +55,42 @@ export const studyProposalFormSchema = z
         }
     })
 
-export type StudyProposalFormValues = z.infer<typeof studyProposalFormSchema>
+export const codeFilesSchema = z
+    .object({
+        mainCodeFile: z.union([z.instanceof(File, { message: 'Main code file is required' }), z.null()]).refine(
+            (file) => {
+                if (file === null) return true // allow null value
+                return /\.r$/i.test(file.name)
+            },
+            {
+                message: 'Only .R, .r, and .rmd files are allowed for code files.',
+            },
+        ),
+        additionalCodeFiles: z
+            .array(z.instanceof(File))
+            .max(10, { message: 'No more than 10 code files are allowed.' })
+            .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
+                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
+            }),
+    })
+    .superRefine((data, ctx) => {
+        const totalSize = [data.mainCodeFile, ...data.additionalCodeFiles].reduce(
+            (sum, file) => sum + (file ? file.size : 0),
+            0,
+        )
+
+        if (totalSize > 10 * 1024 * 1024) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Total size of all files must be less than 10MB',
+                path: ['totalFileSize'],
+            })
+        }
+    })
+
+export const StudyProposalActionSchema = z.intersection(studyProposalFormSchema, codeFilesSchema)
+
+export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 
 export const studyProposalApiSchema = z.object({
     title: z
@@ -78,4 +101,6 @@ export const studyProposalApiSchema = z.object({
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
+    mainCodeFilePath: z.string(),
+    additionalCodeFilePaths: z.array(z.string()),
 })

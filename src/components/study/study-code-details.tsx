@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Badge, Stack, Text } from '@mantine/core'
+import { Badge, Stack, Text, Group } from '@mantine/core'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@tanstack/react-query'
@@ -27,34 +27,54 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
         )
     }
 
-    const fileNames = data.files.reduce((acc, file) => {
-        if (file.fileType === 'MAIN-CODE' || file.fileType === 'SUPPLEMENTAL-CODE') {
-            acc.push(file.name)
-        }
-        return acc
-    }, [] as string[])
+    const mainCodeFile = data.files.find((file) => file.fileType === 'MAIN-CODE')
+    const supplementalCodeFiles = data.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
 
-    const fileChips = fileNames.map((fileName) => {
-        return (
-            <Badge
-                color="#D4D1F3"
-                c="black"
-                component="a"
-                href={studyCodeURL(job.id, fileName)}
-                target="_blank"
-                rightSection={<DownloadIcon />}
-                style={{ cursor: 'pointer' }}
-                key={fileName}
-            >
-                {fileName}
-            </Badge>
-        )
-    })
+    const mainCodeFileChip = mainCodeFile ? (
+        <Badge
+            color="#D4D1F3"
+            c="black"
+            component="a"
+            href={studyCodeURL(job.id, mainCodeFile.name)}
+            target="_blank"
+            rightSection={<DownloadIcon />}
+            style={{ cursor: 'pointer' }}
+            key={mainCodeFile.name}
+        >
+            {mainCodeFile.name}
+        </Badge>
+    ) : null
+
+    const supplementalCodeFileChips = supplementalCodeFiles.map((file) => (
+        <Badge
+            color="#D4D1F3"
+            c="black"
+            component="a"
+            href={studyCodeURL(job.id, file.name)}
+            target="_blank"
+            rightSection={<DownloadIcon />}
+            style={{ cursor: 'pointer' }}
+            key={file.name}
+        >
+            {file.name}
+        </Badge>
+    ))
 
     return (
         <Stack>
             <Text>View the code files that you uploaded to run against the dataset.</Text>
-            {job && <Stack>{fileChips}</Stack>}
+            {mainCodeFileChip && (
+                <Group>
+                    <Text fw={650}>Main code file:</Text>
+                    {mainCodeFileChip}
+                </Group>
+            )}
+            {supplementalCodeFiles.length > 0 && (
+                <Group>
+                    <Text fw={650}>Additional file(s):</Text>
+                    <Group gap="md">{supplementalCodeFileChips}</Group>
+                </Group>
+            )}
         </Stack>
     )
 }

@@ -38,6 +38,18 @@ export enum StudyDocumentType {
     'DESCRIPTION' = 'DESCRIPTION',
     'AGREEMENT' = 'AGREEMENT',
 }
+export const ACCEPTED_FILE_TYPES = {
+    'application/x-r': ['.r', '.R'],
+    'text/x-r': ['.r', '.R'],
+    'text/markdown': ['.rmd'],
+    'application/json': ['.json'],
+    'text/csv': ['.csv'],
+    'text/plain': ['.txt'],
+    'application/x-python': ['.py'],
+    'application/x-ipynb': ['.ipynb'],
+}
+
+export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'
 
 export const minimalStudyInfoSchema = z.object({
     orgSlug: z.string(),

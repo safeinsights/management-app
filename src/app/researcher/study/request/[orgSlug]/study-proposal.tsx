@@ -1,11 +1,11 @@
 'use client'
 
-import React from 'react'
-import { Button, Group, Stack, Text } from '@mantine/core'
+import React, { useState } from 'react'
+import { Button, Group, Stack, Text, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
+import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
@@ -15,6 +15,38 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
+
+type StepperButtonsProps = {
+    form: { isValid(): boolean }
+    stepIndex: number
+    isPending: boolean
+    setStepIndex: (i: number) => void
+}
+const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
+    const isValid = form.isValid()
+
+    if (stepIndex == 0) {
+        return (
+            <Button variant="default" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
+                Next Step
+            </Button>
+        )
+    }
+
+    if (stepIndex == 1) {
+        return (
+            <>
+                <Button variant="default" onClick={() => setStepIndex(stepIndex - 1)}>
+                    Back
+                </Button>
+                <Button disabled={!isValid || isPending} type="submit" variant="filled">
+                    Submit
+                </Button>
+            </>
+        )
+    }
+    return null
+}
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -43,18 +75,20 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
 }
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
-    const router = useRouter()
+    const [stepIndex, setStepIndex] = useState(0)
 
+    const router = useRouter()
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(studyProposalFormSchema),
+        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
             title: '',
             piName: '',
             irbDocument: null,
             descriptionDocument: null,
             agreementDocument: null,
-            codeFiles: [],
+            mainCodeFile: null,
+            additionalCodeFiles: [],
         },
         validateInputOnChange: ['title', 'piName'],
     })
@@ -66,7 +100,8 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 'agreementDocument',
                 'descriptionDocument',
                 'irbDocument',
-                'codeFiles',
+                'mainCodeFile',
+                'additionalCodeFiles',
             ])
 
             const valuesWithFilenames = {
@@ -74,24 +109,28 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 descriptionDocPath: formValues.descriptionDocument!.name,
                 agreementDocPath: formValues.agreementDocument!.name,
                 irbDocPath: formValues.irbDocument!.name,
+                mainCodeFilePath: formValues.mainCodeFile!.name,
+                additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
             }
 
             const {
                 studyId,
                 studyJobId,
-                urlForCodeUpload,
+                urlForMainCodeUpload,
+                urlForAdditionalCodeUpload,
                 urlForAgreementUpload,
                 urlForIrbUpload,
                 urlForDescriptionUpload,
             } = await onCreateStudyAction({
                 orgSlug,
                 studyInfo: valuesWithFilenames,
-                codeFileNames: formValues.codeFiles.map((file) => file.name),
+                codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
             })
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
-            await uploadCodeFiles(formValues.codeFiles, urlForCodeUpload, studyJobId)
+            await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId)
+            await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
             return { studyId, studyJobId }
         },
         onSuccess() {
@@ -122,22 +161,40 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stack>
-                <StudyProposalForm studyProposalForm={studyProposalForm} />
-                <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                <Group justify="center">
-                    {studyProposalForm.errors['totalFileSize'] && (
-                        <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                    )}
-                </Group>
-                <Group gap="xl" justify="flex-end">
-                    {/* TODO Talk about removing cancel button, next/back buttons, submit button layout with UX */}
-                    <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    <Button disabled={!studyProposalForm.isValid || isPending} type="submit" variant="filled">
-                        Submit
-                    </Button>
-                </Group>
-            </Stack>
+            <Stepper
+                unstyled
+                active={stepIndex}
+                styles={{
+                    steps: {
+                        display: 'none',
+                    },
+                }}
+            >
+                <Stepper.Step>
+                    <StudyProposalForm studyProposalForm={studyProposalForm} />
+                </Stepper.Step>
+
+                <Stepper.Step>
+                    <Stack mt="xl">
+                        <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                        <Group justify="center">
+                            {studyProposalForm.errors['totalFileSize'] && (
+                                <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                            )}
+                        </Group>
+                    </Stack>
+                </Stepper.Step>
+            </Stepper>
+
+            <Group justify="flex-end" mt="xl">
+                <CancelButton isDirty={studyProposalForm.isDirty()} />
+                <StepperButtons
+                    form={studyProposalForm}
+                    stepIndex={stepIndex}
+                    isPending={isPending}
+                    setStepIndex={setStepIndex}
+                />
+            </Group>
         </form>
     )
 }
