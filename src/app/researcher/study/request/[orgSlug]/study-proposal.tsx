@@ -5,7 +5,7 @@ import { Button, Group, Stack, Text, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
+import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
@@ -15,6 +15,38 @@ import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
+
+//Form step management
+const StepperButtons = React.memo(({ form, stepIndex, isPending, setStepIndex }) => {
+    const handleNextStep = () => {
+        setStepIndex(stepIndex + 1)
+    }
+
+    const handleBackStep = () => {
+        setStepIndex(stepIndex - 1)
+    }
+
+    if (stepIndex == 0) {
+        return (
+            <Button variant="default" disabled={!form.isValid || isPending} onClick={handleNextStep}>
+                Next Step
+            </Button>
+        )
+    }
+    if (stepIndex == 1) {
+        return (
+            <>
+                <Button variant="default" onClick={handleBackStep}>
+                    Back
+                </Button>
+                <Button disabled={!form.isValid || isPending} type="submit" variant="filled">
+                    Submit
+                </Button>
+            </>
+        )
+    }
+    return null
+})
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -42,18 +74,18 @@ async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId:
     return await uploadFile(manifestFile, upload)
 }
 
-export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+export const StudyProposal: React.FC<{ orgSlug: string; stepIndex: number }> = ({ orgSlug, stepIndex }) => {
     const router = useRouter()
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(studyProposalFormSchema),
+        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
             title: '',
             piName: '',
             irbDocument: null,
             descriptionDocument: null,
             agreementDocument: null,
-            mainCodeFile: [],
+            mainCodeFile: null,
             additionalCodeFiles: [],
         },
         validateInputOnChange: ['title', 'piName'],
@@ -95,7 +127,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
-            await uploadCodeFiles(formValues.mainCodeFile, urlForMainCodeUpload, studyJobId)
+            await uploadCodeFiles([formValues.mainCodeFile], urlForMainCodeUpload, studyJobId)
             await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
             return { studyId, studyJobId }
         },
@@ -125,33 +157,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         },
     })
 
-    //Form step management
-    const steps = [{ label: 'Study Proposal' }, { label: 'Study Code' }]
-
     const [activeStep, setActiveStep] = useState(0)
-
-    const nextStep = () => {
-        setActiveStep((current) => (current < steps.length - 1 ? current + 1 : current))
-    }
-
-    const prevStep = () => setActiveStep((current) => (current > 0 ? current - 1 : current))
-
-    const isStepValid = (step: number) => {
-        if (step === 0) {
-            // Check if the form is valid at step 0
-            return (
-                studyProposalForm.isValid('title') &&
-                studyProposalForm.isValid('piName') &&
-                studyProposalForm.isValid('agreementDocument') &&
-                studyProposalForm.isValid('irbDocument') &&
-                studyProposalForm.isValid('descriptionDocument')
-            )
-        } else if (step === 1) {
-            // Check if the form is valid at step 1. We only need to check the main code file since uplodadng additional code files is optional
-            return studyProposalForm.isValid('mainCodeFile')
-        }
-        return false
-    }
 
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
@@ -166,9 +172,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     }}
                 >
                     <Stepper.Step>
-                        <Stack>
-                            <StudyProposalForm studyProposalForm={studyProposalForm} />
-                        </Stack>
+                        <StudyProposalForm studyProposalForm={studyProposalForm} />
                     </Stepper.Step>
 
                     <Stepper.Step unstyled>
@@ -185,28 +189,12 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
                 <Group justify="flex-end" mt="xl">
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
-                    {activeStep !== 0 && (
-                        <Button variant="default" onClick={prevStep}>
-                            Back
-                        </Button>
-                    )}
-                    {activeStep !== 1 && (
-                        <Button
-                            disabled={!studyProposalForm.isValid || isPending || !isStepValid(0)}
-                            onClick={nextStep}
-                        >
-                            Next Step
-                        </Button>
-                    )}
-                    {activeStep === 1 && (
-                        <Button
-                            disabled={!studyProposalForm.isValid || isPending || !isStepValid(1)}
-                            type="submit"
-                            variant="filled"
-                        >
-                            Submit
-                        </Button>
-                    )}
+                    <StepperButtons
+                        form={studyProposalForm}
+                        stepIndex={activeStep}
+                        isPending={isPending}
+                        setStepIndex={setActiveStep}
+                    />
                 </Group>
             </>
         </form>

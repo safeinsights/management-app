@@ -2,20 +2,15 @@
 import { FC } from 'react'
 import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme, FileInput } from '@mantine/core'
 import {
-   
     CheckCircleIcon,
-   
     UploadIcon,
-   
     UploadSimpleIcon,
-   
     XIcon as PhosphorX,
-   
     XCircleIcon,
     FileDoc,
     FilePdf,
-   Icon,
-FileText,
+    Icon,
+    FileText,
 } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
@@ -41,14 +36,14 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     const inputSpan = { base: 12, sm: 8, lg: 4 }
 
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimple size={14} color={theme.colors.purple[5]} weight="fill" />
+        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [
             [/\.docx?$/i, <FileDoc key="doc" size={14} color={color} />],
             [/\.txt$/i, <FileText key="txt" size={14} color={color} />],
             [/\.pdf$/i, <FilePdf key="pdf" size={14} color={color} />],
         ]
         const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimple size={14} color={color} weight="fill" />
+        return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
     }
 
     const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
@@ -69,7 +64,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
                         <Grid.Col span={titleSpan}>
-                            <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('lead')} />
+                            <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
                         </Grid.Col>
                         <Grid.Col span={inputSpan}>
                             <FileInput
@@ -78,14 +73,14 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 aria-label="Upload Main Code File"
                                 placeholder="Upload Main Code File"
                                 clearable
-                                accept={'.r,.rmd,.json,.csv,.txt,.py,.ipynb'}
+                                accept={'.r,.R'}
                                 error={
                                     studyProposalForm.errors.mainCodeFile &&
                                     studyProposalForm.errors.mainCodeFile.message
                                 }
                             />
                             <Text size="xs" c="dimmed">
-                                Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb. 1 file only.
+                                Accepted formats: one .r file only.
                             </Text>
                         </Grid.Col>
                     </Grid>
@@ -94,7 +89,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
                         <Grid.Col span={titleSpan}>
-                            <FormFieldLabel label="Addtional file(s)" inputId={studyProposalForm.key('lead')} />
+                            <FormFieldLabel label="Addtional file(s)" inputId={studyProposalForm.key('additionalCodeFiles')} />
                         </Grid.Col>
                         <GridCol span={{ base: 6, md: 4 }}>
                             <Dropzone

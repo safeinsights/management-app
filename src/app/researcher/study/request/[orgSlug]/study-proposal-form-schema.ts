@@ -39,12 +39,36 @@ export const studyProposalFormSchema = z
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),
-        mainCodeFile: z
-            .array(z.instanceof(File))
-            .min(1, { message: 'At least one code file is required.' })
-            .refine((files) => files.every((file) => /\.(R|r|rmd|json|csv|txt|py|ipynb)$/.test(file.name)), {
-                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
-            }),
+    })
+    .superRefine((data, ctx) => {
+        const totalSize = [
+            data.descriptionDocument,
+            data.irbDocument,
+            data.agreementDocument,
+            data.codeFile,
+            ...data.additionalCodeFiles,
+        ].reduce((sum, file) => sum + (file ? file.size : 0), 0)
+
+        if (totalSize > 10 * 1024 * 1024) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Total size of all files must be less than 10MB',
+                path: ['totalFileSize'],
+            })
+        }
+    })
+
+export const codeFilesSchema = z
+    .object({
+        mainCodeFile: z.union([z.instanceof(File, { message: 'code file is required' }), z.null()]).refine(
+            (file) => {
+                if (file === null) return true // allow null value
+                return /\.r$/i.test(file.name)
+            },
+            {
+                message: 'Only .R, .r, and .rmd files are allowed for code files.',
+            },
+        ),
         additionalCodeFiles: z
             .array(z.instanceof(File))
             .max(10, { message: 'No more than 10 code files are allowed.' })
@@ -70,7 +94,9 @@ export const studyProposalFormSchema = z
         }
     })
 
-export type StudyProposalFormValues = z.infer<typeof studyProposalFormSchema>
+const actionSchema = studyProposalFormSchema.extend(codeFilesSchema)
+
+export type StudyProposalFormValues = z.infer<typeof actionSchema>
 
 export const studyProposalApiSchema = z.object({
     title: z
