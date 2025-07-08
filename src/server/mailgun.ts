@@ -2,7 +2,7 @@ import Mailgun from 'mailgun.js'
 import logger from '@/lib/logger'
 import { getConfigValue, PROD_ENV, CI_ENV, APP_BASE_URL } from './config'
 
-const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
+export const SI_EMAIL = 'Safeinsights <no-reply@safeinsights.org>'
 
 let _mg: null | ReturnType<Mailgun['client']> = null
 let _domain = ''
@@ -36,7 +36,7 @@ export async function deliver({
     template,
     vars,
 }: {
-    to?: string
+    to: string
     bcc?: string
     from?: string
     subject: string
@@ -54,7 +54,7 @@ export async function deliver({
 
     const [mg, domain] = await mailGunConfig()
     if (!mg) {
-        logger.info(`Mailgun not configured, skipping sending: ${template} email`)
+        logger.warn(`Mailgun not configured, skipping sending: ${template} email`)
         logger.info('values that would have been used for email:')
         logger.info(tmplVars)
         return

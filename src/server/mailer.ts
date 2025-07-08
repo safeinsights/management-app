@@ -1,6 +1,6 @@
 import { getStudyAndOrgDisplayInfo, getUserById, getUsersByRoleAndOrgId } from '@/server/db/queries'
 import dayjs from 'dayjs'
-import { deliver } from './mailgun'
+import { deliver, SI_EMAIL } from './mailgun'
 import { APP_BASE_URL } from './config'
 
 export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
@@ -18,9 +18,12 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const study = await getStudyAndOrgDisplayInfo(studyId)
     const reviewersToNotify = await getUsersByRoleAndOrgId('reviewer', study.orgId)
 
+    if (reviewersToNotify.length === 0) return
+
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
     await deliver({
+        to: SI_EMAIL,
         bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
