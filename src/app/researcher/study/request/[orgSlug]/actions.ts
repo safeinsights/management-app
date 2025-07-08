@@ -14,10 +14,11 @@ import { revalidatePath } from 'next/cache'
 const onCreateStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     studyInfo: studyProposalApiSchema,
+    mainCodeFileName: z.string(),
     codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo, codeFileNames }) => {
+export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo, mainCodeFileName, codeFileNames }) => {
     const userId = await getUserIdFromActionContext()
 
     const org = await getOrgFromSlugAction(orgSlug)
@@ -69,6 +70,16 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo,
         })
         .execute()
 
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            name: mainCodeFileName,
+            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
+            studyJobId: studyJob.id,
+            fileType: 'MAIN-CODE',
+        })
+        .executeTakeFirstOrThrow()
+
     for (const fileName of codeFileNames) {
         await db
             .insertInto('studyJobFile')
@@ -76,7 +87,7 @@ export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo,
                 name: fileName,
                 path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
                 studyJobId: studyJob.id,
-                fileType: fileName.match(/main/i) ? 'MAIN-CODE' : 'SUPPLEMENTAL-CODE', // TODO: assuming 'MAIN-CODE' is the file type, make dynamic if needed
+                fileType: 'SUPPLEMENTAL-CODE',
             })
             .executeTakeFirstOrThrow()
     }
