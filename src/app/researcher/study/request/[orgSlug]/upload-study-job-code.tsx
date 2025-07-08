@@ -18,6 +18,7 @@ import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
+import { ACCEPTED_FILE_TYPES } from '@/lib/types'
 
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
@@ -89,7 +90,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
                         <Grid.Col span={titleSpan}>
-                            <FormFieldLabel label="Addtional file(s)" inputId={studyProposalForm.key('additionalCodeFiles')} />
+                            <FormFieldLabel
+                                label="Addtional file(s)"
+                                inputId={studyProposalForm.key('additionalCodeFiles')}
+                            />
                         </Grid.Col>
                         <GridCol span={{ base: 6, md: 4 }}>
                             <Dropzone
@@ -114,14 +118,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 multiple={true}
                                 maxFiles={10}
                                 accept={{
-                                    'application/x-r': ['.r', '.R'],
-                                    'text/x-r': ['.r', '.R'],
-                                    'text/markdown': ['.rmd'],
-                                    'application/json': ['.json'],
-                                    'text/csv': ['.csv'],
-                                    'text/plain': ['.txt'],
-                                    'application/x-python': ['.py'],
-                                    'application/x-ipynb': ['.ipynb'],
+                                    ACCEPTED_FILE_TYPES,
                                 }}
                             >
                                 <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
