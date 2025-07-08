@@ -1,3 +1,38 @@
+## [v0.0.7 - 2025-07-08](https://github.com/safeinsights/management-app/releases/tag/v0.0.7)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #273 | nathanstitt | use CI job id to delete test accounts | 2025-06-23 21:19:16 | [OTTER-221](https://openstax.atlassian.net/browse/OTTER-221) |
+| #274 | nathanstitt | hide api key panel while it's being worked on | 2025-06-24 14:36:56 | [OTTER-216](https://openstax.atlassian.net/browse/OTTER-216) |
+| #264 | nathanstitt | per-org base image management | 2025-06-24 19:49:20 | [OTTER-94](https://openstax.atlassian.net/browse/OTTER-94)  [OTTER-216](https://openstax.atlassian.net/browse/OTTER-216) |
+| #277 | nathanstitt | Fix font loading and access to reviewer key | 2025-06-24 22:55:50 |  |
+| #259 | kswanson33 | add more granular errors for token verification | 2025-06-25 13:39:29 |  |
+| #278 | nathanstitt | update icons to have Icon suffix | 2025-06-27 16:43:11 |  |
+| #272 | jbwilson8 | update error message for code verification field | 2025-06-27 20:10:42 | [OTTER-215](https://openstax.atlassian.net/browse/OTTER-215) |
+| #276 | stetradis | OTTER-214 - Sentry logging | 2025-06-30 15:25:56 | [OTTER-214](https://openstax.atlassian.net/browse/OTTER-214) |
+| #283 | nathanstitt | Prevent dupe results | 2025-06-30 16:35:02 | [OTTER-232](https://openstax.atlassian.net/browse/OTTER-232)  [OTTER-216](https://openstax.atlassian.net/browse/OTTER-216) |
+| #284 | stetradis | OTTER-225 fix missing status labels | 2025-07-01 02:10:14 | [OTTER-225](https://openstax.atlassian.net/browse/OTTER-225) |
+| #282 | nathanstitt | add applicationURL template variable to all emails | 2025-07-01 20:47:23 | [OTTER-231](https://openstax.atlassian.net/browse/OTTER-231) |
+| #288 | nathanstitt | fix bug with blank docker command line | 2025-07-02 22:26:22 | [OTTER-94](https://openstax.atlassian.net/browse/OTTER-94) |
+| #286 | therealmarv | Otter 224 auto timeout dashboard | 2025-07-03 14:29:35 | [OTTER-224](https://openstax.atlassian.net/browse/OTTER-224) |
+| #285 | kswanson33 | add endpoint for job status | 2025-07-03 14:37:25 |  |
+| #289 | therealmarv | use blob object for download links | 2025-07-03 15:33:49 | [OTTER-237](https://openstax.atlassian.net/browse/OTTER-237) |
+| #281 | chrisbendel | Handle dynamic number of encrypted files for member review | 2025-07-07 16:47:50 | [OTTER-217](https://openstax.atlassian.net/browse/OTTER-217) |
+| #293 | Rod0352 | OTTER-240 Bug fix: redirect reviewer to key generation on login | 2025-07-07 17:25:44 | [OTTER-240](https://openstax.atlassian.net/browse/OTTER-240) |
+| #292 | stetradis | OTTER-233 hide reviewer key option from non-reviewer context | 2025-07-07 18:00:57 | [OTTER-233](https://openstax.atlassian.net/browse/OTTER-233) |
+| #287 | stetradis | OTTER-229 reviewer key layout | 2025-07-07 18:48:51 | [OTTER-229](https://openstax.atlassian.net/browse/OTTER-229) |
+| #295 | nathanstitt | use a hook for job status | 2025-07-07 20:19:44 |  |
+| #294 | stetradis | OTTER-243 reviewer key style updates | 2025-07-07 20:59:43 | [OTTER-243](https://openstax.atlassian.net/browse/OTTER-243) |
+| #297 | nathanstitt | show results when complete and decrypted | 2025-07-07 21:52:26 |  |
+| #299 | Rod0352 | refactor: update dashboard URL logic | 2025-07-08 16:42:25 |  |
+| #291 | nathanstitt | auto refresh researcher dashboard | 2025-07-08 16:50:53 | [OTTER-236](https://openstax.atlassian.net/browse/OTTER-236) |
+| #300 | nathanstitt | decode all types of results | 2025-07-08 16:51:42 |  |
+| #290 | jbwilson8 | study proposal code refactoring | 2025-07-08 17:17:13 | [OTTER-220](https://openstax.atlassian.net/browse/OTTER-220) |
+| #301 | nathanstitt | Save main code when creating study | 2025-07-08 18:13:02 |  |
+
+
+---
+
 ## [v0.0.6-b - 2025-06-24](https://github.com/safeinsights/management-app/releases/tag/v0.0.6-b)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
