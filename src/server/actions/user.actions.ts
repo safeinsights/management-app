@@ -47,7 +47,7 @@ export const onUserSignInAction = anonAction(async () => {
         const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
         // Resolve role flags: values in publicMetadata override Clerk membership role;
         // if metadata is absent, fall back to Clerk's built-in `role === 'admin'`.
-        const isAdmin = md?.isAdmin ?? (org.role === 'admin')
+        const isAdmin = md?.isAdmin ?? org.role === 'admin'
         const isResearcher = md?.isResearcher ?? false
         const isReviewer = md?.isReviewer ?? false
         try {

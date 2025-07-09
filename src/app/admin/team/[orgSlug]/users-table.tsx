@@ -8,7 +8,7 @@ import dayjs from 'dayjs'
 import { Select, Flex, Text } from '@mantine/core'
 import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUser } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
-import { reportMutationError } from '@/components/errors'
+import { ErrorAlert, reportMutationError } from '@/components/errors'
 import { UserAvatar } from '@/components/user-avatar'
 import { InfoTooltip } from '@/components/tooltip'
 
@@ -86,11 +86,18 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         data: users,
         isLoading,
         refetch,
+        isError,
+        error,
     } = useQuery({
         queryKey: ['users-listing', orgSlug, sort],
         queryFn: () =>
             getUsersForOrgAction({ orgSlug, sort: { columnAccessor: 'fullName', direction: sort.direction } }),
+        retry: false,
     })
+
+    if (isError) {
+        return <ErrorAlert error={error} title="Unable to load team members" />
+    }
 
     return (
         <DataTable
