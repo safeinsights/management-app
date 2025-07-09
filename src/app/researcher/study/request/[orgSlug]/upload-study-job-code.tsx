@@ -10,6 +10,7 @@ import {
     FileDocIcon,
     FilePdfIcon,
     FileTextIcon,
+    AsteriskIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
@@ -63,7 +64,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             <Group grow justify="center" align="center" mt="md">
                 <Grid>
                     <Grid.Col span={titleSpan}>
+                        <Group gap="xs">
                         <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
+                        <AsteriskIcon size={14} color={theme.colors.red[5]} />
+                        </Group>
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <FileInput
@@ -86,7 +90,8 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Grid>
                     <Grid.Col span={titleSpan}>
                         <FormFieldLabel
-                            label="Addtional file(s)"
+                            label="Additional file(s)"
+                            variant = "optional"
                             inputId={studyProposalForm.key('additionalCodeFiles')}
                         />
                     </Grid.Col>
@@ -115,7 +120,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             accept={ACCEPTED_FILE_TYPES}
                         >
                             <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                                <Text fw="bold">Upload File</Text>
+                                <Text fz="sm" c="dimmed">Upload File</Text>
                                 <Dropzone.Accept>
                                     <UploadIcon />
                                 </Dropzone.Accept>
@@ -126,8 +131,8 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                     <UploadSimpleIcon />
                                 </Dropzone.Idle>
                                 <Group gap="xs">
-                                    <Text size="md">Drop your files or</Text>
-                                    <Text td="underline" c="purple.5" fw="bold">
+                                    <Text size="sm" c="dimmed">Drop your files or</Text>
+                                    <Text td="underline" c="dimmed" fz="sm">
                                         Browse
                                     </Text>
                                 </Group>

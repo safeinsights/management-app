@@ -11,7 +11,7 @@ export interface FormFieldLabelProps {
     label: string
     required?: boolean
     inputId?: string
-    variant?: 'orgset'
+    variant?: 'orgset' | 'optional'
     className?: string
     style?: React.CSSProperties
 }
@@ -36,7 +36,20 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
                 )}
             </Text>
         )
-    } else {
+    } 
+        if (variant === 'optional'){
+            labelContent = (
+                <Title order={5} fw={550} style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
+                    {label}
+                    {required && (
+                        <Text span c="red" ml={4}>
+                            *
+                        </Text>
+                    )}
+                </Title>
+            )
+        }
+    else {
         labelContent = (
             <Title order={5} fw="semibold" style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
                 {label}
