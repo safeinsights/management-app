@@ -65,8 +65,8 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Grid>
                     <Grid.Col span={titleSpan}>
                         <Group gap="xs">
-                        <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
-                        <AsteriskIcon size={14} color={theme.colors.red[5]} />
+                            <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
+                            <AsteriskIcon size={14} color={theme.colors.red[5]} />
                         </Group>
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
@@ -91,7 +91,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     <Grid.Col span={titleSpan}>
                         <FormFieldLabel
                             label="Additional file(s)"
-                            variant = "optional"
+                            variant="optional"
                             inputId={studyProposalForm.key('additionalCodeFiles')}
                         />
                     </Grid.Col>
@@ -120,7 +120,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             accept={ACCEPTED_FILE_TYPES}
                         >
                             <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                                <Text fz="sm" c="dimmed">Upload File</Text>
+                                <Text fz="sm" c="dimmed">
+                                    Upload File
+                                </Text>
                                 <Dropzone.Accept>
                                     <UploadIcon />
                                 </Dropzone.Accept>
@@ -131,7 +133,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                     <UploadSimpleIcon />
                                 </Dropzone.Idle>
                                 <Group gap="xs">
-                                    <Text size="sm" c="dimmed">Drop your files or</Text>
+                                    <Text size="sm" c="dimmed">
+                                        Drop your files or
+                                    </Text>
                                     <Text td="underline" c="dimmed" fz="sm">
                                         Browse
                                     </Text>
