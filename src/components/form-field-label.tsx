@@ -37,6 +37,7 @@ export const FormFieldLabel: React.FC<FormFieldLabelProps> = ({
             </Text>
         )
     }
+    //Style labels for optional fields
     if (variant === 'optional') {
         labelContent = (
             <Title order={5} fw={550} style={{ overflowWrap: 'normal', display: 'inline', margin: 0 }}>
