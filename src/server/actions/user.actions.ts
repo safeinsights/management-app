@@ -45,13 +45,18 @@ export const onUserSignInAction = anonAction(async () => {
         if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
 
         const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
+        // Resolve role flags: values in publicMetadata override Clerk membership role;
+        // if metadata is absent, fall back to Clerk's built-in `role === 'admin'`.
+        const isAdmin = md?.isAdmin ?? (org.role === 'admin')
+        const isResearcher = md?.isResearcher ?? false
+        const isReviewer = md?.isReviewer ?? false
         try {
             await findOrCreateOrgMembership({
                 userId: user.id,
                 slug: org.organization.slug,
-                isResearcher: md?.isResearcher,
-                isAdmin: md?.isAdmin,
-                isReviewer: md?.isReviewer,
+                isResearcher,
+                isAdmin,
+                isReviewer,
             })
         } catch (e) {
             logger.error(`Failed to find or create org membership for ${org.organization.slug}`, e)

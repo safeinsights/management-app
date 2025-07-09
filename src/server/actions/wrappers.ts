@@ -253,7 +253,7 @@ export function orgAdminAction<S extends OrgActionSchema, F extends WrappedFunc<
         const { org, user } = await actionContext()
         if (!org.isAdmin) {
             throw new AccessDeniedError({
-                user: `${user?.id} is not an admin of organization ${arg.orgSlug} ${org.slug}`,
+                user: `${user?.id} is not an admin of organization ${org.slug}`,
             })
         }
         return await func(arg)
