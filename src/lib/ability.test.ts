@@ -26,7 +26,7 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
     return { ability: defineAbilityFor(session), session }
 }
 
-test('researcher role', () => {
+test('reviewer role', () => {
     const { ability, session } = createAbilty({ isReviewer: true })
     expect(
         // general form, yes researcher can approve studies
@@ -49,7 +49,7 @@ test('researcher role', () => {
     expect(ability.can('update', subject('User', { id: faker.string.uuid() }))).toBe(false)
 })
 
-test('reviewr role', () => {
+test('researcher role', () => {
     const { ability } = createAbilty({ isResearcher: true })
 
     expect(
