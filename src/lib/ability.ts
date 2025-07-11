@@ -1,43 +1,35 @@
-import { StudyStatus } from '@/database/types';
-import type { Session } from './types';
-import {
-    PureAbility,
-    AbilityBuilder,
-    type MatchConditions,
-    type FieldMatcher,
-} from '@casl/ability';
-const conditionsMatcher = (matchConditions: MatchConditions) => matchConditions;
-const fieldMatcher: FieldMatcher = fields => field => fields.includes(field);
+import { StudyStatus } from '@/database/types'
+import type { Session } from './types'
+import { AbilityBuilder, MongoAbility, createMongoAbility, type FieldMatcher } from '@casl/ability'
+const fieldMatcher: FieldMatcher = (fields) => (field) => fields.includes(field)
 
 type Record = { id: string }
-
-type UserAbility = ['invite', 'User'] | ['update', 'User' | Record ]
-
-type StudyAbilty = ['create', 'Study'] | ['approve', 'Study' | { orgId: string, status: StudyStatus }]
-
-type AppAbility = PureAbility<UserAbility | StudyAbilty, MatchConditions>
-
+type UserAbility = ['invite', 'User'] | ['update', 'User' | Record]
+type StudyAbilty = ['create', 'Study'] | ['approve', 'Study' | { orgId: string; status: StudyStatus }]
+type AppAbility = MongoAbility<UserAbility | StudyAbilty>
 
 export function defineAbilityFor(session: Session) {
     const { isAdmin, isResearcher, isReviewer } = session.roles
-    const { can, build } = new AbilityBuilder<AppAbility>(PureAbility);
+    const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
+
+    // The below rules control which roles can perform which tasks
+    // they are evaluated in order, a later rule will override a previous one
 
     if (isResearcher || isAdmin) {
-        can('create', 'Study')
+        permit('create', 'Study')
     }
 
     if (isReviewer || isAdmin) {
-        can('approve', 'Study', ({ status }: { status: StudyStatus }) => status == 'PENDING-REVIEW')
+        permit('approve', 'Study', { status: { $in: ['INITIATED', 'PENDING-REVIEW'] } })
     }
 
     // everyone can update themselves
-    can('update', 'User', ['name','email'], (user: Record) => user.id == session.user.id)
+    permit('update', 'User', ['name', 'email'], { id: session.user.id })
 
     if (isAdmin) {
-        can('invite', 'User')
-        can('update', 'User', () => true)
+        permit('invite', 'User')
+        permit('update', 'User')
     }
 
-
-    return build({ conditionsMatcher, fieldMatcher });
+    return build({ fieldMatcher })
 }
