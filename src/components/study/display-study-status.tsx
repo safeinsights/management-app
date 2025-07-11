@@ -7,6 +7,7 @@ import { titleize } from '@/lib/string'
 import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
 import { InfoIcon } from '../icons'
 import React, { FC } from 'react'
+import { useAuthInfo } from '@/components/auth'
 
 type PopOverComponent = React.FC<{ jobId?: string | null }>
 
@@ -42,9 +43,9 @@ const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
     'CODE-APPROVED': { type: 'Code', label: 'Approved' },
     'CODE-REJECTED': { type: 'Code', label: 'Rejected' },
-    'CODE-SUBMITTED': { type: 'Code', label: 'Submitted' },
-    'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
-    'JOB-RUNNING': { type: 'Code', label: 'Running' },
+    'CODE-SUBMITTED': { type: 'Code', label: 'Under Review' },
+    'JOB-PACKAGING': { type: 'Code', label: 'Packaging' },
+    'JOB-RUNNING': { type: 'Code', label: 'Processing' },
     'JOB-READY': { type: 'Code', label: 'Ready' },
     'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
     'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
@@ -53,10 +54,14 @@ const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
 }
 
 const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
-    const color =
-        [STATUS_LABELS['RUN-COMPLETE']?.label, STATUS_LABELS['PENDING-REVIEW']?.label].indexOf(label) > -1
-            ? 'red.9'
-            : 'dark.8'
+    const color = [
+        'Needs Review',
+        STATUS_LABELS['RUN-COMPLETE']?.label,
+        STATUS_LABELS['PENDING-REVIEW']?.label,
+        STATUS_LABELS['CODE-SUBMITTED']?.label,
+    ].includes(label)
+        ? 'red.9'
+        : 'dark.8'
     return (
         <Stack gap="0">
             {type && (
@@ -81,7 +86,20 @@ export const DisplayStudyStatus: FC<{
     jobStatus: StudyJobStatus | null
     jobId?: string | null
 }> = ({ studyStatus, jobStatus, jobId }) => {
+    const { isReviewer } = useAuthInfo()
+    const currentStatus = jobStatus || studyStatus
+
     let props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
+
+    const needsReviewStatuses: Array<AllStatus> = ['PENDING-REVIEW', 'CODE-SUBMITTED', 'RUN-COMPLETE']
+
+    // Tailor the label for statuses that require review in reviewer mode.
+    if (needsReviewStatuses.includes(currentStatus)) {
+        props = {
+            ...(props || { type: null, label: '' }),
+            label: isReviewer ? 'Needs Review' : 'Under Review',
+        }
+    }
 
     if (!props) {
         const status = jobStatus || studyStatus
