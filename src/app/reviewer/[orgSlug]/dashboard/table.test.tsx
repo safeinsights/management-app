@@ -7,6 +7,10 @@ import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
 
+vi.mock('@/components/auth', () => ({
+    useAuthInfo: () => ({ isReviewer: true }),
+}))
+
 vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
 }))

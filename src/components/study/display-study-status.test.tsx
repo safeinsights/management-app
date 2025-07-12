@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { DisplayStudyStatus } from './display-study-status'
+
+let mockedAuthInfo = { isReviewer: false }
+
+vi.mock('@/components/auth', () => ({
+    useAuthInfo: () => mockedAuthInfo,
+}))
 
 describe('DisplayStudyStatus', () => {
     const renderAndExpect = (
@@ -45,5 +51,11 @@ describe('DisplayStudyStatus', () => {
     it('renders a fallback status when the status is not in the STATUS_LABELS map', () => {
         // ARCHIVED and JOB-PROVISIONING are not in STATUS_LABELS, should display titleized status instead
         renderAndExpect('ARCHIVED', 'JOB-PROVISIONING', null, 'Job Provisioning')
+    })
+
+    it('shows "Needs Review" for reviewer users', () => {
+        // Simulate reviewer UI
+        mockedAuthInfo = { isReviewer: true }
+        renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Needs Review')
     })
 })
