@@ -20,7 +20,7 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 
 // Detects if any uploaded files share the same name as the main code file and shows a notification.
-const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
+export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
     if (!mainFile || !additionalFiles) return false
 
     const duplicateFound = additionalFiles.some((file) => file.name === mainFile.name)
