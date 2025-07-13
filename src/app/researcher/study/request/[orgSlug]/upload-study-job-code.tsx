@@ -19,6 +19,23 @@ import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 
+// Detects if any uploaded files share the same name as the main code file and shows a notification.
+const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
+    if (!mainFile || !additionalFiles) return false
+
+    const duplicateFound = additionalFiles.some((file) => file.name === mainFile.name)
+
+    if (duplicateFound) {
+        notifications.show({
+            color: 'red',
+            title: 'Duplicate filename',
+            message: `The file name "${mainFile.name}" has already been uploaded. Please choose a different file name or remove the existing one before continuing.`,
+        })
+    }
+
+    return duplicateFound
+}
+
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
 }) => {
@@ -73,7 +90,18 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             placeholder="Upload Main Code File"
                             clearable
                             accept={'.r,.R'}
-                            {...studyProposalForm.getInputProps('mainCodeFile')}
+                            value={studyProposalForm.values.mainCodeFile}
+                            onChange={(file) => {
+                                const { additionalCodeFiles } = studyProposalForm.getValues()
+                                const isDuplicate = handleDuplicateUpload(file, additionalCodeFiles)
+
+                                if (isDuplicate) {
+                                    studyProposalForm.setFieldValue('mainCodeFile', null)
+                                    return
+                                }
+
+                                studyProposalForm.setFieldValue('mainCodeFile', file)
+                            }}
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: one .r file only.
@@ -94,8 +122,20 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         <Dropzone
                             name="additionalCodeFiles"
                             onDrop={(files) => {
-                                const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
-                                const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
+                                const { additionalCodeFiles: previousFiles, mainCodeFile } =
+                                    studyProposalForm.getValues()
+
+                                // Show duplicate error and upload all files without duplicate filenames
+                                handleDuplicateUpload(mainCodeFile, files)
+
+                                const filteredFiles = mainCodeFile
+                                    ? files.filter((f) => f.name !== mainCodeFile.name)
+                                    : files
+
+                                const additionalFiles = uniqueBy(
+                                    [...filteredFiles, ...previousFiles],
+                                    (file) => file.name,
+                                )
                                 studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
                             }}
                             onReject={(rejections) =>
