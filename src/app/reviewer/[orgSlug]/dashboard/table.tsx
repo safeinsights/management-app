@@ -80,7 +80,7 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
             </Flex>
             <Divider c="charcoal.1" />
-            <Table>
+            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                 <TableThead>
                     <TableTr>
                         <TableTh fw={600}>Study Name</TableTh>
