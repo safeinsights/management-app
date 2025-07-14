@@ -57,8 +57,10 @@ export const SignInForm: FC<{
 
             const errorMessage = errorToString(err)
 
+            console.warn('Sign-in error:', errorMessage)
+
             //incorrect email or password
-            if (errorMessage?.includes('Password') || errorMessage?.includes('Identifier')) {
+            if (errorMessage?.includes('Password') || errorMessage?.includes("Couldn't find your account.")) {
                 form.setFieldError('email', ' ')
                 form.setFieldError(
                     'password',
@@ -94,7 +96,6 @@ export const SignInForm: FC<{
                         key={form.key('password')}
                         {...form.getInputProps('password')}
                         mt={10}
-                        mb="xs"
                         placeholder="*********"
                         aria-label="Password"
                     />
@@ -114,12 +115,23 @@ export const SignInForm: FC<{
                         </Paper>
                     )}
                     <Link
+                        c="blue.7"
+                        fw={600}
+                        size="xs"
                         href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
-                    >
+                        >
                         Forgot password?
                     </Link>
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button mb="xxl" disabled={!form.isValid()} type="submit">
+                    <Button
+                            mt="xs"
+                        mb="xxl"
+                        h={53}
+                        p="12.5px 26px"
+                        bg="grey.1"
+                        disabled={!form.isValid()}
+                        type="submit"
+                    >
                         Login
                     </Button>
                 </Flex>
