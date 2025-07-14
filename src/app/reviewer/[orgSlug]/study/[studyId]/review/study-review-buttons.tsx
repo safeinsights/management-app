@@ -43,6 +43,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         <Group>
             <Button
                 disabled={isPending || isSuccess}
+                data-disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'REJECTED'}
                 onClick={() => updateStudy('REJECTED')}
                 variant="outline"
@@ -51,6 +52,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             </Button>
             <Button
                 disabled={isPending || isSuccess}
+                data-disabled={isPending || isSuccess}
                 loading={isPending && pendingStatus == 'APPROVED'}
                 onClick={() => updateStudy('APPROVED')}
             >

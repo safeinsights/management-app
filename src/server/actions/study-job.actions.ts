@@ -22,21 +22,36 @@ export const approveStudyJobFilesAction = orgAction(
         await checkUserAllowedStudyReview(info.studyId)
         const user = await siUser()
 
-        for (const jobFile of jobFiles) {
-            const file = new File([jobFile.contents], jobFile.path)
-            await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
-        }
+        await db.transaction().execute(async (trx) => {
+            const job = await trx
+                .selectFrom('studyJob')
+                .innerJoin('jobStatusChange', 'jobStatusChange.studyJobId', 'studyJob.id')
+                .where('studyJob.id', '=', info.studyJobId)
+                .select('jobStatusChange.status')
+                .orderBy('jobStatusChange.createdAt', 'desc')
+                .executeTakeFirst()
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: user.id,
-                status: 'FILES-APPROVED',
-                studyJobId: info.studyJobId,
-            })
-            .executeTakeFirstOrThrow()
+            if (job?.status === 'FILES-APPROVED') {
+                console.warn(`Study job ${info.studyJobId} already approved.`)
+                return
+            }
 
-        onStudyFilesApproved({ studyId: info.studyId, userId: user.id })
+            for (const jobFile of jobFiles) {
+                const file = new File([jobFile.contents], jobFile.path)
+                await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
+            }
+
+            await trx
+                .insertInto('jobStatusChange')
+                .values({
+                    userId: user.id,
+                    status: 'FILES-APPROVED',
+                    studyJobId: info.studyJobId,
+                })
+                .executeTakeFirstOrThrow()
+
+            onStudyFilesApproved({ studyId: info.studyId, userId: user.id })
+        })
     },
     z.object({
         orgSlug: z.string(),

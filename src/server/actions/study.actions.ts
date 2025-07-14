@@ -179,6 +179,17 @@ export const approveStudyProposalAction = orgAction(
 
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
+            const study = await trx
+                .selectFrom('study')
+                .where('id', '=', studyId)
+                .select('status')
+                .forUpdate()
+                .executeTakeFirst()
+
+            if (study?.status === 'APPROVED') {
+                console.warn(`Study ${studyId} already approved.`)
+                return
+            }
             // Update the status of the study
             await trx
                 .updateTable('study')
