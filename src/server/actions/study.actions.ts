@@ -178,7 +178,7 @@ export const approveStudyProposalAction = orgAction(
         await checkMemberOfOrgWithSlug(orgSlug)
 
         // Start a transaction to ensure atomicity
-        await db.transaction().execute(async (trx) => {
+        const wasApproved = await db.transaction().execute(async (trx) => {
             const result = await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
@@ -188,7 +188,7 @@ export const approveStudyProposalAction = orgAction(
 
             if (Number(result.numUpdatedRows) === 0) {
                 console.warn(`Study ${studyId} was not approved because its status was not PENDING-REVIEW.`)
-                return
+                return false
             }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
@@ -235,9 +235,13 @@ export const approveStudyProposalAction = orgAction(
                     studyJobId: latestJob.id,
                 })
                 .executeTakeFirstOrThrow()
+
+            return true
         })
 
-        onStudyApproved({ studyId, userId })
+        if (wasApproved) {
+            onStudyApproved({ studyId, userId })
+        }
     },
     z.object({
         studyId: z.string(),
