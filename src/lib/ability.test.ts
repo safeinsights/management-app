@@ -1,26 +1,23 @@
 import { test, expect } from 'vitest'
 
-import type { Session, UserOrgRoles } from './types'
+import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
 import { subject } from '@casl/ability'
 import { defineAbilityFor } from './ability'
 import { StudyStatus } from '@/database/types'
 
 const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
-    const session: Session = {
+    const session: UserSession = {
         user: {
             id: faker.string.uuid(),
-            email: faker.internet.email(),
         },
         team: {
             id: faker.string.uuid(),
-            name: faker.company.name(),
-        },
-        roles: {
+            slug: 'test',
             isAdmin: false,
             isResearcher: false,
             isReviewer: false,
-            ...(roles || {}),
+            ...roles,
         },
     }
     return { ability: defineAbilityFor(session), session }
@@ -64,10 +61,7 @@ test('researcher role', () => {
 
 test('admin role', () => {
     const { ability, session } = createAbilty({ isAdmin: true })
-    expect(
-        // general form, yes researcher can approve studies
-        ability.can('approve', 'Study'),
-    ).toBeTruthy()
+    expect(ability.can('approve', 'Study')).toBeTruthy()
 
     expect(
         ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
