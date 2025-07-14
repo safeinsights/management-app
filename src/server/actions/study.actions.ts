@@ -179,23 +179,17 @@ export const approveStudyProposalAction = orgAction(
 
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
-            const study = await trx
-                .selectFrom('study')
-                .where('id', '=', studyId)
-                .select('status')
-                .forUpdate()
-                .executeTakeFirst()
-
-            if (study?.status === 'APPROVED') {
-                console.warn(`Study ${studyId} already approved.`)
-                return
-            }
-            // Update the status of the study
-            await trx
+            const result = await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
-                .execute()
+                .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
+                .executeTakeFirst()
+
+            if (Number(result.numUpdatedRows) === 0) {
+                console.warn(`Study ${studyId} was not approved because its status was not PENDING-REVIEW.`)
+                return
+            }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
             if (!latestJob) {
