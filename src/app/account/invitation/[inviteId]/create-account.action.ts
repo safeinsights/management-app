@@ -36,6 +36,13 @@ export const onCreateAccountAction = anonAction(
             .where('id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
+        const existingUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
+        if (existingUsers.data.length > 0) {
+            throw new ActionFailure({
+                form: 'This email address is already associated with an existing account. Please log in to continue.',
+            })
+        }
+
         try {
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,
@@ -59,13 +66,6 @@ export const onCreateAccountAction = anonAction(
             clerkUserId = clerkUser.id
         } catch (error) {
             if (isClerkApiError(error)) {
-                const emailExistsError = error.errors.find((e) => e.code === 'form_identifier_exists')
-                if (emailExistsError) {
-                    throw new ActionFailure({
-                        form: 'This email address is already associated with an existing account. Please log in to continue.',
-                    })
-                }
-
                 const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
                 if (pwnedError) {
                     throw new ActionFailure({
