@@ -15,7 +15,8 @@ import {
     userAction,
     z,
 } from './wrappers'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
+import {  throwNotFound } from '@/lib/errors'
+import logger from '@/lib/logger'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -187,7 +188,10 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirst()
 
             if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
-                throw new ActionFailure({ study: `Study with id ${studyId} is not in PENDING-REVIEW status or does not exist.` })
+               logger.warn(
+                    `Failed to approve study ${studyId} - it may not be in PENDING-REVIEW status or does not exist.`,
+                )
+                return false
             }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
