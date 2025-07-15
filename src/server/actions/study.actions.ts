@@ -15,8 +15,7 @@ import {
     userAction,
     z,
 } from './wrappers'
-import { throwNotFound } from '@/lib/errors'
-import logger from '@/lib/logger'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -187,11 +186,28 @@ export const approveStudyProposalAction = orgAction(
                 .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
                 .executeTakeFirst()
 
+            // if no rows found, check if study exists or was already approved
             if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
-                logger.warn(
-                    `Failed to approve study ${studyId} - it may not be in PENDING-REVIEW status or does not exist.`,
-                )
-                return false
+                const currentStudy = await trx
+                    .selectFrom('study')
+                    .select(['status'])
+                    .where('id', '=', studyId)
+                    .executeTakeFirst()
+
+                if (!currentStudy) {
+                    throw new ActionFailure({
+                        study: `Study with id ${studyId} does not exist.`,
+                    })
+                }
+
+                if (currentStudy.status === 'APPROVED') {
+                    // study was already approved, so we can return false for idempotency
+                    return false
+                }
+
+                throw new ActionFailure({
+                    study: `Study with id ${studyId} cannot be approved because its status is ${currentStudy.status}`,
+                })
             }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
