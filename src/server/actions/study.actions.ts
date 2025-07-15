@@ -184,8 +184,11 @@ export const approveStudyProposalAction = orgAction(
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
                 .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
-                .executeTakeFirstOrThrow(() => 
-                     new ActionFailure({ study: `Study ${studyId} cannot be approved because its status is not PENDING-REVIEW` })
+                .executeTakeFirstOrThrow(
+                    () =>
+                        new ActionFailure({
+                            study: `Study ${studyId} cannot be approved because its status is not PENDING-REVIEW`,
+                        }),
                 )
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
