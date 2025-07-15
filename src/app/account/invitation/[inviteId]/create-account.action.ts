@@ -62,7 +62,7 @@ export const onCreateAccountAction = anonAction(
                 const emailExistsError = error.errors.find((e) => e.code === 'form_identifier_exists')
                 if (emailExistsError) {
                     throw new ActionFailure({
-                        form: 'An account with this email address already exists. Please log in to continue.',
+                        form: 'This email address is already associated with an existing account. Please log in to continue.',
                     })
                 }
 
