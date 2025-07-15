@@ -16,7 +16,7 @@ export const orgAdminInviteUserAction = orgAdminAction(
             .selectFrom('user')
             .innerJoin('orgUser', 'user.id', 'orgUser.userId')
             .where('orgUser.orgId', '=', org.id)
-            .where(sql`lower(user.email)`, '=', email)
+            .where(sql`lower("user"."email")`, '=', email)
             .select('user.id')
             .executeTakeFirst()
 
@@ -30,7 +30,7 @@ export const orgAdminInviteUserAction = orgAdminAction(
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id', 'email'])
-            .where(sql`lower(pendingUser.email)`, '=', email)
+            .where(sql`lower("pendingUser"."email")`, '=', email)
             .where('orgId', '=', org.id)
             .executeTakeFirst()
 
