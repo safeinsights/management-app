@@ -17,6 +17,7 @@ import {
     Text,
     Tooltip,
     Flex,
+    TableScrollContainer,
 } from '@mantine/core'
 import { FC } from 'react'
 import { Link } from '@/components/links'
@@ -80,23 +81,25 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
             </Flex>
             <Divider c="charcoal.1" />
-            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                <TableThead>
-                    <TableTr>
-                        <TableTh fw={600}>Study Name</TableTh>
-                        <TableTh fw={600}>Submitted On</TableTh>
-                        <TableTh fw={600}>Submitted By</TableTh>
-                        <TableTh fw={600}>Reviewed By</TableTh>
-                        <TableTh fw={600}>Status</TableTh>
-                        <TableTh fw={600}>Details</TableTh>
-                    </TableTr>
-                </TableThead>
-                <TableTbody>
-                    {studies.map((study) => (
-                        <Row key={study.id} study={study} orgSlug={orgSlug} />
-                    ))}
-                </TableTbody>
-            </Table>
+            <TableScrollContainer minWidth={768}>
+                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                    <TableThead>
+                        <TableTr>
+                            <TableTh fw={600}>Study Name</TableTh>
+                            <TableTh fw={600}>Submitted On</TableTh>
+                            <TableTh fw={600}>Submitted By</TableTh>
+                            <TableTh fw={600}>Reviewed By</TableTh>
+                            <TableTh fw={600}>Status</TableTh>
+                            <TableTh fw={600}>Details</TableTh>
+                        </TableTr>
+                    </TableThead>
+                    <TableTbody>
+                        {studies.map((study) => (
+                            <Row key={study.id} study={study} orgSlug={orgSlug} />
+                        ))}
+                    </TableTbody>
+                </Table>
+            </TableScrollContainer>
         </Stack>
     )
 }
