@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 
@@ -12,7 +12,7 @@ it('fails when inviting an existing org member – case-insensitive', async () =
     await expect(
         orgAdminInviteUserAction({
             orgSlug: org.slug,
-            invite: { email: user.email.toUpperCase(), role: 'researcher' },
+            invite: { email: user.email!.toUpperCase(), role: 'researcher' },
         }),
     ).rejects.toMatchObject({
         message: expect.stringContaining('already associated'),
