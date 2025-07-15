@@ -187,7 +187,9 @@ export const approveStudyProposalAction = orgAction(
                 .executeTakeFirst()
 
             if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
-                throw new ActionFailure({ study: `Study with id ${studyId} is not in PENDING-REVIEW status or does not exist.` })
+                throw new ActionFailure({
+                    study: `Study with id ${studyId} is not in PENDING-REVIEW status or does not exist.`,
+                })
             }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
