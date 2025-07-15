@@ -15,7 +15,7 @@ import {
     userAction,
     z,
 } from './wrappers'
-import { throwNotFound } from '@/lib/errors'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = orgAction(
     async ({ orgSlug }) => {
@@ -179,17 +179,14 @@ export const approveStudyProposalAction = orgAction(
 
         // Start a transaction to ensure atomicity
         const wasApproved = await db.transaction().execute(async (trx) => {
-            const result = await trx
+            await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
                 .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
-                .executeTakeFirst()
-
-            if (Number(result.numUpdatedRows) === 0) {
-                console.warn(`Study ${studyId} was not approved because its status was not PENDING-REVIEW.`)
-                return false
-            }
+                .executeTakeFirstOrThrow(() => 
+                     new ActionFailure({ study: `Study ${studyId} cannot be approved because its status is not PENDING-REVIEW` })
+                )
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
             if (!latestJob) {

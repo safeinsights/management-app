@@ -16,6 +16,7 @@ import { checkUserAllowedJobView, checkUserAllowedStudyReview, latestJobForStudy
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { throwNotFound } from '@/lib/errors'
 import { onStudyFilesApproved } from '@/server/events'
+import logger from '@/lib/logger'
 
 export const approveStudyJobFilesAction = orgAction(
     async ({ jobInfo: info, jobFiles }) => {
@@ -32,7 +33,7 @@ export const approveStudyJobFilesAction = orgAction(
                 .executeTakeFirst()
 
             if (job?.status === 'FILES-APPROVED') {
-                console.warn(`Study job ${info.studyJobId} already approved.`)
+                logger.warn(`Study job ${info.studyJobId} already approved.`)
                 return
             }
 
