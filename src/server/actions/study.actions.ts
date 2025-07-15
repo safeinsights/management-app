@@ -179,17 +179,16 @@ export const approveStudyProposalAction = orgAction(
 
         // Start a transaction to ensure atomicity
         const wasApproved = await db.transaction().execute(async (trx) => {
-            await trx
+            const updateResult = await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
                 .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
-                .executeTakeFirstOrThrow(
-                    () =>
-                        new ActionFailure({
-                            study: `Study ${studyId} cannot be approved because its status is not PENDING-REVIEW`,
-                        }),
-                )
+                .executeTakeFirst()
+
+            if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
+                throw new ActionFailure({ study: `Study with id ${studyId} is not in PENDING-REVIEW status or does not exist.` })
+            }
 
             const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
             if (!latestJob) {
