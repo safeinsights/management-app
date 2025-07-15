@@ -86,7 +86,7 @@ test.describe('Studies', () => {
             route.continue()
         })
 
-        await page.getByRole('button', { name: /approve/i }).dblclick()
+        await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForLoadState('networkidle')
 
         expect(approvalRequestCount).toBe(1)
