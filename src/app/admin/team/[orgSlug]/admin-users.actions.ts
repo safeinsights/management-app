@@ -2,23 +2,39 @@
 
 import { db } from '@/database'
 import { z, inviteUserSchema } from './invite-user.schema'
-import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
+import { ActionFailure, orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
 
 export const orgAdminInviteUserAction = orgAdminAction(
     async ({ invite }) => {
+        const { org } = await orgActionContext()
+
+        const existingOrgUser = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .where('orgUser.orgId', '=', org.id)
+            .where('user.email', '=', invite.email)
+            .select('user.id')
+            .executeTakeFirst()
+
+        if (existingOrgUser) {
+            throw new ActionFailure({ email: 'A user with this email address is already a member of this organization.' })
+        }
+
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id', 'email'])
             .where('email', '=', invite.email)
+            .where('orgId', '=', org.id)
             .executeTakeFirst()
+
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return
         }
-        const { org } = await orgActionContext()
+
         const record = await db
             .insertInto('pendingUser')
             .values({

@@ -59,6 +59,13 @@ export const onCreateAccountAction = anonAction(
             clerkUserId = clerkUser.id
         } catch (error) {
             if (isClerkApiError(error)) {
+                const emailExistsError = error.errors.find((e) => e.code === 'form_identifier_exists')
+                if (emailExistsError) {
+                    throw new ActionFailure({
+                        form: 'An account with this email address already exists. Please log in to continue.',
+                    })
+                }
+
                 const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
                 if (pwnedError) {
                     throw new ActionFailure({
