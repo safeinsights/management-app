@@ -4,8 +4,10 @@ import { FileEntry } from 'si-encryption/job-results/types'
 
 export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
 
-export type User = {
+export type SessionUser = {
     id: string
+    isSiAdmin: boolean
+    clerkUserId: string
 }
 
 export type Team = UserOrgRoles & {
@@ -14,7 +16,7 @@ export type Team = UserOrgRoles & {
 }
 
 export type UserSession = {
-    user: User
+    user: SessionUser
     team: Team
 }
 
@@ -101,8 +103,4 @@ export type JobFile = {
 }
 
 // use as: IsUnknown<Args> extends true
-export type IsUnknown<T> = unknown extends T
-    ? T extends unknown
-    ? true
-    : false
-    : false;
+export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false) : false

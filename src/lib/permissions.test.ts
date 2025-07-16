@@ -10,6 +10,8 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
     const session: UserSession = {
         user: {
             id: faker.string.uuid(),
+            clerkUserId: faker.string.alpha(),
+            isSiAdmin: false,
         },
         team: {
             id: faker.string.uuid(),

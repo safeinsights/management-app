@@ -1,8 +1,7 @@
 import { StudyStatus } from '@/database/types'
-import { CLERK_ADMIN_ORG_SLUG, type UserSession } from './types'
+import { type UserSession } from './types'
 import { AbilityBuilder, MongoAbility, createMongoAbility } from '@casl/ability'
 
-//
 type Record = { id: string }
 
 type Abilities =
@@ -18,8 +17,8 @@ type Abilities =
 export type AppAbility = MongoAbility<Abilities>
 
 export function defineAbilityFor(session: UserSession) {
+    const { isSiAdmin } = session.user
     const { isAdmin: isTeamAdmin, isResearcher, isReviewer } = session.team
-    const isSiAdmin = isTeamAdmin && session.team.slug == CLERK_ADMIN_ORG_SLUG
     const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     // https://casl.js.org/v6/en/guide/conditions-in-depth
@@ -39,8 +38,8 @@ export function defineAbilityFor(session: UserSession) {
     if (isReviewer || isTeamAdmin) {
         permit('read', 'ReviewerKey', { userId: session.user.id })
         permit('update', 'ReviewerKey', { userId: session.user.id })
-        permit('approve', 'Study', { status: { $in: ['INITIATED', 'PENDING-REVIEW'] } })
-
+        permit('approve', 'Study')
+        permit('reject', 'Study')
         permit('read', 'StudyJob')
     }
 

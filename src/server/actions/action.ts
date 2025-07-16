@@ -1,4 +1,4 @@
-import { ZodType, ZodError, z, ZodObject } from 'zod'
+import { ZodType, ZodError, z } from 'zod'
 import { defineAbilityFor, type AppAbility } from '@/lib/permissions'
 import { subject as subjectWithArgs } from '@casl/ability'
 import { type UserSession, type IsUnknown } from '@/lib/types'
@@ -6,6 +6,7 @@ import { loadSession } from '../session'
 import * as Sentry from '@sentry/nextjs'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import logger from '@/lib/logger'
 
 type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Args, Ctx, Res> = (args: Args, ctx: Ctx) => Promise<Res>
@@ -19,9 +20,8 @@ export type ActionContext = {
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
-
 export async function currentSession<T extends boolean>(
-    throwIfNotFound?: T
+    throwIfNotFound?: T,
 ): Promise<T extends true ? UserSession : UserSession | null> {
     const ctx = localStorageContext.getStore()
 
@@ -31,8 +31,6 @@ export async function currentSession<T extends boolean>(
 
     return ctx?.session as UserSession
 }
-
-
 
 const passthroughTranslate = <Args>(args: Args) => args
 
@@ -48,9 +46,8 @@ export class Action<Args = unknown, Ctx = object> {
 
     constructor(private actionName: string) {}
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params<S extends ZodType<any, any, any>>(schema: S) {
-
-
         this.schema = schema as ZodType<Args>
         // reset middleware when you change the schema
         this.middlewareFns = []
@@ -120,31 +117,47 @@ export class Action<Args = unknown, Ctx = object> {
             }
             // 2) run middleware chain
             const session = await loadSession()
+
             //            ctx = { ...ctx, session } as Ctx
             let ctx = { session } as Ctx & { session: UserSession }
             for (const mw of middlewareFns) {
                 const more = await mw(args, ctx)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ctx = { ...ctx, ...more as any[] }
+                ctx = { ...ctx, ...(more as any[]) }
             }
-
 
             // 3) check protection if defined
             if (this.protector) {
-                if (!session) throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
+                if (!session) {
+                    throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
+                }
                 const ability = defineAbilityFor(session)
                 const { action, subject, translate = passthroughTranslate } = this.protector
 
                 const abilitySubject = args ? subjectWithArgs(subject as string, translate(args, ctx)) : subject
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
                 if (!ability.can(action as any, abilitySubject as any)) {
-                    throw new ActionFailure({ user: `${session.user.id} cannot ${action} ${subject}` })
+                    // eslint-disable-line @typescript-eslint/no-explicit-any
+                    const rule = ability.relevantRuleFor(action as any, abilitySubject as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+                    const reason = rule
+                        ? `rule conditions (${rule.conditions}) did not match`
+                        : `no matching rule found`
+                    const msg =
+                        `${session.user.id} cannot ${action} ${subject}. reason: ${reason}\n` +
+                        `roles are: SIAdmin: ${session.user.isSiAdmin}, TeamAdmin: ${session.team.isAdmin}, Researcher: ${session.team.isResearcher}, isReviewer: ${session.team.isReviewer}`
+
+                    logger.error(msg)
+                    throw new ActionFailure({ user: msg })
                 }
+            }
+
+            if (session) {
+                Sentry.setUser({ id: session.user.id })
+                Sentry.setTag('team', session.team.slug)
             }
 
             // 4) run handler inside localStorage context
             const result = await new Promise<Res>((resolve, reject) => {
-
                 localStorageContext.run({ session: ctx.session }, () => {
                     try {
                         const result = handlerFn(args, ctx)
@@ -157,7 +170,6 @@ export class Action<Args = unknown, Ctx = object> {
             })
 
             return result
-
         }
 
         return action as IsUnknown<Args> extends true ? () => Promise<Res> : (args: Args) => Promise<Res>

@@ -2,31 +2,24 @@
 
 import { useEffect } from 'react'
 import { LoadingOverlay } from '@mantine/core'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { useAuthInfo } from '@/components/auth'
 import { useRouter } from 'next/navigation'
+import { useSession } from '@/hooks/session'
 
 export const UserNav = () => {
-    const auth = useAuthInfo()
+    const { isLoaded, session } = useSession()
     const router = useRouter()
 
     useEffect(() => {
-        if (!auth.isLoaded) return
+        if (!session) return
 
-        if (auth.isReviewer && auth.preferredOrgSlug) {
-            router.push(`/reviewer/${auth.preferredOrgSlug}/dashboard`) // Redirect to the Reviewer dashboard
-        } else if (auth.isResearcher) {
-            router.push('/researcher/dashboard') // Redirect to the Researcher dashboard
-        } else if (auth.isAdmin) {
-            if (auth.preferredOrgSlug === CLERK_ADMIN_ORG_SLUG) {
-                router.push(`/admin/safeinsights`)
-            } else {
-                router.push(`/admin/team/${auth.orgSlug}`) // Redirect to the Admin dashboard
-            }
+        if (session.team.isResearcher) {
+            router.push('/researcher/dashboard')
+        } else if (session.team.isReviewer) {
+            router.push(`/reviewer/${session.team.slug}/dashboard`)
         }
-    }, [auth, router])
+    }, [session, router])
 
-    if (!auth.isLoaded) {
+    if (!isLoaded) {
         return <LoadingOverlay />
     }
     return null

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
-import { ActionFailure, AccessDeniedError, extractActionFailure } from '@/lib/errors'
+import { ActionFailure } from '@/lib/errors'
 import { db } from '@/database'
 import { mockSessionWithTestData, insertTestOrg } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
@@ -11,7 +11,6 @@ import {
     insertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
-
 
 describe('Org Actions', () => {
     const newOrg = {
@@ -28,10 +27,8 @@ describe('Org Actions', () => {
         await insertOrgAction(newOrg)
     })
 
-
     describe('inserttOrgAction', () => {
         it('successfully inserts a new org', async () => {
-
             const org = await db.selectFrom('org').selectAll('org').where('slug', '=', newOrg.slug).executeTakeFirst()
             expect(org).toMatchObject(newOrg)
         })
@@ -109,7 +106,6 @@ describe('Org Actions', () => {
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
         })
 
-
         it('throws ActionFailure if target org for update is not found in DB', async () => {
             const nonExistentOrgSlug = 'non-existent-org-for-update-action-test'
             await mockSessionWithTestData({ orgSlug: 'any-org', isAdmin: true })
@@ -146,4 +142,3 @@ describe('Org Actions', () => {
         })
     })
 })
-

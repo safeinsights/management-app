@@ -5,26 +5,27 @@ import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { HouseIcon } from '@phosphor-icons/react/dist/ssr'
-import { useAuthInfo } from '@/components/auth'
+import { useSession } from '@/hooks/session'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 import { RefWrapper } from './nav-ref-wrapper'
-import { useAuth } from '@clerk/nextjs'
 
 export const NavbarItems: FC = () => {
-    const { isLoaded, isReviewer, isResearcher, isAdmin, preferredOrgSlug } = useAuthInfo()
-    const { orgRole } = useAuth()
+    const { isLoaded, session } = useSession()
     const pathname = usePathname()
 
-    const dashboardURL = () => {
-        if (isResearcher && !orgRole) return '/researcher/dashboard'
-        if (isReviewer && preferredOrgSlug) return `/reviewer/${preferredOrgSlug}/dashboard`
-        if (isAdmin) return `/admin/safeinsights`
-        return '/'
-    }
-
     if (!isLoaded) return null
+
+    let dashboardURL = '/'
+
+    if (session.team.isResearcher) {
+        dashboardURL = '/researcher/dashboard'
+    } else if (session.team.isReviewer) {
+        return `/reviewer/${session.team.slug}/dashboard`
+    } else if (session.team.isAdmin) {
+        dashboardURL = `/admin/team/${session.team.slug}`
+    }
 
     return (
         <Stack gap="sm">
@@ -33,8 +34,8 @@ export const NavbarItems: FC = () => {
                     label="Dashboard"
                     leftSection={<HouseIcon />}
                     component={Link}
-                    href={dashboardURL()}
-                    active={pathname === dashboardURL()}
+                    href={dashboardURL}
+                    active={pathname === dashboardURL}
                     c="white"
                     color="blue.7"
                     variant="filled"
@@ -43,7 +44,7 @@ export const NavbarItems: FC = () => {
                 />
             </RefWrapper>
 
-            {isAdmin && (
+            {session.team.isAdmin && (
                 <RefWrapper>
                     <OrgAdminDashboardLink pathname={pathname} />
                 </RefWrapper>

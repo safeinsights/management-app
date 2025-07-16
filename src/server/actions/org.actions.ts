@@ -9,8 +9,6 @@ import { revalidatePath } from 'next/cache'
 
 import { Action } from './action'
 
-
-
 export const updateOrgAction = new Action('updateOrgAction')
     .params(updateOrgSchema)
     .requireAbilityTo('update', 'Team')
@@ -39,7 +37,6 @@ export const fetchOrgsForSelectAction = new Action('fetchOrgsForSelectAction')
 export const fetchOrgsAction = new Action('fetchOrgsAction').requireAbilityTo('read', 'Team').handler(async () => {
     return await db.selectFrom('org').selectAll('org').execute()
 })
-
 
 export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgSlug: z.string() }))

@@ -1,79 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
 import { Action, ActionFailure } from './action'
-import { auth, currentUser, clerkClient } from '@clerk/nextjs/server'
-import { getOrgInfoForUserId } from '../db/queries'
-
-vi.mock('@/server/db/queries', () => ({
-    getOrgInfoForUserId: vi.fn(),
-}))
-
-vi.mock('@clerk/nextjs/server', () => ({
-    auth: vi.fn(),
-    currentUser: vi.fn(),
-    clerkClient: vi.fn(() => ({
-        users: {
-            getUser: vi.fn().mockResolvedValue({
-                id: 'user_123',
-                publicMetadata: {},
-            }),
-            updateUserMetadata: vi.fn(),
-        },
-    })),
-}))
+import { mockSessionWithTestData } from '@/tests/unit.helpers'
 
 describe('Action Builder', () => {
-    beforeEach(() => {
-        vi.mocked(auth).mockResolvedValue({
-            userId: 'user_123',
-            sessionClaims: {
-                jti: 'jwt_123',
-            },
-        } as any)
-        vi.mocked(currentUser).mockResolvedValue({
-            id: 'user_123',
-        } as any)
-        vi.mocked(getOrgInfoForUserId).mockResolvedValue([
-            {
-                id: 'org_123',
-                slug: 'test-org',
-                isAdmin: true,
-                isResearcher: true,
-                isReviewer: true,
-            },
-        ])
+    beforeEach(async () => {
+        await mockSessionWithTestData()
     })
+
     describe('action without schema', () => {
         it('creates an action that accepts no arguments', async () => {
             const mockHandler = vi.fn().mockResolvedValue('success')
 
             const action = new Action('test-action').handler(mockHandler)
 
-            const result = await action(undefined)
+            const result = await action()
 
             expect(result).toBe('success')
-            expect(mockHandler).toHaveBeenCalledWith(undefined, expect.any(Object))
-        })
-
-        it('handles null input correctly', async () => {
-            const mockHandler = vi.fn().mockResolvedValue('handled')
-
-            const action = new Action('null-test').handler(mockHandler)
-
-            const result = await action(null)
-
-            expect(result).toBe('handled')
-            expect(mockHandler).toHaveBeenCalledWith(null, expect.any(Object))
-        })
-
-        it('can be called without any arguments when no schema is defined', async () => {
-            const mockHandler = vi.fn().mockResolvedValue('no-args')
-
-            const action = new Action('no-args-test').handler(mockHandler)
-
-            const result = await action(undefined)
-
-            expect(result).toBe('no-args')
             expect(mockHandler).toHaveBeenCalledWith(undefined, expect.any(Object))
         })
     })
@@ -107,8 +50,8 @@ describe('Action Builder', () => {
             const action = new Action('invalid-test').params(schema).handler(mockHandler)
 
             const invalidInput = { name: 'John', age: 'thirty' }
-
-            await expect(action(invalidInput)).rejects.toThrow(ActionFailure)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await expect(action(invalidInput as any)).rejects.toThrow(ActionFailure)
             expect(mockHandler).not.toHaveBeenCalled()
         })
     })
@@ -124,7 +67,7 @@ describe('Action Builder', () => {
                 .middleware(middleware2)
                 .handler(mockHandler)
 
-            const result = await action(undefined)
+            const result = await action()
 
             expect(result).toBe('success')
             expect(middleware1).toHaveBeenCalledWith(undefined, expect.any(Object))
@@ -158,7 +101,7 @@ describe('Action Builder', () => {
 
             const action = new Action('order-test').middleware(middleware1).middleware(middleware2).handler(mockHandler)
 
-            await action(undefined)
+            await action()
 
             expect(executionOrder).toEqual(['middleware1', 'middleware2', 'handler'])
         })

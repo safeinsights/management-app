@@ -6,22 +6,22 @@ import Link from 'next/link'
 import { GearIcon, UsersThreeIcon, SlidersIcon } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { Protect } from '../auth'
-import { useOrgInfo } from '../org-info'
 import { AuthRole } from '@/lib/types'
+import { useSession } from '@/hooks/session'
 
 interface OrgAdminDashboardLinkProps {
     pathname: string
 }
 
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname }) => {
-    const { orgSlug } = useOrgInfo()
+    const { session } = useSession()
 
-    const orgAdminBaseUrl = `/admin/team/${orgSlug}`
+    const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
     // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
 
     useEffect(() => {
-        if (orgSlug) {
+        if (session) {
             if (pathname.startsWith(orgAdminBaseUrl)) {
                 setIsAdminMenuOpen(true)
             } else {
@@ -30,9 +30,9 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
         } else {
             setIsAdminMenuOpen(false)
         }
-    }, [pathname, orgAdminBaseUrl, orgSlug])
+    }, [pathname, orgAdminBaseUrl, session])
 
-    if (!orgSlug) {
+    if (!session || !session.team.isAdmin) {
         return null
     }
 

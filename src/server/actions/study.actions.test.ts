@@ -37,7 +37,7 @@ describe('Study Actions', () => {
             id: studyId,
         })
 
-        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherOrg.slug })
+        mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id })
         await expect(getStudyAction(studyId)).resolves.toBeUndefined()
     })
 
@@ -53,7 +53,7 @@ describe('Study Actions', () => {
             expect.arrayContaining([expect.objectContaining({ id: studyId })]),
         )
 
-        mockClerkSession({ clerkUserId: otherUser.clerkId, org_slug: otherOrg.slug })
+        mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id })
         await expect(fetchStudiesForCurrentResearcherAction()).resolves.toHaveLength(0)
     })
 })

@@ -23,7 +23,6 @@ export const onUserSignInAction = new Action('onUserSignInAction')
                 return { redirectToReviewerKey: true }
             }
         }
-
     })
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
@@ -31,7 +30,6 @@ export const onUserResetPWAction = new Action('onUserResetPWAction')
     .handler(async (_, { session }) => {
         onUserResetPW(session.user.id)
     })
-
 
 export const updateUserRoleAction = new Action('updateUserRoleAction')
     .params(
@@ -42,12 +40,9 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             isResearcher: z.boolean(),
             isReviewer: z.boolean(),
         }),
-
     )
     .requireAbilityTo('update', 'User')
     .handler(async ({ orgSlug, userId, ...update }) => {
-
-
         const { id, ...before } = await db
             .selectFrom('orgUser')
             .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])

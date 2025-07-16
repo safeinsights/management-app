@@ -21,7 +21,7 @@ const onCreateStudyActionArgsSchema = z.object({
 export const onCreateStudyAction = researcherAction(async ({ orgSlug, studyInfo, mainCodeFileName, codeFileNames }) => {
     const userId = await getUserIdFromActionContext()
 
-    const org = await getOrgFromSlugAction(orgSlug)
+    const org = await getOrgFromSlugAction({ orgSlug })
 
     const studyId = uuidv7()
 

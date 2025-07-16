@@ -307,10 +307,10 @@ export const insertTestOrgStudyJobUsers = async () => {
 type MockSession = {
     clerkUserId: string
     userId: string
-    org_slug: string
+    orgSlug: string
     imageUrl?: string
-    org_id?: string
-    roles: UserOrgRoles,
+    orgId?: string
+    roles?: Partial<UserOrgRoles>
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -321,7 +321,7 @@ export const mockClerkSession = (values: MockSession) => {
     const auth = clerkAuth as unknown as Mock
     const unsafeMetadata = {
         [`${ENVIRONMENT_ID}`]: {
-            currentTeamSlug: values.org_slug,
+            currentTeamSlug: values.orgSlug,
         },
     }
     const publicMetadata = {
@@ -330,13 +330,16 @@ export const mockClerkSession = (values: MockSession) => {
                 id: values.userId,
             },
             teams: {
-                [`${values.org_slug}`]: {
-                    id: values.org_id,
-                    slug: values.org_slug,
-                    ...values.roles,
-                }
-            }
-        }
+                [`${values.orgSlug}`]: {
+                    id: values.orgId,
+                    slug: values.orgSlug,
+                    isAdmin: false,
+                    isReviewer: true,
+                    isResearcher: true,
+                    ...(values.roles || {}),
+                },
+            },
+        },
     }
     const userProperties = {
         id: values.clerkUserId,
@@ -352,7 +355,7 @@ export const mockClerkSession = (values: MockSession) => {
         organizations: {
             getOrganization: vi.fn(async (orgSlug: string) => ({
                 slug: orgSlug,
-                id: values.org_id || faker.string.alpha(10),
+                id: values.orgId || faker.string.alpha(10),
                 name: 'Mocked Clerk Org Name by getOrganization',
             })),
             createOrganization: vi.fn(async (org: object) => org),
@@ -366,7 +369,7 @@ export const mockClerkSession = (values: MockSession) => {
                 id: clerkId,
                 firstName: 'Mocked',
                 lastName: 'User',
-                emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' })  }],
+                emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' }) }],
             })),
             createUser: vi.fn(async () => ({ id: '1234' })),
         },
@@ -377,7 +380,7 @@ export const mockClerkSession = (values: MockSession) => {
         user: userProperties,
     }
     ;(useParams as Mock).mockReturnValue({
-        orgSlug: values.org_slug,
+        orgSlug: values.orgSlug,
     })
     ;(useUser as Mock).mockReturnValue(useUserReturn)
     client.mockResolvedValue(clientMocks)
@@ -388,7 +391,7 @@ export const mockClerkSession = (values: MockSession) => {
         isLoaded: true,
     })
     auth.mockImplementation(() => ({
-        orgSlug: values.org_slug,
+        orgSlug: values.orgSlug,
         sessionClaims: {
             unsafeMetadata,
             userMetadata: publicMetadata,
@@ -416,20 +419,19 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const mocks = mockClerkSession({
         userId: user.id,
         clerkUserId: user.clerkId,
-        org_slug: org.slug,
-        org_id: org.id,
+        orgSlug: org.slug,
+        orgId: org.id,
         roles: {
             isResearcher: options.isResearcher ?? true,
             isReviewer: options.isReviewer ?? true,
             isAdmin: options.isAdmin ?? false,
-        }
+        },
     })
 
-    const session =  { user, team: { id: org.id, slug: org.slug } }
+    const session = { user, team: { id: org.id, slug: org.slug } }
 
-    return { session, ...mocks }
+    return { session, org, user, orgUser, ...mocks }
 }
-
 
 // export const mockClerkAuth = (session: UserSession) => {
 //     const auth = clerkAuth as unknown as Mock
