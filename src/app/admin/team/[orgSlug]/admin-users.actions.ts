@@ -2,28 +2,48 @@
 
 import { db } from '@/database'
 import { z, inviteUserSchema } from './invite-user.schema'
-import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
+import { sql } from 'kysely'
+import { ActionFailure, orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
 
 export const orgAdminInviteUserAction = orgAdminAction(
     async ({ invite }) => {
+        const { org } = await orgActionContext()
+        const email = invite.email.toLowerCase()
+
+        const existingOrgUser = await db
+            .selectFrom('user')
+            .innerJoin('orgUser', 'user.id', 'orgUser.userId')
+            .where('orgUser.orgId', '=', org.id)
+            .where(sql`lower("user"."email")`, '=', email)
+            .select('user.id')
+            .executeTakeFirst()
+
+        if (existingOrgUser) {
+            throw new ActionFailure({
+                email: 'This email address is already associated with a member of this organization.',
+            })
+        }
+
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id', 'email'])
-            .where('email', '=', invite.email)
+            .where(sql`lower("pendingUser"."email")`, '=', email)
+            .where('orgId', '=', org.id)
             .executeTakeFirst()
+
         if (existingPendingUser) {
-            await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
+            await sendInviteEmail({ emailTo: email, inviteId: existingPendingUser.id })
             return
         }
-        const { org } = await orgActionContext()
+
         const record = await db
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: invite.email,
+                email: email,
                 isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
                 isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',
             })

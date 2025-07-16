@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
-import { InputError, reportMutationError } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -40,7 +40,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
-        onError: reportMutationError('Failed to invite user'),
+        onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess() {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })

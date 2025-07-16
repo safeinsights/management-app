@@ -36,6 +36,13 @@ export const onCreateAccountAction = anonAction(
             .where('id', '=', invite.orgId)
             .executeTakeFirstOrThrow()
 
+        const existingUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
+        if (existingUsers.data.length > 0) {
+            throw new ActionFailure({
+                form: 'This email address is already associated with an existing account. Please log in to continue.',
+            })
+        }
+
         try {
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,

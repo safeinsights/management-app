@@ -156,7 +156,7 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
                 {form.errors.form && (
                     <Alert
                         color="red"
-                        title="Compromised Password"
+                        title="Account Creation Error"
                         withCloseButton
                         onClose={() => form.clearFieldError('form')}
                     >
