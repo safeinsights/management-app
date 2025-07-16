@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { auth as clerkAuth } from '@clerk/nextjs/server'
+import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { UnknownKeysParam, z, ZodObject, ZodString, ZodTypeAny, type Schema } from 'zod'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -203,9 +203,18 @@ export function orgAction<S extends OrgActionSchema, F extends WrappedFunc<S>>(f
         if (!arg.orgSlug) throw new AccessDeniedError({ orgSlug: 'must be an property, was not present' })
         const orgSlug = arg.orgSlug as string
         const ctx = await actionContext()
-        const { sessionClaims } = await clerkAuth()
+        const { userId } = await clerkAuth()
+
+        // check if user is an SI admin by checking all their org memberships
+        let isSiAdmin = false
+        if (userId) {
+            const clerk = await clerkClient()
+            const memberships = await clerk.users.getOrganizationMembershipList({ userId })
+            isSiAdmin = memberships.data.some((mem) => mem.organization.slug === CLERK_ADMIN_ORG_SLUG)
+        }
+
         // SI staff users are admin on everything
-        if (sessionClaims?.org_slug == CLERK_ADMIN_ORG_SLUG) {
+        if (isSiAdmin) {
             const org = await db
                 .selectFrom('org')
                 .select(['id', 'name', 'description'])
