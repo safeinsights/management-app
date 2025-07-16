@@ -136,9 +136,10 @@ export class Action<Args = unknown, Ctx = object> {
 
                 const abilitySubject = args ? subjectWithArgs(subject as string, translate(args, ctx)) : subject
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 if (!ability.can(action as any, abilitySubject as any)) {
-                    // eslint-disable-line @typescript-eslint/no-explicit-any
-                    const rule = ability.relevantRuleFor(action as any, abilitySubject as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const rule = ability.relevantRuleFor(action as any, abilitySubject as any)
                     const reason = rule
                         ? `rule conditions (${rule.conditions}) did not match`
                         : `no matching rule found`

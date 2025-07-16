@@ -12,7 +12,7 @@ type Abilities =
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
     | ['read' | 'create', 'StudyJob' | Record]
-    | ['create'| 'read', 'Study']
+    | ['create' | 'read', 'Study']
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>

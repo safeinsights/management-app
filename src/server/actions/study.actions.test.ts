@@ -41,7 +41,12 @@ describe('Study Actions', () => {
 
         const otherOrg = await insertTestOrg()
         const { user: otherUser } = await insertTestUser({ org: otherOrg })
-        mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id, orgId: otherOrg.id })
+        mockClerkSession({
+            clerkUserId: otherUser.clerkId,
+            orgSlug: otherOrg.slug,
+            userId: otherUser.id,
+            orgId: otherOrg.id,
+        })
 
         await expect(getStudyAction(studyId)).rejects.toThrow()
     })

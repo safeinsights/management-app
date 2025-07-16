@@ -82,11 +82,11 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
 export const getReviewerPublicKey = async (userId: string) => {
     const result = await db
         .selectFrom('userPublicKey')
-        .select(['userPublicKey.publicKey'])
+        .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
         .where('userPublicKey.userId', '=', userId)
         .executeTakeFirst()
 
-    return result?.publicKey
+    return result
 }
 
 export const getReviewerPublicKeyByUserId = async (userId: string) => {

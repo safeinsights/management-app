@@ -73,7 +73,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
 
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
     .requireAbilityTo('read', 'Study')
-    .handler(async (args, { session }) => {
+    .handler(async (_, { session }) => {
         const userId = session.user.id
 
         return await db
@@ -133,7 +133,7 @@ export const getStudyAction = new Action('getStudyAction')
         const study = await db.selectFrom('study').select(['id', 'orgId']).where('id', '=', studyId).executeTakeFirst()
         return { study }
     })
-    .requireAbilityTo('read', 'Study', (studyId, ctx) => ctx.study)
+    .requireAbilityTo('read', 'Study')
     .handler(async (studyId, { session, study: miniStudy }) => {
         if (!miniStudy) {
             return undefined
