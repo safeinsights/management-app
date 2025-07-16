@@ -6,23 +6,16 @@ export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer
 
 export type User = {
     id: string
-    email: string
 }
 
-export type Team = {
+export type Team = UserOrgRoles & {
     id: string
-    name: string
+    slug: string
 }
 
-export type UserTeam = UserOrgRoles & {
-    userId: string
-    teamId: string
-}
-
-export type Session = {
+export type UserSession = {
     user: User
     team: Team
-    roles: UserOrgRoles
 }
 
 export type TreeNode = {
@@ -106,3 +99,10 @@ export type JobFile = {
     path: string
     fileType: FileType
 }
+
+// use as: IsUnknown<Args> extends true
+export type IsUnknown<T> = unknown extends T
+    ? T extends unknown
+    ? true
+    : false
+    : false;

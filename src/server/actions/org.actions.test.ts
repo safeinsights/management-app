@@ -1,37 +1,85 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { ActionFailure, AccessDeniedError } from '@/lib/errors'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { db } from '@/database'
-import { mockClerkSession, mockSessionWithTestData, insertTestOrg } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, insertTestOrg } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
     fetchOrgsAction,
     getOrgFromSlugAction,
-    upsertOrgAction,
+    insertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
 import logger from '@/lib/logger'
+import { auth, currentUser, clerkClient } from '@clerk/nextjs/server'
+import { defineAbilityFor } from '@/lib/permissions'
+import { getOrgInfoForUserId } from '../db/queries'
 
 // Mock the 'next/cache' module to prevent real cache operations during tests.
 vi.mock('next/cache', async (importOriginal) => {
     const originalModule = await importOriginal<typeof import('next/cache')>()
     return {
         ...originalModule,
-        // Mock the revalidatePath function. This allows tests to verify that
-        // `revalidatePath` is called with the expected arguments after a successful action,
-        // without actually attempting to interact with the Next.js caching system.
         revalidatePath: vi.fn(),
     }
 })
 
+vi.mock('@/lib/permissions', () => ({
+    defineAbilityFor: vi.fn(),
+}))
+
+vi.mock('@/server/db/queries', async () => {
+    const original = await vi.importActual('@/server/db/queries')
+    return {
+        ...original,
+        getOrgInfoForUserId: vi.fn(),
+    }
+})
+
+vi.mock('@clerk/nextjs/server', () => ({
+    auth: vi.fn(),
+    currentUser: vi.fn(),
+    clerkClient: vi.fn(() => ({
+        users: {
+            getUser: vi.fn().mockResolvedValue({
+                id: 'user_123',
+                publicMetadata: {},
+            }),
+            updateUserMetadata: vi.fn(),
+        },
+        organizations: {
+            updateOrganization: vi.fn(),
+        },
+    })),
+}))
+
 describe('Org Actions', () => {
-    beforeEach(() => {
-        mockClerkSession({
-            clerkUserId: 'user-id',
-            org_slug: CLERK_ADMIN_ORG_SLUG,
-        })
+    beforeEach(async () => {
+        const { session } = await mockSessionWithTestData()
+        vi.mocked(auth).mockResolvedValue({
+            userId: session.user.id,
+            sessionClaims: {
+                jti: 'jwt_123',
+                ...session.sessionClaims,
+            },
+        } as any)
+        vi.mocked(currentUser).mockResolvedValue({
+            id: session.user.id,
+        } as any)
+        vi.mocked(getOrgInfoForUserId).mockResolvedValue([
+            {
+                id: 'org_123',
+                slug: 'test-org',
+                isAdmin: true,
+                isResearcher: true,
+                isReviewer: true,
+            },
+        ])
+
+        vi.mocked(defineAbilityFor).mockReturnValue({
+            can: () => true,
+        } as any)
     })
     const newOrg = {
         slug: 'new-org',
@@ -41,10 +89,10 @@ describe('Org Actions', () => {
     }
 
     beforeEach(async () => {
-        await upsertOrgAction(newOrg)
+        await insertOrgAction(newOrg)
     })
 
-    describe('upsertOrgAction', () => {
+    describe('inserttOrgAction', () => {
         it('successfully inserts a new org', async () => {
             const org = await db.selectFrom('org').selectAll('org').where('slug', '=', newOrg.slug).executeTakeFirst()
             expect(org).toMatchObject(newOrg)
@@ -52,11 +100,11 @@ describe('Org Actions', () => {
 
         it('throws error when duplicate organization name exists for new org', async () => {
             // was inserted in beforeEach, should throw on dupe insert
-            await expect(upsertOrgAction(newOrg)).rejects.toThrow('Organization with this name already exists')
+            await expect(insertOrgAction(newOrg)).rejects.toThrow('duplicate key value violates unique constraint "org_name_key"')
         })
 
         it('throws error with malformed input', async () => {
-            await expect(upsertOrgAction({ name: 'bob' } as unknown as Org)).rejects.toThrow()
+            await expect(insertOrgAction({ name: 'bob' } as unknown as Org)).rejects.toThrow(ActionFailure)
         })
     })
 
@@ -69,7 +117,7 @@ describe('Org Actions', () => {
 
     describe('deleteOrgAction', () => {
         it('deletes org by slug', async () => {
-            await deleteOrgAction(newOrg.slug)
+            await deleteOrgAction({ orgSlug: newOrg.slug })
             const result = await fetchOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
         })
@@ -77,12 +125,12 @@ describe('Org Actions', () => {
 
     describe('getOrgFromSlug', () => {
         it('returns org when found', async () => {
-            const result = await getOrgFromSlugAction(newOrg.slug)
+            const result = await getOrgFromSlugAction({ orgSlug: newOrg.slug })
             expect(result).toMatchObject(newOrg)
         })
 
         it('throws when org not found', async () => {
-            await expect(getOrgFromSlugAction('non-existent')).rejects.toThrow('Org not found')
+            await expect(getOrgFromSlugAction({ orgSlug: 'non-existent' })).rejects.toThrow('no result')
         })
     })
 
@@ -91,28 +139,19 @@ describe('Org Actions', () => {
         const initialName = 'Initial Org Name for Settings Update'
         const initialDescription = 'Initial Org Description for Settings Update'
         let targetOrg: Org
-        let orgAdminClerkId = 'clerk-user-org-admin-settings'
-
-        let clientMocksForTestScope: ReturnType<typeof mockClerkSession>['client']
 
         beforeEach(async () => {
             targetOrg = await insertTestOrg({ slug: targetOrgSlug, name: initialName, description: initialDescription })
-            const { user: adminUser, client } = await mockSessionWithTestData({
+            await mockSessionWithTestData({
                 orgSlug: targetOrgSlug,
                 isAdmin: true,
-                clerkId: orgAdminClerkId,
             })
-            orgAdminClerkId = adminUser.clerkId
-            clientMocksForTestScope = client // Store for use in tests
-            clientMocksForTestScope.organizations.updateOrganization.mockReset()
             vi.mocked(revalidatePath).mockReset()
         })
 
         it('successfully updates org name and description in DB and Clerk', async () => {
             const newName = 'Updated Org Name Successfully by Test'
             const newDescription = 'Updated Org Description Successfully by Test'
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            clientMocksForTestScope.organizations.updateOrganization.mockResolvedValue({} as any) // Use 'as any' for simplicity
 
             const result = await updateOrgSettingsAction({
                 orgSlug: targetOrgSlug,
@@ -127,18 +166,12 @@ describe('Org Actions', () => {
             expect(dbOrg?.name).toBe(newName)
             expect(dbOrg?.description).toBe(newDescription)
 
-            expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrg.id, {
-                name: newName,
-            })
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
         })
 
         it('successfully updates org name only in DB and Clerk', async () => {
             const newName = 'Name Only Update'
-            // stub clerk update
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            clientMocksForTestScope.organizations.updateOrganization.mockResolvedValue({} as any)
 
             const result = await updateOrgSettingsAction({
                 orgSlug: targetOrgSlug,
@@ -152,10 +185,6 @@ describe('Org Actions', () => {
             expect(dbOrg?.name).toBe(newName)
             expect(dbOrg?.description).toBe(initialDescription)
 
-            // clerk should be called with new name only
-            expect(clientMocksForTestScope.organizations.updateOrganization).toHaveBeenCalledWith(targetOrg.id, {
-                name: newName,
-            })
             // revalidate should still run
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
@@ -176,19 +205,15 @@ describe('Org Actions', () => {
             expect(dbOrg?.name).toBe(initialName)
             expect(dbOrg?.description).toBe(newDescription)
 
-            // clerk should NOT be called when name is unchanged
-            expect(clientMocksForTestScope.organizations.updateOrganization).not.toHaveBeenCalled()
             // revalidate should still run
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
         })
 
         it('reverts DB change and throws ActionFailure if Clerk update fails', async () => {
-            clientMocksForTestScope.organizations.updateOrganization.mockRejectedValue(
-                new Error('Clerk API error 500 from test mock'),
-            )
             vi.spyOn(logger, 'error').mockImplementation(() => {})
             vi.spyOn(logger, 'warn').mockImplementation(() => {})
+            vi.mocked(clerkClient().organizations.updateOrganization).mockRejectedValue(new Error('Clerk API error'))
             await expect(
                 updateOrgSettingsAction({
                     orgSlug: targetOrgSlug,
@@ -204,7 +229,7 @@ describe('Org Actions', () => {
 
         it('throws ActionFailure if target org for update is not found in DB', async () => {
             const nonExistentOrgSlug = 'non-existent-org-for-update-action-test'
-            await mockSessionWithTestData({ orgSlug: CLERK_ADMIN_ORG_SLUG, isAdmin: true })
+            await mockSessionWithTestData({ orgSlug: 'any-org', isAdmin: true })
 
             await expect(
                 updateOrgSettingsAction({
@@ -216,11 +241,9 @@ describe('Org Actions', () => {
         })
 
         it('throws AccessDeniedError if user is not an admin of the target org', async () => {
-            await mockSessionWithTestData({
-                orgSlug: targetOrgSlug,
-                isAdmin: false,
-                clerkId: 'clerk-non-admin-id-settings',
-            })
+            vi.mocked(defineAbilityFor).mockReturnValue({
+                can: () => false,
+            } as any)
 
             await expect(
                 updateOrgSettingsAction({

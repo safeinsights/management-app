@@ -13,7 +13,7 @@ import { StudiesTable } from './table'
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
 
-    const org = await getOrgFromSlugAction(orgSlug)
+    const org = await getOrgFromSlugAction({ orgSlug })
 
     if (!org) {
         return <AlertNotFound title="Org was not found" message="no such org exists" />

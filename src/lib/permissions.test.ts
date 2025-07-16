@@ -3,7 +3,7 @@ import { test, expect } from 'vitest'
 import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
 import { subject } from '@casl/ability'
-import { defineAbilityFor } from './ability'
+import { defineAbilityFor } from './permissions'
 import { StudyStatus } from '@/database/types'
 
 const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {

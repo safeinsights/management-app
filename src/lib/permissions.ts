@@ -1,9 +1,8 @@
 import { StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, type UserSession } from './types'
-import { AbilityBuilder, MongoAbility, createMongoAbility, type FieldMatcher } from '@casl/ability'
+import { AbilityBuilder, MongoAbility, createMongoAbility } from '@casl/ability'
 
-const fieldMatcher: FieldMatcher = (fields) => (field) => fields.includes(field)
-
+//
 type Record = { id: string }
 
 type Abilities =
@@ -11,7 +10,7 @@ type Abilities =
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
-    | ['read' | 'update', 'OwnTeam' | Record]
+    | ['read' | 'update', 'Team' | Record]
     | ['delete' | 'insert' | 'read', 'AnyTeam']
     | ['create', 'Study']
     | ['approve', 'Study' | { orgId: string; status: StudyStatus }]
@@ -23,18 +22,22 @@ export function defineAbilityFor(session: UserSession) {
     const isSiAdmin = isTeamAdmin && session.team.slug == CLERK_ADMIN_ORG_SLUG
     const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
+    // https://casl.js.org/v6/en/guide/conditions-in-depth
+    // rules use mongodb query conditions: https://casl.js.org/v6/en/guide/conditions-in-depth
+
     // action all users can perform
     permit('update', 'User', { id: session.user.id })
 
-    permit('read', 'OwnTeam', { id: session.team.id })
+    permit('read', 'Team', { orgSlug: session.team.slug })
+    permit('read', 'Team', { id: session.team.id })
 
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
     }
 
     if (isReviewer || isTeamAdmin) {
-        permit('read', 'ReviewerKey', { userId:  session.user.id })
-        permit('update', 'ReviewerKey', { userId:  session.user.id })
+        permit('read', 'ReviewerKey', { userId: session.user.id })
+        permit('update', 'ReviewerKey', { userId: session.user.id })
         permit('approve', 'Study', { status: { $in: ['INITIATED', 'PENDING-REVIEW'] } })
     }
 
@@ -43,7 +46,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'User')
 
         permit('read', 'User', { teamId: session.team.id })
-        permit('update', 'OwnTeam', { id: session.team.id })
+        permit('update', 'Team', { id: session.team.id })
     }
 
     if (isSiAdmin) {
@@ -52,5 +55,5 @@ export function defineAbilityFor(session: UserSession) {
         permit('delete', 'AnyTeam')
     }
 
-    return build({ fieldMatcher })
+    return build()
 }
