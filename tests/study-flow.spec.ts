@@ -79,7 +79,20 @@ test.describe('Studies', () => {
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
+        let approvalRequestCount = 0
+        const studyPageUrl = page.url()
+        await page.route(studyPageUrl, (route) => {
+            if (route.request().method() === 'POST') approvalRequestCount++
+            route.continue()
+        })
+
         await page.getByRole('button', { name: /approve/i }).click()
+        await page.waitForLoadState('networkidle')
+
+        expect(approvalRequestCount).toBe(1)
+
+        await page.unroute(studyPageUrl)
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
 
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
