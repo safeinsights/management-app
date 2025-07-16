@@ -48,15 +48,9 @@ export class Action<Args = unknown, Ctx = object> {
 
     constructor(private actionName: string) {}
 
-    params<
-        S extends ZodObject<
-            Record<string, z.ZodType>,
-            'strip',
-            z.ZodTypeAny,
-            Record<string, unknown>,
-            Record<string, unknown>
-        >,
-    >(schema: S) {
+    params<S extends ZodType<any, any, any>>(schema: S) {
+
+
         this.schema = schema as ZodType<Args>
         // reset middleware when you change the schema
         this.middlewareFns = []

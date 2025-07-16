@@ -12,8 +12,9 @@ type Abilities =
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update', 'Team' | Record]
     | ['delete' | 'insert' | 'read', 'AnyTeam']
+    | ['read' | 'create', 'StudyJob' | Record]
     | ['create', 'Study']
-    | ['approve', 'Study' | { orgId: string; status: StudyStatus }]
+    | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>
 
@@ -33,12 +34,15 @@ export function defineAbilityFor(session: UserSession) {
 
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
+        permit('create', 'StudyJob')
     }
 
     if (isReviewer || isTeamAdmin) {
         permit('read', 'ReviewerKey', { userId: session.user.id })
         permit('update', 'ReviewerKey', { userId: session.user.id })
         permit('approve', 'Study', { status: { $in: ['INITIATED', 'PENDING-REVIEW'] } })
+
+        permit('read', 'StudyJob')
     }
 
     if (isTeamAdmin) {

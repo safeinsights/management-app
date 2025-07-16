@@ -369,6 +369,14 @@ export const mockClerkSession = (values: MockSession) => {
             updateOrganization: vi.fn(),
         },
         users: {
+            updateUserMetadata: vi.fn(),
+
+            getUser: vi.fn(async (clerkId: string) => ({
+                id: clerkId,
+                firstName: 'Mocked',
+                lastName: 'User',
+                emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' })  }],
+            })),
             createUser: vi.fn(async () => ({ id: '1234' })),
         },
     }

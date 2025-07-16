@@ -32,7 +32,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             ),
         }),
     )
-    .requireAbilityTo('review', 'Study', ({ jobInfo }) => ({ studyId: jobInfo.studyId }))
+    .requireAbilityTo('approve', 'Study', ({ jobInfo }) => ({ studyId: jobInfo.studyId }))
     .handler(async ({ jobInfo: info, jobFiles }, { session }) => {
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
@@ -57,7 +57,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('review', 'Study', ({ studyId }) => ({ studyId }))
+    .requireAbilityTo('reject', 'Study', ({ studyId }) => ({ studyId }))
     .handler(async (info, { session }) => {
         await db
             .insertInto('jobStatusChange')
@@ -116,7 +116,7 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .requireAbilityTo('read', 'Study', (studyId) => ({ studyId }))
     .handler(async (studyId, { session }) => {
         const latestJob = await latestJobForStudy(studyId, {
-            orgSlug: session.org?.slug,
+            orgSlug: session.team.slug,
             userId: session.user.id,
         })
 
@@ -157,7 +157,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('read', 'Organization', ({ orgSlug }) => ({ orgSlug }))
+    .requireAbilityTo('read', 'Team')
     .handler(async ({ jobId }) => {
         const job = await loadStudyJobAction(jobId)
 
