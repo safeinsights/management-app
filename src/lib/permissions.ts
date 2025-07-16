@@ -8,7 +8,7 @@ type Abilities =
     | ['invite', 'User']
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
-    | ['read', 'Study' | { id: string; orgId: string }]
+    | ['read' | 'update' | 'delete', 'Study' | { id: string; orgId: string }]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
     | ['read' | 'create', 'StudyJob' | Record]
@@ -38,6 +38,8 @@ export function defineAbilityFor(session: UserSession) {
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
         permit('create', 'StudyJob')
+        permit('update', 'Study', { orgId: session.team.id })
+        permit('delete', 'Study', { orgId: session.team.id })
     }
 
     if (isReviewer || isTeamAdmin) {
