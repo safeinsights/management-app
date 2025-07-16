@@ -16,6 +16,7 @@ import {
     Text,
     Title,
     Tooltip,
+    TableScrollContainer,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 
@@ -105,19 +106,21 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
-                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={org.slug} />
-                        <TableThead fz="sm">
-                            <TableTr>
-                                <TableTh>Study Name</TableTh>
-                                <TableTh>Submitted On</TableTh>
-                                <TableTh>Submitted To</TableTh>
-                                <TableTh>Status</TableTh>
-                                <TableTh>Study Details</TableTh>
-                            </TableTr>
-                        </TableThead>
-                        <TableTbody>{rows}</TableTbody>
-                    </Table>
+                    <TableScrollContainer minWidth={768}>
+                        <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                            <NoStudiesCaption visible={!studies.length} slug={org.slug} />
+                            <TableThead fz="sm">
+                                <TableTr>
+                                    <TableTh>Study Name</TableTh>
+                                    <TableTh>Submitted On</TableTh>
+                                    <TableTh>Submitted To</TableTh>
+                                    <TableTh>Status</TableTh>
+                                    <TableTh>Study Details</TableTh>
+                                </TableTr>
+                            </TableThead>
+                            <TableTbody>{rows}</TableTbody>
+                        </Table>
+                    </TableScrollContainer>
                 </Stack>
             </Paper>
         </Stack>
