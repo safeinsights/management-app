@@ -8,10 +8,11 @@ type Abilities =
     | ['invite', 'User']
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
+    | ['read', 'Study' | { id: string; orgId: string }]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
     | ['read' | 'create', 'StudyJob' | Record]
-    | ['create', 'Study']
+    | ['create'| 'read', 'Study']
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>
@@ -29,6 +30,10 @@ export function defineAbilityFor(session: UserSession) {
 
     permit('read', 'Team', { orgSlug: session.team.slug })
     permit('read', 'Team', { id: session.team.id })
+
+    if (isResearcher || isReviewer || isTeamAdmin) {
+        permit('read', 'Study', { orgId: session.team.id })
+    }
 
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
