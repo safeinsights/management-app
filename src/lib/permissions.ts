@@ -10,8 +10,7 @@ type Abilities =
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
-    | ['read' | 'update', 'Team' | Record]
-    | ['delete' | 'insert' | 'read', 'AnyTeam']
+    | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
     | ['read' | 'create', 'StudyJob' | Record]
     | ['create', 'Study']
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
@@ -50,13 +49,14 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'User')
 
         permit('read', 'User', { teamId: session.team.id })
-        permit('update', 'Team', { id: session.team.id })
+        permit('update', 'Team', { orgSlug: session.team.slug })
     }
 
     if (isSiAdmin) {
-        permit('insert', 'AnyTeam')
-        permit('read', 'AnyTeam')
-        permit('delete', 'AnyTeam')
+        permit('create', 'Team')
+        permit('read', 'Team')
+        permit('update', 'Team')
+        permit('delete', 'Team')
     }
 
     return build()

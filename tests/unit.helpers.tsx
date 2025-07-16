@@ -1,27 +1,5 @@
 import { db } from '@/database'
 
-// Mock the '@clerk/nextjs/server' module to prevent real API calls to Clerk
-// and to control the behavior of Clerk functions during tests.
-// This mock is global for all unit tests importing this helper.
-vi.mock('@clerk/nextjs/server', async (importOriginal) => {
-    const originalModule = await importOriginal<typeof import('@clerk/nextjs/server')>()
-    return {
-        ...originalModule,
-        clerkClient: vi.fn().mockReturnValue({
-            organizations: {
-                getOrganization: vi.fn(),
-                createOrganization: vi.fn(),
-                createOrganizationMembership: vi.fn(),
-                updateOrganization: vi.fn(),
-            },
-            users: {
-                createUser: vi.fn(),
-            },
-        }),
-        auth: vi.fn().mockResolvedValue({ sessionClaims: {}, orgSlug: null, userId: null }),
-        currentUser: vi.fn(),
-    }
-})
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
@@ -38,10 +16,11 @@ import { ReactElement } from 'react'
 import { useClerk, useAuth, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { Mock, vi } from 'vitest'
+import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles, UserSession } from '@/lib/types'
 
 import userEvent from '@testing-library/user-event'
 export { userEvent }
@@ -327,34 +306,46 @@ export const insertTestOrgStudyJobUsers = async () => {
 
 type MockSession = {
     clerkUserId: string
+    userId: string
     org_slug: string
     imageUrl?: string
     org_id?: string
-    publicMetadata?: UserPublicMetadata
+    roles: UserOrgRoles,
 }
+
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
 export const mockClerkSession = (values: MockSession) => {
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
+    const unsafeMetadata = {
+        [`${ENVIRONMENT_ID}`]: {
+            currentTeamSlug: values.org_slug,
+        },
+    }
+    const publicMetadata = {
+        [`${ENVIRONMENT_ID}`]: {
+            user: {
+                id: values.userId,
+            },
+            teams: {
+                [`${values.org_slug}`]: {
+                    id: values.org_id,
+                    slug: values.org_slug,
+                    ...values.roles,
+                }
+            }
+        }
+    }
     const userProperties = {
         id: values.clerkUserId,
         banned: false,
         twoFactorEnabled: true,
         imageUrl: values.imageUrl,
         organizationMemberships: [],
-        publicMetadata: values.publicMetadata || {
-            userId: values.clerkUserId,
-            orgs: [
-                {
-                    slug: values.org_slug,
-                    isAdmin: false,
-                    isReviewer: false,
-                    isResearcher: false,
-                },
-            ],
-        },
+        unsafeMetadata,
+        publicMetadata,
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -398,7 +389,10 @@ export const mockClerkSession = (values: MockSession) => {
     })
     auth.mockImplementation(() => ({
         orgSlug: values.org_slug,
-        sessionClaims: { org_slug: values.org_slug },
+        sessionClaims: {
+            unsafeMetadata,
+            userMetadata: publicMetadata,
+        },
         userId: values.clerkUserId,
     }))
 
@@ -420,9 +414,28 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const { user, orgUser } = await insertTestUser({ org: { id: org.id, slug: options.orgSlug }, ...options })
 
     const mocks = mockClerkSession({
+        userId: user.id,
         clerkUserId: user.clerkId,
         org_slug: org.slug,
         org_id: org.id,
+        roles: {
+            isResearcher: options.isResearcher ?? true,
+            isReviewer: options.isReviewer ?? true,
+            isAdmin: options.isAdmin ?? false,
+        }
     })
-    return { org, user, orgUser, ...mocks }
+
+    const session =  { user, team: { id: org.id, slug: org.slug } }
+
+    return { session, ...mocks }
 }
+
+
+// export const mockClerkAuth = (session: UserSession) => {
+//     const auth = clerkAuth as unknown as Mock
+//     auth.mockImplementation(() => ({
+//         orgSlug: session.team.slug,
+//         sessionClaims: { org_slug: session.team.slug },
+//         userId: session.user.clerkId,
+//     }))
+// }

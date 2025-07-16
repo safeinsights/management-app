@@ -13,14 +13,14 @@ import { Action } from './action'
 
 export const updateOrgAction = new Action('updateOrgAction')
     .params(updateOrgSchema)
-    .requireAbilityTo('update', 'AnyTeam')
+    .requireAbilityTo('update', 'Team')
     .handler(async (org) => {
         return await db.updateTable('org').set(org).returningAll().executeTakeFirstOrThrow()
     })
 
 export const insertOrgAction = new Action('insertOrgAction')
     .params(orgSchema)
-    .requireAbilityTo('create', 'AnyTeam')
+    .requireAbilityTo('create', 'Team')
     .handler(async (org) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
     })
