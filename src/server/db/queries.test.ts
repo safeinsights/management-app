@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { insertTestOrg, insertTestStudyJobUsers, mockClerkSession } from '@/tests/unit.helpers'
+import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
 import {
-    checkUserAllowedJobView,
-    checkUserAllowedStudyReview,
-    checkUserAllowedStudyView,
     getFirstOrganizationForUser,
     getReviewerPublicKey,
     getUsersByRoleAndOrgId,
     jobInfoForJobId,
     studyInfoForStudyId,
 } from './queries'
-import { AccessDeniedError } from '@/lib/errors'
 
 async function insertRecords() {
     const org1 = await insertTestOrg({ slug: 'test-org-1' })
@@ -43,65 +39,6 @@ async function insertRecords() {
 }
 
 const invalidUUID = '00000000-0000-0000-0000-000000000000'
-
-describe('checkUserAllowedJobView', () => {
-    it('allows the user when they are a org of the study owning the job', async () => {
-        const { job1, org1User1, org1 } = await insertRecords()
-        mockClerkSession({ userId: org1User1.id, clerkUserId: org1User1.clerkId, orgSlug: org1.slug, roles: {} })
-        await expect(checkUserAllowedJobView(job1.id)).resolves.toBe(true)
-    })
-
-    it('throws AccessDeniedError when jobId is not provided', async () => {
-        await expect(checkUserAllowedJobView(undefined)).rejects.toThrow(AccessDeniedError)
-    })
-
-    it('throws AccessDeniedError when the user is not a org of the study owning the job', async () => {
-        const { org2User1, job1, org2 } = await insertRecords()
-        mockClerkSession({ clerkUserId: org2User1.clerkId, orgSlug: org2.slug, userId: org2User1.id })
-        await expect(checkUserAllowedJobView(job1.id)).rejects.toThrow(AccessDeniedError)
-    })
-})
-
-describe('checkUserAllowedStudyView', () => {
-    it('allows the user when they are a org of the study', async () => {
-        const { study1, org1, org1User1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: org1User1.clerkId, orgSlug: org1.slug, userId: org1User1.id })
-        await expect(checkUserAllowedStudyView(study1.id)).resolves.toBe(true)
-    })
-
-    it('throws AccessDeniedError when studyId is not provided', async () => {
-        await expect(checkUserAllowedStudyView(undefined)).rejects.toThrow(AccessDeniedError)
-    })
-
-    it('throws AccessDeniedError when the user is not a org of the study', async () => {
-        const { org2User1, study1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: org2User1.clerkId, orgSlug: 'test-1', userId: org2User1.id })
-        await expect(checkUserAllowedStudyView(study1.id)).rejects.toThrow(AccessDeniedError)
-    })
-})
-
-describe('checkOrgAllowedStudyReview', () => {
-    it('allows the user when they are a reviewer for the study', async () => {
-        const { study1, org1, org1User1 } = await insertRecords()
-        mockClerkSession({ clerkUserId: org1User1.clerkId, orgSlug: org1.slug, userId: org1User1.id })
-        await expect(checkUserAllowedStudyReview(study1.id)).resolves.toBe(true)
-    })
-
-    it('throws AccessDeniedError when studyId is not provided', async () => {
-        await expect(checkUserAllowedStudyReview(undefined)).rejects.toThrow(AccessDeniedError)
-    })
-
-    it('throws AccessDeniedError when the user is not a reviewer for the study', async () => {
-        const { study1, org1, org1User2 } = await insertRecords()
-        mockClerkSession({
-            clerkUserId: org1User2.clerkId,
-            orgSlug: org1.slug,
-            userId: org1User2.id,
-            roles: { isReviewer: false },
-        })
-        await expect(checkUserAllowedStudyReview(study1.id)).rejects.toThrow(AccessDeniedError)
-    })
-})
 
 describe('getReviewerPublicKey', () => {
     it('returns public key when userId is valid', async () => {

@@ -3,6 +3,11 @@ import { CLERK_ADMIN_ORG_SLUG, UserSession } from './types'
 // this contains the logic to create a UserSession from Clerk metadata
 // it's in lib so it can be used in both server and client contexts
 
+import { defineAbilityFor, type AppAbility } from './permissions'
+
+export { subject, type AppAbility } from './permissions'
+export type UserSessionWithAbility = UserSession & Pick<AppAbility, 'can' | 'cannot' | 'relevantRuleFor'>
+
 export const sessionFromMetadata = ({
     env,
     metadata,
@@ -13,7 +18,7 @@ export const sessionFromMetadata = ({
     metadata: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
     prefs: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
     clerkUserId: string
-}): UserSession => {
+}): UserSessionWithAbility => {
     const info: UserInfo = metadata[env] || null
 
     if (!info) {
@@ -28,7 +33,7 @@ export const sessionFromMetadata = ({
 
     const isSiAdmin = Boolean(info.teams[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 
-    return {
+    const session: UserSession = {
         user: {
             ...info.user,
             clerkUserId,
@@ -38,5 +43,14 @@ export const sessionFromMetadata = ({
             ...team,
             isAdmin: team.isAdmin || isSiAdmin,
         },
+    }
+    const ability = defineAbilityFor(session)
+
+    return {
+        ...session,
+        ...ability,
+        can: ability.can,
+        cannot: ability.cannot,
+        relevantRuleFor: ability.relevantRuleFor,
     }
 }

@@ -1,8 +1,8 @@
 import { ZodType, ZodError, z } from 'zod'
-import { defineAbilityFor, type AppAbility } from '@/lib/permissions'
-import { subject as subjectWithArgs } from '@casl/ability'
+import { type AppAbility, subject as subjectWithArgs } from '@/lib/permissions'
+
 import { type UserSession, type IsUnknown } from '@/lib/types'
-import { loadSession } from '../session'
+import { loadSession, type UserSessionWithAbility } from '../session'
 import * as Sentry from '@sentry/nextjs'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -15,7 +15,7 @@ type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Ctx & { session: UserSe
 export { ActionFailure, z }
 
 export type ActionContext = {
-    session: UserSession
+    session: UserSessionWithAbility
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
@@ -119,7 +119,7 @@ export class Action<Args = unknown, Ctx = object> {
             const session = await loadSession()
 
             //            ctx = { ...ctx, session } as Ctx
-            let ctx = { session } as Ctx & { session: UserSession }
+            let ctx = { session } as Ctx & { session: UserSessionWithAbility }
             for (const mw of middlewareFns) {
                 const more = await mw(args, ctx)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,15 +131,14 @@ export class Action<Args = unknown, Ctx = object> {
                 if (!session) {
                     throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
                 }
-                const ability = defineAbilityFor(session)
                 const { action, subject, translate = passthroughTranslate } = this.protector
 
                 const abilitySubject = args ? subjectWithArgs(subject as string, translate(args, ctx)) : subject
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (!ability.can(action as any, abilitySubject as any)) {
+                if (!session.can(action as any, abilitySubject as any)) {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const rule = ability.relevantRuleFor(action as any, abilitySubject as any)
+                    const rule = session.relevantRuleFor(action as any, abilitySubject as any)
                     const reason = rule
                         ? `rule conditions (${rule.conditions}) did not match`
                         : `no matching rule found`

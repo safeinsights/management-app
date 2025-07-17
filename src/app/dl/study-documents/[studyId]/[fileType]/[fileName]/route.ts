@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { checkUserAllowedStudyView, studyInfoForStudyId } from '@/server/db/queries'
+import { studyInfoForStudyId } from '@/server/db/queries'
 import { urlForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
+import { loadSession, subject } from '@/server/session'
 
 export const GET = async (
     _: Request,
@@ -9,10 +10,15 @@ export const GET = async (
 ) => {
     const { studyId, fileType, fileName } = await params
 
-    const canUserAccessStudy = await checkUserAllowedStudyView(studyId)
+    const study = await studyInfoForStudyId(studyId)
 
-    if (!canUserAccessStudy) {
-        return NextResponse.json({ error: 'Not authorized to access file' }, { status: 403 })
+    const session = await loadSession()
+    if (study && !session?.can('read', subject('Study', { study }))) {
+        return NextResponse.json({ error: 'permission denied' }, { status: 401 })
+    }
+
+    if (!study) {
+        return NextResponse.json({ error: 'Study not found' }, { status: 400 })
     }
 
     if (!studyId || !fileType || !fileName) {
@@ -21,12 +27,6 @@ export const GET = async (
 
     if (!(fileType in StudyDocumentType)) {
         return NextResponse.json({ error: 'invalid filetype for study documents' }, { status: 400 })
-    }
-
-    // Verify study exists and belongs to the organization
-    const study = await studyInfoForStudyId(studyId)
-    if (!study) {
-        return NextResponse.json({ error: 'Study not found' }, { status: 400 })
     }
 
     const url = await urlForStudyDocumentFile(study, fileType as StudyDocumentType, fileName)

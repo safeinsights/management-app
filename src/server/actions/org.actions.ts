@@ -2,11 +2,9 @@
 
 import { db } from '@/database'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
-import { z, ActionFailure } from './wrappers'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { revalidatePath } from 'next/cache'
-
-import { Action } from './action'
+import { z, ActionFailure, Action } from './action'
 
 export const updateOrgAction = new Action('updateOrgAction')
     .params(updateOrgSchema)

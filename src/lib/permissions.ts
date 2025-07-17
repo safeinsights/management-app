@@ -1,18 +1,22 @@
 import { StudyStatus } from '@/database/types'
 import { type UserSession } from './types'
-import { AbilityBuilder, MongoAbility, createMongoAbility } from '@casl/ability'
+import { AbilityBuilder, MongoAbility, createMongoAbility, subject } from '@casl/ability'
+
+export { subject }
 
 type Record = { id: string }
+type RecordWithOrgId = { orgId: string }
+type Study = { study: { orgId: string } }
 
 type Abilities =
     | ['invite', 'User']
     | ['claim', 'PendingUser']
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
-    | ['read' | 'update' | 'delete', 'Study' | { id: string; orgId: string }]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
-    | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
-    | ['read' | 'create', 'StudyJob' | Record]
+    | ['read' | 'update' | 'create' | 'delete', 'Team' | RecordWithOrgId]
+    | ['view' | 'update' | 'delete' | 'review', 'Study' | Study]
+    | ['read' | 'create', 'StudyJob' | Study]
     | ['read' | 'create' | 'read', 'Study']
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
@@ -49,13 +53,15 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'ReviewerKey', { userId: session.user.id })
         permit('approve', 'Study')
         permit('reject', 'Study')
-        permit('read', 'Study', { 'study.orgId': session.team.id })
-        permit('read', 'StudyJob')
+        permit('review', 'Study', { 'study.orgId': session.team.id })
+        permit('view', 'Study', { 'study.orgId': session.team.id })
+        permit('read', 'StudyJob', { 'study.orgId': session.team.id })
     }
 
     if (isTeamAdmin) {
-        permit('invite', 'User')
+        permit('invite', 'User', { orgSlug: session.team.slug })
         permit('update', 'User')
+        permit('read', 'User', { orgId: session.team.id })
 
         permit('read', 'User', { teamId: session.team.id })
         permit('update', 'Team', { orgSlug: session.team.slug })

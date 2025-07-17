@@ -1,63 +1,63 @@
 import { db, type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionReturnType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import { AccessDeniedError, throwAccessDenied, throwNotFound } from '@/lib/errors'
+import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
-import { getUserIdFromActionContext } from '../actions/wrappers'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
+//import { currentSession } from '../actions/action'
 
-export const checkUserAllowedJobView = async (jobId?: string) => {
-    if (!jobId) throw new AccessDeniedError({ user: `not allowed access to job ${jobId}` })
-    const userId = await getUserIdFromActionContext()
+// export const checkUserAllowedJobView = async (jobId?: string) => {
+//     if (!jobId) throw new AccessDeniedError({ user: `not allowed access to job ${jobId}` })
+//     const session = await currentSession()
 
-    await db
-        .selectFrom('studyJob')
-        .select('studyJob.id')
-        .innerJoin('study', 'study.id', 'studyJob.studyId')
-        // security, check that user is an org of the org that owns the study
-        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
-        .where('orgUser.userId', '=', userId)
-        .where('studyJob.id', '=', jobId)
-        .executeTakeFirstOrThrow(throwAccessDenied('job'))
+//     await db
+//         .selectFrom('studyJob')
+//         .select('studyJob.id')
+//         .innerJoin('study', 'study.id', 'studyJob.studyId')
+//         // security, check that user is an org of the org that owns the study
+//         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+//         .where('orgUser.userId', '=', session.user.id)
+//         .where('studyJob.id', '=', jobId)
+//         .executeTakeFirstOrThrow(throwAccessDenied('job'))
 
-    return true
-}
+//     return true
+// }
 
-export const checkUserAllowedStudyView = async (studyId?: string) => {
-    if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
-    const userId = await getUserIdFromActionContext()
+// export const checkUserAllowedStudyView = async (studyId?: string) => {
+//     if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
+//     const userId = await getUserIdFromActionContext()
 
-    await db
-        .selectFrom('study')
-        .select('study.id')
-        // security, check that user is an org of the org that owns the study
-        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
-        .where('orgUser.userId', '=', userId)
-        .where('study.id', '=', studyId)
-        .executeTakeFirstOrThrow(throwAccessDenied('study'))
+//     await db
+//         .selectFrom('study')
+//         .select('study.id')
+//         // security, check that user is an org of the org that owns the study
+//         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+//         .where('orgUser.userId', '=', userId)
+//         .where('study.id', '=', studyId)
+//         .executeTakeFirstOrThrow(throwAccessDenied('study'))
 
-    return true
-}
+//     return true
+// }
 
-export const checkUserAllowedStudyReview = async (studyId?: string) => {
-    if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
-    const userId = await getUserIdFromActionContext()
+// export const checkUserAllowedStudyReview = async (studyId?: string) => {
+//     if (!studyId) throw new AccessDeniedError({ user: `not allowed access to study ${studyId}` })
+//     const userId = await getUserIdFromActionContext()
 
-    await db
-        .selectFrom('study')
-        .select('study.id')
-        // security, check that user is an org of the org that owns the study
-        // and has the 'isReviewer' flag set
-        .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
-        .where('orgUser.userId', '=', userId)
-        .where('orgUser.isReviewer', '=', true)
-        .where('study.id', '=', studyId)
-        .executeTakeFirstOrThrow(throwAccessDenied('review study'))
+//     await db
+//         .selectFrom('study')
+//         .select('study.id')
+//         // security, check that user is an org of the org that owns the study
+//         // and has the 'isReviewer' flag set
+//         .innerJoin('orgUser', 'orgUser.orgId', 'study.orgId')
+//         .where('orgUser.userId', '=', userId)
+//         .where('orgUser.isReviewer', '=', true)
+//         .where('study.id', '=', studyId)
+//         .executeTakeFirstOrThrow(throwAccessDenied('review study'))
 
-    return true
-}
+//     return true
+// }
 
 export type SiUser = ClerkUser & {
     id: string
@@ -150,7 +150,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
     return await db
         .selectFrom('study')
         .innerJoin('org', 'study.orgId', 'org.id')
-        .select(['study.id as studyId', 'org.slug as orgSlug'])
+        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
@@ -230,6 +230,15 @@ export const getOrgInfoForUserId = async (userId: string) => {
         .select(['org.id', 'org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
         .where('userId', '=', userId)
         .execute()
+}
+
+export const getStudyOrgIdForJobId = async (jobId: string) => {
+    return await db
+        .selectFrom('study')
+        .innerJoin('studyJob', 'studyJob.studyId', 'study.id')
+        .where('studyJob.id', '=', jobId)
+        .select(['study.orgId'])
+        .executeTakeFirstOrThrow()
 }
 
 type JobDetails = { id: string; name: string; path: string }

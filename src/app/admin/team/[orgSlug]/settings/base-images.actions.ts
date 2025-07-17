@@ -3,8 +3,8 @@
 import { db } from '@/database'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { orgAdminAction } from '@/server/actions/wrappers'
 import { throwNotFound } from '@/lib/errors'
+import { Action } from '@/server/actions/action'
 
 import { orgBaseImageSchema } from './base-images.schema'
 
@@ -12,57 +12,60 @@ const actionSchema = orgBaseImageSchema.extend({
     orgSlug: z.string(),
 })
 
-export const createOrgBaseImageAction = orgAdminAction(async (input) => {
-    const newBaseImage = await db
-        .insertInto('orgBaseImage')
-        .columns(['orgId', 'name', 'cmdLine', 'language', 'url', 'isTesting'])
-        .expression((eb) =>
-            eb
-                .selectFrom('org')
-                .select([
-                    'id',
-                    eb.val(input.name).as('name'),
-                    eb.val(input.cmdLine).as('cmdLine'),
-                    eb.val(input.language).as('lang'),
-                    eb.val(input.url).as('url'),
-                    eb.val(input.isTesting).as('isTesting'),
-                ])
-                .where('slug', '=', input.orgSlug),
-        )
-        .returningAll()
-        .executeTakeFirstOrThrow(throwNotFound(`Failed to create new image`))
+export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
+    .params(actionSchema)
+    .requireAbilityTo('create', 'Team')
+    .handler(async (input, { session }) => {
+        const newBaseImage = await db
+            .insertInto('orgBaseImage')
+            .values({
+                orgId: session.team.id,
+                name: input.name,
+                cmdLine: input.cmdLine,
+                language: input.language,
+                url: input.url,
+                isTesting: input.isTesting,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow(throwNotFound(`Failed to create new image`))
 
-    // Revalidate the page to show the new image immediately
-    revalidatePath(`/admin/team/${input.orgSlug}/settings`)
+        // Revalidate the page to show the new image immediately
+        revalidatePath(`/admin/team/${input.orgSlug}/settings`)
 
-    return newBaseImage
-}, actionSchema)
+        return newBaseImage
+    })
 
 const deleteOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
     imageId: z.string(),
 })
 
-export const deleteOrgBaseImageAction = orgAdminAction(async ({ imageId, orgSlug }) => {
-    await db
-        .deleteFrom('orgBaseImage')
-        .using('org')
-        .whereRef('org.id', '=', 'orgBaseImage.orgId')
-        .where('org.slug', '=', orgSlug)
-        .where('orgBaseImage.id', '=', imageId)
-        .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${imageId}`))
+export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
+    .params(deleteOrgBaseImageSchema)
+    .requireAbilityTo('delete', 'Team')
+    .handler(async ({ imageId, orgSlug }) => {
+        await db
+            .deleteFrom('orgBaseImage')
+            .using('org')
+            .whereRef('org.id', '=', 'orgBaseImage.orgId')
+            .where('org.slug', '=', orgSlug)
+            .where('orgBaseImage.id', '=', imageId)
+            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${imageId}`))
 
-    revalidatePath(`/admin/team/${orgSlug}/settings`)
-}, deleteOrgBaseImageSchema)
+        revalidatePath(`/admin/team/${orgSlug}/settings`)
+    })
 
 const fetchOrgBaseImagesSchema = z.object({
     orgSlug: z.string(),
 })
-export const fetchOrgBaseImagesAction = orgAdminAction(async ({ orgSlug }) => {
-    return await db
-        .selectFrom('orgBaseImage')
-        .selectAll('orgBaseImage')
-        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .where('org.slug', '=', orgSlug)
-        .execute()
-}, fetchOrgBaseImagesSchema)
+export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
+    .params(fetchOrgBaseImagesSchema)
+    .requireAbilityTo('read', 'Team')
+    .handler(async ({ orgSlug }) => {
+        return await db
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
+            .where('org.slug', '=', orgSlug)
+            .execute()
+    })
