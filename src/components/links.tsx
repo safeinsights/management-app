@@ -10,11 +10,10 @@ export type LinkProps = AnchorProps & {
     href: string
     target?: string
     children: ReactNode
-    download?: string
 }
 
-export const Link: FC<LinkProps> = ({ href, target, children, download, ...anchorProps }) => (
-    <NextLink href={href} target={target} passHref download={download}>
+export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
+    <NextLink href={href} target={target} passHref>
         <MantineAnchor component="span" {...anchorProps}>
             {children}
         </MantineAnchor>
@@ -51,7 +50,7 @@ export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, 
     }, [content])
 
     return (
-        <Link
+        <MantineAnchor
             href={href}
             target={target}
             data-testid="download-link"
@@ -59,7 +58,7 @@ export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, 
             style={{ display: 'flex', alignItems: 'center' }}
         >
             Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
-        </Link>
+        </MantineAnchor>
     )
 }
 
@@ -76,7 +75,7 @@ export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     }
 
     return (
-        <MantineAnchor onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
+        <MantineAnchor role="button" onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
             View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
         </MantineAnchor>
     )

@@ -29,9 +29,6 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
             else if (f.fileType === 'APPROVED-LOG') logs.push(f)
         })
 
-        res.sort((a, b) => a.path.localeCompare(b.path))
-        logs.sort((a, b) => a.path.localeCompare(b.path))
-
         return { resultsFiles: res, logFiles: logs }
     }, [approvedFiles])
 
