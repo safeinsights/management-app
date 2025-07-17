@@ -21,6 +21,7 @@ export function SignIn() {
     const setPending = async (pending: MFAState) => {
         if (pending === false) {
             try {
+                debugger
                 await onUserSignInAction()
                 setState(pending)
             } catch (error) {

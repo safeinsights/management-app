@@ -16,7 +16,7 @@ export const onUpdateStudyAction = new Action('onUpdateStudyAction')
         const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirst()
         return { orgId: study?.orgId }
     })
-    .requireAbilityTo('update', 'Study', ({ studyId }, { orgId }) => ({ id: studyId, orgId: orgId as string }))
+    .requireAbilityTo('update', 'Study', async ({ studyId }, { orgId }) => ({ id: studyId, orgId: orgId as string }))
     .handler(async ({ studyId, study }, { session }) => {
         const userId = session.user.id
 

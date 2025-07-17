@@ -2,7 +2,7 @@ import { ZodType, ZodError, z } from 'zod'
 import { type AppAbility, subject as subjectWithArgs } from '@/lib/permissions'
 
 import { type UserSession, type IsUnknown } from '@/lib/types'
-import { loadSession, type UserSessionWithAbility } from '../session'
+import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 import * as Sentry from '@sentry/nextjs'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -11,7 +11,7 @@ import { omit } from 'remeda'
 
 type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Args, Ctx, Res> = (args: Args, ctx: Ctx) => Promise<Res>
-type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Omit<Ctx, 'session'>) => Record<string, unknown>
+type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Omit<Ctx, 'session'>) => Promise<Record<string, unknown>>
 
 export { ActionFailure, z }
 
@@ -33,7 +33,7 @@ export async function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
-const passthroughTranslate = <Args, Ctx>(args: Args, ctx: Omit<Ctx, 'session'>) => ({ ...args, ...ctx })
+const passthroughTranslate = async <Args, Ctx>(args: Args, ctx: Omit<Ctx, 'session'>) => ({ ...args, ...ctx })
 
 export class Action<
     Args = unknown,
@@ -120,7 +120,7 @@ export class Action<
                 args = raw as Args
             }
             // 2) run middleware chain
-            const session = await loadSession()
+            const session = await sessionFromClerk()
 
             //            ctx = { ...ctx, session } as Ctx
             let ctx = { session } as Ctx
@@ -137,7 +137,7 @@ export class Action<
                 }
                 const { action, subject, translate = passthroughTranslate } = this.protector
                 const translateArgs = omit(ctx, ['session'])
-                const abilityArgs = args ? translate(args, translateArgs) : {}
+                const abilityArgs = args ? await translate(args, translateArgs) : {}
                 const abilitySubject = args ? subjectWithArgs(subject as string, abilityArgs) : subject
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any

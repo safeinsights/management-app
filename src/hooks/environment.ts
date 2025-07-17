@@ -1,11 +1,11 @@
 'use client'
 
 export const useEnvironmentId = () => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') {
         return ''
     }
 
-    const parts = location.host.split('.')
+    const parts = window.location.host.split('.')
     if (parts.length == 3) {
         return 'production'
     }

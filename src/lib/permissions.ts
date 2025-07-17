@@ -1,4 +1,4 @@
-import { StudyStatus } from '@/database/types'
+import { type StudyStatus } from '@/database/types'
 import { type UserSession } from './types'
 import { AbilityBuilder, MongoAbility, createMongoAbility, subject } from '@casl/ability'
 
@@ -63,7 +63,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'User', { orgId: session.team.id })
         permit('read', 'User', { orgId: session.team.id })
 
-        permit('read', 'User', { teamId: session.team.id })
+        permit('read', 'User', { orgSlug: session.team.slug })
         permit('read', 'Team', { orgSlug: session.team.slug })
         permit('update', 'Team', { orgSlug: session.team.slug })
     }

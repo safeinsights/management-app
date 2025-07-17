@@ -32,7 +32,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             ),
         }),
     )
-    .requireAbilityTo('approve', 'Study', ({ jobInfo }) => ({ studyId: jobInfo.studyId }))
+    .requireAbilityTo('approve', 'Study', async ({ jobInfo }) => ({ studyId: jobInfo.studyId }))
     .handler(async ({ jobInfo: info, jobFiles }, { session }) => {
         for (const jobFile of jobFiles) {
             const file = new File([jobFile.contents], jobFile.path)
@@ -57,7 +57,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('reject', 'Study', ({ studyId }) => ({ studyId }))
+    .requireAbilityTo('reject', 'Study', async ({ studyId }) => ({ studyId }))
     .handler(async (info, { session }) => {
         await db
             .insertInto('jobStatusChange')
@@ -123,7 +123,7 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
 
 export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .params(z.string())
-    .requireAbilityTo('read', 'Study', (studyId) => ({ studyId }))
+    .requireAbilityTo('read', 'Study', async (studyId) => ({ studyId }))
     .handler(async (studyId, { session }) => {
         const latestJob = await latestJobForStudy(studyId, {
             orgSlug: session.team.slug,
@@ -139,7 +139,7 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.string())
-    .requireAbilityTo('read', 'StudyJob', (jobId) => ({ jobId }))
+    .requireAbilityTo('read', 'StudyJob', async (jobId) => ({ jobId }))
     .handler(async (jobId) => {
         const job = await loadStudyJobAction(jobId)
         const approvedJobFiles = job.files.filter(
@@ -159,6 +159,8 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
 
         return jobFiles
     })
+
+//const s = fetchApprovedJobFilesAction('2')
 
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(

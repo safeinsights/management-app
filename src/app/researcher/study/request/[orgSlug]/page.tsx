@@ -5,12 +5,12 @@ import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
-import { loadSession } from '@/server/session'
+import { sessionFromClerk } from '@/server/clerk'
 
 export default async function OrgHomePage(props: { params: Promise<{ orgSlug: string }> }) {
     const params = await props.params
 
-    const session = await loadSession()
+    const session = await sessionFromClerk()
 
     if (session?.team.slug !== params.orgSlug) {
         return (

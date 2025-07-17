@@ -4,51 +4,60 @@ import { FC } from 'react'
 import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HouseIcon } from '@phosphor-icons/react/dist/ssr'
+import { HouseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
 import { useSession } from '@/hooks/session'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { OrgSwitcher } from '../org/org-switcher'
 import { RefWrapper } from './nav-ref-wrapper'
 
+const DashboardLink: FC<{ isVisible: boolean; url: string; label: string; icon: React.ReactNode }> = ({
+    isVisible,
+    url,
+    label,
+    icon,
+}) => {
+    const pathname = usePathname()
+
+    if (!isVisible) return null
+
+    return (
+        <RefWrapper>
+            <NavLink
+                label={label}
+                leftSection={icon}
+                component={Link}
+                href={url}
+                active={pathname === url}
+                c="white"
+                color="blue.7"
+                variant="filled"
+                className={styles.navLinkHover}
+            />
+        </RefWrapper>
+    )
+}
+
 export const NavbarItems: FC = () => {
     const { isLoaded, session } = useSession()
-    const pathname = usePathname()
 
     if (!isLoaded) return null
 
-    let dashboardURL = '/'
-
-    if (session.team.isResearcher) {
-        dashboardURL = '/researcher/dashboard'
-    } else if (session.team.isReviewer) {
-        return `/reviewer/${session.team.slug}/dashboard`
-    } else if (session.team.isAdmin) {
-        dashboardURL = `/admin/team/${session.team.slug}`
-    }
-
     return (
         <Stack gap="sm">
-            <RefWrapper>
-                <NavLink
-                    label="Dashboard"
-                    leftSection={<HouseIcon />}
-                    component={Link}
-                    href={dashboardURL}
-                    active={pathname === dashboardURL}
-                    c="white"
-                    color="blue.7"
-                    variant="filled"
-                    className={styles.navLinkHover}
-                    aria-label="Dashboard"
-                />
-            </RefWrapper>
-
-            {session.team.isAdmin && (
-                <RefWrapper>
-                    <OrgAdminDashboardLink pathname={pathname} />
-                </RefWrapper>
-            )}
+            <OrgAdminDashboardLink isVisible={session.team.isAdmin} />
+            <DashboardLink
+                icon={<HouseIcon />}
+                isVisible={session.team.isResearcher}
+                url={'/researcher/dashboard'}
+                label="Researcher Dashboard"
+            />
+            <DashboardLink
+                icon={<MagnifyingGlassIcon />}
+                isVisible={session.team.isReviewer}
+                url={`/reviewer/${session.team.slug}/dashboard`}
+                label="Reviewer Dashboard"
+            />
 
             <RefWrapper>
                 <OrgSwitcher />

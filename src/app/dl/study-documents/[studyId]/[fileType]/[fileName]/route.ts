@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { studyInfoForStudyId } from '@/server/db/queries'
 import { urlForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
-import { loadSession, subject } from '@/server/session'
+import { sessionFromClerk } from '@/server/clerk'
+import { subject } from '@casl/ability'
 
 export const GET = async (
     _: Request,
@@ -12,7 +13,7 @@ export const GET = async (
 
     const study = await studyInfoForStudyId(studyId)
 
-    const session = await loadSession()
+    const session = await sessionFromClerk()
     if (study && !session?.can('read', subject('Study', { study }))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }

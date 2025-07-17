@@ -10,7 +10,8 @@ import React from 'react'
 import StudyStatusDisplay from '@/components/study/study-status-display'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-status-display'
 import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review/job-results-status-message'
-import { loadSession, subject } from '@/server/session'
+import { sessionFromClerk } from '@/server/clerk'
+import { subject } from '@casl/ability'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +20,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     const study = await getStudyAction({ studyId })
 
-    const session = await loadSession()
+    const session = await sessionFromClerk()
 
     // Ensure the study exists and user has permission to view it
     if (!study || !session?.can('review', subject('Study', { study }))) {

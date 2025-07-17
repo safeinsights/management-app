@@ -172,7 +172,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('approve', 'Study', ({ studyId }) => ({ studyId }))
+    .requireAbilityTo('approve', 'Study')
     .handler(async ({ studyId, orgSlug }, { session }) => {
         const userId = session.user.id
         // Start a transaction to ensure atomicity
@@ -240,7 +240,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('reject', 'Study', ({ studyId }) => ({ studyId }))
+    .requireAbilityTo('reject', 'Study')
     .handler(async ({ studyId, orgSlug }, { session }) => {
         const userId = session.user.id
 

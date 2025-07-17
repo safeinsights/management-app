@@ -25,7 +25,7 @@ import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { loadSession } from '@/server/session'
+import { sessionFromClerk } from '@/server/clerk'
 import { ErrorAlert } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
@@ -55,7 +55,7 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
     const studies = await fetchStudiesForCurrentResearcherAction()
-    const session = await loadSession()
+    const session = await sessionFromClerk()
 
     if (!session) {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />

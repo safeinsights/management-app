@@ -1,8 +1,12 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
-import { capitalize } from 'remeda'
+import { capitalize, omit } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { ENVIRONMENT_ID } from './config'
+import { marshalSession } from './session'
+import logger from '@/lib/logger'
+
+export { type UserSessionWithAbility } from './session'
 
 type ClerkOrganizationProps = {
     adminUserId?: string
@@ -56,9 +60,12 @@ export const updateClerkUserMetadata = async (userId: string) => {
             {} as UserInfo['teams'],
         ),
     }
+    logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
     await client.users.updateUserMetadata(clerkId, {
-        ...currentMetadata,
-        [`${ENVIRONMENT_ID}`]: metadata,
+        publicMetadata: {
+            ...omit(currentMetadata, ['orgs', 'memberships']),
+            [`${ENVIRONMENT_ID}`]: metadata,
+        },
     })
 
     return metadata
@@ -92,4 +99,16 @@ export const syncCurrentClerkUser = async () => {
     }
 
     return user
+}
+
+// import { syncCurrentClerkUser, updateClerkUserMetadata } from './clerk'
+// import logger from '@/lib/logger'
+
+export async function sessionFromClerk() {
+    const { userId, sessionClaims } = await auth()
+
+    return await marshalSession(userId, sessionClaims, async () => {
+        const user = await syncCurrentClerkUser()
+        return await updateClerkUserMetadata(user.id)
+    })
 }

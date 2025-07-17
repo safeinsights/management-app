@@ -2,8 +2,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import debug from 'debug'
 import * as Sentry from '@sentry/nextjs'
-import { sessionFromClerk, type UserSession } from './server/session'
-
+import { marshalSession } from './server/session'
+import { type UserSession } from './lib/types'
 const middlewareDebug = debug('app:middleware')
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
@@ -36,7 +36,7 @@ function redirectToRole(request: NextRequest, route: string, session: UserSessio
 export default clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
-    const session = await sessionFromClerk(clerkUserId, sessionClaims)
+    const session = await marshalSession(clerkUserId, sessionClaims)
 
     if (session) {
         Sentry.setUser({

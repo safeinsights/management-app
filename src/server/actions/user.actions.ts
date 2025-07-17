@@ -3,18 +3,18 @@
 import { db } from '@/database'
 import { ActionFailure, Action, z } from './action'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { syncCurrentClerkUser } from '../clerk'
-import { loadSession } from '../session'
+import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
+import { sessionFromClerk } from '@/server/clerk'
 import { getReviewerPublicKey } from '../db/queries'
 
 export const onUserSignInAction = new Action('onUserSignInAction')
-    .requireAbilityTo('update', 'User')
+    //.requireAbilityTo('update', 'User')
     .handler(async () => {
         const user = await syncCurrentClerkUser()
-
+        await updateClerkUserMetadata(user.id)
         onUserLogIn({ userId: user.id })
 
-        const session = await loadSession()
+        const session = await sessionFromClerk()
         if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
 
         if (session.team.isReviewer) {
