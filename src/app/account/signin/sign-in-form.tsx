@@ -1,4 +1,4 @@
-import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
@@ -8,6 +8,7 @@ import { FC, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
+import { SignInError } from './sign-in-error'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -71,7 +72,7 @@ export const SignInForm: FC<{
 
             // any other clerk error
             setClerkError({
-                title: 'Sign-in Error',
+                title: errorMessage?.includes('locked') ? 'Account Locked' : 'Sign-in Error',
                 message: errorMessage || 'An error occurred during sign-in. Please try again.',
             })
         }
@@ -99,38 +100,24 @@ export const SignInForm: FC<{
                         placeholder="*********"
                         aria-label="Password"
                     />
-                    {clerkError && (
-                        <Paper bg="#FFEFEF" shadow="none" p={'lg'} mt="sm" mb="sm" radius="sm">
-                            <Group justify="space-between" gap="xl">
-                                <Text ta="left" c="red" fw="bold">
-                                    {clerkError.title}
-                                </Text>
-                                <CloseButton
-                                    c="red"
-                                    aria-label="Close password reset form"
-                                    onClick={() => setClerkError(null)}
-                                />
-                            </Group>
-                            <Text mt="md">{clerkError.message}</Text>
-                        </Paper>
-                    )}
                     <Link
                         c="blue.7"
                         fw={600}
                         size="xs"
                         href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
-                        >
+                    >
                         Forgot password?
                     </Link>
+                    {clerkError && <SignInError clerkError={clerkError} setClerkError={setClerkError} />}
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
                     <Button
-                            mt="xs"
+                        mt="md"
                         mb="xxl"
                         h={53}
                         p="12.5px 26px"
-                        bg="grey.1"
                         disabled={!form.isValid()}
                         type="submit"
+                        bg={!form.isValid() ? 'grey.1' : ''}
                     >
                         Login
                     </Button>
