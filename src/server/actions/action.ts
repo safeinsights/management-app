@@ -7,15 +7,16 @@ import * as Sentry from '@sentry/nextjs'
 import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@/lib/logger'
+import { omit } from 'remeda'
 
 type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Args, Ctx, Res> = (args: Args, ctx: Ctx) => Promise<Res>
-type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Ctx & { session: UserSession }) => Record<string, unknown>
+type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Omit<Ctx, 'session'>) => Record<string, unknown>
 
 export { ActionFailure, z }
 
 export type ActionContext = {
-    session: UserSessionWithAbility
+    session?: UserSessionWithAbility
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
@@ -32,9 +33,12 @@ export async function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
-const passthroughTranslate = <Args, Ctx>(args: Args, ctx: Ctx) => ({ args, ...ctx })
+const passthroughTranslate = <Args, Ctx>(args: Args, ctx: Omit<Ctx, 'session'>) => ({ ...args, ...ctx })
 
-export class Action<Args = unknown, Ctx = object> {
+export class Action<
+    Args = unknown,
+    Ctx extends { session?: UserSessionWithAbility } = { session?: UserSessionWithAbility },
+> {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
     private middlewareFns: MiddlewareFn<Args, unknown, unknown>[] = []
@@ -52,7 +56,7 @@ export class Action<Args = unknown, Ctx = object> {
         // reset middleware when you change the schema
         this.middlewareFns = []
         // now this builder “becomes” one typed with new Args and empty ctx
-        return this as unknown as Action<z.infer<S>, object>
+        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility }>
     }
 
     /**
@@ -119,7 +123,7 @@ export class Action<Args = unknown, Ctx = object> {
             const session = await loadSession()
 
             //            ctx = { ...ctx, session } as Ctx
-            let ctx = { session } as Ctx & { session: UserSessionWithAbility }
+            let ctx = { session } as Ctx
             for (const mw of middlewareFns) {
                 const more = await mw(args, ctx)
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,22 +136,18 @@ export class Action<Args = unknown, Ctx = object> {
                     throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
                 }
                 const { action, subject, translate = passthroughTranslate } = this.protector
-
-                const abilitySubject = args ? subjectWithArgs(subject as string, translate(args, ctx)) : subject
+                const translateArgs = omit(ctx, ['session'])
+                const abilityArgs = args ? translate(args, translateArgs) : {}
+                const abilitySubject = args ? subjectWithArgs(subject as string, abilityArgs) : subject
 
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (!session.can(action as any, abilitySubject as any)) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const rule = session.relevantRuleFor(action as any, abilitySubject as any)
-                    const reason = rule
-                        ? `rule conditions (${rule.conditions}) did not match`
-                        : `no matching rule found`
+                if (!session.ability.can(action, abilitySubject as any)) {
                     const msg =
-                        `${session.user.id} cannot ${action} ${subject}. reason: ${reason}\n` +
-                        `roles are: SIAdmin: ${session.user.isSiAdmin}, TeamAdmin: ${session.team.isAdmin}, Researcher: ${session.team.isResearcher}, isReviewer: ${session.team.isReviewer}`
-
+                        `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
+                        `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
+                        `session: ${JSON.stringify(session.team, null, 2)}\n`
                     logger.error(msg)
-                    throw new ActionFailure({ user: msg })
+                    throw new ActionFailure({ failure: msg })
                 }
             }
 

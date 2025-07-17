@@ -10,6 +10,7 @@ import {
 import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
 import { latestJobForStudy } from '../db/queries'
 import { onStudyApproved } from '@/server/events'
+import logger from '@/lib/logger'
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
@@ -47,8 +48,10 @@ describe('Study Actions', () => {
             userId: otherUser.id,
             orgId: otherOrg.id,
         })
-
+        // was inserted in beforeEach, should throw on dupe insert
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await expect(getStudyAction({ studyId })).rejects.toThrow()
+        expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {

@@ -72,7 +72,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     })
 
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
-    .requireAbilityTo('read', 'Study')
+    .requireAbilityTo('view', 'Study')
     .handler(async (_, { session }) => {
         const userId = session.user.id
 
@@ -158,7 +158,7 @@ export const getStudyAction = new Action('getStudyAction')
 
         return { study }
     })
-    .requireAbilityTo('read', 'Study')
+    .requireAbilityTo('view', 'Study')
     .handler(async (_, { study }) => {
         return study
     })

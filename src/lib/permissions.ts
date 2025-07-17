@@ -17,7 +17,7 @@ type Abilities =
     | ['read' | 'update' | 'create' | 'delete', 'Team' | RecordWithOrgId]
     | ['view' | 'update' | 'delete' | 'review', 'Study' | Study]
     | ['read' | 'create', 'StudyJob' | Study]
-    | ['read' | 'create' | 'read', 'Study']
+    | ['create', 'Study' | { orgId: string }]
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>
@@ -38,7 +38,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('read', 'Team', { id: session.team.id })
 
     if (isResearcher || isReviewer || isTeamAdmin) {
-        permit('read', 'Study', { orgId: session.team.id })
+        permit('view', 'Study', { orgId: session.team.id })
     }
 
     if (isResearcher || isTeamAdmin) {
@@ -49,8 +49,8 @@ export function defineAbilityFor(session: UserSession) {
     }
 
     if (isReviewer || isTeamAdmin) {
-        permit('read', 'ReviewerKey', { userId: session.user.id })
-        permit('update', 'ReviewerKey', { userId: session.user.id })
+        permit('read', 'ReviewerKey')
+        permit('update', 'ReviewerKey')
         permit('approve', 'Study')
         permit('reject', 'Study')
         permit('review', 'Study', { 'study.orgId': session.team.id })
@@ -60,10 +60,11 @@ export function defineAbilityFor(session: UserSession) {
 
     if (isTeamAdmin) {
         permit('invite', 'User', { orgSlug: session.team.slug })
-        permit('update', 'User')
+        permit('update', 'User', { orgId: session.team.id })
         permit('read', 'User', { orgId: session.team.id })
 
         permit('read', 'User', { teamId: session.team.id })
+        permit('read', 'Team', { orgSlug: session.team.slug })
         permit('update', 'Team', { orgSlug: session.team.slug })
     }
 

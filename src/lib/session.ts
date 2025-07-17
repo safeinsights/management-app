@@ -6,7 +6,7 @@ import { CLERK_ADMIN_ORG_SLUG, UserSession } from './types'
 import { defineAbilityFor, type AppAbility } from './permissions'
 
 export { subject, type AppAbility } from './permissions'
-export type UserSessionWithAbility = UserSession & Pick<AppAbility, 'can' | 'cannot' | 'relevantRuleFor'>
+export type UserSessionWithAbility = UserSession & { ability: AppAbility; can: AppAbility['can'] }
 
 export const sessionFromMetadata = ({
     env,
@@ -48,9 +48,7 @@ export const sessionFromMetadata = ({
 
     return {
         ...session,
-        ...ability,
-        can: ability.can,
-        cannot: ability.cannot,
-        relevantRuleFor: ability.relevantRuleFor,
+        can: ability.can.bind(ability), // directly expose the can method for devx
+        ability,
     }
 }

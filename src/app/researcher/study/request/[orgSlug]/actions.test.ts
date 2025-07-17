@@ -15,7 +15,7 @@ vi.mock('@/server/aws', async () => {
 
 describe('Request Study Actions', () => {
     it('onCreateStudyAction creates a study', async () => {
-        const { org } = await mockSessionWithTestData()
+        const { org } = await mockSessionWithTestData({ isResearcher: true })
 
         const studyInfo = {
             title: 'Test Study',
@@ -47,7 +47,7 @@ describe('Request Study Actions', () => {
     })
 
     it('onDeleteStudyAction deletes a study', async () => {
-        const { org } = await mockSessionWithTestData()
+        const { org } = await mockSessionWithTestData({ isResearcher: true })
         const { studyId, jobs } = await insertTestStudyData({ org })
         const studyJobId = jobs[0].id
 

@@ -4,12 +4,12 @@ import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload }
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
-import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { onStudyCreated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Action, z } from '@/server/actions/action'
+import { getOrgIdFromSlug, getStudyOrgIdForStudyId } from '@/server/db/queries'
 
 const onCreateStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
@@ -20,15 +20,14 @@ const onCreateStudyActionArgsSchema = z.object({
 
 export const onCreateStudyAction = new Action('onCreateStudyAction')
     .params(onCreateStudyActionArgsSchema)
-    .requireAbilityTo('create', 'Study')
-    .handler(async ({ orgSlug, studyInfo, mainCodeFileName, codeFileNames }, { session }) => {
+    .middleware(async (ctx) => ({ orgId: (await getOrgIdFromSlug({ orgSlug: ctx.orgSlug })).id }))
+    .requireAbilityTo('create', 'Study') // uses orgId from above
+    .handler(async ({ orgSlug, studyInfo, mainCodeFileName, codeFileNames }, { session, orgId }) => {
         const userId = session.user.id
-
-        const org = await getOrgFromSlugAction({ orgSlug })
 
         const studyId = uuidv7()
 
-        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: org.slug })
+        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
 
         await db
             .insertInto('study')
@@ -39,7 +38,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction')
                 descriptionDocPath: studyInfo.descriptionDocPath,
                 irbDocPath: studyInfo.irbDocPath,
                 agreementDocPath: studyInfo.agreementDocPath,
-                orgId: org.id,
+                orgId: orgId,
                 researcherId: userId,
                 containerLocation,
                 status: 'PENDING-REVIEW',
@@ -140,11 +139,8 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction')
             studyJobId: z.string(),
         }),
     )
-    .middleware(async ({ studyId }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirst()
-        return { orgId: study?.orgId }
-    })
-    .requireAbilityTo('delete', 'Study', ({ studyId }, { orgId }) => ({ id: studyId, orgId: orgId as string }))
+    .middleware(async ({ studyId }) => ({ orgId: (await getStudyOrgIdForStudyId(studyId)).orgId }))
+    .requireAbilityTo('delete', 'Study') // will use orgId from above
     .handler(async ({ orgSlug, studyId }) => {
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
         const jobIds = jobs.map((job) => job.id)

@@ -7,8 +7,8 @@ import { revalidatePath } from 'next/cache'
 import { Action, z, ActionFailure } from './action'
 
 export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
-    .requireAbilityTo('read', 'ReviewerKey', (args, { session }) => ({ userId: session.user.id }))
-    .handler(async (args, { session }) => {
+    .requireAbilityTo('read', 'ReviewerKey')
+    .handler(async (_, { session }) => {
         return await getReviewerPublicKey(session.user.id)
     })
 
@@ -19,7 +19,7 @@ const setOrgUserPublicKeySchema = z.object({
 
 export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
-    .requireAbilityTo('update', 'ReviewerKey', (args, { session }) => ({ userId: session.user.id }))
+    .requireAbilityTo('update', 'ReviewerKey')
     .handler(async ({ publicKey, fingerprint }, { session }) => {
         const userId = session.user.id
 
@@ -42,7 +42,7 @@ export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction
 
 export const updateReviewerPublicKeyAction = new Action('updateReviewerPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
-    .requireAbilityTo('update', 'ReviewerKey', (args, { session }) => ({ userId: session.user.id }))
+    .requireAbilityTo('update', 'ReviewerKey')
     .handler(async ({ publicKey, fingerprint }, { session }) => {
         const userId = session.user.id
 

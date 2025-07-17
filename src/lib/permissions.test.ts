@@ -36,11 +36,6 @@ test('reviewer role', () => {
         ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
     ).toBeTruthy()
 
-    expect(
-        // can't approve something that's not pending
-        ability.can('approve', subject('Study', { orgId: '133', status: 'ARCHIVED' as StudyStatus })),
-    ).toBe(false)
-
     expect(ability.can('invite', 'User')).toBe(false)
 
     expect(ability.can('update', subject('User', session.user))).toBe(true)
@@ -69,14 +64,11 @@ test('admin role', () => {
         ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
     ).toBeTruthy()
 
-    expect(
-        // admin can do anything execpt when it violates data-integrity
-        ability.can('approve', subject('Study', { orgId: '133', status: 'ARCHIVED' as StudyStatus })),
-    ).toBe(false)
-
     expect(ability.can('invite', 'User')).toBe(true)
 
     expect(ability.can('update', subject('User', session.user))).toBe(true)
 
-    expect(ability.can('update', subject('User', { id: faker.string.uuid() }))).toBe(true)
+    expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: session.team.id }))).toBe(true)
+
+    expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
 })

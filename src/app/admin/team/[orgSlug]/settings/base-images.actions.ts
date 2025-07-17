@@ -14,7 +14,7 @@ const actionSchema = orgBaseImageSchema.extend({
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .params(actionSchema)
-    .requireAbilityTo('create', 'Team')
+    .requireAbilityTo('update', 'Team')
     .handler(async (input, { session }) => {
         const newBaseImage = await db
             .insertInto('orgBaseImage')
@@ -42,7 +42,7 @@ const deleteOrgBaseImageSchema = z.object({
 
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
-    .requireAbilityTo('delete', 'Team')
+    .requireAbilityTo('update', 'Team')
     .handler(async ({ imageId, orgSlug }) => {
         await db
             .deleteFrom('orgBaseImage')

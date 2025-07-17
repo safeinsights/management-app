@@ -6,7 +6,7 @@ import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { revalidatePath } from 'next/cache'
 import { latestJobForStudy } from '@/server/db/queries'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
-import { throwNotFound } from '@/lib/errors'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { onStudyFilesApproved } from '@/server/events'
 import { Action, z } from './action'
 
@@ -76,8 +76,11 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.string())
-    .requireAbilityTo('read', 'StudyJob', (studyJobId) => ({ studyJobId }))
-    .handler(async (studyJobId, { session }) => {
+    .middleware(async (studyJobId, { session }) => {
+        if (!session) {
+            throw new ActionFailure({ user: 'Unauthorized' })
+        }
+
         const jobInfo = await db
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -90,6 +93,7 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
                 'studyJob.studyId',
                 'studyJob.createdAt',
                 'study.title as studyTitle',
+                'org.id as orgId',
                 'org.slug as orgSlug',
                 jsonArrayFrom(
                     eb
@@ -108,6 +112,12 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
             .where('studyJob.id', '=', studyJobId)
             .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
 
+        return { study: { orgId: jobInfo.orgId }, jobInfo } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+    })
+
+    .requireAbilityTo('read', 'StudyJob')
+
+    .handler(async (_, { jobInfo }) => {
         return jobInfo
     })
 

@@ -241,6 +241,14 @@ export const getStudyOrgIdForJobId = async (jobId: string) => {
         .executeTakeFirstOrThrow()
 }
 
+export const getStudyOrgIdForStudyId = async (studyId: string) => {
+    return await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
+}
+
+export const getOrgIdFromSlug = async ({ orgSlug }: { orgSlug: string }) => {
+    return db.selectFrom('org').select(['org.id', 'org.slug']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+}
+
 type JobDetails = { id: string; name: string; path: string }
 
 export async function getStudyJobFileOfType(

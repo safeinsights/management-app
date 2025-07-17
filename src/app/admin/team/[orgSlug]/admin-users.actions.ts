@@ -41,7 +41,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
 
 export const getPendingUsersAction = new Action('getPendingUsersAction')
     .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('read', 'User', (_, { session }) => ({ teamId: session.team.id }))
+    .requireAbilityTo('read', 'Team')
     .handler(async (_, { session }) => {
         return await db
             .selectFrom('pendingUser')
@@ -58,7 +58,7 @@ export const reInviteUserAction = new Action('reInviteUserAction')
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('invite', 'User', (_, { session }) => ({ orgId: session.team.id }))
+    .requireAbilityTo('invite', 'User')
     .handler(async ({ orgSlug, pendingUserId }) => {
         const pending = await db
             .selectFrom('pendingUser')
