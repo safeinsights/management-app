@@ -128,26 +128,11 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
     })
 
 export const getStudyAction = new Action('getStudyAction')
-    .params(z.string())
-    .middleware(async (studyId) => {
-        const study = await db.selectFrom('study').select(['id', 'orgId']).where('id', '=', studyId).executeTakeFirst()
-        return { study }
-    })
-    .requireAbilityTo('read', 'Study')
-    .handler(async (studyId, { session, study: miniStudy }) => {
-        if (!miniStudy) {
-            return undefined
-        }
-
-        const userId = session.user.id
-
-        return await db
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ studyId }) => {
+        const study = await db
             .selectFrom('study')
-
-            .innerJoin('orgUser', (join) => join.on('userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'))
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-
-            .where('orgUser.userId', '=', userId)
             .select([
                 'study.id',
                 'study.approvedAt',
@@ -170,6 +155,12 @@ export const getStudyAction = new Action('getStudyAction')
             .select('researcher.fullName as researcherName')
             .where('study.id', '=', studyId)
             .executeTakeFirst()
+
+        return { study }
+    })
+    .requireAbilityTo('read', 'Study')
+    .handler(async (_, { study }) => {
+        return study
     })
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>

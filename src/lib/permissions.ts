@@ -6,13 +6,14 @@ type Record = { id: string }
 
 type Abilities =
     | ['invite', 'User']
+    | ['claim', 'PendingUser']
     | ['update', 'User' | Record]
     | ['read', 'User' | Record]
     | ['read' | 'update' | 'delete', 'Study' | { id: string; orgId: string }]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update' | 'create' | 'delete', 'Team' | Record]
     | ['read' | 'create', 'StudyJob' | Record]
-    | ['create' | 'read', 'Study']
+    | ['read' | 'create' | 'read', 'Study']
     | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>
@@ -27,6 +28,7 @@ export function defineAbilityFor(session: UserSession) {
 
     // action all users can perform
     permit('update', 'User', { id: session.user.id })
+    permit('claim', 'PendingUser')
 
     permit('read', 'Team', { orgSlug: session.team.slug })
     permit('read', 'Team', { id: session.team.id })
@@ -47,6 +49,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'ReviewerKey', { userId: session.user.id })
         permit('approve', 'Study')
         permit('reject', 'Study')
+        permit('read', 'Study', { 'study.orgId': session.team.id })
         permit('read', 'StudyJob')
     }
 

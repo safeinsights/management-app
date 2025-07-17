@@ -20,7 +20,11 @@ describe('Edit Study Actions', () => {
 
         await onUpdateStudyAction({ studyId, study: updatedStudyData })
 
-        const updatedStudy = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+        const updatedStudy = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', studyId)
+            .executeTakeFirst()
 
         expect(updatedStudy).toBeDefined()
         expect(updatedStudy?.piName).toEqual(updatedStudyData.piName)

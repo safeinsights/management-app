@@ -30,7 +30,7 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData()
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        await expect(getStudyAction(studyId)).resolves.toMatchObject({
+        await expect(getStudyAction({ studyId })).resolves.toMatchObject({
             id: studyId,
         })
     })
@@ -48,7 +48,7 @@ describe('Study Actions', () => {
             orgId: otherOrg.id,
         })
 
-        await expect(getStudyAction(studyId)).rejects.toThrow()
+        await expect(getStudyAction({ studyId })).rejects.toThrow()
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {

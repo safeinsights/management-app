@@ -32,7 +32,7 @@ export async function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
-const passthroughTranslate = <Args>(args: Args) => args
+const passthroughTranslate = <Args, Ctx>(args: Args, ctx: Ctx) => ({ args, ...ctx })
 
 export class Action<Args = unknown, Ctx = object> {
     // hold onto your schema, middleware list, and final handler

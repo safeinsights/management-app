@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-    mockSessionWithTestData,
-    insertTestStudyData,
-    insertTestOrg,
-    insertTestUser,
-} from '@/tests/unit.helpers'
+import { mockSessionWithTestData, insertTestStudyData } from '@/tests/unit.helpers'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { db } from '@/database'
 import * as aws from '@/server/aws'
@@ -42,7 +37,11 @@ describe('Request Study Actions', () => {
         expect(result.studyId).toBeDefined()
         expect(result.studyJobId).toBeDefined()
 
-        const study = await db.selectFrom('study').selectAll().where('id', '=', result.studyId).executeTakeFirst()
+        const study = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', result.studyId)
+            .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
     })
@@ -54,7 +53,7 @@ describe('Request Study Actions', () => {
 
         await onDeleteStudyAction({ orgSlug: org.slug, studyId, studyJobId })
 
-        const study = await db.selectFrom('study').selectAll().where('id', '=', studyId).executeTakeFirst()
+        const study = await db.selectFrom('study').selectAll('study').where('id', '=', studyId).executeTakeFirst()
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)

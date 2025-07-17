@@ -18,7 +18,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     await checkUserAllowedStudyView(studyId)
 
-    const study = await getStudyAction(studyId)
+    const study = await getStudyAction({ studyId })
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

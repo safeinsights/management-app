@@ -2,7 +2,6 @@
 
 import { db } from '@/database'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
-//import { findOrCreateClerkOrganization } from '../clerk'
 import { z, ActionFailure } from './wrappers'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { revalidatePath } from 'next/cache'
