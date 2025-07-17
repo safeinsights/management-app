@@ -1,16 +1,13 @@
 'use client'
 
-import React, { FC } from 'react'
-import { Button, Group, LoadingOverlay, Modal, Stack, Title } from '@mantine/core'
+import React, { FC, useMemo } from 'react'
+import { Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorAlert } from '@/components/errors'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { RenderCSV } from './render-csv'
 import { JobFile } from '@/lib/types'
-import { useDisclosure } from '@mantine/hooks'
 import { DownloadResultsLink, ViewResultsLink } from './links'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { RenderLogs } from '@/components/render-logs'
 
 export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const {
@@ -23,6 +20,21 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         queryFn: async () => await fetchApprovedJobFilesAction(job.id),
     })
 
+    const { resultsFiles, logFiles } = useMemo(() => {
+        const res: JobFile[] = []
+        const logs: JobFile[] = []
+
+        approvedFiles?.forEach((f) => {
+            if (f.fileType === 'APPROVED-RESULT') res.push(f)
+            else if (f.fileType === 'APPROVED-LOG') logs.push(f)
+        })
+
+        res.sort((a, b) => a.path.localeCompare(b.path))
+        logs.sort((a, b) => a.path.localeCompare(b.path))
+
+        return { resultsFiles: res, logFiles: logs }
+    }, [approvedFiles])
+
     if (isError) {
         return <ErrorAlert error={error} />
     }
@@ -33,7 +45,10 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     return (
         <Stack>
-            {approvedFiles.map((approvedFile) => (
+            {resultsFiles.map((approvedFile) => (
+                <ViewFile file={approvedFile} key={approvedFile.path} />
+            ))}
+            {logFiles.map((approvedFile) => (
                 <ViewFile file={approvedFile} key={approvedFile.path} />
             ))}
         </Stack>
@@ -41,22 +56,20 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 }
 
 export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
-    const [opened, { open, close }] = useDisclosure(false)
-    const fileContents = new TextDecoder().decode(file.contents)
-
+    const theme = useMantineTheme()
     return (
-        <Group>
-            <Title order={4}>{file.path}</Title>
-            <DownloadResultsLink target="_blank" filename={file.path} content={file.contents} />
+        <Group gap="xs">
+            <Text fz="sm" fw={600}>
+                {file.fileType === 'APPROVED-RESULT' ? 'Results:' : 'Logs:'}
+            </Text>
             <ViewResultsLink content={file.contents} />
-            <Modal size="80%" opened={opened} onClose={close} title={file.path}>
-                {file.fileType === 'APPROVED-LOG' ? (
-                    <RenderLogs logs={fileContents} />
-                ) : (
-                    <RenderCSV csv={fileContents} />
-                )}
-            </Modal>
-            <Button onClick={open}>View Results (in app)</Button>
+            <span
+                style={{
+                    height: 16,
+                    borderLeft: `1px solid ${theme.colors.charcoal[4]}`,
+                }}
+            ></span>
+            <DownloadResultsLink target="_blank" filename={file.path} content={file.contents} />
         </Group>
     )
 }

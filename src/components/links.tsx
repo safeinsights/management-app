@@ -2,7 +2,7 @@
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 
 import { Anchor as MantineAnchor, AnchorProps, Button, ButtonProps } from '@mantine/core'
-import { ArrowSquareOutIcon, DownloadIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import NextLink from 'next/link'
 
@@ -10,10 +10,11 @@ export type LinkProps = AnchorProps & {
     href: string
     target?: string
     children: ReactNode
+    download?: string
 }
 
-export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
-    <NextLink href={href} target={target} passHref>
+export const Link: FC<LinkProps> = ({ href, target, children, download, ...anchorProps }) => (
+    <NextLink href={href} target={target} passHref download={download}>
         <MantineAnchor component="span" {...anchorProps}>
             {children}
         </MantineAnchor>
@@ -50,9 +51,15 @@ export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, 
     }, [content])
 
     return (
-        <NextLink href={href} target={target} data-testid="download-link" download={filename}>
-            <Button rightSection={<DownloadIcon />}>Download Results</Button>
-        </NextLink>
+        <Link
+            href={href}
+            target={target}
+            data-testid="download-link"
+            download={filename}
+            style={{ display: 'flex', alignItems: 'center' }}
+        >
+            Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
+        </Link>
     )
 }
 
@@ -69,8 +76,8 @@ export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     }
 
     return (
-        <Button onClick={handleClick} rightSection={<ArrowSquareOutIcon />}>
-            View Results (Opens in new tab)
-        </Button>
+        <MantineAnchor onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
+            View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
+        </MantineAnchor>
     )
 }
