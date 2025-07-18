@@ -22,7 +22,7 @@ describe('Study Actions', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
-        const job = await latestJobForStudy(study.id, { orgSlug: org.slug, userId: user.id })
+        const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
     })

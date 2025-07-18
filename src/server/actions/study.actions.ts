@@ -184,7 +184,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 .where('id', '=', studyId)
                 .execute()
 
-            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
+            const latestJob = await latestJobForStudy(studyId, trx)
             if (!latestJob) {
                 throw new Error(`No job found for study id: ${studyId}`)
             }
@@ -241,7 +241,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
         }),
     )
     .requireAbilityTo('reject', 'Study')
-    .handler(async ({ studyId, orgSlug }, { session }) => {
+    .handler(async ({ studyId }, { session }) => {
         const userId = session.user.id
 
         // Start a transaction to ensure atomicity
@@ -252,7 +252,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
                 .where('id', '=', studyId)
                 .execute()
 
-            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
+            const latestJob = await latestJobForStudy(studyId, trx)
             if (!latestJob) {
                 throw new Error(`No job found for study id: ${studyId}`)
             }

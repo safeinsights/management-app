@@ -108,7 +108,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Divider c="charcoal.1" />
                     <TableScrollContainer minWidth={768}>
                         <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                            <NoStudiesCaption visible={!studies.length} slug={org.slug} />
+                            <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
                             <TableThead fz="sm">
                                 <TableTr>
                                     <TableTh>Study Name</TableTh>
@@ -121,7 +121,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                             <TableTbody>{rows}</TableTbody>
                         </Table>
                     </TableScrollContainer>
-
                 </Stack>
             </Paper>
         </Stack>

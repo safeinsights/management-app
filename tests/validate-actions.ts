@@ -47,7 +47,13 @@ function findServerActionWrapper(node: ts.Expression): string | false {
     if (ts.isNewExpression(current)) {
         const callee = current.expression
         if (ts.isIdentifier(callee) && callee.escapedText === 'Action') {
-            return 'Action'
+            if (current.arguments && current.arguments.length > 0) {
+                const firstArg = current.arguments[0]
+                if (ts.isStringLiteral(firstArg)) {
+                    return firstArg.text // This will be the action name string
+                }
+            }
+            return 'Action' // Or maybe something to indicate name not found
         }
     }
 
@@ -94,13 +100,7 @@ function checkExportedFunctions(sourceFile: ts.SourceFile): ExportStatus[] {
 }
 
 function isProperlyNamed(filePath: string, functionName: string) {
-    if (filePath.endsWith('layout.tsx')) {
-        return true // layouts can do whatever
-    } else if (filePath.endsWith('page.tsx')) {
-        return functionName.endsWith('Page')
-    } else {
-        return functionName.endsWith('Action')
-    }
+    return functionName.endsWith('Action')
 }
 
 function isActionsFile(filePath: string) {
@@ -117,30 +117,37 @@ function analyzeFile(filePath: string) {
     let success = true
     const logs: string[] = []
 
-    if (IS_SERVER.test(content)) {
-        const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
-        const exportedFunctions = checkExportedFunctions(sourceFile)
-        if (exportedFunctions.length > 0) {
-            if (VERBOSE) logs.push(filePath)
-            let fileHasError = false
-            exportedFunctions.forEach((func) => {
-                const named = isProperlyNamed(filePath, func.name)
-                const wrapped = isActionsFile(filePath) ? func.wrapper : true
-                const isOk = named && wrapped
-                if (VERBOSE) logs.push(`   ${isOk ? '✓' : '✗'} ${func.name}`)
-                if (!isOk) {
-                    if (!fileHasError) {
-                        logs.unshift(filePath) // Add file path only once on first error
-                        fileHasError = true
-                    }
-                    logs.push(`   ✗ ${func.name}`)
-                    if (!named) logs.push(`     is not named correctly, should end in 'Action'`)
-                    if (!wrapped)
-                        logs.push(`     is not named wrapped, should be wrapped in one of the access control functions`)
-                    success = false
+    if (!IS_SERVER.test(content) || filePath.endsWith('layout.tsx') || filePath.endsWith('page.tsx')) {
+        return { success, logs }
+    }
+
+    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
+    const exportedFunctions = checkExportedFunctions(sourceFile)
+    if (exportedFunctions.length > 0) {
+        if (VERBOSE) logs.push(filePath)
+        let fileHasError = false
+        exportedFunctions.forEach((func) => {
+            const named = isProperlyNamed(filePath, func.name)
+            const wrapped = isActionsFile(filePath) ? func.wrapper : true
+            const namesMatch = !wrapped || func.name === func.wrapper
+            const isOk = named && wrapped && namesMatch
+            if (VERBOSE) logs.push(`   ${isOk ? '✓' : '✗'} ${func.name}`)
+            if (!isOk) {
+                if (!fileHasError) {
+                    logs.unshift(filePath) // Add file path only once on first error
+                    fileHasError = true
                 }
-            })
-        }
+                logs.push(`   ✗ ${func.name}`)
+                if (!named) logs.push(`     is not named correctly, should end in 'Action'`)
+                if (!wrapped)
+                    logs.push(`     is not named wrapped, should be wrapped in one of the access control functions`)
+                if (!namesMatch)
+                    logs.push(
+                        `     action name in constructor ('${func.wrapper}') does not match variable name ('${func.name}')`,
+                    )
+                success = false
+            }
+        })
     }
 
     return { success, logs }

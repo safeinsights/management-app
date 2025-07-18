@@ -1,8 +1,6 @@
 'use server'
 
 import React from 'react'
-import { AlertNotFound } from '@/components/errors'
-import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { Paper, Stack, Text, Title } from '@mantine/core'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 
@@ -12,12 +10,6 @@ import { StudiesTable } from './table'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
-
-    const org = await getOrgFromSlugAction({ orgSlug })
-
-    if (!org) {
-        return <AlertNotFound title="Org was not found" message="no such org exists" />
-    }
 
     const studies = await fetchStudiesForOrgAction({ orgSlug })
 

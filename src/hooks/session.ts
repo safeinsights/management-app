@@ -1,3 +1,5 @@
+'use client'
+
 import { useEnvironmentId } from '@/hooks/environment'
 import { sessionFromMetadata } from '@/lib/session'
 import { UserSession } from '@/lib/types'

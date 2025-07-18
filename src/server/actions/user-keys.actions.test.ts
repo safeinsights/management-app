@@ -6,6 +6,7 @@ import {
     updateReviewerPublicKeyAction,
 } from './user-keys.actions'
 import { db } from '@/database'
+import logger from '@/lib/logger'
 
 vi.mock('@/server/events', () => ({
     onUserPublicKeyCreated: vi.fn(),
@@ -15,6 +16,8 @@ vi.mock('@/server/events', () => ({
 describe('User Keys Actions', () => {
     it('only allows reviewer users to access the actions', async () => {
         await mockSessionWithTestData({ isReviewer: false })
+        vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
         await expect(getReviewerPublicKeyAction()).rejects.toThrow(/cannot read ReviewerKey/)
     })
 

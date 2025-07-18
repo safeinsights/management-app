@@ -5,15 +5,16 @@ export const useEnvironmentId = () => {
         return ''
     }
 
-    const parts = window.location.host.split('.')
-    if (parts.length == 3) {
-        return 'production'
-    }
-    if (parts.length == 4) {
-        // dev uses qa for domain
-        return parts[1] == 'qa' ? 'dev' : parts[1]
-    }
-    if (parts.length == 1) {
+    const hostMatch = window.location.host.match(/app\.([^.]+)/)
+    if (!hostMatch || hostMatch.length < 2) {
         return 'dev'
     }
+    if (hostMatch[1] === 'safeinsights') {
+        return 'production'
+    }
+    if (hostMatch[1] === 'qa') {
+        return 'dev'
+    }
+
+    return hostMatch[1]
 }

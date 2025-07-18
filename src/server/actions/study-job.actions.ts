@@ -77,9 +77,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.string())
     .middleware(async (studyJobId, { session }) => {
-        if (!session) {
-            throw new ActionFailure({ user: 'Unauthorized' })
-        }
+        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
         const jobInfo = await db
             .selectFrom('studyJob')
@@ -123,19 +121,14 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
 
 export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .params(z.string())
-    .requireAbilityTo('read', 'Study', async (studyId) => ({ studyId }))
-    .handler(async (studyId, { session }) => {
-        const latestJob = await latestJobForStudy(studyId, {
-            orgSlug: session.team.slug,
-            userId: session.user.id,
-        })
+    .middleware(async (studyId, { session }) => {
+        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
-        // We should always have a job, something is wrong if we don't
-        if (!latestJob) {
-            throw new Error(`No job found for study id: ${studyId}`)
-        }
-        return latestJob
+        const job = await latestJobForStudy(studyId)
+        return { job, study: { orgId: job.orgId } } // Return the job along with the orgId for validation in requireAbilityTo below
     })
+    .requireAbilityTo('read', 'StudyJob')
+    .handler(async (_, { job }) => job)
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.string())

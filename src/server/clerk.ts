@@ -63,7 +63,9 @@ export const updateClerkUserMetadata = async (userId: string) => {
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
     await client.users.updateUserMetadata(clerkId, {
         publicMetadata: {
-            ...omit(currentMetadata, ['orgs', 'memberships']),
+            // remove legacy items
+            // TODO: remove this after 2025-08-15
+            ...omit(currentMetadata, ['orgs', 'memberships', 'userId']),
             [`${ENVIRONMENT_ID}`]: metadata,
         },
     })

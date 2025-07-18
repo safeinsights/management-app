@@ -11,6 +11,7 @@ import {
     insertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
+import logger from '@/lib/logger'
 
 describe('Org Actions', () => {
     const newOrg = {
@@ -110,6 +111,8 @@ describe('Org Actions', () => {
             const nonExistentOrgSlug = 'non-existent-org-for-update-action-test'
             await mockSessionWithTestData({ orgSlug: 'any-org', isAdmin: true })
 
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
             await expect(
                 updateOrgSettingsAction({
                     orgSlug: nonExistentOrgSlug,
@@ -121,6 +124,7 @@ describe('Org Actions', () => {
 
         it('throws AccessDeniedError if user is not an admin of the target org', async () => {
             await mockSessionWithTestData({ isAdmin: false })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
             await expect(
                 updateOrgSettingsAction({

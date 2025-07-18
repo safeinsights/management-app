@@ -100,21 +100,12 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 }
 
 export type LatestJobForStudy = ActionReturnType<typeof latestJobForStudy>
-export const latestJobForStudy = async (
-    studyId: string,
-    { orgSlug, userId }: { orgSlug?: null | string; userId?: null | string } = {},
-    conn: DBExecutor = db,
-) => {
+export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
     return await conn
         .selectFrom('studyJob')
         .selectAll('studyJob')
-        // security, check user has access to record
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-
-        .$if(Boolean(orgSlug), (qb) =>
-            qb.innerJoin('org', (join) => join.on('org.slug', '=', orgSlug!).onRef('org.id', '=', 'study.orgId')),
-        )
-        .$if(Boolean(userId && !orgSlug), (qb) => qb.where('study.researcherId', '=', userId || ''))
+        .select(['study.orgId'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
@@ -141,7 +132,7 @@ export const jobInfoForJobId = async (jobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['studyId', 'studyJob.id as studyJobId', 'org.slug as orgSlug'])
+        .select(['studyId', 'studyJob.id as studyJobId', 'org.slug as orgSlug', 'org.id as orgId'])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
 }
