@@ -3,7 +3,7 @@ import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client 
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { AWS_ACCOUNT_ENVIRONMENT, TEST_ENV } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
@@ -48,12 +48,8 @@ export const s3BucketName = () => {
     return process.env.BUCKET_NAME
 }
 
-const awsEnvironmentId = () => {
-    return process.env.ENVIRONMENT_ID || 'dev'
-}
-
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
-    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${awsEnvironmentId()}`
+    return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`
 }
 
 export const getAWSInfo = async () => {
@@ -160,7 +156,7 @@ export async function triggerBuildImageForJob(
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${awsEnvironmentId()}`,
+            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
             environmentVariablesOverride: [
                 {
                     name: 'ON_START_PAYLOAD',

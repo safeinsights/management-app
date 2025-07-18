@@ -19,11 +19,8 @@ describe('Reviewer keypair regeneration', () => {
     it('should regenerate a reviewer key pair and update public key', async () => {
         mockClerkSession({
             clerkUserId: 'user-id',
-            org_slug: 'dev',
-            publicMetadata: {
-                userId: 'user-id',
-                orgs: [{ slug: 'dev', isAdmin: false, isResearcher: true, isReviewer: true }],
-            } as UserPublicMetadata,
+            orgSlug: 'dev',
+            userId: 'user-id',
         })
 
         const mockKeys = {

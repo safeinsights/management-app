@@ -24,9 +24,11 @@ describe('Reviewer keypair generation', () => {
         } as UseUserReturn)
 
         mockClerkSession({
-            clerkUserId: 'user-id',
-            org_slug: 'dev',
+            userId: 'user-id',
+            clerkUserId: 'clerk-user-id',
+            orgSlug: 'dev',
         })
+
         const mockKeys = {
             publicKeyString: 'mockPublicKey',
             privateKeyString: 'mockPrivateKey',

@@ -2,28 +2,21 @@
 
 import { useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useOrgInfo } from './org-info'
-import { useAuth } from '@clerk/nextjs'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { useSession } from '../hooks/session'
 
 export const RequireOrgAdmin = () => {
-    const { isLoaded, org } = useOrgInfo()
+    const { session } = useSession()
     const router = useRouter()
-    const { orgSlug } = useAuth()
 
     useLayoutEffect(() => {
-        if (!isLoaded || orgSlug == CLERK_ADMIN_ORG_SLUG) return
+        if (!session || session.team.isAdmin) return
 
-        if (!org?.isAdmin) {
-            if (org?.isResearcher) {
-                router.push('/researcher/dashboard')
-            } else if (org?.isReviewer) {
-                router.push(`/reviewer/${org.slug}/dashboard`)
-            } else {
-                router.push('/')
-            }
+        if (session.team.isResearcher) {
+            router.push('/researcher/dashboard')
+        } else if (session.team.isReviewer) {
+            router.push(`/reviewer/${session.team.slug}/dashboard`)
         }
-    }, [org, isLoaded, router, orgSlug])
+    }, [session, router])
 
     return null
 }

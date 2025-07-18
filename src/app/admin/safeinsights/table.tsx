@@ -97,7 +97,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                 <PencilIcon />
             </ActionIcon>
 
-            <SuretyGuard onConfirmed={() => deleteOrg(org.slug)}>
+            <SuretyGuard onConfirmed={() => deleteOrg({ orgSlug: org.slug })}>
                 <TrashIcon />
             </SuretyGuard>
         </Group>

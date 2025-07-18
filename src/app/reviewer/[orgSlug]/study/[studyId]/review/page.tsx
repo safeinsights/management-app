@@ -2,7 +2,6 @@
 
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
@@ -22,12 +21,7 @@ export default async function StudyReviewPage(props: {
 
     const { orgSlug, studyId } = params
 
-    const org = await getOrgFromSlugAction(orgSlug)
-    if (!org) {
-        return <AlertNotFound title="Org was not found" message="no such org exists" />
-    }
-
-    const study = await getStudyAction(studyId)
+    const study = await getStudyAction({ studyId })
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />

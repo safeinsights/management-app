@@ -25,6 +25,10 @@ export const orgSchema = z.object({
         .optional(),
 })
 
+export const updateOrgSchema = orgSchema.extend({
+    id: z.string(),
+})
+
 export type ValidatedOrg = z.infer<typeof orgSchema>
 
 export const getNewOrg = (): NewOrg => {

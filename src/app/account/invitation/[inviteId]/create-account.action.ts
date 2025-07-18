@@ -2,23 +2,36 @@
 
 import { db } from '@/database'
 import { isClerkApiError } from '@/lib/errors'
-import { anonAction, z, ActionFailure, userAction, actionContext } from '@/server/actions/wrappers'
 import { findOrCreateClerkOrganization } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 import { v7 as uuidv7 } from 'uuid'
+import { Action, z, ActionFailure } from '@/server/actions/action'
 
-export const onPendingUserLoginAction = userAction(async (inviteId) => {
-    const { user } = await actionContext()
-    await db
-        .updateTable('pendingUser')
-        .set({ claimedByUserId: user.id })
-        .where('id', '=', inviteId)
-        .executeTakeFirstOrThrow()
-}, z.string())
+export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
+    .params(z.object({ inviteId: z.string() }))
+    .requireAbilityTo('claim', 'PendingUser')
+    .handler(async ({ inviteId }, { session }) => {
+        await db
+            .updateTable('pendingUser')
+            .set({ claimedByUserId: session.user.id })
+            .where('id', '=', inviteId)
+            .executeTakeFirstOrThrow()
+    })
 
-export const onCreateAccountAction = anonAction(
-    async ({ inviteId, form }) => {
+export const onCreateAccountAction = new Action('onCreateAccountAction')
+    .params(
+        z.object({
+            inviteId: z.string(),
+            form: z.object({
+                firstName: z.string(),
+                lastName: z.string(),
+                password: z.string(),
+                confirmPassword: z.string(),
+            }),
+        }),
+    )
+    .handler(async ({ inviteId, form }) => {
         const clerk = await clerkClient()
         let clerkUserId = ''
 
@@ -109,14 +122,4 @@ export const onCreateAccountAction = anonAction(
 
             return { success: true }
         })
-    },
-    z.object({
-        inviteId: z.string(),
-        form: z.object({
-            firstName: z.string(),
-            lastName: z.string(),
-            password: z.string(),
-            confirmPassword: z.string(),
-        }),
-    }),
-)
+    })
