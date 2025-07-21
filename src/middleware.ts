@@ -1,10 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import debug from 'debug'
-import { CLERK_ADMIN_ORG_SLUG } from './lib/types'
+import log from '@/lib/logger'
 import * as Sentry from '@sentry/nextjs'
-
-const middlewareDebug = debug('app:middleware')
+import { marshalSession } from './server/session'
+import { type UserSession, BLANK_SESSION } from './lib/types'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
@@ -18,85 +17,55 @@ const ANON_ROUTES: Array<string> = [
     '/account/invitation',
 ]
 
-// Clerk middleware reference
-// https://clerk.com/docs/references/nextjs/clerk-middleware
-
-type UserInfo = {
-    orgSlug: string
-
-    userId: string
-    isSIAdmin: boolean
-    isOrgAdmin: (slug: string) => boolean
-    isReviewer: boolean
-    isResearcher: boolean
-}
-
-function redirectToRole(request: NextRequest, route: string, clerkUser: string, info: UserInfo) {
-    middlewareDebug(`Blocking unauthorized ${route} route access: %s roles: %s`, clerkUser, JSON.stringify(info))
-    if (info.isResearcher) {
+function redirectToRole(request: NextRequest, route: string, session: UserSession) {
+    log.warn(`Blocking unauthorized ${route} route access. session: %s`, request.url, JSON.stringify(session, null, 2))
+    if (session.team.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
-    if (info.isReviewer) {
-        return NextResponse.redirect(new URL(`/reviewer/${info.orgSlug}/dashboard`, request.url))
+    if (session.team.isReviewer) {
+        return NextResponse.redirect(new URL(`/reviewer/${session.team.slug}/dashboard`, request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
 }
 
 export default clerkMiddleware(async (auth, req) => {
-    const { userId: clerkUserId, orgSlug, sessionClaims } = await auth()
+    const { userId: clerkUserId, sessionClaims } = await auth()
 
-    const metadata = sessionClaims?.userMetadata || { orgs: [], userId: '' }
+    let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)
 
-    if (clerkUserId) {
+    if (session) {
         Sentry.setUser({
-            id: clerkUserId,
+            id: session.user.id,
         })
-        if (orgSlug) Sentry.setTag('org', orgSlug)
-    }
-
-    if (!clerkUserId) {
+        Sentry.setTag('org', session.team.slug)
+    } else {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
-        const signInUrl = new URL('/account/signin', req.url)
-        signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
-        return NextResponse.redirect(signInUrl)
+        if (clerkUserId) {
+            session = BLANK_SESSION
+        } else {
+            const signInUrl = new URL('/account/signin', req.url)
+            signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
+            log.warn('redirecting to ${signInUrl}')
+            return NextResponse.redirect(signInUrl)
+        }
     }
 
-    // Define user roles
-    const info: UserInfo = {
-        orgSlug: orgSlug || metadata.orgs?.[0]?.slug || '',
-        userId: metadata.userId,
-        get isSIAdmin() {
-            return orgSlug == CLERK_ADMIN_ORG_SLUG
-        },
-        isOrgAdmin(slug: string) {
-            return Boolean(this.isSIAdmin || metadata.orgs?.find((org) => org.slug === slug && org.isAdmin))
-        },
-        get isReviewer() {
-            return Boolean(this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isReviewer))
-        },
-        get isResearcher() {
-            return Boolean(
-                this.isOrgAdmin || metadata.orgs?.find((org) => org.slug === this.orgSlug && org.isResearcher),
-            )
-        },
+    if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
+        return redirectToRole(req, 'si admin', session)
     }
 
-    if (isSIAdminRoute(req) && !info.isSIAdmin) {
-        return redirectToRole(req, 'si admin', clerkUserId, info)
+    if (isOrgAdminRoute(req) && !session.team.isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
+        return redirectToRole(req, 'org-admin', session)
     }
 
-    if (isOrgAdminRoute(req) && !info.isOrgAdmin(req.nextUrl.pathname.split('/')[2])) {
-        return redirectToRole(req, 'org-admin', clerkUserId, info)
+    if (isReviewerRoute(req) && !session.team.isReviewer) {
+        return redirectToRole(req, 'reviewer', session)
     }
 
-    if (isReviewerRoute(req) && !info.isReviewer) {
-        return redirectToRole(req, 'reviewer', clerkUserId, info)
-    }
-
-    if (isResearcherRoute(req) && !info.isResearcher) {
-        return redirectToRole(req, 'researcher', clerkUserId, info)
+    if (isResearcherRoute(req) && !session.team.isResearcher) {
+        return redirectToRole(req, 'researcher', session)
     }
 
     return NextResponse.next()

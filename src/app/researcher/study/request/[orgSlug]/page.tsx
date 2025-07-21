@@ -5,35 +5,14 @@ import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
-import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { auth } from '@clerk/nextjs/server'
-import { db } from '@/database'
+import { sessionFromClerk } from '@/server/clerk'
 
 export default async function OrgHomePage(props: { params: Promise<{ orgSlug: string }> }) {
     const params = await props.params
-    const org = await getOrgFromSlugAction(params.orgSlug)
 
-    if (!org) {
-        return <AlertNotFound title="Org not found" message={`Org with slug ${params.orgSlug} not found`} />
-    }
+    const session = await sessionFromClerk()
 
-    const authResult = await auth()
-    const user = await db.selectFrom('user').select('id').where('clerkId', '=', authResult.userId).executeTakeFirst()
-
-    if (!user) {
-        return <AlertNotFound title="User Error" message="Internal user record not found." />
-    }
-
-    // Verify user is a researcher in this org
-    const orgUser = await db
-        .selectFrom('orgUser')
-        .select('id')
-        .where('orgId', '=', org.id)
-        .where('userId', '=', user.id)
-        .where('isResearcher', '=', true)
-        .executeTakeFirst()
-
-    if (!orgUser) {
+    if (session?.team.slug !== params.orgSlug) {
         return (
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs crumbs={{ current: 'Propose a Study' }} />

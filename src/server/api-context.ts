@@ -1,11 +1,11 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { AccessDeniedError } from '@/lib/errors'
-import { User } from '@/lib/types'
+import { SessionUser } from '@/lib/types'
 import { Org } from '@/schema/org'
 
 export type ActionContext = {
     org?: Org | null
-    user?: User | null
+    user?: SessionUser | null
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()

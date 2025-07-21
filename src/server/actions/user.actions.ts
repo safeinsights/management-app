@@ -1,86 +1,52 @@
 'use server'
 
 import { db } from '@/database'
-import { clerkClient, currentUser } from '@clerk/nextjs/server'
-import { anonAction, getUserIdFromActionContext, orgAdminAction, userAction, z } from './wrappers'
+import { ActionFailure, Action, z } from './action'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { findOrCreateOrgMembership } from '../mutations'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
-import logger from '@/lib/logger'
+import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
+import { sessionFromClerk } from '@/server/clerk'
 import { getReviewerPublicKey } from '../db/queries'
 
-export const onUserSignInAction = anonAction(async () => {
-    const clerkUser = await currentUser()
-
-    if (!clerkUser) throw new Error('User not authenticated')
-
-    const userAttrs = {
-        firstName: clerkUser.firstName ?? '',
-        lastName: clerkUser.lastName ?? '',
-        email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
-    }
-
-    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
-    if (user) {
-        await db.updateTable('user').set(userAttrs).where('id', '=', user.id).executeTakeFirstOrThrow()
-    } else {
-        user = await db
-            .insertInto('user')
-            .values({
-                clerkId: clerkUser.id,
-                ...userAttrs,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-    }
-
-    const clerk = await clerkClient()
-    const memberships = await clerk.users.getOrganizationMembershipList({ userId: clerkUser.id })
-
-    logger.info(
-        `signin user ${userAttrs.email} ${clerkUser.id} ${user.id} ${memberships.data.map((o) => o.organization.slug).join(',')}`,
-    )
-
-    for (const org of memberships.data) {
-        if (!org.organization.slug || org.organization.slug == CLERK_ADMIN_ORG_SLUG) continue
-
-        const md = clerkUser.publicMetadata?.orgs?.find((o) => o.slug == org.organization.slug)
-        try {
-            await findOrCreateOrgMembership({
-                userId: user.id,
-                slug: org.organization.slug,
-                isResearcher: md?.isResearcher,
-                isAdmin: md?.isAdmin,
-                isReviewer: md?.isReviewer,
-            })
-        } catch (e) {
-            logger.error(`Failed to find or create org membership for ${org.organization.slug}`, e)
-        }
-    }
+export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    await updateClerkUserMetadata(user.id)
     onUserLogIn({ userId: user.id })
 
-    // Check if the user is a reviewer and needs to generate a public key
-    const isReviewer = memberships.data.some(
-        (org) =>
-            org.organization.slug !== CLERK_ADMIN_ORG_SLUG &&
-            clerkUser.publicMetadata?.orgs?.find((o) => o.slug === org.organization.slug)?.isReviewer,
-    )
+    const session = await sessionFromClerk()
+    if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
 
-    if (isReviewer) {
+    if (session.team.isReviewer) {
         const publicKey = await getReviewerPublicKey(user.id)
-        if (publicKey === null) {
+        if (!publicKey) {
             return { redirectToReviewerKey: true }
         }
     }
 })
 
-export const onUserResetPWAction = userAction(async () => {
-    const userId = await getUserIdFromActionContext()
-    onUserResetPW(userId)
+export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    const metadata = await updateClerkUserMetadata(user.id)
+    return metadata
 })
 
-export const updateUserRoleAction = orgAdminAction(
-    async ({ orgSlug, userId, ...update }) => {
+export const onUserResetPWAction = new Action('onUserResetPWAction')
+    .requireAbilityTo('update', 'User')
+    .handler(async (_, { session }) => {
+        onUserResetPW(session.user.id)
+    })
+
+export const updateUserRoleAction = new Action('updateUserRoleAction')
+    .params(
+        z.object({
+            orgSlug: z.string(),
+            userId: z.string(),
+            isAdmin: z.boolean(),
+            isResearcher: z.boolean(),
+            isReviewer: z.boolean(),
+        }),
+    )
+    .requireAbilityTo('update', 'User')
+    .handler(async ({ orgSlug, userId, ...update }) => {
         const { id, ...before } = await db
             .selectFrom('orgUser')
             .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
@@ -92,12 +58,4 @@ export const updateUserRoleAction = orgAdminAction(
         await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
 
         onUserRoleUpdate({ userId, before, after: update })
-    },
-    z.object({
-        orgSlug: z.string(),
-        userId: z.string(),
-        isAdmin: z.boolean(),
-        isResearcher: z.boolean(),
-        isReviewer: z.boolean(),
-    }),
-)
+    })

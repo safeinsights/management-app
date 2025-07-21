@@ -1,43 +1,30 @@
 'use client'
 
-import { FC, useState, useEffect } from 'react'
+import { FC, useState } from 'react'
 import { NavLink } from '@mantine/core'
 import Link from 'next/link'
 import { GearIcon, UsersThreeIcon, SlidersIcon } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
-import { Protect } from '../auth'
-import { useOrgInfo } from '../org-info'
-import { AuthRole } from '@/lib/types'
+import { useSession } from '@/hooks/session'
+import { RefWrapper } from './nav-ref-wrapper'
+import { usePathname } from 'next/navigation'
 
 interface OrgAdminDashboardLinkProps {
-    pathname: string
+    isVisible: boolean
 }
 
-export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname }) => {
-    const { orgSlug } = useOrgInfo()
+export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
+    const pathname = usePathname()
+    const { session } = useSession()
 
-    const orgAdminBaseUrl = `/admin/team/${orgSlug}`
+    const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
     // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
 
-    useEffect(() => {
-        if (orgSlug) {
-            if (pathname.startsWith(orgAdminBaseUrl)) {
-                setIsAdminMenuOpen(true)
-            } else {
-                setIsAdminMenuOpen(false)
-            }
-        } else {
-            setIsAdminMenuOpen(false)
-        }
-    }, [pathname, orgAdminBaseUrl, orgSlug])
-
-    if (!orgSlug) {
-        return null
-    }
+    if (!isVisible) return null
 
     return (
-        <Protect role={AuthRole.Admin}>
+        <RefWrapper>
             <NavLink
                 label="Admin"
                 leftSection={<GearIcon />}
@@ -77,6 +64,6 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ pathname
                     pl="xl"
                 />
             </NavLink>
-        </Protect>
+        </RefWrapper>
     )
 }
