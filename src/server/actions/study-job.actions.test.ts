@@ -1,11 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { db, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
-import {
-    fetchApprovedJobFilesAction,
-    fetchEncryptedJobFilesAction,
-    loadStudyJobAction,
-} from './study-job.actions'
-
+import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction, loadStudyJobAction } from './study-job.actions'
 
 vi.mock('@/server/storage', () => ({
     fetchCodeManifest: vi.fn(() => ({})),
@@ -36,8 +31,8 @@ describe('Study Job Actions', () => {
         })
 
         db.insertInto('studyJobFile')
-        .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
-        .executeTakeFirstOrThrow()
+            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
+            .executeTakeFirstOrThrow()
 
         const files = await fetchApprovedJobFilesAction(job.id)
 
@@ -49,8 +44,8 @@ describe('Study Job Actions', () => {
         const { org } = await mockSessionWithTestData()
         const { job } = await insertTestStudyJobData({ org })
         db.insertInto('studyJobFile')
-        .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-LOG' })
-        .executeTakeFirstOrThrow()
+            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-LOG' })
+            .executeTakeFirstOrThrow()
 
         const files = await fetchEncryptedJobFilesAction({
             jobId: job.id,
@@ -59,6 +54,5 @@ describe('Study Job Actions', () => {
 
         expect(files).toHaveLength(1)
         expect(files[0].fileType).toBe('ENCRYPTED-LOG')
-
     })
 })
