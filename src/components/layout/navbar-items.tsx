@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HouseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
+import { StudentIcon, UserListIcon } from '@phosphor-icons/react/dist/ssr'
 import { useSession } from '@/hooks/session'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
@@ -47,16 +47,16 @@ export const NavbarItems: FC = () => {
         <Stack gap="sm">
             <OrgAdminDashboardLink isVisible={session.team.isAdmin} />
             <DashboardLink
-                icon={<MagnifyingGlassIcon />}
+                icon={<UserListIcon />}
                 isVisible={session.team.isReviewer}
                 url={`/reviewer/${session.team.slug}/dashboard`}
-                label={`${isMultiple ? 'Reviewer ' : ''}Dashboard`}
+                label={`${isMultiple ? 'Reviewer‘s ' : ''}Dashboard`}
             />
             <DashboardLink
-                icon={<HouseIcon />}
+                icon={<StudentIcon />}
                 isVisible={session.team.isResearcher}
                 url={'/researcher/dashboard'}
-                label={`${isMultiple ? 'Researcher ' : ''}Dashboard`}
+                label={`${isMultiple ? 'Researcher‘s ' : ''}Dashboard`}
             />
             <RefWrapper>
                 <OrgSwitcher />

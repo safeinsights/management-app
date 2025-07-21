@@ -147,7 +147,7 @@ export class Action<
                         `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
                         `session: ${JSON.stringify(session.team, null, 2)}\n`
                     logger.error(msg)
-                    throw new ActionFailure({ failure: msg })
+                    throw new ActionFailure({ permission_denied: msg })
                 }
             }
 
