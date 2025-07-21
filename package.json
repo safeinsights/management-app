@@ -24,7 +24,7 @@
         "lint": "next lint && prettier --check --log-level warn .",
         "validate-actions": "tsx tests/validate-actions.ts",
         "lint:fix": "next lint --fix && prettier --write --log-level warn .",
-        "pre:push": "run-s lint:fix typecheck",
+        "pre:push": "run-p lint:fix typecheck validate-actions",
         "typecheck": "cd src && tsc --noEmit",
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint validate-actions",
