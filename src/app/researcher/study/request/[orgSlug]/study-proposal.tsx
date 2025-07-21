@@ -190,7 +190,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     </Button>
                 )}
 
-                <Group>
+                <Group style={{ marginLeft: 'auto' }}>
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
                     <StepperButtons
                         form={studyProposalForm}
