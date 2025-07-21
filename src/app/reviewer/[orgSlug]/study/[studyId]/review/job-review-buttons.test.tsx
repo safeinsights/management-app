@@ -24,7 +24,7 @@ describe('Study Results Approve/Reject buttons', async () => {
     ]
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
-        const { org } = await mockSessionWithTestData()
+        const { org } = await mockSessionWithTestData({ isReviewer: true })
         const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         return await act(async () => {
             const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)
@@ -33,7 +33,7 @@ describe('Study Results Approve/Reject buttons', async () => {
     }
 
     const clickNTest = async (btnLabel: string, action: Mock, statusChange: StudyJobStatus) => {
-        const { getByRole, job, org } = await insertAndRender('PENDING-REVIEW')
+        const { getByRole, job } = await insertAndRender('PENDING-REVIEW')
         expect(screen.queryByText(/approved on/i)).toBeNull()
         await act(async () => {
             const btn = getByRole('button', { name: btnLabel })
@@ -41,7 +41,7 @@ describe('Study Results Approve/Reject buttons', async () => {
         })
         await waitFor(async () => {
             expect(action).toHaveBeenCalled()
-            const latestJob = await latestJobForStudy(job.studyId, { orgSlug: org.slug })
+            const latestJob = await latestJobForStudy(job.studyId)
             expect(latestJob.statusChanges.find((sc) => sc.status == statusChange)).not.toBeUndefined()
         })
     }

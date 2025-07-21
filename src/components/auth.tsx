@@ -1,30 +1,5 @@
-import { useAuth as clerkUseAuth } from '@clerk/nextjs'
-import { useOrgInfo } from './org-info'
-import { useMemo } from 'react'
 import { AuthRole } from '@/lib/types'
-
-export const useAuthInfo = () => {
-    const { isLoaded: authLoaded, userId } = clerkUseAuth()
-    const { isLoaded: orgLoaded, org, orgSlug, preferredOrgSlug } = useOrgInfo()
-
-    return useMemo(
-        () => ({
-            isLoaded: Boolean(authLoaded && orgLoaded),
-            userId,
-            preferredOrgSlug,
-            orgSlug,
-            ...org,
-            role: org.isAdmin
-                ? AuthRole.Admin
-                : org.isReviewer
-                  ? AuthRole.Reviewer
-                  : org.isResearcher
-                    ? AuthRole.Researcher
-                    : null,
-        }),
-        [authLoaded, orgLoaded, userId, org, orgSlug, preferredOrgSlug],
-    )
-}
+import { useSession } from '../hooks/session'
 
 type ProtectProps = {
     role: AuthRole
@@ -32,14 +7,14 @@ type ProtectProps = {
     children: React.ReactNode
 }
 
-export const Protect: React.FC<ProtectProps> = ({ role, orgSlug, children }) => {
-    const { isLoaded, org } = useOrgInfo(orgSlug)
+export const Protect: React.FC<ProtectProps> = ({ role, children }) => {
+    const { isLoaded, session } = useSession()
 
-    if (!isLoaded) return null
+    if (!isLoaded || !session) return null
 
-    if (role == AuthRole.Admin && org.isAdmin) return children
-    if (role == AuthRole.Researcher && org.isResearcher) return children
-    if (role == AuthRole.Reviewer && org.isReviewer) return children
+    if (role == AuthRole.Admin && session.team.isAdmin) return children
+    if (role == AuthRole.Researcher && session.team.isResearcher) return children
+    if (role == AuthRole.Reviewer && session.team.isReviewer) return children
 
     return null
 }

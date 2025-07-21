@@ -65,7 +65,6 @@ export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) 
 
 export const onUserLogIn = deferred(async ({ userId }: { userId: string }) => {
     await audit({ userId, eventType: 'LOGGED_IN', recordType: 'USER', recordId: userId })
-    await updateClerkUserMetadata(userId)
 })
 
 export const onUserResetPW = deferred(async (userId: string) => {

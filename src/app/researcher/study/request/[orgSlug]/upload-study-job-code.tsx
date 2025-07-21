@@ -10,6 +10,7 @@ import {
     FileDocIcon,
     FilePdfIcon,
     FileTextIcon,
+    AsteriskIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
@@ -18,6 +19,23 @@ import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+
+// Detects if any uploaded files share the same name as the main code file and shows a notification.
+export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
+    if (!mainFile || !additionalFiles) return false
+
+    const duplicateFound = additionalFiles.some((file) => file.name === mainFile.name)
+
+    if (duplicateFound) {
+        notifications.show({
+            color: 'red',
+            title: 'Duplicate filename',
+            message: `The file name "${mainFile.name}" has already been uploaded. Please choose a different file name or remove the existing one before continuing.`,
+        })
+    }
+
+    return duplicateFound
+}
 
 export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
     studyProposalForm,
@@ -63,7 +81,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             <Group grow justify="center" align="center" mt="md">
                 <Grid>
                     <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
+                        <Group gap="xs">
+                            <FormFieldLabel label="Main code file" inputId={studyProposalForm.key('mainCodeFile')} />
+                            <AsteriskIcon size={14} color={theme.colors.red[5]} />
+                        </Group>
                     </Grid.Col>
                     <Grid.Col span={inputSpan}>
                         <FileInput
@@ -73,7 +94,18 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             placeholder="Upload Main Code File"
                             clearable
                             accept={'.r,.R'}
-                            {...studyProposalForm.getInputProps('mainCodeFile')}
+                            value={studyProposalForm.values.mainCodeFile}
+                            onChange={(file) => {
+                                const { additionalCodeFiles } = studyProposalForm.getValues()
+                                const isDuplicate = handleDuplicateUpload(file, additionalCodeFiles)
+
+                                if (isDuplicate) {
+                                    studyProposalForm.setFieldValue('mainCodeFile', null)
+                                    return
+                                }
+
+                                studyProposalForm.setFieldValue('mainCodeFile', file)
+                            }}
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: one .r file only.
@@ -86,7 +118,8 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                 <Grid>
                     <Grid.Col span={titleSpan}>
                         <FormFieldLabel
-                            label="Addtional file(s)"
+                            label="Additional file(s)"
+                            variant="optional"
                             inputId={studyProposalForm.key('additionalCodeFiles')}
                         />
                     </Grid.Col>
@@ -94,8 +127,20 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                         <Dropzone
                             name="additionalCodeFiles"
                             onDrop={(files) => {
-                                const { additionalCodeFiles: previousFiles } = studyProposalForm.getValues()
-                                const additionalFiles = uniqueBy([...files, ...previousFiles], (file) => file.name)
+                                const { additionalCodeFiles: previousFiles, mainCodeFile } =
+                                    studyProposalForm.getValues()
+
+                                // Show duplicate error and upload all files without duplicate filenames
+                                handleDuplicateUpload(mainCodeFile, files)
+
+                                const filteredFiles = mainCodeFile
+                                    ? files.filter((f) => f.name !== mainCodeFile.name)
+                                    : files
+
+                                const additionalFiles = uniqueBy(
+                                    [...filteredFiles, ...previousFiles],
+                                    (file) => file.name,
+                                )
                                 studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
                             }}
                             onReject={(rejections) =>
@@ -115,7 +160,9 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                             accept={ACCEPTED_FILE_TYPES}
                         >
                             <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                                <Text fw="bold">Upload File</Text>
+                                <Text fz="sm" c="dimmed">
+                                    Upload File
+                                </Text>
                                 <Dropzone.Accept>
                                     <UploadIcon />
                                 </Dropzone.Accept>
@@ -126,8 +173,10 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                     <UploadSimpleIcon />
                                 </Dropzone.Idle>
                                 <Group gap="xs">
-                                    <Text size="md">Drop your files or</Text>
-                                    <Text td="underline" c="purple.5" fw="bold">
+                                    <Text size="sm" c="dimmed">
+                                        Drop your files or
+                                    </Text>
+                                    <Text td="underline" c="dimmed" fz="sm">
                                         Browse
                                     </Text>
                                 </Group>

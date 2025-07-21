@@ -16,17 +16,17 @@ import {
     Text,
     Title,
     Tooltip,
+    TableScrollContainer,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 
-import { ErrorAlert } from '@/components/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { UserName } from '@/components/user-name'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
-import { currentUser } from '@clerk/nextjs/server'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
+import { sessionFromClerk } from '@/server/clerk'
+import { ErrorAlert } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,11 +54,12 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    const clerkUser = await currentUser()
-    const org = clerkUser?.publicMetadata?.orgs?.find((o) => o.slug !== CLERK_ADMIN_ORG_SLUG)
-    if (!org) return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
-
     const studies = await fetchStudiesForCurrentResearcherAction()
+    const session = await sessionFromClerk()
+
+    if (!session) {
+        return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
+    }
 
     const rows = studies.map((study) => (
         <TableTr fz="md" key={study.id}>
@@ -101,23 +102,25 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     <Group justify="space-between">
                         <Title order={3}>Proposed Studies</Title>
                         <Flex justify="flex-end">
-                            <NewStudyLink orgSlug={org.slug} />
+                            <NewStudyLink orgSlug={session.team.slug} />
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
-                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={org.slug} />
-                        <TableThead fz="sm">
-                            <TableTr>
-                                <TableTh>Study Name</TableTh>
-                                <TableTh>Submitted On</TableTh>
-                                <TableTh>Submitted To</TableTh>
-                                <TableTh>Status</TableTh>
-                                <TableTh>Study Details</TableTh>
-                            </TableTr>
-                        </TableThead>
-                        <TableTbody>{rows}</TableTbody>
-                    </Table>
+                    <TableScrollContainer minWidth={768}>
+                        <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                            <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
+                            <TableThead fz="sm">
+                                <TableTr>
+                                    <TableTh>Study Name</TableTh>
+                                    <TableTh>Submitted On</TableTh>
+                                    <TableTh>Submitted To</TableTh>
+                                    <TableTh>Status</TableTh>
+                                    <TableTh>Study Details</TableTh>
+                                </TableTr>
+                            </TableThead>
+                            <TableTbody>{rows}</TableTbody>
+                        </Table>
+                    </TableScrollContainer>
                 </Stack>
             </Paper>
         </Stack>
