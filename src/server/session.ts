@@ -7,7 +7,7 @@ import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
 
-type syncUserMetadataFn = (userId: string) => Promise<UserInfo | null>
+export type syncUserMetadataFn = (userId: string) => Promise<UserInfo | null>
 
 export async function marshalSession(
     clerkUserId: string | null,

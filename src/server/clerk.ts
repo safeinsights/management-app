@@ -3,7 +3,7 @@ import { capitalize, omit } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { ENVIRONMENT_ID } from './config'
-import { marshalSession } from './session'
+import { marshalSession, type syncUserMetadataFn } from './session'
 import logger from '@/lib/logger'
 
 export { type UserSessionWithAbility } from './session'
@@ -38,11 +38,10 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
     }
 }
 
-export const updateClerkUserMetadata = async (userId: string) => {
-    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
-    const client = await clerkClient()
-    const user = await client.users.getUser(clerkId)
-    const currentMetadata = user.publicMetadata || {}
+export async function calculateUserPublicMetadata(
+    userId: string,
+    currentMetadata: UserPublicMetadata,
+): Promise<UserPublicMetadata> {
     const teams = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
         user: { id: userId },
@@ -60,15 +59,25 @@ export const updateClerkUserMetadata = async (userId: string) => {
             {} as UserInfo['teams'],
         ),
     }
-    logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
-    await client.users.updateUserMetadata(clerkId, {
+    return {
         publicMetadata: {
             // remove legacy items
-            // TODO: remove this after 2025-08-15
+            // TODO: remove the `omit` after 2025-08-15, evverything should be migrated by then
             ...omit(currentMetadata, ['orgs', 'memberships', 'userId']),
             [`${ENVIRONMENT_ID}`]: metadata,
         },
-    })
+    }
+}
+
+export const updateClerkUserMetadata = async (userId: string) => {
+    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
+    const client = await clerkClient()
+    const user = await client.users.getUser(clerkId)
+
+    const metadata: UserPublicMetadata = await calculateUserPublicMetadata(userId, user.publicMetadata || {})
+
+    logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
+    await client.users.updateUserMetadata(clerkId, metadata)
 
     return metadata
 }
@@ -109,8 +118,11 @@ export const syncCurrentClerkUser = async () => {
 export async function sessionFromClerk() {
     const { userId, sessionClaims } = await auth()
 
-    return await marshalSession(userId, sessionClaims, async () => {
+    const syncer: syncUserMetadataFn = async () => {
         const user = await syncCurrentClerkUser()
-        return await updateClerkUserMetadata(user.id)
-    })
+        const info = await updateClerkUserMetadata(user.id)
+        return info[ENVIRONMENT_ID] as UserInfo
+    }
+
+    return await marshalSession(userId, sessionClaims, syncer)
 }

@@ -364,7 +364,22 @@ export const mockClerkSession = (values: MockSession) => {
         },
         users: {
             updateUserMetadata: vi.fn(),
-
+            getUserList: vi.fn(async (params: { emailAddress?: string[] }) => {
+                if (params.emailAddress && params.emailAddress.length > 0) {
+                    return {
+                        totalCount: 1,
+                        data: [
+                            {
+                                id: values.clerkUserId,
+                                firstName: 'Mocked',
+                                lastName: 'User',
+                                emailAddresses: [{ emailAddress: params.emailAddress[0] }],
+                            },
+                        ],
+                    }
+                }
+                return { data: [], totalCount: 0 }
+            }),
             getUser: vi.fn(async (clerkId: string) => ({
                 id: clerkId,
                 firstName: 'Mocked',
@@ -432,12 +447,3 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 
     return { session, org, user, orgUser, ...mocks }
 }
-
-// export const mockClerkAuth = (session: UserSession) => {
-//     const auth = clerkAuth as unknown as Mock
-//     auth.mockImplementation(() => ({
-//         orgSlug: session.team.slug,
-//         sessionClaims: { org_slug: session.team.slug },
-//         userId: session.user.clerkId,
-//     }))
-// }
