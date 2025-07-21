@@ -1,10 +1,10 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { reportError } from '@/components/errors'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
@@ -20,7 +20,8 @@ export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
-    const { setActive, signIn } = useSignIn()
+    const { signOut } = useAuth()
+    const { setActive, signIn  } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -33,6 +34,10 @@ export const SignInForm: FC<{
         },
         validate: zodResolver(signInSchema),
     })
+
+    useEffect(() => {
+        if (isSignedIn) signOut()
+    }, [isSignedIn])
 
     if (isSignedIn || !signIn || mfa) return null
 
