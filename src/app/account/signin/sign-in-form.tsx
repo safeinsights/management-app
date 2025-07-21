@@ -21,7 +21,7 @@ export const SignInForm: FC<{
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
     const { signOut } = useAuth()
-    const { setActive, signIn  } = useSignIn()
+    const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
     const searchParams = useSearchParams()
