@@ -22,12 +22,13 @@ type StepperButtonsProps = {
     isPending: boolean
     setStepIndex: (i: number) => void
 }
+
 const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
     const isValid = form.isValid()
 
     if (stepIndex == 0) {
         return (
-            <Button variant="default" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
+            <Button variant="primary" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
                 Next Step
             </Button>
         )
@@ -35,14 +36,9 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
     if (stepIndex == 1) {
         return (
-            <>
-                <Button variant="default" onClick={() => setStepIndex(stepIndex - 1)}>
-                    Back
-                </Button>
-                <Button disabled={!isValid || isPending} type="submit" variant="filled">
-                    Submit
-                </Button>
-            </>
+            <Button disabled={!isValid || isPending} type="submit" variant="filled">
+                Submit
+            </Button>
         )
     }
     return null
@@ -178,23 +174,31 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 <Stepper.Step>
                     <Stack mt="xl">
                         <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                        <Group justify="center">
-                            {studyProposalForm.errors['totalFileSize'] && (
+                        {studyProposalForm.errors['totalFileSize'] && (
+                            <Group justify="center">
                                 <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                            )}
-                        </Group>
+                            </Group>
+                        )}
                     </Stack>
                 </Stepper.Step>
             </Stepper>
 
-            <Group justify="flex-end" mt="xl">
-                <CancelButton isDirty={studyProposalForm.isDirty()} />
-                <StepperButtons
-                    form={studyProposalForm}
-                    stepIndex={stepIndex}
-                    isPending={isPending}
-                    setStepIndex={setStepIndex}
-                />
+            <Group mt="xxl" style={{ width: '100%' }}>
+                {stepIndex === 1 && (
+                    <Button variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                        Back
+                    </Button>
+                )}
+
+                <Group>
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <StepperButtons
+                        form={studyProposalForm}
+                        stepIndex={stepIndex}
+                        isPending={isPending}
+                        setStepIndex={setStepIndex}
+                    />
+                </Group>
             </Group>
         </form>
     )

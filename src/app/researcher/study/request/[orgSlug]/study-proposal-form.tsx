@@ -68,6 +68,13 @@ export const StudyProposalForm: FC<{
                         <TextInput
                             id={studyProposalForm.key('lead')}
                             aria-label="Study Lead"
+                            styles={{
+                                input: {
+                                    color: theme.colors.charcoal[9],
+                                    backgroundColor: theme.colors.charcoal[1],
+                                    borderColor: theme.colors.charcoal[1],
+                                },
+                            }}
                             disabled
                             value={user?.fullName ?? ''}
                         />
@@ -101,7 +108,7 @@ export const StudyProposalForm: FC<{
                             name="descriptionDocument"
                             leftSection={fileUpload}
                             aria-label="Upload Study Description Document"
-                            placeholder="Upload Study Description Document"
+                            placeholder="Upload document (max 5 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('descriptionDocument')}
@@ -117,12 +124,12 @@ export const StudyProposalForm: FC<{
                         <FileInput
                             id={studyProposalForm.key('irbDocument')}
                             leftSection={irbFileUpload}
-                            {...studyProposalForm.getInputProps('irbDocument')}
                             name="irbDocument"
                             aria-label="Upload IRB Document"
-                            placeholder="Upload IRB Document"
+                            placeholder="Upload document (max 3 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('irbDocument')}
                         />
                     </Grid.Col>
                 </Grid>
@@ -140,13 +147,19 @@ export const StudyProposalForm: FC<{
                             leftSection={agreementFileUpload}
                             name="agreementDocument"
                             aria-label="Upload Agreement Document"
-                            placeholder="Upload Agreement Document"
+                            placeholder="Upload document (max 3 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('agreementDocument')}
                         />
                     </Grid.Col>
                 </Grid>
+
+                {studyProposalForm.errors['totalFileSize'] && (
+                    <Text c="red" role="alert">
+                        {studyProposalForm.errors['totalFileSize']}
+                    </Text>
+                )}
             </Stack>
         </Paper>
     )

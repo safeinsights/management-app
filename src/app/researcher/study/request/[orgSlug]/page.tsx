@@ -36,7 +36,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
     if (!orgUser) {
         return (
             <Stack p="xl" gap="xl">
-                <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
+                <ResearcherBreadcrumbs crumbs={{ current: 'Propose a Study' }} />
                 <AlertNotFound
                     title="Access Denied"
                     message="You are not authorized to propose studies for this organization."
@@ -47,8 +47,8 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs crumbs={{ current: 'Propose A Study' }} />
-            <Title order={1}>Propose A Study</Title>
+            <ResearcherBreadcrumbs crumbs={{ current: 'Propose a Study' }} />
+            <Title order={1}>Propose a Study</Title>
             <StudyProposal orgSlug={params.orgSlug} />
         </Stack>
     )

@@ -31,11 +31,7 @@ export const studyProposalFormSchema = z
             .string()
             .min(5, { message: 'Title must be at least 5 characters long' })
             .max(50, { message: 'Word limit is 50 characters' }),
-        piName: z
-            .string()
-            .min(1, { message: 'Principal Investigator name must be present' })
-            .max(100, { message: 'Word limit is 100 characters' })
-            .trim(),
+        piName: z.string().max(100, { message: 'Word limit is 100 characters' }).trim(),
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),
@@ -49,7 +45,7 @@ export const studyProposalFormSchema = z
         if (totalSize > 10 * 1024 * 1024) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                message: 'Total size of all files must be less than 10MB',
+                message: 'The total size of all documents must not exceed 10 MB, please adjust your files accordingly.',
                 path: ['totalFileSize'],
             })
         }
@@ -97,7 +93,7 @@ export const studyProposalApiSchema = z.object({
         .string()
         .min(5, { message: 'Title must be at least 5 characters long' })
         .max(50, { message: 'Title must be less than 50 characters long' }),
-    piName: z.string().min(1, { message: 'Principal Investigator name must be present' }).max(100).trim(),
+    piName: z.string().max(100).trim(),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
