@@ -38,7 +38,7 @@ export const SignInForm: FC<{
 
     useEffect(() => {
         if (isSignedIn && !signedInRecently) signOut()
-    }, [isSignedIn])
+    }, [isSignedIn, signOut, signedInRecently])
 
     if (isSignedIn || !signIn || mfa) return null
 

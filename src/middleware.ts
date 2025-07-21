@@ -1,10 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
-import debug from 'debug'
+import log from '@/lib/logger'
 import * as Sentry from '@sentry/nextjs'
 import { marshalSession } from './server/session'
-import { type UserSession } from './lib/types'
-const middlewareDebug = debug('app:middleware')
+import { type UserSession, BLANK_SESSION } from './lib/types'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
@@ -19,11 +18,7 @@ const ANON_ROUTES: Array<string> = [
 ]
 
 function redirectToRole(request: NextRequest, route: string, session: UserSession) {
-    middlewareDebug(
-        `Blocking unauthorized ${route} route access. session: %s`,
-        request.url,
-        JSON.stringify(session, null, 2),
-    )
+    log.warn(`Blocking unauthorized ${route} route access. session: %s`, request.url, JSON.stringify(session, null, 2))
     if (session.team.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
@@ -36,7 +31,7 @@ function redirectToRole(request: NextRequest, route: string, session: UserSessio
 export default clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
-    const session = await marshalSession(clerkUserId, sessionClaims)
+    let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)
 
     if (session) {
         Sentry.setUser({
@@ -47,9 +42,14 @@ export default clerkMiddleware(async (auth, req) => {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
         }
-        const signInUrl = new URL('/account/signin', req.url)
-        signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
-        return NextResponse.redirect(signInUrl)
+        if (clerkUserId) {
+            session = BLANK_SESSION
+        } else {
+            const signInUrl = new URL('/account/signin', req.url)
+            signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
+            log.warn('redirecting to ${signInUrl}')
+            return NextResponse.redirect(signInUrl)
+        }
     }
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {

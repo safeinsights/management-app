@@ -20,6 +20,7 @@ describe('Create Account Actions', () => {
         client.mockResolvedValue({
             users: {
                 updateUserMetadata: vi.fn(async () => ({})),
+                getUser: vi.fn(() => null),
                 getUserList: vi.fn(async () => ({
                     totalCount: 1,
                     data: [

@@ -7,23 +7,27 @@ import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { sessionFromClerk } from '@/server/clerk'
 import { getReviewerPublicKey } from '../db/queries'
 
-export const onUserSignInAction = new Action('onUserSignInAction')
-    //.requireAbilityTo('update', 'User')
-    .handler(async () => {
-        const user = await syncCurrentClerkUser()
-        await updateClerkUserMetadata(user.id)
-        onUserLogIn({ userId: user.id })
+export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    await updateClerkUserMetadata(user.id)
+    onUserLogIn({ userId: user.id })
 
-        const session = await sessionFromClerk()
-        if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
+    const session = await sessionFromClerk()
+    if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
 
-        if (session.team.isReviewer) {
-            const publicKey = await getReviewerPublicKey(user.id)
-            if (!publicKey) {
-                return { redirectToReviewerKey: true }
-            }
+    if (session.team.isReviewer) {
+        const publicKey = await getReviewerPublicKey(user.id)
+        if (!publicKey) {
+            return { redirectToReviewerKey: true }
         }
-    })
+    }
+})
+
+export const syncUserMetadata = new Action('syncUserMetadata').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    const metadata = await updateClerkUserMetadata(user.id)
+    return metadata
+})
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .requireAbilityTo('update', 'User')

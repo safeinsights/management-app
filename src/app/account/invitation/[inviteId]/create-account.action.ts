@@ -5,6 +5,7 @@ import { calculateUserPublicMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 import { Action, z, ActionFailure } from '@/server/actions/action'
+import { ENVIRONMENT_ID } from '@/server/config'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
@@ -93,8 +94,13 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             return user
         })
 
-        const metadata = await calculateUserPublicMetadata(siUser.id, {})
-        await clerk.users.updateUserMetadata(clerkId, metadata)
+        const metadata = await calculateUserPublicMetadata(siUser.id)
+
+        await clerk.users.updateUserMetadata(clerkId, {
+            publicMetadata: {
+                [`${ENVIRONMENT_ID}`]: metadata,
+            },
+        })
 
         onUserAcceptInvite(siUser.id)
 

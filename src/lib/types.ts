@@ -104,3 +104,10 @@ export type JobFile = {
 
 // use as: IsUnknown<Args> extends true
 export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false) : false
+
+export const BLANK_SESSION: UserSession = {
+    user: { id: '', isSiAdmin: false, clerkUserId: '' },
+    team: { id: '', slug: '', isAdmin: false, isResearcher: false, isReviewer: false },
+}
+
+Object.freeze(BLANK_SESSION)
