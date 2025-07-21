@@ -23,7 +23,7 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
     }
 })
 
-export const syncUserMetadata = new Action('syncUserMetadata').handler(async () => {
+export const syncUserMetadataAction = new Action('syncUserMetadata').handler(async () => {
     const user = await syncCurrentClerkUser()
     const metadata = await updateClerkUserMetadata(user.id)
     return metadata

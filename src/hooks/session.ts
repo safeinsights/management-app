@@ -6,7 +6,7 @@ import { useEnvironmentId } from '@/hooks/environment'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 
 import { useUser } from '@clerk/nextjs'
-import { syncUserMetadata } from '@/server/actions/user.actions'
+import { syncUserMetadataAction } from '@/server/actions/user.actions'
 
 export const useSession = ():
     | { isLoaded: false; session: null }
@@ -29,7 +29,7 @@ export const useSession = ():
             })
             setSession(sessFromMD)
         } catch {
-            syncUserMetadata().then((metadata) => {
+            syncUserMetadataAction().then((metadata) => {
                 const updatedSession = sessionFromMetadata({
                     env,
                     metadata: { [`${env}`]: metadata },
