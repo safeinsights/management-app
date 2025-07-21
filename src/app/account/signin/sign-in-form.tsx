@@ -21,6 +21,7 @@ export const SignInForm: FC<{
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
     const { signOut } = useAuth()
+    const [signedInRecently, setSignedInRecently] = useState(false)
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
@@ -36,12 +37,13 @@ export const SignInForm: FC<{
     })
 
     useEffect(() => {
-        if (isSignedIn) signOut()
+        if (isSignedIn && !signedInRecently) signOut()
     }, [isSignedIn])
 
     if (isSignedIn || !signIn || mfa) return null
 
     const onSubmit = form.onSubmit(async (values) => {
+        setSignedInRecently(true)
         try {
             const attempt = await signIn.create({
                 identifier: values.email,
