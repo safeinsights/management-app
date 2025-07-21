@@ -44,6 +44,7 @@ export function defineAbilityFor(session: UserSession) {
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
         permit('create', 'StudyJob')
+
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
     }
@@ -55,8 +56,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('reject', 'Study')
         permit('read', 'Study', { orgSlug: session.team.slug })
         permit('review', 'Study', { 'study.orgId': session.team.id })
-        //        permit('view', 'Study', { 'study.orgId': session.team.id })
-        permit('read', 'StudyJob', { 'study.orgId': session.team.id })
+        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
     }
 
     if (isTeamAdmin) {
