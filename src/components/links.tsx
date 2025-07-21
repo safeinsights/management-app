@@ -2,7 +2,7 @@
 // ↑ server-rendering doesn't like passing Link to component or if props contain icons
 
 import { Anchor as MantineAnchor, AnchorProps, Button, ButtonProps } from '@mantine/core'
-import { ArrowSquareOutIcon, DownloadIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import NextLink from 'next/link'
 
@@ -50,9 +50,15 @@ export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, 
     }, [content])
 
     return (
-        <NextLink href={href} target={target} data-testid="download-link" download={filename}>
-            <Button rightSection={<DownloadIcon />}>Download Results</Button>
-        </NextLink>
+        <MantineAnchor
+            href={href}
+            target={target}
+            data-testid="download-link"
+            download={filename}
+            style={{ display: 'flex', alignItems: 'center' }}
+        >
+            Download <DownloadSimpleIcon size={16} style={{ marginLeft: 4 }} />
+        </MantineAnchor>
     )
 }
 
@@ -69,8 +75,8 @@ export const ViewResultsLink: FC<{ content: ArrayBuffer }> = ({ content }) => {
     }
 
     return (
-        <Button onClick={handleClick} rightSection={<ArrowSquareOutIcon />}>
-            View Results (Opens in new tab)
-        </Button>
+        <MantineAnchor role="button" onClick={handleClick} style={{ display: 'flex', alignItems: 'center' }}>
+            View <ArrowSquareOutIcon size={16} style={{ marginLeft: 4 }} />
+        </MantineAnchor>
     )
 }
