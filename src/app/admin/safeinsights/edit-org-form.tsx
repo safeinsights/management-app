@@ -2,7 +2,7 @@
 
 import { useForm } from '@mantine/form'
 import { Button, Textarea, TextInput } from '@mantine/core'
-import { upsertOrgAction } from '@/server/actions/org.actions'
+import { updateOrgAction, insertOrgAction } from '@/server/actions/org.actions'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Org, orgSchema, NewOrg, ValidatedOrg } from '@/schema/org'
 import { FC } from 'react'
@@ -21,7 +21,10 @@ export const EditOrgForm: FC<{
     const queryClient = useQueryClient()
 
     const { isPending, mutate: upsertOrg } = useMutation({
-        mutationFn: async (data: ValidatedOrg) => await upsertOrgAction(data),
+        mutationFn: async (data: ValidatedOrg) => {
+            if ('id' in org) return await updateOrgAction({ id: org.id, ...data })
+            return await insertOrgAction(data)
+        },
         onError: (error: unknown) => {
             reportError(error)
         },

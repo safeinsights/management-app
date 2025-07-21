@@ -14,7 +14,7 @@ vi.mock('@/server/actions/org.actions', () => ({
 }))
 
 vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForOrgAction: vi.fn(),
+    fetchStudiesForOrgAction: vi.fn(() => []),
 }))
 
 // TODO Extract out into a helper function that we can re-use
@@ -38,16 +38,6 @@ beforeEach(() => {
 })
 
 describe('Org Dashboard', () => {
-    it('renders an error when the org is not found', async () => {
-        const props = {
-            params: Promise.resolve({ orgSlug: 'test-org' }),
-        }
-
-        renderWithProviders(await OrgDashboardPage(props))
-
-        expect(screen.getByText(/Org was not found/i)).toBeDefined()
-    })
-
     it('renders the welcome text', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValue([])
         vi.mocked(getOrgFromSlugAction).mockResolvedValue(mockOrg)

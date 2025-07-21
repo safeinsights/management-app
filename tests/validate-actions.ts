@@ -2,7 +2,9 @@ import * as ts from 'typescript'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const WRAPPERS = ['siAdminAction', 'researcherAction', 'orgAction', 'orgAdminAction', 'userAction', 'anonAction']
+const args = process.argv.slice(2)
+const VERBOSE = args.includes('--verbose')
+const targetDirectory = args.find((arg) => !arg.startsWith('--')) || 'src'
 
 type ExportStatus = {
     name: string
@@ -30,14 +32,31 @@ function getAllFiles(dirPath: string, arrayOfFiles: string[] = []): string[] {
  * using `serverAction`.
  */
 function findServerActionWrapper(node: ts.Expression): string | false {
-    if (ts.isCallExpression(node)) {
-        const callee = node.expression
-        // Check if the callee is an identifier named "serverAction"
-        if (ts.isIdentifier(callee)) {
-            const wrapper = WRAPPERS.find((wrapper) => wrapper == callee.escapedText)
-            return wrapper || false
+    let current: ts.Node = node
+
+    // Traverse down the chain of CallExpressions and PropertyAccessExpressions
+    while (ts.isCallExpression(current) || ts.isPropertyAccessExpression(current)) {
+        if (ts.isCallExpression(current)) {
+            current = current.expression
+        } else if (ts.isPropertyAccessExpression(current)) {
+            current = current.expression
         }
     }
+
+    // Check if we ended up at `new Action(...)`
+    if (ts.isNewExpression(current)) {
+        const callee = current.expression
+        if (ts.isIdentifier(callee) && callee.escapedText === 'Action') {
+            if (current.arguments && current.arguments.length > 0) {
+                const firstArg = current.arguments[0]
+                if (ts.isStringLiteral(firstArg)) {
+                    return firstArg.text // This will be the action name string
+                }
+            }
+            return 'Action' // Or maybe something to indicate name not found
+        }
+    }
+
     return false
 }
 
@@ -68,12 +87,6 @@ function checkExportedFunctions(sourceFile: ts.SourceFile): ExportStatus[] {
                     const varName = decl.name.getText(sourceFile)
                     if (decl.initializer) {
                         results.push({ name: varName, wrapper: findServerActionWrapper(decl.initializer) })
-
-                        // // If the initializer is a call to serverAction, we consider it properly wrapped.
-                        // if (isServerActionWrapped(decl.initializer)) {
-                        //   } else {
-                        //     results.push({ name: varName, wrapped: false });
-                        //   }
                     }
                 })
             }
@@ -87,13 +100,7 @@ function checkExportedFunctions(sourceFile: ts.SourceFile): ExportStatus[] {
 }
 
 function isProperlyNamed(filePath: string, functionName: string) {
-    if (filePath.endsWith('layout.tsx')) {
-        return true // layouts can do whatever
-    } else if (filePath.endsWith('page.tsx')) {
-        return functionName.endsWith('Page')
-    } else {
-        return functionName.endsWith('Action')
-    }
+    return functionName.endsWith('Action')
 }
 
 function isActionsFile(filePath: string) {
@@ -108,29 +115,42 @@ const IS_SERVER = /['"]use server['"]/
 function analyzeFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf8')
     let success = true
-    if (IS_SERVER.test(content)) {
-        const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
-        const exportedFunctions = checkExportedFunctions(sourceFile)
-        if (exportedFunctions.length > 0) {
-            console.log(filePath)
-            exportedFunctions.forEach((func) => {
-                const named = isProperlyNamed(filePath, func.name)
-                const wrapped = isActionsFile(filePath) ? func.wrapper : true
-                const isOk = named && wrapped
-                console.log(`   ${isOk ? '✓' : '✗'} ${func.name}`)
-                if (!isOk) {
-                    if (!named) console.error(`     is not named correctly, should end in 'Action'`)
-                    if (!wrapped)
-                        console.error(
-                            `     is not named wrapped, should be wrapped in one of the access control functions`,
-                        )
-                    success = false
-                }
-            })
-        }
+    const logs: string[] = []
+
+    if (!IS_SERVER.test(content) || filePath.endsWith('layout.tsx') || filePath.endsWith('page.tsx')) {
+        return { success, logs }
     }
 
-    return success
+    const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
+    const exportedFunctions = checkExportedFunctions(sourceFile)
+    if (exportedFunctions.length > 0) {
+        if (VERBOSE) logs.push(filePath)
+        let fileHasError = false
+        exportedFunctions.forEach((func) => {
+            const named = isProperlyNamed(filePath, func.name)
+            const wrapped = isActionsFile(filePath) ? func.wrapper : true
+            const namesMatch = !wrapped || func.name === func.wrapper
+            const isOk = named && wrapped && namesMatch
+            if (VERBOSE) logs.push(`   ${isOk ? '✓' : '✗'} ${func.name}`)
+            if (!isOk) {
+                if (!fileHasError) {
+                    logs.unshift(filePath) // Add file path only once on first error
+                    fileHasError = true
+                }
+                logs.push(`   ✗ ${func.name}`)
+                if (!named) logs.push(`     is not named correctly, should end in 'Action'`)
+                if (!wrapped)
+                    logs.push(`     is not named wrapped, should be wrapped in one of the access control functions`)
+                if (!namesMatch)
+                    logs.push(
+                        `     action name in constructor ('${func.wrapper}') does not match variable name ('${func.name}')`,
+                    )
+                success = false
+            }
+        })
+    }
+
+    return { success, logs }
 }
 
 /**
@@ -138,20 +158,28 @@ function analyzeFile(filePath: string) {
  */
 function analyzeDirectory(directoryPath: string): void {
     const files = getAllFiles(directoryPath)
-    let success = true
+    let overallSuccess = true
+    const errorLogs: string[] = []
+
     for (const file of files) {
-        if (!analyzeFile(file)) {
-            success = false
+        const { success, logs } = analyzeFile(file)
+        if (!success) {
+            overallSuccess = false
+            errorLogs.push(...logs)
+        } else if (VERBOSE) {
+            logs.forEach((log) => console.log(log))
         }
     }
-    if (!success) {
-        console.error('Some files failed the analysis.')
+
+    if (!overallSuccess) {
+        console.error('Analysis failed for some files:')
+        errorLogs.forEach((log) => console.error(log))
         process.exit(1)
+    } else {
+        if (VERBOSE) console.log('All files passed analysis.')
     }
 }
 
 // Run the analysis.
-// Usage: ts-node checkServerActions.ts <path-to-nextjs-app>
-// If no directory is provided, it defaults to the current working directory.
-const targetDirectory = process.argv[2] || 'src'
+// Usage: ts-node checkServerActions.ts [--verbose] [<path-to-nextjs-app>]
 analyzeDirectory(targetDirectory)

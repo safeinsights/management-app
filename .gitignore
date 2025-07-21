@@ -1,5 +1,7 @@
 .env*
 .aider*
+.claude*
+
 .DS_Store
 .idea
 *.zip
