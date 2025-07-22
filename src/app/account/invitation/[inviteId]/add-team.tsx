@@ -27,7 +27,7 @@ export const AddTeam: FC<InviteProps> = ({ inviteId, orgName }) => {
     if (hasJoined) {
         return (
             <Flex direction="column" gap="lg" maw={500} mx="auto">
-                <Text size="md">You&apos;ve joined ${orgName}</Text>
+                <Text size="md">You&apos;ve joined {orgName}</Text>
                 <Button onClick={() => router.push('/account/signin')}>Login to visit team page</Button>
             </Flex>
         )
