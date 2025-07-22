@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { NavLink } from '@mantine/core'
 import Link from 'next/link'
 import { GearIcon, UsersThreeIcon, SlidersIcon } from '@phosphor-icons/react/dist/ssr'
@@ -18,8 +18,15 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const { session } = useSession()
 
     const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
-    // avoid a "closed->open" flash on selecting submenus first time by seeding state from the current path
-    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(() => Boolean(pathname.startsWith(orgAdminBaseUrl)))
+    const isAdminURL = Boolean(pathname.startsWith(orgAdminBaseUrl))
+
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminURL)
+
+    useEffect(() => {
+        if (isAdminURL && !isAdminMenuOpen) {
+            setIsAdminMenuOpen(true)
+        }
+    }, [isAdminURL, isAdminMenuOpen])
 
     if (!isVisible) return null
 
@@ -34,7 +41,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     }
                 }}
                 active={false}
-                opened={isAdminMenuOpen}
+                opened={isAdminURL || isAdminMenuOpen}
                 c="white"
                 className={styles.navLinkHover}
                 rightSection={null}

@@ -19,11 +19,10 @@ const ANON_ROUTES: Array<string> = [
 ]
 
 function redirectToRole(request: NextRequest, route: string, session: UserSession) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     log.warn(
         `Blocking unauthorized ${route} route access. session: %s`,
         request.url,
-        JSON.stringify(omit(session as any, ['ability']), null, 2),
+        JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
     )
     if (session.team.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
@@ -58,19 +57,21 @@ export default clerkMiddleware(async (auth, req) => {
         }
     }
 
+    const { isAdmin, isResearcher, isReviewer } = session.team
+
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToRole(req, 'si admin', session)
     }
 
-    if (isOrgAdminRoute(req) && !session.team.isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
+    if (isOrgAdminRoute(req) && !isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
         return redirectToRole(req, 'org-admin', session)
     }
 
-    if (isReviewerRoute(req) && !session.team.isReviewer) {
+    if (isReviewerRoute(req) && !(isReviewer || isAdmin)) {
         return redirectToRole(req, 'reviewer', session)
     }
 
-    if (isResearcherRoute(req) && !session.team.isResearcher) {
+    if (isResearcherRoute(req) && !(isResearcher || isAdmin)) {
         return redirectToRole(req, 'researcher', session)
     }
 
