@@ -13,7 +13,9 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             invite: inviteUserSchema,
         }),
     )
-    .middleware(async ({ orgSlug }) => db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow() )
+    .middleware(async ({ orgSlug }) =>
+        db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
+    )
     .requireAbilityTo('invite', 'User')
     .handler(async ({ invite }, { orgId }) => {
         // Check if the user already exists in pending users, resend invitation if so
@@ -44,12 +46,13 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
 export const getPendingUsersAction = new Action('getPendingUsersAction')
     .params(z.object({ orgSlug: z.string() }))
     .requireAbilityTo('read', 'Team')
-    .handler(async (_, { session }) => {
+    .handler(async ({ orgSlug }) => {
         return await db
             .selectFrom('pendingUser')
-            .select(['id', 'email'])
-            .where('orgId', '=', session.team.id)
-            .orderBy('createdAt', 'desc')
+            .select(['pendingUser.id', 'pendingUser.email'])
+            .innerJoin('org', 'pendingUser.orgId', 'org.id')
+            .where('org.slug', '=', orgSlug)
+            .orderBy('pendingUser.createdAt', 'desc')
             .execute()
     })
 
