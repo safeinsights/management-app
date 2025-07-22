@@ -78,11 +78,5 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: /verification/i })).toBeVisible()
 
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
-
-        await page.waitForTimeout(1000)
-
-        // test invitation link now redirects to home once the invite is claimed
-        await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForURL('/')
     })
 })

@@ -42,25 +42,27 @@ export const NavbarItems: FC = () => {
     const { isLoaded, session } = useSession()
 
     if (!isLoaded) return null
+
+    const { isAdmin, isResearcher, isReviewer } = session.team
+
     const isMultiple = (session.team.isResearcher && session.team.isReviewer) || session.team.isAdmin
+
     return (
         <Stack gap="sm">
-            <OrgAdminDashboardLink isVisible={session.team.isAdmin} />
+            <OrgSwitcher />
+            <OrgAdminDashboardLink isVisible={isAdmin} />
             <DashboardLink
                 icon={<UserListIcon />}
-                isVisible={session.team.isReviewer}
+                isVisible={isAdmin || isReviewer}
                 url={`/reviewer/${session.team.slug}/dashboard`}
                 label={`${isMultiple ? 'Reviewer‘s ' : ''}Dashboard`}
             />
             <DashboardLink
                 icon={<StudentIcon />}
-                isVisible={session.team.isResearcher}
+                isVisible={isAdmin || isResearcher}
                 url={'/researcher/dashboard'}
                 label={`${isMultiple ? 'Researcher‘s ' : ''}Dashboard`}
             />
-            <RefWrapper>
-                <OrgSwitcher />
-            </RefWrapper>
         </Stack>
     )
 }

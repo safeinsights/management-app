@@ -4,6 +4,7 @@ import log from '@/lib/logger'
 import * as Sentry from '@sentry/nextjs'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION } from './lib/types'
+import { omit } from 'remeda'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
@@ -18,7 +19,11 @@ const ANON_ROUTES: Array<string> = [
 ]
 
 function redirectToRole(request: NextRequest, route: string, session: UserSession) {
-    log.warn(`Blocking unauthorized ${route} route access. session: %s`, request.url, JSON.stringify(session, null, 2))
+    log.warn(
+        `Blocking unauthorized ${route} route access. session: %s`,
+        request.url,
+        JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
+    )
     if (session.team.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
@@ -47,24 +52,26 @@ export default clerkMiddleware(async (auth, req) => {
         } else {
             const signInUrl = new URL('/account/signin', req.url)
             signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
-            log.warn('redirecting to ${signInUrl}')
+            log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
     }
+
+    const { isAdmin, isResearcher, isReviewer } = session.team
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToRole(req, 'si admin', session)
     }
 
-    if (isOrgAdminRoute(req) && !session.team.isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
+    if (isOrgAdminRoute(req) && !isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
         return redirectToRole(req, 'org-admin', session)
     }
 
-    if (isReviewerRoute(req) && !session.team.isReviewer) {
+    if (isReviewerRoute(req) && !(isReviewer || isAdmin)) {
         return redirectToRole(req, 'reviewer', session)
     }
 
-    if (isResearcherRoute(req) && !session.team.isResearcher) {
+    if (isResearcherRoute(req) && !(isResearcher || isAdmin)) {
         return redirectToRole(req, 'researcher', session)
     }
 

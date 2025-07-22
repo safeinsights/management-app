@@ -14,12 +14,15 @@ const actionSchema = orgBaseImageSchema.extend({
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .params(actionSchema)
+    .middleware(async ({ orgSlug }) =>
+        db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
+    )
     .requireAbilityTo('update', 'Team')
-    .handler(async (input, { session }) => {
+    .handler(async (input, { orgId }) => {
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
-                orgId: session.team.id,
+                orgId: orgId,
                 name: input.name,
                 cmdLine: input.cmdLine,
                 language: input.language,

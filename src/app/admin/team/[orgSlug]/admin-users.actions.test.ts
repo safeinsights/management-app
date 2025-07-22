@@ -36,6 +36,8 @@ describe('Admin Users Actions', () => {
 
     it('getPendingUsersAction returns pending users', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const origCount = (await getPendingUsersAction({ orgSlug: org.slug })).length
+
         await db
             .insertInto('pendingUser')
             .values({ orgId: org.id, email: 'pending1@test.com', isResearcher: true, isReviewer: false })
@@ -46,7 +48,7 @@ describe('Admin Users Actions', () => {
             .execute()
 
         const pendingUsers = await getPendingUsersAction({ orgSlug: org.slug })
-        expect(pendingUsers).toHaveLength(2)
+        expect(pendingUsers).toHaveLength(origCount + 2)
     })
 
     it('reInviteUserAction re-invites a user', async () => {

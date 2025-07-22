@@ -74,8 +74,6 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
     .requireAbilityTo('view', 'Study')
     .handler(async (_, { session }) => {
-        const userId = session.user.id
-
         return await db
             .selectFrom('study')
             .innerJoin('orgUser', (join) =>
@@ -83,7 +81,8 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
             )
 
             .innerJoin('org', (join) => join.onRef('org.id', '=', 'orgUser.orgId'))
-            .where('orgUser.userId', '=', userId)
+            .where('orgUser.userId', '=', session.user.id)
+            .where('org.slug', '=', session.team.slug)
 
             .leftJoin(
                 // Subquery to get the most recent study job for each study
