@@ -45,17 +45,16 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             isReviewer: z.boolean(),
         }),
     )
-    .requireAbilityTo('update', 'User')
-    .handler(async ({ orgSlug, userId, ...update }) => {
-        const { id, ...before } = await db
+    .middleware(async ({ userId }) => {
+        const user = await db
             .selectFrom('orgUser')
-            .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .where('org.slug', '=', orgSlug as string)
+            .select(['orgUser.id', 'orgId', 'isResearcher', 'isReviewer', 'isAdmin'])
             .where('orgUser.userId', '=', userId)
             .executeTakeFirstOrThrow()
-
-        await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
-
-        onUserRoleUpdate({ userId, before, after: update })
+        return { user }
+    })
+    .requireAbilityTo('update', 'User')
+    .handler(async ({ orgSlug, userId, ...update }, { user }) => {
+        await db.updateTable('orgUser').set(update).where('id', '=', user.id).executeTakeFirstOrThrow()
+        onUserRoleUpdate({ userId, before: user, after: update })
     })

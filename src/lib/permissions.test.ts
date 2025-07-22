@@ -66,9 +66,7 @@ test('admin role', () => {
 
     expect(ability.can('invite', 'User')).toBe(true)
 
-    expect(ability.can('update', subject('User', session.user))).toBe(true)
-
-    expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: session.team.id }))).toBe(true)
+    expect(ability.can('update', subject('User', { user: { orgId: session.team.id } }))).toBe(true)
 
     expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
 })

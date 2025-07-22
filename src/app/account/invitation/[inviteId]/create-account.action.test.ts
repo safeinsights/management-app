@@ -5,6 +5,8 @@ import { onCreateAccountAction } from './create-account.action'
 import { db } from '@/database'
 import { v7 } from 'uuid'
 
+vi.mock('@/server/events')
+
 describe('Create Account Actions', () => {
     let org = { id: '', slug: '' }
 
@@ -20,7 +22,7 @@ describe('Create Account Actions', () => {
         client.mockResolvedValue({
             users: {
                 updateUserMetadata: vi.fn(async () => ({})),
-                getUser: vi.fn(() => null),
+                getUser: vi.fn(() => ({ publicMetadata: {} })),
                 getUserList: vi.fn(async () => ({
                     totalCount: 1,
                     data: [

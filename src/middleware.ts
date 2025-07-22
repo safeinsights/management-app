@@ -4,6 +4,7 @@ import log from '@/lib/logger'
 import * as Sentry from '@sentry/nextjs'
 import { marshalSession } from './server/session'
 import { type UserSession, BLANK_SESSION } from './lib/types'
+import { omit } from 'remeda'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
@@ -18,7 +19,12 @@ const ANON_ROUTES: Array<string> = [
 ]
 
 function redirectToRole(request: NextRequest, route: string, session: UserSession) {
-    log.warn(`Blocking unauthorized ${route} route access. session: %s`, request.url, JSON.stringify(session, null, 2))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    log.warn(
+        `Blocking unauthorized ${route} route access. session: %s`,
+        request.url,
+        JSON.stringify(omit(session as any, ['ability']), null, 2),
+    )
     if (session.team.isResearcher) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }

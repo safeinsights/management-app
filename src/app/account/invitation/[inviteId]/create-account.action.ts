@@ -95,7 +95,6 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         })
 
         const metadata = await calculateUserPublicMetadata(siUser.id)
-
         await clerk.users.updateUserMetadata(clerkId, {
             publicMetadata: {
                 [`${ENVIRONMENT_ID}`]: metadata,
