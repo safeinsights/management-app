@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button, Group, Stack, Text, Stepper } from '@mantine/core'
+import { Button, Group, Text, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
@@ -28,7 +28,15 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
     if (stepIndex == 0) {
         return (
-            <Button variant="primary" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
+            <Button
+                type="button"
+                variant="primary"
+                disabled={!isValid || isPending}
+                onClick={(e) => {
+                    e.preventDefault()
+                    setStepIndex(stepIndex + 1)
+                }}
+            >
                 Next Step
             </Button>
         )
@@ -36,7 +44,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
     if (stepIndex == 1) {
         return (
-            <Button disabled={!isValid || isPending} type="submit" variant="filled">
+            <Button disabled={!isValid || isPending} type="submit" variant="primary">
                 Submit
             </Button>
         )
@@ -86,7 +94,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             mainCodeFile: null,
             additionalCodeFiles: [],
         },
-        validateInputOnChange: ['title', 'piName'],
+        validateInputOnChange: ['title', 'piName', 'mainCodeFile'],
     })
 
     const { isPending, mutate: createStudy } = useMutation({
@@ -172,20 +180,18 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 </Stepper.Step>
 
                 <Stepper.Step>
-                    <Stack mt="xl">
-                        <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                        {studyProposalForm.errors['totalFileSize'] && (
-                            <Group justify="center">
-                                <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                            </Group>
-                        )}
-                    </Stack>
+                    <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                    {studyProposalForm.errors['totalFileSize'] && (
+                        <Group justify="center">
+                            <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
+                        </Group>
+                    )}
                 </Stepper.Step>
             </Stepper>
 
             <Group mt="xxl" style={{ width: '100%' }}>
                 {stepIndex === 1 && (
-                    <Button variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                    <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
                         Back
                     </Button>
                 )}

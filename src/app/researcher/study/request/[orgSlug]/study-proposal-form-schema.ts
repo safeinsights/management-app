@@ -55,7 +55,7 @@ export const codeFilesSchema = z
     .object({
         mainCodeFile: z.union([z.instanceof(File, { message: 'Main code file is required' }), z.null()]).refine(
             (file) => {
-                if (file === null) return true // allow null value
+                if (file === null) return false
                 return /\.r$/i.test(file.name)
             },
             {
