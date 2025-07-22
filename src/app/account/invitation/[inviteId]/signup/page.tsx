@@ -179,14 +179,14 @@ type InviteProps = {
 
 const SignupAccountPanel: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
-    const { isLoaded: isLoadingAuth, isSignedIn } = useAuth()
+    const { isLoaded: isLoadedAuth, isSignedIn } = useAuth()
 
     const { data, isLoading: isLoadingData } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 
-    if (isLoadingAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />
+    if (!isLoadedAuth || isLoadingData || !data) return <LoadingMessage message="Loading" />
 
     return isSignedIn ? <Success /> : <SetupAccountForm inviteId={inviteId} orgName={data.name} {...data} />
 }

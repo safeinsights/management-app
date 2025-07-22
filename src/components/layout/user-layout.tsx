@@ -17,17 +17,7 @@ export async function UserLayout({ children, showOverlay = false }: Props) {
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
     return (
-        <ClerkProvider
-            publishableKey={clerkPublishableKey}
-            // Workaround/hack: Use Clerk's localization feature to rename the default
-            // "Personal account" text in the OrganizationSwitcher to "Researcher Account"
-            // for better contextual clarity in our use case.
-            localization={{
-                organizationSwitcher: {
-                    personalWorkspace: 'Researcher Account',
-                },
-            }}
-        >
+        <ClerkProvider publishableKey={clerkPublishableKey}>
             <SentryUserProvider />
             <AppShell>{showOverlay ? <LoadingOverlay visible /> : children}</AppShell>
         </ClerkProvider>
