@@ -1,20 +1,26 @@
 'use client'
 
-import { FC, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { FC, use, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Flex, Text, Button } from '@mantine/core'
-import { onJoinTeamAccountAction } from './create-account.action'
+import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
 import { reportMutationError } from '@/components/errors'
 import { useRouter } from 'next/navigation'
+import { LoadingMessage } from '@/components/loading'
 
 type InviteProps = {
-    inviteId: string
-    orgName: string
+    params: Promise<{ inviteId: string }>
 }
 
-export const AddTeam: FC<InviteProps> = ({ inviteId, orgName }) => {
+const AddTeam: FC<InviteProps> = ({ params }) => {
+    const { inviteId } = use(params)
     const [hasJoined, setHasJoined] = useState(false)
     const router = useRouter()
+
+    const { data: org, isLoading } = useQuery({
+        queryKey: ['orgInfoForInvite', inviteId],
+        queryFn: () => getOrgInfoForInviteAction({ inviteId }),
+    })
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: () => onJoinTeamAccountAction({ inviteId }),
@@ -24,10 +30,14 @@ export const AddTeam: FC<InviteProps> = ({ inviteId, orgName }) => {
         },
     })
 
+    if (isLoading || !org) {
+        return <LoadingMessage message="Loading account invitation" />
+    }
+
     if (hasJoined) {
         return (
             <Flex direction="column" gap="lg" maw={500} mx="auto">
-                <Text size="md">You&apos;ve joined {orgName}</Text>
+                <Text size="md">You are now a member of {org.name}</Text>
                 <Button onClick={() => router.push('/account/signin')}>Login to visit team page</Button>
             </Flex>
         )
@@ -35,13 +45,12 @@ export const AddTeam: FC<InviteProps> = ({ inviteId, orgName }) => {
 
     return (
         <Flex direction="column" gap="lg" maw={500} mx="auto">
-            <Text size="md">
-                You&apos;ve been invited to join {orgName}. Click below to accept the invitation and then login to
-                access the team.
-            </Text>
+            <Text size="md">You&apos;ve been invited to join {org.name}. Click below to accept the invitation.</Text>
             <Button onClick={() => joinTeam()} loading={isJoining}>
                 Join Team
             </Button>
         </Flex>
     )
 }
+
+export default AddTeam

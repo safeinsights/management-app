@@ -16,6 +16,21 @@ export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
             .executeTakeFirstOrThrow()
     })
 
+export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
+    .params(
+        z.object({
+            inviteId: z.string(),
+        }),
+    )
+    .handler(async function ({ inviteId }) {
+        return await db
+            .selectFrom('org')
+            .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
+            .select(['org.id', 'org.name', 'org.slug', 'pendingUser.email'])
+            .where('pendingUser.id', '=', inviteId)
+            .executeTakeFirstOrThrow()
+    })
+
 export const onRevokeInviteAction = new Action('onRevokeInviteAction')
     .params(
         z.object({
