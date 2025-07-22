@@ -35,7 +35,6 @@ describe('Admin Users Actions', () => {
     })
 
     it('getPendingUsersAction returns pending users', async () => {
-
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const origCount = (await getPendingUsersAction({ orgSlug: org.slug })).length
 

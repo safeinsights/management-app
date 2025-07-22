@@ -25,7 +25,7 @@ export const sessionFromMetadata = ({
         throw new Error(`user does not have metadata for environment ${env}`)
     }
 
-    const userPrefs = prefs[env] as Record<string, string>
+    const userPrefs = (prefs[env] as Record<string, string>) || {}
     const teamSlug = userPrefs['currentTeamSlug'] || Object.values(info.teams)[0]?.slug
     if (!teamSlug) throw new Error(`user does not belong to any teams`)
 

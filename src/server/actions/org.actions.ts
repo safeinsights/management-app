@@ -116,6 +116,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
                 'user.fullName',
                 'user.createdAt',
                 'user.email',
+                'orgUser.id as orgUserId',
                 'orgUser.isResearcher',
                 'orgUser.isAdmin',
                 'orgUser.isReviewer',
