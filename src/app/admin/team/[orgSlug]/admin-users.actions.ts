@@ -13,8 +13,9 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             invite: inviteUserSchema,
         }),
     )
+    .middleware(async ({ orgSlug }) => db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow() )
     .requireAbilityTo('invite', 'User')
-    .handler(async ({ invite }, { session }) => {
+    .handler(async ({ invite }, { orgId }) => {
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
@@ -25,10 +26,11 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return
         }
+
         const record = await db
             .insertInto('pendingUser')
             .values({
-                orgId: session.team.id,
+                orgId,
                 email: invite.email,
                 isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
                 isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',

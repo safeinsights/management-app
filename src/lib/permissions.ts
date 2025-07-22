@@ -72,6 +72,8 @@ export function defineAbilityFor(session: UserSession) {
     if (isSiAdmin) {
         permit('create', 'Team')
         permit('update', 'User')
+        permit('read', 'User')
+        permit('invite', 'User')
         permit('read', 'Team')
         permit('update', 'Team')
         permit('delete', 'Team')
