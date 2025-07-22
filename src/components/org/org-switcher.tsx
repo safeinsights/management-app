@@ -29,10 +29,13 @@ export const OrgSwitcher: FC = () => {
     const onChange = (value: string | null) => {
         if (!user) throw new Error('User is not loaded')
         if (!value) return
+        // TODO: extract this to a updatePrefs function
         user.update({
             unsafeMetadata: {
                 ...user.unsafeMetadata,
-                currentTeamSlug: value,
+                [`${env}`]: {
+                    currentTeamSlug: value,
+                },
             },
         }).then(() => {
             if (value == CLERK_ADMIN_ORG_SLUG) {

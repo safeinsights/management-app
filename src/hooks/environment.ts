@@ -7,7 +7,7 @@ export const useEnvironmentId = () => {
 
     const hostMatch = window.location.host.match(/app\.([^.]+)/)
     if (!hostMatch || hostMatch.length < 2) {
-        return 'dev'
+        return 'local'
     }
     if (hostMatch[1] === 'safeinsights') {
         return 'production'

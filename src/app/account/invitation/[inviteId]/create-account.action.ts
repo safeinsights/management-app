@@ -52,7 +52,6 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 emailAddress: [invite.email],
                 password: form.password,
             })
-
             clerkId = clerkUser.id
         }
 

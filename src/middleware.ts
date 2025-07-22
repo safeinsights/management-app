@@ -52,7 +52,7 @@ export default clerkMiddleware(async (auth, req) => {
         } else {
             const signInUrl = new URL('/account/signin', req.url)
             signInUrl.searchParams.set('redirect_url', req.nextUrl.pathname + req.nextUrl.search)
-            log.warn('redirecting to ${signInUrl}')
+            log.warn(`attempted to load ${req.nextUrl.pathname} while not logged in, redirecting to ${signInUrl}`)
             return NextResponse.redirect(signInUrl)
         }
     }
