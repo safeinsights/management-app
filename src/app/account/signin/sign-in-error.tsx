@@ -25,7 +25,7 @@ export const SignInError: FC<SignInErrorProps> = ({ clerkError, setClerkError })
                 color="red"
                 style={{ margin: 3, display: 'flex', alignSelf: 'flex-start', height: '100%' }}
                 weight="fill"
-                size={50}
+                size={20}
             />
             <Stack justify="space-between" gap="xs">
                 <Flex direction="row" justify="space-between" align="flex-start">

@@ -81,10 +81,10 @@ export const SignInForm: FC<{
     return (
         <form onSubmit={onSubmit}>
             <Paper bg="white" radius="sm" p="xxl">
+                <Title mb="lg" order={3} ta="center">
+                    Welcome To SafeInsights!
+                </Title>
                 <Flex direction="column" gap="xs">
-                    <Title mb="xs" order={3} ta="center">
-                        Welcome To SafeInsights!
-                    </Title>
                     <TextInput
                         key={form.key('email')}
                         {...form.getInputProps('email')}
@@ -103,6 +103,7 @@ export const SignInForm: FC<{
                     <Link
                         c="blue.7"
                         fw={600}
+                        w="fit-content"
                         size="xs"
                         href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
                     >
@@ -113,8 +114,7 @@ export const SignInForm: FC<{
                     <Button
                         mt="md"
                         mb="xxl"
-                        h={53}
-                        p="12.5px 26px"
+                        size="lg"
                         disabled={!form.isValid()}
                         type="submit"
                         bg={!form.isValid() ? 'grey.1' : ''}
