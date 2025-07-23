@@ -7,7 +7,7 @@ import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
-import { throwNotFound } from '@/lib/errors'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
@@ -175,13 +175,37 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .handler(async ({ studyId, orgSlug }, { session }) => {
         const userId = session.user.id
         // Start a transaction to ensure atomicity
-        await db.transaction().execute(async (trx) => {
-            // Update the status of the study
-            await trx
+        const wasApproved = await db.transaction().execute(async (trx) => {
+            const updateResult = await trx
                 .updateTable('study')
                 .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
                 .where('id', '=', studyId)
-                .execute()
+                .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
+                .executeTakeFirst()
+
+            // if no rows found, check if study exists or was already approved
+            if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
+                const currentStudy = await trx
+                    .selectFrom('study')
+                    .select(['status'])
+                    .where('id', '=', studyId)
+                    .executeTakeFirst()
+
+                if (!currentStudy) {
+                    throw new ActionFailure({
+                        study: `Study with id ${studyId} does not exist.`,
+                    })
+                }
+
+                if (currentStudy.status === 'APPROVED') {
+                    // study was already approved, so we can return false for idempotency
+                    return false
+                }
+
+                throw new ActionFailure({
+                    study: `Study with id ${studyId} cannot be approved because its status is ${currentStudy.status}`,
+                })
+            }
 
             const latestJob = await latestJobForStudy(studyId, trx)
             if (!latestJob) {
@@ -227,9 +251,13 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                     studyJobId: latestJob.id,
                 })
                 .executeTakeFirstOrThrow()
+
+            return true
         })
 
-        onStudyApproved({ studyId, userId })
+        if (wasApproved) {
+            onStudyApproved({ studyId, userId })
+        }
     })
 
 export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')

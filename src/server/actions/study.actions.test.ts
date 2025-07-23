@@ -27,6 +27,20 @@ describe('Study Actions', () => {
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
     })
 
+    it('does not approve a study proposal twice', async () => {
+        const { user, org } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
+
+        // Attempt to approve the same study twice in parallel
+        await Promise.all([
+            approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+            approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug }),
+        ])
+
+        // Check that onStudyApproved was only called once
+        expect(onStudyApproved).toHaveBeenCalledOnce()
+    })
+
     it('getStudyAction returns any study that belongs to an org that user is a member of', async () => {
         const { user, org } = await mockSessionWithTestData()
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
