@@ -18,7 +18,7 @@ export { ActionFailure, z }
 
 export type ActionContext = {
     session?: UserSessionWithAbility
-    db?: DBExecutor
+    db: DBExecutor
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
@@ -43,7 +43,10 @@ export type ActionOptions = {
 
 export class Action<
     Args = unknown,
-    Ctx extends { session?: UserSessionWithAbility; db?: DBExecutor } = { session?: UserSessionWithAbility; db?: DBExecutor },
+    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor } = {
+        session?: UserSessionWithAbility
+        db: DBExecutor
+    },
 > {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
@@ -55,7 +58,10 @@ export class Action<
     }
     private options: ActionOptions
 
-    constructor(private actionName: string, options: ActionOptions = {}) {
+    constructor(
+        private actionName: string,
+        options: ActionOptions = {},
+    ) {
         this.options = options
     }
 
