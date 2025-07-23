@@ -171,8 +171,15 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             orgSlug: z.string(),
         }),
     )
+    .middleware(async ({ studyId }) => ({
+        study: await db
+            .selectFrom('study')
+            .select(['containerLocation', 'status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(),
+    }))
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ studyId, orgSlug }, { session }) => {
+    .handler(async ({ studyId, orgSlug }, { session, study }) => {
         const userId = session.user.id
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
@@ -211,6 +218,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
 
                 await triggerBuildImageForJob({
+                    containerLocation: study.containerLocation,
                     studyJobId: latestJob.id,
                     studyId,
                     orgSlug: orgSlug,
