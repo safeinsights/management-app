@@ -35,6 +35,9 @@ export const studyProposalFormSchema = z
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),
+        totalFileSize: z.number().max(10 * 1024 * 1024, {
+            message: 'The total size of all documents must not exceed 10 MB, please adjust your files accordingly.',
+        }),
     })
     .superRefine((data, ctx) => {
         const totalSize = [data.descriptionDocument, data.irbDocument, data.agreementDocument].reduce(

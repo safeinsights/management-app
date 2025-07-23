@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button, Group, Text, Stepper } from '@mantine/core'
+import { Button, Group, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
@@ -93,8 +93,17 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             agreementDocument: null,
             mainCodeFile: null,
             additionalCodeFiles: [],
+            totalFileSize: 0,
         },
-        validateInputOnChange: ['title', 'piName', 'mainCodeFile'],
+        validateInputOnChange: [
+            'title',
+            'piName',
+            'descriptionDocument',
+            'irbDocument',
+            'agreementDocument',
+            'mainCodeFile',
+            'additionalCodeFiles',
+        ],
     })
 
     const { isPending, mutate: createStudy } = useMutation({
@@ -181,11 +190,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
                 <Stepper.Step>
                     <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                    {studyProposalForm.errors['totalFileSize'] && (
-                        <Group justify="center">
-                            <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                        </Group>
-                    )}
                 </Stepper.Step>
             </Stepper>
 

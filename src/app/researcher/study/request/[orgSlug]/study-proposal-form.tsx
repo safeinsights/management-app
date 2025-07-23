@@ -7,10 +7,12 @@ import { FormFieldLabel } from '@/components/form-field-label' // adjust path if
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { InputError } from '@/components/errors'
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
+    const { user } = useUser()
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
 
@@ -28,8 +30,6 @@ export const StudyProposalForm: FC<{
     const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
     const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
     const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
-
-    const { user } = useUser()
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }
     const inputSpan = { base: 12, sm: 8, lg: 4 }
@@ -112,6 +112,10 @@ export const StudyProposalForm: FC<{
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('descriptionDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('descriptionDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
                 </Grid>
@@ -130,6 +134,10 @@ export const StudyProposalForm: FC<{
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('irbDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('irbDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
                 </Grid>
@@ -151,15 +159,19 @@ export const StudyProposalForm: FC<{
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('agreementDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('agreementDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
-                </Grid>
 
-                {studyProposalForm.errors['totalFileSize'] && (
-                    <Text c="red" role="alert">
-                        {studyProposalForm.errors['totalFileSize']}
-                    </Text>
-                )}
+                    {studyProposalForm.errors['totalFileSize'] && (
+                        <Grid.Col>
+                            <InputError error={studyProposalForm.errors['totalFileSize']} />
+                        </Grid.Col>
+                    )}
+                </Grid>
             </Stack>
         </Paper>
     )
