@@ -79,23 +79,43 @@ test.describe('Studies', () => {
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
-        let approvalRequestCount = 0
-        const studyPageUrl = page.url()
-        await page.route(studyPageUrl, (route) => {
-            if (route.request().method() === 'POST') approvalRequestCount++
-            route.continue()
-        })
-
         await page.getByRole('button', { name: /approve/i }).click()
-        await page.waitForLoadState('networkidle')
-
-        expect(approvalRequestCount).toBe(1)
-
-        await page.unroute(studyPageUrl)
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
 
         await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
 
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
+})
+
+test('reviewer cannot double-approve a study', async ({ page, studyFeatures }) => {
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
+
+    await expect(page.getByText('Review Studies')).toBeVisible()
+
+    const title = studyFeatures.studyTitle.substring(0, 30)
+
+    await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).first().click()
+
+    await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
+
+    let approvalRequestCount = 0
+    const studyPageUrl = page.url()
+
+    await page.route(studyPageUrl, (route) => {
+        if (route.request().method() === 'POST') {
+            approvalRequestCount++
+        }
+        route.continue()
+    })
+
+    const approveButton = page.getByRole('button', { name: /approve/i })
+    await Promise.all([approveButton.click(), approveButton.click()])
+    await page.waitForLoadState('networkidle')
+    expect(approvalRequestCount).toBe(1)
+    await page.unroute(studyPageUrl)
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
+
+    await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).first().click()
+
+    await expect(page.getByText(/approved on/i)).toBeVisible()
 })
