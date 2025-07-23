@@ -58,8 +58,6 @@ export const SignInForm: FC<{
 
             const errorMessage = errorToString(err)
 
-            console.warn('Sign-in error:', errorMessage)
-
             //incorrect email or password
             if (errorMessage?.includes('Password') || errorMessage?.includes("Couldn't find your account.")) {
                 form.setFieldError('email', ' ')

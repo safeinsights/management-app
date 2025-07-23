@@ -17,7 +17,7 @@ export const SignInError: FC<SignInErrorProps> = ({ clerkError, setClerkError })
                 display: 'flex',
                 flexDirection: 'row',
             }}
-            p={'lg'}
+            p="lg"
             mt="lg"
             radius="sm"
         >
