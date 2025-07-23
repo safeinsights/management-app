@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach, type Mock } from 'vitest'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
-import { onCreateAccountAction, onJoinTeamAccountAction, onRevokeInviteAction, onPendingUserLoginAction, getOrgInfoForInviteAction } from './create-account.action'
+import {
+    onCreateAccountAction,
+    onJoinTeamAccountAction,
+    onRevokeInviteAction,
+    onPendingUserLoginAction,
+    getOrgInfoForInviteAction,
+} from './create-account.action'
 import { db } from '@/database'
 import { v7 } from 'uuid'
 
