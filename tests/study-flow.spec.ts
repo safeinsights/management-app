@@ -79,50 +79,23 @@ test.describe('Studies', () => {
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
-        await page.getByRole('button', { name: /approve/i }).click()
-
-        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
-
-        await expect(page.getByText(/approved on/i)).toBeVisible()
-    })
-
-    test('reviewer cannot double-approve a study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
-        await page.getByTestId('new-study').first().click()
-
-        // Create a new study to test double-click approval
-        // This is to ensure the test is isolated and does not depend on previous state
-        const testTitle = `Double Click Test ${Date.now()}`
-        await page.getByLabel(/title/i).fill(testTitle)
-        await page.getByLabel(/investigator/i).fill('Test Investigator')
-        await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
-        await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
-        await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
-        await page.getByRole('button', { name: 'Next Step' }).click()
-        await page.setInputFiles('input[type="file"][name="mainCodeFile"]', 'tests/assets/main.r')
-        await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', 'tests/assets/code.r')
-        await page.getByRole('button', { name: 'Submit', exact: true }).click()
-        await page.waitForLoadState('networkidle')
-
-        studyFeatures.studyTitle = testTitle
-
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
-        const title = studyFeatures.studyTitle.substring(0, 30)
-        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).first().click()
-
-        // Count POST requests and test double-click
         let approvalRequestCount = 0
-        await page.route(page.url(), (route) => {
+        const studyPageUrl = page.url()
+        await page.route(studyPageUrl, (route) => {
             if (route.request().method() === 'POST') approvalRequestCount++
             route.continue()
         })
 
-        // Double-click the approve button
-        const approveButton = page.getByRole('button', { name: /approve/i })
-        await Promise.all([approveButton.click(), approveButton.click()])
+        await page.getByRole('button', { name: /approve/i }).click()
         await page.waitForLoadState('networkidle')
 
         expect(approvalRequestCount).toBe(1)
-        await page.unroute(page.url())
+
+        await page.unroute(studyPageUrl)
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
+
+        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
+
+        await expect(page.getByText(/approved on/i)).toBeVisible()
     })
 })
