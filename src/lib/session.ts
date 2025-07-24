@@ -16,7 +16,7 @@ export const sessionFromMetadata = ({
 }: {
     env: string
     metadata: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
-    prefs: Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
+    prefs: UserUnsafeMetadata
     clerkUserId: string
 }): UserSessionWithAbility => {
     const info: UserInfo = metadata[env] || null
@@ -25,11 +25,15 @@ export const sessionFromMetadata = ({
         throw new Error(`user does not have metadata for environment ${env}`)
     }
 
-    const teamSlug = prefs?.currentTeamSlug || Object.values(info.teams)[0]?.slug
+    const userPrefs = (prefs[env] as Record<string, string>) || {}
+    const teamSlug = userPrefs['currentTeamSlug'] || Object.values(info.teams)[0]?.slug
     if (!teamSlug) throw new Error(`user does not belong to any teams`)
 
     const team = info.teams[teamSlug]
-    if (!team) throw new Error(`user does not belong to team with slug ${teamSlug} but was set in prefs`)
+    if (!team)
+        throw new Error(
+            `in env ${env}, clerk user ${clerkUserId} does not belong to team with slug ${teamSlug} but was set in prefs: ${JSON.stringify(prefs, null, 2)}`,
+        )
 
     const isSiAdmin = Boolean(info.teams[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 

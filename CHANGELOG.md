@@ -1,3 +1,17 @@
+## [v0.0.8 - 2025-07-21](https://github.com/safeinsights/management-app/releases/tag/v0.0.8)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #306 | stetradis | OTTER-246 duplicate filename uploads | 2025-07-14 21:29:59 | [OTTER-246](https://openstax.atlassian.net/browse/OTTER-246) |
+| #307 | stetradis | OTTER-252 fix mobile dashboard table style | 2025-07-16 15:18:19 | [OTTER-252](https://openstax.atlassian.net/browse/OTTER-252) |
+| #302 | jbwilson8 | UX changes on code upload screen | 2025-07-20 21:33:43 |  |
+| #304 | nathanstitt | Implement permissions and sessions w/out Clerk | 2025-07-21 03:36:10 |  |
+| #310 | stetradis | OTTER-250 update admin settings breadcrumbs | 2025-07-21 03:36:41 | [OTTER-250](https://openstax.atlassian.net/browse/OTTER-250) |
+| #313 | stetradis | OTTER-249 update results UI | 2025-07-21 03:37:27 | [OTTER-249](https://openstax.atlassian.net/browse/OTTER-249) |
+
+
+---
+
 ## [v0.0.7 - 2025-07-08](https://github.com/safeinsights/management-app/releases/tag/v0.0.7)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |

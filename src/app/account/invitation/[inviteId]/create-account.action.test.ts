@@ -1,9 +1,11 @@
 import { describe, expect, it, vi, beforeEach, type Mock } from 'vitest'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { faker, insertTestOrg, insertTestUser } from '@/tests/unit.helpers'
-import { onCreateAccountAction } from './create-account.action'
+import { onCreateAccountAction, onJoinTeamAccountAction, onRevokeInviteAction } from './create-account.action'
 import { db } from '@/database'
 import { v7 } from 'uuid'
+
+vi.mock('@/server/events')
 
 describe('Create Account Actions', () => {
     let org = { id: '', slug: '' }
@@ -19,7 +21,9 @@ describe('Create Account Actions', () => {
 
         client.mockResolvedValue({
             users: {
+                createUser: vi.fn(),
                 updateUserMetadata: vi.fn(async () => ({})),
+                getUser: vi.fn(() => ({ publicMetadata: {} })),
                 getUserList: vi.fn(async () => ({
                     totalCount: 1,
                     data: [
@@ -44,7 +48,7 @@ describe('Create Account Actions', () => {
             .insertInto('pendingUser')
             .values({
                 orgId: org.id,
-                email: 'newuser@test.com',
+                email: faker.internet.email({ provider: 'test.com' }),
                 isResearcher: true,
                 isReviewer: true,
             })
@@ -53,7 +57,7 @@ describe('Create Account Actions', () => {
 
         await onCreateAccountAction({ inviteId: invite.id, form })
 
-        const newUser = await db.selectFrom('user').where('email', '=', 'newuser@test.com').executeTakeFirst()
+        const newUser = await db.selectFrom('user').where('email', '=', invite.email).executeTakeFirst()
         expect(newUser).toBeDefined()
     })
 
@@ -68,7 +72,7 @@ describe('Create Account Actions', () => {
         await expect(onCreateAccountAction({ inviteId: v7(), form })).rejects.toThrow('not found')
     })
 
-    it('onCreateAccountAction handles existing user', async () => {
+    it('onCreateAccountAction rejects existing user', async () => {
         const { user } = await insertTestUser({ org })
 
         const invite = await db
@@ -88,14 +92,10 @@ describe('Create Account Actions', () => {
             password: 'password',
             confirmPassword: 'password',
         }
-
-        const { userId } = await onCreateAccountAction({ inviteId: invite.id, form })
-        expect(userId).toEqual(user.id)
-        const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
-        expect(orgUsers).toHaveLength(1)
+        await expect(onCreateAccountAction({ inviteId: invite.id, form })).rejects.toThrow(/already has account/)
     })
 
-    it('onCreateAccountAction adds to existing user', async () => {
+    it('onJoinTeamAccountAction adds to existing user', async () => {
         const { user } = await insertTestUser({ org })
 
         const newOrg = await insertTestOrg()
@@ -111,23 +111,35 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        const form = {
-            firstName: 'Test',
-            lastName: 'User',
-            password: 'password',
-            confirmPassword: 'password',
-        }
-
-        const { userId } = await onCreateAccountAction({ inviteId: invite.id, form })
+        const { id: userId } = await onJoinTeamAccountAction({ inviteId: invite.id })
         expect(userId).toEqual(user.id)
         const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
         expect(orgUsers).toHaveLength(2)
         expect(orgUsers).toEqual(
             expect.arrayContaining([
-                // list the same pattern twice → forces two separate matches
                 expect.objectContaining({ orgId: org.id }),
                 expect.objectContaining({ orgId: newOrg.id }),
             ]),
         )
+    })
+
+    it('onRevokeInviteAction removes invite', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: user.email!,
+                isResearcher: true,
+                isReviewer: true,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onRevokeInviteAction({ inviteId: invite.id })
+
+        const found = await db.selectFrom('pendingUser').select(['id']).where('id', '=', invite.id).executeTakeFirst()
+        expect(found).toBeFalsy()
     })
 })

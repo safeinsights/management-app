@@ -1,12 +1,12 @@
 'use server'
 
-import { db, jsonArrayFrom } from '@/database'
+import { db } from '@/database'
 import { JobFile, minimalJobInfoSchema } from '@/lib/types'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { revalidatePath } from 'next/cache'
-import { latestJobForStudy } from '@/server/db/queries'
+import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
 import { sendStudyResultsRejectedEmail } from '@/server/mailer'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
+import { ActionFailure } from '@/lib/errors'
 import { onStudyFilesApproved } from '@/server/events'
 import { Action, z } from './action'
 
@@ -76,47 +76,13 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.string())
-    .middleware(async (studyJobId, { session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-
-        const jobInfo = await db
-            .selectFrom('studyJob')
-            .innerJoin('study', 'study.id', 'studyJob.studyId')
-            .innerJoin('org', 'study.orgId', 'org.id')
-            .innerJoin('orgUser', (join) =>
-                join.on('orgUser.userId', '=', session.user.id).onRef('orgUser.orgId', '=', 'study.orgId'),
-            )
-            .select((eb) => [
-                'studyJob.id as studyJobId',
-                'studyJob.studyId',
-                'studyJob.createdAt',
-                'study.title as studyTitle',
-                'org.id as orgId',
-                'org.slug as orgSlug',
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select(['status', 'createdAt'])
-                        .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
-                        .orderBy('createdAt', 'desc'),
-                ).as('statusChanges'),
-                jsonArrayFrom(
-                    eb
-                        .selectFrom('studyJobFile')
-                        .select(['id', 'name', 'fileType', 'path'])
-                        .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
-                ).as('files'),
-            ])
-            .where('studyJob.id', '=', studyJobId)
-            .executeTakeFirstOrThrow(throwNotFound(`job for study job id ${studyJobId}`))
-
-        return { study: { orgId: jobInfo.orgId }, jobInfo } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+    .middleware(async (studyJobId) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })
-
     .requireAbilityTo('read', 'StudyJob')
-
-    .handler(async (_, { jobInfo }) => {
-        return jobInfo
+    .handler(async (_, { studyJob }) => {
+        return studyJob
     })
 
 export const latestJobForStudyAction = new Action('latestJobForStudyAction')
@@ -124,18 +90,22 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .middleware(async (studyId, { session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
-        const job = await latestJobForStudy(studyId)
-        return { job, study: { orgId: job.orgId } } // Return the job along with the orgId for validation in requireAbilityTo below
+        const studyJob = await latestJobForStudy(studyId)
+        return { studyJob } // Return the job along with the orgId for validation in requireAbilityTo below
     })
     .requireAbilityTo('read', 'StudyJob')
-    .handler(async (_, { job }) => job)
+    .handler(async (_, { studyJob }) => studyJob)
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.string())
-    .requireAbilityTo('read', 'StudyJob', async (jobId) => ({ jobId }))
-    .handler(async (jobId) => {
-        const job = await loadStudyJobAction(jobId)
-        const approvedJobFiles = job.files.filter(
+    .middleware(async (studyJobId) => {
+        const studyJob = await getStudyJobInfo(studyJobId)
+        return { studyJob } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+    })
+    .requireAbilityTo('read', 'StudyJob')
+
+    .handler(async (_, { studyJob }) => {
+        const approvedJobFiles = studyJob.files.filter(
             (jobFile) => jobFile.fileType === 'APPROVED-LOG' || jobFile.fileType === 'APPROVED-RESULT',
         )
 
@@ -153,8 +123,6 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
         return jobFiles
     })
 
-//const s = fetchApprovedJobFilesAction('2')
-
 export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAction')
     .params(
         z.object({
@@ -162,11 +130,14 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             orgSlug: z.string(),
         }),
     )
-    .requireAbilityTo('read', 'Team')
-    .handler(async ({ jobId }) => {
-        const job = await loadStudyJobAction(jobId)
+    .middleware(async ({ jobId }) => {
+        const studyJob = await getStudyJobInfo(jobId)
+        return { studyJob } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+    })
+    .requireAbilityTo('read', 'StudyJob')
 
-        const encryptedFiles = job.files.filter(
+    .handler(async (_, { studyJob }) => {
+        const encryptedFiles = studyJob.files.filter(
             (file) => file.fileType === 'ENCRYPTED-LOG' || file.fileType === 'ENCRYPTED-RESULT',
         )
 

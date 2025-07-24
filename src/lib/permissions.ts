@@ -11,7 +11,7 @@ type Study = { study: { orgId: string } }
 type Abilities =
     | ['invite', 'User']
     | ['claim', 'PendingUser']
-    | ['update', 'User' | Record]
+    | ['update', 'User' | { user: { orgId: string } } | { id: string }]
     | ['read', 'User' | Record]
     | ['read' | 'update', 'ReviewerKey' | { userId: string }]
     | ['read' | 'update' | 'create' | 'delete', 'Team' | RecordWithOrgId]
@@ -44,6 +44,7 @@ export function defineAbilityFor(session: UserSession) {
     if (isResearcher || isTeamAdmin) {
         permit('create', 'Study')
         permit('create', 'StudyJob')
+
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
     }
@@ -55,13 +56,12 @@ export function defineAbilityFor(session: UserSession) {
         permit('reject', 'Study')
         permit('read', 'Study', { orgSlug: session.team.slug })
         permit('review', 'Study', { 'study.orgId': session.team.id })
-        //        permit('view', 'Study', { 'study.orgId': session.team.id })
-        permit('read', 'StudyJob', { 'study.orgId': session.team.id })
+        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
     }
 
     if (isTeamAdmin) {
         permit('invite', 'User', { orgSlug: session.team.slug })
-        permit('update', 'User', { orgId: session.team.id })
+        permit('update', 'User', { 'user.orgId': session.team.id })
         permit('read', 'User', { orgId: session.team.id })
 
         permit('read', 'User', { orgSlug: session.team.slug })
@@ -71,6 +71,9 @@ export function defineAbilityFor(session: UserSession) {
 
     if (isSiAdmin) {
         permit('create', 'Team')
+        permit('update', 'User')
+        permit('read', 'User')
+        permit('invite', 'User')
         permit('read', 'Team')
         permit('update', 'Team')
         permit('delete', 'Team')

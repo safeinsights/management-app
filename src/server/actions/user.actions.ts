@@ -7,23 +7,27 @@ import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { sessionFromClerk } from '@/server/clerk'
 import { getReviewerPublicKey } from '../db/queries'
 
-export const onUserSignInAction = new Action('onUserSignInAction')
-    //.requireAbilityTo('update', 'User')
-    .handler(async () => {
-        const user = await syncCurrentClerkUser()
-        await updateClerkUserMetadata(user.id)
-        onUserLogIn({ userId: user.id })
+export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    await updateClerkUserMetadata(user.id)
+    onUserLogIn({ userId: user.id })
 
-        const session = await sessionFromClerk()
-        if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
+    const session = await sessionFromClerk()
+    if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
 
-        if (session.team.isReviewer) {
-            const publicKey = await getReviewerPublicKey(user.id)
-            if (!publicKey) {
-                return { redirectToReviewerKey: true }
-            }
+    if (session.team.isReviewer) {
+        const publicKey = await getReviewerPublicKey(user.id)
+        if (!publicKey) {
+            return { redirectToReviewerKey: true }
         }
-    })
+    }
+})
+
+export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
+    const user = await syncCurrentClerkUser()
+    const metadata = await updateClerkUserMetadata(user.id)
+    return metadata
+})
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .requireAbilityTo('update', 'User')
@@ -41,17 +45,17 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             isReviewer: z.boolean(),
         }),
     )
-    .requireAbilityTo('update', 'User')
-    .handler(async ({ orgSlug, userId, ...update }) => {
-        const { id, ...before } = await db
+    .middleware(async ({ userId, orgSlug }) => {
+        const orgUser = await db
             .selectFrom('orgUser')
-            .select(['orgUser.id', 'isResearcher', 'isReviewer', 'isAdmin'])
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .where('org.slug', '=', orgSlug as string)
+            .select(['orgUser.id', 'orgId', 'isResearcher', 'isReviewer', 'isAdmin'])
             .where('orgUser.userId', '=', userId)
+            .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('org.id', '=', 'orgUser.orgId'))
             .executeTakeFirstOrThrow()
-
-        await db.updateTable('orgUser').set(update).where('id', '=', id).executeTakeFirstOrThrow()
-
-        onUserRoleUpdate({ userId, before, after: update })
+        return { orgUser }
+    })
+    .requireAbilityTo('update', 'User')
+    .handler(async ({ orgSlug, userId, ...update }, { orgUser }) => {
+        await db.updateTable('orgUser').set(update).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
+        onUserRoleUpdate({ userId, before: orgUser, after: update })
     })

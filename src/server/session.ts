@@ -19,8 +19,7 @@ export async function marshalSession(
     let info: UserInfo | null = sessionClaims.userMetadata?.[ENVIRONMENT_ID] || null
 
     if (!info) {
-        // dunno how they got here, metadata should have been updated on login
-        logger.warn(
+        logger.info(
             `clerk user ${clerkUserId} does not have metadata for environment ${ENVIRONMENT_ID} syncing: ${syncer ? 'yes' : 'no'}`,
         )
         if (syncer) {

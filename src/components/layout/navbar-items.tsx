@@ -4,7 +4,7 @@ import { FC } from 'react'
 import { NavLink, Stack } from '@mantine/core'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HouseIcon, MagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
+import { StudentIcon, UserListIcon } from '@phosphor-icons/react/dist/ssr'
 import { useSession } from '@/hooks/session'
 import styles from './navbar-items.module.css'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
@@ -42,25 +42,27 @@ export const NavbarItems: FC = () => {
     const { isLoaded, session } = useSession()
 
     if (!isLoaded) return null
+
+    const { isAdmin, isResearcher, isReviewer } = session.team
+
     const isMultiple = (session.team.isResearcher && session.team.isReviewer) || session.team.isAdmin
+
     return (
         <Stack gap="sm">
-            <OrgAdminDashboardLink isVisible={session.team.isAdmin} />
+            <OrgSwitcher />
+            <OrgAdminDashboardLink isVisible={isAdmin} />
             <DashboardLink
-                icon={<MagnifyingGlassIcon />}
-                isVisible={session.team.isReviewer}
+                icon={<UserListIcon />}
+                isVisible={isAdmin || isReviewer}
                 url={`/reviewer/${session.team.slug}/dashboard`}
-                label={`${isMultiple ? 'Reviewer ' : ''}Dashboard`}
+                label={`${isMultiple ? 'Reviewer‘s ' : ''}Dashboard`}
             />
             <DashboardLink
-                icon={<HouseIcon />}
-                isVisible={session.team.isResearcher}
+                icon={<StudentIcon />}
+                isVisible={isAdmin || isResearcher}
                 url={'/researcher/dashboard'}
-                label={`${isMultiple ? 'Researcher ' : ''}Dashboard`}
+                label={`${isMultiple ? 'Researcher‘s ' : ''}Dashboard`}
             />
-            <RefWrapper>
-                <OrgSwitcher />
-            </RefWrapper>
         </Stack>
     )
 }

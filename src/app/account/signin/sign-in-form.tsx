@@ -1,10 +1,10 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { reportError } from '@/components/errors'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
@@ -20,6 +20,8 @@ export const SignInForm: FC<{
     mfa: MFAState
     onComplete: (state: MFAState) => Promise<void>
 }> = ({ mfa, onComplete }) => {
+    const { signOut } = useAuth()
+    const [signedInRecently, setSignedInRecently] = useState(false)
     const { setActive, signIn } = useSignIn()
     const { isSignedIn } = useUser()
     const router = useRouter()
@@ -34,9 +36,14 @@ export const SignInForm: FC<{
         validate: zodResolver(signInSchema),
     })
 
+    useEffect(() => {
+        if (isSignedIn && !signedInRecently) signOut()
+    }, [isSignedIn, signOut, signedInRecently])
+
     if (isSignedIn || !signIn || mfa) return null
 
     const onSubmit = form.onSubmit(async (values) => {
+        setSignedInRecently(true)
         try {
             const attempt = await signIn.create({
                 identifier: values.email,
