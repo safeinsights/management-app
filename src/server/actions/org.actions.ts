@@ -91,7 +91,14 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
         }),
     )
 
-    .requireAbilityTo('read', 'User')
+    .requireAbilityTo(
+        'read',
+        'User',
+        async ({ orgSlug }, { session }) => {
+            if (orgSlug !== session.team.slug) throw new ActionFailure({ orgSlug: 'mismatch' })
+            return { orgId: session.team.id }
+        },
+    )
 
     .handler(async ({ orgSlug, sort }) => {
         return await db
