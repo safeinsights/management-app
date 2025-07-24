@@ -1,10 +1,11 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
-import { capitalize, omit } from 'remeda'
+import { capitalize, isObjectType, omit } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
-import { ENVIRONMENT_ID } from './config'
+import { ENVIRONMENT_ID, PROD_ENV } from './config'
 import { marshalSession, type syncUserMetadataFn } from './session'
 import logger from '@/lib/logger'
+import { findOrCreateOrgMembership } from './mutations'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -85,6 +86,14 @@ export const syncCurrentClerkUser = async () => {
 
     if (!clerkUser) throw new Error('User not authenticated')
 
+    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
+
+    // we do not sync on prod, syncing is only intended to keep dev/qa/staging updated
+    if (PROD_ENV) {
+        if (!user) throw new Error(`no user found for clerk user id ${clerkUser.id}`)
+        return user
+    }
+
     // temporary hack, we do not currently have UI
     // edit user information in the app, so we use clerk
     const userAttrs = {
@@ -93,10 +102,10 @@ export const syncCurrentClerkUser = async () => {
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
     if (user) {
         await db.updateTable('user').set(userAttrs).where('id', '=', user.id).executeTakeFirstOrThrow()
     } else {
+        // the user came with a clerk account but does not have a user account here
         user = await db
             .insertInto('user')
             .values({
@@ -107,6 +116,18 @@ export const syncCurrentClerkUser = async () => {
             .executeTakeFirstOrThrow()
     }
 
+    // loop through each env and attempt to establish the same roles in this one
+    for (const env in Object.values(clerkUser.publicMetadata || {})) {
+        if (isObjectType(env) && isObjectType(env['teams'])) {
+            for (const slug of Object.keys(env['teams'])) {
+                const info = env['teams'][slug] as UserTeamMembershipInfo
+                try {
+                    findOrCreateOrgMembership({ userId: user.id, ...info })
+                } catch {} // do nothing if org didn't exist
+            }
+        }
+    }
+
     return user
 }
 
@@ -114,7 +135,8 @@ export async function sessionFromClerk() {
     const { userId, sessionClaims } = await auth()
 
     const syncer: syncUserMetadataFn = async () => {
-        const user = await syncCurrentClerkUser()
+        await syncCurrentClerkUser()
+        const user = await db.selectFrom('user').select('id').where('clerkId', '=', userId!).executeTakeFirstOrThrow()
         return await updateClerkUserMetadata(user.id)
     }
 

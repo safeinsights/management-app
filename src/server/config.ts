@@ -6,10 +6,6 @@ export const CI_ENV = !!process && !!process.env.CI
 
 export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
 
-export const PROD_ENV = process.env.NODE_ENV === 'production'
-
-export const APP_BASE_URL = `http${PROD_ENV ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
-
 export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 
 export const SIMULATE_IMAGE_BUILD =
@@ -30,6 +26,12 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
 }
 
 export const ENVIRONMENT_ID = process.env.ENVIRONMENT_ID || 'local'
+
+export const PROD_BUILD = process.env.NODE_ENV === 'production'
+
+export const PROD_ENV = ENVIRONMENT_ID == 'production'
+
+export const APP_BASE_URL = `http${PROD_BUILD ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
 
 async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
     const arn = process.env[envKey]

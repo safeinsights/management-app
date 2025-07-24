@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import { throwNotFound } from '@/lib/errors'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -64,9 +65,7 @@ export async function findOrCreateOrgMembership({
             .selectFrom('org')
             .select(['org.id', 'org.slug', 'org.name'])
             .where('org.slug', '=', slug)
-            .executeTakeFirstOrThrow(() => {
-                return new Error(`No organization found with slug ${slug}`)
-            })
+            .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
 
         await db
             .insertInto('orgUser')

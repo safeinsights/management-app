@@ -23,9 +23,9 @@ export type ActionContext = {
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
-export async function currentSession<T extends boolean>(
+export function currentSession<T extends boolean>(
     throwIfNotFound?: T,
-): Promise<T extends true ? UserSession : UserSession | null> {
+): T extends true ? UserSession : UserSession | null {
     const ctx = localStorageContext.getStore()
 
     if (!ctx?.session && throwIfNotFound) {
@@ -58,6 +58,11 @@ export class Action<
     }
     private options: ActionOptions
 
+    static get db() {
+        const ctx = localStorageContext.getStore()
+        return ctx?.db || db
+    }
+
     constructor(
         private actionName: string,
         options: ActionOptions = {},
@@ -71,7 +76,7 @@ export class Action<
         // reset middleware when you change the schema
         this.middlewareFns = []
         // now this builder "becomes" one typed with new Args and empty ctx
-        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db?: DBExecutor }>
+        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
     }
 
     /**
