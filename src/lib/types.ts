@@ -2,10 +2,22 @@ import type { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
 import { z } from 'zod'
 import { FileEntry } from 'si-encryption/job-results/types'
 
-export type User = {
+export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
+
+export type SessionUser = {
     id: string
-    email: string
-    roles: string[]
+    isSiAdmin: boolean
+    clerkUserId: string
+}
+
+export type Team = UserOrgRoles & {
+    id: string
+    slug: string
+}
+
+export type UserSession = {
+    user: SessionUser
+    team: Team
 }
 
 export type TreeNode = {
@@ -70,8 +82,6 @@ export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 export const INACTIVITY_TIMEOUT_MS = 20 * 60 * 1000 // 20 minutes
 export const WARNING_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
-export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
-
 export enum AuthRole {
     Admin = 'admin',
     Reviewer = 'reviewer',
@@ -91,3 +101,6 @@ export type JobFile = {
     path: string
     fileType: FileType
 }
+
+// use as: IsUnknown<Args> extends true
+export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false) : false

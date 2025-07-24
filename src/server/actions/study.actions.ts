@@ -6,19 +6,13 @@ import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
-import { checkUserAllowedStudyReview } from '../db/queries'
-import {
-    checkMemberOfOrgWithSlug,
-    getUserIdFromActionContext,
-    orgAction,
-    researcherAction,
-    userAction,
-    z,
-} from './wrappers'
+import { Action, z } from './action'
 import { throwNotFound } from '@/lib/errors'
 
-export const fetchStudiesForOrgAction = orgAction(
-    async ({ orgSlug }) => {
+export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
+    .params(z.object({ orgSlug: z.string() }))
+    .requireAbilityTo('read', 'Study')
+    .handler(async ({ orgSlug }) => {
         return await db
             .selectFrom('study')
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
@@ -75,108 +69,112 @@ export const fetchStudiesForOrgAction = orgAction(
             ])
             .orderBy('study.createdAt', 'desc')
             .execute()
-    },
-    z.object({
-        orgSlug: z.string(),
-    }),
-)
+    })
 
-export const fetchStudiesForCurrentResearcherAction = researcherAction(async () => {
-    const userId = await getUserIdFromActionContext()
+export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
+    .requireAbilityTo('view', 'Study')
+    .handler(async (_, { session }) => {
+        const userId = session.user.id
 
-    return await db
-        .selectFrom('study')
-        .innerJoin('orgUser', (join) =>
-            join.onRef('orgUser.orgId', '=', 'study.orgId').on('orgUser.isResearcher', '=', true),
-        )
+        return await db
+            .selectFrom('study')
+            .innerJoin('orgUser', (join) =>
+                join.onRef('orgUser.orgId', '=', 'study.orgId').on('orgUser.isResearcher', '=', true),
+            )
 
-        .innerJoin('org', (join) => join.onRef('org.id', '=', 'orgUser.orgId'))
-        .where('orgUser.userId', '=', userId)
+            .innerJoin('org', (join) => join.onRef('org.id', '=', 'orgUser.orgId'))
+            .where('orgUser.userId', '=', userId)
 
-        .leftJoin(
-            // Subquery to get the most recent study job for each study
-            (eb) =>
-                eb
-                    .selectFrom('studyJob')
-                    .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
-                    .distinctOn('studyId')
-                    .orderBy('studyId')
-                    .orderBy('createdAt', 'desc')
-                    .as('latestStudyJob'),
-            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
-        )
-        .leftJoin(
-            // Subquery to get the latest status change for the most recent study job
-            (eb) =>
-                eb
-                    .selectFrom('jobStatusChange')
-                    .select([
-                        'jobStatusChange.studyJobId',
-                        'jobStatusChange.status',
-                        'jobStatusChange.createdAt as statusCreatedAt',
-                    ])
-                    .distinctOn('studyJobId')
-                    .orderBy('studyJobId')
-                    .orderBy('createdAt', 'desc')
-                    .as('latestJobStatus'),
-            (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-        )
-        .select([
-            'study.id',
-            'study.title',
-            'study.piName',
-            'study.status',
-            'study.createdAt',
-            'org.name as reviewerTeamName',
-            'latestJobStatus.status as latestJobStatus',
-            'latestStudyJob.jobId as latestStudyJobId',
-        ])
-        .orderBy('study.createdAt', 'desc')
-        .execute()
-})
+            .leftJoin(
+                // Subquery to get the most recent study job for each study
+                (eb) =>
+                    eb
+                        .selectFrom('studyJob')
+                        .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
+                        .distinctOn('studyId')
+                        .orderBy('studyId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestStudyJob'),
+                (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
+            )
+            .leftJoin(
+                // Subquery to get the latest status change for the most recent study job
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select([
+                            'jobStatusChange.studyJobId',
+                            'jobStatusChange.status',
+                            'jobStatusChange.createdAt as statusCreatedAt',
+                        ])
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestJobStatus'),
+                (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
+            .select([
+                'study.id',
+                'study.title',
+                'study.piName',
+                'study.status',
+                'study.createdAt',
+                'org.name as reviewerTeamName',
+                'latestJobStatus.status as latestJobStatus',
+                'latestStudyJob.jobId as latestStudyJobId',
+            ])
+            .orderBy('study.createdAt', 'desc')
+            .execute()
+    })
 
-export const getStudyAction = userAction(async (studyId) => {
-    const userId = await getUserIdFromActionContext()
+export const getStudyAction = new Action('getStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ studyId }) => {
+        const study = await db
+            .selectFrom('study')
+            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+            .select([
+                'study.id',
+                'study.approvedAt',
+                'study.rejectedAt',
+                'study.containerLocation',
+                'study.createdAt',
+                'study.dataSources',
+                'study.irbProtocols',
+                'study.orgId',
+                'study.outputMimeType',
+                'study.piName',
+                'study.researcherId',
+                'study.status',
+                'study.title',
+                'study.descriptionDocPath',
+                'study.irbDocPath',
+                'study.reviewerId',
+                'study.agreementDocPath',
+            ])
+            .select('researcher.fullName as researcherName')
+            .where('study.id', '=', studyId)
+            .executeTakeFirst()
 
-    return await db
-        .selectFrom('study')
-
-        .innerJoin('orgUser', (join) => join.on('userId', '=', userId).onRef('orgUser.orgId', '=', 'study.orgId'))
-        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-
-        .where('orgUser.userId', '=', userId)
-        .select([
-            'study.id',
-            'study.approvedAt',
-            'study.rejectedAt',
-            'study.containerLocation',
-            'study.createdAt',
-            'study.dataSources',
-            'study.irbProtocols',
-            'study.orgId',
-            'study.outputMimeType',
-            'study.piName',
-            'study.researcherId',
-            'study.status',
-            'study.title',
-            'study.descriptionDocPath',
-            'study.irbDocPath',
-            'study.reviewerId',
-            'study.agreementDocPath',
-        ])
-        .select('researcher.fullName as researcherName')
-        .where('study.id', '=', studyId)
-        .executeTakeFirst()
-}, z.string())
+        return { study }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async (_, { study }) => {
+        return study
+    })
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposalAction = orgAction(
-    async ({ studyId, orgSlug }) => {
-        await checkUserAllowedStudyReview(studyId)
-        const userId = await getUserIdFromActionContext()
-        await checkMemberOfOrgWithSlug(orgSlug)
-
+export const approveStudyProposalAction = new Action('approveStudyProposalAction')
+    .params(
+        z.object({
+            studyId: z.string(),
+            orgSlug: z.string(),
+        }),
+    )
+    .requireAbilityTo('approve', 'Study')
+    .handler(async ({ studyId, orgSlug }, { session }) => {
+        const userId = session.user.id
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
             // Update the status of the study
@@ -186,7 +184,7 @@ export const approveStudyProposalAction = orgAction(
                 .where('id', '=', studyId)
                 .execute()
 
-            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
+            const latestJob = await latestJobForStudy(studyId, trx)
             if (!latestJob) {
                 throw new Error(`No job found for study id: ${studyId}`)
             }
@@ -233,18 +231,18 @@ export const approveStudyProposalAction = orgAction(
         })
 
         onStudyApproved({ studyId, userId })
-    },
-    z.object({
-        studyId: z.string(),
-        orgSlug: z.string(),
-    }),
-)
+    })
 
-export const rejectStudyProposalAction = orgAction(
-    async ({ studyId, orgSlug }) => {
-        await checkUserAllowedStudyReview(studyId)
-        const userId = await getUserIdFromActionContext()
-        await checkMemberOfOrgWithSlug(orgSlug)
+export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
+    .params(
+        z.object({
+            studyId: z.string(),
+            orgSlug: z.string(),
+        }),
+    )
+    .requireAbilityTo('reject', 'Study')
+    .handler(async ({ studyId }, { session }) => {
+        const userId = session.user.id
 
         // Start a transaction to ensure atomicity
         await db.transaction().execute(async (trx) => {
@@ -254,7 +252,7 @@ export const rejectStudyProposalAction = orgAction(
                 .where('id', '=', studyId)
                 .execute()
 
-            const latestJob = await latestJobForStudy(studyId, { orgSlug, userId }, trx)
+            const latestJob = await latestJobForStudy(studyId, trx)
             if (!latestJob) {
                 throw new Error(`No job found for study id: ${studyId}`)
             }
@@ -270,9 +268,4 @@ export const rejectStudyProposalAction = orgAction(
         })
 
         onStudyRejected({ studyId, userId })
-    },
-    z.object({
-        studyId: z.string(),
-        orgSlug: z.string(),
-    }),
-)
+    })

@@ -1,122 +1,102 @@
 'use server'
 
 import { db } from '@/database'
-import { isClerkApiError } from '@/lib/errors'
-import { anonAction, z, ActionFailure, userAction, actionContext } from '@/server/actions/wrappers'
-import { findOrCreateClerkOrganization } from '@/server/clerk'
+import { calculateUserPublicMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
-import { v7 as uuidv7 } from 'uuid'
+import { Action, z, ActionFailure } from '@/server/actions/action'
 
-export const onPendingUserLoginAction = userAction(async (inviteId) => {
-    const { user } = await actionContext()
-    await db
-        .updateTable('pendingUser')
-        .set({ claimedByUserId: user.id })
-        .where('id', '=', inviteId)
-        .executeTakeFirstOrThrow()
-}, z.string())
+export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
+    .params(z.object({ inviteId: z.string() }))
+    .requireAbilityTo('claim', 'PendingUser')
+    .handler(async ({ inviteId }, { session }) => {
+        await db
+            .updateTable('pendingUser')
+            .set({ claimedByUserId: session.user.id })
+            .where('id', '=', inviteId)
+            .executeTakeFirstOrThrow()
+    })
 
-export const onCreateAccountAction = anonAction(
-    async ({ inviteId, form }) => {
-        const clerk = await clerkClient()
-        let clerkUserId = ''
+export const onCreateAccountAction = new Action('onCreateAccountAction')
+    .params(
+        z.object({
+            inviteId: z.string(),
+            form: z.object({
+                firstName: z.string(),
+                lastName: z.string(),
+                password: z.string(),
+                confirmPassword: z.string(),
+            }),
+        }),
+    )
 
+    .handler(async function ({ inviteId, form }) {
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
             .where('id', '=', inviteId)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        const userId = uuidv7()
+        const clerk = await clerkClient()
 
-        const org = await db
-            .selectFrom('org')
-            .select(['org.slug', 'name'])
-            .where('id', '=', invite.orgId)
-            .executeTakeFirstOrThrow()
+        let clerkId = ''
 
-        try {
+        const users = await clerk.users.getUserList({ emailAddress: [invite.email] })
+        if (users.data.length) {
+            clerkId = users.data[0].id
+        } else {
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,
                 lastName: form.lastName,
                 emailAddress: [invite.email],
                 password: form.password,
-                publicMetadata: {
-                    // mark user when created inside a github action so it can be later cleaned up after test run
-                    createdByCIJobId: process.env.GITHUB_JOB,
-                    userId,
-                    orgs: [
-                        {
-                            slug: org.slug,
-                            isAdmin: false,
-                            isResearcher: invite.isResearcher,
-                            isReviewer: invite.isReviewer,
-                        },
-                    ],
-                },
             })
-            clerkUserId = clerkUser.id
-        } catch (error) {
-            if (isClerkApiError(error)) {
-                const pwnedError = error.errors.find((e) => e.code === 'form_password_pwned')
-                if (pwnedError) {
-                    throw new ActionFailure({
-                        form: 'This password has recently been added to the compromised password database, putting your account at risk. Please change your password to continue.',
+
+            clerkId = clerkUser.id
+        }
+
+        const siUser = await db.transaction().execute(async (trx) => {
+            let user = await trx.selectFrom('user').select(['id']).where('email', '=', invite.email).executeTakeFirst()
+            if (!user) {
+                user = await trx
+                    .insertInto('user')
+                    .values({
+                        clerkId,
+                        firstName: form.firstName,
+                        lastName: form.lastName,
+                        email: invite.email,
                     })
-                }
-                // the user is an admin, they can see the clerk error
-                throw new ActionFailure({ password: error.errors[0].message })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
             }
-            throw error
-        }
 
-        if (invite.isReviewer) {
-            const clerkOrg = await findOrCreateClerkOrganization({ slug: org.slug, name: org.name })
-            await clerk.organizations.createOrganizationMembership({
-                organizationId: clerkOrg.id,
-                userId: clerkUserId,
-                role: 'org:member',
-            })
-        }
+            const orgUser = await trx
+                .selectFrom('orgUser')
+                .where('orgId', '=', invite.orgId)
+                .where('userId', '=', user.id)
+                .select(['id'])
+                .executeTakeFirst()
 
-        return await db.transaction().execute(async (trx) => {
-            const siUser = await trx
-                .insertInto('user')
-                .values({
-                    id: userId,
-                    clerkId: clerkUserId,
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    email: invite.email,
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-
-            await trx
-                .insertInto('orgUser')
-                .values({
-                    userId: siUser.id,
-                    orgId: invite.orgId,
-                    isResearcher: invite.isResearcher,
-                    isReviewer: invite.isReviewer,
-                    isAdmin: false,
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-
-            onUserAcceptInvite(siUser.id)
-
-            return { success: true }
+            if (!orgUser) {
+                await trx
+                    .insertInto('orgUser')
+                    .values({
+                        userId: user.id,
+                        orgId: invite.orgId,
+                        isResearcher: invite.isResearcher,
+                        isReviewer: invite.isReviewer,
+                        isAdmin: false,
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
+            }
+            return user
         })
-    },
-    z.object({
-        inviteId: z.string(),
-        form: z.object({
-            firstName: z.string(),
-            lastName: z.string(),
-            password: z.string(),
-            confirmPassword: z.string(),
-        }),
-    }),
-)
+
+        const metadata = await calculateUserPublicMetadata(siUser.id, {})
+        await clerk.users.updateUserMetadata(clerkId, metadata)
+
+        onUserAcceptInvite(siUser.id)
+
+        return { userId: siUser.id }
+    })
