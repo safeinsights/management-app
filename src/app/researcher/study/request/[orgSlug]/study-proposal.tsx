@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button, Group, Stack, Text, Stepper } from '@mantine/core'
+import { Button, Group, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
@@ -22,12 +22,21 @@ type StepperButtonsProps = {
     isPending: boolean
     setStepIndex: (i: number) => void
 }
+
 const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
     const isValid = form.isValid()
 
     if (stepIndex == 0) {
         return (
-            <Button variant="default" disabled={!isValid || isPending} onClick={() => setStepIndex(stepIndex + 1)}>
+            <Button
+                type="button"
+                variant="primary"
+                disabled={!isValid || isPending}
+                onClick={(e) => {
+                    e.preventDefault()
+                    setStepIndex(stepIndex + 1)
+                }}
+            >
                 Next Step
             </Button>
         )
@@ -35,14 +44,9 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
     if (stepIndex == 1) {
         return (
-            <>
-                <Button variant="default" onClick={() => setStepIndex(stepIndex - 1)}>
-                    Back
-                </Button>
-                <Button disabled={!isValid || isPending} type="submit" variant="filled">
-                    Submit
-                </Button>
-            </>
+            <Button disabled={!isValid || isPending} type="submit" variant="primary">
+                Submit
+            </Button>
         )
     }
     return null
@@ -90,7 +94,15 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             mainCodeFile: null,
             additionalCodeFiles: [],
         },
-        validateInputOnChange: ['title', 'piName'],
+        validateInputOnChange: [
+            'title',
+            'piName',
+            'descriptionDocument',
+            'irbDocument',
+            'agreementDocument',
+            'mainCodeFile',
+            'additionalCodeFiles',
+        ],
     })
 
     const { isPending, mutate: createStudy } = useMutation({
@@ -176,25 +188,26 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 </Stepper.Step>
 
                 <Stepper.Step>
-                    <Stack mt="xl">
-                        <UploadStudyJobCode studyProposalForm={studyProposalForm} />
-                        <Group justify="center">
-                            {studyProposalForm.errors['totalFileSize'] && (
-                                <Text c="red">{studyProposalForm.errors['totalFileSize']}</Text>
-                            )}
-                        </Group>
-                    </Stack>
+                    <UploadStudyJobCode studyProposalForm={studyProposalForm} />
                 </Stepper.Step>
             </Stepper>
 
-            <Group justify="flex-end" mt="xl">
-                <CancelButton isDirty={studyProposalForm.isDirty()} />
-                <StepperButtons
-                    form={studyProposalForm}
-                    stepIndex={stepIndex}
-                    isPending={isPending}
-                    setStepIndex={setStepIndex}
-                />
+            <Group mt="xxl" style={{ width: '100%' }}>
+                {stepIndex === 1 && (
+                    <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                        Back
+                    </Button>
+                )}
+
+                <Group style={{ marginLeft: 'auto' }}>
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <StepperButtons
+                        form={studyProposalForm}
+                        stepIndex={stepIndex}
+                        isPending={isPending}
+                        setStepIndex={setStepIndex}
+                    />
+                </Group>
             </Group>
         </form>
     )

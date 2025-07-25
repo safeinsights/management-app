@@ -38,6 +38,7 @@ export function AppShell({ children }: Props) {
 
     return (
         <MantineAppShell
+            bg="grey.10"
             header={{ height: 60, collapsed: isDesktop }}
             footer={{ height: 60 }}
             navbar={{
@@ -77,7 +78,9 @@ export function AppShell({ children }: Props) {
                 <NavbarProfileMenu />
             </AppShellNavbar>
 
-            <AppShellMain bg="grey.10">{children}</AppShellMain>
+            <AppShellMain bg="grey.10" style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
+                {children}
+            </AppShellMain>
 
             <AppShellFooter p="md" bg="purple.9" bd="none">
                 <Text ta="left" c="white">
