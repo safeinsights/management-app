@@ -132,6 +132,7 @@ export const theme = createTheme({
     primaryShade: 5,
     primaryColor: 'purple',
     spacing: {
+        xs: '0.5rem',
         xxl: '2.5rem',
     },
 })

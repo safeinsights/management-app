@@ -9,6 +9,11 @@ export type ClerkAPIErrorObject = {
     }
 }
 
+export const clerkErrorOverrides: Record<string, string> = {
+    form_password_incorrect: 'Invalid login credentials. Please double-check your email and password.',
+    form_identifier_not_found: 'Invalid login credentials. Please double-check your email and password.',
+}
+
 export type ClerkAPIErrorResponse = {
     errors: [ClerkAPIErrorObject, ...ClerkAPIErrorObject[]]
 }
