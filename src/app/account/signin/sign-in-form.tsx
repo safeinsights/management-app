@@ -107,7 +107,7 @@ export const SignInForm: FC<{
                     >
                         Forgot password?
                     </Link>
-                    {clerkError && <SignInError clerkError={clerkError} setClerkError={setClerkError} />}
+                    <SignInError clerkError={clerkError} setClerkError={setClerkError} />
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
                     <Button
                         mt="md"
