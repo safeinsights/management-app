@@ -1,7 +1,7 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
 import { clerkErrorOverrides, reportError } from '@/components/errors'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useEffect, useState } from 'react'
