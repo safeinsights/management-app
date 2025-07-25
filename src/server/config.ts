@@ -29,6 +29,8 @@ export const AWS_ACCOUNT_ENVIRONMENT: Record<string, string> = {
     '872515273917': 'Development',
 }
 
+export const ENVIRONMENT_ID = process.env.ENVIRONMENT_ID || 'local'
+
 async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
     const arn = process.env[envKey]
     if (!arn) {

@@ -1,13 +1,24 @@
 'use server'
 
-import { schema } from './schema'
 import { db } from '@/database'
-import { z, userAction, getUserIdFromActionContext } from '@/server/actions/wrappers'
 import { pick } from 'remeda'
+import { Action, z } from '@/server/actions/action'
+import { schema } from './schema'
 
-export const onUpdateStudyAction = userAction(
-    async ({ studyId, study }) => {
-        const userId = await getUserIdFromActionContext()
+export const onUpdateStudyAction = new Action('onUpdateStudyAction')
+    .params(
+        z.object({
+            studyId: z.string(),
+            study: schema,
+        }),
+    )
+    .middleware(async ({ studyId }) => {
+        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirst()
+        return { orgId: study?.orgId }
+    })
+    .requireAbilityTo('update', 'Study', async ({ studyId }, { orgId }) => ({ id: studyId, orgId: orgId as string }))
+    .handler(async ({ studyId, study }, { session }) => {
+        const userId = session.user.id
 
         const studyDataSources = [
             ...(study.eventCapture ? ['eventCapture'] : []),
@@ -27,9 +38,4 @@ export const onUpdateStudyAction = userAction(
             // security: only allow updating studies that belong to the current user
             .where('researcherId', '=', userId)
             .execute()
-    },
-    z.object({
-        studyId: z.string(),
-        study: schema,
-    }),
-)
+    })

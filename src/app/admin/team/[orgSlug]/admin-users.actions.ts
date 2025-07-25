@@ -2,27 +2,38 @@
 
 import { db } from '@/database'
 import { z, inviteUserSchema } from './invite-user.schema'
-import { orgActionContext, orgAdminAction } from '@/server/actions/wrappers'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
+import { Action } from '@/server/actions/action'
 
-export const orgAdminInviteUserAction = orgAdminAction(
-    async ({ invite }) => {
+export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
+    .params(
+        z.object({
+            orgSlug: z.string(),
+            invite: inviteUserSchema,
+        }),
+    )
+    .middleware(async ({ orgSlug }) =>
+        db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
+    )
+    .requireAbilityTo('invite', 'User')
+    .handler(async ({ invite }, { orgId }) => {
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
             .select(['id', 'email'])
             .where('email', '=', invite.email)
+            .where('orgId', '=', orgId)
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
             return
         }
-        const { org } = await orgActionContext()
+
         const record = await db
             .insertInto('pendingUser')
             .values({
-                orgId: org.id,
+                orgId,
                 email: invite.email,
                 isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
                 isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',
@@ -31,31 +42,30 @@ export const orgAdminInviteUserAction = orgAdminAction(
             .executeTakeFirstOrThrow()
 
         onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
-    },
-    z.object({
-        orgSlug: z.string(),
-        invite: inviteUserSchema,
-    }),
-)
+    })
 
-export const getPendingUsersAction = orgAdminAction(
-    async ({ orgSlug: _ }) => {
-        const { org } = await orgActionContext()
-
+export const getPendingUsersAction = new Action('getPendingUsersAction')
+    .params(z.object({ orgSlug: z.string() }))
+    .requireAbilityTo('read', 'Team')
+    .handler(async ({ orgSlug }) => {
         return await db
             .selectFrom('pendingUser')
-            .select(['id', 'email'])
-            .where('orgId', '=', org.id)
-            .orderBy('createdAt', 'desc')
+            .select(['pendingUser.id', 'pendingUser.email'])
+            .innerJoin('org', 'pendingUser.orgId', 'org.id')
+            .where('org.slug', '=', orgSlug)
+            .orderBy('pendingUser.createdAt', 'desc')
             .execute()
-    },
-    z.object({
-        orgSlug: z.string(),
-    }),
-)
+    })
 
-export const reInviteUserAction = orgAdminAction(
-    async ({ orgSlug, pendingUserId }) => {
+export const reInviteUserAction = new Action('reInviteUserAction')
+    .params(
+        z.object({
+            pendingUserId: z.string(),
+            orgSlug: z.string(),
+        }),
+    )
+    .requireAbilityTo('invite', 'User')
+    .handler(async ({ orgSlug, pendingUserId }) => {
         const pending = await db
             .selectFrom('pendingUser')
             .innerJoin('org', 'org.id', 'pendingUser.orgId')
@@ -65,9 +75,4 @@ export const reInviteUserAction = orgAdminAction(
             .executeTakeFirstOrThrow()
 
         onUserInvited({ invitedEmail: pending.email, pendingId: pending.id })
-    },
-    z.object({
-        pendingUserId: z.string(),
-        orgSlug: z.string(),
-    }),
-)
+    })

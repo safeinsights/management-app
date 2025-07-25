@@ -1,7 +1,7 @@
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { checkUserAllowedStudyView, latestJobForStudy } from '@/server/db/queries'
+import { latestJobForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -16,10 +16,10 @@ export const dynamic = 'force-dynamic'
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
     const { studyId } = await props.params
 
-    await checkUserAllowedStudyView(studyId)
+    // getStudyAction will check permissions
+    const study = await getStudyAction({ studyId })
 
-    const study = await getStudyAction(studyId)
-
+    // Ensure the study exists and user has permission to view it
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }

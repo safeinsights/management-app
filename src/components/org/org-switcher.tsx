@@ -1,52 +1,55 @@
 'use client'
 
 import { FC } from 'react'
-import { Group } from '@mantine/core'
-import { OrganizationSwitcher } from '@clerk/nextjs'
-import { useHasMultipleRoles } from '../org-info'
-import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { Flex, Select, Text } from '@mantine/core'
+import { useSession } from '@/hooks/session'
 
-const onOrgSwitch = (org: { slug: string | null }): string => {
-    if (org.slug === CLERK_ADMIN_ORG_SLUG) {
-        return `/admin/safeinsights`
-    }
-    return `/reviewer/${org.slug}/dashboard`
-}
+import { useUser } from '@clerk/nextjs'
+import { useEnvironmentId } from '@/hooks/environment'
+import { CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { useRouter } from 'next/navigation'
 
 export const OrgSwitcher: FC = () => {
-    const isMultiple = useHasMultipleRoles()
+    const { session } = useSession()
+    const { user, isLoaded } = useUser()
+    const env = useEnvironmentId()
+    const router = useRouter()
 
-    if (!isMultiple) return null
+    if (!isLoaded || !env || !user) return null
+
+    const info = (user.publicMetadata[env] as UserInfo) || null
+    if (!info) return null
+
+    const teams = info.teams || {}
+
+    if (Object.keys(teams).length < 2) {
+        return null
+    }
+
+    const onChange = (value: string | null) => {
+        if (!user) throw new Error('User is not loaded')
+        if (!value) return
+        // TODO: extract this to a updatePrefs function
+        user.update({
+            unsafeMetadata: {
+                ...user.unsafeMetadata,
+                [`${env}`]: {
+                    currentTeamSlug: value,
+                },
+            },
+        }).then(() => {
+            if (value == CLERK_ADMIN_ORG_SLUG) {
+                router.push(`/admin/safeinsights`)
+            } else {
+                router.push('/')
+            }
+        })
+    }
 
     return (
-        <Group justify="left" pl="xs" c="white">
-            <OrganizationSwitcher
-                afterSelectOrganizationUrl={onOrgSwitch}
-                afterSelectPersonalUrl={`/researcher/dashboard`}
-                appearance={{
-                    elements: {
-                        rootBox: {
-                            width: '100%',
-                        },
-                        organizationSwitcherTrigger: {
-                            color: 'white !important',
-                            '& span': { color: 'white !important' },
-                            padding: `12px 10px`,
-                            width: '100%',
-                            borderRadius: '0',
-                            '&:hover': {
-                                backgroundColor: 'var(--mantine-color-blue-9)',
-                            },
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                        },
-                        organizationPreview: {
-                            gap: 'var(--mantine-spacing-sm)',
-                        },
-                    },
-                }}
-            />
-        </Group>
+        <Flex mx="sm" direction="column">
+            <Text c="white">Switch team:</Text>
+            <Select c="white" data={Object.keys(teams)} value={session?.team.slug || ''} onChange={onChange} />
+        </Flex>
     )
 }
