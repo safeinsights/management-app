@@ -49,6 +49,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             .getValues()
             .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
         studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
+        studyProposalForm.validateField('totalFileSize')
     }
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }

@@ -93,7 +93,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             agreementDocument: null,
             mainCodeFile: null,
             additionalCodeFiles: [],
-            totalFileSize: 0,
         },
         validateInputOnChange: [
             'title',
