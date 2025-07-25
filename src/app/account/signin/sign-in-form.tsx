@@ -1,6 +1,6 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
-import { reportError } from '@/components/errors'
+import { clerkErrorOverrides, reportError } from '@/components/errors'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
@@ -56,21 +56,29 @@ export const SignInForm: FC<{
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
 
-            const errorMessage = errorToString(err)
+            const errorMessage = errorToString(err, clerkErrorOverrides)
 
             //incorrect email or password
-            if (errorMessage?.includes('Password') || errorMessage?.includes("Couldn't find your account.")) {
+            if (
+                errorMessage === clerkErrorOverrides.form_password_incorrect ||
+                errorMessage === clerkErrorOverrides.form_identifier_not_found
+            ) {
                 form.setFieldError('email', ' ')
-                form.setFieldError(
-                    'password',
-                    'Invalid login credentials. Please double-check your email and password.',
-                )
+                form.setFieldError('password', errorMessage)
                 return
             }
 
             // any other clerk error
+            let title = 'Sign-in Error'
+            if (err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)) {
+                const lockedError = err.errors.find((e: { code?: string }) => e.code === 'user_locked')
+                if (lockedError) {
+                    title = 'Account Locked'
+                }
+            }
+
             setClerkError({
-                title: errorMessage?.includes('locked') ? 'Account Locked' : 'Sign-in Error',
+                title,
                 message: errorMessage || 'An error occurred during sign-in. Please try again.',
             })
         }
