@@ -38,7 +38,9 @@ export function defineAbilityFor(session: UserSession) {
     permit('read', 'Team', { id: session.team.id })
 
     if (isResearcher || isReviewer || isTeamAdmin) {
-        permit('view', 'Study', { 'study.orgId': session.team.id }) //orgId: session.team.id })
+        permit('view', 'Study', { 'study.orgId': session.team.id })
+        // TODO: allow researcher to only view approved study job files
+        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
     }
 
     if (isResearcher || isTeamAdmin) {
@@ -56,7 +58,6 @@ export function defineAbilityFor(session: UserSession) {
         permit('reject', 'Study')
         permit('read', 'Study', { orgSlug: session.team.slug })
         permit('review', 'Study', { 'study.orgId': session.team.id })
-        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
     }
 
     if (isTeamAdmin) {
