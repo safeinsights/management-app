@@ -164,7 +164,7 @@ export const getStudyAction = new Action('getStudyAction')
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposalAction = new Action('approveStudyProposalAction')
+export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string(),
@@ -172,95 +172,75 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         }),
     )
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ studyId, orgSlug }, { session }) => {
+    .middleware(async ({ studyId }, { db }) => ({
+        study: await db
+            .selectFrom('study')
+            .select(['status'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study')),
+    }))
+    .handler(async ({ studyId, orgSlug }, { study, session, db }) => {
         const userId = session.user.id
-        // Start a transaction to ensure atomicity
-        const wasApproved = await db.transaction().execute(async (trx) => {
-            const updateResult = await trx
-                .updateTable('study')
-                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
-                .executeTakeFirst()
 
-            // if no rows found, check if study exists or was already approved
-            if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
-                const currentStudy = await trx
-                    .selectFrom('study')
-                    .select(['status'])
-                    .where('id', '=', studyId)
-                    .executeTakeFirst()
+        // nothing to do if already approved
+        if (study.status == 'APPROVED') return
 
-                if (!currentStudy) {
-                    throw new ActionFailure({
-                        study: `Study with id ${studyId} does not exist.`,
-                    })
-                }
+        // will throw if not found
+        const latestJob = await latestJobForStudy(studyId)
 
-                if (currentStudy.status === 'APPROVED') {
-                    // study was already approved, so we can return false for idempotency
-                    return false
-                }
+        let status: StudyJobStatus = 'CODE-APPROVED'
 
-                throw new ActionFailure({
-                    study: `Study with id ${studyId} cannot be approved because its status is ${currentStudy.status}`,
-                })
-            }
+        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
+        if (SIMULATE_IMAGE_BUILD) {
+            status = 'JOB-READY'
+        } else {
+            // TODO: the base image should be chosen by the user (if admin) when they create the study
+            // but for now we just use the latest base image for the org and language
+            const image = await db
+                .selectFrom('orgBaseImage')
+                .innerJoin('org', (join) =>
+                    join.onRef('orgBaseImage.orgId', '=', 'org.id').on('org.slug', '=', orgSlug),
+                )
+                .where('language', '=', latestJob.language)
+                .orderBy('orgBaseImage.createdAt', 'desc')
+                .select(['url', 'cmdLine'])
+                .executeTakeFirstOrThrow(
+                    throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
+                )
 
-            const latestJob = await latestJobForStudy(studyId, trx)
-            if (!latestJob) {
-                throw new Error(`No job found for study id: ${studyId}`)
-            }
 
-            let status: StudyJobStatus = 'CODE-APPROVED'
+            const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
 
-            // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-            if (SIMULATE_IMAGE_BUILD) {
-                status = 'JOB-READY'
-            } else {
-                // TODO: the base image should be chosen by the user (if admin) when they create the study
-                // but for now we just use the latest base image for the org and language
-                const image = await db
-                    .selectFrom('orgBaseImage')
-                    .innerJoin('org', (join) =>
-                        join.onRef('orgBaseImage.orgId', '=', 'org.id').on('org.slug', '=', orgSlug),
-                    )
-                    .where('language', '=', latestJob.language)
-                    .orderBy('orgBaseImage.createdAt', 'desc')
-                    .select(['url', 'cmdLine'])
-                    .executeTakeFirstOrThrow(
-                        throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
-                    )
-
-                const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
-
-                await triggerBuildImageForJob({
-                    studyJobId: latestJob.id,
-                    studyId,
-                    orgSlug: orgSlug,
-                    codeEntryPointFileName: mainCode.name,
-                    cmdLine: image.cmdLine,
-                    baseImageURL: image.url,
-                })
-            }
-            await trx
-                .insertInto('jobStatusChange')
-                .values({
-                    userId,
-                    status,
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-
-            return true
-        })
-
-        if (wasApproved) {
-            onStudyApproved({ studyId, userId })
+            await triggerBuildImageForJob({
+                studyJobId: latestJob.id,
+                studyId,
+                orgSlug: orgSlug,
+                codeEntryPointFileName: mainCode.name,
+                cmdLine: image.cmdLine,
+                baseImageURL: image.url,
+            })
         }
+
+        await db
+            .updateTable('study')
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: session.user.id })
+            .where('id', '=', studyId)
+            .execute()
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId,
+                status,
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
+
+        onStudyApproved({ studyId, userId })
+
     })
 
-export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
+export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string(),
@@ -271,28 +251,21 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
     .handler(async ({ studyId }, { session }) => {
         const userId = session.user.id
 
-        // Start a transaction to ensure atomicity
-        await db.transaction().execute(async (trx) => {
-            await trx
-                .updateTable('study')
-                .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .execute()
+        await Action.db
+            .updateTable('study')
+            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+            .where('id', '=', studyId)
+            .execute()
 
-            const latestJob = await latestJobForStudy(studyId, trx)
-            if (!latestJob) {
-                throw new Error(`No job found for study id: ${studyId}`)
-            }
-
-            await trx
-                .insertInto('jobStatusChange')
-                .values({
-                    userId: userId,
-                    status: 'CODE-REJECTED',
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-        })
+        const latestJob = await latestJobForStudy(studyId)
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: userId,
+                status: 'CODE-REJECTED',
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
 
         onStudyRejected({ studyId, userId })
     })

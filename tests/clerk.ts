@@ -1,10 +1,10 @@
 import 'dotenv/config'
-import { PROD_ENV } from '@/server/config'
+import { PROD_BUILD } from '@/server/config'
 import { createClerkClient } from '@clerk/backend'
 import dayjs from 'dayjs'
 
 export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minutes').toDate()) {
-    if (PROD_ENV) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
+    if (PROD_BUILD) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
 
     console.log(`deleting users created after ${cutoff}`) // eslint-disable-line no-console
 

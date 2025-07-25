@@ -8,6 +8,7 @@ import { AccessDeniedError, ActionFailure } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@/lib/logger'
 import { omit } from 'remeda'
+import { db, type DBExecutor } from '@/database'
 
 type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Args, Ctx, Res> = (args: Args, ctx: Ctx) => Promise<Res>
@@ -17,13 +18,14 @@ export { ActionFailure, z }
 
 export type ActionContext = {
     session?: UserSessionWithAbility
+    db: DBExecutor
 }
 
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
-export async function currentSession<T extends boolean>(
+export function currentSession<T extends boolean>(
     throwIfNotFound?: T,
-): Promise<T extends true ? UserSession : UserSession | null> {
+): T extends true ? UserSession : UserSession | null {
     const ctx = localStorageContext.getStore()
 
     if (!ctx?.session && throwIfNotFound) {
@@ -35,9 +37,16 @@ export async function currentSession<T extends boolean>(
 
 const passthroughTranslate = async <Args, Ctx>(args: Args, ctx: Omit<Ctx, 'session'>) => ({ ...args, ...ctx })
 
+export type ActionOptions = {
+    performsMutations?: boolean
+}
+
 export class Action<
     Args = unknown,
-    Ctx extends { session?: UserSessionWithAbility } = { session?: UserSessionWithAbility },
+    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor } = {
+        session?: UserSessionWithAbility
+        db: DBExecutor
+    },
 > {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
@@ -47,16 +56,27 @@ export class Action<
         subject: Parameters<AppAbility['can']>[1]
         translate?: ProtectorTranslateFn<Args, Ctx>
     }
+    private options: ActionOptions
 
-    constructor(private actionName: string) {}
+    static get db() {
+        const ctx = localStorageContext.getStore()
+        return ctx?.db || db
+    }
+
+    constructor(
+        private actionName: string,
+        options: ActionOptions = {},
+    ) {
+        this.options = options
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params<S extends ZodType<any, any, any>>(schema: S) {
         this.schema = schema as ZodType<Args>
         // reset middleware when you change the schema
         this.middlewareFns = []
-        // now this builder “becomes” one typed with new Args and empty ctx
-        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility }>
+        // now this builder "becomes" one typed with new Args and empty ctx
+        return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
     }
 
     /**
@@ -119,57 +139,64 @@ export class Action<
             } else {
                 args = raw as Args
             }
-            // 2) run middleware chain
+            // 2) run middleware chain and set up database connection
             const session = await sessionFromClerk()
 
-            //            ctx = { ...ctx, session } as Ctx
-            let ctx = { session } as Ctx
-            for (const mw of middlewareFns) {
-                const more = await mw(args, ctx)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ctx = { ...ctx, ...(more as any[]) }
-            }
-
-            // 3) check protection if defined
-            if (this.protector) {
-                if (!session) {
-                    throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
+            // Function to execute with either transaction or regular db
+            const executeWithDb = async (dbConn: DBExecutor): Promise<Res> => {
+                let ctx = { session, db: dbConn } as Ctx
+                for (const mw of middlewareFns) {
+                    const more = await mw(args, ctx)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ctx = { ...ctx, ...(more as any[]) }
                 }
-                const { action, subject, translate = passthroughTranslate } = this.protector
-                const translateArgs = omit(ctx, ['session'])
-                const abilityArgs = args ? await translate(args, translateArgs) : {}
-                const abilitySubject = args ? subjectWithArgs(subject as string, abilityArgs) : subject
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (!session.ability.can(action, abilitySubject as any)) {
-                    const msg =
-                        `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
-                        `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                        `session: ${JSON.stringify(session.team, null, 2)}\n`
-                    logger.error(msg)
-                    throw new ActionFailure({ permission_denied: msg })
-                }
-            }
-
-            if (session) {
-                Sentry.setUser({ id: session.user.id })
-                Sentry.setTag('team', session.team.slug)
-            }
-
-            // 4) run handler inside localStorage context
-            const result = await new Promise<Res>((resolve, reject) => {
-                localStorageContext.run({ session: ctx.session }, () => {
-                    try {
-                        const result = handlerFn(args, ctx)
-                        resolve(result)
-                    } catch (error) {
-                        Sentry.captureException(error)
-                        reject(error)
+                // 3) check protection if defined
+                if (this.protector) {
+                    if (!session) {
+                        throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
                     }
-                })
-            })
+                    const { action, subject, translate = passthroughTranslate } = this.protector
+                    const translateArgs = omit(ctx, ['session'])
+                    const abilityArgs = args ? await translate(args, translateArgs) : {}
+                    const abilitySubject = args ? subjectWithArgs(subject as string, abilityArgs) : subject
 
-            return result
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    if (!session.ability.can(action, abilitySubject as any)) {
+                        const msg =
+                            `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
+                            `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
+                            `session: ${JSON.stringify(session.team, null, 2)}\n`
+                        logger.error(msg)
+                        throw new ActionFailure({ permission_denied: msg })
+                    }
+                }
+
+                if (session) {
+                    Sentry.setUser({ id: session.user.id })
+                    Sentry.setTag('team', session.team.slug)
+                }
+
+                // 4) run handler inside localStorage context
+                return await new Promise<Res>((resolve, reject) => {
+                    localStorageContext.run({ session: ctx.session, db: ctx.db }, () => {
+                        try {
+                            const result = handlerFn(args, ctx)
+                            resolve(result)
+                        } catch (error) {
+                            Sentry.captureException(error)
+                            reject(error)
+                        }
+                    })
+                })
+            }
+
+            // Choose between transaction and regular db
+            if (this.options.performsMutations) {
+                return await db.transaction().execute(executeWithDb)
+            } else {
+                return await executeWithDb(db)
+            }
         }
 
         return action as IsUnknown<Args> extends true ? () => Promise<Res> : (args: Args) => Promise<Res>

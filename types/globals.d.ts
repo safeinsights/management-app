@@ -1,18 +1,19 @@
 export {}
 
 declare global {
+    interface UserTeamMembershipInfo {
+        id: string
+        slug: string
+        isAdmin: boolean
+        isReviewer: boolean
+        isResearcher: boolean
+    }
     interface UserInfo {
         user: {
             id: string
         }
         teams: {
-            [k: string]: {
-                id: string
-                slug: string
-                isAdmin: boolean
-                isReviewer: boolean
-                isResearcher: boolean
-            }
+            [k: string]: UserTeamMembershipInfo
         }
     }
 
