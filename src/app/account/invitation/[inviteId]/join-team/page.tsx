@@ -4,7 +4,7 @@ import { FC, use, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Flex, Text, Button } from '@mantine/core'
 import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
-import { reportMutationError } from '@/components/errors'
+import { reportMutationError, extractActionFailure } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
 
@@ -23,14 +23,21 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: () => onJoinTeamAccountAction({ inviteId }),
-        onError: reportMutationError('Unable to join team'),
+        onError: (err) => {
+            const failure = extractActionFailure(err)
+            if (failure?.team === 'already a member') {
+                router.push('/account/signin')
+                return
+            }
+            reportMutationError(failure?.team ?? 'Unable to join team')
+        },
     })
 
     useEffect(() => {
         if (org && !isLoading) {
             joinTeam()
         }
-    }, [org, isLoading])
+    }, [org, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
     if (isLoading || !org) {
         return <LoadingMessage message="Loading account invitation" />
