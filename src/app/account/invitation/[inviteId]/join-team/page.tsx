@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, use, useState } from 'react'
+import { FC, use, useEffect } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Flex, Text, Button } from '@mantine/core'
 import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
@@ -14,7 +14,6 @@ type InviteProps = {
 
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
-    const [hasJoined, setHasJoined] = useState(false)
     const router = useRouter()
 
     const { data: org, isLoading } = useQuery({
@@ -25,29 +24,25 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: () => onJoinTeamAccountAction({ inviteId }),
         onError: reportMutationError('Unable to join team'),
-        onSuccess() {
-            setHasJoined(true)
-        },
     })
+
+    useEffect(() => {
+        if (org && !isLoading) {
+            joinTeam()
+        }
+    }, [org, isLoading])
 
     if (isLoading || !org) {
         return <LoadingMessage message="Loading account invitation" />
     }
 
-    if (hasJoined) {
-        return (
-            <Flex direction="column" gap="lg" maw={500} mx="auto">
-                <Text size="md">You are now a member of {org.name}</Text>
-                <Button onClick={() => router.push('/account/signin')}>Login to visit team page</Button>
-            </Flex>
-        )
-    }
-
     return (
         <Flex direction="column" gap="lg" maw={500} mx="auto">
-            <Text size="md">You&apos;ve been invited to join {org.name}. Click below to accept the invitation.</Text>
-            <Button onClick={() => joinTeam()} loading={isJoining}>
-                Join Team
+            <Text size="md" ta="center">
+                You&apos;re now a member of {org.name}
+            </Text>
+            <Button onClick={() => router.push('/account/signin')} loading={isJoining}>
+                Visit your dashboard
             </Button>
         </Flex>
     )
