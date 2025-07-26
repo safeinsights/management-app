@@ -1,5 +1,5 @@
 import { ZodType, ZodError, z } from 'zod'
-import { type AppAbility, subject as subjectWithArgs } from '@/lib/permissions'
+import { type AppAbility, PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, subject as subjectWithArgs } from '@/lib/permissions'
 
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
@@ -10,9 +10,8 @@ import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 
-type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => Promise<NewCtx>
-type HandlerFn<Args, Ctx, Res> = (args: Args, ctx: Ctx) => Promise<Res>
-type ProtectorTranslateFn<Args, Ctx> = (args: Args, ctx: Omit<Ctx, 'session'>) => Promise<Record<string, unknown>>
+type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => NewCtx | Promise<NewCtx>
+type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
@@ -21,11 +20,15 @@ export type ActionContext = {
     db: DBExecutor
 }
 
+export type ActionOptions = {
+    performsMutations?: boolean
+}
+
 export const localStorageContext = new AsyncLocalStorage<ActionContext>()
 
-export function currentSession<T extends boolean>(
+export async function currentSession<T extends boolean>(
     throwIfNotFound?: T,
-): T extends true ? UserSession : UserSession | null {
+): Promise<T extends true ? UserSession : UserSession | null> {
     const ctx = localStorageContext.getStore()
 
     if (!ctx?.session && throwIfNotFound) {
@@ -35,18 +38,10 @@ export function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
-const passthroughTranslate = async <Args, Ctx>(args: Args, ctx: Omit<Ctx, 'session'>) => ({ ...args, ...ctx })
-
-export type ActionOptions = {
-    performsMutations?: boolean
-}
 
 export class Action<
     Args = unknown,
-    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor } = {
-        session?: UserSessionWithAbility
-        db: DBExecutor
-    },
+    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor; params?: Args } = { session?: UserSessionWithAbility; db: DBExecutor; params?: Args },
 > {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
@@ -54,7 +49,6 @@ export class Action<
     private protector?: {
         action: Parameters<AppAbility['can']>[0]
         subject: Parameters<AppAbility['can']>[1]
-        translate?: ProtectorTranslateFn<Args, Ctx>
     }
     private options: ActionOptions
 
@@ -63,10 +57,7 @@ export class Action<
         return ctx?.db || db
     }
 
-    constructor(
-        private actionName: string,
-        options: ActionOptions = {},
-    ) {
+    constructor(private actionName: string, options: ActionOptions = {}) {
         this.options = options
     }
 
@@ -75,7 +66,7 @@ export class Action<
         this.schema = schema as ZodType<Args>
         // reset middleware when you change the schema
         this.middlewareFns = []
-        // now this builder "becomes" one typed with new Args and empty ctx
+        // now this builder “becomes” one typed with new Args and empty ctx
         return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
     }
 
@@ -94,12 +85,11 @@ export class Action<
      * Add a protection function that runs before the handler.
      * The protect function can validate permissions, throw errors, etc.
      */
-    requireAbilityTo(
-        action: Parameters<AppAbility['can']>[0],
-        subject: Parameters<AppAbility['can']>[1],
-        translate?: ProtectorTranslateFn<Args, Ctx>,
+    requireAbilityTo<A extends keyof PermissionsActionSubjectMap, S extends PermissionsActionSubjectMap[A]>(
+        action: A,
+        subject: S & ((Args & Omit<Ctx, 'session'>) extends PermissionsSubjectToObjectMap[S] ? S : never),
     ) {
-        this.protector = { action, subject, translate }
+        this.protector = { action, subject }
         return this as unknown as Action<Args, Ctx & { session: UserSession }>
     }
 
@@ -109,10 +99,12 @@ export class Action<
      *
      * It will:
      *  1. parse & validate `args` against your Zod schema
-     *  2. run all middleware in order, merging their returned objects into `ctx`
-     *  3. call your handler(args, ctx)
+     *  2. start with session and db context
+     *  3. run all middleware in order, merging their returned objects into `ctx`
+     *  4. add params to context
+     *  5. call your handler(ctx)
      */
-    handler<Res>(handlerFn: HandlerFn<Args, Ctx, Res>) {
+    handler<Res>(handlerFn: HandlerFn<Ctx & { params: Args }, Res>) {
         const schema = this.schema
         const middlewareFns = [...this.middlewareFns]
 
@@ -146,20 +138,22 @@ export class Action<
             const executeWithDb = async (dbConn: DBExecutor): Promise<Res> => {
                 let ctx = { session, db: dbConn } as Ctx
                 for (const mw of middlewareFns) {
-                    const more = await mw(args, ctx)
+                    const more = await Promise.resolve(mw(args, ctx))
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     ctx = { ...ctx, ...(more as any[]) }
                 }
+
+                // Add params to context after middleware
+                const contextWithParams = { ...ctx, params: args } as Ctx & { params: Args }
 
                 // 3) check protection if defined
                 if (this.protector) {
                     if (!session) {
                         throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
                     }
-                    const { action, subject, translate = passthroughTranslate } = this.protector
-                    const translateArgs = omit(ctx, ['session'])
-                    const abilityArgs = args ? await translate(args, translateArgs) : {}
-                    const abilitySubject = args ? subjectWithArgs(subject as string, abilityArgs) : subject
+                    const { action, subject } = this.protector
+                    const abilityArgs = { ...args, ...omit(ctx, ['session']) }
+                    const abilitySubject = subjectWithArgs(subject as string, abilityArgs)
 
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     if (!session.ability.can(action, abilitySubject as any)) {
@@ -181,7 +175,7 @@ export class Action<
                 return await new Promise<Res>((resolve, reject) => {
                     localStorageContext.run({ session: ctx.session, db: ctx.db }, () => {
                         try {
-                            const result = handlerFn(args, ctx)
+                            const result = handlerFn(contextWithParams)
                             resolve(result)
                         } catch (error) {
                             Sentry.captureException(error)

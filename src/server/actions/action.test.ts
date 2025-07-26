@@ -17,7 +17,11 @@ describe('Action Builder', () => {
             const result = await action()
 
             expect(result).toBe('success')
-            expect(mockHandler).toHaveBeenCalledWith(undefined, expect.any(Object))
+            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
+                params: undefined,
+                session: expect.any(Object),
+                db: expect.any(Object)
+            }))
         })
     })
 
@@ -36,7 +40,11 @@ describe('Action Builder', () => {
             const result = await action(input)
 
             expect(result).toBe('validated')
-            expect(mockHandler).toHaveBeenCalledWith(input, expect.any(Object))
+            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
+                params: input,
+                session: expect.any(Object),
+                db: expect.any(Object)
+            }))
         })
 
         it('throws error for invalid input', async () => {
@@ -73,10 +81,12 @@ describe('Action Builder', () => {
             expect(middleware1).toHaveBeenCalledWith(undefined, expect.any(Object))
             expect(middleware2).toHaveBeenCalledWith(undefined, expect.objectContaining({ user: 'john' }))
             expect(mockHandler).toHaveBeenCalledWith(
-                undefined,
                 expect.objectContaining({
+                    params: undefined,
                     user: 'john',
                     timestamp: '2023-01-01',
+                    session: expect.any(Object),
+                    db: expect.any(Object)
                 }),
             )
         })
@@ -120,7 +130,12 @@ describe('Action Builder', () => {
 
             expect(result).toBe('complete')
             expect(middleware).toHaveBeenCalledWith(input, expect.any(Object))
-            expect(mockHandler).toHaveBeenCalledWith(input, expect.objectContaining({ authenticated: true }))
+            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
+                params: input,
+                authenticated: true,
+                session: expect.any(Object),
+                db: expect.any(Object)
+            }))
         })
     })
 })

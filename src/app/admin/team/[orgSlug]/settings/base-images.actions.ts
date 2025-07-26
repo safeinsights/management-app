@@ -1,6 +1,5 @@
 'use server'
 
-import { db } from '@/database'
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { throwNotFound } from '@/lib/errors'
@@ -14,11 +13,11 @@ const actionSchema = orgBaseImageSchema.extend({
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .params(actionSchema)
-    .middleware(async ({ orgSlug }) =>
+    .middleware(async ({ orgSlug }, { db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
     .requireAbilityTo('update', 'Team')
-    .handler(async (input, { orgId }) => {
+    .handler(async ({ params: input, orgId, db }) => {
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
@@ -46,7 +45,7 @@ const deleteOrgBaseImageSchema = z.object({
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
     .requireAbilityTo('update', 'Team')
-    .handler(async ({ imageId, orgSlug }) => {
+    .handler(async ({ params: { imageId, orgSlug }, db }) => {
         await db
             .deleteFrom('orgBaseImage')
             .using('org')
@@ -63,8 +62,8 @@ const fetchOrgBaseImagesSchema = z.object({
 })
 export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
     .params(fetchOrgBaseImagesSchema)
-    .requireAbilityTo('read', 'Team')
-    .handler(async ({ orgSlug }) => {
+    .requireAbilityTo('view', 'Team')
+    .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')

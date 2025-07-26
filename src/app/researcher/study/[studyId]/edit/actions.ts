@@ -4,6 +4,7 @@ import { db } from '@/database'
 import { pick } from 'remeda'
 import { Action, z } from '@/server/actions/action'
 import { schema } from './schema'
+import { throwNotFound } from '@/lib/errors'
 
 export const onUpdateStudyAction = new Action('onUpdateStudyAction')
     .params(
@@ -13,11 +14,12 @@ export const onUpdateStudyAction = new Action('onUpdateStudyAction')
         }),
     )
     .middleware(async ({ studyId }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirst()
-        return { orgId: study?.orgId }
+    const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow(throwNotFound('study'))
+        return { orgId: study.orgId, id: studyId }
     })
-    .requireAbilityTo('update', 'Study', async ({ studyId }, { orgId }) => ({ id: studyId, orgId: orgId as string }))
-    .handler(async ({ studyId, study }, { session }) => {
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ params: { studyId, study }, session }) => {
+        if (!session) throw new Error('Unauthorized')
         const userId = session.user.id
 
         const studyDataSources = [

@@ -22,7 +22,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction')
     .params(onCreateStudyActionArgsSchema)
     .middleware(async (ctx) => ({ orgId: (await getOrgIdFromSlug({ orgSlug: ctx.orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(async ({ orgSlug, studyInfo, mainCodeFileName, codeFileNames }, { session, orgId }) => {
+    .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
         const userId = session.user.id
 
         const studyId = uuidv7()
@@ -141,7 +141,7 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction')
     )
     .middleware(async ({ studyId }) => ({ orgId: (await getStudyOrgIdForStudyId(studyId)).orgId }))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
-    .handler(async ({ orgSlug, studyId }) => {
+    .handler(async ({ params: { orgSlug, studyId } }) => {
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
         const jobIds = jobs.map((job) => job.id)
 

@@ -2,9 +2,7 @@ import { test, expect } from 'vitest'
 
 import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
-import { subject } from '@casl/ability'
-import { defineAbilityFor } from './permissions'
-import { StudyStatus } from '@/database/types'
+import { defineAbilityFor, subject } from './permissions'
 
 const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
     const session: UserSession = {
@@ -33,12 +31,12 @@ test('reviewer role', () => {
     ).toBeTruthy()
 
     expect(
-        ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
+        ability.can('approve', subject('Study', { orgId: session.team.id })),
     ).toBeTruthy()
 
     expect(ability.can('invite', 'User')).toBe(false)
 
-    expect(ability.can('update', subject('User', session.user))).toBe(true)
+    expect(ability.can('update', subject('User', { id: session.user.id }))).toBe(true)
 
     expect(ability.can('update', subject('User', { id: faker.string.uuid() }))).toBe(false)
 })
@@ -61,12 +59,12 @@ test('admin role', () => {
     expect(ability.can('approve', 'Study')).toBeTruthy()
 
     expect(
-        ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
+        ability.can('approve', subject('Study', { orgId: session.team.id })),
     ).toBeTruthy()
 
     expect(ability.can('invite', 'User')).toBe(true)
 
-    expect(ability.can('update', subject('User', { user: { orgId: session.team.id } }))).toBe(true)
+    expect(ability.can('update', subject('User', { orgId: session.team.id }))).toBe(true)
 
     expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
 })

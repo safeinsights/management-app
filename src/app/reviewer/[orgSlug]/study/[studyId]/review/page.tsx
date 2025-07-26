@@ -9,7 +9,7 @@ import { StudyReviewButtons } from './study-review-buttons'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyResults } from './study-results'
-import { latestJobForStudyAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudy } from '@/server/db/queries'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -27,7 +27,7 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const latestJob = await latestJobForStudyAction(study.id)
+    const job = await latestJobForStudy(studyId)
 
     return (
         <Stack px="xl" gap="xl">
@@ -57,11 +57,11 @@ export default async function StudyReviewPage(props: {
                         Study Code
                     </Title>
                     <Divider c="dimmed" />
-                    <StudyCodeDetails job={latestJob} />
+                    <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
 
-            <StudyResults job={latestJob} />
+            <StudyResults job={job} />
         </Stack>
     )
 }

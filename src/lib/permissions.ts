@@ -1,24 +1,77 @@
-import { type StudyStatus } from '@/database/types'
-import { type UserSession } from './types'
+import { type StudyStatus } from '../database/types'
+import { UUID, type UserSession } from './types'
 import { AbilityBuilder, MongoAbility, createMongoAbility, subject } from '@casl/ability'
 
 export { subject }
 
-type Record = { id: string }
-type RecordWithOrgId = { orgId: string }
-type Study = { study: { orgId: string } }
+// eslint-disable-next-line  @typescript-eslint/no-explicit-any
+type Ability<Kind extends string, Actions extends string, Properties extends Record<string, any>> = [
+    Actions,
+    Kind | ({
+        kind: Kind
+    } & Properties),
+]
 
+export function toRecord<T extends string, Properties extends Record<string, any>>(typeName: T, props: Properties): { kind: T } & Properties {
+    return ({ kind: typeName, ...props })
+}
+
+// this list determines the possible subject, types, and actions that can be permitted/denied.
+// it also controls the types allowed by the Action#requireAbilityTo  method
 type Abilities =
-    | ['invite', 'User']
-    | ['claim', 'PendingUser']
-    | ['update', 'User' | { user: { orgId: string } } | { id: string }]
-    | ['read', 'User' | Record]
-    | ['read' | 'update', 'ReviewerKey' | { userId: string }]
-    | ['read' | 'update' | 'create' | 'delete', 'Team' | RecordWithOrgId]
-    | ['view' | 'update' | 'delete' | 'review', 'Study' | Study]
-    | ['read' | 'create', 'StudyJob' | Study]
-    | ['create' | 'read', 'Study' | { orgId: string }]
-    | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
+    | Ability<'User', 'invite' | 'update' | 'view' | 'invite', { id?: UUID, orgId?: UUID } >
+    | Ability<'PendingUser', 'claim', {}>
+    | Ability<'TeamMembers', 'view', { orgSlug: string }>
+    | Ability<'Study', 'view' | 'create' | 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId: UUID }>
+    | Ability<'StudyJob', 'view' | 'create', { orgId: UUID }>
+    | Ability<'ReviewerKey', 'view' | 'update', { }>
+    | Ability<'Team', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID, orgSlug?: string }>
+    | Ability<'TeamMembers', 'view', { orgId?: UUID, orgSlug?: string }>
+    | Ability<'Org', 'view' | 'delete', { orgId?: UUID, orgSlug?: string }>
+    | Ability<'Orgs', 'view', { }>
+
+export type PermissionsObjectSubjects = Extract<Abilities[1], object>;
+
+export type PermissionsActionSubjectMap = {
+  [K in Abilities as K[0]]: Extract<K[1], string>;
+};
+
+export type PermissionsSubjectToObjectMap = {
+  [K in PermissionsObjectSubjects as K['kind']]: Omit<K, 'kind'>;
+};
+
+//     | ['view', 'Team' | { orgSlug: string } | { id: UUID }]
+//     | ['view', 'Study' | { 'study.orgId': UUID }]
+//     | ['view', 'StudyJob' | { orgId: UUID }]
+//     | ['create', 'Study']
+//     | ['create', 'StudyJob']
+//     | ['update', 'Study' | { orgId: UUID }]
+//     | ['delete', 'Study' | { orgId: UUID }]
+//     | ['view', 'ReviewerKey']
+//     | ['update', 'ReviewerKey']
+//     | ['approve', 'Study']
+//     | ['reject', 'Study']
+//     | ['view', 'Study' | { orgSlug: string }]
+//     | ['review', 'Study' | { 'study.orgId': UUID }]
+//     | ['invite', 'User' | { orgSlug: string }]
+// //    | ['update', 'User' | { 'user.orgId': UUID }]
+//     | Ability<'User', { orgId: UUID } | { orgSlug: string }, 'view' >
+//     | ['update', 'Team' | { orgSlug: string }]
+//     | ['create', 'Team']
+//     | ['update', 'User']
+// //    | ['view', 'User']
+//     | ['invite', 'User']
+//     | ['view', 'Team']
+//     | ['update', 'Team']
+//     | ['delete', 'Team']
+
+//-:| ['view', 'User' | Record]
+//    | ['view' | 'update', 'ReviewerKey' | { userId: string }]
+//.VolumeIcon.icns    | [, 'Team' | RecordWithOrgId]
+//    | ['view' | 'update' | 'delete' | 'review', 'Study' | Study]
+//    | ['view' | 'create', 'StudyJob' | Study]
+//    | ['create' | 'view', 'Study' | { orgId: string }]
+//| ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
 
 export type AppAbility = MongoAbility<Abilities>
 
@@ -34,50 +87,51 @@ export function defineAbilityFor(session: UserSession) {
     permit('update', 'User', { id: session.user.id })
     permit('claim', 'PendingUser')
 
-    permit('read', 'Team', { orgSlug: session.team.slug })
-    permit('read', 'Team', { id: session.team.id })
+    permit('view', 'Team', { orgSlug: session.team.slug })
+    //permit('view', 'Team', { id: session.team.id })
 
     if (isResearcher || isReviewer || isTeamAdmin) {
-        permit('view', 'Study', { 'study.orgId': session.team.id })
-        // TODO: allow researcher to only view approved study job files
-        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
+        permit('view', 'Study', { orgId: session.team.id })
+        permit('view', 'StudyJob', { orgId: session.team.id })
+        permit('view', 'Team', { orgSlug: session.team.slug })
     }
 
     if (isResearcher || isTeamAdmin) {
-        permit('create', 'Study')
-        permit('create', 'StudyJob')
-
+        permit('create', 'Study', { orgId: session.team.id })
+        permit('create', 'StudyJob', { orgId: session.team.id })
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
     }
 
     if (isReviewer || isTeamAdmin) {
-        permit('read', 'ReviewerKey')
+        permit('view', 'ReviewerKey')
         permit('update', 'ReviewerKey')
-        permit('approve', 'Study')
-        permit('reject', 'Study')
-        permit('read', 'Study', { orgSlug: session.team.slug })
-        permit('review', 'Study', { 'study.orgId': session.team.id })
+        permit('approve', 'Study', { orgId: session.team.id })
+        permit('reject', 'Study', { orgId: session.team.id })
+        permit('view', 'Study', { orgId: session.team.id})
+        permit('review', 'Study', { orgId: session.team.id })
     }
 
     if (isTeamAdmin) {
-        permit('invite', 'User', { orgSlug: session.team.slug })
-        permit('update', 'User', { 'user.orgId': session.team.id })
-        permit('read', 'User', { orgId: session.team.id })
-
-        permit('read', 'User', { orgSlug: session.team.slug })
-        permit('read', 'Team', { orgSlug: session.team.slug })
+        permit('update', 'User', { orgId: session.team.id })
+        permit('invite', 'User', { orgId: session.team.id })
+        permit('view', 'User', { orgId: session.team.id })
+        permit('view', 'Team', { orgSlug: session.team.slug })
+        permit('view', 'TeamMembers', { orgSlug: session.team.slug })
         permit('update', 'Team', { orgSlug: session.team.slug })
     }
 
     if (isSiAdmin) {
         permit('create', 'Team')
         permit('update', 'User')
-        permit('read', 'User')
+        permit('view', 'User')
         permit('invite', 'User')
-        permit('read', 'Team')
+        permit('view', 'Team')
         permit('update', 'Team')
         permit('delete', 'Team')
+        permit('view', 'Orgs')
+        permit('view', 'Org')
+        permit('delete', 'Org')
     }
 
     return build()
