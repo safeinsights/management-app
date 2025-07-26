@@ -387,6 +387,7 @@ export const mockClerkSession = (values: MockSession) => {
                 emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' }) }],
             })),
             createUser: vi.fn(async () => ({ id: '1234' })),
+            getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },
     }
     const useUserReturn = {
