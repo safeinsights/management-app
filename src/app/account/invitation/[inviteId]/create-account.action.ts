@@ -89,6 +89,14 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
 
         onUserAcceptInvite(siUser.id)
 
+        // mark invite as claimed by this user so it no longer shows in pending lists
+        await db
+            .updateTable('pendingUser')
+            .set({ claimedByUserId: siUser.id })
+            .where('id', '=', inviteId)
+            .where('claimedByUserId', 'is', null)
+            .executeTakeFirst()
+
         return siUser
     })
 
