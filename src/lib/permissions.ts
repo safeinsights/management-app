@@ -1,9 +1,8 @@
 import { type UserSession } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
-import { AppAbility } from './permission-types'
+import { AppAbility, PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from './permission-types'
 
-export { subject, type AppAbility }
-
+export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
@@ -37,7 +36,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'ReviewerKey')
         permit('approve', 'Study', { orgId: session.team.id })
         permit('reject', 'Study', { orgId: session.team.id })
-        permit('view', 'Study', { orgId: session.team.id})
+        permit('view', 'Study', { orgId: session.team.id })
         permit('review', 'Study', { orgId: session.team.id })
     }
 

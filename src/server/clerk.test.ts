@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest'
 import { currentUser } from '@clerk/nextjs/server'
-import { db, insertTestOrg, insertTestUser, faker, mockClerkSession, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { db, insertTestOrg, insertTestUser, faker } from '@/tests/unit.helpers'
 
 vi.mock('./config', () => ({
     PROD_ENV: false,
@@ -28,12 +28,10 @@ describe('syncCurrentClerkUser', () => {
 
     it('should throw error when user is not authenticated', async () => {
         currentUserMock.mockResolvedValue(null)
-
         await expect(syncCurrentClerkUser()).rejects.toThrow('User not authenticated')
     })
 
     it('should update existing user when clerk user already exists in database', async () => {
-
         const org = await insertTestOrg()
         const { user } = await insertTestUser({ org })
 

@@ -44,7 +44,7 @@ export const deleteOrgAction = new Action('deleteOrgAction')
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ db, params: { orgSlug }}) =>
+    .handler(async ({ db, params: { orgSlug } }) =>
         db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
 
@@ -54,15 +54,12 @@ export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction
     .requireAbilityTo('view', 'ReviewerKey')
     .handler(async ({ session }) => getReviewerPublicKeyByUserId(session.user.id))
 
-
 export type OrgUserReturn = Awaited<ReturnType<typeof getUsersForOrgAction>>[number]
 
 export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
-    .params(
-        z.object({ orgSlug: z.string() }).merge(orgSchema.pick({ name: true, description: true })),
-    )
+    .params(z.object({ orgSlug: z.string() }).merge(orgSchema.pick({ name: true, description: true })))
     .requireAbilityTo('update', 'Team')
-    .handler(async ({ db, session, params: { orgSlug, name, description }}) => {
+    .handler(async ({ db, session, params: { orgSlug, name, description } }) => {
         // Check for duplicate name for existing organizations
         const existingOrg = await db.selectFrom('org').select('id').where('name', '=', name).executeTakeFirst()
         if (existingOrg && existingOrg.id !== session.team.id) {

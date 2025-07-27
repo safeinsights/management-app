@@ -126,17 +126,6 @@ export const studyInfoForStudyId = async (studyId: string) => {
         .executeTakeFirst()
 }
 
-export async function getFirstOrganizationForUser(userId: string) {
-    return db
-        .selectFrom('org')
-        .select(['org.id', 'org.slug', 'org.name'])
-        .innerJoin('orgUser', 'orgUser.orgId', 'org.id')
-        .where('orgUser.userId', '=', userId)
-        .where('org.slug', '<>', CLERK_ADMIN_ORG_SLUG)
-        .limit(1)
-        .executeTakeFirst()
-}
-
 export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
     const query = db
         .selectFrom('user')

@@ -32,7 +32,11 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
         }),
     )
     .middleware(async ({ params: { jobInfo }, db }) => {
-        const study = await db.selectFrom('study').select('orgId').where('id', '=', jobInfo.studyId).executeTakeFirstOrThrow()
+        const study = await db
+            .selectFrom('study')
+            .select('orgId')
+            .where('id', '=', jobInfo.studyId)
+            .executeTakeFirstOrThrow()
         return { orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')

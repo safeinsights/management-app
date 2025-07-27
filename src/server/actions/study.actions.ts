@@ -218,7 +218,6 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                     throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
                 )
 
-
             const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
 
             await triggerBuildImageForJob({
@@ -248,7 +247,6 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             .executeTakeFirstOrThrow()
 
         onStudyApproved({ studyId, userId })
-
     })
 
 export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })

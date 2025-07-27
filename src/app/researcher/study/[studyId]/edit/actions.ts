@@ -14,7 +14,11 @@ export const onUpdateStudyAction = new Action('onUpdateStudyAction')
         }),
     )
     .middleware(async ({ params: { studyId } }) => {
-    const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow(throwNotFound('study'))
+        const study = await db
+            .selectFrom('study')
+            .select('orgId')
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
         return { orgId: study.orgId, id: studyId }
     })
     .requireAbilityTo('update', 'Study')

@@ -46,7 +46,11 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
 export const getPendingUsersAction = new Action('getPendingUsersAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(async ({ params: { orgSlug }, db }) => {
-        const org = await db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+        const org = await db
+            .selectFrom('org')
+            .select(['id as orgId'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
     .requireAbilityTo('view', 'Team')
