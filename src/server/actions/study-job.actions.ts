@@ -31,7 +31,7 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
             ),
         }),
     )
-    .middleware(async ({ jobInfo }, { db }) => {
+    .middleware(async ({ params: { jobInfo }, db }) => {
         const study = await db.selectFrom('study').select('orgId').where('id', '=', jobInfo.studyId).executeTakeFirstOrThrow()
         return { orgId: study.orgId }
     })
@@ -60,7 +60,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ studyId }, { db }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
         const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
         return { orgId: study.orgId }
     })
@@ -83,7 +83,7 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ studyJobId }, { db }) => {
+    .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })
@@ -94,7 +94,7 @@ export const loadStudyJobAction = new Action('loadStudyJobAction')
 
 export const latestJobForStudyAction = new Action('latestJobForStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ studyId }, { session, db }) => {
+    .middleware(async ({ params: { studyId }, session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
 
         const studyJob = await latestJobForStudy(studyId)
@@ -105,7 +105,7 @@ export const latestJobForStudyAction = new Action('latestJobForStudyAction')
 
 export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesAction')
     .params(z.object({ studyJobId: z.string() }))
-    .middleware(async ({ studyJobId }, { db }) => {
+    .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
         return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })
@@ -137,7 +137,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ jobId }, { db }) => {
+    .middleware(async ({ params: { jobId } }) => {
         const studyJob = await getStudyJobInfo(jobId)
         return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })

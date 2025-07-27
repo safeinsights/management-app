@@ -13,7 +13,7 @@ export const onUpdateStudyAction = new Action('onUpdateStudyAction')
             study: schema,
         }),
     )
-    .middleware(async ({ studyId }) => {
+    .middleware(async ({ params: { studyId } }) => {
     const study = await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow(throwNotFound('study'))
         return { orgId: study.orgId, id: studyId }
     })

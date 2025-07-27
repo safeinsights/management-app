@@ -10,7 +10,7 @@ import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 
-type MiddlewareFn<Args, PrevCtx, NewCtx> = (args: Args, ctx: PrevCtx) => NewCtx | Promise<NewCtx>
+type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => NewCtx | Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
@@ -45,7 +45,7 @@ export class Action<
 > {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
-    private middlewareFns: MiddlewareFn<Args, unknown, unknown>[] = []
+    private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
     private protector?: {
         action: Parameters<AppAbility['can']>[0]
         subject: Parameters<AppAbility['can']>[1]
@@ -75,8 +75,8 @@ export class Action<
      * Each middleware can read the validated `args` and the current `ctx`,
      * and must return a partial context object that gets merged in.
      */
-    middleware<NewCtx>(fn: MiddlewareFn<Args, Ctx, NewCtx>) {
-        this.middlewareFns.push(fn as MiddlewareFn<Args, unknown, unknown>)
+    middleware<NewCtx>(fn: MiddlewareFn<Ctx, NewCtx>) {
+        this.middlewareFns.push(fn as MiddlewareFn<unknown, unknown>)
         // the new context type is the old Ctx & NewCtx
         return this as unknown as Action<Args, Ctx & NewCtx>
     }
@@ -135,61 +135,60 @@ export class Action<
             const session = await sessionFromClerk()
 
             // Function to execute with either transaction or regular db
-            const executeWithDb = async (dbConn: DBExecutor): Promise<Res> => {
-                let ctx = { session, db: dbConn } as Ctx
-                for (const mw of middlewareFns) {
-                    const more = await Promise.resolve(mw(args, ctx))
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    ctx = { ...ctx, ...(more as any[]) }
-                }
+            const execute = async (dbConn: DBExecutor): Promise<Res> => {
+                let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
 
-                // Add params to context after middleware
-                const contextWithParams = { ...ctx, params: args } as Ctx & { params: Args }
+                return localStorageContext.run(ctx, async () => {
 
-                // 3) check protection if defined
-                if (this.protector) {
-                    if (!session) {
-                        throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
+                    for (const mw of middlewareFns) {
+                        const more = await mw(ctx)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ctx = { ...ctx, ...(more as any[]) }
                     }
-                    const { action, subject } = this.protector
-                    const abilityArgs = { ...args, ...omit(ctx, ['session']) }
-                    const abilitySubject = subjectWithArgs(subject as string, abilityArgs)
 
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    if (!session.ability.can(action, abilitySubject as any)) {
-                        const msg =
-                            `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
-                            `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                            `session: ${JSON.stringify(session.team, null, 2)}\n`
-                        logger.error(msg)
-                        throw new ActionFailure({ permission_denied: msg })
-                    }
-                }
+                    // Add params to context after middleware
 
-                if (session) {
-                    Sentry.setUser({ id: session.user.id })
-                    Sentry.setTag('team', session.team.slug)
-                }
-
-                // 4) run handler inside localStorage context
-                return await new Promise<Res>((resolve, reject) => {
-                    localStorageContext.run({ session: ctx.session, db: ctx.db }, () => {
-                        try {
-                            const result = handlerFn(contextWithParams)
-                            resolve(result)
-                        } catch (error) {
-                            Sentry.captureException(error)
-                            reject(error)
+                    // 3) check protection if defined
+                    if (this.protector) {
+                        if (!session) {
+                            throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
                         }
-                    })
+                        const { action, subject } = this.protector
+                        const abilityArgs = { ...args, ...omit(ctx, ['session']) }
+                        const abilitySubject = subjectWithArgs(subject as string, abilityArgs)
+
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        if (!session.ability.can(action, abilitySubject as any)) {
+                            const msg =
+                                `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
+                                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
+                                    `session: ${JSON.stringify(session.team, null, 2)}\n`
+                            logger.error(msg)
+                            throw new ActionFailure({ permission_denied: msg })
+                        }
+                    }
+
+                    if (session) {
+                        Sentry.setUser({ id: session.user.id })
+                        Sentry.setTag('team', session.team.slug)
+                    }
+
+                    return handlerFn(ctx)
                 })
+
+                //})
             }
 
-            // Choose between transaction and regular db
-            if (this.options.performsMutations) {
-                return await db.transaction().execute(executeWithDb)
-            } else {
-                return await executeWithDb(db)
+            try {
+                // Choose between transaction and regular db
+                if (this.options.performsMutations) {
+                    return await db.transaction().execute(execute)
+                } else {
+                    return await execute(db)
+                }
+            } catch (error) {
+                Sentry.captureException(error)
+                throw error
             }
         }
 

@@ -29,7 +29,7 @@ export const syncUserMetadataAction = new Action('syncUserMetadataAction').handl
 })
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
-    .middleware(async (_, { session }) => {
+    .middleware(async ({ session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
         return { id: session.user.id, orgId: session.team.id }
     })
@@ -48,7 +48,7 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             isReviewer: z.boolean(),
         }),
     )
-    .middleware(async ({ userId, orgSlug }, { db }) => {
+    .middleware(async ({ params: { userId, orgSlug }, db }) => {
         const orgUser = await db
             .selectFrom('orgUser')
             .select(['orgUser.id', 'orgId', 'isResearcher', 'isReviewer', 'isAdmin'])

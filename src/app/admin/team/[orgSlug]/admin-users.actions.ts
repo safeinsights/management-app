@@ -12,7 +12,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             invite: inviteUserSchema,
         }),
     )
-    .middleware(async ({ orgSlug }, { db }) =>
+    .middleware(async ({ params: { orgSlug }, db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
     .requireAbilityTo('invite', 'User')
@@ -45,7 +45,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
 
 export const getPendingUsersAction = new Action('getPendingUsersAction')
     .params(z.object({ orgSlug: z.string() }))
-    .middleware(async ({ orgSlug }, { db }) => {
+    .middleware(async ({ params: { orgSlug }, db }) => {
         const org = await db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
@@ -67,7 +67,7 @@ export const reInviteUserAction = new Action('reInviteUserAction')
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ orgSlug }, { db }) => {
+    .middleware(async ({ params: { orgSlug }, db }) => {
         const org = await db
             .selectFrom('org')
             .select(['id as orgId'])

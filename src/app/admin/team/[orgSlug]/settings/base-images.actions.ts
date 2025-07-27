@@ -13,7 +13,7 @@ const actionSchema = orgBaseImageSchema.extend({
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .params(actionSchema)
-    .middleware(async ({ orgSlug }, { db }) =>
+    .middleware(async ({ params: { orgSlug }, db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
     .requireAbilityTo('update', 'Team')

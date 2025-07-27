@@ -54,7 +54,7 @@ describe('Org Actions', () => {
 
     describe('deleteOrgAction', () => {
         it('deletes org by slug', async () => {
-            const org = await db.selectFrom('org').selectAll().where('slug', '=', newOrg.slug).executeTakeFirstOrThrow()
+            const org = await db.selectFrom('org').selectAll('org').where('slug', '=', newOrg.slug).executeTakeFirstOrThrow()
         await deleteOrgAction({ orgId: org.id })
             const result = await fetchOrgsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))

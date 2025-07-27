@@ -78,8 +78,8 @@ describe('Action Builder', () => {
             const result = await action()
 
             expect(result).toBe('success')
-            expect(middleware1).toHaveBeenCalledWith(undefined, expect.any(Object))
-            expect(middleware2).toHaveBeenCalledWith(undefined, expect.objectContaining({ user: 'john' }))
+            expect(middleware1).toHaveBeenCalledWith(expect.any(Object))
+            expect(middleware2).toHaveBeenCalledWith(expect.objectContaining({ user: 'john' }))
             expect(mockHandler).toHaveBeenCalledWith(
                 expect.objectContaining({
                     params: undefined,
@@ -129,7 +129,7 @@ describe('Action Builder', () => {
             const result = await action(input)
 
             expect(result).toBe('complete')
-            expect(middleware).toHaveBeenCalledWith(input, expect.any(Object))
+            expect(middleware).toHaveBeenCalledWith(expect.objectContaining({ params: input }))
             expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
                 params: input,
                 authenticated: true,

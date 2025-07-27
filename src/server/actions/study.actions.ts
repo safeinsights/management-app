@@ -10,7 +10,7 @@ import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
-    .middleware(async ({ orgSlug }, { db }) => {
+    .middleware(async ({ params: { orgSlug }, db }) => {
         const org = await db
             .selectFrom('org')
             .select(['id as orgId'])
@@ -79,7 +79,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     })
 
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
-    .middleware(async (_, { session }) => {
+    .middleware(async ({ session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
         return { orgId: session.team.id }
     })
@@ -139,7 +139,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
 
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ studyId }, { db }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
@@ -182,7 +182,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ studyId }, { db }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
             .select(['status', 'orgId', 'containerLocation'])
@@ -258,7 +258,7 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ studyId }, { db }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
             .select(['orgId'])
