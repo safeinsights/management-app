@@ -9,7 +9,7 @@ const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-A
 
 type Status = { status: AllStatus; createdAt: Date | string }
 
-const JobStatusDisplay: FC<{ statusChange: Status }> = ({ statusChange }) => {
+const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     if (!statusChange || !allowedStatuses.includes(statusChange.status)) {
         return null
     }
@@ -38,7 +38,7 @@ export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         return null
     }
 
-    return <JobStatusDisplay statusChange={codeStatusChange} />
+    return <JobApprovalStatus statusChange={codeStatusChange} />
 }
 
 export const FileApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
@@ -50,5 +50,5 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         return null
     }
 
-    return <JobStatusDisplay statusChange={filesStatusChange} />
+    return <JobApprovalStatus statusChange={filesStatusChange} />
 }

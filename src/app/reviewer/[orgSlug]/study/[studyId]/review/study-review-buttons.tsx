@@ -11,7 +11,7 @@ import {
     type SelectedStudy,
 } from '@/server/actions/study.actions'
 import { reportMutationError } from '@/components/errors'
-import StudyStatusDisplay from '@/components/study/study-status-display'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
@@ -36,7 +36,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     })
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
-        return <StudyStatusDisplay status={study.status} date={study.approvedAt ?? study.rejectedAt} />
+        return <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
     }
 
     return (

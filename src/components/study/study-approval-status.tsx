@@ -4,7 +4,7 @@ import dayjs from 'dayjs'
 import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 
-const StudyStatusDisplay: FC<{ status: StudyStatus; date?: Date | null }> = ({ status, date }) => {
+const StudyApprovalStatus: FC<{ status: StudyStatus; date?: Date | null }> = ({ status, date }) => {
     const allowedStatuses: StudyStatus[] = ['APPROVED', 'REJECTED']
     if (!date || !status || !allowedStatuses.includes(status)) return null
 
@@ -25,4 +25,4 @@ const StudyStatusDisplay: FC<{ status: StudyStatus; date?: Date | null }> = ({ s
     )
 }
 
-export default StudyStatusDisplay
+export default StudyApprovalStatus
