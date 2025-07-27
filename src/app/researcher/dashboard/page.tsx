@@ -73,11 +73,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
-                <DisplayStudyStatus
-                    studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobId={study.latestStudyJobId}
-                />
+                <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </TableTd>
             <TableTd>
                 <Link href={`/researcher/study/${study.id}/review`}>View</Link>
