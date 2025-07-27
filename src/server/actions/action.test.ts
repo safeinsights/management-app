@@ -17,11 +17,13 @@ describe('Action Builder', () => {
             const result = await action()
 
             expect(result).toBe('success')
-            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
-                params: undefined,
-                session: expect.any(Object),
-                db: expect.any(Object)
-            }))
+            expect(mockHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    params: undefined,
+                    session: expect.any(Object),
+                    db: expect.any(Object),
+                }),
+            )
         })
     })
 
@@ -40,11 +42,13 @@ describe('Action Builder', () => {
             const result = await action(input)
 
             expect(result).toBe('validated')
-            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
-                params: input,
-                session: expect.any(Object),
-                db: expect.any(Object)
-            }))
+            expect(mockHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    params: input,
+                    session: expect.any(Object),
+                    db: expect.any(Object),
+                }),
+            )
         })
 
         it('throws error for invalid input', async () => {
@@ -86,7 +90,7 @@ describe('Action Builder', () => {
                     user: 'john',
                     timestamp: '2023-01-01',
                     session: expect.any(Object),
-                    db: expect.any(Object)
+                    db: expect.any(Object),
                 }),
             )
         })
@@ -130,12 +134,14 @@ describe('Action Builder', () => {
 
             expect(result).toBe('complete')
             expect(middleware).toHaveBeenCalledWith(expect.objectContaining({ params: input }))
-            expect(mockHandler).toHaveBeenCalledWith(expect.objectContaining({
-                params: input,
-                authenticated: true,
-                session: expect.any(Object),
-                db: expect.any(Object)
-            }))
+            expect(mockHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    params: input,
+                    authenticated: true,
+                    session: expect.any(Object),
+                    db: expect.any(Object),
+                }),
+            )
         })
     })
 })

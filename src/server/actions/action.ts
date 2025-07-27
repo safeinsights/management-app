@@ -1,5 +1,9 @@
 import { ZodType, ZodError, z } from 'zod'
-import { type AppAbility, PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, subject as subjectWithArgs } from '@/lib/permissions'
+import {
+    PermissionsActionSubjectMap,
+    PermissionsSubjectToObjectMap,
+    subject as subjectWithArgs,
+} from '@/lib/permissions'
 
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
@@ -38,18 +42,17 @@ export async function currentSession<T extends boolean>(
     return ctx?.session as UserSession
 }
 
-
 export class Action<
     Args = unknown,
-    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor; params?: Args } = { session?: UserSessionWithAbility; db: DBExecutor; params?: Args },
+    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor; params?: Args } = {
+        session?: UserSessionWithAbility
+        db: DBExecutor
+        params?: Args
+    },
 > {
     // hold onto your schema, middleware list, and final handler
     private schema?: ZodType<Args>
     private middlewareFns: MiddlewareFn<unknown, unknown>[] = []
-    private protector?: {
-        action: Parameters<AppAbility['can']>[0]
-        subject: Parameters<AppAbility['can']>[1]
-    }
     private options: ActionOptions
 
     static get db() {
@@ -57,7 +60,10 @@ export class Action<
         return ctx?.db || db
     }
 
-    constructor(private actionName: string, options: ActionOptions = {}) {
+    constructor(
+        private actionName: string,
+        options: ActionOptions = {},
+    ) {
         this.options = options
     }
 
@@ -75,7 +81,7 @@ export class Action<
      * Each middleware can read the validated `args` and the current `ctx`,
      * and must return a partial context object that gets merged in.
      */
-    middleware<NewCtx>(fn: MiddlewareFn<Ctx, NewCtx>) {
+    middleware<NewCtx>(fn: MiddlewareFn<Ctx & { params: Args }, NewCtx>) {
         this.middlewareFns.push(fn as MiddlewareFn<unknown, unknown>)
         // the new context type is the old Ctx & NewCtx
         return this as unknown as Action<Args, Ctx & NewCtx>
@@ -83,13 +89,37 @@ export class Action<
 
     /**
      * Add a protection function that runs before the handler.
-     * The protect function can validate permissions, throw errors, etc.
+     * Automatically adds internal middleware to check permissions.
      */
     requireAbilityTo<A extends keyof PermissionsActionSubjectMap, S extends PermissionsActionSubjectMap[A]>(
         action: A,
-        subject: S & ((Args & Omit<Ctx, 'session'>) extends PermissionsSubjectToObjectMap[S] ? S : never),
+        subject: S & (Args & Omit<Ctx, 'session'> extends PermissionsSubjectToObjectMap[S] ? S : never),
     ) {
-        this.protector = { action, subject }
+        type PermCheckArgs = Ctx & { params: Args }
+        // Add internal middleware that performs the permission check
+        const permCheck: MiddlewareFn<PermCheckArgs, PermCheckArgs> = async (ctx: PermCheckArgs) => {
+            const session = ctx.session
+            if (!session) {
+                throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
+            }
+
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session']) }
+            const abilitySubject = subjectWithArgs(String(subject), abilityArgs)
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (!session.ability.can(action, abilitySubject as any)) {
+                const msg =
+                    `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
+                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
+                    `session: ${JSON.stringify(session.team, null, 2)}\n`
+                logger.error(msg)
+                throw new ActionFailure({ permission_denied: msg })
+            }
+
+            // Return empty object since this middleware only performs validation
+            return ctx
+        }
+        this.middlewareFns.push(permCheck as MiddlewareFn<unknown, unknown>)
         return this as unknown as Action<Args, Ctx & { session: UserSession }>
     }
 
@@ -100,9 +130,8 @@ export class Action<
      * It will:
      *  1. parse & validate `args` against your Zod schema
      *  2. start with session and db context
-     *  3. run all middleware in order, merging their returned objects into `ctx`
-     *  4. add params to context
-     *  5. call your handler(ctx)
+     *  3. run all middleware in order (including permission checks), merging their returned objects into `ctx`
+     *  4. call your handler(ctx)
      */
     handler<Res>(handlerFn: HandlerFn<Ctx & { params: Args }, Res>) {
         const schema = this.schema
@@ -139,33 +168,11 @@ export class Action<
                 let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
 
                 return localStorageContext.run(ctx, async () => {
-
+                    // Run all middleware in order, including any permission checking middleware
                     for (const mw of middlewareFns) {
                         const more = await mw(ctx)
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         ctx = { ...ctx, ...(more as any[]) }
-                    }
-
-                    // Add params to context after middleware
-
-                    // 3) check protection if defined
-                    if (this.protector) {
-                        if (!session) {
-                            throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
-                        }
-                        const { action, subject } = this.protector
-                        const abilityArgs = { ...args, ...omit(ctx, ['session']) }
-                        const abilitySubject = subjectWithArgs(subject as string, abilityArgs)
-
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        if (!session.ability.can(action, abilitySubject as any)) {
-                            const msg =
-                                `in ${this.actionName} action; cannot ${action} ${subject}.\n` +
-                                    `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                                    `session: ${JSON.stringify(session.team, null, 2)}\n`
-                            logger.error(msg)
-                            throw new ActionFailure({ permission_denied: msg })
-                        }
                     }
 
                     if (session) {
