@@ -47,6 +47,7 @@ For developing locally without docker compose, you will need to:
 1. Install PostgreSQL and add a `.env` file that contains a valid DATABASE_URL to access it. [Homebrew instructions](https://wiki.postgresql.org/wiki/Homebrew)
 
 2. Install minio and minio-mc [Homebrew instructions](https://min.io/docs/minio/macos/index.html) and provision it using:
+
     - Start server: `./bin/local-minio`
     - Setup alias (_only needed once_): `mc alias set siminio http://localhost:9198 si-local-minio si-local-minio`
     - Create bucket (_only needed once_): `mc mb siminio/mgmt-app-local`
