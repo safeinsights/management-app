@@ -2,9 +2,7 @@ import { test, expect } from 'vitest'
 
 import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
-import { subject } from '@casl/ability'
-import { defineAbilityFor } from './permissions'
-import { StudyStatus } from '@/database/types'
+import { defineAbilityFor, toRecord } from './permissions'
 
 const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
     const session: UserSession = {
@@ -32,15 +30,10 @@ test('reviewer role', () => {
         ability.can('approve', 'Study'),
     ).toBeTruthy()
 
-    expect(
-        ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
-    ).toBeTruthy()
-
+    expect(ability.can('update', toRecord('Study', { orgId: session.team.id }))).toBeFalsy()
     expect(ability.can('invite', 'User')).toBe(false)
-
-    expect(ability.can('update', subject('User', session.user))).toBe(true)
-
-    expect(ability.can('update', subject('User', { id: faker.string.uuid() }))).toBe(false)
+    expect(ability.can('update', toRecord('User', { id: session.user.id }))).toBe(true)
+    expect(ability.can('update', toRecord('User', { id: faker.string.uuid() }))).toBe(false)
 })
 
 test('researcher role', () => {
@@ -59,14 +52,8 @@ test('researcher role', () => {
 test('admin role', () => {
     const { ability, session } = createAbilty({ isAdmin: true })
     expect(ability.can('approve', 'Study')).toBeTruthy()
-
-    expect(
-        ability.can('approve', subject('Study', { orgId: '123', status: 'PENDING-REVIEW' as StudyStatus })),
-    ).toBeTruthy()
-
-    expect(ability.can('invite', 'User')).toBe(true)
-
-    expect(ability.can('update', subject('User', { user: { orgId: session.team.id } }))).toBe(true)
-
-    expect(ability.can('update', subject('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
+    expect(ability.can('approve', toRecord('Study', { orgId: session.team.id }))).toBeTruthy()
+    expect(ability.can('invite', toRecord('User', { orgId: session.team.id }))).toBe(true)
+    expect(ability.can('update', toRecord('User', { orgId: session.team.id }))).toBe(true)
+    expect(ability.can('update', toRecord('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
 })

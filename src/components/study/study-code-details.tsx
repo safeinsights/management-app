@@ -12,7 +12,7 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['studyJobFiles', job.id],
         enabled: !!job.id,
-        queryFn: () => loadStudyJobAction(job.id),
+        queryFn: () => loadStudyJobAction({ studyJobId: job.id }),
     })
 
     if (isLoading || !data) return <Text>Loading files...</Text>

@@ -1,6 +1,5 @@
 'use server'
 
-import { db } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
@@ -11,8 +10,16 @@ import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('read', 'Study')
-    .handler(async ({ orgSlug }) => {
+    .middleware(async ({ params: { orgSlug }, db }) => {
+        const org = await db
+            .selectFrom('org')
+            .select(['id as orgId'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
+        return { orgId: org.orgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('study')
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
@@ -72,8 +79,12 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     })
 
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
+    .middleware(async ({ session }) => {
+        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
+        return { orgId: session.team.id }
+    })
     .requireAbilityTo('view', 'Study')
-    .handler(async (_, { session }) => {
+    .handler(async ({ session, db }) => {
         return await db
             .selectFrom('study')
             .innerJoin('orgUser', (join) =>
@@ -128,7 +139,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
 
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ studyId }) => {
+    .middleware(async ({ params: { studyId }, db }) => {
         const study = await db
             .selectFrom('study')
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
@@ -153,154 +164,125 @@ export const getStudyAction = new Action('getStudyAction')
             ])
             .select('researcher.fullName as researcherName')
             .where('study.id', '=', studyId)
-            .executeTakeFirst()
+            .executeTakeFirstOrThrow(throwNotFound('Study'))
 
-        return { study }
+        return { study, orgId: study.orgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async (_, { study }) => {
+    .handler(async ({ study }) => {
         return study
     })
 
 export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
 
-export const approveStudyProposalAction = new Action('approveStudyProposalAction')
+export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string(),
             orgSlug: z.string(),
         }),
     )
-    .middleware(async ({ studyId }) => ({
-        study: await db
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
             .selectFrom('study')
-            .select(['containerLocation', 'status'])
+            .select(['status', 'orgId', 'containerLocation'])
             .where('id', '=', studyId)
-            .executeTakeFirstOrThrow(),
-    }))
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId }
+    })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ studyId, orgSlug }, { session, study }) => {
+    .handler(async ({ params: { studyId, orgSlug }, study, session, db }) => {
         const userId = session.user.id
-        // Start a transaction to ensure atomicity
-        const wasApproved = await db.transaction().execute(async (trx) => {
-            const updateResult = await trx
-                .updateTable('study')
-                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .where('status', '=', 'PENDING-REVIEW') // Only update if status is PENDING-REVIEW
-                .executeTakeFirst()
 
-            // if no rows found, check if study exists or was already approved
-            if (!updateResult || updateResult.numUpdatedRows === BigInt(0)) {
-                const currentStudy = await trx
-                    .selectFrom('study')
-                    .select(['status'])
-                    .where('id', '=', studyId)
-                    .executeTakeFirst()
+        // nothing to do if already approved
+        if (study.status == 'APPROVED') return
 
-                if (!currentStudy) {
-                    throw new ActionFailure({
-                        study: `Study with id ${studyId} does not exist.`,
-                    })
-                }
+        // will throw if not found
+        const latestJob = await latestJobForStudy(studyId)
 
-                if (currentStudy.status === 'APPROVED') {
-                    // study was already approved, so we can return false for idempotency
-                    return false
-                }
+        let status: StudyJobStatus = 'CODE-APPROVED'
 
-                throw new ActionFailure({
-                    study: `Study with id ${studyId} cannot be approved because its status is ${currentStudy.status}`,
-                })
-            }
+        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
+        if (SIMULATE_IMAGE_BUILD) {
+            status = 'JOB-READY'
+        } else {
+            // TODO: the base image should be chosen by the user (if admin) when they create the study
+            // but for now we just use the latest base image for the org and language
+            const image = await db
+                .selectFrom('orgBaseImage')
+                .where('language', '=', latestJob.language)
+                .where('orgId', '=', study.orgId)
+                .orderBy('orgBaseImage.createdAt', 'desc')
+                .select(['url', 'cmdLine'])
+                .executeTakeFirstOrThrow(
+                    throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
+                )
 
-            const latestJob = await latestJobForStudy(studyId, trx)
-            if (!latestJob) {
-                throw new Error(`No job found for study id: ${studyId}`)
-            }
+            const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
 
-            let status: StudyJobStatus = 'CODE-APPROVED'
-
-            // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-            if (SIMULATE_IMAGE_BUILD) {
-                status = 'JOB-READY'
-            } else {
-                // TODO: the base image should be chosen by the user (if admin) when they create the study
-                // but for now we just use the latest base image for the org and language
-                const image = await db
-                    .selectFrom('orgBaseImage')
-                    .innerJoin('org', (join) =>
-                        join.onRef('orgBaseImage.orgId', '=', 'org.id').on('org.slug', '=', orgSlug),
-                    )
-                    .where('language', '=', latestJob.language)
-                    .orderBy('orgBaseImage.createdAt', 'desc')
-                    .select(['url', 'cmdLine'])
-                    .executeTakeFirstOrThrow(
-                        throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
-                    )
-
-                const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
-
-                await triggerBuildImageForJob({
-                    containerLocation: study.containerLocation,
-                    studyJobId: latestJob.id,
-                    studyId,
-                    orgSlug: orgSlug,
-                    codeEntryPointFileName: mainCode.name,
-                    cmdLine: image.cmdLine,
-                    baseImageURL: image.url,
-                })
-            }
-            await trx
-                .insertInto('jobStatusChange')
-                .values({
-                    userId,
-                    status,
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-
-            return true
-        })
-
-        if (wasApproved) {
-            onStudyApproved({ studyId, userId })
+            await triggerBuildImageForJob({
+                studyJobId: latestJob.id,
+                studyId,
+                orgSlug: orgSlug,
+                containerLocation: study.containerLocation,
+                codeEntryPointFileName: mainCode.name,
+                cmdLine: image.cmdLine,
+                baseImageURL: image.url,
+            })
         }
+
+        await db
+            .updateTable('study')
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: session.user.id })
+            .where('id', '=', studyId)
+            .execute()
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId,
+                status,
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
+
+        onStudyApproved({ studyId, userId })
     })
 
-export const rejectStudyProposalAction = new Action('rejectStudyProposalAction')
+export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })
     .params(
         z.object({
             studyId: z.string(),
             orgSlug: z.string(),
         }),
     )
+    .middleware(async ({ params: { studyId }, db }) => {
+        const study = await db
+            .selectFrom('study')
+            .select(['orgId'])
+            .where('id', '=', studyId)
+            .executeTakeFirstOrThrow(throwNotFound('study'))
+        return { study, orgId: study.orgId }
+    })
     .requireAbilityTo('reject', 'Study')
-    .handler(async ({ studyId }, { session }) => {
+    .handler(async ({ params: { studyId }, session, db }) => {
         const userId = session.user.id
 
-        // Start a transaction to ensure atomicity
-        await db.transaction().execute(async (trx) => {
-            await trx
-                .updateTable('study')
-                .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
-                .where('id', '=', studyId)
-                .execute()
+        await db
+            .updateTable('study')
+            .set({ status: 'REJECTED', rejectedAt: new Date(), approvedAt: null, reviewerId: userId })
+            .where('id', '=', studyId)
+            .execute()
 
-            const latestJob = await latestJobForStudy(studyId, trx)
-            if (!latestJob) {
-                throw new Error(`No job found for study id: ${studyId}`)
-            }
-
-            await trx
-                .insertInto('jobStatusChange')
-                .values({
-                    userId: userId,
-                    status: 'CODE-REJECTED',
-                    studyJobId: latestJob.id,
-                })
-                .executeTakeFirstOrThrow()
-        })
+        const latestJob = await latestJobForStudy(studyId)
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: userId,
+                status: 'CODE-REJECTED',
+                studyJobId: latestJob.id,
+            })
+            .executeTakeFirstOrThrow()
 
         onStudyRejected({ studyId, userId })
     })

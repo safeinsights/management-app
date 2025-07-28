@@ -1,4 +1,4 @@
-import { db, type DBExecutor, jsonArrayFrom } from '@/database'
+import { db, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionReturnType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -6,6 +6,7 @@ import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
+import { Action } from '../actions/action'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -79,8 +80,8 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
 }
 
 export type LatestJobForStudy = ActionReturnType<typeof latestJobForStudy>
-export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) => {
-    return await conn
+export const latestJobForStudy = async (studyId: string) => {
+    return await Action.db
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -122,17 +123,6 @@ export const studyInfoForStudyId = async (studyId: string) => {
         .innerJoin('org', 'study.orgId', 'org.id')
         .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug'])
         .where('study.id', '=', studyId)
-        .executeTakeFirst()
-}
-
-export async function getFirstOrganizationForUser(userId: string) {
-    return db
-        .selectFrom('org')
-        .select(['org.id', 'org.slug', 'org.name'])
-        .innerJoin('orgUser', 'orgUser.orgId', 'org.id')
-        .where('orgUser.userId', '=', userId)
-        .where('org.slug', '<>', CLERK_ADMIN_ORG_SLUG)
-        .limit(1)
         .executeTakeFirst()
 }
 

@@ -17,7 +17,7 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
         error,
     } = useQuery({
         queryKey: ['job-results', job.id],
-        queryFn: async () => await fetchApprovedJobFilesAction(job.id),
+        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: job.id }),
     })
 
     const { resultsFiles, logFiles } = useMemo(() => {

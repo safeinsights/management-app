@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { urlForFile } from '@/server/storage'
 import { getStudyJobFileOfType, getStudyOrgIdForJobId } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
-import { subject } from '@casl/ability'
+import { toRecord } from '@/lib/permissions'
 
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
     const { jobId, fileName } = await params
@@ -16,7 +16,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     const file = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
 
     const session = await sessionFromClerk()
-    if (file && !session?.can('read', subject('StudyJob', { study }))) {
+    if (file && !session?.can('view', toRecord('StudyJob', { orgId: study.orgId }))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }
 
