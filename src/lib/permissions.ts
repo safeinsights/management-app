@@ -1,6 +1,12 @@
 import { type UserSession } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
-import { AppAbility, PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from './permission-types'
+import {
+    AppAbility,
+    PermissionsActionSubjectMap,
+    PermissionsSubjectToObjectMap,
+    toRecord,
+    TYPE_FIELD,
+} from './permission-types'
 
 export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
 
@@ -62,5 +68,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('delete', 'Org')
     }
 
-    return build()
+    return build({
+        detectSubjectType: (object) => object[TYPE_FIELD],
+    })
 }

@@ -7,7 +7,7 @@ import { z, ActionFailure, Action } from './action'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
-    .middleware(({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
+    .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
     .requireAbilityTo('update', 'Team')
     .handler(async ({ params: org, db }) => {
         return await db.updateTable('org').set(org).returningAll().executeTakeFirstOrThrow()
@@ -15,7 +15,7 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
 
 export const insertOrgAction = new Action('insertOrgAction')
     .params(orgSchema)
-    .middleware(({ params: { slug } }) => ({ orgSlug: slug })) // translate params for requireAbility below
+    .middleware(async ({ params: { slug } }) => ({ orgSlug: slug })) // translate params for requireAbility below
     .requireAbilityTo('create', 'Team')
     .handler(async ({ db, params: org }) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()

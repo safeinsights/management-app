@@ -1,9 +1,5 @@
 import { ZodType, ZodError, z } from 'zod'
-import {
-    PermissionsActionSubjectMap,
-    PermissionsSubjectToObjectMap,
-    subject as subjectWithArgs,
-} from '@/lib/permissions'
+import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from '@/lib/permissions'
 
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
@@ -14,7 +10,7 @@ import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
 
-type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => NewCtx | Promise<NewCtx>
+type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
@@ -70,8 +66,6 @@ export class Action<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     params<S extends ZodType<any, any, any>>(schema: S) {
         this.schema = schema as ZodType<Args>
-        // reset middleware when you change the schema
-        this.middlewareFns = []
         // now this builder “becomes” one typed with new Args and empty ctx
         return this as unknown as Action<z.infer<S>, { session?: UserSessionWithAbility; db: DBExecutor }>
     }
@@ -103,8 +97,8 @@ export class Action<
                 throw new ActionFailure({ user: `is not logged in when calling ${this.actionName}` })
             }
 
-            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session']) }
-            const abilitySubject = subjectWithArgs(String(subject), abilityArgs)
+            const abilityArgs = { ...ctx.params, ...omit(ctx, ['session', 'db']) }
+            const abilitySubject = toRecord(String(subject), abilityArgs)
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if (!session.ability.can(action, abilitySubject as any)) {
@@ -182,8 +176,6 @@ export class Action<
 
                     return handlerFn(ctx)
                 })
-
-                //})
             }
 
             try {

@@ -7,17 +7,26 @@ type Ability<Kind extends string, Actions extends string, Properties extends Rec
     (
         | Kind
         | ({
-              kind: Kind
+              __typename: Kind
           } & Properties)
     ),
 ]
 
+export interface ForcedSubject<T> {
+    readonly __typename: T
+}
+
+export const TYPE_FIELD = '__typename' as const
+
 // eslint-disable-next-line  @typescript-eslint/no-explicit-any
 export function toRecord<T extends string, Properties extends Record<string, any>>(
     typeName: T,
-    props: Properties,
-): { kind: T } & Properties {
-    return { kind: typeName, ...props }
+    object: Properties,
+): { __typename: T } & Properties {
+    if (!Object.hasOwn(object, TYPE_FIELD)) {
+        Object.defineProperty(object, '__typename', { value: typeName })
+    }
+    return object as Properties & ForcedSubject<T>
 }
 
 // this list determines the possible subject, types, and actions
@@ -42,7 +51,7 @@ export type PermissionsActionSubjectMap = {
 }
 
 export type PermissionsSubjectToObjectMap = {
-    [K in PermissionsObjectSubjects as K['kind']]: Omit<K, 'kind'>
+    [K in PermissionsObjectSubjects as K['__typename']]: Omit<K, '__typename'>
 }
 
 export type AppAbility = MongoAbility<Abilities>
