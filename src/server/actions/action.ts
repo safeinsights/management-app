@@ -15,9 +15,10 @@ type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
 
 export { ActionFailure, z }
 
-export type ActionContext = {
+export type ActionContext<Args = unknown> = {
     session?: UserSessionWithAbility
     db: DBExecutor
+    params?: Args
 }
 
 export type ActionOptions = {
@@ -40,7 +41,7 @@ export async function currentSession<T extends boolean>(
 
 export class Action<
     Args = unknown,
-    Ctx extends { session?: UserSessionWithAbility; db: DBExecutor; params?: Args } = {
+    Ctx extends ActionContext = {
         session?: UserSessionWithAbility
         db: DBExecutor
         params?: Args
