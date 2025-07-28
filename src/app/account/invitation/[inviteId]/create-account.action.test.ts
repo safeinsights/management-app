@@ -1,14 +1,20 @@
 import { describe, expect, it, vi, beforeEach, type Mock } from 'vitest'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
-import { faker, insertTestOrg, insertTestUser } from '@/tests/unit.helpers'
-import { onCreateAccountAction, onJoinTeamAccountAction, onRevokeInviteAction } from './create-account.action'
+import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import {
+    onCreateAccountAction,
+    onJoinTeamAccountAction,
+    onRevokeInviteAction,
+    onPendingUserLoginAction,
+    getOrgInfoForInviteAction,
+} from './create-account.action'
 import { db } from '@/database'
 import { v7 } from 'uuid'
 
 vi.mock('@/server/events')
 
 describe('Create Account Actions', () => {
-    let org = { id: '', slug: '' }
+    let org = { id: '', slug: '', name: '' }
 
     beforeEach(async () => {
         org = await insertTestOrg()
@@ -141,5 +147,56 @@ describe('Create Account Actions', () => {
 
         const found = await db.selectFrom('pendingUser').select(['id']).where('id', '=', invite.id).executeTakeFirst()
         expect(found).toBeFalsy()
+    })
+
+    it('onPendingUserLoginAction claims invite for logged in user', async () => {
+        const { user } = await mockSessionWithTestData({ orgSlug: org.slug })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isResearcher: true,
+                isReviewer: true,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        await onPendingUserLoginAction({ inviteId: invite.id })
+
+        const updatedInvite = await db
+            .selectFrom('pendingUser')
+            .select(['claimedByUserId'])
+            .where('id', '=', invite.id)
+            .executeTakeFirst()
+
+        expect(updatedInvite?.claimedByUserId).toBe(user.id)
+    })
+
+    it('getOrgInfoForInviteAction returns org information for valid invite', async () => {
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: org.id,
+                email: faker.internet.email({ provider: 'test.com' }),
+                isResearcher: true,
+                isReviewer: true,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await getOrgInfoForInviteAction({ inviteId: invite.id })
+
+        expect(result).toMatchObject({
+            id: org.id,
+            name: org.name,
+            slug: org.slug,
+            email: invite.email,
+        })
+    })
+
+    it('getOrgInfoForInviteAction throws error for invalid invite', async () => {
+        await expect(getOrgInfoForInviteAction({ inviteId: v7() })).rejects.toThrow()
     })
 })

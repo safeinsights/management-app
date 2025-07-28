@@ -10,20 +10,17 @@ import React from 'react'
 import StudyStatusDisplay from '@/components/study/study-status-display'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-status-display'
 import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review/job-results-status-message'
-import { sessionFromClerk } from '@/server/clerk'
-import { subject } from '@casl/ability'
 
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
     const { studyId } = await props.params
 
+    // getStudyAction will check permissions
     const study = await getStudyAction({ studyId })
 
-    const session = await sessionFromClerk()
-
     // Ensure the study exists and user has permission to view it
-    if (!study || !session?.can('review', subject('Study', { study }))) {
+    if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 

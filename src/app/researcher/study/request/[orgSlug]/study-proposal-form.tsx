@@ -7,10 +7,12 @@ import { FormFieldLabel } from '@/components/form-field-label' // adjust path if
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { InputError } from '@/components/errors'
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
+    const { user } = useUser()
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
 
@@ -28,8 +30,6 @@ export const StudyProposalForm: FC<{
     const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
     const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
     const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
-
-    const { user } = useUser()
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }
     const inputSpan = { base: 12, sm: 8, lg: 4 }
@@ -68,6 +68,13 @@ export const StudyProposalForm: FC<{
                         <TextInput
                             id={studyProposalForm.key('lead')}
                             aria-label="Study Lead"
+                            styles={{
+                                input: {
+                                    color: theme.colors.charcoal[9],
+                                    backgroundColor: theme.colors.charcoal[1],
+                                    borderColor: theme.colors.charcoal[1],
+                                },
+                            }}
                             disabled
                             value={user?.fullName ?? ''}
                         />
@@ -101,10 +108,14 @@ export const StudyProposalForm: FC<{
                             name="descriptionDocument"
                             leftSection={fileUpload}
                             aria-label="Upload Study Description Document"
-                            placeholder="Upload Study Description Document"
+                            placeholder="Upload document (max 5 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('descriptionDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('descriptionDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
                 </Grid>
@@ -117,12 +128,16 @@ export const StudyProposalForm: FC<{
                         <FileInput
                             id={studyProposalForm.key('irbDocument')}
                             leftSection={irbFileUpload}
-                            {...studyProposalForm.getInputProps('irbDocument')}
                             name="irbDocument"
                             aria-label="Upload IRB Document"
-                            placeholder="Upload IRB Document"
+                            placeholder="Upload document (max 3 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
+                            {...studyProposalForm.getInputProps('irbDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('irbDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
                 </Grid>
@@ -140,12 +155,22 @@ export const StudyProposalForm: FC<{
                             leftSection={agreementFileUpload}
                             name="agreementDocument"
                             aria-label="Upload Agreement Document"
-                            placeholder="Upload Agreement Document"
+                            placeholder="Upload document (max 3 MB)"
                             clearable
                             accept=".doc,.docx,.pdf"
                             {...studyProposalForm.getInputProps('agreementDocument')}
+                            onChange={(file) => {
+                                studyProposalForm.setFieldValue('agreementDocument', file)
+                                studyProposalForm.validateField('totalFileSize')
+                            }}
                         />
                     </Grid.Col>
+
+                    {studyProposalForm.errors['totalFileSize'] && (
+                        <Grid.Col>
+                            <InputError error={studyProposalForm.errors['totalFileSize']} />
+                        </Grid.Col>
+                    )}
                 </Grid>
             </Stack>
         </Paper>

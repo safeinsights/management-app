@@ -1,8 +1,10 @@
-import type { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { FileType, StudyJobStatus, StudyStatus } from '../database/types'
 import { z } from 'zod'
 import { FileEntry } from 'si-encryption/job-results/types'
 
 export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
+
+export type UUID = string
 
 export type SessionUser = {
     id: string
