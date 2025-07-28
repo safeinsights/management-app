@@ -187,5 +187,17 @@ describe('Org Actions', () => {
             })
             expect(users.length).toBeGreaterThan(0)
         })
+
+        it('prevents a non-admin from fetching users for their org', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: false, isResearcher: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            await expect(
+                getUsersForOrgAction({
+                    orgSlug: org.slug,
+                    sort: { columnAccessor: 'fullName', direction: 'asc' },
+                }),
+            ).rejects.toThrow(/permission_denied/)
+        })
     })
 })
