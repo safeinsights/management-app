@@ -85,12 +85,11 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             }),
         }),
     )
-
-    .middleware(async ({ orgSlug }) => {
+    .middleware(async ({ params: { orgSlug }, db }) => {
         const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
         return { orgId: org.id }
     })
-    .requireAbilityTo('read', 'User', async (_, { orgId }) => ({ orgId }))
+    .requireAbilityTo('view', 'User')
     .handler(async ({ db, params: { orgSlug, sort } }) => {
         return await db
             .selectFrom('orgUser')
