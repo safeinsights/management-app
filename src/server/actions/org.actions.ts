@@ -91,14 +91,11 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
         }),
     )
 
-    .middleware(async (_, { session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { teamSlug: session.team.slug, teamId: session.team.id }
+    .middleware(async ({ orgSlug }) => {
+        const org = await db.selectFrom('org').select('id').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+        return { orgId: org.id }
     })
-    .requireAbilityTo('read', 'User', async ({ orgSlug }, { teamSlug, teamId }) => {
-        if (orgSlug !== teamSlug) throw new ActionFailure({ orgSlug: 'mismatch' })
-        return { orgId: teamId }
-    })
+    .requireAbilityTo('read', 'User', async (_, { orgId }) => ({ orgId }))
     .handler(async ({ orgSlug, sort }) => {
         return await db
             .selectFrom('orgUser')
