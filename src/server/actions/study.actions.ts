@@ -68,7 +68,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 'study.researcherId',
                 'study.status',
                 'study.title',
-                'researcherUser.fullName as researcherName',
+                'researcherUser.fullName as createdBy',
                 'reviewerUser.fullName as reviewerName',
                 'org.slug as orgSlug',
                 'latestJobStatus.status as latestJobStatus',
@@ -162,7 +162,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.reviewerId',
                 'study.agreementDocPath',
             ])
-            .select('researcher.fullName as researcherName')
+            .select('researcher.fullName as createdBy')
             .where('study.id', '=', studyId)
             .executeTakeFirstOrThrow(throwNotFound('Study'))
 

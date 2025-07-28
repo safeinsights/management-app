@@ -38,7 +38,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 </Tooltip>
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-            <TableTd>{study.researcherName}</TableTd>
+            <TableTd>{study.createdBy}</TableTd>
             <TableTd>{study.reviewerName}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
