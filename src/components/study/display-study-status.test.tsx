@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { DisplayStudyStatus } from './display-study-status'
+
+let mockPathname = '/'
+vi.mock('next/navigation', () => ({
+    usePathname: () => mockPathname,
+}))
 
 describe('DisplayStudyStatus', () => {
     const renderAndExpect = (
@@ -13,11 +18,15 @@ describe('DisplayStudyStatus', () => {
     ) => {
         renderWithProviders(<DisplayStudyStatus studyStatus={studyStatus} jobStatus={jobStatus} />)
 
-        if (expectedType && expectedLabel) {
+        if (expectedType) {
             expect(screen.getByText(expectedType)).toBeDefined()
-            expect(screen.getByText(expectedLabel)).toBeDefined()
         } else {
+            // Ensure that none of the type headers are rendered when not expected
             expect(screen.queryByText(/Proposal|Code|Results/)).toBeNull()
+        }
+
+        if (expectedLabel) {
+            expect(screen.getByText(expectedLabel)).toBeDefined()
         }
     }
 
@@ -25,13 +34,13 @@ describe('DisplayStudyStatus', () => {
         renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Under Review')
     })
 
-    it('falls back to study status when job status is unmapped', () => {
-        // JOB-PROVISIONING is not in STATUS_LABELS, should display study status instead
-        renderAndExpect('REJECTED', 'JOB-PROVISIONING', 'Proposal', 'Rejected')
+    it('falls back to job status when job status is unmapped', () => {
+        // JOB-PROVISIONING is not in STATUS_LABELS, should display a title-cased version of the job status
+        renderAndExpect('REJECTED', 'JOB-PROVISIONING', null, 'Job Provisioning')
     })
 
-    it('shows mapped code status when available', () => {
-        renderAndExpect('APPROVED', 'CODE-APPROVED', 'Code', 'Approved')
+    it('shows proposal status for CODE-APPROVED', () => {
+        renderAndExpect('APPROVED', 'CODE-APPROVED', 'Proposal', 'Approved')
     })
 
     it('shows mapped results status', () => {
@@ -43,7 +52,35 @@ describe('DisplayStudyStatus', () => {
     })
 
     it('renders a fallback status when the status is not in the STATUS_LABELS map', () => {
-        // ARCHIVED and JOB-PROVISIONING are not in STATUS_LABELS, should display titleized status instead
+        // ARCHIVED and JOB-PROVISIONING are not in STATUS_LABELS, should display titleized job status instead
         renderAndExpect('ARCHIVED', 'JOB-PROVISIONING', null, 'Job Provisioning')
+    })
+
+    // ------------------------------------------------------
+    // Reviewer-facing path (starts with /reviewer/) test cases
+    // ------------------------------------------------------
+
+    it('shows reviewer proposal awaiting review', () => {
+        mockPathname = '/reviewer/test-study'
+        renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Awaiting Review')
+    })
+
+    it('shows reviewer results awaiting review', () => {
+        mockPathname = '/reviewer/test-study'
+        renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Awaiting Review')
+    })
+
+    // ------------------------------------------------------
+    // Researcher-facing path (starts with /researcher/) test cases
+    // ------------------------------------------------------
+
+    it('shows researcher proposal under review', () => {
+        mockPathname = '/researcher/test-study'
+        renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Under Review')
+    })
+
+    it('shows researcher results under review', () => {
+        mockPathname = '/researcher/test-study'
+        renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Under Review')
     })
 })
