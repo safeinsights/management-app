@@ -49,7 +49,7 @@ export function defineAbilityFor(session: UserSession) {
     if (isTeamAdmin) {
         permit('update', 'User', { orgId: session.team.id })
         permit('invite', 'User', { orgId: session.team.id })
-        permit('view', 'User', { orgId: session.team.id })
+        permit('view', 'User', { orgSlug: session.team.slug })
         permit('view', 'Team', { orgSlug: session.team.slug })
         permit('view', 'TeamMembers', { orgSlug: session.team.slug })
         permit('update', 'Team', { orgSlug: session.team.slug })

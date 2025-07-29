@@ -33,7 +33,7 @@ export function toRecord<T extends string, Properties extends Record<string, any
 // it also controls the types allowed by the Action#requireAbilityTo  method
 // it does NOT control access itself, those rules are defined in the defineAbilityFor in permissions.ts
 type Abilities =
-    | Ability<'User', 'invite' | 'update' | 'view' | 'invite', { id?: UUID; orgId?: UUID }>
+    | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
     | Ability<'PendingUser', 'claim', object>
     | Ability<'TeamMembers', 'view', { orgSlug: string }>
     | Ability<'Study', 'view' | 'create' | 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId: UUID }>
