@@ -3,7 +3,7 @@ import { studyInfoForStudyId } from '@/server/db/queries'
 import { urlForStudyDocumentFile } from '@/server/storage'
 import { StudyDocumentType } from '@/lib/types'
 import { sessionFromClerk } from '@/server/clerk'
-import { subject } from '@casl/ability'
+import { toRecord } from '@/lib/permissions'
 
 export const GET = async (
     _: Request,
@@ -14,7 +14,7 @@ export const GET = async (
     const study = await studyInfoForStudyId(studyId)
 
     const session = await sessionFromClerk()
-    if (study && !session?.can('read', subject('Study', { study }))) {
+    if (study && !session?.can('view', toRecord('Study', { orgId: study.orgId }))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }
 

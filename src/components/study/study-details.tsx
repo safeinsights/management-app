@@ -74,10 +74,10 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
 
             <Grid align="flex-start">
                 <GridCol span={titleSpan}>
-                    <Text fw="bold">Researcher</Text>
+                    <Text fw="bold">Submitted by</Text>
                 </GridCol>
                 <GridCol span={inputSpan}>
-                    <Text>{study.researcherName}</Text>
+                    <Text>{study.createdBy}</Text>
                 </GridCol>
             </Grid>
 

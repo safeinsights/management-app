@@ -150,7 +150,12 @@ export async function fetchS3File(Key: string) {
 }
 
 export async function triggerBuildImageForJob(
-    info: MinimalJobInfo & { baseImageURL: string; codeEntryPointFileName: string; cmdLine: string },
+    info: MinimalJobInfo & {
+        baseImageURL: string
+        codeEntryPointFileName: string
+        cmdLine: string
+        containerLocation: string
+    },
 ) {
     const cmd = info.cmdLine.replace('%f', info.codeEntryPointFileName)
     const codebuild = new CodeBuildClient({})
@@ -173,9 +178,9 @@ export async function triggerBuildImageForJob(
                     }),
                 },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
-                { name: 'DOCKER_BASE_IMAGE_URL', value: info.baseImageURL },
                 { name: 'DOCKER_CMD_LINE', value: cmd },
-                { name: 'DOCKER_TAG', type: 'PLAINTEXT', value: info.studyJobId },
+                { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.baseImageURL },
+                { name: 'DOCKER_CODE_LOCATION', value: `${info.containerLocation}:${info.studyJobId}` },
             ],
         }),
     )

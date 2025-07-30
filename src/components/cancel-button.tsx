@@ -1,14 +1,15 @@
 import { useState } from 'react'
-import { Button, Group, Modal } from '@mantine/core'
+import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
+import { AppModal } from '@/components/modal'
 
 export function CancelButton({ isDirty }: { isDirty: boolean }) {
-    const [opened, setOpened] = useState(false)
+    const [isOpen, setIsOpen] = useState(false)
     const router = useRouter()
 
     const handleCancel = () => {
         if (isDirty) {
-            setOpened(true)
+            setIsOpen(true)
         } else {
             router.push('/')
         }
@@ -20,17 +21,23 @@ export function CancelButton({ isDirty }: { isDirty: boolean }) {
 
     return (
         <>
-            <Modal opened={opened} onClose={() => setOpened(false)} title="Confirm Cancel">
-                <p>All progress will be lost if cancelling at this point. Do you still wish to proceed?</p>
-                <Group mt="md">
-                    <Button variant="subtle" onClick={() => setOpened(false)}>
-                        No, keep editing
-                    </Button>
-                    <Button color="red" onClick={confirmCancel}>
-                        Yes, erase draft
-                    </Button>
-                </Group>
-            </Modal>
+            <AppModal isOpen={isOpen} onClose={() => setIsOpen(false)} title="Cancel proposal?">
+                <Stack>
+                    <Text size="md">
+                        You&apos;re about to cancel this study proposal draft. On cancel, the current proposal will be
+                        deleted and you won&apos;t be able to retrieve it in the future.
+                    </Text>
+                    <Text size="md">Do you want to proceed?</Text>
+                    <Group>
+                        <Button variant="outline" onClick={() => setIsOpen(false)}>
+                            Back to proposal
+                        </Button>
+                        <Button variant="filled" color="red.7" onClick={confirmCancel}>
+                            Yes, delete proposal
+                        </Button>
+                    </Group>
+                </Stack>
+            </AppModal>
 
             <Button type="button" variant="outline" c="purple.5" onClick={handleCancel}>
                 Cancel
