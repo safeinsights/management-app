@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, use, useEffect } from 'react'
+import { FC, use, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Flex, Text, Button } from '@mantine/core'
 import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
@@ -15,6 +15,7 @@ type InviteProps = {
 const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
+    const [isDisabled, setIsDisabled] = useState<boolean>(false)
 
     const { data: org, isLoading } = useQuery({
         queryKey: ['orgInfoForInvite', inviteId],
@@ -23,21 +24,20 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: () => onJoinTeamAccountAction({ inviteId }),
+        onSuccess: () => {
+            setIsDisabled(true) // disable button after successful join
+            router.push('/account/signin')
+        },
         onError: (err) => {
             const failure = extractActionFailure(err)
-            if (failure?.team === 'already a member') {
+            // TODO: temp fix - will be removed in follow up
+            if (failure?.team) {
                 router.push('/account/signin')
                 return
             }
-            reportMutationError(failure?.team ?? 'Unable to join team')
+            reportMutationError('Unable to join team')
         },
     })
-
-    useEffect(() => {
-        if (org && !isLoading) {
-            joinTeam()
-        }
-    }, [org, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
     if (isLoading || !org) {
         return <LoadingMessage message="Loading account invitation" />
@@ -48,8 +48,8 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             <Text size="md" ta="center">
                 You&apos;re now a member of {org.name}
             </Text>
-            <Button onClick={() => router.push('/account/signin')} loading={isJoining}>
-                Visit your dashboard
+            <Button onClick={() => joinTeam()} loading={isJoining || isDisabled}>
+                Visit your {org.name} dashboard
             </Button>
         </Flex>
     )
