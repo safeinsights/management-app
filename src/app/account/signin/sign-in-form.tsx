@@ -29,6 +29,15 @@ export const SignInForm: FC<{
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
 
+    useEffect(() => {
+        if (searchParams.get('invite_not_found')) {
+            setClerkError({
+                title: 'Invite not found',
+                message: 'The invitation link you followed is invalid or has already been used.',
+            })
+        }
+    }, [searchParams])
+
     const form = useForm<SignInFormData>({
         initialValues: {
             email: '',
