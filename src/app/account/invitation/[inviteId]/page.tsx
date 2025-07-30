@@ -32,9 +32,9 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .where('id', '=', inviteId)
         .executeTakeFirst()
 
-    // if the invite has been claimed by a user, redirect to the signin page
-    if (claimedInvite) {
-        redirect(`/account/signin`, RedirectType.replace)
+    if (claimedInvite || !pendingInvite) {
+        // redirect to the signin page with a flag, shows error message
+        redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
     if (pendingInvite?.matchingTeam) {
