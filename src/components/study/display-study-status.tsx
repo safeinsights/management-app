@@ -17,7 +17,7 @@ const TooltipPopover: FC<{ tooltip: string }> = ({ tooltip }) => {
                 </div>
             </PopoverTarget>
             <PopoverDropdown miw={'350px'}>
-                <Text size="xs" fw="bold">
+                <Text size="xs" fw="bold" style={{ whiteSpace: 'pre-line' }}>
                     {tooltip}
                 </Text>
             </PopoverDropdown>
