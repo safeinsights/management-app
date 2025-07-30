@@ -9,8 +9,8 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
     .params(updateOrgSchema)
     .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
     .requireAbilityTo('update', 'Team')
-    .handler(async ({ params: org, db }) => {
-        return await db.updateTable('org').set(org).returningAll().executeTakeFirstOrThrow()
+    .handler(async ({ params: { id, ...update }, db }) => {
+        return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
     })
 
 export const insertOrgAction = new Action('insertOrgAction')

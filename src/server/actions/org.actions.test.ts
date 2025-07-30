@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { ActionFailure } from '@/lib/errors'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestOrg } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, insertTestOrg, faker } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
@@ -77,7 +77,7 @@ describe('Org Actions', () => {
     })
 
     describe('updateOrgSettingsAction', () => {
-        const targetOrgSlug = 'org-to-be-updated-settings'
+        const targetOrgSlug = faker.string.alpha()
         const initialName = 'Initial Org Name for Settings Update'
         const initialDescription = 'Initial Org Description for Settings Update'
         let targetOrg: Org
@@ -101,12 +101,30 @@ describe('Org Actions', () => {
                 description: newDescription,
             })
 
+            const secondOrg = await insertTestOrg({
+                slug: faker.string.alpha(),
+                name: initialName,
+                description: initialDescription,
+            })
+
             expect(result.success).toBe(true)
             expect(result.message).toBe('Organization settings updated successfully.')
 
-            const dbOrg = await db.selectFrom('org').selectAll('org').where('id', '=', targetOrg.id).executeTakeFirst()
-            expect(dbOrg?.name).toBe(newName)
-            expect(dbOrg?.description).toBe(newDescription)
+            const dbOrg = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('id', '=', targetOrg.id)
+                .executeTakeFirstOrThrow()
+            expect(dbOrg.name).toBe(newName)
+            expect(dbOrg.description).toBe(newDescription)
+
+            const db2ndOrg = await db
+                .selectFrom('org')
+                .selectAll('org')
+                .where('id', '=', secondOrg.id)
+                .executeTakeFirstOrThrow()
+            expect(db2ndOrg.name).toBe(initialName)
+            expect(db2ndOrg.description).toBe(initialDescription)
 
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}/settings`)
             expect(revalidatePath).toHaveBeenCalledWith(`/admin/team/${targetOrgSlug}`)
