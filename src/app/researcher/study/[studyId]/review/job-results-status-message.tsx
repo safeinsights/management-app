@@ -1,28 +1,36 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Text } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
 import { LatestJobForStudy } from '@/server/db/queries'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { CopyingInput } from '@/components/copying-input'
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const { isApproved, isRejected, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
-        if (isApproved) {
-            return (
-                <Text>The code errored out! Review error logs and consider re-submitting an updated study code.</Text>
-            )
-        }
+        return (
+            <>
+                {isApproved ? (
+                    <Text>
+                        The code errored out! Review error logs and consider re-submitting an updated study code.
+                    </Text>
+                ) : isRejected ? (
+                    <Text>
+                        The code errored out! While logs are not available at this time, consider re-submitting an
+                        updated study code.
+                    </Text>
+                ) : null}
 
-        if (isRejected) {
-            return (
-                <Text>
-                    The code errored out! While logs are not available at this time, consider re-submitting an updated
-                    study code.
-                </Text>
-            )
-        }
+                <Group justify="flex-start" align="center">
+                    <Text size="xs" fw="bold">
+                        Job ID:
+                    </Text>
+                    <CopyingInput value={job.id} tooltipLabel="Copy" />
+                </Group>
+            </>
+        )
     }
 
     if (isComplete) {
