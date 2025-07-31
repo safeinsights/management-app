@@ -1,13 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { renderWithProviders, setMockPathname } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
 import { DisplayStudyStatus } from './display-study-status'
-
-let mockPathname = '/'
-vi.mock('next/navigation', () => ({
-    usePathname: () => mockPathname,
-}))
 
 describe('DisplayStudyStatus', () => {
     const renderAndExpect = (
@@ -57,12 +52,12 @@ describe('DisplayStudyStatus', () => {
     // ------------------------------------------------------
 
     it('shows reviewer proposal awaiting review', () => {
-        mockPathname = '/reviewer/test-study'
+        setMockPathname('/reviewer/test-study')
         renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Awaiting Review')
     })
 
     it('shows reviewer results awaiting review', () => {
-        mockPathname = '/reviewer/test-study'
+        setMockPathname('/reviewer/test-study')
         renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Awaiting Review')
     })
 
@@ -71,12 +66,12 @@ describe('DisplayStudyStatus', () => {
     // ------------------------------------------------------
 
     it('shows researcher proposal under review', () => {
-        mockPathname = '/researcher/test-study'
+        setMockPathname('/researcher/test-study')
         renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Under Review')
     })
 
     it('shows researcher results under review', () => {
-        mockPathname = '/researcher/test-study'
+        setMockPathname('/researcher/test-study')
         renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Under Review')
     })
 })
