@@ -4,9 +4,9 @@ import { screen } from '@testing-library/react'
 import dayjs from 'dayjs'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { StudyJobStatus } from '@/database/types'
-import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-status-display'
+import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
 
-describe('JobStatusDisplay', () => {
+describe('JobApprovalStatus', () => {
     const baseJob: LatestJobForStudy = {
         id: 'test-id',
         studyId: 'study-1',

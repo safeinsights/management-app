@@ -7,8 +7,8 @@ import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
-import StudyStatusDisplay from '@/components/study/study-status-display'
-import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-status-display'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
 import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review/job-results-status-message'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +41,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        <StudyStatusDisplay status={study.status} date={study.approvedAt ?? study.rejectedAt} />
+                        <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
                     <StudyDetails studyId={studyId} />
                 </Stack>
