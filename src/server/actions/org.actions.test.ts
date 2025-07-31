@@ -2,12 +2,13 @@ import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { ActionFailure } from '@/lib/errors'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestOrg, faker } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker } from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
     fetchOrgsAction,
     getOrgFromSlugAction,
+    getUsersForOrgAction,
     insertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
@@ -166,6 +167,55 @@ describe('Org Actions', () => {
                     description: 'Valid Description',
                 }),
             ).rejects.toThrow(ActionFailure)
+        })
+    })
+
+    describe('getUsersForOrgAction', () => {
+        it('allows an org admin to fetch users for their own org', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: true })
+            const users = await getUsersForOrgAction({
+                orgSlug: org.slug,
+                sort: { columnAccessor: 'fullName', direction: 'asc' },
+            })
+            expect(users.length).toBeGreaterThan(0)
+            expect(users[0]).toHaveProperty('fullName')
+        })
+
+        it('prevents an org admin from fetching users for another org', async () => {
+            await mockSessionWithTestData({ isAdmin: true, orgSlug: 'a-regular-org' })
+            const otherOrg = await insertTestOrg({ name: 'other-org', slug: 'other-org' })
+
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            await expect(
+                getUsersForOrgAction({
+                    orgSlug: otherOrg.slug,
+                    sort: { columnAccessor: 'fullName', direction: 'asc' },
+                }),
+            ).rejects.toThrow(/permission_denied/)
+        })
+
+        it('allows an SI admin to fetch users for any org', async () => {
+            const otherOrg = await insertTestOrg({ name: 'other-org-2', slug: 'other-org-2' })
+            await insertTestUser({ org: otherOrg })
+            await mockSessionWithTestData({ isSiAdmin: true })
+
+            const users = await getUsersForOrgAction({
+                orgSlug: otherOrg.slug,
+                sort: { columnAccessor: 'fullName', direction: 'asc' },
+            })
+            expect(users.length).toBeGreaterThan(0)
+        })
+
+        it('prevents a non-admin from fetching users for their org', async () => {
+            const { org } = await mockSessionWithTestData({ isAdmin: false, isResearcher: true })
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+
+            await expect(
+                getUsersForOrgAction({
+                    orgSlug: org.slug,
+                    sort: { columnAccessor: 'fullName', direction: 'asc' },
+                }),
+            ).rejects.toThrow(/permission_denied/)
         })
     })
 })

@@ -85,9 +85,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             }),
         }),
     )
-
-    .requireAbilityTo('view', 'TeamMembers')
-
+    .requireAbilityTo('view', 'User')
     .handler(async ({ db, params: { orgSlug, sort } }) => {
         return await db
             .selectFrom('orgUser')
