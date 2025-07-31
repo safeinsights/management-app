@@ -6,7 +6,7 @@ import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker } from '@
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
-    fetchOrgsAction,
+    fetchOrgsStatsAction,
     getOrgFromSlugAction,
     getUsersForOrgAction,
     insertOrgAction,
@@ -46,10 +46,17 @@ describe('Org Actions', () => {
         })
     })
 
-    describe('fetchOrgsAction', () => {
-        it('returns orgs', async () => {
-            const result = await fetchOrgsAction()
-            expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
+    describe('fetchOrgsStats', () => {
+        it('returns orgs with study statistics', async () => {
+            const result = await fetchOrgsStatsAction()
+            expect(result).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        slug: 'new-org',
+                        totalStudies: expect.any(String),
+                    }),
+                ]),
+            )
         })
     })
 
@@ -61,7 +68,7 @@ describe('Org Actions', () => {
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
             await deleteOrgAction({ orgId: org.id })
-            const result = await fetchOrgsAction()
+            const result = await fetchOrgsStatsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
         })
     })

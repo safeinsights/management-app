@@ -60,6 +60,8 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'User')
         permit('view', 'User')
         permit('invite', 'User')
+        permit('view', 'Study')
+        permit('view', 'StudyJob')
         permit('view', 'Team')
         permit('update', 'Team')
         permit('delete', 'Team')
