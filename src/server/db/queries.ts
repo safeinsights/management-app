@@ -106,6 +106,32 @@ export const latestJobForStudy = async (studyId: string, conn: DBExecutor = db) 
         .executeTakeFirstOrThrow(throwNotFound(`job for study ${studyId}`))
 }
 
+export const allJobsForStudy = async (studyId: string, conn: DBExecutor = db) => {
+    return await conn
+        .selectFrom('studyJob')
+        .selectAll('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select(['study.orgId'])
+        .select((eb) => [
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                    .orderBy('createdAt', 'desc')
+                    .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
+            ).as('statusChanges'),
+            jsonArrayFrom(
+                eb
+                    .selectFrom('studyJobFile')
+                    .select(['name', 'fileType', 'createdAt'])
+                    .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
+            ).as('files'),
+        ])
+        .where('studyJob.studyId', '=', studyId)
+        .orderBy('createdAt', 'desc')
+        .execute()
+}
+
 export const jobInfoForJobId = async (jobId: string) => {
     return await db
         .selectFrom('studyJob')

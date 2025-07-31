@@ -1,7 +1,7 @@
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { latestJobForStudy } from '@/server/db/queries'
+import { allJobsForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
@@ -27,7 +27,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const job = await latestJobForStudy(studyId)
+    const jobs = await allJobsForStudy(studyId)
 
     return (
         <Stack p="xl" gap="xl">
@@ -56,10 +56,10 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <CodeApprovalStatus job={job} />
+                        <CodeApprovalStatus job={jobs[0]} />
                     </Group>
                     <Divider c="dimmed" />
-                    <StudyCodeDetails job={job} />
+                    <StudyCodeDetails jobs={jobs} />
                 </Stack>
             </Paper>
 
@@ -69,11 +69,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        <FileApprovalStatus job={job} />
+                        <FileApprovalStatus job={jobs[0]} />
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} />
-                    <JobResults job={job} />
+                    <JobResultsStatusMessage job={jobs[0]} />
+                    <JobResults jobs={jobs} />
                 </Stack>
             </Paper>
         </Stack>

@@ -1,53 +1,27 @@
 'use client'
 
-import React, { FC, useMemo } from 'react'
-import { Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
-import { useQuery } from '@tanstack/react-query'
-import { ErrorAlert } from '@/components/errors'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
+import { FC } from 'react'
+import { Group, Stack, Text, useMantineTheme } from '@mantine/core'
 import { JobFile } from '@/lib/types'
 import { DownloadResultsLink, ViewResultsLink } from './links'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { Title } from '@mantine/core'
+import { JobResultsIteration } from './job-results-iteration'
 
-export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const {
-        data: approvedFiles,
-        isLoading,
-        isError,
-        error,
-    } = useQuery({
-        queryKey: ['job-results', job.id],
-        queryFn: async () => await fetchApprovedJobFilesAction(job.id),
-    })
-
-    const { resultsFiles, logFiles } = useMemo(() => {
-        const res: JobFile[] = []
-        const logs: JobFile[] = []
-
-        approvedFiles?.forEach((f) => {
-            if (f.fileType === 'APPROVED-RESULT') res.push(f)
-            else if (f.fileType === 'APPROVED-LOG') logs.push(f)
-        })
-
-        return { resultsFiles: res, logFiles: logs }
-    }, [approvedFiles])
-
-    if (isError) {
-        return <ErrorAlert error={error} />
-    }
-
-    if (isLoading || !approvedFiles) {
-        return <LoadingOverlay />
-    }
-
+export const JobResults: FC<{ jobs: LatestJobForStudy[] }> = ({ jobs }) => {
     return (
         <Stack>
-            {resultsFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
-            ))}
-            {logFiles.map((approvedFile) => (
-                <ViewFile file={approvedFile} key={approvedFile.path} />
-            ))}
+            {jobs.map((job, index) => {
+                const iteration = jobs.length - index
+                const isCurrent = index === 0
+
+                return (
+                    <Stack key={job.id}>
+                        <Title order={5}>{isCurrent ? null : `Logs - Iteration ${iteration}`}</Title>
+                        <JobResultsIteration job={job} />
+                    </Stack>
+                )
+            })}
         </Stack>
     )
 }

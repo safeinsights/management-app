@@ -45,7 +45,7 @@ export const StudyResults: FC<{
                 <Divider c="dimmed" />
                 <JobStatusHelpText job={job} />
                 <DecryptResults job={job} onApproval={setDecryptedResults} />
-                <JobResults job={job} />
+                <JobResults jobs={[job]} />
             </Stack>
         </Paper>
     )

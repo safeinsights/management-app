@@ -4,6 +4,7 @@ import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { ResubmitCodeButton } from '@/app/researcher/study/[studyId]/resubmit/resubmit-code-btn'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -48,6 +49,11 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
     if (!filesStatusChange) {
         return null
+    }
+
+    console.warn('lol', filesStatusChange.status)
+    if (filesStatusChange.status === 'FILES-REJECTED') {
+        return <ResubmitCodeButton job={job} />
     }
 
     return <JobStatusDisplay statusChange={filesStatusChange} />
