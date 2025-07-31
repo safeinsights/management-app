@@ -20,10 +20,19 @@ import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles, UserSession } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 
 import userEvent from '@testing-library/user-event'
+import * as RouterMock from 'next-router-mock'
 export { userEvent }
+
+// Helper to mock the current pathname inside unit tests that need to simulate specific routes.
+// It leverages the underlying next-router-mock memory router so it plays nicely with
+// the default router setup defined in `tests/vitest.setup.ts`.
+export const mockPathname = (path: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
+}
 
 export { faker } from '@faker-js/faker'
 export { db } from '@/database'
