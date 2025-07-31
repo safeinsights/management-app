@@ -20,26 +20,18 @@ import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
-import userEvent from '@testing-library/user-event'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles, UserSession } from '@/lib/types'
 
+import userEvent from '@testing-library/user-event'
 export { userEvent }
+
 export { faker } from '@faker-js/faker'
 export { db } from '@/database'
 export { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 export { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
-}
-
-let mockPathname = '/'
-vi.mock('next/navigation', () => ({
-    useParams: vi.fn(),
-    usePathname: () => mockPathname,
-}))
-
-export const setMockPathname = (pathname: string) => {
-    mockPathname = pathname
 }
 
 const createTestQueryClient = () =>
