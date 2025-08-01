@@ -4,6 +4,7 @@ import { z, inviteUserSchema } from './invite-user.schema'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
 import { Action } from '@/server/actions/action'
+import { ActionFailure } from '@/lib/errors'
 
 export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     .params(
@@ -17,6 +18,19 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     )
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { invite }, orgId, db }) => {
+        // Block invitation if user is already a member of this organization
+        const existingOrgMember = await db
+            .selectFrom('orgUser')
+            .innerJoin('user', 'user.id', 'orgUser.userId')
+            .select(['orgUser.id'])
+            .where('orgUser.orgId', '=', orgId)
+            .where('user.email', '=', invite.email)
+            .executeTakeFirst()
+
+        if (existingOrgMember) {
+            throw new ActionFailure({ email: 'This team member is already in this organization.' })
+        }
+
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
