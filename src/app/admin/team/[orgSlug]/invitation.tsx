@@ -3,6 +3,7 @@
 import { useDisclosure } from '@mantine/hooks'
 import { TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
@@ -41,10 +42,18 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
-        onSuccess() {
+        onSuccess(data) {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
-            onInvited()
+            if (data?.alreadyInvited) {
+                notifications.show({
+                    color: 'green',
+                    title: 'Invite resent',
+                    message: 'This user has already been invited. Resending invite.',
+                })
+            } else {
+                onInvited()
+            }
         },
     })
 

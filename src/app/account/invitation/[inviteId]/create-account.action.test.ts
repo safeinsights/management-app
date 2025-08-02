@@ -4,7 +4,6 @@ import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@
 import {
     onCreateAccountAction,
     onJoinTeamAccountAction,
-    onRevokeInviteAction,
     onPendingUserLoginAction,
     getOrgInfoForInviteAction,
 } from './create-account.action'
@@ -127,26 +126,6 @@ describe('Create Account Actions', () => {
                 expect.objectContaining({ orgId: newOrg.id }),
             ]),
         )
-    })
-
-    it('onRevokeInviteAction removes invite', async () => {
-        const { user } = await insertTestUser({ org })
-
-        const invite = await db
-            .insertInto('pendingUser')
-            .values({
-                orgId: org.id,
-                email: user.email!,
-                isResearcher: true,
-                isReviewer: true,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-
-        await onRevokeInviteAction({ inviteId: invite.id })
-
-        const found = await db.selectFrom('pendingUser').select(['id']).where('id', '=', invite.id).executeTakeFirst()
-        expect(found).toBeFalsy()
     })
 
     it('onPendingUserLoginAction claims invite for logged in user', async () => {

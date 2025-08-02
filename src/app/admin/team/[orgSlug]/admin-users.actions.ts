@@ -34,13 +34,13 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
-            .select(['id', 'email'])
+            .select(['id'])
             .where('email', '=', invite.email)
             .where('orgId', '=', orgId)
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
-            return
+            return { alreadyInvited: true }
         }
 
         const record = await db
@@ -55,6 +55,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirstOrThrow()
 
         onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
+        return { alreadyInvited: false }
     })
 
 export const getPendingUsersAction = new Action('getPendingUsersAction')

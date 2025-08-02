@@ -4,7 +4,7 @@ import { FC, use, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Flex, Text, Button } from '@mantine/core'
 import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
-import { reportMutationError, extractActionFailure } from '@/components/errors'
+import { reportMutationError } from '@/components/errors'
 import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
 
@@ -28,13 +28,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             setIsDisabled(true) // disable button after successful join
             router.push('/account/signin')
         },
-        onError: (err) => {
-            const failure = extractActionFailure(err)
-            // TODO: temp fix - will be removed in follow up
-            if (failure?.team) {
-                router.push('/account/signin')
-                return
-            }
+        onError: () => {
             reportMutationError('Unable to join team')
         },
     })

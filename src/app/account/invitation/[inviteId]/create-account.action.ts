@@ -30,16 +30,6 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             .executeTakeFirstOrThrow()
     })
 
-export const onRevokeInviteAction = new Action('onRevokeInviteAction')
-    .params(
-        z.object({
-            inviteId: z.string(),
-        }),
-    )
-    .handler(async function ({ params: { inviteId }, db }) {
-        await db.deleteFrom('pendingUser').where('id', '=', inviteId).executeTakeFirstOrThrow()
-    })
-
 export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(
         z.object({
