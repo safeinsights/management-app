@@ -32,9 +32,24 @@ export const fetchOrgsForSelectAction = new Action('fetchOrgsForSelectAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => db.selectFrom('org').select(['id as value', 'name as label']).execute())
 
-export const fetchOrgsAction = new Action('fetchOrgsAction')
+export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
     .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db }) => await db.selectFrom('org').selectAll('org').execute())
+    .handler(async ({ db }) => {
+        return await db
+            .selectFrom('org')
+            .leftJoin('study', 'study.orgId', 'org.id')
+            .select([
+                'org.id',
+                'org.name',
+                'org.slug',
+                'org.email',
+                'org.publicKey',
+                'org.description',
+                (eb) => eb.fn.count('study.id').as('totalStudies'),
+            ])
+            .groupBy(['org.id'])
+            .execute()
+    })
 
 export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
@@ -85,9 +100,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             }),
         }),
     )
-
-    .requireAbilityTo('view', 'TeamMembers')
-
+    .requireAbilityTo('view', 'User')
     .handler(async ({ db, params: { orgSlug, sort } }) => {
         return await db
             .selectFrom('orgUser')

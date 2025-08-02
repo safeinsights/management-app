@@ -3,30 +3,33 @@
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { FC, useMemo, useState } from 'react'
-import { deleteOrgAction, fetchOrgsAction } from '@/server/actions/org.actions'
-import { getNewOrg, type Org } from '@/schema/org'
+import { deleteOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
+import { getNewOrg } from '@/schema/org'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
-import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
 import { EditOrgForm } from './edit-org-form'
 import { useRouter } from 'next/navigation'
+import { ActionReturnType } from '@/lib/types'
+import { UserListIcon } from '@phosphor-icons/react'
+
+type Org = ActionReturnType<typeof fetchOrgsStatsAction>[number]
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({
         queryKey: ['orgs'],
-        queryFn: fetchOrgsAction,
+        queryFn: fetchOrgsStatsAction,
     })
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
         direction: 'asc',
     })
-
     const sortedMembers = useMemo(() => {
         const accessor = sortStatus.columnAccessor as keyof Org
-        const newOrgs = R.sortBy(data, (org: Org) => org[accessor] as string | number | Date | boolean)
+        const newOrgs = R.sortBy(data, (org: Org) => org[accessor] as string | number | Date | boolean | bigint)
         return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
@@ -45,10 +48,11 @@ export function OrgsAdminTable() {
                 columns={[
                     { accessor: 'slug', sortable: true },
                     { accessor: 'name', sortable: true },
-                    { accessor: 'email', sortable: true, textAlign: 'right' },
+                    { accessor: 'email', sortable: true },
+                    { accessor: 'totalStudies', title: '# Studies', textAlign: 'center', sortable: true },
                     {
                         accessor: 'actions',
-                        width: 80,
+                        width: 110,
                         textAlign: 'center',
                         title: <Box mr={6}>Edit</Box>,
                         render: (org) => <OrgRow org={org} />,
@@ -90,13 +94,31 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
             <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>
-            <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => router.push(`/admin/team/${org.slug}`)}>
-                <UsersIcon />
-            </ActionIcon>
-            <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
-                <PencilIcon />
-            </ActionIcon>
-
+            <Tooltip label="View Users" withArrow>
+                <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="blue"
+                    onClick={() => router.push(`/admin/team/${org.slug}`)}
+                >
+                    <UsersIcon />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="View Studies" withArrow>
+                <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="blue"
+                    onClick={() => router.push(`/reviewer/${org.slug}/dashboard`)}
+                >
+                    <UserListIcon />
+                </ActionIcon>
+            </Tooltip>
+            <Tooltip label="Edit" withArrow>
+                <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
+                    <PencilIcon />
+                </ActionIcon>
+            </Tooltip>
             <SuretyGuard onConfirmed={() => deleteOrg({ orgId: org.id })}>
                 <TrashIcon />
             </SuretyGuard>

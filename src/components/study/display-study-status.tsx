@@ -1,18 +1,14 @@
 'use client'
 
-import { CopyingInput } from '@/components/copying-input'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { AllStatus } from '@/lib/types'
 import { titleize } from '@/lib/string'
 import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
 import { InfoIcon } from '../icons'
 import React, { FC } from 'react'
+import { StatusLabel, REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS } from '@/lib/status-labels'
+import { usePathname } from 'next/navigation'
 
-type PopOverComponent = React.FC<{ jobId?: string | null }>
-
-const JobIdPopover: PopOverComponent = ({ jobId }) => {
-    if (!jobId) return null
-
+const TooltipPopover: FC<{ tooltip: string }> = ({ tooltip }) => {
     return (
         <Popover width={200} position="bottom" withArrow shadow="md">
             <PopoverTarget>
@@ -21,42 +17,16 @@ const JobIdPopover: PopOverComponent = ({ jobId }) => {
                 </div>
             </PopoverTarget>
             <PopoverDropdown miw={'350px'}>
-                <Text size="xs" fw="bold">
-                    Job ID to share with support
+                <Text size="xs" fw="bold" style={{ whiteSpace: 'pre-line' }}>
+                    {tooltip}
                 </Text>
-                <CopyingInput value={jobId} tooltipLabel="Copy JobId" />
             </PopoverDropdown>
         </Popover>
     )
 }
 
-type StatusLabel = {
-    type?: 'Code' | 'Results' | 'Proposal' | null
-    label: string
-    InfoComponent?: PopOverComponent
-}
-
-const STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
-    APPROVED: { type: 'Proposal', label: 'Approved' },
-    REJECTED: { type: 'Proposal', label: 'Rejected' },
-    'PENDING-REVIEW': { type: 'Proposal', label: 'Under Review' },
-    'CODE-APPROVED': { type: 'Code', label: 'Approved' },
-    'CODE-REJECTED': { type: 'Code', label: 'Rejected' },
-    'CODE-SUBMITTED': { type: 'Code', label: 'Submitted' },
-    'JOB-PACKAGING': { type: 'Code', label: 'Processing' },
-    'JOB-RUNNING': { type: 'Code', label: 'Running' },
-    'JOB-READY': { type: 'Code', label: 'Ready' },
-    'JOB-ERRORED': { type: 'Code', label: 'Errored', InfoComponent: JobIdPopover },
-    'RUN-COMPLETE': { type: 'Results', label: 'Under Review' },
-    'FILES-REJECTED': { type: 'Results', label: 'Rejected' },
-    'FILES-APPROVED': { type: 'Results', label: 'Approved' },
-}
-
-const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, label, jobId, InfoComponent }) => {
-    const color =
-        [STATUS_LABELS['RUN-COMPLETE']?.label, STATUS_LABELS['PENDING-REVIEW']?.label].indexOf(label) > -1
-            ? 'red.9'
-            : 'dark.8'
+const StatusBlock: React.FC<StatusLabel> = ({ type, label, tooltip }) => {
+    const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
     return (
         <Stack gap="0">
             {type && (
@@ -64,14 +34,10 @@ const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, 
                     {type}
                 </Text>
             )}
-            {InfoComponent && jobId ? (
-                <Flex align="center" gap="xs">
-                    <Text>{label}</Text>
-                    <InfoComponent jobId={jobId} />
-                </Flex>
-            ) : (
+            <Flex align="center" gap="xs">
                 <Text c={color}>{label}</Text>
-            )}
+                {tooltip && <TooltipPopover tooltip={tooltip} />}
+            </Flex>
         </Stack>
     )
 }
@@ -79,16 +45,22 @@ const StatusBlock: React.FC<StatusLabel & { jobId?: string | null }> = ({ type, 
 export const DisplayStudyStatus: FC<{
     studyStatus: StudyStatus
     jobStatus: StudyJobStatus | null
-    jobId?: string | null
-}> = ({ studyStatus, jobStatus, jobId }) => {
-    let props = jobStatus && STATUS_LABELS[jobStatus] ? STATUS_LABELS[jobStatus] : STATUS_LABELS[studyStatus]
+}> = ({ studyStatus, jobStatus }) => {
+    const pathname = usePathname()
+
+    // Determine which status labels to use based on URL path
+    const isReviewerPath = pathname.startsWith('/reviewer/')
+    const statusLabels = isReviewerPath ? REVIEWER_STATUS_LABELS : RESEARCHER_STATUS_LABELS
+
+    const status = jobStatus || studyStatus
+    let props = statusLabels[status]
 
     if (!props) {
-        const status = jobStatus || studyStatus
+        // Fallback for statuses not in the labels
         props = {
             label: titleize(status.replace(/-/g, ' ')),
         }
     }
 
-    return props ? <StatusBlock {...props} jobId={jobId} /> : null
+    return props ? <StatusBlock {...props} /> : null
 }

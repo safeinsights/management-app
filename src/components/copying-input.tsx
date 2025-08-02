@@ -15,7 +15,6 @@ export const CopyingInput: FC<{ value: string; tooltipLabel?: string }> = ({ val
             readOnly
             rightSectionPointerEvents="all"
             size="sm"
-            my="sm"
             onFocus={(event) => event.target.select()}
             rightSection={
                 <Tooltip label={clipboard.copied ? 'Copied' : tooltipLabel} offset={10}>
