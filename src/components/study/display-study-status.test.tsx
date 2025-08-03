@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { mockPathname, renderWithProviders } from '@/tests/unit.helpers'
 import { screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
 import { DisplayStudyStatus } from './display-study-status'
-import { mockPathname } from '@/tests/unit.helpers'
 
 // default pathname for tests
 mockPathname('/')
@@ -77,5 +76,9 @@ describe('DisplayStudyStatus', () => {
     it('shows researcher results under review', () => {
         mockPathname('/researcher/test-study')
         renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Under Review')
+    })
+    it('does not show errored status to researchers before file review', () => {
+        mockPathname('/researcher/test-study')
+        renderAndExpect('APPROVED', 'JOB-ERRORED', 'Proposal', 'Approved')
     })
 })

@@ -1,10 +1,10 @@
 'use client'
 
-import React, { FC } from 'react'
-import { Group, Text } from '@mantine/core'
-import { LatestJobForStudy } from '@/server/db/queries'
-import { useJobResultsStatus } from '@/components/use-job-results-status'
 import { CopyingInput } from '@/components/copying-input'
+import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { LatestJobForStudy } from '@/server/db/queries'
+import { Group, Stack, Text } from '@mantine/core'
+import { FC } from 'react'
 
 interface ErroredProps {
     isApproved: boolean
@@ -48,13 +48,17 @@ const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
     }
     return (
         <>
-            {message && <Text>{message}</Text>}
-            <Group justify="flex-start" align="center">
-                <Text size="xs" fw="bold">
-                    Job ID:
-                </Text>
-                <CopyingInput value={jobId} tooltipLabel="Copy" />
-            </Group>
+            {message && (
+                <Stack>
+                    <Text>{message}</Text>
+                    <Group justify="flex-start" align="center">
+                        <Text size="xs" fw="bold">
+                            Job ID:
+                        </Text>
+                        <CopyingInput value={jobId} tooltipLabel="Copy" />
+                    </Group>
+                </Stack>
+            )}
         </>
     )
 }
