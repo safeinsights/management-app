@@ -6,11 +6,8 @@ import dayjs from 'dayjs'
 export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minutes').toDate()) {
     if (PROD_BUILD) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
 
-    console.log(`deleting users created after ${cutoff}`) // eslint-disable-line no-console
-
     const SAFE_TO_DELETE = /^(?!.*dbfyq3).*(?:test|delete).*$/i
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
-    //const clerk = await clerkClient()
 
     const pageSize = 100
     let offset = 0
@@ -27,7 +24,7 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
         const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
 
         if (
-            (ciJobId && user.publicMetadata.createdByCIJobId == ciJobId) ||
+            (ciJobId && user.privateMetadata.createdByCIJobId == ciJobId) &&
             (dayjs(user.createdAt).isBefore(cutoff) && (emailMatches || nameMatches))
         ) {
             try {
