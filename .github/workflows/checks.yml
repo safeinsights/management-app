@@ -129,6 +129,9 @@ jobs:
             - name: Display server log
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
+            - name: Delete any test users created
+              run: npx tsx ./bin/delete-clerk-test-users.ts
+              if: always()
             - uses: actions/upload-artifact@v4
               if: failure()
               with:
