@@ -16,7 +16,6 @@ import {
     Text,
     Title,
     Tooltip,
-    TableScrollContainer,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 
@@ -73,11 +72,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
-                <DisplayStudyStatus
-                    studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobId={study.latestStudyJobId}
-                />
+                <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
             </TableTd>
             <TableTd>
                 <Link href={`/researcher/study/${study.id}/review`}>View</Link>
@@ -106,21 +101,19 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                         </Flex>
                     </Group>
                     <Divider c="charcoal.1" />
-                    <TableScrollContainer minWidth={768}>
-                        <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                            <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
-                            <TableThead fz="sm">
-                                <TableTr>
-                                    <TableTh>Study Name</TableTh>
-                                    <TableTh>Submitted On</TableTh>
-                                    <TableTh>Submitted To</TableTh>
-                                    <TableTh>Status</TableTh>
-                                    <TableTh>Study Details</TableTh>
-                                </TableTr>
-                            </TableThead>
-                            <TableTbody>{rows}</TableTbody>
-                        </Table>
-                    </TableScrollContainer>
+                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                        <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
+                        <TableThead fz="sm">
+                            <TableTr>
+                                <TableTh>Study Name</TableTh>
+                                <TableTh>Submitted On</TableTh>
+                                <TableTh>Submitted To</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh>Study Details</TableTh>
+                            </TableTr>
+                        </TableThead>
+                        <TableTbody>{rows}</TableTbody>
+                    </Table>
                 </Stack>
             </Paper>
         </Stack>

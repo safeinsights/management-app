@@ -18,7 +18,7 @@ describe('User Keys Actions', () => {
         await mockSessionWithTestData({ isReviewer: false })
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
-        await expect(getReviewerPublicKeyAction()).rejects.toThrow(/cannot read ReviewerKey/)
+        await expect(getReviewerPublicKeyAction()).rejects.toThrow(/cannot view ReviewerKey/)
     })
 
     it('getReviewerPublicKeyAction returns the public key for the current user', async () => {

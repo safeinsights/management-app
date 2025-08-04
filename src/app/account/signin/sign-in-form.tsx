@@ -1,6 +1,6 @@
-import { Flex, Button, TextInput, PasswordInput, Paper, Title, CloseButton, Group, Text } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { useForm, zodResolver } from '@mantine/form'
-import { reportError } from '@/components/errors'
+import { clerkErrorOverrides, reportError } from '@/components/errors'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
@@ -8,6 +8,7 @@ import { FC, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { errorToString } from '@/components/errors'
+import { SignInError } from './sign-in-error'
 
 const signInSchema = z.object({
     email: z.string().min(1, 'Email is required').max(250, 'Email too long').email('Invalid email'),
@@ -27,6 +28,15 @@ export const SignInForm: FC<{
     const router = useRouter()
     const searchParams = useSearchParams()
     const [clerkError, setClerkError] = useState<{ title: string; message: string } | null>(null)
+
+    useEffect(() => {
+        if (searchParams.get('invite_not_found')) {
+            setClerkError({
+                title: 'Invite not found',
+                message: 'The invitation link you followed is invalid or has already been used.',
+            })
+        }
+    }, [searchParams])
 
     const form = useForm<SignInFormData>({
         initialValues: {
@@ -62,21 +72,29 @@ export const SignInForm: FC<{
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
 
-            const errorMessage = errorToString(err)
+            const errorMessage = errorToString(err, clerkErrorOverrides)
 
             //incorrect email or password
-            if (errorMessage?.includes('Password') || errorMessage?.includes('Identifier')) {
+            if (
+                errorMessage === clerkErrorOverrides.form_password_incorrect ||
+                errorMessage === clerkErrorOverrides.form_identifier_not_found
+            ) {
                 form.setFieldError('email', ' ')
-                form.setFieldError(
-                    'password',
-                    'Invalid login credentials. Please double-check your email and password.',
-                )
+                form.setFieldError('password', errorMessage)
                 return
             }
 
             // any other clerk error
+            let title = 'Sign-in Error'
+            if (err && typeof err === 'object' && 'errors' in err && Array.isArray(err.errors)) {
+                const lockedError = err.errors.find((e: { code?: string }) => e.code === 'user_locked')
+                if (lockedError) {
+                    title = 'Account Locked'
+                }
+            }
+
             setClerkError({
-                title: 'Sign-in Error',
+                title,
                 message: errorMessage || 'An error occurred during sign-in. Please try again.',
             })
         }
@@ -85,10 +103,10 @@ export const SignInForm: FC<{
     return (
         <form onSubmit={onSubmit}>
             <Paper bg="white" radius="sm" p="xxl">
+                <Title mb="lg" order={3} ta="center">
+                    Welcome To SafeInsights!
+                </Title>
                 <Flex direction="column" gap="xs">
-                    <Title mb="xs" order={3} ta="center">
-                        Welcome To SafeInsights!
-                    </Title>
                     <TextInput
                         key={form.key('email')}
                         {...form.getInputProps('email')}
@@ -101,32 +119,28 @@ export const SignInForm: FC<{
                         key={form.key('password')}
                         {...form.getInputProps('password')}
                         mt={10}
-                        mb="xs"
                         placeholder="*********"
                         aria-label="Password"
                     />
-                    {clerkError && (
-                        <Paper bg="#FFEFEF" shadow="none" p={'lg'} mt="sm" mb="sm" radius="sm">
-                            <Group justify="space-between" gap="xl">
-                                <Text ta="left" c="red" fw="bold">
-                                    {clerkError.title}
-                                </Text>
-                                <CloseButton
-                                    c="red"
-                                    aria-label="Close password reset form"
-                                    onClick={() => setClerkError(null)}
-                                />
-                            </Group>
-                            <Text mt="md">{clerkError.message}</Text>
-                        </Paper>
-                    )}
                     <Link
+                        c="blue.7"
+                        fw={600}
+                        w="fit-content"
+                        size="xs"
                         href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
                     >
                         Forgot password?
                     </Link>
+                    <SignInError clerkError={clerkError} setClerkError={setClerkError} />
                     {/*<Link href="/account/signup">Don&#39;t have an account? Sign Up Now</Link>*/}
-                    <Button mb="xxl" disabled={!form.isValid()} type="submit">
+                    <Button
+                        mt="md"
+                        mb="xxl"
+                        size="lg"
+                        disabled={!form.isValid()}
+                        type="submit"
+                        bg={!form.isValid() ? 'grey.1' : ''}
+                    >
                         Login
                     </Button>
                 </Flex>

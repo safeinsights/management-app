@@ -1,7 +1,7 @@
 'use client'
 
 import { notifications } from '@mantine/notifications'
-import { Alert, AlertProps, Flex, Text, useMantineTheme } from '@mantine/core'
+import { Alert, AlertProps, Flex, useMantineTheme } from '@mantine/core'
 import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure } from '@/lib/errors'
@@ -89,11 +89,9 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 
     return (
-        <Flex align="center" gap={4} my={2} component="span" data-testid="input-error">
+        <Flex gap="xs" my={2} component="span" data-testid="input-error" bg="#FFEFEF" px="md" py="sm">
             <WarningCircleIcon size={20} color={theme.colors.red[7]} weight="fill" />
-            <Text c="red.7" size="xs" component="span">
-                {error}
-            </Text>
+            {error}
         </Flex>
     )
 }

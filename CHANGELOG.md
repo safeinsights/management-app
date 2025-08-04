@@ -1,3 +1,23 @@
+## [v1.0.0 - 2025-07-31](https://github.com/safeinsights/management-app/releases/tag/v1.0.0)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #308 | Rod0352 | OTTER-238 fix: prevent double approval of study proposals | 2025-07-23 17:31:01 | [OTTER-238](https://openstax.atlassian.net/browse/OTTER-238) |
+| #317 | nathanstitt | specify location used for code builds | 2025-07-25 21:24:42 |  |
+| #319 | nathanstitt | Wrap mutating actions in a DB transaction | 2025-07-28 15:15:45 |  |
+| #322 | jbwilson8 | Update replace study lead label with submitted by | 2025-07-28 15:54:26 | [OTTER-227](https://openstax.atlassian.net/browse/OTTER-227) |
+| #318 | stetradis | OTTER-259 update propose study UI | 2025-07-28 16:20:21 | [OTTER-259](https://openstax.atlassian.net/browse/OTTER-259) |
+| #312 | Rod0352 | Otter 251 all audiences log in flow ux bug fixing | 2025-07-28 16:26:38 | [OTTER-251](https://openstax.atlassian.net/browse/OTTER-251) |
+| #323 | jbwilson8 | enable sticky header | 2025-07-30 13:53:50 | [OTTER-262](https://openstax.atlassian.net/browse/OTTER-262) |
+| #321 | stetradis | OTTER-199 invite flow update | 2025-07-30 15:52:07 | [OTTER-199](https://openstax.atlassian.net/browse/OTTER-199)  [OTTER-270](https://openstax.atlassian.net/browse/OTTER-270) |
+| #325 | nathanstitt | Fix admin updating organizations | 2025-07-30 20:10:02 |  |
+| #320 | therealmarv | Otter 223 org admin empty v4 | 2025-07-31 17:00:34 | [OTTER-223](https://openstax.atlassian.net/browse/OTTER-223) |
+| #326 | nathanstitt | Allow SI Admin to view studies | 2025-07-31 21:06:06 |  |
+| #324 | stetradis | OTTER-271 update status labels | 2025-07-31 23:37:53 | [OTTER-271](https://openstax.atlassian.net/browse/OTTER-271) |
+
+
+---
+
 ## [v0.0.8 - 2025-07-21](https://github.com/safeinsights/management-app/releases/tag/v0.0.8)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |

@@ -1,26 +1,14 @@
-import { type StudyStatus } from '@/database/types'
 import { type UserSession } from './types'
-import { AbilityBuilder, MongoAbility, createMongoAbility, subject } from '@casl/ability'
+import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
+import {
+    AppAbility,
+    PermissionsActionSubjectMap,
+    PermissionsSubjectToObjectMap,
+    toRecord,
+    TYPE_FIELD,
+} from './permission-types'
 
-export { subject }
-
-type Record = { id: string }
-type RecordWithOrgId = { orgId: string }
-type Study = { study: { orgId: string } }
-
-type Abilities =
-    | ['invite', 'User']
-    | ['claim', 'PendingUser']
-    | ['update', 'User' | { user: { orgId: string } } | { id: string }]
-    | ['read', 'User' | Record]
-    | ['read' | 'update', 'ReviewerKey' | { userId: string }]
-    | ['read' | 'update' | 'create' | 'delete', 'Team' | RecordWithOrgId]
-    | ['view' | 'update' | 'delete' | 'review', 'Study' | Study]
-    | ['read' | 'create', 'StudyJob' | Study]
-    | ['create' | 'read', 'Study' | { orgId: string }]
-    | ['approve' | 'reject', 'Study' | { orgId: string; status: StudyStatus }]
-
-export type AppAbility = MongoAbility<Abilities>
+export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
@@ -34,50 +22,55 @@ export function defineAbilityFor(session: UserSession) {
     permit('update', 'User', { id: session.user.id })
     permit('claim', 'PendingUser')
 
-    permit('read', 'Team', { orgSlug: session.team.slug })
-    permit('read', 'Team', { id: session.team.id })
+    permit('view', 'Team', { orgSlug: session.team.slug })
 
     if (isResearcher || isReviewer || isTeamAdmin) {
-        permit('view', 'Study', { 'study.orgId': session.team.id }) //orgId: session.team.id })
+        permit('view', 'Study', { orgId: session.team.id })
+        permit('view', 'StudyJob', { orgId: session.team.id })
+        permit('view', 'Team', { orgSlug: session.team.slug })
     }
 
     if (isResearcher || isTeamAdmin) {
-        permit('create', 'Study')
-        permit('create', 'StudyJob')
-
+        permit('create', 'Study', { orgId: session.team.id })
+        permit('create', 'StudyJob', { orgId: session.team.id })
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
     }
 
     if (isReviewer || isTeamAdmin) {
-        permit('read', 'ReviewerKey')
+        permit('view', 'ReviewerKey')
         permit('update', 'ReviewerKey')
-        permit('approve', 'Study')
-        permit('reject', 'Study')
-        permit('read', 'Study', { orgSlug: session.team.slug })
-        permit('review', 'Study', { 'study.orgId': session.team.id })
-        permit('read', 'StudyJob', { 'studyJob.orgId': session.team.id })
+        permit('approve', 'Study', { orgId: session.team.id })
+        permit('reject', 'Study', { orgId: session.team.id })
+        permit('view', 'Study', { orgId: session.team.id })
+        permit('review', 'Study', { orgId: session.team.id })
     }
 
     if (isTeamAdmin) {
-        permit('invite', 'User', { orgSlug: session.team.slug })
-        permit('update', 'User', { 'user.orgId': session.team.id })
-        permit('read', 'User', { orgId: session.team.id })
-
-        permit('read', 'User', { orgSlug: session.team.slug })
-        permit('read', 'Team', { orgSlug: session.team.slug })
+        permit('update', 'User', { orgId: session.team.id })
+        permit('invite', 'User', { orgId: session.team.id })
+        permit('view', 'User', { orgSlug: session.team.slug })
+        permit('view', 'Team', { orgSlug: session.team.slug })
+        permit('view', 'TeamMembers', { orgSlug: session.team.slug })
         permit('update', 'Team', { orgSlug: session.team.slug })
     }
 
     if (isSiAdmin) {
         permit('create', 'Team')
         permit('update', 'User')
-        permit('read', 'User')
+        permit('view', 'User')
         permit('invite', 'User')
-        permit('read', 'Team')
+        permit('view', 'Study')
+        permit('view', 'StudyJob')
+        permit('view', 'Team')
         permit('update', 'Team')
         permit('delete', 'Team')
+        permit('view', 'Orgs')
+        permit('view', 'Org')
+        permit('delete', 'Org')
     }
 
-    return build()
+    return build({
+        detectSubjectType: (object) => object[TYPE_FIELD],
+    })
 }

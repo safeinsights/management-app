@@ -20,10 +20,19 @@ import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
 import type { StudyJobStatus, StudyStatus } from '@/database/types'
 import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles, UserSession } from '@/lib/types'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 
 import userEvent from '@testing-library/user-event'
+import * as RouterMock from 'next-router-mock'
 export { userEvent }
+
+// Helper to mock the current pathname inside unit tests that need to simulate specific routes.
+// It leverages the underlying next-router-mock memory router so it plays nicely with
+// the default router setup defined in `tests/vitest.setup.ts`.
+export const mockPathname = (path: string) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
+}
 
 export { faker } from '@faker-js/faker'
 export { db } from '@/database'
@@ -311,6 +320,7 @@ type MockSession = {
     imageUrl?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
+    isSiAdmin?: boolean
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
@@ -324,21 +334,32 @@ export const mockClerkSession = (values: MockSession) => {
             currentTeamSlug: values.orgSlug,
         },
     }
+    const teams: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string }> = {
+        [values.orgSlug]: {
+            id: values.orgId,
+            slug: values.orgSlug,
+            isAdmin: false,
+            isReviewer: true,
+            isResearcher: true,
+            ...(values.roles || {}),
+        },
+    }
+
+    if (values.isSiAdmin) {
+        teams[CLERK_ADMIN_ORG_SLUG] = {
+            id: 'si-org-id-mock',
+            slug: CLERK_ADMIN_ORG_SLUG,
+            isAdmin: true,
+            isReviewer: true,
+            isResearcher: true,
+        }
+    }
     const publicMetadata = {
         [`${ENVIRONMENT_ID}`]: {
             user: {
                 id: values.userId,
             },
-            teams: {
-                [`${values.orgSlug}`]: {
-                    id: values.orgId,
-                    slug: values.orgSlug,
-                    isAdmin: false,
-                    isReviewer: true,
-                    isResearcher: true,
-                    ...(values.roles || {}),
-                },
-            },
+            teams,
         },
     }
     const userProperties = {
@@ -387,6 +408,7 @@ export const mockClerkSession = (values: MockSession) => {
                 emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' }) }],
             })),
             createUser: vi.fn(async () => ({ id: '1234' })),
+            getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },
     }
     const useUserReturn = {
@@ -422,6 +444,7 @@ type MockSessionWithTestDataOptions = {
     isResearcher?: boolean
     isReviewer?: boolean
     isAdmin?: boolean
+    isSiAdmin?: boolean
     clerkId?: string
 }
 
@@ -430,6 +453,20 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 
     const org = await insertTestOrg({ slug: options.orgSlug })
     const { user, orgUser } = await insertTestUser({ org: { id: org.id, slug: options.orgSlug }, ...options })
+
+    if (options.isSiAdmin) {
+        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
+        await db
+            .insertInto('orgUser')
+            .values({
+                orgId: siOrg.id,
+                userId: user.id,
+                isAdmin: true,
+                isResearcher: true,
+                isReviewer: true,
+            })
+            .execute()
+    }
 
     const mocks = mockClerkSession({
         userId: user.id,
@@ -441,6 +478,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
             isReviewer: options.isReviewer ?? true,
             isAdmin: options.isAdmin ?? false,
         },
+        isSiAdmin: options.isSiAdmin,
     })
 
     const session = { user, team: { id: org.id, slug: org.slug } }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { jobInfoForJobId } from '@/server/db/queries'
 import { urlForStudyJobCodeFile } from '@/server/storage'
 import { sessionFromClerk } from '@/server/clerk'
+import { toRecord } from '@/lib/permissions'
 
 export const GET = async (_: Request, { params }: { params: Promise<{ jobId: string; fileName: string }> }) => {
     const { jobId, fileName } = await params
@@ -13,7 +14,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     const job = await jobInfoForJobId(jobId)
 
     const session = await sessionFromClerk()
-    if (!session?.can('read', 'StudyJob')) {
+    if (!session?.can('view', toRecord('StudyJob', { orgId: job.orgId }))) {
         return NextResponse.json({ error: 'Not authorized to access file' }, { status: 403 })
     }
 

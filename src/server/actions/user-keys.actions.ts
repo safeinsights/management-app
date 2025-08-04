@@ -1,14 +1,13 @@
 'use server'
 
-import { db } from '@/database'
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Action, z, ActionFailure } from './action'
 
 export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
-    .requireAbilityTo('read', 'ReviewerKey')
-    .handler(async (_, { session }) => {
+    .requireAbilityTo('view', 'ReviewerKey')
+    .handler(async ({ session }) => {
         return await getReviewerPublicKey(session.user.id)
     })
 
@@ -20,7 +19,7 @@ const setOrgUserPublicKeySchema = z.object({
 export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
     .requireAbilityTo('update', 'ReviewerKey')
-    .handler(async ({ publicKey, fingerprint }, { session }) => {
+    .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
 
         if (!publicKey.byteLength) {
@@ -43,7 +42,7 @@ export const setReviewerPublicKeyAction = new Action('setReviewerPublicKeyAction
 export const updateReviewerPublicKeyAction = new Action('updateReviewerPublicKeyAction')
     .params(setOrgUserPublicKeySchema)
     .requireAbilityTo('update', 'ReviewerKey')
-    .handler(async ({ publicKey, fingerprint }, { session }) => {
+    .handler(async ({ params: { publicKey, fingerprint }, session, db }) => {
         const userId = session.user.id
 
         await db

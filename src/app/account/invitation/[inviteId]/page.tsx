@@ -2,7 +2,6 @@ import { db } from '@/database'
 import { redirect, RedirectType } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
 import { sessionFromClerk } from '@/server/clerk'
-import { AlertNotFound } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +13,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     const { inviteId } = await params
 
-    const invite = await db
+    const pendingInvite = await db
         .selectFrom('pendingUser')
         .innerJoin('org', 'pendingUser.orgId', 'org.id')
         .leftJoin('user', 'user.email', 'pendingUser.email')
@@ -27,13 +26,20 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .where('pendingUser.id', '=', inviteId)
         .executeTakeFirst()
 
-    if (!invite) {
-        return <AlertNotFound title="Unable to signup" message="unable to find invitation" />
+    const claimedInvite = await db
+        .selectFrom('pendingUser')
+        .where('claimedByUserId', 'is not', null)
+        .where('id', '=', inviteId)
+        .executeTakeFirst()
+
+    if (claimedInvite || !pendingInvite) {
+        // redirect to the signin page with a flag, shows error message
+        redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
-    if (invite.matchingTeam) {
+    if (pendingInvite?.matchingTeam) {
         redirect(`/account/invitation/${inviteId}/exists`, RedirectType.replace)
-    } else if (invite.matchingUser) {
+    } else if (pendingInvite?.matchingUser) {
         redirect(`/account/invitation/${inviteId}/join-team`, RedirectType.replace)
     } else {
         redirect(`/account/invitation/${inviteId}/signup`, RedirectType.replace)

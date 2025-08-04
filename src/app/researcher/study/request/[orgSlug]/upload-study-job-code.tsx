@@ -19,6 +19,7 @@ import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { InputError } from '@/components/errors'
 
 // Detects if any uploaded files share the same name as the main code file and shows a notification.
 export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
@@ -48,6 +49,7 @@ export const StudyCodeSection: FC<{
             .getValues()
             .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
         studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
+        studyProposalForm.validateField('totalFileSize')
     }
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }
@@ -101,6 +103,7 @@ export const StudyCodeSection: FC<{
                                 }
 
                                 studyProposalForm.setFieldValue('mainCodeFile', file)
+                                studyProposalForm.validateField('totalFileSize')
                             }}
                         />
                         <Text size="xs" c="dimmed">
@@ -138,6 +141,7 @@ export const StudyCodeSection: FC<{
                                     (file) => file.name,
                                 )
                                 studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
+                                studyProposalForm.validateField('totalFileSize')
                             }}
                             onReject={(rejections) =>
                                 notifications.show({
@@ -198,10 +202,12 @@ export const StudyCodeSection: FC<{
                                 />
                             </Group>
                         ))}
-                        {studyProposalForm.errors.additionalCodeFiles && (
-                            <Text c="red">{studyProposalForm.errors.additionalCodeFiles}</Text>
-                        )}
                     </GridCol>
+                    {studyProposalForm.errors['totalFileSize'] && (
+                        <GridCol>
+                            <InputError error={studyProposalForm.errors['totalFileSize']} />
+                        </GridCol>
+                    )}
                 </Grid>
             </Group>
         </>

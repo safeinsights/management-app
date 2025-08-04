@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
-import {
-    getFirstOrganizationForUser,
-    getReviewerPublicKey,
-    getUsersByRoleAndOrgId,
-    jobInfoForJobId,
-    studyInfoForStudyId,
-} from './queries'
+import { getReviewerPublicKey, getUsersByRoleAndOrgId, jobInfoForJobId, studyInfoForStudyId } from './queries'
 
 async function insertRecords() {
     const org1 = await insertTestOrg({ slug: 'test-org-1' })
@@ -75,20 +69,6 @@ describe('studyInfoForStudyId', () => {
     it('returns null when studyId is invalid', async () => {
         const studyInfo = await studyInfoForStudyId(invalidUUID)
         expect(studyInfo).toBeUndefined()
-    })
-})
-
-describe('getFirstOrganizationForUser', () => {
-    it('returns the first organization for a user', async () => {
-        const { org1User1, org1 } = await insertRecords()
-        const organization = await getFirstOrganizationForUser(org1User1.id)
-        expect(organization).not.toBeNull()
-        expect(organization?.id).toBe(org1.id)
-    })
-
-    it('returns null when userId is invalid', async () => {
-        const organization = await getFirstOrganizationForUser(invalidUUID)
-        expect(organization).toBeUndefined()
     })
 })
 

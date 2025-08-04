@@ -1,17 +1,56 @@
 'use client'
 
-import { FC } from 'react'
-import { Group, Stack, Text, useMantineTheme } from '@mantine/core'
+import { FC, useMemo } from 'react'
+import { Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
 import { JobFile } from '@/lib/types'
 import { DownloadResultsLink, ViewResultsLink } from './links'
 import { LatestJobForStudy } from '@/server/db/queries'
 import { Title } from '@mantine/core'
 import { JobResultsIteration } from './job-results-iteration'
+import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
+import { useQuery } from '@tanstack/react-query'
+import { ErrorAlert } from './errors'
 
 export const JobResults: FC<{ jobs: LatestJobForStudy[] }> = ({ jobs }) => {
+    const {
+        data: approvedFiles,
+        isLoading,
+        isError,
+        error,
+    } = useQuery({
+        queryKey: ['job-results', jobs[0].id],
+        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: jobs[0].id }),
+    })
+
+    const { resultsFiles, logFiles } = useMemo(() => {
+        const res: JobFile[] = []
+        const logs: JobFile[] = []
+
+        approvedFiles?.forEach((f) => {
+            if (f.fileType === 'APPROVED-RESULT') res.push(f)
+            else if (f.fileType === 'APPROVED-LOG') logs.push(f)
+        })
+
+        return { resultsFiles: res, logFiles: logs }
+    }, [approvedFiles])
+
+    if (isError) {
+        return <ErrorAlert error={error} />
+    }
+
+    if (isLoading || !approvedFiles) {
+        return <LoadingOverlay />
+    }
+
     return (
         <Stack>
-            {jobs.map((job, index) => {
+            {resultsFiles.map((approvedFile) => (
+                <ViewFile file={approvedFile} key={approvedFile.path} />
+            ))}
+            {logFiles.map((approvedFile) => (
+                <ViewFile file={approvedFile} key={approvedFile.path} />
+            ))}
+            {/* {jobs.map((job, index) => {
                 const iteration = jobs.length - index
                 const isCurrent = index === 0
 
@@ -21,7 +60,7 @@ export const JobResults: FC<{ jobs: LatestJobForStudy[] }> = ({ jobs }) => {
                         <JobResultsIteration job={job} />
                     </Stack>
                 )
-            })}
+            })} */}
         </Stack>
     )
 }

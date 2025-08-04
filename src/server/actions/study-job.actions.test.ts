@@ -12,7 +12,7 @@ describe('Study Job Actions', () => {
         const { org } = await mockSessionWithTestData()
         const { job, study } = await insertTestStudyJobData({ org })
 
-        const jobInfo = await loadStudyJobAction(job.id)
+        const jobInfo = await loadStudyJobAction({ studyJobId: job.id })
 
         expect(jobInfo).toMatchObject({
             studyJobId: job.id,
@@ -34,7 +34,7 @@ describe('Study Job Actions', () => {
             .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
             .executeTakeFirstOrThrow()
 
-        const files = await fetchApprovedJobFilesAction(job.id)
+        const files = await fetchApprovedJobFilesAction({ studyJobId: job.id })
 
         expect(files).toHaveLength(1)
         expect(files[0].path).toBe('test.csv')

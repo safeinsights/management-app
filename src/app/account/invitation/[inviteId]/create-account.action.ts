@@ -1,6 +1,5 @@
 'use server'
 
-import { db } from '@/database'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 import { Action, z, ActionFailure } from '@/server/actions/action'
@@ -8,7 +7,7 @@ import { Action, z, ActionFailure } from '@/server/actions/action'
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
     .requireAbilityTo('claim', 'PendingUser')
-    .handler(async ({ inviteId }, { session }) => {
+    .handler(async ({ params: { inviteId }, session, db }) => {
         await db
             .updateTable('pendingUser')
             .set({ claimedByUserId: session.user.id })
@@ -22,7 +21,7 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
             inviteId: z.string(),
         }),
     )
-    .handler(async function ({ inviteId }) {
+    .handler(async function ({ params: { inviteId }, db }) {
         return await db
             .selectFrom('org')
             .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
@@ -37,7 +36,7 @@ export const onRevokeInviteAction = new Action('onRevokeInviteAction')
             inviteId: z.string(),
         }),
     )
-    .handler(async function ({ inviteId }) {
+    .handler(async function ({ params: { inviteId }, db }) {
         await db.deleteFrom('pendingUser').where('id', '=', inviteId).executeTakeFirstOrThrow()
     })
 
@@ -48,7 +47,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
         }),
     )
 
-    .handler(async function ({ inviteId }) {
+    .handler(async function ({ params: { inviteId }, db }) {
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
@@ -89,6 +88,14 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
 
         onUserAcceptInvite(siUser.id)
 
+        // mark invite as claimed by this user so it no longer shows in pending lists
+        await db
+            .updateTable('pendingUser')
+            .set({ claimedByUserId: siUser.id })
+            .where('id', '=', inviteId)
+            .where('claimedByUserId', 'is', null)
+            .executeTakeFirst()
+
         return siUser
     })
 
@@ -105,7 +112,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         }),
     )
 
-    .handler(async function ({ inviteId, form }) {
+    .handler(async function ({ params: { inviteId, form }, db }) {
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')

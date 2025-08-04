@@ -1,6 +1,5 @@
 'use server'
 
-import { db } from '@/database'
 import { ActionFailure, Action, z } from './action'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
@@ -30,8 +29,12 @@ export const syncUserMetadataAction = new Action('syncUserMetadataAction').handl
 })
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
+    .middleware(async ({ session }) => {
+        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
+        return { id: session.user.id, orgId: session.team.id }
+    })
     .requireAbilityTo('update', 'User')
-    .handler(async (_, { session }) => {
+    .handler(async ({ session }) => {
         onUserResetPW(session.user.id)
     })
 
@@ -45,17 +48,17 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             isReviewer: z.boolean(),
         }),
     )
-    .middleware(async ({ userId, orgSlug }) => {
+    .middleware(async ({ params: { userId, orgSlug }, db }) => {
         const orgUser = await db
             .selectFrom('orgUser')
             .select(['orgUser.id', 'orgId', 'isResearcher', 'isReviewer', 'isAdmin'])
             .where('orgUser.userId', '=', userId)
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('org.id', '=', 'orgUser.orgId'))
             .executeTakeFirstOrThrow()
-        return { orgUser }
+        return { orgUser, orgId: orgUser.orgId, id: userId }
     })
     .requireAbilityTo('update', 'User')
-    .handler(async ({ orgSlug, userId, ...update }, { orgUser }) => {
+    .handler(async ({ params: { orgSlug, userId, ...update }, db, orgUser }) => {
         await db.updateTable('orgUser').set(update).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({ userId, before: orgUser, after: update })
     })
