@@ -3,10 +3,11 @@
 import { useDisclosure } from '@mantine/hooks'
 import { TextInput, Button, Flex, Radio } from '@mantine/core'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { notifications } from '@mantine/notifications'
 import { useForm } from '@mantine/form'
 import { orgAdminInviteUserAction } from './admin-users.actions'
 import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
-import { InputError, reportMutationError } from '@/components/errors'
+import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modal'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -40,11 +41,19 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
-        onError: reportMutationError('Failed to invite user'),
-        onSuccess() {
+        onError: handleMutationErrorsWithForm(studyProposalForm),
+        onSuccess(data) {
             studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
-            onInvited()
+            if (data?.alreadyInvited) {
+                notifications.show({
+                    color: 'green',
+                    title: 'Invite resent',
+                    message: 'This user has already been invited. Resending invite.',
+                })
+            } else {
+                onInvited()
+            }
         },
     })
 

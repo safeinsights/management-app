@@ -1,16 +1,19 @@
-import { Flex, Text, Button, Divider } from '@mantine/core'
+import { onRevokeInviteAction } from '@/app/account/invitation/[inviteId]/create-account.action'
+import { reportMutationError } from '@/components/errors'
+import { LoadingMessage } from '@/components/loading'
+import { ActionIcon, Button, Divider, Flex, Text } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { XIcon } from '@phosphor-icons/react/dist/ssr'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FC } from 'react'
 import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { LoadingMessage } from '@/components/loading'
-import { reportMutationError } from '@/components/errors'
-import { notifications } from '@mantine/notifications'
 
 interface PendingUsersProps {
     orgSlug: string
 }
 
 const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: string } }> = ({ pending, orgSlug }) => {
+    const queryClient = useQueryClient()
     const { mutate: reInviteUser, isPending: isReinviting } = useMutation({
         mutationFn: () => reInviteUserAction({ orgSlug, pendingUserId: pending.id }),
         onError: reportMutationError('Failed to re-invite user'),
@@ -19,21 +22,42 @@ const PendingUser: React.FC<{ orgSlug: string; pending: { id: string; email: str
         },
     })
 
+    const { mutate: revokeInvite, isPending: isDeleting } = useMutation({
+        mutationFn: () => onRevokeInviteAction({ inviteId: pending.id }),
+        onError: reportMutationError('Failed to revoke invite'),
+        onSuccess() {
+            notifications.show({ message: `The invite for ${pending.email} has been revoked`, color: 'green' })
+            queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+        },
+    })
+
     return (
         <Flex justify="space-between" align="center">
             <Text size="sm" truncate>
                 {pending.email}
             </Text>
-            <Button
-                variant="outline"
-                size="xs"
-                onClick={() => reInviteUser()}
-                loading={isReinviting}
-                data-pending-id={pending.id}
-                data-testid={`re-invite-${pending.email}`}
-            >
-                Re-invite
-            </Button>
+            <Flex gap="xs">
+                <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => reInviteUser()}
+                    loading={isReinviting}
+                    data-pending-id={pending.id}
+                    data-testid={`re-invite-${pending.email}`}
+                >
+                    Re-invite
+                </Button>
+                <ActionIcon
+                    variant="default"
+                    onClick={() => revokeInvite()}
+                    loading={isDeleting}
+                    data-pending-id={pending.id}
+                    data-testid={`delete-${pending.email}`}
+                    title="Revoke invite"
+                >
+                    <XIcon size={12} />
+                </ActionIcon>
+            </Flex>
         </Flex>
     )
 }

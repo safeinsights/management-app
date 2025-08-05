@@ -1,8 +1,8 @@
 'use server'
 
+import { Action, ActionFailure, z } from '@/server/actions/action'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
-import { Action, z, ActionFailure } from '@/server/actions/action'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
