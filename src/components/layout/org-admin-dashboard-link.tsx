@@ -6,9 +6,9 @@ import Link from 'next/link'
 import { GearIcon, UsersThreeIcon, SlidersIcon, GlobeIcon } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { useSession } from '@/hooks/session'
-import { RefWrapper } from './nav-ref-wrapper'
 import { usePathname } from 'next/navigation'
 import { NavbarLink } from './navbar-link'
+import { RefWrapper } from './nav-ref-wrapper'
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
@@ -36,9 +36,17 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
             <NavLink
                 label="Admin"
                 leftSection={<GearIcon />}
+                tabIndex={0}
                 onClick={() => {
                     if (!pathname.startsWith(orgAdminBaseUrl)) {
                         setIsAdminMenuOpen((prev) => !prev)
+                    }
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        if (!pathname.startsWith(orgAdminBaseUrl)) {
+                            setIsAdminMenuOpen((prev) => !prev)
+                        }
                     }
                 }}
                 active={false}
