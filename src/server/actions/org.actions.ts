@@ -28,10 +28,6 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
-export const fetchOrgsForSelectAction = new Action('fetchOrgsForSelectAction')
-    .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db }) => db.selectFrom('org').select(['id as value', 'name as label']).execute())
-
 export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
