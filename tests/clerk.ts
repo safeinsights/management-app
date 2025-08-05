@@ -24,8 +24,10 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
         const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
 
         if (
-            (ciJobId && user.privateMetadata.createdByCIJobId == ciJobId) &&
-            (dayjs(user.createdAt).isBefore(cutoff) && (emailMatches || nameMatches))
+            ciJobId &&
+            user.privateMetadata.createdByCIJobId == ciJobId &&
+            dayjs(user.createdAt).isBefore(cutoff) &&
+            (emailMatches || nameMatches)
         ) {
             try {
                 await clerk.users.deleteUser(user.id)

@@ -128,7 +128,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             clerkId = users.data[0].id
         } else {
             const createdByCIJobId = process.env.GITHUB_JOB
-            const privateMetadata =  createdByCIJobId ? { createdByCIJobId } : undefined
+            const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,
                 lastName: form.lastName,

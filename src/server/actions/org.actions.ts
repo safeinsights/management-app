@@ -49,12 +49,12 @@ export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
 
 export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('delete', 'Org')
+    .requireAbilityTo('delete', 'Team')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('view', 'Org')
+    .requireAbilityTo('view', 'Team')
     .handler(async ({ db, params: { orgSlug } }) =>
         db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
