@@ -66,8 +66,6 @@ export function defineAbilityFor(session: UserSession) {
         permit('update', 'Team')
         permit('delete', 'Team')
         permit('view', 'Orgs')
-        permit('view', 'Org')
-        permit('delete', 'Org')
     }
 
     return build({

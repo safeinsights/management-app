@@ -41,7 +41,6 @@ type Abilities =
     | Ability<'ReviewerKey', 'view' | 'update', object>
     | Ability<'Team', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'TeamMembers', 'view', { orgId?: UUID; orgSlug?: string }>
-    | Ability<'Org', 'view' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
 
 export type PermissionsObjectSubjects = Extract<Abilities[1], object>
