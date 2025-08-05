@@ -17,10 +17,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         .selectFrom('pendingUser')
         .innerJoin('org', 'pendingUser.orgId', 'org.id')
         .leftJoin('user', 'user.email', 'pendingUser.email')
-        .leftJoin('orgUser', (join) =>
-            join.onRef('orgUser.orgId', '=', 'pendingUser.orgId').onRef('orgUser.userId', '=', 'user.id'),
-        )
-        .select(['user.id as matchingUser', 'orgUser.id as matchingTeam'])
+        .select(['user.id as matchingUser'])
         .whereRef('org.id', '=', 'pendingUser.orgId')
         .where('pendingUser.claimedByUserId', 'is', null)
         .where('pendingUser.id', '=', inviteId)
@@ -37,9 +34,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
-    if (pendingInvite?.matchingTeam) {
-        redirect(`/account/invitation/${inviteId}/exists`, RedirectType.replace)
-    } else if (pendingInvite?.matchingUser) {
+    if (pendingInvite?.matchingUser) {
         redirect(`/account/invitation/${inviteId}/join-team`, RedirectType.replace)
     } else {
         redirect(`/account/invitation/${inviteId}/signup`, RedirectType.replace)

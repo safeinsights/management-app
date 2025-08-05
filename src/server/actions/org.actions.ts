@@ -28,10 +28,6 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
-export const fetchOrgsForSelectAction = new Action('fetchOrgsForSelectAction')
-    .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db }) => db.selectFrom('org').select(['id as value', 'name as label']).execute())
-
 export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
@@ -53,12 +49,12 @@ export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
 
 export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('delete', 'Org')
+    .requireAbilityTo('delete', 'Team')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('view', 'Org')
+    .requireAbilityTo('view', 'Team')
     .handler(async ({ db, params: { orgSlug } }) =>
         db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )

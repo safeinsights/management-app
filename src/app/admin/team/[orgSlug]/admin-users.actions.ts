@@ -4,6 +4,7 @@ import { z, inviteUserSchema } from './invite-user.schema'
 import { sendInviteEmail } from '@/server/mailer'
 import { onUserInvited } from '@/server/events'
 import { Action } from '@/server/actions/action'
+import { ActionFailure } from '@/lib/errors'
 
 export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     .params(
@@ -17,16 +18,29 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     )
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { invite }, orgId, db }) => {
+        // Block invitation if user is already a member of this organization
+        const existingOrgMember = await db
+            .selectFrom('orgUser')
+            .innerJoin('user', 'user.id', 'orgUser.userId')
+            .select(['orgUser.id'])
+            .where('orgUser.orgId', '=', orgId)
+            .where('user.email', '=', invite.email)
+            .executeTakeFirst()
+
+        if (existingOrgMember) {
+            throw new ActionFailure({ email: 'This team member is already in this organization.' })
+        }
+
         // Check if the user already exists in pending users, resend invitation if so
         const existingPendingUser = await db
             .selectFrom('pendingUser')
-            .select(['id', 'email'])
+            .select(['id'])
             .where('email', '=', invite.email)
             .where('orgId', '=', orgId)
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
-            return
+            return { alreadyInvited: true }
         }
 
         const record = await db
@@ -41,6 +55,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirstOrThrow()
 
         onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
+        return { alreadyInvited: false }
     })
 
 export const getPendingUsersAction = new Action('getPendingUsersAction')

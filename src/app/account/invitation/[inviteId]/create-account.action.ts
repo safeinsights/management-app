@@ -1,8 +1,8 @@
 'use server'
 
+import { Action, ActionFailure, z } from '@/server/actions/action'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
-import { Action, z, ActionFailure } from '@/server/actions/action'
 
 export const onPendingUserLoginAction = new Action('onPendingUserLoginAction')
     .params(z.object({ inviteId: z.string() }))
@@ -127,11 +127,14 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
         if (users.data.length) {
             clerkId = users.data[0].id
         } else {
+            const createdByCIJobId = process.env.GITHUB_JOB
+            const privateMetadata = createdByCIJobId ? { createdByCIJobId } : undefined
             const clerkUser = await clerk.users.createUser({
                 firstName: form.firstName,
                 lastName: form.lastName,
                 emailAddress: [invite.email],
                 password: form.password,
+                privateMetadata,
             })
             clerkId = clerkUser.id
         }
