@@ -46,6 +46,11 @@ const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
         message =
             'The code errored out! While logs are not available at this time, consider re-submitting an updated study code.'
     }
+
+    if (!message) {
+        return <Text>Study results will become available once the data organization reviews and approves them.</Text>
+    }
+
     return (
         <>
             {message && (
