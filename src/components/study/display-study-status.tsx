@@ -1,12 +1,12 @@
 'use client'
 
 import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, StatusLabel } from '@/lib/status-labels'
 import { titleize } from '@/lib/string'
 import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
-import { InfoIcon } from '../icons'
-import React, { FC } from 'react'
-import { StatusLabel, REVIEWER_STATUS_LABELS, RESEARCHER_STATUS_LABELS } from '@/lib/status-labels'
 import { usePathname } from 'next/navigation'
+import React, { FC } from 'react'
+import { InfoIcon } from '../icons'
 
 const TooltipPopover: FC<{ tooltip: string }> = ({ tooltip }) => {
     return (
@@ -51,8 +51,14 @@ export const DisplayStudyStatus: FC<{
     // Determine which status labels to use based on URL path
     const isReviewerPath = pathname.startsWith('/reviewer/')
     const statusLabels = isReviewerPath ? REVIEWER_STATUS_LABELS : RESEARCHER_STATUS_LABELS
+    const hasReviewedFiles = jobStatus === 'FILES-APPROVED' || jobStatus === 'FILES-REJECTED'
 
-    const status = jobStatus || studyStatus
+    let status = jobStatus || studyStatus
+    // do not show job errored status for researchers until the reviewer approves or rejects error log sharing
+    if (!isReviewerPath && jobStatus === 'JOB-ERRORED' && !hasReviewedFiles) {
+        status = studyStatus
+    }
+
     let props = statusLabels[status]
 
     if (!props) {
