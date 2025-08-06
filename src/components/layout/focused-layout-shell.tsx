@@ -5,6 +5,7 @@ import { SafeInsightsLogo } from './si-logo'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import { ReactNode } from 'react'
+import { ActivityContext } from '../activity-context'
 
 type Props = {
     children: ReactNode
@@ -16,6 +17,7 @@ export function FocusedLayoutShell({ children }: Props) {
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
             <Notifications position="top-right" />
+            <ActivityContext />
 
             <AppShellHeader bg="purple.8" withBorder={false}>
                 <Group h="100%" p="md">
