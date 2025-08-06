@@ -52,18 +52,14 @@ const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
     }
 
     return (
-        <>
-            {message && (
-                <Stack>
-                    <Text>{message}</Text>
-                    <Group justify="flex-start" align="center">
-                        <Text size="xs" fw="bold">
-                            Job ID:
-                        </Text>
-                        <CopyingInput value={jobId} tooltipLabel="Copy" />
-                    </Group>
-                </Stack>
-            )}
-        </>
+        <Stack>
+            <Text>{message}</Text>
+            <Group justify="flex-start" align="center">
+                <Text size="xs" fw="bold">
+                    Job ID:
+                </Text>
+                <CopyingInput value={jobId} tooltipLabel="Copy" />
+            </Group>
+        </Stack>
     )
 }
