@@ -13,7 +13,7 @@ import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { theme } from '@/theme'
 import { ReactElement } from 'react'
-import { useClerk, useAuth, useUser } from '@clerk/nextjs'
+import { useClerk, useAuth, useUser, useSession } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { Mock, vi } from 'vitest'
 import { ENVIRONMENT_ID } from '@/server/config'
@@ -321,11 +321,24 @@ type MockSession = {
     orgId?: string
     roles?: Partial<UserOrgRoles>
     isSiAdmin?: boolean
+    twoFactorEnabled?: boolean
 }
 
 export type ClerkMocks = ReturnType<typeof mockClerkSession>
 
-export const mockClerkSession = (values: MockSession) => {
+export const mockClerkSession = (values: MockSession | null) => {
+    if (values === null) {
+        ;(useSession as Mock).mockReturnValue({
+            session: null,
+            isLoaded: true,
+            isSignedIn: false,
+        })
+        ;(useClerk as Mock).mockReturnValue({
+            signOut: vi.fn(),
+        } as unknown as ReturnType<typeof useClerk>)
+        return
+    }
+
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
@@ -365,7 +378,7 @@ export const mockClerkSession = (values: MockSession) => {
     const userProperties = {
         id: values.clerkUserId,
         banned: false,
-        twoFactorEnabled: true,
+        twoFactorEnabled: values.twoFactorEnabled ?? true,
         imageUrl: values.imageUrl,
         organizationMemberships: [],
         unsafeMetadata,
@@ -446,6 +459,7 @@ type MockSessionWithTestDataOptions = {
     isAdmin?: boolean
     isSiAdmin?: boolean
     clerkId?: string
+    twoFactorEnabled?: boolean
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
@@ -479,6 +493,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
             isAdmin: options.isAdmin ?? false,
         },
         isSiAdmin: options.isSiAdmin,
+        twoFactorEnabled: options.twoFactorEnabled,
     })
 
     const session = { user, team: { id: org.id, slug: org.slug } }

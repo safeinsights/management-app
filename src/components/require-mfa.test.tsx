@@ -1,13 +1,20 @@
 import { TestingProviders } from '@/tests/providers'
-import { useUser } from '@clerk/nextjs'
 import { render, act, waitFor } from '@testing-library/react'
 import router from 'next-router-mock'
-import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RequireMFA } from './require-mfa'
+import { mockClerkSession } from '@/tests/unit.helpers'
+import { faker } from '@faker-js/faker'
 
 vi.mock('@/server/actions/org.actions', () => ({
     getReviewerPublicKeyAction: vi.fn(() => Promise.resolve(null)),
 }))
+
+const mockSessionValues = {
+    clerkUserId: faker.string.uuid(),
+    userId: faker.string.uuid(),
+    orgSlug: 'test-org',
+}
 
 describe('RequireMFA', () => {
     describe('when MFA is not enabled', () => {
@@ -16,7 +23,7 @@ describe('RequireMFA', () => {
         })
 
         it('redirects if mfa is not set', async () => {
-            ;(useUser as Mock).mockImplementation(() => ({ user: { twoFactorEnabled: false } }))
+            mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
             // act waits for layoutEffect to finish
             await act(async () => {
@@ -34,7 +41,7 @@ describe('RequireMFA', () => {
 
         it('redirects to /account/mfa until MFA is completed', async () => {
             // 1. brand-new account, Clerk returns twoFactorEnabled: false
-            ;(useUser as Mock).mockReturnValue({ user: { twoFactorEnabled: false } })
+            mockClerkSession({ ...mockSessionValues, twoFactorEnabled: false })
 
             await act(async () => {
                 render(<RequireMFA />, { wrapper: TestingProviders })
@@ -43,7 +50,7 @@ describe('RequireMFA', () => {
             await waitFor(() => expect(router.asPath).toBe('/account/mfa'))
 
             // 2. user completes MFA → Clerk now returns twoFactorEnabled === true
-            ;(useUser as Mock).mockReturnValue({ user: { twoFactorEnabled: true } })
+            mockClerkSession({ ...mockSessionValues, twoFactorEnabled: true })
             router.setCurrentUrl('/researcher/dashboard')
 
             await act(async () => {
