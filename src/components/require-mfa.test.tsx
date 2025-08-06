@@ -33,8 +33,8 @@ describe('RequireMFA', () => {
         })
 
         it('redirects to /account/mfa until MFA is completed', async () => {
-            // 1. brand-new account, Clerk hasn’t set twoFactorEnabled yet (undefined)
-            ;(useUser as Mock).mockReturnValue({ user: { twoFactorEnabled: undefined } })
+            // 1. brand-new account, Clerk returns twoFactorEnabled: false
+            ;(useUser as Mock).mockReturnValue({ user: { twoFactorEnabled: false } })
 
             await act(async () => {
                 render(<RequireMFA />, { wrapper: TestingProviders })

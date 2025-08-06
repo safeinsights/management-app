@@ -10,7 +10,7 @@ export const RequireMFA = () => {
     const router = useRouter()
 
     useLayoutEffect(() => {
-        if (user?.twoFactorEnabled !== true && !pathname.startsWith('/account/mfa')) {
+        if (user?.twoFactorEnabled === false && !pathname.startsWith('/account/mfa')) {
             router.push('/account/mfa')
         }
     }, [pathname, router, user?.twoFactorEnabled])
