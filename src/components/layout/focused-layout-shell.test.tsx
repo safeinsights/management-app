@@ -8,10 +8,12 @@ import { TestingProviders } from '@/tests/providers'
 it('renders without a user', async () => {
     vi.mocked(useSession).mockReturnValue({
         session: null,
-    } as any)
+        isLoaded: true,
+        isSignedIn: false,
+    })
     vi.mocked(useClerk).mockReturnValue({
         signOut: vi.fn(),
-    } as any)
+    } as unknown as ReturnType<typeof useClerk>)
 
     render(
         <FocusedLayoutShell>
