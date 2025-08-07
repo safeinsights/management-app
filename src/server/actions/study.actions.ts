@@ -180,6 +180,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         z.object({
             studyId: z.string(),
             orgSlug: z.string(),
+            useTestImage: z.boolean().optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -191,7 +192,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, useTestImage }, study, session, db }) => {
         const userId = session.user.id
 
         // nothing to do if already approved
@@ -212,6 +213,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 .selectFrom('orgBaseImage')
                 .where('language', '=', latestJob.language)
                 .where('orgId', '=', study.orgId)
+                .where('isTesting', '=', useTestImage || false)
                 .orderBy('orgBaseImage.createdAt', 'desc')
                 .select(['url', 'cmdLine'])
                 .executeTakeFirstOrThrow(
