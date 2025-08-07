@@ -17,7 +17,7 @@ import { ActionReturnType } from '@/lib/types'
 
 type BaseImage = ActionReturnType<typeof fetchOrgBaseImagesAction>[number]
 
-const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
+const BaseImageRow: React.FC<{ image: BaseImage; images: BaseImage[] }> = ({ image, images }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
 
@@ -32,6 +32,8 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
         onError: reportMutationError('Failed to delete base image'),
     })
 
+    const isLastNonTestImage = images.filter((img) => !img.isTesting).length === 1 && !image.isTesting
+
     return (
         <Table.Tr>
             <Table.Td>{image.name}</Table.Td>
@@ -41,6 +43,7 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
                 <SuretyGuard
+                    blockAction={isLastNonTestImage}
                     onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
                     message="Are you sure you want to delete this base image? This cannot be undone."
                 >
@@ -74,7 +77,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
             </Table.Thead>
             <Table.Tbody>
                 {images.map((image, key) => (
-                    <BaseImageRow key={key} image={image} />
+                    <BaseImageRow key={key} image={image} images={images} />
                 ))}
             </Table.Tbody>
         </Table>
