@@ -38,9 +38,9 @@ export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: Fi
     return duplicateFound
 }
 
-export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
-    studyProposalForm,
-}) => {
+export const StudyCodeSection: FC<{
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+}> = ({ studyProposalForm }) => {
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
 
@@ -67,12 +67,8 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
     }
 
     const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
-
     return (
-        <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 2 of 2
-            </Text>
+        <>
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">
@@ -214,6 +210,19 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                     )}
                 </Grid>
             </Group>
+        </>
+    )
+}
+
+export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
+    studyProposalForm,
+}) => {
+    return (
+        <Paper p="xl">
+            <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                Step 2 of 2
+            </Text>
+            <StudyCodeSection studyProposalForm={studyProposalForm} />
         </Paper>
     )
 }

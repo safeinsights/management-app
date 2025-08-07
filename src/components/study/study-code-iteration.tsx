@@ -1,19 +1,18 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Stack } from '@mantine/core'
-import { Title } from '@mantine/core'
-import { StudyCodeIteration } from './study-code-iteration'
+import { Badge, Stack, Text, Group } from '@mantine/core'
+import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@tanstack/react-query'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { studyCodeURL } from '@/lib/paths'
 
-export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
+export const StudyCodeIteration: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['studyJobFiles', job.id],
         enabled: !!job.id,
-        queryFn: () => loadStudyJobAction({ studyJobId: job.id }),
+        queryFn: () => loadStudyJobAction(job.id),
     })
 
     if (isLoading || !data) return <Text>Loading files...</Text>
@@ -63,17 +62,19 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
 
     return (
         <Stack>
-            {jobs.map((job, index) => {
-                const iteration = jobs.length - index
-                const isCurrent = index === 0
-
-                return (
-                    <Stack key={job.id}>
-                        <Title order={5}>{isCurrent ? 'Current Iteration' : `Iteration ${iteration}`}</Title>
-                        <StudyCodeIteration job={job} />
-                    </Stack>
-                )
-            })}
+            <Text>View the code files that you uploaded to run against the dataset.</Text>
+            {mainCodeFileChip && (
+                <Group>
+                    <Text fw={650}>Main code file:</Text>
+                    {mainCodeFileChip}
+                </Group>
+            )}
+            {supplementalCodeFiles.length > 0 && (
+                <Group>
+                    <Text fw={650}>Additional file(s):</Text>
+                    <Group gap="md">{supplementalCodeFileChips}</Group>
+                </Group>
+            )}
         </Stack>
     )
 }

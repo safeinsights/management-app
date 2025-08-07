@@ -57,7 +57,7 @@ export default async function StudyReviewPage(props: {
                         Study Code
                     </Title>
                     <Divider c="dimmed" />
-                    <StudyCodeDetails job={job} />
+                    <StudyCodeDetails jobs={[latestJob]} />
                 </Stack>
             </Paper>
 

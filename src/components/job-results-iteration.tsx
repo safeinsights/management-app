@@ -1,25 +1,23 @@
 'use client'
 
-import { FC, useMemo } from 'react'
+import React, { FC, useMemo } from 'react'
 import { Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
+import { useQuery } from '@tanstack/react-query'
+import { ErrorAlert } from '@/components/errors'
+import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { DownloadResultsLink, ViewResultsLink } from './links'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { Title } from '@mantine/core'
-import { JobResultsIteration } from './job-results-iteration'
-import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
-import { useQuery } from '@tanstack/react-query'
-import { ErrorAlert } from './errors'
 
-export const JobResults: FC<{ jobs: LatestJobForStudy[] }> = ({ jobs }) => {
+export const JobResultsIteration: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const {
         data: approvedFiles,
         isLoading,
         isError,
         error,
     } = useQuery({
-        queryKey: ['job-results', jobs[0].id],
-        queryFn: async () => await fetchApprovedJobFilesAction({ studyJobId: jobs[0].id }),
+        queryKey: ['job-results', job.id],
+        queryFn: async () => await fetchApprovedJobFilesAction(job.id),
     })
 
     const { resultsFiles, logFiles } = useMemo(() => {
@@ -50,17 +48,6 @@ export const JobResults: FC<{ jobs: LatestJobForStudy[] }> = ({ jobs }) => {
             {logFiles.map((approvedFile) => (
                 <ViewFile file={approvedFile} key={approvedFile.path} />
             ))}
-            {/* {jobs.map((job, index) => {
-                const iteration = jobs.length - index
-                const isCurrent = index === 0
-
-                return (
-                    <Stack key={job.id}>
-                        <Title order={5}>{isCurrent ? null : `Logs - Iteration ${iteration}`}</Title>
-                        <JobResultsIteration job={job} />
-                    </Stack>
-                )
-            })} */}
         </Stack>
     )
 }
