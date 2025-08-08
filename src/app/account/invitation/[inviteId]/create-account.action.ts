@@ -78,7 +78,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                     orgId: invite.orgId,
                     isResearcher: invite.isResearcher,
                     isReviewer: invite.isReviewer,
-                    isAdmin: false,
+                    isAdmin: invite.isAdmin,
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
@@ -179,7 +179,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                     orgId: invite.orgId,
                     isResearcher: invite.isResearcher,
                     isReviewer: invite.isReviewer,
-                    isAdmin: false,
+                    isAdmin: invite.isAdmin,
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()

@@ -1,10 +1,10 @@
 'use server'
 
-import { z, inviteUserSchema } from './invite-user.schema'
-import { sendInviteEmail } from '@/server/mailer'
-import { onUserInvited } from '@/server/events'
-import { Action } from '@/server/actions/action'
 import { ActionFailure } from '@/lib/errors'
+import { Action } from '@/server/actions/action'
+import { onUserInvited } from '@/server/events'
+import { sendInviteEmail } from '@/server/mailer'
+import { inviteUserSchema, z } from './invite-user.schema'
 
 export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     .params(
@@ -50,6 +50,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
                 email: invite.email,
                 isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
                 isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',
+                isAdmin: invite.permission == 'admin',
             })
             .returning('id')
             .executeTakeFirstOrThrow()

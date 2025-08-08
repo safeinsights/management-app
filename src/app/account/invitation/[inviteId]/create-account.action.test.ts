@@ -57,6 +57,7 @@ describe('Create Account Actions', () => {
                 email: faker.internet.email({ provider: 'test.com' }),
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -88,6 +89,7 @@ describe('Create Account Actions', () => {
                 email: user.email!,
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -113,6 +115,7 @@ describe('Create Account Actions', () => {
                 email: user.email!,
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -139,6 +142,7 @@ describe('Create Account Actions', () => {
                 email: user.email!,
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -159,6 +163,7 @@ describe('Create Account Actions', () => {
                 email: faker.internet.email({ provider: 'test.com' }),
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -182,6 +187,7 @@ describe('Create Account Actions', () => {
                 email: faker.internet.email({ provider: 'test.com' }),
                 isResearcher: true,
                 isReviewer: true,
+                isAdmin: false,
             })
             .returningAll()
             .executeTakeFirstOrThrow()

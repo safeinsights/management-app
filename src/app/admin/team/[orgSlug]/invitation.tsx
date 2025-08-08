@@ -1,23 +1,26 @@
 'use client'
 
-import { useDisclosure } from '@mantine/hooks'
-import { TextInput, Button, Flex, Radio } from '@mantine/core'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { notifications } from '@mantine/notifications'
-import { useForm } from '@mantine/form'
-import { orgAdminInviteUserAction } from './admin-users.actions'
-import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
-import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { AppModal } from '@/components/modal'
+import { SuccessPanel } from '@/components/panel'
+import { Button, Flex, Radio, TextInput } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
+import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { type FC, useState } from 'react'
+import { orgAdminInviteUserAction } from './admin-users.actions'
+import { InviteUserFormValues, inviteUserSchema } from './invite-user.schema'
 import { PendingUsers } from './pending-invites'
-import { SuccessPanel } from '@/components/panel'
 
 interface InviteFormProps {
     orgSlug: string
 }
+
+type Role = 'reviewer' | 'researcher' | 'multiple'
+type Permissions = 'contributor' | 'admin'
 
 const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
     return (
@@ -36,6 +39,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         initialValues: {
             email: '',
             role: '',
+            permission: '',
         },
     })
 
@@ -62,7 +66,8 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             onSubmit={studyProposalForm.onSubmit((values) =>
                 inviteUser({
                     ...values,
-                    role: values.role as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+                    role: values.role as Role,
+                    permission: values.permission as Permissions,
                 }),
             )}
         >
@@ -75,7 +80,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 {...studyProposalForm.getInputProps('email')}
                 error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
             />
-            <Flex mb="sm" fw="semibold">
+            <Flex mb="md" fw="semibold">
                 <Radio.Group
                     label="Assign Role"
                     styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
@@ -86,6 +91,23 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                         <Radio value="multiple" label="Multiple (can switch between reviewer and researcher roles)" />
                         <Radio value="reviewer" label="Reviewer (can review and approve studies)" />
                         <Radio value="researcher" label="Researcher (can submit studies and access results)" />
+                    </Flex>
+                </Radio.Group>
+            </Flex>
+
+            <Flex mb="sm" fw="semibold">
+                <Radio.Group
+                    label="Assign Permissions"
+                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
+                    name="permission"
+                    {...studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
+                >
+                    <Flex gap="md" mt="xs" direction="column">
+                        <Radio
+                            value="contributor"
+                            label="Contributor (full access within their role; no admin privileges)"
+                        />
+                        <Radio value="admin" label="Administrator (manages team-level settings and contributors)" />
                     </Flex>
                 </Radio.Group>
             </Flex>

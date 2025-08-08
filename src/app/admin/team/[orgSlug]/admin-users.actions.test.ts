@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
-import { orgAdminInviteUserAction, getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 import { db } from '@/database'
 import { sendInviteEmail } from '@/server/mailer'
+import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { describe, expect, it, vi } from 'vitest'
+import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
 
 vi.mock('@/server/events', () => ({
     onUserInvited: vi.fn(({ invitedEmail, pendingId }) => {
@@ -20,6 +20,7 @@ describe('Admin Users Actions', () => {
         const invite = {
             email: 'newuser@test.com',
             role: 'researcher' as const,
+            permission: 'admin' as const,
         }
 
         await orgAdminInviteUserAction({ orgSlug: org.slug, invite })
@@ -32,6 +33,7 @@ describe('Admin Users Actions', () => {
         expect(pendingUser).toBeDefined()
         expect(pendingUser?.isResearcher).toBe(true)
         expect(pendingUser?.isReviewer).toBe(false)
+        expect(pendingUser?.isAdmin).toBe(true)
     })
 
     it('getPendingUsersAction returns pending users', async () => {
@@ -40,11 +42,17 @@ describe('Admin Users Actions', () => {
 
         await db
             .insertInto('pendingUser')
-            .values({ orgId: org.id, email: 'pending1@test.com', isResearcher: true, isReviewer: false })
+            .values({
+                orgId: org.id,
+                email: 'pending1@test.com',
+                isResearcher: true,
+                isReviewer: false,
+                isAdmin: false,
+            })
             .execute()
         await db
             .insertInto('pendingUser')
-            .values({ orgId: org.id, email: 'pending2@test.com', isResearcher: false, isReviewer: true })
+            .values({ orgId: org.id, email: 'pending2@test.com', isResearcher: false, isReviewer: true, isAdmin: true })
             .execute()
 
         const pendingUsers = await getPendingUsersAction({ orgSlug: org.slug })
@@ -55,7 +63,13 @@ describe('Admin Users Actions', () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const pendingUser = await db
             .insertInto('pendingUser')
-            .values({ orgId: org.id, email: 'reinvite@test.com', isResearcher: true, isReviewer: false })
+            .values({
+                orgId: org.id,
+                email: 'reinvite@test.com',
+                isResearcher: true,
+                isReviewer: false,
+                isAdmin: false,
+            })
             .returningAll()
             .executeTakeFirstOrThrow()
 
