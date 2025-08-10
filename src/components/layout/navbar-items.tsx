@@ -1,17 +1,18 @@
 'use client'
 
-import { FC } from 'react'
+import { useSession } from '@/hooks/session'
 import { Stack } from '@mantine/core'
 import { StudentIcon, UserListIcon } from '@phosphor-icons/react/dist/ssr'
-import { useSession } from '@/hooks/session'
-import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
+import { FC } from 'react'
 import { OrgSwitcher } from '../org/org-switcher'
 import { NavbarLink } from './navbar-link'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
+import NavbarSkeleton from './skeleton/navbar'
 
 export const NavbarItems: FC = () => {
     const { isLoaded, session } = useSession()
 
-    if (!isLoaded) return null
+    if (!isLoaded) return <NavbarSkeleton />
 
     const { isAdmin, isResearcher, isReviewer } = session.team
 

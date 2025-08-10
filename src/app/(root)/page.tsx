@@ -1,20 +1,30 @@
-import { Title } from '@mantine/core'
-import { UserNav } from './user-nav'
-import { pageStyles, mainStyles, footerStyles } from '@/styles/common'
+'use client'
+
+import DashboardSkeleton from '@/components/layout/skeleton/dashboard'
+import { useSession } from '@/hooks/session'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 export const dynamic = 'force-dynamic'
 
-// TODO Remove this root page?,
-//  or route users based on their roles to correct pages?
 export default function Home() {
-    return (
-        <div className={pageStyles}>
-            <main className={mainStyles}>
-                <Title>Welcome to the SafeInsights management app.</Title>
-                <UserNav />
-            </main>
+    const { isLoaded, session } = useSession()
+    const [isNavigating, setIsNavigating] = useState(false)
+    const router = useRouter()
 
-            <footer className={footerStyles}>A SafeInsights production</footer>
-        </div>
-    )
+    useEffect(() => {
+        if (!session) return
+
+        setIsNavigating(true)
+        if (session.team.isResearcher) {
+            router.push('/researcher/dashboard')
+        } else if (session.team.isReviewer) {
+            router.push(`/reviewer/${session.team.slug}/dashboard`)
+        }
+    }, [session, router])
+
+    // Show dashboard skeleton while session is loading or during navigation
+    if (!isLoaded || isNavigating) {
+        return <DashboardSkeleton />
+    }
 }
