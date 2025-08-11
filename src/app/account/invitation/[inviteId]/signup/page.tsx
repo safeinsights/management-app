@@ -121,6 +121,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                 <Flex direction="row" gap="xl">
                     <TextInput
                         radius="sm"
+                        flex="1"
                         key={form.key('firstName')}
                         {...form.getInputProps('firstName')}
                         label="First name"
@@ -130,6 +131,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
 
                     <TextInput
                         radius="sm"
+                        flex="1"
                         key={form.key('lastName')}
                         {...form.getInputProps('lastName')}
                         label="Last name"
