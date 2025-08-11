@@ -118,7 +118,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     }}
                 />
 
-                <Flex direction="row" gap="xl" grow>
+                <Flex direction="row" gap="xl">
                     <TextInput
                         radius="sm"
                         key={form.key('firstName')}
