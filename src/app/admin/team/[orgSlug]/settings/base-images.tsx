@@ -17,7 +17,7 @@ import { ActionReturnType } from '@/lib/types'
 
 type BaseImage = ActionReturnType<typeof fetchOrgBaseImagesAction>[number]
 
-const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
+const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ image, canDelete }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
 
@@ -32,6 +32,19 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
         onError: reportMutationError('Failed to delete base image'),
     })
 
+    const DeleteBaseImg = () => {
+        if (!canDelete) return null
+
+        return (
+            <SuretyGuard
+                onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
+                message="Are you sure you want to delete this base image? This cannot be undone."
+            >
+                <TrashIcon />
+            </SuretyGuard>
+        )
+    }
+
     return (
         <Table.Tr>
             <Table.Td>{image.name}</Table.Td>
@@ -40,12 +53,7 @@ const BaseImageRow: React.FC<{ image: BaseImage }> = ({ image }) => {
             <Table.Td>{image.cmdLine}</Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
-                <SuretyGuard
-                    onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
-                    message="Are you sure you want to delete this base image? This cannot be undone."
-                >
-                    <TrashIcon />
-                </SuretyGuard>
+                <DeleteBaseImg />
             </Table.Td>
         </Table.Tr>
     )
@@ -59,6 +67,8 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
             </Text>
         )
     }
+
+    const canDeleteNonTestImage = images.filter((img) => !img.isTesting).length > 1
 
     return (
         <Table striped highlightOnHover withTableBorder withColumnBorders>
@@ -74,7 +84,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
             </Table.Thead>
             <Table.Tbody>
                 {images.map((image, key) => (
-                    <BaseImageRow key={key} image={image} />
+                    <BaseImageRow key={key} image={image} canDelete={canDeleteNonTestImage} />
                 ))}
             </Table.Tbody>
         </Table>
