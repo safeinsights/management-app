@@ -20,16 +20,23 @@ test.describe('Organization Admin', () => {
         await page.waitForSelector('input[type="email"]', { state: 'visible' })
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
-        await expect(page.getByText('invalid email address')).toBeVisible()
+        await expect(page.getByText(/invalid email address/i)).toBeVisible()
 
         await page.getByLabel(/email/i).fill(email)
         await page.keyboard.press('Tab')
-        await expect(page.getByText('role must be selected')).toBeVisible()
+        await expect(page.getByText(/a role must be selected/i)).toBeVisible()
 
         await page.getByLabel('Reviewer (can review and approve studies)').click()
 
-        await page.getByRole('button', { name: /send/i }).click()
-        await expect(page.getByText('sent successfully')).toBeVisible({ timeout: 10000 })
+        await page.keyboard.press('Tab')
+        await page.keyboard.press('Tab')
+
+        await expect(page.getByText(/a permission must be selected/i)).toBeVisible()
+
+        await page.getByLabel('Administrator (manages team-level settings and contributors)').click()
+
+        await page.getByRole('button', { name: /send invitation/i }).click()
+        await expect(page.getByText(/invitation sent successfully/i)).toBeVisible({ timeout: 10000 })
 
         await page.getByRole('button', { name: /continue to invite people/i }).click()
 
