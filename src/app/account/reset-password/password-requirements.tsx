@@ -1,4 +1,3 @@
-import { theme } from '@/theme'
 import { Flex, Text, useMantineTheme } from '@mantine/core'
 import { CheckIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
@@ -24,7 +23,6 @@ export const PASSWORD_REQUIREMENTS = [
     { re: /^.{8,}$/, label: '8 character minimum', message: '8 character minimum' },
 ]
 
-
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
     const theme = useMantineTheme()
@@ -33,9 +31,12 @@ export function Requirements({ requirements }: RequirementsProps) {
             <Flex key={i} direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
                     <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
-                        
-                            {requirement.meets ? <CheckIcon size={14} color={theme.colors.green[9]} /> : <XCircleIcon size={14} color={theme.colors.red[7]} />}
-    
+                        {requirement.meets ? (
+                            <CheckIcon size={14} color={theme.colors.green[9]} />
+                        ) : (
+                            <XCircleIcon size={14} color={theme.colors.red[7]} />
+                        )}
+
                         <Text size="sm">{requirement.label}</Text>
                     </Flex>
                 ))}
