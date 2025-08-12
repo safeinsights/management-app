@@ -18,6 +18,12 @@ jobs:
                   cache: 'npm'
             - name: npm install
               run: npm ci
+            - name: Run Trivy vulnerability scanner in fs mode
+              uses: aquasecurity/trivy-action@0.28.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  trivy-config: trivy.yaml
             - name: show versions
               run: npm ls
             - name: npm run checks
