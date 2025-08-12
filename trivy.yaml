@@ -1,4 +1,5 @@
-format: 'table'
+format: 'sarif'
+output: 'trivy-results.sarif'
 exit-code: 1
 debug: true
 severity:
@@ -18,7 +19,6 @@ scan:
         - node_modules
         - test-results
         - playwright-report
-# comment the next two lines to also report unfixed vulnerabilities
 vulnerability:
     ignore-unfixed: true
 misconfiguration:

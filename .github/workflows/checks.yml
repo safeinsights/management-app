@@ -18,18 +18,36 @@ jobs:
                   cache: 'npm'
             - name: npm install
               run: npm ci
-            - name: Run Trivy vulnerability scanner in fs mode
-              uses: aquasecurity/trivy-action@0.28.0
-              with:
-                  scan-type: 'fs'
-                  scan-ref: '.'
-                  trivy-config: trivy.yaml
             - name: show versions
               run: npm ls
             - name: npm run checks
               run: npm run checks
             - name: validate actions
               run: npm run validate-actions
+
+    trivy:
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        permissions:
+            security-events: write
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: 'npm'
+            - name: npm install
+              run: npm ci
+            - name: Run Trivy vulnerability scanner in fs mode
+              uses: aquasecurity/trivy-action@0.28.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  trivy-config: trivy.yaml
+            - name: Upload Trivy scan results to GitHub Security tab
+              uses: github/codeql-action/upload-sarif@v3
+              with:
+                  sarif_file: 'trivy-results.sarif'
 
     test:
         timeout-minutes: 15
