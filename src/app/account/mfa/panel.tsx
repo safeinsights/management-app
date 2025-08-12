@@ -1,10 +1,9 @@
 'use client'
 
-import React from 'react'
-import { useUser } from '@clerk/nextjs'
 import { ButtonLink, Link } from '@/components/links'
-import { Container, Group, Stack, Text } from '@mantine/core'
 import { Panel } from '@/components/panel'
+import { useUser } from '@clerk/nextjs'
+import { Container, Paper, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 
@@ -36,26 +35,27 @@ export function ManageMFAPanel() {
     if (user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')) return <HasMFA />
 
     return (
-        <Container>
-            <Panel title="Set up Two-Step Verification">
-                <Stack gap="lg">
-                    <Text size="md">
-                        To enhance the security of your account, we’re enforcing two-factor verification at
-                        SafeInsights.
-                    </Text>
-                    <Text size="md" mb="md">
-                        Feel free to opt in to use either SMS verification OR Authenticator App verification.
-                    </Text>
-                    <Group gap="md">
-                        <ButtonLink href="/account/mfa/sms" m={1}>
-                            SMS Verification
-                        </ButtonLink>
-                        <ButtonLink href="/account/mfa/app" m={1}>
-                            Authenticator App Verification
-                        </ButtonLink>
-                    </Group>
+        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <Stack mb="xxl">
+                <Title mb="xs" ta="center" order={3}>
+                    Secure your account with <br /> Multi-Factor Authentication
+                </Title>
+                <Text size="md">
+                    To enhance the security of your account, we&apos;re enforcing two-factor verification at
+                    SafeInsights.
+                </Text>
+                <Text size="md" mb="xs">
+                    You can choose to receive verification codes via text message (SMS) or use an authenticator app.
+                </Text>
+                <Stack gap="xl">
+                    <ButtonLink href="/account/mfa/sms" w="100%" size="md" variant="primary">
+                        SMS Verification
+                    </ButtonLink>
+                    <ButtonLink href="/account/mfa/app" w="100%" variant="outline" size="md">
+                        Authenticator app verification
+                    </ButtonLink>
                 </Stack>
-            </Panel>
-        </Container>
+            </Stack>
+        </Paper>
     )
 }
