@@ -8,9 +8,17 @@ import { UserName } from '@/components/user-name'
 import { DashboardUrlSetter } from '@/components/dashboard-url-setter'
 
 import { StudiesTable } from './table'
+import { AlertNotFound } from '@/components/errors'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
+
+    const org = await getOrgFromSlugAction({ orgSlug })
+
+    if (!org) {
+        return <AlertNotFound title="Org was not found" message="no such org exists" />
+    }
 
     const studies = await fetchStudiesForOrgAction({ orgSlug })
 
