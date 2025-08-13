@@ -17,6 +17,10 @@ vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => []),
 }))
 
+vi.mock('@/server/actions/session.actions', () => ({
+    setLastDashboardUrlAction: vi.fn().mockResolvedValue(undefined),
+}))
+
 // TODO Extract out into a helper function that we can re-use
 const mockOrg: Org = {
     id: faker.string.uuid(),
@@ -31,9 +35,15 @@ const mockOrg: Org = {
 
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
         user: {
             firstName: 'Tester',
-        },
+            unsafeMetadata: {
+                lastDashboardUrl: '/reviewer/test-org/dashboard',
+            },
+            reload: vi.fn().mockResolvedValue(undefined),
+        } as Partial<UseUserReturn['user']>,
     } as UseUserReturn)
 })
 
