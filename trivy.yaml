@@ -1,0 +1,27 @@
+format: 'table'
+exit-code: 1
+debug: true
+severity:
+    - MEDIUM
+    - HIGH
+    - CRITICAL
+timeout: 5m
+scan:
+    scanners:
+        - vuln
+        - secret
+        - misconfig
+    skip-dirs:
+        - .git
+        - .next
+        - .husky
+        - node_modules
+        - test-results
+        - playwright-report
+    skip-files:
+        - .env
+vulnerability:
+    ignore-unfixed: true
+misconfiguration:
+    scanners:
+        - dockerfile

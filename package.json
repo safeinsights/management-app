@@ -12,8 +12,6 @@
     },
     "scripts": {
         "build:lambda": "./bin/build-lambda",
-        "build:docker:production": "./bin/prod-docker-build",
-        "build:docker:ci": "./bin/prod-docker-build ci-only-do-not-push",
         "ci:server": "./bin/ci-server",
         "dev": "next dev --turbopack -p 4000",
         "prepare": "panda codegen",
