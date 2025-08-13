@@ -18,7 +18,7 @@ vi.mock('@/server/actions/study.actions', () => ({
 }))
 
 vi.mock('@/server/actions/session.actions', () => ({
-    setLastDashboardUrlAction: vi.fn().mockResolvedValue(undefined),
+    setLastDashboardUrlAction: vi.fn(() => Promise.resolve()),
 }))
 
 // TODO Extract out into a helper function that we can re-use
