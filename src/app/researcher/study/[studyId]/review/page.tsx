@@ -1,6 +1,6 @@
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
 import { StudyDetails } from '@/components/study/study-details'
@@ -28,11 +28,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs
-                crumbs={{
-                    studyId,
-                    current: 'Study Details',
-                }}
+            <PageBreadcrumbs
+                crumbs={[
+                    { title: study.title, href: `/researcher/study/${studyId}/review` },
+                    { title: 'Study Details' },
+                ]}
             />
             <Title order={1}>Study Details</Title>
             <Paper bg="white" p="xxl">

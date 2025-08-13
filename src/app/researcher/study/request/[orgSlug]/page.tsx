@@ -3,7 +3,7 @@
 import React from 'react'
 import { Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
 import { sessionFromClerk } from '@/server/clerk'
 
@@ -15,7 +15,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
     if (session?.team.slug !== params.orgSlug) {
         return (
             <Stack p="xl" gap="xl">
-                <ResearcherBreadcrumbs crumbs={{ current: 'Propose a study' }} />
+                <PageBreadcrumbs crumbs={[{ title: 'Propose a study' }]} />
                 <AlertNotFound
                     title="Access Denied"
                     message="You are not authorized to propose studies for this organization."
@@ -26,7 +26,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
 
     return (
         <Stack p="xl" gap="xl">
-            <ResearcherBreadcrumbs crumbs={{ current: 'Propose a study' }} />
+            <PageBreadcrumbs crumbs={[{ title: 'Propose a study' }]} />
             <Title order={1}>Propose a study</Title>
             <StudyProposal orgSlug={params.orgSlug} />
         </Stack>

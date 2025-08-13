@@ -26,6 +26,7 @@ import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { sessionFromClerk } from '@/server/clerk'
 import { ErrorAlert } from '@/components/errors'
+import { DashboardUrlSetter } from '@/components/dashboard-url-setter'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,7 +60,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     if (!session) {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
-
     const rows = studies.map((study) => (
         <TableTr fz="md" key={study.id}>
             <TableTd>
@@ -81,41 +81,45 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     ))
 
     return (
-        <Stack p="xl">
-            <Title order={1}>
-                Hi <UserName />!
-            </Title>
-            <Group gap="sm">
-                <Title order={4}>Welcome to SafeInsights!</Title>
-                <Text>
-                    This is your dashboard. Here, you can submit new research proposals, view their status and access
-                    its details. We continuously iterate to improve your experience and welcome your feedback.
-                </Text>
-            </Group>
-            <Paper shadow="xs" p="xl">
-                <Stack>
-                    <Group justify="space-between">
-                        <Title order={3}>Proposed Studies</Title>
-                        <Flex justify="flex-end">
-                            <NewStudyLink orgSlug={session.team.slug} />
-                        </Flex>
-                    </Group>
-                    <Divider c="charcoal.1" />
-                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
-                        <TableThead fz="sm">
-                            <TableTr>
-                                <TableTh>Study Name</TableTh>
-                                <TableTh>Submitted On</TableTh>
-                                <TableTh>Submitted To</TableTh>
-                                <TableTh>Status</TableTh>
-                                <TableTh>Study Details</TableTh>
-                            </TableTr>
-                        </TableThead>
-                        <TableTbody>{rows}</TableTbody>
-                    </Table>
-                </Stack>
-            </Paper>
-        </Stack>
+        <>
+            <DashboardUrlSetter url="/researcher/dashboard" />
+            <Stack p="xl">
+                <Title order={1}>
+                    Hi <UserName />!
+                </Title>
+                <Group gap="sm">
+                    <Title order={4}>Welcome to SafeInsights!</Title>
+                    <Text>
+                        This is your dashboard. Here, you can submit new research proposals, view their status and
+                        access its details. We continuously iterate to improve your experience and welcome your
+                        feedback.
+                    </Text>
+                </Group>
+                <Paper shadow="xs" p="xl">
+                    <Stack>
+                        <Group justify="space-between">
+                            <Title order={3}>Proposed Studies</Title>
+                            <Flex justify="flex-end">
+                                <NewStudyLink orgSlug={session.team.slug} />
+                            </Flex>
+                        </Group>
+                        <Divider c="charcoal.1" />
+                        <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                            <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
+                            <TableThead fz="sm">
+                                <TableTr>
+                                    <TableTh>Study Name</TableTh>
+                                    <TableTh>Submitted On</TableTh>
+                                    <TableTh>Submitted To</TableTh>
+                                    <TableTh>Status</TableTh>
+                                    <TableTh>Study Details</TableTh>
+                                </TableTr>
+                            </TableThead>
+                            <TableTbody>{rows}</TableTbody>
+                        </Table>
+                    </Stack>
+                </Paper>
+            </Stack>
+        </>
     )
 }

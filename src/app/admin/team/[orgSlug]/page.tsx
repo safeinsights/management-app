@@ -11,7 +11,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="md">
-            <PageBreadcrumbs crumbs={[['Dashboard', `/`], ['Admin'], ['Manage team']]} />
+            <PageBreadcrumbs crumbs={[{ title: 'Admin' }, { title: 'Manage team' }]} />
             <RequireOrgAdmin />
             <Title my="lg">Manage team</Title>
             <Paper shadow="xs" p="xl">

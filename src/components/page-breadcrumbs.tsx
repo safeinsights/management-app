@@ -1,27 +1,41 @@
+'use client'
+
 import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
 import { FC } from 'react'
+import { useUser } from '@clerk/nextjs'
 
-export const PageBreadcrumbs: FC<{
-    crumbs: Array<[string, string?]>
-}> = ({ crumbs }) => {
+export type Crumb = { title: string; href?: string }
+
+export const PageBreadcrumbs: FC<{ crumbs: Crumb[] }> = ({ crumbs }) => {
+    const { user, isLoaded } = useUser()
+
+    const lastDashboardUrl = user?.unsafeMetadata?.lastDashboardUrl as string | undefined
+    const dashboardUrl = lastDashboardUrl || '/researcher/dashboard'
+
+    const allCrumbs: Crumb[] = [{ title: 'Dashboard', href: dashboardUrl }, ...crumbs]
+
+    if (!isLoaded) {
+        return null
+    }
+
     return (
         <>
             <Breadcrumbs separator="/">
-                {crumbs.map(([title, href], index) =>
-                    href ? (
+                {allCrumbs.map((crumb, index) =>
+                    crumb.href ? (
                         <Anchor
                             c="blue.7"
                             component={Link}
-                            href={href}
+                            href={crumb.href}
                             key={index}
                             style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
                         >
-                            {title}
+                            {crumb.title}
                         </Anchor>
                     ) : (
                         <Text c="grey.5" key={index} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                            {title}
+                            {crumb.title}
                         </Text>
                     ),
                 )}
@@ -29,51 +43,4 @@ export const PageBreadcrumbs: FC<{
             <Divider />
         </>
     )
-}
-
-export const OrgBreadcrumbs: FC<{
-    crumbs: {
-        orgSlug: string
-        studyTitle?: string
-        studyId?: string
-        current?: string
-    }
-}> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/reviewer/${orgSlug}/dashboard`]]
-    if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/reviewer/${orgSlug}/study/${studyId}/review`])
-    }
-    if (current) {
-        crumbs.push([current])
-    }
-    return <PageBreadcrumbs crumbs={crumbs} />
-}
-
-export const ResearcherBreadcrumbs: FC<{
-    crumbs: {
-        studyTitle?: string
-        studyId?: string
-        current?: string
-    }
-}> = ({ crumbs: { studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`]]
-    if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/researcher/study/${studyId}/review`])
-    }
-    if (current) {
-        crumbs.push([current])
-    }
-    return <PageBreadcrumbs crumbs={crumbs} />
-}
-
-export const AdminBreadcrumbs: FC<{
-    crumbs: {
-        current?: string
-    }
-}> = ({ crumbs: { current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`], ['Admin']]
-    if (current) {
-        crumbs.push([current])
-    }
-    return <PageBreadcrumbs crumbs={crumbs} />
 }

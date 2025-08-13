@@ -1,4 +1,3 @@
-
 'use server'
 
 import { clerkClient, currentUser } from '@clerk/nextjs/server'
@@ -16,7 +15,9 @@ export const setLastDashboardUrlAction = new Action('setLastDashboardUrlAction')
             return
         }
 
-        await (await clerkClient()).users.updateUserMetadata(user.id, {
+        await (
+            await clerkClient()
+        ).users.updateUserMetadata(user.id, {
             unsafeMetadata: {
                 ...user.unsafeMetadata,
                 lastDashboardUrl: params.url,
