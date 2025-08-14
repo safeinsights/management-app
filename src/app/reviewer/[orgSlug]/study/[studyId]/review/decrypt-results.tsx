@@ -38,6 +38,10 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: { privateKey: '' },
+        validate: {
+            privateKey: isNotEmpty('Required'),
+        },
+        validateInputOnChange: true,
     })
 
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
@@ -124,7 +128,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                             key={form.key('privateKey')}
                         />
                         <Group>
-                            <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
+                            <Button type="submit" disabled={!form.isValid() || isLoadingBlob} loading={isDecrypting}>
                                 View Results
                             </Button>
                         </Group>
