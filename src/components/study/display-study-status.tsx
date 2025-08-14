@@ -2,28 +2,9 @@
 
 import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { RESEARCHER_STATUS_LABELS, REVIEWER_STATUS_LABELS, StatusLabel } from '@/lib/status-labels'
-import { titleize } from '@/lib/string'
-import { Flex, Popover, PopoverDropdown, PopoverTarget, Stack, Text } from '@mantine/core'
+import { Flex, Stack, Text, Tooltip } from '@mantine/core'
 import { usePathname } from 'next/navigation'
 import React, { FC } from 'react'
-import { InfoIcon } from '../icons'
-
-const TooltipPopover: FC<{ tooltip: string }> = ({ tooltip }) => {
-    return (
-        <Popover width={200} position="bottom" withArrow shadow="md">
-            <PopoverTarget>
-                <div style={{ cursor: 'pointer' }}>
-                    <InfoIcon />
-                </div>
-            </PopoverTarget>
-            <PopoverDropdown miw={'350px'}>
-                <Text size="xs" fw="bold" style={{ whiteSpace: 'pre-line' }}>
-                    {tooltip}
-                </Text>
-            </PopoverDropdown>
-        </Popover>
-    )
-}
 
 const StatusBlock: React.FC<StatusLabel> = ({ type, label, tooltip }) => {
     const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
@@ -35,8 +16,11 @@ const StatusBlock: React.FC<StatusLabel> = ({ type, label, tooltip }) => {
                 </Text>
             )}
             <Flex align="center" gap="xs">
-                <Text c={color}>{label}</Text>
-                {tooltip && <TooltipPopover tooltip={tooltip} />}
+                <Tooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+                    <Text c={color} style={{ cursor: 'pointer' }}>
+                        {label}
+                    </Text>
+                </Tooltip>
             </Flex>
         </Stack>
     )
@@ -59,14 +43,12 @@ export const DisplayStudyStatus: FC<{
         status = studyStatus
     }
 
-    let props = statusLabels[status]
-
-    if (!props) {
-        // Fallback for statuses not in the labels
-        props = {
-            label: titleize(status.replace(/-/g, ' ')),
-        }
+    // If job status is provided but not mapped, fall back to study status
+    if (jobStatus && !statusLabels[jobStatus]) {
+        status = studyStatus
     }
+
+    const props = statusLabels[status]
 
     return props ? <StatusBlock {...props} /> : null
 }
