@@ -1,3 +1,22 @@
+## [v1.0.1 - 2025-08-14](https://github.com/safeinsights/management-app/releases/tag/v1.0.1)
+
+| PR | Author | Title | Merged Date | Internal Ticket # |
+|----|--------|-------|-------------|-------------------|
+| #331 | Rod0352 | fix: manage team and settings items not activating | 2025-08-05 17:39:57 |  |
+| #328 | stetradis | OTTER-270 prevent invites to the same org | 2025-08-05 20:42:08 | [OTTER-270](https://openstax.atlassian.net/browse/OTTER-270) |
+| #329 | stetradis | OTTER-276 update researcher job errored study status | 2025-08-06 16:13:56 | [OTTER-276](https://openstax.atlassian.net/browse/OTTER-276) |
+| #333 | therealmarv | Otter 213 improvements | 2025-08-06 19:03:18 | [OTTER-213](https://openstax.atlassian.net/browse/OTTER-213) |
+| #335 | stetradis | OTTER-267 add skeleton layouts | 2025-08-11 18:51:22 | [OTTER-267](https://openstax.atlassian.net/browse/OTTER-267) |
+| #336 | stetradis | OTTER-273 add invite permissions | 2025-08-11 19:56:49 | [OTTER-273](https://openstax.atlassian.net/browse/OTTER-273) |
+| #334 | Rod0352 | feat: Add test image support and deletion safeguards for base images | 2025-08-11 22:01:12 | [OTTER-258](https://openstax.atlassian.net/browse/OTTER-258) |
+| #337 | jbwilson8 | sign-up flow bug fixing | 2025-08-12 13:26:23 | [OTTER-244](https://openstax.atlassian.net/browse/OTTER-244) |
+| #338 | therealmarv | Otter 245 trivy | 2025-08-13 16:00:18 | [OTTER-245](https://openstax.atlassian.net/browse/OTTER-245) |
+| #340 | stetradis | OTTER-271 status updates | 2025-08-14 20:27:20 | [OTTER-271](https://openstax.atlassian.net/browse/OTTER-271) |
+| #341 | nathanstitt | Update mantine data-table and other libraries | 2025-08-14 20:27:51 | [OTTER-274](https://openstax.atlassian.net/browse/OTTER-274) |
+
+
+---
+
 ## [v1.0.0 - 2025-07-31](https://github.com/safeinsights/management-app/releases/tag/v1.0.0)
 
 | PR | Author | Title | Merged Date | Internal Ticket # |
