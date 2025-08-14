@@ -23,7 +23,7 @@
         "validate-actions": "tsx tests/validate-actions.ts",
         "lint:fix": "next lint --fix && prettier --write --log-level warn .",
         "pre:push": "run-p lint:fix typecheck validate-actions",
-        "typecheck": "cd src && tsc --noEmit",
+        "typecheck": "tsc --noEmit --skipLibCheck",
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint validate-actions",
         "test:e2e": "playwright test",
@@ -82,7 +82,7 @@
         "react-phone-number-input": "^3.4.12",
         "remeda": "^2.30.0",
         "server-only": "^0.0.1",
-        "si-encryption": "github:safeinsights/encryption#8b6467a921278408e1f9e4159446e766f1d55e2e",
+        "si-encryption": "github:safeinsights/encryption#602210501773c63f23d970f5503b5a389f977759",
         "uuid": "^11.1.0",
         "zod": "^4.0.17"
     },
