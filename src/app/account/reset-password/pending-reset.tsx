@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
-import { useForm, zodResolver } from '@mantine/form'
+import { useForm } from '@mantine/form'
+import { zod4Resolver } from 'mantine-form-zod-resolver'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -52,7 +53,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
             password: '',
             confirmPassword: '',
         },
-        validate: zodResolver(verificationFormSchema),
+        validate: zod4Resolver(verificationFormSchema),
     })
 
     const { isPending, mutate: onSubmitVerification } = useMutation({

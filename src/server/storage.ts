@@ -10,7 +10,7 @@ export async function fetchFileContents(filePath: string) {
     for await (const chunk of stream) {
         chunks.push(chunk)
     }
-    return new Blob(chunks)
+    return new Blob(chunks as BlobPart[])
 }
 
 export async function urlForFile(filePath: string): Promise<string> {

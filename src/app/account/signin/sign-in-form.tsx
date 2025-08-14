@@ -1,5 +1,6 @@
 import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { useForm, zodResolver } from '@mantine/form'
+import { useForm } from '@mantine/form'
+import { zod4Resolver } from 'mantine-form-zod-resolver'
 import { clerkErrorOverrides, reportError } from '@/components/errors'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Link } from '@/components/links'
@@ -43,7 +44,7 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zodResolver(signInSchema),
+        validate: zod4Resolver(signInSchema),
     })
 
     useEffect(() => {

@@ -31,5 +31,5 @@
         "vitest.config.mts",
         "src/server/actions/f"
     ],
-    "exclude": ["node_modules"]
+    "exclude": ["node_modules", "bin/**/*"]
 }

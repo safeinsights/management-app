@@ -5,10 +5,10 @@ export { z }
 export const inviteUserSchema = z.object({
     email: z.string().nonempty().email('Invalid email address'),
     role: z.enum(['reviewer', 'researcher', 'multiple'], {
-        errorMap: () => ({ message: 'A role must be selected' }),
+        message: 'A role must be selected',
     }),
     permission: z.enum(['contributor', 'admin'], {
-        errorMap: () => ({ message: 'A permission must be selected' }),
+        message: 'A permission must be selected',
     }),
 })
 
