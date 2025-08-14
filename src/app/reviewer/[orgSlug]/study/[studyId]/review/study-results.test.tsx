@@ -88,7 +88,7 @@ describe('View Study Results', () => {
         const zip = await writer.generate()
 
         const file = {
-            blob: zip,
+            blob: new Blob([zip as BlobPart]),
             sourceId: '123',
             fileType: 'ENCRYPTED-RESULT' as FileType,
         }

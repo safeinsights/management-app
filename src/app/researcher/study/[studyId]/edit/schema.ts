@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-import { zodResolver } from 'mantine-form-zod-resolver'
-
 // TODO Move to @/schema/study.ts
 
 const schema = z
@@ -26,4 +24,4 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>
 
-export { schema, type FormValues, zodResolver }
+export { schema, type FormValues }
