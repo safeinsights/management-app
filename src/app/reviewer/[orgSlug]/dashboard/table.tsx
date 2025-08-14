@@ -40,7 +40,11 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             <TableTd>{study.createdBy}</TableTd>
             <TableTd>{study.reviewerName}</TableTd>
             <TableTd>
-                <DisplayStudyStatus studyStatus={study.status} jobStatus={study.latestJobStatus} />
+                <DisplayStudyStatus
+                    studyStatus={study.status}
+                    jobStatus={study.latestJobStatus}
+                    jobErrored={!!study.errorStudyJobId}
+                />
             </TableTd>
             <TableTd>
                 <Link href={`/reviewer/${orgSlug}/study/${study.id}/review`} c="blue.7">

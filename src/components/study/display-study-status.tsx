@@ -29,22 +29,25 @@ const StatusBlock: React.FC<StatusLabel> = ({ type, label, tooltip }) => {
 export const DisplayStudyStatus: FC<{
     studyStatus: StudyStatus
     jobStatus: StudyJobStatus | null
-}> = ({ studyStatus, jobStatus }) => {
+    jobErrored?: boolean
+}> = ({ studyStatus, jobStatus, jobErrored }) => {
     const pathname = usePathname()
 
     // Determine which status labels to use based on URL path
     const isReviewerPath = pathname.startsWith('/reviewer/')
     const statusLabels = isReviewerPath ? REVIEWER_STATUS_LABELS : RESEARCHER_STATUS_LABELS
+    // persist job errored status if it exists
+    const effectiveLatestJobStatus = jobErrored ? 'JOB-ERRORED' : jobStatus
     const hasReviewedFiles = jobStatus === 'FILES-APPROVED' || jobStatus === 'FILES-REJECTED'
 
-    let status = jobStatus || studyStatus
+    let status = effectiveLatestJobStatus || studyStatus
     // do not show job errored status for researchers until the reviewer approves or rejects error log sharing
-    if (!isReviewerPath && jobStatus === 'JOB-ERRORED' && !hasReviewedFiles) {
+    if (!isReviewerPath && effectiveLatestJobStatus === 'JOB-ERRORED' && !hasReviewedFiles) {
         status = studyStatus
     }
 
     // If job status is provided but not mapped, fall back to study status
-    if (jobStatus && !statusLabels[jobStatus]) {
+    if (effectiveLatestJobStatus && !statusLabels[effectiveLatestJobStatus]) {
         status = studyStatus
     }
 
