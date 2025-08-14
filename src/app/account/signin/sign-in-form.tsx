@@ -1,9 +1,7 @@
-import { Flex, Button, TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { zod4Resolver } from 'mantine-form-zod-resolver'
+import { zodResolver, useForm, Link, Flex, Button } from '@/components/common'
+import { TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { clerkErrorOverrides, reportError } from '@/components/errors'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
-import { Link } from '@/components/links'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -44,7 +42,7 @@ export const SignInForm: FC<{
             email: '',
             password: '',
         },
-        validate: zod4Resolver(signInSchema),
+        validate: zodResolver(signInSchema),
     })
 
     useEffect(() => {

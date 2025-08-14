@@ -7,7 +7,7 @@ import { FormValues, schema } from './schema'
 import Link from 'next/link'
 import { useMutation } from '@tanstack/react-query'
 import { css } from '@/styles'
-import { zodResolver } from 'mantine-form-zod-resolver'
+import { zodResolver } from '@/components/common'
 
 export const labelStyle = css({
     width: '10rem',

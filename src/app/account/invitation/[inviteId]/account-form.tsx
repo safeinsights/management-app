@@ -1,12 +1,9 @@
 'use client'
 
 import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
-import { z } from 'zod'
-import { zodResolver } from 'mantine-form-zod-resolver'
+import { useForm, type FC, useState, z, zodResolver } from '@/components/common'
 import { handleMutationErrorsWithForm } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'

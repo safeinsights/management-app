@@ -1,18 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { zodResolver, useMutation, useForm, useState, z } from '@/components/common'
 import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { zod4Resolver } from 'mantine-form-zod-resolver'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString, isClerkApiError } from '@/lib/errors'
-import { useMutation } from '@tanstack/react-query'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
-import { z } from 'zod'
 
 const createPasswordSchema = () => {
     let schema = z.string()
@@ -53,7 +49,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
             password: '',
             confirmPassword: '',
         },
-        validate: zod4Resolver(verificationFormSchema),
+        validate: zodResolver(verificationFormSchema),
     })
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
