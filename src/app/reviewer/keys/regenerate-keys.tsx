@@ -5,12 +5,10 @@ import { AppModal } from '@/components/modal'
 import { FC } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { useSession } from '@/hooks/session'
 import { useRouter } from 'next/navigation'
 
 export const RegenerateKeys: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
-    const { session } = useSession()
     const router = useRouter()
 
     const handleConfirmAndProceed = () => {
@@ -20,7 +18,7 @@ export const RegenerateKeys: FC = () => {
 
     return (
         <Stack p="xl" mx="sm">
-            <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${session?.team.slug}/dashboard`], ['Reviewer Key']]} />
+            <PageBreadcrumbs crumbs={[{ title: 'Reviewer Key' }]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>

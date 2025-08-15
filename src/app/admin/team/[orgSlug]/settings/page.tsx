@@ -15,7 +15,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
     return (
         <Stack p="md">
             <RequireOrgAdmin />
-            <PageBreadcrumbs crumbs={[['Dashboard', `/`], ['Admin'], ['Settings']]} />
+            <PageBreadcrumbs crumbs={[{ title: 'Admin' }, { title: 'Settings' }]} />
             <Title order={1} mb="xl">
                 Settings
             </Title>

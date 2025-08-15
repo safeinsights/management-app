@@ -2,7 +2,7 @@
 
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'
 import { StudyReviewButtons } from './study-review-buttons'
@@ -31,11 +31,11 @@ export default async function StudyReviewPage(props: {
 
     return (
         <Stack px="xl" gap="xl">
-            <OrgBreadcrumbs
-                crumbs={{
-                    orgSlug: orgSlug,
-                    current: 'Study Details',
-                }}
+            <PageBreadcrumbs
+                crumbs={[
+                    { title: study.title, href: `/reviewer/${orgSlug}/study/${studyId}/review` },
+                    { title: 'Study Details' },
+                ]}
             />
 
             <Title order={1}>Study details</Title>
