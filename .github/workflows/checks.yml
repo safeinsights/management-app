@@ -25,6 +25,19 @@ jobs:
             - name: validate actions
               run: npm run validate-actions
 
+    trivy:
+        timeout-minutes: 5
+        runs-on: ubuntu-latest
+        permissions: {}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Run Trivy vulnerability scanner in fs mode
+              uses: aquasecurity/trivy-action@0.28.0
+              with:
+                  scan-type: 'fs'
+                  scan-ref: '.'
+                  trivy-config: trivy.yaml
+
     test:
         timeout-minutes: 15
         runs-on: ubuntu-latest

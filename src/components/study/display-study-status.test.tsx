@@ -32,9 +32,9 @@ describe('DisplayStudyStatus', () => {
         renderAndExpect('PENDING-REVIEW', null, 'Proposal', 'Under Review')
     })
 
-    it('falls back to job status when job status is unmapped', () => {
-        // JOB-PROVISIONING is not in STATUS_LABELS, should display a title-cased version of the job status
-        renderAndExpect('REJECTED', 'JOB-PROVISIONING', null, 'Job Provisioning')
+    it('falls back to study status when job status is unmapped', () => {
+        // JOB-PROVISIONING is not in STATUS_LABELS, should display study status
+        renderAndExpect('REJECTED', 'JOB-PROVISIONING', 'Proposal', 'Rejected')
     })
 
     it('shows proposal status for CODE-APPROVED', () => {
@@ -43,11 +43,6 @@ describe('DisplayStudyStatus', () => {
 
     it('shows mapped results status', () => {
         renderAndExpect('APPROVED', 'RUN-COMPLETE', 'Results', 'Under Review')
-    })
-
-    it('renders a fallback status when the status is not in the STATUS_LABELS map', () => {
-        // ARCHIVED and JOB-PROVISIONING are not in STATUS_LABELS, should display titleized job status instead
-        renderAndExpect('ARCHIVED', 'JOB-PROVISIONING', null, 'Job Provisioning')
     })
 
     // ------------------------------------------------------

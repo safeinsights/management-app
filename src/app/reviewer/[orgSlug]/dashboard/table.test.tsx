@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
-import { renderWithProviders } from '@/tests/unit.helpers'
-import { StudiesTable } from './table'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { renderWithProviders } from '@/tests/unit.helpers'
+import { screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StudiesTable } from './table'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
@@ -35,6 +35,7 @@ const mockStudies = [
         latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
         latestStudyJobId: 'job-1',
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
     {
         id: 'study-2',
@@ -55,6 +56,7 @@ const mockStudies = [
         latestStudyJobId: 'job-2',
         latestJobStatus: 'RUN-COMPLETE' as StudyJobStatus,
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
     {
         id: 'study-3',
@@ -75,6 +77,7 @@ const mockStudies = [
         latestStudyJobId: null,
         latestJobStatus: null,
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
 ]
 

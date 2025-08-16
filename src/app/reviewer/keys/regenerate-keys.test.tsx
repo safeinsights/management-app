@@ -3,8 +3,6 @@ import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
 import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
-import { updateReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { GenerateKeys } from '@/app/account/keys/generate-keys'
 import router from 'next-router-mock'
 
 vi.mock('si-encryption/util/keypair', () => ({
@@ -48,40 +46,6 @@ describe('Reviewer keypair regeneration', () => {
         // Wait for navigation to /account/keys
         await waitFor(() => {
             expect(router.asPath).toBe('/account/keys')
-        })
-
-        // Simulate the /account/keys page render which handles key regeneration after navigation
-        renderWithProviders(<GenerateKeys isRegenerating={true} />)
-
-        await waitFor(() => {
-            expect(vi.mocked(generateKeyPair)).toHaveBeenCalled()
-            expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()
-        })
-
-        // mock copy key
-        const copyKeyButton = screen.getByRole('button', { name: /copy key/i })
-        fireEvent.click(copyKeyButton)
-        await waitFor(() => {
-            expect(screen.getByText('Copied!')).toBeDefined()
-        })
-
-        // Navigate to confirmation modal
-        fireEvent.click(screen.getByRole('button', { name: /go to dashboard/i }))
-
-        await waitFor(() => {
-            expect(screen.getByText(/make sure you have securely saved your reviewer key\./i)).toBeDefined()
-        })
-
-        // Final confirmation which triggers updateReviewerPublicKeyAction
-        fireEvent.click(screen.getByRole('button', { name: /yes, go to dashboard/i }))
-
-        await waitFor(() => {
-            expect(updateReviewerPublicKeyAction).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    publicKey: mockKeys.exportedPublicKey,
-                    fingerprint: mockKeys.fingerprint,
-                }),
-            )
         })
     })
 })

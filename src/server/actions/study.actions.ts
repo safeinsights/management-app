@@ -1,12 +1,12 @@
 'use server'
 
 import { StudyJobStatus } from '@/database/types'
-import { onStudyApproved, onStudyRejected } from '@/server/events'
+import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
+import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
@@ -53,6 +53,18 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                         .as('latestJobStatus'),
                 (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
             )
+            .leftJoin(
+                // Subquery to check if the most recent job ever errored
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select(['jobStatusChange.studyJobId'])
+                        .where('jobStatusChange.status', '=', 'JOB-ERRORED')
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .as('errorStatus'),
+                (join) => join.onRef('errorStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
 
             .select([
                 'study.id',
@@ -73,6 +85,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 'org.slug as orgSlug',
                 'latestJobStatus.status as latestJobStatus',
                 'latestStudyJob.jobId as latestStudyJobId',
+                'errorStatus.studyJobId as errorStudyJobId',
             ])
             .orderBy('study.createdAt', 'desc')
             .execute()
@@ -123,6 +136,19 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
                         .as('latestJobStatus'),
                 (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
             )
+            .leftJoin(
+                // Subquery to check if the most recent job ever errored
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select(['jobStatusChange.studyJobId'])
+                        .where('jobStatusChange.status', '=', 'JOB-ERRORED')
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .as('errorStatus'),
+                (join) => join.onRef('errorStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
+
             .select([
                 'study.id',
                 'study.title',
@@ -132,6 +158,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
                 'org.name as reviewerTeamName',
                 'latestJobStatus.status as latestJobStatus',
                 'latestStudyJob.jobId as latestStudyJobId',
+                'errorStatus.studyJobId as errorStudyJobId',
             ])
             .orderBy('study.createdAt', 'desc')
             .execute()

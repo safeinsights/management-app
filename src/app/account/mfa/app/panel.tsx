@@ -2,15 +2,12 @@
 
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
-import React, { useState, useMemo } from 'react'
-import { z } from 'zod'
-import { zodResolver } from 'mantine-form-zod-resolver'
+import { zodResolver, z, useState, useMemo, ButtonLink, useEffect } from '@/components/common'
 import { QRCodeSVG } from 'qrcode.react'
 import { useForm } from '@mantine/form'
 import { Button, TextInput, Text, Stack, Group, Container, Box } from '@mantine/core'
 import { errorToString, reportError } from '@/components/errors'
 import { Panel } from '@/components/panel'
-import { ButtonLink } from '@/components/links'
 import logger from '@/lib/logger'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
@@ -57,7 +54,7 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
         }
     }
 
-    React.useEffect(() => {
+    useEffect(() => {
         void user
             ?.createTOTP()
             .then((totp: TOTPResource) => {
@@ -186,7 +183,7 @@ function SuccessScreenContent() {
 }
 
 export function AddMFAPanel() {
-    const [step, setStep] = React.useState<AddTotpSteps>('add')
+    const [step, setStep] = useState<AddTotpSteps>('add')
     const { isLoaded, user } = useUser()
 
     if (!isLoaded) return null

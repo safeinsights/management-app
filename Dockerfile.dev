@@ -15,6 +15,10 @@ RUN npx playwright install-deps
 # Uncomment the following line to disable telemetry at run time
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# do not run as root user
+RUN chown -R node:node /app
+USER node
+
 # for deploying the build version
 
 # RUN bun next build
