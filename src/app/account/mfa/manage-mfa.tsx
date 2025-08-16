@@ -22,7 +22,7 @@ const HasMFA = () => {
 
 export const dynamic = 'force-dynamic'
 
-export function ManageMFAPanel() {
+export function ManageMFA() {
     const { isLoaded, user } = useUser()
 
     if (!isLoaded) return null
