@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, z, zodResolver } from '@/components/common'
-import { errorToString, reportError } from '@/components/errors'
+import { useEffect, useMemo, useState } from '@/components/common'
+import { InputError, reportError } from '@/components/errors'
 import { ButtonLink, Link } from '@/components/links'
 import logger from '@/lib/logger'
 import { useUser } from '@clerk/nextjs'
@@ -18,7 +18,6 @@ import {
     rgba,
     Stack,
     Text,
-    TextInput,
     Title,
     Tooltip,
     useMantineTheme,
@@ -52,24 +51,21 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
         return null
     }, [totp])
 
-    const schema = z.object({
-        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
-    })
-
     const form = useForm({
         initialValues: {
             code: '',
         },
-        validate: zodResolver(schema),
-        validateInputOnChange: true,
+        validate: {
+            code: (value: string) => (value.length !== 6 ? 'Code must be 6 digits' : null),
+        },
     })
 
     const verifyTotp = async (values: { code: string }) => {
         try {
             await user?.verifyTOTP({ code: values.code })
             setStep('success')
-        } catch (err: unknown) {
-            form.setErrors({ code: errorToString(err) || 'Invalid Code' })
+        } catch {
+            form.setErrors({ code: 'Invalid verification code. Please try again.' })
         }
     }
 
@@ -169,13 +165,12 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                         size="lg"
                         type="number"
                         value={form.values.code}
+                        error={Boolean(form.errors.code)}
                         placeholder=""
-                        onChange={(value) => form.setFieldValue('code', value)}
+                        {...form.getInputProps('code')}
                     />
-                    <Text c="red" size="xs" ta="center">
-                        {form.errors.code || '\u00A0'}
-                    </Text>
-                    <Button type="submit" fullWidth disabled={!/^\d{6}$/.test(form.values.code)} size="lg">
+                    <InputError error={form.errors.code} />
+                    <Button type="submit" fullWidth disabled={!/^\d{6}$/.test(form.values.code)} size="lg" mt="md">
                         Verify code
                     </Button>
                     <Link
@@ -192,57 +187,6 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                 </Stack>
             </form>
         </Stack>
-    )
-}
-
-function VerifyTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
-    const { user } = useUser()
-    const schema = z.object({
-        code: z.string().regex(/^\d{6}$/, { message: 'Code must be six digits' }),
-    })
-
-    const form = useForm({
-        initialValues: { code: '' },
-        validate: zodResolver(schema),
-        validateInputOnChange: true,
-    })
-
-    const verifyTotp = async (values: { code: string }) => {
-        try {
-            await user?.verifyTOTP({ code: values.code })
-            setStep('success')
-        } catch (err: unknown) {
-            form.setErrors({ code: errorToString(err) || 'Invalid Code' })
-        }
-    }
-
-    return (
-        <form onSubmit={form.onSubmit(verifyTotp)}>
-            <Box mb="lg">
-                <TextInput
-                    autoFocus
-                    maxLength={8}
-                    name="code"
-                    label="Enter the code from your authentication app"
-                    placeholder="000 000"
-                    {...(function () {
-                        const { error, ...rest } = form.getInputProps('code')
-                        return rest
-                    })()}
-                />
-                <Text c="red" size="xs">
-                    {form.errors.code || '\u00A0'}
-                </Text>
-            </Box>
-            <Group gap="lg" justify="center">
-                <Button variant="light" onClick={() => setStep('add')}>
-                    Retry
-                </Button>
-                <Button type="submit" miw={150} mih={40}>
-                    Verify code
-                </Button>
-            </Group>
-        </form>
     )
 }
 
@@ -268,7 +212,6 @@ export function AddAppMFA() {
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
-            {step === 'verify' && <VerifyTotpScreenContent setStep={setStep} />}
             {step === 'success' && <SuccessScreenContent />}
         </Paper>
     )
