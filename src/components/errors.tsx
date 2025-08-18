@@ -1,11 +1,11 @@
 'use client'
 
-import { notifications } from '@mantine/notifications'
-import { Alert, AlertProps, Group, useMantineTheme } from '@mantine/core'
-import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure } from '@/lib/errors'
+import { Alert, AlertProps, Group, Text, useMantineTheme } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
+import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
 export * from '@/lib/errors'
@@ -91,7 +91,9 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     return (
         <Group gap="xs">
             <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />
-            {error}
+            <Text c="red.7" size="sm" component="span">
+                {error}
+            </Text>
         </Group>
     )
 }
