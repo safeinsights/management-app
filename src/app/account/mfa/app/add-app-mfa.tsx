@@ -210,7 +210,7 @@ export function AddAppMFA() {
     }
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
             {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
             {step === 'success' && <SuccessScreenContent />}
         </Paper>

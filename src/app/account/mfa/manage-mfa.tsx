@@ -35,7 +35,7 @@ export function ManageMFA() {
     if (user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')) return <HasMFA />
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+        <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
             <Stack mb="xxl">
                 <Title mb="xs" ta="center" order={3}>
                     Secure your account with <br /> Multi-Factor Authentication
