@@ -45,6 +45,8 @@ function AddTotpScreenContent({
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
+    const [isVerifying, setIsVerifying] = useState(false)
+
     const secret = useMemo(() => {
         if (totp?.uri) {
             try {
@@ -68,6 +70,7 @@ function AddTotpScreenContent({
     })
 
     const verifyTotp = async (values: { code: string }) => {
+        setIsVerifying(true)
         try {
             await user?.verifyTOTP({ code: values.code })
             // Generate backup codes after verification
@@ -83,6 +86,8 @@ function AddTotpScreenContent({
             setStep('success')
         } catch {
             form.setErrors({ code: 'Invalid verification code. Please try again.' })
+        } finally {
+            setIsVerifying(false)
         }
     }
 
@@ -187,7 +192,14 @@ function AddTotpScreenContent({
                         {...form.getInputProps('code')}
                     />
                     <InputError error={form.errors.code} />
-                    <Button type="submit" fullWidth disabled={!/^\d{6}$/.test(form.values.code)} size="lg" mt="md">
+                    <Button
+                        type="submit"
+                        loading={isVerifying}
+                        fullWidth
+                        disabled={!/^\d{6}$/.test(form.values.code)}
+                        size="lg"
+                        mt="md"
+                    >
                         Verify code
                     </Button>
                     <Link
