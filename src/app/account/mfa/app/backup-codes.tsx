@@ -81,7 +81,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                             <Stack gap={4}>
                                 <Button
                                     fullWidth
-                                    size="md"
+                                    size="lg"
                                     onClick={() => {
                                         copy()
                                         setHasCopied(true)
@@ -108,7 +108,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
                         fullWidth
                         variant="outline"
                         mt="xs"
-                        size="md"
+                        size="lg"
                         onClick={() => {
                             if (!hasCopied) {
                                 setModalOpened(true)
@@ -149,10 +149,10 @@ const ConfirmationModal: FC<ConfirmationModalProps> = ({ isOpen, onClose, onConf
                 Do you want to proceed?
             </Text>
             <Group>
-                <Button variant="outline" onClick={onClose}>
+                <Button variant="outline" onClick={onClose} size="md">
                     Back
                 </Button>
-                <Button loading={isLoading} onClick={onConfirm}>
+                <Button loading={isLoading} onClick={onConfirm} size="md">
                     Go to SafeInsights
                 </Button>
             </Group>
