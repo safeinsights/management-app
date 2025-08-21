@@ -74,8 +74,8 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
             <TableTd>
                 <DisplayStudyStatus
                     studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobErrored={!!study.errorStudyJobId}
+                    audience="researcher"
+                    jobStatusChanges={study.jobStatusChanges}
                 />
             </TableTd>
             <TableTd>

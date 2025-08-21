@@ -41,9 +41,9 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             <TableTd>{study.reviewerName}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
+                    audience="reviewer"
                     studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobErrored={!!study.errorStudyJobId}
+                    jobStatusChanges={study.jobStatusChanges || []}
                 />
             </TableTd>
             <TableTd>
@@ -71,7 +71,9 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
 
     if (!studies.length) return <Title order={5}>You have no studies to review.</Title>
 
-    const needsRefreshed = !!studies.find((s) => !FINAL_STATUS.includes(s.latestJobStatus || 'INITIATED'))
+    const needsRefreshed = studies.some((study) =>
+        study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+    )
 
     return (
         <Stack>

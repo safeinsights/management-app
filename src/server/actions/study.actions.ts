@@ -1,5 +1,6 @@
 'use server'
 
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
@@ -7,6 +8,36 @@ import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
+
+// NOT exported, for internal use by actions in this file
+function fetchStudiesQuery(db: DBExecutor, orgId: string) {
+    return db
+        .selectFrom('study')
+        .leftJoin(
+            // Subquery to get the most recent study job for each study
+            (eb) =>
+                eb
+                    .selectFrom('studyJob')
+                    .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
+                    .distinctOn('studyId')
+                    .orderBy('studyId')
+                    .orderBy('createdAt', 'desc')
+                    .limit(1)
+                    .as('latestStudyJob'),
+            (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
+        )
+        .select((eb) => [
+            jsonArrayFrom(
+                eb
+                    .selectFrom('jobStatusChange')
+                    .select(['jobStatusChange.status'])
+                    .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
+                    .orderBy('studyJobId')
+                    .orderBy('createdAt', 'desc'),
+            ).as('jobStatusChanges'),
+        ])
+        .where('study.orgId', '=', orgId)
+}
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
@@ -19,53 +50,10 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
         return { orgId: org.orgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ params: { orgSlug }, db }) => {
-        return await db
-            .selectFrom('study')
-            .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('study.orgId', '=', 'org.id'))
-            .leftJoin('user as reviewerUser', 'study.reviewerId', 'reviewerUser.id')
-            .leftJoin('user as researcherUser', 'study.researcherId', 'researcherUser.id')
-            .leftJoin(
-                // Subquery to get the most recent study job for each study
-                (eb) =>
-                    eb
-                        .selectFrom('studyJob')
-                        .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
-                        .distinctOn('studyId')
-                        .orderBy('studyId')
-                        .orderBy('createdAt', 'desc')
-                        .as('latestStudyJob'),
-                (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
-            )
-            .leftJoin(
-                // Subquery to get the latest status change for the most recent study job
-                (eb) =>
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select([
-                            'jobStatusChange.studyJobId',
-                            'jobStatusChange.status',
-                            'jobStatusChange.createdAt as statusCreatedAt',
-                        ])
-                        .distinctOn('studyJobId')
-                        .orderBy('studyJobId')
-                        .orderBy('createdAt', 'desc')
-                        .as('latestJobStatus'),
-                (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-            )
-            .leftJoin(
-                // Subquery to check if the most recent job ever errored
-                (eb) =>
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select(['jobStatusChange.studyJobId'])
-                        .where('jobStatusChange.status', '=', 'JOB-ERRORED')
-                        .distinctOn('studyJobId')
-                        .orderBy('studyJobId')
-                        .as('errorStatus'),
-                (join) => join.onRef('errorStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-            )
-
+    .handler(async ({ session, db }) => {
+        return fetchStudiesQuery(db, session.team.id)
+            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+            .innerJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'researcher.id'))
             .select([
                 'study.id',
                 'study.approvedAt',
@@ -80,12 +68,9 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 'study.researcherId',
                 'study.status',
                 'study.title',
-                'researcherUser.fullName as createdBy',
-                'reviewerUser.fullName as reviewerName',
-                'org.slug as orgSlug',
-                'latestJobStatus.status as latestJobStatus',
+                'researcher.fullName as createdBy',
+                'reviewer.fullName as reviewerName',
                 'latestStudyJob.jobId as latestStudyJobId',
-                'errorStatus.studyJobId as errorStudyJobId',
             ])
             .orderBy('study.createdAt', 'desc')
             .execute()
@@ -98,57 +83,8 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ session, db }) => {
-        return await db
-            .selectFrom('study')
-            .innerJoin('orgUser', (join) =>
-                join.onRef('orgUser.orgId', '=', 'study.orgId').on('orgUser.isResearcher', '=', true),
-            )
-
-            .innerJoin('org', (join) => join.onRef('org.id', '=', 'orgUser.orgId'))
-            .where('orgUser.userId', '=', session.user.id)
-            .where('org.slug', '=', session.team.slug)
-
-            .leftJoin(
-                // Subquery to get the most recent study job for each study
-                (eb) =>
-                    eb
-                        .selectFrom('studyJob')
-                        .select(['studyJob.studyId', 'studyJob.id as jobId', 'studyJob.createdAt as studyJobCreatedAt'])
-                        .distinctOn('studyId')
-                        .orderBy('studyId')
-                        .orderBy('createdAt', 'desc')
-                        .as('latestStudyJob'),
-                (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
-            )
-            .leftJoin(
-                // Subquery to get the latest status change for the most recent study job
-                (eb) =>
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select([
-                            'jobStatusChange.studyJobId',
-                            'jobStatusChange.status',
-                            'jobStatusChange.createdAt as statusCreatedAt',
-                        ])
-                        .distinctOn('studyJobId')
-                        .orderBy('studyJobId')
-                        .orderBy('createdAt', 'desc')
-                        .as('latestJobStatus'),
-                (join) => join.onRef('latestJobStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-            )
-            .leftJoin(
-                // Subquery to check if the most recent job ever errored
-                (eb) =>
-                    eb
-                        .selectFrom('jobStatusChange')
-                        .select(['jobStatusChange.studyJobId'])
-                        .where('jobStatusChange.status', '=', 'JOB-ERRORED')
-                        .distinctOn('studyJobId')
-                        .orderBy('studyJobId')
-                        .as('errorStatus'),
-                (join) => join.onRef('errorStatus.studyJobId', '=', 'latestStudyJob.jobId'),
-            )
-
+        return await fetchStudiesQuery(db, session.team.id)
+            .innerJoin('org', 'org.id', 'study.orgId')
             .select([
                 'study.id',
                 'study.title',
@@ -156,9 +92,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
                 'study.status',
                 'study.createdAt',
                 'org.name as reviewerTeamName',
-                'latestJobStatus.status as latestJobStatus',
                 'latestStudyJob.jobId as latestStudyJobId',
-                'errorStatus.studyJobId as errorStudyJobId',
             ])
             .orderBy('study.createdAt', 'desc')
             .execute()
