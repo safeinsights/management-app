@@ -1,6 +1,5 @@
 'use server'
 
-import { ActionFailure } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
@@ -28,7 +27,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirst()
 
         if (existingOrgMember) {
-            throw new ActionFailure({ email: 'This team member is already in this organization.' })
+            return { alreadyMember: true, alreadyInvited: false }
         }
 
         // Check if the user already exists in pending users, resend invitation if so
@@ -40,7 +39,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirst()
         if (existingPendingUser) {
             await sendInviteEmail({ emailTo: invite.email, inviteId: existingPendingUser.id })
-            return { alreadyInvited: true }
+            return { alreadyMember: false, alreadyInvited: true }
         }
 
         const record = await db
@@ -56,7 +55,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .executeTakeFirstOrThrow()
 
         onUserInvited({ invitedEmail: invite.email, pendingId: record.id })
-        return { alreadyInvited: false }
+        return { alreadyMember: false, alreadyInvited: false }
     })
 
 export const getPendingUsersAction = new Action('getPendingUsersAction')

@@ -1,6 +1,6 @@
 'use client'
 
-import { zodResolver, useMutation, useQueryClient, useForm } from '@/components/common'
+import { useForm, useMutation, useQueryClient, zodResolver } from '@/components/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { SuccessPanel } from '@/components/panel'
@@ -45,17 +45,25 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data) {
-            studyProposalForm.reset()
             queryClient.invalidateQueries({ queryKey: ['pendingUsers', orgSlug] })
+
+            if (data?.alreadyMember) {
+                studyProposalForm.setFieldError('email', 'This team member is already in this organization.')
+                return
+            }
+
             if (data?.alreadyInvited) {
                 notifications.show({
                     color: 'green',
                     title: 'Invite resent',
                     message: 'This user has already been invited. Resending invite.',
                 })
-            } else {
-                onInvited()
+                studyProposalForm.reset()
+                return
             }
+
+            studyProposalForm.reset()
+            onInvited()
         },
     })
 
