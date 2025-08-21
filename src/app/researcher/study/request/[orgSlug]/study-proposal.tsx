@@ -9,7 +9,7 @@ import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } fro
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import { upsertStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { CodeReviewManifest } from '@/lib/code-manifest'
@@ -133,7 +133,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 urlForAgreementUpload,
                 urlForIrbUpload,
                 urlForDescriptionUpload,
-            } = await onCreateStudyAction({
+            } = await upsertStudyAction({
                 orgSlug,
                 studyInfo: valuesWithFilenames,
                 mainCodeFileName: formValues.mainCodeFile!.name,

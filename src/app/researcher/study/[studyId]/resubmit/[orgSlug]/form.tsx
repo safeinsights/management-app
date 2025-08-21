@@ -1,0 +1,119 @@
+'use client'
+
+import { Button, Group, Stack } from '@mantine/core'
+import { upsertStudyAction } from '@/app/researcher/study/request/[orgSlug]/actions'
+import React from 'react'
+import { useForm } from '@mantine/form'
+import {
+    StudyProposalFormValues,
+    studyProposalApiSchema,
+} from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
+import { UploadStudyJobCode } from '@/app/researcher/study/request/[orgSlug]/upload-study-job-code'
+import { useRouter } from 'next/navigation'
+import { notifications } from '@mantine/notifications'
+import { PresignedPost } from '@aws-sdk/s3-presigned-post'
+import { SelectedStudy } from '@/server/actions/study.actions'
+import { useMutation } from '@tanstack/react-query'
+import { CancelButton } from '@/components/cancel-button'
+
+async function uploadFile(file: File, presignedPost: PresignedPost) {
+    const formData = new FormData()
+    Object.entries(presignedPost.fields).forEach(([key, value]) => {
+        formData.append(key, value as string)
+    })
+    formData.append('file', file)
+
+    await fetch(presignedPost.url, {
+        method: 'POST',
+        body: formData,
+    })
+}
+
+export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
+    const { study } = props
+    const router = useRouter()
+
+    const studyProposalForm = useForm<StudyProposalFormValues>({
+        initialValues: {
+            title: study.title,
+            piName: study.piName,
+            descriptionDocument: null,
+            irbDocument: null,
+            agreementDocument: null,
+            mainCodeFile: null,
+            additionalCodeFiles: [],
+        },
+    })
+
+    const { isPending, mutate: resubmitStudy } = useMutation({
+        mutationFn: async (formValues: StudyProposalFormValues) => {
+            if (!formValues.mainCodeFile) {
+                throw new Error('Please upload a main code file to resubmit.')
+            }
+
+            const studyInfo = studyProposalApiSchema.parse(formValues)
+
+            const {
+                urlForMainCodeUpload,
+                urlForAdditionalCodeUpload,
+                urlForAgreementUpload,
+                urlForIrbUpload,
+                urlForDescriptionUpload,
+            } = await upsertStudyAction({
+                studyId: study.id,
+                orgSlug: study.orgSlug,
+                studyInfo,
+                mainCodeFileName: formValues.mainCodeFile.name,
+                codeFileNames: formValues.additionalCodeFiles.map((f) => f.name),
+            })
+
+            await uploadFile(formValues.mainCodeFile, urlForMainCodeUpload)
+
+            for (const file of formValues.additionalCodeFiles) {
+                await uploadFile(file, urlForAdditionalCodeUpload)
+            }
+
+            if (formValues.descriptionDocument) {
+                await uploadFile(formValues.descriptionDocument, urlForDescriptionUpload)
+            }
+            if (formValues.irbDocument) {
+                await uploadFile(formValues.irbDocument, urlForIrbUpload)
+            }
+            if (formValues.agreementDocument) {
+                await uploadFile(formValues.agreementDocument, urlForAgreementUpload)
+            }
+        },
+        onSuccess() {
+            notifications.show({
+                title: 'Study Resubmitted',
+                message:
+                    'Your study has been successfully resubmitted to the reviewing organization. Check your dashboard for status updates.',
+                color: 'green',
+            })
+            router.push(`/researcher/study/${study.id}/review`)
+        },
+        onError: (error) => {
+            console.error(error)
+            notifications.show({
+                color: 'red',
+                title: 'Failed to resubmit study',
+                message: error.message,
+            })
+        },
+    })
+
+    return (
+        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => resubmitStudy(values))}>
+            <Stack>
+                <UploadStudyJobCode studyProposalForm={studyProposalForm} resubmit />
+
+                <Group justify="flex-end" mt="md">
+                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <Button variant="filled" type="submit" loading={isPending}>
+                        Resubmit study code
+                    </Button>
+                </Group>
+            </Stack>
+        </form>
+    )
+}

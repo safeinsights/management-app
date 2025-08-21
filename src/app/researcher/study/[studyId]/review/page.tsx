@@ -13,7 +13,7 @@ import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review
 
 export const dynamic = 'force-dynamic'
 
-export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
+export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId } = await props.params
 
     // getStudyAction will check permissions
@@ -66,7 +66,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        <FileApprovalStatus job={job} />
+                        <FileApprovalStatus job={job} orgSlug={study.orgSlug} />
                     </Group>
                     <Divider c="dimmed" />
                     <JobResultsStatusMessage job={job} />

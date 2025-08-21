@@ -11,40 +11,55 @@ import { revalidatePath } from 'next/cache'
 import { Action, z } from '@/server/actions/action'
 import { getOrgIdFromSlug, getStudyOrgIdForStudyId } from '@/server/db/queries'
 
-const onCreateStudyActionArgsSchema = z.object({
+const upsertStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
+    studyId: z.string().optional(),
     studyInfo: studyProposalApiSchema,
     mainCodeFileName: z.string(),
     codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = new Action('onCreateStudyAction')
-    .params(onCreateStudyActionArgsSchema)
+export const upsertStudyAction = new Action('upsertStudyAction')
+    .params(upsertStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
+    .handler(async ({ params: { orgSlug, studyId: existingStudyId, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
         const userId = session.user.id
 
-        const studyId = uuidv7()
+        const studyId = existingStudyId ?? uuidv7()
 
-        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
-
-        await db
-            .insertInto('study')
-            .values({
-                id: studyId,
-                title: studyInfo.title,
-                piName: studyInfo.piName,
-                descriptionDocPath: studyInfo.descriptionDocPath,
-                irbDocPath: studyInfo.irbDocPath,
-                agreementDocPath: studyInfo.agreementDocPath,
-                orgId: orgId,
-                researcherId: userId,
-                containerLocation,
-                status: 'PENDING-REVIEW',
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+        if (existingStudyId) {
+            await db
+                .updateTable('study')
+                .set({
+                    title: studyInfo.title,
+                    piName: studyInfo.piName,
+                    descriptionDocPath: studyInfo.descriptionDocPath,
+                    irbDocPath: studyInfo.irbDocPath,
+                    agreementDocPath: studyInfo.agreementDocPath,
+                    status: 'PENDING-REVIEW',
+                })
+                .where('id', '=', studyId)
+                .execute()
+        } else {
+            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
+            await db
+                .insertInto('study')
+                .values({
+                    id: studyId,
+                    title: studyInfo.title,
+                    piName: studyInfo.piName,
+                    descriptionDocPath: studyInfo.descriptionDocPath,
+                    irbDocPath: studyInfo.irbDocPath,
+                    agreementDocPath: studyInfo.agreementDocPath,
+                    orgId: orgId,
+                    researcherId: userId,
+                    containerLocation,
+                    status: 'PENDING-REVIEW',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+        }
 
         const studyJob = await db
             .insertInto('studyJob')
