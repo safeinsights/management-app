@@ -3,8 +3,9 @@ import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { ResubmitStudyCodeForm } from './form'
 
-export default async function ResubmitStudyCodePage(props: { params: { studyId: string; orgSlug: string } }) {
-    const { studyId } = props.params
+
+export default async function ResubmitStudyCodePage({ params }: { params: { studyId: string; orgSlug: string } }) {
+    const { studyId, orgSlug } = params
     const study = await getStudyAction({ studyId })
 
     return (
