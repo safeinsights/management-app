@@ -45,7 +45,7 @@ describe('JobApprovalStatus', () => {
                 { status: 'FILES-APPROVED' as StudyJobStatus, createdAt: new Date('2024-03-03T00:00:00Z') },
             ],
         }
-        renderWithProviders(<FileApprovalStatus job={job} />)
+        renderWithProviders(<FileApprovalStatus job={job} orgSlug="test-org" />)
 
         expect(screen.getByText(/Approved/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
@@ -58,7 +58,7 @@ describe('JobApprovalStatus', () => {
                 { status: 'FILES-REJECTED' as StudyJobStatus, createdAt: new Date('2024-04-04T00:00:00Z') },
             ],
         }
-        renderWithProviders(<FileApprovalStatus job={job} />)
+        renderWithProviders(<FileApprovalStatus job={job} orgSlug="test-org" />)
         expect(screen.getByText(/Rejected/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
@@ -68,21 +68,21 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'JOB-RUNNING' as StudyJobStatus, createdAt: new Date() }],
         }
-        renderWithProviders(<FileApprovalStatus job={runningJob} />)
+        renderWithProviders(<FileApprovalStatus job={runningJob} orgSlug="test-org" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         const initiatedJob = {
             ...baseJob,
             statusChanges: [{ status: 'INITIATED' as StudyJobStatus, createdAt: new Date() }],
         }
-        renderWithProviders(<FileApprovalStatus job={initiatedJob} />)
+        renderWithProviders(<FileApprovalStatus job={initiatedJob} orgSlug="test-org" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         const noStatusJob = {
             ...baseJob,
             statusChanges: [],
         }
-        renderWithProviders(<FileApprovalStatus job={noStatusJob} />)
+        renderWithProviders(<FileApprovalStatus job={noStatusJob} orgSlug="test-org" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
     })
 })
