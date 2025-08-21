@@ -76,6 +76,7 @@ describe('JobApprovalStatus', () => {
             statusChanges: [{ status: 'INITIATED' as StudyJobStatus, createdAt: new Date() }],
         }
         renderWithProviders(<FileApprovalStatus job={initiatedJob} orgSlug="test-org" />)
+
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         const noStatusJob = {
