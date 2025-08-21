@@ -23,128 +23,134 @@ export const upsertStudyAction = new Action('upsertStudyAction')
     .params(upsertStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(async ({ params: { orgSlug, studyId: existingStudyId, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
-        const userId = session.user.id
+    .handler(
+        async ({
+            params: { orgSlug, studyId: existingStudyId, studyInfo, mainCodeFileName, codeFileNames },
+            session,
+            orgId,
+        }) => {
+            const userId = session.user.id
 
-        const studyId = existingStudyId ?? uuidv7()
+            const studyId = existingStudyId ?? uuidv7()
 
-        if (existingStudyId) {
-            await db
-                .updateTable('study')
-                .set({
-                    title: studyInfo.title,
-                    piName: studyInfo.piName,
-                    descriptionDocPath: studyInfo.descriptionDocPath,
-                    irbDocPath: studyInfo.irbDocPath,
-                    agreementDocPath: studyInfo.agreementDocPath,
-                    status: 'PENDING-REVIEW',
-                })
-                .where('id', '=', studyId)
-                .execute()
-        } else {
-            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
-            await db
-                .insertInto('study')
+            if (existingStudyId) {
+                await db
+                    .updateTable('study')
+                    .set({
+                        title: studyInfo.title,
+                        piName: studyInfo.piName,
+                        descriptionDocPath: studyInfo.descriptionDocPath,
+                        irbDocPath: studyInfo.irbDocPath,
+                        agreementDocPath: studyInfo.agreementDocPath,
+                        status: 'PENDING-REVIEW',
+                    })
+                    .where('id', '=', studyId)
+                    .execute()
+            } else {
+                const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
+                await db
+                    .insertInto('study')
+                    .values({
+                        id: studyId,
+                        title: studyInfo.title,
+                        piName: studyInfo.piName,
+                        descriptionDocPath: studyInfo.descriptionDocPath,
+                        irbDocPath: studyInfo.irbDocPath,
+                        agreementDocPath: studyInfo.agreementDocPath,
+                        orgId: orgId,
+                        researcherId: userId,
+                        containerLocation,
+                        status: 'PENDING-REVIEW',
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
+            }
+
+            const studyJob = await db
+                .insertInto('studyJob')
                 .values({
-                    id: studyId,
-                    title: studyInfo.title,
-                    piName: studyInfo.piName,
-                    descriptionDocPath: studyInfo.descriptionDocPath,
-                    irbDocPath: studyInfo.irbDocPath,
-                    agreementDocPath: studyInfo.agreementDocPath,
-                    orgId: orgId,
-                    researcherId: userId,
-                    containerLocation,
-                    status: 'PENDING-REVIEW',
+                    language: 'R', // TODO: make this dynamic based on user selection
+                    studyId: studyId,
                 })
                 .returning('id')
                 .executeTakeFirstOrThrow()
-        }
 
-        const studyJob = await db
-            .insertInto('studyJob')
-            .values({
-                language: 'R', // TODO: make this dynamic based on user selection
-                studyId: studyId,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    studyJobId: studyJob.id,
+                    status: 'INITIATED',
+                })
+                .executeTakeFirstOrThrow()
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                studyJobId: studyJob.id,
-                status: 'INITIATED',
-            })
-            .executeTakeFirstOrThrow()
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    userId: userId,
+                    status: 'CODE-SUBMITTED',
+                    studyJobId: studyJob.id,
+                })
+                .execute()
 
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: userId,
-                status: 'CODE-SUBMITTED',
-                studyJobId: studyJob.id,
-            })
-            .execute()
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: mainCodeFileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
-                studyJobId: studyJob.id,
-                fileType: 'MAIN-CODE',
-            })
-            .executeTakeFirstOrThrow()
-
-        for (const fileName of codeFileNames) {
             await db
                 .insertInto('studyJobFile')
                 .values({
-                    name: fileName,
-                    path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
+                    name: mainCodeFileName,
+                    path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
                     studyJobId: studyJob.id,
-                    fileType: 'SUPPLEMENTAL-CODE',
+                    fileType: 'MAIN-CODE',
                 })
                 .executeTakeFirstOrThrow()
-        }
 
-        onStudyCreated({ userId, studyId })
+            for (const fileName of codeFileNames) {
+                await db
+                    .insertInto('studyJobFile')
+                    .values({
+                        name: fileName,
+                        path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
+                        studyJobId: studyJob.id,
+                        fileType: 'SUPPLEMENTAL-CODE',
+                    })
+                    .executeTakeFirstOrThrow()
+            }
 
-        const studyJobCodePath = pathForStudyJobCode({
-            orgSlug,
-            studyId,
-            studyJobId: studyJob.id,
-        })
+            onStudyCreated({ userId, studyId })
 
-        // s3 signed urls for client to upload
-        const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
-        const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+            const studyJobCodePath = pathForStudyJobCode({
+                orgSlug,
+                studyId,
+                studyJobId: studyJob.id,
+            })
 
-        const urlForAgreementUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-        )
+            // s3 signed urls for client to upload
+            const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+            const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
 
-        const urlForIrbUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-        )
+            const urlForAgreementUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            )
 
-        const urlForDescriptionUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-        )
+            const urlForIrbUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            )
 
-        revalidatePath('/researcher/dashboard')
+            const urlForDescriptionUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            )
 
-        return {
-            studyId: studyId,
-            studyJobId: studyJob.id,
-            urlForMainCodeUpload,
-            urlForAdditionalCodeUpload,
-            urlForAgreementUpload,
-            urlForIrbUpload,
-            urlForDescriptionUpload,
-        }
-    })
+            revalidatePath('/researcher/dashboard')
+
+            return {
+                studyId: studyId,
+                studyJobId: studyJob.id,
+                urlForMainCodeUpload,
+                urlForAdditionalCodeUpload,
+                urlForAgreementUpload,
+                urlForIrbUpload,
+                urlForDescriptionUpload,
+            }
+        },
+    )
 
 export const onDeleteStudyAction = new Action('onDeleteStudyAction')
     .params(
