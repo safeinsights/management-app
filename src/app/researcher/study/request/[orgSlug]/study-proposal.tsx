@@ -52,7 +52,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
     return null
 }
 
-async function uploadFile(file: File, upload: PresignedPost) {
+export async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
     for (const [key, value] of Object.entries(upload.fields)) {
         body.append(key, value)

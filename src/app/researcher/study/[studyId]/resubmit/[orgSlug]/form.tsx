@@ -11,23 +11,10 @@ import {
 import { UploadStudyJobCode } from '@/app/researcher/study/request/[orgSlug]/upload-study-job-code'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
-import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation } from '@tanstack/react-query'
 import { CancelButton } from '@/components/cancel-button'
-
-async function uploadFile(file: File, presignedPost: PresignedPost) {
-    const formData = new FormData()
-    Object.entries(presignedPost.fields).forEach(([key, value]) => {
-        formData.append(key, value as string)
-    })
-    formData.append('file', file)
-
-    await fetch(presignedPost.url, {
-        method: 'POST',
-        body: formData,
-    })
-}
+import { uploadFile } from '../../../request/[orgSlug]/study-proposal'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
@@ -53,13 +40,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
 
             const studyInfo = studyProposalApiSchema.parse(formValues)
 
-            const {
-                urlForMainCodeUpload,
-                urlForAdditionalCodeUpload,
-                urlForAgreementUpload,
-                urlForIrbUpload,
-                urlForDescriptionUpload,
-            } = await upsertStudyAction({
+            const { urlForMainCodeUpload, urlForAdditionalCodeUpload } = await upsertStudyAction({
                 studyId: study.id,
                 orgSlug: study.orgSlug,
                 studyInfo,
@@ -71,16 +52,6 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
 
             for (const file of formValues.additionalCodeFiles) {
                 await uploadFile(file, urlForAdditionalCodeUpload)
-            }
-
-            if (formValues.descriptionDocument) {
-                await uploadFile(formValues.descriptionDocument, urlForDescriptionUpload)
-            }
-            if (formValues.irbDocument) {
-                await uploadFile(formValues.irbDocument, urlForIrbUpload)
-            }
-            if (formValues.agreementDocument) {
-                await uploadFile(formValues.agreementDocument, urlForAgreementUpload)
             }
         },
         onSuccess() {
