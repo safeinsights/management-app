@@ -49,6 +49,11 @@ export const useStudyStatus = ({
         }
     }
 
+    // JOB-ERRORED always takes precedence if present
+    if (statuses.includes('JOB-ERRORED')) {
+        return labels['JOB-ERRORED'] || null
+    }
+
     const displayedStatus = statusKeys.find((statusKey) => {
         return statuses.find((status) => status === statusKey)
     })

@@ -22,7 +22,6 @@ function fetchStudiesQuery(db: DBExecutor, orgId: string) {
                     .distinctOn('studyId')
                     .orderBy('studyId')
                     .orderBy('createdAt', 'desc')
-                    .limit(1)
                     .as('latestStudyJob'),
             (join) => join.onRef('latestStudyJob.studyId', '=', 'study.id'),
         )
