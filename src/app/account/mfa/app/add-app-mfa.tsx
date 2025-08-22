@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from '@/components/common'
 import { InputError, reportError } from '@/components/errors'
-import { ButtonLink, Link } from '@/components/links'
+import { Link } from '@/components/links'
 import logger from '@/lib/logger'
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
@@ -25,6 +25,7 @@ import {
 import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
+import BackupCodes from './backup-codes'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -32,12 +33,20 @@ type DisplayFormat = 'qr' | 'uri'
 
 export const dynamic = 'force-dynamic'
 
-function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>> }) {
+function AddTotpScreenContent({
+    setStep,
+    setBackupCodes,
+}: {
+    setStep: React.Dispatch<React.SetStateAction<AddTotpSteps>>
+    setBackupCodes: React.Dispatch<React.SetStateAction<string[] | null>>
+}) {
     const theme = useMantineTheme()
     const { user } = useUser()
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
+    const [isVerifying, setIsVerifying] = useState(false)
+
     const secret = useMemo(() => {
         if (totp?.uri) {
             try {
@@ -61,11 +70,24 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     })
 
     const verifyTotp = async (values: { code: string }) => {
+        setIsVerifying(true)
         try {
             await user?.verifyTOTP({ code: values.code })
+            // Generate backup codes after verification
+            if (user && !user.backupCodeEnabled) {
+                try {
+                    const resource = await user.createBackupCode()
+                    setBackupCodes(resource.codes || [])
+                } catch (err) {
+                    logger.error({ err, message: 'Error generating backup codes' })
+                    setBackupCodes([])
+                }
+            }
             setStep('success')
         } catch {
             form.setErrors({ code: 'Invalid verification code. Please try again.' })
+        } finally {
+            setIsVerifying(false)
         }
     }
 
@@ -170,7 +192,14 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
                         {...form.getInputProps('code')}
                     />
                     <InputError error={form.errors.code} />
-                    <Button type="submit" fullWidth disabled={!/^\d{6}$/.test(form.values.code)} size="lg" mt="md">
+                    <Button
+                        type="submit"
+                        loading={isVerifying}
+                        fullWidth
+                        disabled={!/^\d{6}$/.test(form.values.code)}
+                        size="lg"
+                        mt="md"
+                    >
                         Verify code
                     </Button>
                     <Link
@@ -190,17 +219,9 @@ function AddTotpScreenContent({ setStep }: { setStep: React.Dispatch<React.SetSt
     )
 }
 
-function SuccessScreenContent() {
-    return (
-        <Stack gap="lg">
-            <Text>You have successfully added TOTP MFA with an authentication application.</Text>
-            <ButtonLink href="/">Return to homepage</ButtonLink>
-        </Stack>
-    )
-}
-
 export function AddAppMFA() {
     const [step, setStep] = useState<AddTotpSteps>('add')
+    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
     const { isLoaded, user } = useUser()
 
     if (!isLoaded) return null
@@ -210,9 +231,9 @@ export function AddAppMFA() {
     }
 
     return (
-        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
-            {step === 'add' && <AddTotpScreenContent setStep={setStep} />}
-            {step === 'success' && <SuccessScreenContent />}
+        <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
+            {step === 'add' && <AddTotpScreenContent setStep={setStep} setBackupCodes={setBackupCodes} />}
+            {step === 'success' && <BackupCodes codes={backupCodes} />}
         </Paper>
     )
 }
