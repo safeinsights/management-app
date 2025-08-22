@@ -1,13 +1,10 @@
 'use client'
 
 import { Button, Group, Stack } from '@mantine/core'
-import { upsertStudyAction } from '@/app/researcher/study/request/[orgSlug]/actions'
+import { addJobToStudyAction } from '@/app/researcher/study/request/[orgSlug]/actions'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import {
-    StudyProposalFormValues,
-    studyProposalApiSchema,
-} from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
+import { StudyProposalFormValues } from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
 import { UploadStudyJobCode } from '@/app/researcher/study/request/[orgSlug]/upload-study-job-code'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
@@ -15,12 +12,26 @@ import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation } from '@tanstack/react-query'
 import { CancelButton } from '@/components/cancel-button'
 import { uploadFile } from '../../../request/[orgSlug]/study-proposal'
+import { zodResolver } from '../../edit/schema'
+import z from 'zod'
+import logger from '@/lib/logger'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
 
+    const resubmitStudySchema = z.object({
+        title: z.string(),
+        piName: z.string(),
+        descriptionDocument: z.nullable(z.instanceof(File)).optional(),
+        irbDocument: z.nullable(z.instanceof(File)).optional(),
+        agreementDocument: z.nullable(z.instanceof(File)).optional(),
+        mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }),
+        additionalCodeFiles: z.array(z.instanceof(File)).default([]),
+    })
+
     const studyProposalForm = useForm<StudyProposalFormValues>({
+        validate: zodResolver(resubmitStudySchema),
         initialValues: {
             title: study.title,
             piName: study.piName,
@@ -34,21 +45,14 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
 
     const { isPending, mutate: resubmitStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            if (!formValues.mainCodeFile) {
-                throw new Error('Please upload a main code file to resubmit.')
-            }
-
-            const studyInfo = studyProposalApiSchema.parse(formValues)
-
-            const { urlForMainCodeUpload, urlForAdditionalCodeUpload } = await upsertStudyAction({
+            const { urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addJobToStudyAction({
                 studyId: study.id,
                 orgSlug: study.orgSlug,
-                studyInfo,
-                mainCodeFileName: formValues.mainCodeFile.name,
+                mainCodeFileName: formValues.mainCodeFile!.name,
                 codeFileNames: formValues.additionalCodeFiles.map((f) => f.name),
             })
 
-            await uploadFile(formValues.mainCodeFile, urlForMainCodeUpload)
+            await uploadFile(formValues.mainCodeFile!, urlForMainCodeUpload)
 
             for (const file of formValues.additionalCodeFiles) {
                 await uploadFile(file, urlForAdditionalCodeUpload)
@@ -64,7 +68,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
             router.push(`/researcher/study/${study.id}/review`)
         },
         onError: (error) => {
-            console.error(error)
+            logger.error(error)
             notifications.show({
                 color: 'red',
                 title: 'Failed to resubmit study',

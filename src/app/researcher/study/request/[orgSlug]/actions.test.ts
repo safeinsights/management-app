@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mockSessionWithTestData, insertTestStudyData } from '@/tests/unit.helpers'
-import { upsertStudyAction, onDeleteStudyAction } from './actions'
+import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { db } from '@/database'
 import * as aws from '@/server/aws'
 
@@ -27,7 +27,7 @@ describe('Request Study Actions', () => {
             additionalCodeFilePaths: ['helpers.R'],
         }
 
-        const result = await upsertStudyAction({
+        const result = await onCreateStudyAction({
             orgSlug: org.slug,
             studyInfo,
             mainCodeFileName: 'main.R',
