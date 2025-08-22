@@ -53,7 +53,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .handler(async ({ session, db }) => {
         return fetchStudiesQuery(db, session.team.id)
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-            .innerJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'researcher.id'))
+            .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
             .select([
                 'study.id',
                 'study.approvedAt',
