@@ -1,8 +1,9 @@
 'use client'
 
-import { useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useLayoutEffect } from 'react'
 import { useSession } from '../hooks/session'
+import { navigateToDashboard } from '../lib/session'
 
 export const RequireOrgAdmin = () => {
     const { session } = useSession()
@@ -11,11 +12,7 @@ export const RequireOrgAdmin = () => {
     useLayoutEffect(() => {
         if (!session || session.team.isAdmin) return
 
-        if (session.team.isResearcher) {
-            router.push('/researcher/dashboard')
-        } else if (session.team.isReviewer) {
-            router.push(`/reviewer/${session.team.slug}/dashboard`)
-        }
+        navigateToDashboard(router, session)
     }, [session, router])
 
     return null

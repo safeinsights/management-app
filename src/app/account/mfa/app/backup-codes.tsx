@@ -1,6 +1,7 @@
 import { useState, type FC } from '@/components/common'
 import { AppModal } from '@/components/modal'
 import { useSession } from '@/hooks/session'
+import { navigateToDashboard } from '@/lib/session'
 import { useUser } from '@clerk/nextjs'
 import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
@@ -30,15 +31,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
 
     const goToDashboard = () => {
         if (!isSessionLoaded || !session) return
-        if (session.team.isResearcher) {
-            router.push('/researcher/dashboard')
-            return
-        }
-        if (session.team.isReviewer) {
-            router.push(`/reviewer/${session.team.slug}/dashboard`)
-            return
-        }
-        router.push('/')
+        navigateToDashboard(router, session)
     }
 
     if (!isLoaded) return null
