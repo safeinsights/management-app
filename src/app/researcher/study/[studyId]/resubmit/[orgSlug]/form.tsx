@@ -12,9 +12,10 @@ import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation } from '@tanstack/react-query'
 import { CancelButton } from '@/components/cancel-button'
 import { uploadFile } from '../../../request/[orgSlug]/study-proposal'
-import { zodResolver } from '../../edit/schema'
+
 import z from 'zod'
 import logger from '@/lib/logger'
+import { zodResolver } from 'mantine-form-zod-resolver'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
