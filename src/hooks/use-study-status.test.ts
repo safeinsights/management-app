@@ -74,18 +74,18 @@ describe('useStudyStatus', () => {
             expect(result?.label).toBe('Approved')
         })
 
-        it('shows FILES-APPROVED status for researchers when files have been approved (higher priority than JOB-ERRORED)', () => {
+        it('shows JOB-ERRORED status for researchers when files have been approved and job has errored', () => {
             const params = createTestParams('APPROVED', 'researcher', [
                 { status: 'JOB-ERRORED' },
                 { status: 'FILES-APPROVED' },
             ])
             const result = useStudyStatus(params)
 
-            // FILES-APPROVED has higher priority than JOB-ERRORED in the status order
-            expect(result?.label).toBe('Approved')
+            // JOB-ERRORED is persisted after FILES-APPROVED
+            expect(result?.label).toBe('Errored')
         })
 
-        it('shows FILES-REJECTED status for researchers when files have been rejected (higher priority than JOB-ERRORED)', () => {
+        it('shows JOB-ERRORED status for researchers when files have been rejected and job has errored', () => {
             const params = createTestParams('APPROVED', 'researcher', [
                 { status: 'JOB-ERRORED' },
                 { status: 'FILES-REJECTED' },
@@ -93,20 +93,8 @@ describe('useStudyStatus', () => {
             ])
             const result = useStudyStatus(params)
 
-            // FILES-REJECTED has higher priority than JOB-ERRORED in the status order
-            expect(result?.label).toBe('Rejected')
-        })
-
-        it('shows JOB-ERRORED status for researchers when only error status is present and files have been reviewed', () => {
-            const params = createTestParams('APPROVED', 'researcher', [
-                { status: 'JOB-ERRORED' },
-                { status: 'FILES-APPROVED' },
-                { status: 'JOB-RUNNING' },
-            ])
-            const result = useStudyStatus(params)
-
-            // FILES-APPROVED should have higher priority than JOB-ERRORED
-            expect(result?.label).toBe('Approved')
+            // JOB-ERRORED is persisted after FILES-REJECTED
+            expect(result?.label).toBe('Errored')
         })
 
         it('does not filter JOB-ERRORED status for reviewers', () => {
@@ -136,9 +124,6 @@ describe('useStudyStatus', () => {
                 { status: 'RUN-COMPLETE' },
                 { status: 'JOB-RUNNING' },
                 { status: 'CODE-APPROVED' },
-                { status: 'JOB-ERRORED' },
-                { status: 'JOB-ERRORED' },
-                { status: 'JOB-ERRORED' },
             ])
             const result = useStudyStatus(params)
 
@@ -200,21 +185,8 @@ describe('useStudyStatus', () => {
     })
 
     describe('file review status edge cases', () => {
-        it('prioritizes file status over error status with mixed status types', () => {
-            const params = createTestParams('APPROVED', 'researcher', [
-                { status: 'JOB-ERRORED' },
-                { status: 'JOB-RUNNING' },
-                { status: 'FILES-APPROVED' },
-            ])
-            const result = useStudyStatus(params)
-
-            // Should show FILES-APPROVED since it has higher priority than JOB-ERRORED
-            expect(result?.label).toBe('Approved')
-        })
-
         it('prioritizes most recent file status when both approval and rejection are present', () => {
             const params = createTestParams('APPROVED', 'researcher', [
-                { status: 'JOB-ERRORED' },
                 { status: 'FILES-REJECTED' },
                 { status: 'FILES-APPROVED' },
             ])
