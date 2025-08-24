@@ -12,9 +12,7 @@ import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation } from '@tanstack/react-query'
 import { CancelButton } from '@/components/cancel-button'
 import { uploadFile } from '../../../request/[orgSlug]/study-proposal'
-
 import z from 'zod'
-import logger from '@/lib/logger'
 import { zodResolver } from 'mantine-form-zod-resolver'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
@@ -69,7 +67,6 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
             router.push(`/researcher/study/${study.id}/review`)
         },
         onError: (error) => {
-            logger.error(error)
             notifications.show({
                 color: 'red',
                 title: 'Failed to resubmit study',
