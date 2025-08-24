@@ -1,13 +1,11 @@
 import * as React from 'react'
 import {
-    Alert,
     Divider,
     Flex,
     Group,
     Paper,
     Stack,
     Table,
-    TableCaption,
     TableTbody,
     TableTd,
     TableTh,
@@ -37,20 +35,16 @@ const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     )
 }
 
-const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
-    if (!visible) return null
-
-    return (
-        <TableCaption>
-            <Alert variant="transparent">
-                You haven&apos;t started a study yet
-                <Stack>
-                    <NewStudyLink orgSlug={slug} />
-                </Stack>
-            </Alert>
-        </TableCaption>
-    )
-}
+const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
+    <TableTr>
+        <TableTd colSpan={5}>
+            <Stack align="center" gap="md" p="md">
+                <Text>You haven&apos;t started a study yet</Text>
+                <NewStudyLink orgSlug={slug} />
+            </Stack>
+        </TableTd>
+    </TableTr>
+)
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
     const studies = await fetchStudiesForCurrentResearcherAction()
@@ -106,7 +100,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     </Group>
                     <Divider c="charcoal.1" />
                     <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
                         <TableThead fz="sm">
                             <TableTr>
                                 <TableTh>Study Name</TableTh>
@@ -116,7 +109,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                                 <TableTh>Study Details</TableTh>
                             </TableTr>
                         </TableThead>
-                        <TableTbody>{rows}</TableTbody>
+                        <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
                     </Table>
                 </Stack>
             </Paper>
