@@ -39,7 +39,7 @@ export function NavbarProfileMenu() {
 
     return (
         <AppShellSection ref={menuRef}>
-            <Collapse in={opened} bg="purple.9">
+            <Collapse in={opened} bg="purple.9" id="profile-menu" role="menu">
                 <NavLink
                     ref={firstMenuItemRef}
                     label="My Account"
@@ -58,6 +58,7 @@ export function NavbarProfileMenu() {
                     }}
                     aria-label="My Account"
                     tabIndex={0}
+                    role="menuitem"
                 />
 
                 <Protect role={AuthRole.Reviewer}>
@@ -78,6 +79,7 @@ export function NavbarProfileMenu() {
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"
                         tabIndex={0}
+                        role="menuitem"
                     />
                 </Protect>
 
@@ -98,6 +100,7 @@ export function NavbarProfileMenu() {
                     className={styles.navLinkProfileHover}
                     aria-label="Sign Out"
                     tabIndex={0}
+                    role="menuitem"
                 />
             </Collapse>
 
@@ -116,6 +119,7 @@ export function NavbarProfileMenu() {
                     role="button"
                     aria-haspopup="true"
                     aria-expanded={opened}
+                    aria-controls="profile-menu"
                     aria-label="Toggle profile menu"
                     tabIndex={0}
                     onKeyDown={(e) => {

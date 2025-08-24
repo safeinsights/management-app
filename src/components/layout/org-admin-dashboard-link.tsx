@@ -54,6 +54,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 c="white"
                 className={styles.navLinkHover}
                 rightSection={null}
+                aria-haspopup="true"
             >
                 <NavbarLink
                     isVisible={session?.user.isSiAdmin || false}
@@ -68,6 +69,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     component={Link}
                     href={`${orgAdminBaseUrl}`}
                     active={pathname === `${orgAdminBaseUrl}`}
+                    aria-current={pathname === `${orgAdminBaseUrl}` ? 'page' : undefined}
                     c="white"
                     color="blue.7"
                     variant="filled"
@@ -80,6 +82,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     component={Link}
                     href={`${orgAdminBaseUrl}/settings`}
                     active={pathname === `${orgAdminBaseUrl}/settings`}
+                    aria-current={pathname === `${orgAdminBaseUrl}/settings` ? 'page' : undefined}
                     c="white"
                     color="blue.7"
                     variant="filled"
