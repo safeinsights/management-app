@@ -21,7 +21,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
 
-    const { data: testImageExists } = useQuery({
+    const { data: testImageExists, isLoading: isTestImageQueryLoading } = useQuery({
         queryKey: ['testImageExists', study.id],
         queryFn: () => doesTestImageExistForStudyAction({ studyId: study.id }),
         enabled: !!session?.team.isAdmin,
@@ -51,6 +51,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
     const TestingCheck = () => {
         if (!session?.team.isAdmin) return null
+        if (isTestImageQueryLoading) return null
 
         const label = 'Run this code against test base image'
 
@@ -58,6 +59,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             return (
                 <Checkbox
                     checked={false}
+                    data-testid="test-image-checkbox-disabled"
                     disabled
                     style={{ marginLeft: 'auto' }}
                     label={
@@ -76,6 +78,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
         return (
             <Checkbox
+                data-testid="test-image-checkbox"
                 checked={useTestImage}
                 style={{ marginLeft: 'auto' }}
                 onChange={(event) => setUseTestImage(event.currentTarget.checked)}
