@@ -315,3 +315,22 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
 
         onStudyRejected({ studyId, userId })
     })
+
+export const doesTestImageExistForStudyAction = new Action('doesTestImageExistForStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => {
+        const latestJob = await latestJobForStudy(studyId)
+        return { latestJob, orgId: latestJob.orgId }
+    })
+    .requireAbilityTo('approve', 'Study')
+    .handler(async ({ latestJob, db }) => {
+        const testImage = await db
+            .selectFrom('orgBaseImage')
+            .select('id')
+            .where('orgId', '=', latestJob.orgId)
+            .where('language', '=', latestJob.language)
+            .where('isTesting', '=', true)
+            .executeTakeFirst()
+
+        return !!testImage
+    })
