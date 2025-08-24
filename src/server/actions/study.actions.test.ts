@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+    db,
     insertTestOrg,
     insertTestStudyData,
     insertTestStudyJobData,
@@ -7,7 +8,12 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
-import { approveStudyProposalAction, fetchStudiesForCurrentResearcherAction, getStudyAction } from './study.actions'
+import {
+    approveStudyProposalAction,
+    doesTestImageExistForStudyAction,
+    fetchStudiesForCurrentResearcherAction,
+    getStudyAction,
+} from './study.actions'
 import { latestJobForStudy } from '../db/queries'
 import { onStudyApproved } from '@/server/events'
 import logger from '@/lib/logger'
@@ -66,6 +72,79 @@ describe('Study Actions', () => {
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
         await expect(getStudyAction({ studyId })).rejects.toThrow()
         expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
+    })
+
+    describe('doesTestImageExistForStudyAction', () => {
+        it('returns true when a test image exists for the study language and org', async () => {
+            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
+            await db
+                .insertInto('orgBaseImage')
+                .values({
+                    name: 'Test R Image',
+                    language: 'R',
+                    cmdLine: 'Rscript %f',
+                    url: 'test/url',
+                    isTesting: true,
+                    orgId: org.id,
+                })
+                .execute()
+
+            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
+
+            expect(result).toBe(true)
+        })
+
+        it('returns false when no test image exists for the study org', async () => {
+            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
+
+            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
+
+            expect(result).toBe(false)
+        })
+
+        it('returns false when only non-test images exist', async () => {
+            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
+            await db
+                .insertInto('orgBaseImage')
+                .values({
+                    name: 'Non-Test R Image',
+                    language: 'R',
+                    cmdLine: 'Rscript %f',
+                    url: 'test/url',
+                    isTesting: false,
+                    orgId: org.id,
+                })
+                .execute()
+
+            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
+
+            expect(result).toBe(false)
+        })
+
+        it('returns false for a test image in a different org', async () => {
+            const { org: studyOrg } = await mockSessionWithTestData({ isReviewer: true })
+            const { study } = await insertTestStudyJobData({ org: studyOrg, studyStatus: 'PENDING-REVIEW' })
+
+            const otherOrg = await insertTestOrg()
+            await db
+                .insertInto('orgBaseImage')
+                .values({
+                    name: 'Other Org Test Image',
+                    language: 'R',
+                    cmdLine: 'Rscript %f',
+                    url: 'test/url',
+                    isTesting: true,
+                    orgId: otherOrg.id,
+                })
+                .execute()
+
+            const result = await doesTestImageExistForStudyAction({ studyId: study.id })
+
+            expect(result).toBe(false)
+        })
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
