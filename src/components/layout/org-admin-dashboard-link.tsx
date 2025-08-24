@@ -36,17 +36,10 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
             <NavLink
                 label="Admin"
                 leftSection={<GearIcon />}
-                tabIndex={0}
+                component="button"
                 onClick={() => {
                     if (!pathname.startsWith(orgAdminBaseUrl)) {
                         setIsAdminMenuOpen((prev) => !prev)
-                    }
-                }}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        if (!pathname.startsWith(orgAdminBaseUrl)) {
-                            setIsAdminMenuOpen((prev) => !prev)
-                        }
                     }
                 }}
                 active={false}

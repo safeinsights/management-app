@@ -18,7 +18,7 @@ export function NavbarProfileMenu() {
     const [opened, { toggle, close }] = useDisclosure()
     const router = useRouter()
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
-    const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
+    const firstMenuItemRef = useRef<HTMLButtonElement>(null)
 
     const closeAndCall = (fn: () => void) => () => {
         fn()
@@ -50,15 +50,9 @@ export function NavbarProfileMenu() {
                         e.stopPropagation()
                         closeAndCall(() => openUserProfile())()
                     }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault()
-                            closeAndCall(() => openUserProfile())()
-                        }
-                    }}
                     aria-label="My Account"
-                    tabIndex={0}
                     role="menuitem"
+                    component="button"
                 />
 
                 <Protect role={AuthRole.Reviewer}>
@@ -69,17 +63,11 @@ export function NavbarProfileMenu() {
                             e.stopPropagation()
                             closeAndCall(() => router.push('/reviewer/keys'))()
                         }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault()
-                                closeAndCall(() => router.push('/reviewer/keys'))()
-                            }
-                        }}
                         c="white"
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"
-                        tabIndex={0}
                         role="menuitem"
+                        component="button"
                     />
                 </Protect>
 
@@ -90,17 +78,11 @@ export function NavbarProfileMenu() {
                         e.stopPropagation()
                         closeAndCall(() => signOut())()
                     }}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault()
-                            closeAndCall(() => signOut())()
-                        }
-                    }}
                     c="white"
                     className={styles.navLinkProfileHover}
                     aria-label="Sign Out"
-                    tabIndex={0}
                     role="menuitem"
+                    component="button"
                 />
             </Collapse>
 
@@ -116,18 +98,11 @@ export function NavbarProfileMenu() {
                     c="white"
                     className={styles.navLinkProfileHover}
                     onClick={handleToggle}
-                    role="button"
                     aria-haspopup="true"
                     aria-expanded={opened}
                     aria-controls="profile-menu"
                     aria-label="Toggle profile menu"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleToggle()
-                        }
-                    }}
+                    component="button"
                 />
             </RefWrapper>
         </AppShellSection>
