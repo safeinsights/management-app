@@ -18,7 +18,7 @@ export function NavbarProfileMenu() {
     const [opened, { toggle, close }] = useDisclosure()
     const router = useRouter()
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
-    const firstMenuItemRef = useRef<HTMLDivElement>(null)
+    const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
 
     const closeAndCall = (fn: () => void) => () => {
         fn()
@@ -40,40 +40,65 @@ export function NavbarProfileMenu() {
     return (
         <AppShellSection ref={menuRef}>
             <Collapse in={opened} bg="purple.9">
-                <RefWrapper ref={firstMenuItemRef}>
-                    <NavLink
-                        label="My Account"
-                        leftSection={<UserIcon aria-hidden="true" />}
-                        c="white"
-                        className={styles.navLinkProfileHover}
-                        onClick={closeAndCall(() => openUserProfile())}
-                        aria-label="My Account"
-                    />
-                </RefWrapper>
+                <NavLink
+                    ref={firstMenuItemRef}
+                    label="My Account"
+                    leftSection={<UserIcon aria-hidden="true" />}
+                    c="white"
+                    className={styles.navLinkProfileHover}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        closeAndCall(() => openUserProfile())()
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault()
+                            closeAndCall(() => openUserProfile())()
+                        }
+                    }}
+                    aria-label="My Account"
+                    tabIndex={0}
+                />
 
                 <Protect role={AuthRole.Reviewer}>
-                    <RefWrapper>
-                        <NavLink
-                            label="Reviewer Key"
-                            leftSection={<LockIcon aria-hidden="true" />}
-                            onClick={closeAndCall(() => router.push('/reviewer/keys'))}
-                            c="white"
-                            className={styles.navLinkProfileHover}
-                            aria-label="Reviewer Key"
-                        />
-                    </RefWrapper>
-                </Protect>
-
-                <RefWrapper>
                     <NavLink
-                        label="Sign Out"
-                        leftSection={<SignOutIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => signOut())}
+                        label="Reviewer Key"
+                        leftSection={<LockIcon aria-hidden="true" />}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            closeAndCall(() => router.push('/reviewer/keys'))()
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault()
+                                closeAndCall(() => router.push('/reviewer/keys'))()
+                            }
+                        }}
                         c="white"
                         className={styles.navLinkProfileHover}
-                        aria-label="Sign Out"
+                        aria-label="Reviewer Key"
+                        tabIndex={0}
                     />
-                </RefWrapper>
+                </Protect>
+
+                <NavLink
+                    label="Sign Out"
+                    leftSection={<SignOutIcon aria-hidden="true" />}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        closeAndCall(() => signOut())()
+                    }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault()
+                            closeAndCall(() => signOut())()
+                        }
+                    }}
+                    c="white"
+                    className={styles.navLinkProfileHover}
+                    aria-label="Sign Out"
+                    tabIndex={0}
+                />
             </Collapse>
 
             <RefWrapper>
@@ -92,6 +117,7 @@ export function NavbarProfileMenu() {
                     aria-haspopup="true"
                     aria-expanded={opened}
                     aria-label="Toggle profile menu"
+                    tabIndex={0}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                             e.preventDefault()
