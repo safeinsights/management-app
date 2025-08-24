@@ -1,10 +1,12 @@
 'use client'
 
-import { Button, TextInput, Paper, Title, Flex } from '@mantine/core'
-import { isEmail, useForm } from '@mantine/form'
+import { Link } from '@/components/links'
+import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { errorToString } from '@/lib/errors'
+import { Button, Flex, Paper, Stack, TextInput, Title } from '@mantine/core'
+import { isEmail, useForm } from '@mantine/form'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useMutation } from '@tanstack/react-query'
 
 interface ResetFormValues {
@@ -36,9 +38,13 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
             })
         },
         onError(error: unknown) {
-            emailForm.setErrors({
-                email: errorToString(error),
-            })
+            // If Clerk returns email not found, do not show an error
+            const message = errorToString(error)
+            if (message.includes('find your account')) {
+                onCompleteAction({} as SignInResource)
+                return
+            }
+            emailForm.setErrors({ email: message })
         },
         onSuccess(info?: SignInResource) {
             if (info) {
@@ -55,8 +61,8 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
     return (
         <form onSubmit={emailForm.onSubmit((values) => onSubmitEmail(values))}>
             <Paper bg="white" shadow="none" p="xxl">
-                <Flex direction="column" gap="md">
-                    <Title mb="sm" ta="center" order={3}>
+                <Flex direction="column" gap="md" mb="lg">
+                    <Title mb="xs" ta="center" order={3}>
                         Reset your password
                     </Title>
 
@@ -67,10 +73,29 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                         placeholder="Email address"
                         aria-label="Email"
                     />
-
-                    <Button w="100%" mt="md" mb="xl" type="submit" loading={isPending} disabled={!emailForm.isValid()}>
-                        Send Verification Code
-                    </Button>
+                    <Stack align="center" gap="xs">
+                        <Button
+                            w="100%"
+                            mt="xs"
+                            type="submit"
+                            size="lg"
+                            loading={isPending}
+                            disabled={!emailForm.isValid()}
+                        >
+                            Send Verification Code
+                        </Button>
+                        <Link
+                            href="/account/signin"
+                            mt="md"
+                            c="purple.5"
+                            fw={600}
+                            fz="md"
+                            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                        >
+                            <CaretLeftIcon size={20} />
+                            Back to log in
+                        </Link>
+                    </Stack>
                 </Flex>
             </Paper>
         </form>

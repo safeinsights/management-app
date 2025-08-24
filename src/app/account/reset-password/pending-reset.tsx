@@ -1,11 +1,13 @@
 'use client'
 
-import { zodResolver, useMutation, useForm, useState, z } from '@/components/common'
-import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm, useMutation, useState, z, zodResolver } from '@/components/common'
+import { InputError } from '@/components/errors'
+import { errorToString, isClerkApiError } from '@/lib/errors'
+import { onUserResetPWAction } from '@/server/actions/user.actions'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { errorToString, isClerkApiError } from '@/lib/errors'
+import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
@@ -38,8 +40,10 @@ interface PendingResetProps {
 }
 
 export function PendingReset({ pendingReset }: PendingResetProps) {
-    const { isLoaded, setActive } = useSignIn()
+    const { isLoaded, setActive, signIn } = useSignIn()
     const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
+    const [verificationError, setVerificationError] = useState<string | null>(null)
+    const [canResend, setCanResend] = useState(true)
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -54,7 +58,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
         async mutationFn(form: VerificationFormValues) {
-            if (!isLoaded || !pendingReset) return
+            if (!isLoaded || !pendingReset || Object.keys(pendingReset).length === 0) return
+            setVerificationError(null)
 
             return await pendingReset.attemptFirstFactor({
                 strategy: 'reset_password_email_code',
@@ -64,9 +69,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         },
         onError(error: unknown) {
             if (isClerkApiError(error)) {
-                verificationForm.setFieldError(
-                    'code',
-                    errorToString(error, { form_code_incorrect: 'Incorrect Verification Code.' }),
+                setVerificationError(
+                    errorToString(error, { form_code_incorrect: 'Incorrect verification code. Please try again.' }),
                 )
             } else {
                 verificationForm.setErrors({
@@ -84,6 +88,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
+                await onUserResetPWAction()
                 const redirectUrl = searchParams.get('redirect_url')
                 router.push(redirectUrl || '/')
             } else if (info.status == 'needs_second_factor') {
@@ -97,6 +102,34 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
             }
         },
     })
+
+    const { mutate: resendCode, isPending: isResending } = useMutation({
+        mutationFn: async () => {
+            if (!pendingReset || !signIn) return
+            const identifier = pendingReset.identifier
+            if (!identifier) {
+                // email account not found
+                verificationForm.setFieldError('code', 'An unknown error occurred, please try again later.')
+                return
+            }
+
+            return await signIn.create({
+                strategy: 'reset_password_email_code',
+                identifier,
+            })
+        },
+        onError: (error: unknown) => {
+            console.error('Failed to resend code:', error)
+        },
+        onSuccess: () => {
+            setCanResend(false)
+            setTimeout(() => setCanResend(true), 30000)
+        },
+    })
+
+    const handleResend = () => {
+        resendCode()
+    }
 
     const checkRequirements = (password: string) => {
         return PASSWORD_REQUIREMENTS.map((requirement) => ({
@@ -112,8 +145,8 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     return (
         <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
             <Paper shadow="none" p="xxl" radius="sm">
-                <Flex direction="column" gap="sm">
-                    <Title mb="sm" ta="center" order={3}>
+                <Stack gap="xs" mb="xxl">
+                    <Title mb="md" ta="center" order={3}>
                         Reset your password
                     </Title>
                     <TextInput
@@ -123,13 +156,32 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         placeholder="A code has been sent to your registered email"
                         aria-label="Verification code"
                     />
+                    {verificationError && <InputError error={verificationError} />}
+                    <Button
+                        variant="subtle"
+                        c={canResend ? 'blue.7' : 'gray.5'}
+                        fw={600}
+                        size="xs"
+                        loading={isResending}
+                        onClick={handleResend}
+                        disabled={isResending || !canResend}
+                        styles={{
+                            root: {
+                                width: 'fit-content',
+                                background: 'transparent',
+                                padding: 0,
+                            },
+                        }}
+                    >
+                        Resend verification code
+                    </Button>
                     <PasswordInput
                         key={verificationForm.key('password')}
                         {...verificationForm.getInputProps('password')}
-                        label="New Password"
+                        label="Enter new password"
                         placeholder="********"
                         aria-label="New password"
-                        mt={10}
+                        mb="xs"
                     />
 
                     {verificationForm.values.password && <Requirements requirements={passwordRequirements} />}
@@ -137,20 +189,15 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                     <PasswordInput
                         key={verificationForm.key('confirmPassword')}
                         {...verificationForm.getInputProps('confirmPassword')}
-                        label="Confirm New Password"
+                        label="Confirm new password"
                         placeholder="********"
                         aria-label="Confirm New password"
-                        mt={10}
+                        mb="md"
                     />
-                    <Flex direction="row" justify="space-between" mt={15} mb="xxl">
-                        <Button type="submit" loading={isPending} variant="outline">
-                            Resend verification code
-                        </Button>
-                        <Button type="submit" loading={isPending} disabled={!verificationForm.isValid()}>
-                            Update new password
-                        </Button>
-                    </Flex>
-                </Flex>
+                    <Button type="submit" size="lg" loading={isPending} disabled={!verificationForm.isValid()}>
+                        Update new password
+                    </Button>
+                </Stack>
             </Paper>
         </form>
     )
