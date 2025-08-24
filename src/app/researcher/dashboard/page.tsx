@@ -73,7 +73,12 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
+                <Link
+                    href={`/researcher/study/${study.id}/review`}
+                    aria-label={`View details for study ${study.title}`}
+                >
+                    View
+                </Link>
             </TableTd>
         </TableTr>
     ))
