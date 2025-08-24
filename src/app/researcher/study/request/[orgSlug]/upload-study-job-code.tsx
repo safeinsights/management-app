@@ -109,6 +109,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 studyProposalForm.setFieldValue('mainCodeFile', file)
                                 studyProposalForm.validateField('totalFileSize')
                             }}
+                            autoFocus
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: one .r file only.
