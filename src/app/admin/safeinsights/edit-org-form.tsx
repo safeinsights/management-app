@@ -3,11 +3,12 @@
 import { useForm, zodResolver, FC } from '@/components/common'
 import { Button, Textarea, TextInput } from '@mantine/core'
 import { updateOrgAction, insertOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@/components/common'
 import { orgSchema, ValidatedOrg } from '@/schema/org'
-import { ActionReturnType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
+import { reportError } from '@/components/errors'
 
-type Org = Omit<ActionReturnType<typeof fetchOrgsStatsAction>[number], 'totalStudies'>
+type Org = Omit<ActionSuccessType<typeof fetchOrgsStatsAction>[number], 'totalStudies'>
 type NewOrg = Omit<Org, 'id'>
 
 export const EditOrgForm: FC<{

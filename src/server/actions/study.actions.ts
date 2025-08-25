@@ -3,6 +3,7 @@
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { ActionFailure, throwNotFound } from '@/lib/errors'
+import { ActionSuccessType } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { triggerBuildImageForJob } from '../aws'
@@ -133,7 +134,7 @@ export const getStudyAction = new Action('getStudyAction')
         return study
     })
 
-export type SelectedStudy = NonNullable<Awaited<ReturnType<typeof getStudyAction>>>
+export type SelectedStudy = ActionSuccessType<typeof getStudyAction>
 
 export const approveStudyProposalAction = new Action('approveStudyProposalAction', { performsMutations: true })
     .params(

@@ -1,7 +1,7 @@
 'use client'
 
 import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/components/common'
 import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
 import { useForm, type FC, useState, z, zodResolver } from '@/components/common'
 import { handleMutationErrorsWithForm } from '@/components/errors'

@@ -33,12 +33,34 @@ export function extractClerkCodeAndMessage(error: ClerkAPIErrorResponse) {
     return { code: err.code, message: err.longMessage || err.message }
 }
 
-export type ErrorResponse = {
-    isError: true
-    errorMessage: string
+// Unified error response type for actions
+export type ActionError = {
+    error: string | Record<string, string>
 }
 
-export function extractActionFailure(error: unknown): Record<string, string> | null {
+// Unified response type that can be either data or error
+export type ActionResponse<T> = T | ActionError
+
+// Type guard to check if response is an error
+export function isActionError(response: unknown): response is ActionError {
+    return (
+        typeof response === 'object' &&
+        response !== null &&
+        'error' in response &&
+        (typeof (response as { error: unknown }).error === 'string' ||
+            (typeof (response as { error: unknown }).error === 'object' &&
+                (response as { error: unknown }).error !== null))
+    )
+}
+
+// Extract error content from various error formats
+export function extractActionFailure(error: unknown): string | Record<string, string> | null {
+    // Handle direct ActionError responses
+    if (isActionError(error)) {
+        return error.error
+    }
+
+    // Handle server action errors with encoded messages
     if (isServerActionError(error)) {
         try {
             const encoded = JSON.parse(error.message)
@@ -46,6 +68,8 @@ export function extractActionFailure(error: unknown): Record<string, string> | n
         } catch {}
         return null
     }
+
+    // Handle legacy sanitized error format
     if (
         error != null &&
         typeof error === 'object' &&
@@ -55,11 +79,8 @@ export function extractActionFailure(error: unknown): Record<string, string> | n
     ) {
         return error.sanitizedError as Record<string, string>
     }
-    return null
-}
 
-export function isActionFailure(error: unknown): error is ErrorResponse {
-    return extractActionFailure(error) !== null
+    return null
 }
 
 type ServerActionError = {
@@ -71,14 +92,6 @@ type ServerActionError = {
     environmentName: 'Server'
 }
 
-// a special error that can be thrown from
-// a server action with a message that is safe to display to users
-export class ActionFailure extends Error {
-    constructor(sanitizedError: Record<string, string>) {
-        super(JSON.stringify({ isSanitizedError: true, sanitizedError }))
-    }
-}
-
 export function isServerActionError(error: unknown): error is ServerActionError {
     return (
         error != null &&
@@ -88,17 +101,30 @@ export function isServerActionError(error: unknown): error is ServerActionError 
     )
 }
 
+// Exception class that can be thrown from server actions with safe error messages
+export class ActionFailure extends Error {
+    constructor(public error: ActionError['error']) {
+        super(typeof error === 'string' ? error : JSON.stringify(error))
+    }
+}
+
 export const errorToString = (error: unknown, clerkOverrides?: Record<string, string>) => {
     if (!error) return ''
 
     if (typeof error === 'string') {
         return error
     }
+
+    // Handle unified ActionError format
     const actionFailure = extractActionFailure(error)
     if (actionFailure) {
-        return Object.entries(actionFailure)
-            .map(([field, msg]) => `${capitalize(field)} ${msg}`)
-            .join(', ')
+        if (typeof actionFailure === 'string') {
+            return actionFailure
+        } else {
+            return Object.entries(actionFailure)
+                .map(([field, msg]) => `${capitalize(field)} ${msg}`)
+                .join(', ')
+        }
     }
 
     if (isServerActionError(error)) {
@@ -120,7 +146,13 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
     return 'Unknown error occured'
 }
 
-export class AccessDeniedError extends ActionFailure {}
+export class AccessDeniedError extends ActionFailure {
+    constructor(sanitizedError: Record<string, string>) {
+        super(sanitizedError)
+        // Set message for backwards compatibility
+        this.message = Object.values(sanitizedError).join(' ')
+    }
+}
 
 // a utility function to throw an AccessDeniedError with a message
 // useful for passing into kysely's takeFirstOrThrow

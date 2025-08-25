@@ -25,7 +25,7 @@ import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { sessionFromClerk } from '@/server/clerk'
-import { ErrorAlert } from '@/components/errors'
+import { ErrorAlert, errorToString, isActionError } from '@/components/errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -53,11 +53,15 @@ const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visibl
 }
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    const studies = await fetchStudiesForCurrentResearcherAction()
     const session = await sessionFromClerk()
 
     if (!session) {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
+    }
+
+    const studies = await fetchStudiesForCurrentResearcherAction()
+    if (!studies || isActionError(studies)) {
+        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
     }
 
     const rows = studies.map((study) => (

@@ -1,5 +1,5 @@
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { AlertNotFound } from '@/components/errors'
+import { AlertNotFound, isActionError } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
@@ -18,9 +18,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     // getStudyAction will check permissions
     const study = await getStudyAction({ studyId })
-
-    // Ensure the study exists and user has permission to view it
-    if (!study) {
+    if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 

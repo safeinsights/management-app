@@ -5,7 +5,7 @@ import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { FormValues, schema } from './schema'
 import Link from 'next/link'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/components/common'
 import { css } from '@/styles'
 import { zodResolver } from '@/components/common'
 

@@ -1,13 +1,6 @@
 // errorUtils.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import {
-    AccessDeniedError,
-    ActionFailure,
-    isClerkApiError,
-    isActionFailure,
-    isServerActionError,
-    errorToString,
-} from './errors'
+import { AccessDeniedError, ActionFailure, isClerkApiError, isActionError, errorToString } from './errors'
 
 describe('AccessDeniedError', () => {
     it('should be an instance of Error', () => {
@@ -17,15 +10,16 @@ describe('AccessDeniedError', () => {
     })
 })
 
-describe('SanitizedError', () => {
-    it('should set its message as a JSON string with sanitized properties', () => {
-        const err = new ActionFailure({ msg: 'Safe error message' })
-        // The message is a JSON string; parse it to verify its contents
-        const parsed = JSON.parse(err.message)
-        expect(parsed).toEqual({
-            isSanitizedError: true,
-            sanitizedError: { msg: 'Safe error message' },
-        })
+describe('ActionFailure', () => {
+    it('should handle string error in constructor', () => {
+        const err = new ActionFailure('Simple error message')
+        expect(err.error).toBe('Simple error message')
+    })
+
+    it('should handle object error in constructor', () => {
+        const errorObj = { field1: 'Error 1', field2: 'Error 2' }
+        const err = new ActionFailure(errorObj)
+        expect(err.error).toEqual(errorObj)
     })
 })
 
@@ -51,48 +45,21 @@ describe('isClerkApiError', () => {
     })
 })
 
-describe('isServerActionError', () => {
-    it('returns true when error is a valid server action error', () => {
-        const serverError = {
-            digest: '123',
-            name: 'TestError',
-            Error: 'Error',
-            message: 'Server action error message',
-            environmentName: 'Server',
-        }
-        expect(isServerActionError(serverError)).toBe(true)
+describe('isActionError', () => {
+    it('returns true for ActionError with string error', () => {
+        const actionError = { error: 'Something went wrong' }
+        expect(isActionError(actionError)).toBe(true)
     })
 
-    it('returns false for non-server errors', () => {
-        expect(isServerActionError({})).toBe(false)
-        expect(isServerActionError({ environmentName: 'Client' })).toBe(false)
-        expect(isServerActionError(null)).toBe(false)
-    })
-})
-
-describe('isSanitizedError', () => {
-    it('returns true for an object with sanitized error properties', () => {
-        const sanitizedObj = { isSanitizedError: true, sanitizedError: { err: 'Safe message' } }
-        expect(isActionFailure(sanitizedObj)).toBe(true)
+    it('returns true for ActionError with object error', () => {
+        const actionError = { error: { field1: 'Error 1', field2: 'Error 2' } }
+        expect(isActionError(actionError)).toBe(true)
     })
 
-    it('returns true for a server action error with a valid JSON message containing a sanitized error', () => {
-        const serverError = {
-            digest: 'abc',
-            name: 'TestError',
-            Error: 'Error',
-            message: JSON.stringify({
-                isSanitizedError: true,
-                sanitizedError: { msg: 'Server safe message' },
-            }),
-            environmentName: 'Server',
-        }
-        expect(isActionFailure(serverError)).toBe(true)
-    })
-
-    it('returns false if the object does not contain the proper sanitized error properties', () => {
-        expect(isActionFailure({})).toBe(false)
-        expect(isActionFailure({ isSanitizedError: false, sanitizedErrorMessage: 'Not safe' })).toBe(false)
+    it('returns false if the object does not contain error property', () => {
+        expect(isActionError({})).toBe(false)
+        expect(isActionError({ success: true, data: 'result' })).toBe(false)
+        expect(isActionError(null)).toBe(false)
     })
 })
 

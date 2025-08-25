@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { sendInviteEmail } from '@/server/mailer'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
 
@@ -38,7 +38,8 @@ describe('Admin Users Actions', () => {
 
     it('getPendingUsersAction returns pending users', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const origCount = (await getPendingUsersAction({ orgSlug: org.slug })).length
+        const result = actionResult(await getPendingUsersAction({ orgSlug: org.slug }))
+        const origCount = Array.isArray(result) ? result.length : 0
 
         await db
             .insertInto('pendingUser')
@@ -55,8 +56,8 @@ describe('Admin Users Actions', () => {
             .values({ orgId: org.id, email: 'pending2@test.com', isResearcher: false, isReviewer: true, isAdmin: true })
             .execute()
 
-        const pendingUsers = await getPendingUsersAction({ orgSlug: org.slug })
-        expect(pendingUsers).toHaveLength(origCount + 2)
+        const pendingUsersResult = actionResult(await getPendingUsersAction({ orgSlug: org.slug }))
+        expect(pendingUsersResult).toHaveLength(origCount + 2)
     })
 
     it('reInviteUserAction re-invites a user', async () => {

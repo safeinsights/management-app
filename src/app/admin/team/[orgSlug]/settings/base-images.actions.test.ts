@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import { createOrgBaseImageAction, deleteOrgBaseImageAction, fetchOrgBaseImagesAction } from './base-images.actions'
 import { db } from '@/database'
 
@@ -15,7 +15,7 @@ describe('Base Images Actions', () => {
             isTesting: true,
         }
 
-        const result = await createOrgBaseImageAction({ orgSlug: org.slug, ...baseImageData })
+        const result = actionResult(await createOrgBaseImageAction({ orgSlug: org.slug, ...baseImageData }))
         expect(result).toBeDefined()
         expect(result.url).toEqual(baseImageData.url)
     })
@@ -55,8 +55,8 @@ describe('Base Images Actions', () => {
             })
             .execute()
 
-        const baseImages = await fetchOrgBaseImagesAction({ orgSlug: org.slug })
-        expect(baseImages).toHaveLength(1)
-        expect(baseImages[0].name).toEqual('Test Image to Fetch')
+        const result = actionResult(await fetchOrgBaseImagesAction({ orgSlug: org.slug }))
+        expect(result).toHaveLength(1)
+        expect(result[0].name).toEqual('Test Image to Fetch')
     })
 })
