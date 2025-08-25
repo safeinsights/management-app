@@ -1,12 +1,13 @@
 import { zodResolver, useForm, Link, Flex, Button } from '@/components/common'
 import { TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { clerkErrorOverrides, reportError } from '@/components/errors'
+import { clerkErrorOverrides } from '@/lib/errors'
+import { reportError } from '@/components/errors'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { type MFAState, signInToMFAState } from './logic'
 import { FC, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
-import { errorToString } from '@/components/errors'
+import { errorToString } from '@/lib/errors'
 import { SignInError } from './sign-in-error'
 
 const signInSchema = z.object({

@@ -25,8 +25,8 @@ import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { sessionFromClerk } from '@/server/clerk'
-import { ErrorAlert, errorToString, isActionError } from '@/components/errors'
-
+import { ErrorAlert } from '@/components/errors'
+import { isActionError, errorToString } from '@/lib/errors'
 export const dynamic = 'force-dynamic'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {

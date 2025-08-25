@@ -4,15 +4,8 @@ import { screen } from '@testing-library/react'
 import { notifications } from '@mantine/notifications'
 import React from 'react'
 
-import {
-    isClerkApiError,
-    isServerActionError,
-    errorToString,
-    reportError,
-    ErrorAlert,
-    AccessDeniedAlert,
-    AlertNotFound,
-} from './errors'
+import { reportError, ErrorAlert, AccessDeniedAlert, AlertNotFound } from './errors'
+import { isClerkApiError, isServerActionError, errorToString } from '@/lib/errors'
 
 describe('isClerkApiError', () => {
     it('returns true for a valid Clerk API error object', () => {

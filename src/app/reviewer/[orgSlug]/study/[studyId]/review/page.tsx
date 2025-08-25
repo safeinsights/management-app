@@ -1,7 +1,8 @@
 'use server'
 
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { AlertNotFound, isActionError } from '@/components/errors'
+import { AlertNotFound } from '@/components/errors'
+import { isActionError } from '@/lib/errors'
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { getStudyAction } from '@/server/actions/study.actions'
 import React from 'react'

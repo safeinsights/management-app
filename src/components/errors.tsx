@@ -8,8 +8,6 @@ import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
-export * from '@/lib/errors'
-
 export const reportError = (error: unknown, title = 'An error occurred') => {
     captureException(error)
     notifications.show({
