@@ -2,7 +2,7 @@
 
 import React, { FC, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Button, Group, Checkbox, Stack, Text } from '@mantine/core'
+import { Button, Group, Checkbox, Stack } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
