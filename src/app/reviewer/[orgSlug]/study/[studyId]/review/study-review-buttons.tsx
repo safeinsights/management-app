@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Button, Group, Checkbox, Stack } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
@@ -9,6 +9,7 @@ import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
     type SelectedStudy,
+    doesTestImageExistForStudyAction,
 } from '@/server/actions/study.actions'
 import { reportMutationError } from '@/components/errors'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
@@ -19,6 +20,12 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
+
+    const { data: testImageExists, isLoading: isTestImageQueryLoading } = useQuery({
+        queryKey: ['testImageExists', study.id],
+        queryFn: () => doesTestImageExistForStudyAction({ studyId: study.id }),
+        enabled: !!session?.team.isAdmin,
+    })
 
     const backPath = `/reviewer/${orgSlug}/dashboard`
 
@@ -44,9 +51,15 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
     const TestingCheck = () => {
         if (!session?.team.isAdmin) return null
+        if (isTestImageQueryLoading) return null
+
+        if (!testImageExists) {
+            return null
+        }
 
         return (
             <Checkbox
+                data-testid="test-image-checkbox"
                 checked={useTestImage}
                 style={{ marginLeft: 'auto' }}
                 onChange={(event) => setUseTestImage(event.currentTarget.checked)}

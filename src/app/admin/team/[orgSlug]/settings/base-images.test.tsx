@@ -3,17 +3,16 @@ import {
     it,
     expect,
     beforeEach,
-    render,
     screen,
     fireEvent,
     waitFor,
     mockSessionWithTestData,
     faker,
     db,
+    renderWithProviders,
 } from '@/tests/unit.helpers'
 import { Selectable } from 'kysely'
 import { BaseImages } from './base-images'
-import { TestingProviders } from '@/tests/providers'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
 
@@ -26,7 +25,7 @@ describe('BaseImages', async () => {
     })
 
     it('renders empty state', async () => {
-        render(<BaseImages />, { wrapper: TestingProviders })
+        renderWithProviders(<BaseImages />)
         await waitFor(async () => {
             expect(screen.getByText(/no base images available/i)).toBeTruthy()
         })
@@ -45,7 +44,7 @@ describe('BaseImages', async () => {
             })
             .executeTakeFirstOrThrow()
 
-        render(<BaseImages />, { wrapper: TestingProviders })
+        renderWithProviders(<BaseImages />)
         await waitFor(() => {
             expect(screen.getByText('R Base Image 1')).toBeInTheDocument()
         })
@@ -53,7 +52,7 @@ describe('BaseImages', async () => {
     })
 
     it('opens the modal and creates an image that is displayed in table', async () => {
-        render(<BaseImages />, { wrapper: TestingProviders })
+        renderWithProviders(<BaseImages />)
 
         const addButton = screen.getByRole('button', { name: /Add Image/i })
         fireEvent.click(addButton)
