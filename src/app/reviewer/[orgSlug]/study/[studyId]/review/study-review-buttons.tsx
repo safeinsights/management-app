@@ -53,8 +53,6 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         if (!session?.team.isAdmin) return null
         if (isTestImageQueryLoading) return null
 
-        const label = 'Run this code against test base image'
-
         if (!testImageExists) {
             return null
         }
@@ -65,7 +63,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
                 checked={useTestImage}
                 style={{ marginLeft: 'auto' }}
                 onChange={(event) => setUseTestImage(event.currentTarget.checked)}
-                label={label}
+                label="Run this code against test base image"
             />
         )
     }
