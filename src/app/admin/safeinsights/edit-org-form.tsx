@@ -1,11 +1,10 @@
 'use client'
 
-import { useForm, zodResolver, FC } from '@/components/common'
+import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/components/common'
 import { Button, Textarea, TextInput } from '@mantine/core'
 import { updateOrgAction, insertOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
-import { useMutation, useQueryClient } from '@/components/common'
-import { orgSchema, ValidatedOrg } from '@/schema/org'
-import { ActionSuccessType } from '@/lib/types'
+import { orgSchema, type ValidatedOrg } from '@/schema/org'
+import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
 
 type Org = Omit<ActionSuccessType<typeof fetchOrgsStatsAction>[number], 'totalStudies'>

@@ -4,13 +4,12 @@ import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@man
 import { useMutation } from '@/components/common'
 import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
 import { useForm, type FC, useState, z, zodResolver } from '@/components/common'
-import { handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
 import { SignOutPanel } from './signout-panel'
 import { LoadingMessage } from '@/components/loading'
-import { InputError } from '@/components/errors'
 import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
 
 const Success: FC = () => {

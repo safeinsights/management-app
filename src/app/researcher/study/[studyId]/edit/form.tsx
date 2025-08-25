@@ -3,11 +3,10 @@
 import { Checkbox, Textarea, TextInput, Button, Flex, Group, Stack, Text } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
-import { FormValues, schema } from './schema'
+import { type FormValues, schema } from './schema'
 import Link from 'next/link'
-import { useMutation } from '@/components/common'
+import { useMutation, zodResolver } from '@/components/common'
 import { css } from '@/styles'
-import { zodResolver } from '@/components/common'
 
 export const labelStyle = css({
     width: '10rem',
