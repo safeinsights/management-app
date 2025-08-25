@@ -156,3 +156,93 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction')
         // Clean up the files from s3
         await deleteFolderContents(`studies/${orgSlug}/${studyId}`)
     })
+
+const addJobToStudyActionArgsSchema = z.object({
+    studyId: z.string(),
+    orgSlug: z.string(),
+    mainCodeFileName: z.string(),
+    codeFileNames: z.array(z.string()),
+})
+
+export const addJobToStudyAction = new Action('addJobToStudyAction')
+    .params(addJobToStudyActionArgsSchema)
+    .middleware(async ({ params: { studyId } }) => {
+        const { orgId } = await getStudyOrgIdForStudyId(studyId)
+        return { orgId }
+    })
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ params: { studyId, orgSlug, mainCodeFileName, codeFileNames }, session }) => {
+        const userId = session.user.id
+
+        // Create new job for existing study
+        const studyJob = await db
+            .insertInto('studyJob')
+            .values({
+                language: 'R',
+                studyId: studyId,
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                studyJobId: studyJob.id,
+                status: 'INITIATED',
+            })
+            .executeTakeFirstOrThrow()
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: userId,
+                status: 'CODE-SUBMITTED',
+                studyJobId: studyJob.id,
+            })
+            .execute()
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                name: mainCodeFileName,
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
+                studyJobId: studyJob.id,
+                fileType: 'MAIN-CODE',
+            })
+            .executeTakeFirstOrThrow()
+
+        for (const fileName of codeFileNames) {
+            await db
+                .insertInto('studyJobFile')
+                .values({
+                    name: fileName,
+                    path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
+                    studyJobId: studyJob.id,
+                    fileType: 'SUPPLEMENTAL-CODE',
+                })
+                .executeTakeFirstOrThrow()
+        }
+
+        // Update study status to PENDING-REVIEW
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        const studyJobCodePath = pathForStudyJobCode({
+            orgSlug,
+            studyId,
+            studyJobId: studyJob.id,
+        })
+
+        // Generate signed URLs for uploads
+        const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+        const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+
+        revalidatePath('/researcher/dashboard')
+        revalidatePath(`/researcher/study/${studyId}/review`)
+
+        return {
+            studyId,
+            studyJobId: studyJob.id,
+            urlForMainCodeUpload,
+            urlForAdditionalCodeUpload,
+        }
+    })
