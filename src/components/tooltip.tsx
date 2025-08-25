@@ -6,7 +6,7 @@ type InfoTooltipProps = {
 }
 
 export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text }) => (
-    <Tooltip multiline withArrow refProp="innerRef" label={text}>
+    <Tooltip multiline withArrow label={text} events={{ hover: true, focus: true, touch: true }}>
         <InfoIcon size={14} />
     </Tooltip>
 )
