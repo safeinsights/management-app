@@ -4,7 +4,7 @@ import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } 
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
 import * as Sentry from '@sentry/nextjs'
-import { AccessDeniedError, ActionFailure } from '@/lib/errors'
+import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@/lib/logger'
 import { omit } from 'remeda'
@@ -133,65 +133,81 @@ export class Action<
         const middlewareFns = [...this.middlewareFns]
 
         // build the final action function
-        const action = async (raw: unknown): Promise<Res> => {
-            // 1) validate
-            let args: Args
-            if (schema) {
-                try {
-                    args = schema.parse(raw)
-                } catch (error) {
-                    if (error instanceof ZodError) {
-                        const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>
-                        const sanitizedErrors: Record<string, string> = {}
-                        for (const key in fieldErrors) {
-                            if (fieldErrors[key] && fieldErrors[key] !== undefined) {
-                                sanitizedErrors[key] = (fieldErrors[key] as string[]).join(', ')
-                            }
-                        }
-                        throw new ActionFailure(sanitizedErrors)
-                    }
-                    throw error
-                }
-            } else {
-                args = raw as Args
-            }
-            // 2) run middleware chain and set up database connection
-            const session = await sessionFromClerk()
-
-            // Function to execute with either transaction or regular db
-            const execute = async (dbConn: DBExecutor): Promise<Res> => {
-                let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
-
-                return localStorageContext.run(ctx, async () => {
-                    // Run all middleware in order, including any permission checking middleware
-                    for (const mw of middlewareFns) {
-                        const more = await mw(ctx)
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        ctx = { ...ctx, ...(more as any[]) }
-                    }
-
-                    if (session) {
-                        Sentry.setUser({ id: session.user.id })
-                        Sentry.setTag('team', session.team.slug)
-                    }
-
-                    return handlerFn(ctx)
-                })
-            }
-
+        const action = async (raw: unknown): Promise<ActionResponse<Res>> => {
             try {
-                // Choose between transaction and regular db
-                if (this.options.performsMutations) {
-                    return await db.transaction().execute(execute)
+                // 1) validate
+                let args: Args
+                if (schema) {
+                    try {
+                        args = schema.parse(raw)
+                    } catch (error) {
+                        if (error instanceof ZodError) {
+                            const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>
+                            const sanitizedErrors: Record<string, string> = {}
+                            for (const key in fieldErrors) {
+                                if (fieldErrors[key] && fieldErrors[key] !== undefined) {
+                                    sanitizedErrors[key] = (fieldErrors[key] as string[]).join(', ')
+                                }
+                            }
+                            return { error: `Validation error: ${JSON.stringify(sanitizedErrors)}` }
+                        }
+                        return { error: error instanceof Error ? error.message : 'Unknown validation error' }
+                    }
                 } else {
-                    return await execute(db)
+                    args = raw as Args
                 }
+                // 2) run middleware chain and set up database connection
+                const session = await sessionFromClerk()
+
+                // Function to execute with either transaction or regular db
+                const execute = async (dbConn: DBExecutor): Promise<Res> => {
+                    let ctx = { params: args, session, db: dbConn } as Ctx & { params: Args }
+
+                    return localStorageContext.run(ctx, async () => {
+                        // Run all middleware in order, including any permission checking middleware
+                        for (const mw of middlewareFns) {
+                            const more = await mw(ctx)
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            ctx = { ...ctx, ...(more as any[]) }
+                        }
+
+                        if (session) {
+                            Sentry.setUser({ id: session.user.id })
+                            Sentry.setTag('team', session.team.slug)
+                        }
+
+                        return handlerFn(ctx)
+                    })
+                }
+
+                // Choose between transaction and regular db
+                let result: Res
+                if (this.options.performsMutations) {
+                    result = await db.transaction().execute(execute)
+                } else {
+                    result = await execute(db)
+                }
+
+                return result
             } catch (error) {
                 Sentry.captureException(error)
-                throw error
+
+                // Handle specific error types
+                if (error instanceof ActionFailure) {
+                    return { error: error.error }
+                }
+                if (error instanceof AccessDeniedError) {
+                    return { error: `Access denied: ${error.message}` }
+                }
+
+                // Generic error handling
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+                return { error: errorMessage }
             }
         }
 
-        return action as IsUnknown<Args> extends true ? () => Promise<Res> : (args: Args) => Promise<Res>
+        return action as IsUnknown<Args> extends true
+            ? () => Promise<ActionResponse<Res>>
+            : (args: Args) => Promise<ActionResponse<Res>>
     }
 }

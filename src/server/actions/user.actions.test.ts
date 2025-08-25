@@ -63,15 +63,14 @@ describe('User Actions', () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false })
         const { user: userToUpdate } = await insertTestUser({ org })
 
-        await expect(
-            updateUserRoleAction({
-                orgSlug: org.slug,
-                userId: userToUpdate.id,
-                isAdmin: true,
-                isResearcher: false,
-                isReviewer: true,
-            }),
-        ).rejects.toThrowError(/permission_denied/)
+        const result = await updateUserRoleAction({
+            orgSlug: org.slug,
+            userId: userToUpdate.id,
+            isAdmin: true,
+            isResearcher: false,
+            isReviewer: true,
+        })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
 
     test('updateUserRoleAction should update user roles in the database', async () => {

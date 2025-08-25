@@ -1,19 +1,18 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { Org } from '@/schema/org'
+import { type Org } from '@/schema/org'
 import {
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
     readTestSupportFile,
 } from '@/tests/unit.helpers'
-import { fireEvent, waitFor } from '@testing-library/react'
-import { screen } from '@testing-library/react'
+import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
-import { FileType, StudyJobStatus, StudyStatus } from '@/database/types'
-import { JobFile } from '@/lib/types'
+import { type FileType, type StudyJobStatus, type StudyStatus } from '@/database/types'
+import { type JobFile } from '@/lib/types'
 
 const mockedApprovedJobFiles: JobFile[] = [
     {

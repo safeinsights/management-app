@@ -15,7 +15,19 @@ const eslintConfig = [
     },
     ...compat.extends('next/core-web-vitals'),
     ...compat.extends('next/typescript'),
+    ...compat.extends('plugin:import/recommended'),
+    ...compat.extends('plugin:import/typescript'),
     {
+        settings: {
+            'import/resolver': {
+                typescript: {
+                    alwaysTryTypes: true,
+                },
+                node: {
+                    extensions: ['.js', '.jsx', '.ts', '.tsx'],
+                },
+            },
+        },
         plugins: {
             custom: {
                 rules: {
@@ -31,6 +43,7 @@ const eslintConfig = [
                 { ignoreRestSiblings: true, varsIgnorePattern: '_+', argsIgnorePattern: '^_' },
             ],
             semi: ['error', 'never'],
+            'import/no-duplicates': 'error',
         },
     },
 ]

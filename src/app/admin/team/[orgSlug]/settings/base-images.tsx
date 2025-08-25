@@ -1,7 +1,7 @@
 'use client'
 
 import { Stack, Title, Divider, Paper, Text, Table, Button, Group } from '@mantine/core'
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@/components/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
@@ -13,9 +13,9 @@ import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
-import { ActionReturnType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 
-type BaseImage = ActionReturnType<typeof fetchOrgBaseImagesAction>[number]
+type BaseImage = ActionSuccessType<typeof fetchOrgBaseImagesAction>[number]
 
 const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ image, canDelete }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()

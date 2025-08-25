@@ -4,7 +4,7 @@ import React, { FC } from 'react'
 import { Badge, Stack, Text, Group } from '@mantine/core'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@/components/common'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { studyCodeURL } from '@/lib/paths'
 

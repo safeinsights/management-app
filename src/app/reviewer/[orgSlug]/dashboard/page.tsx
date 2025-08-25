@@ -3,15 +3,22 @@
 import React from 'react'
 import { Paper, Stack, Text, Title } from '@mantine/core'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
-
 import { UserName } from '@/components/user-name'
-
 import { StudiesTable } from './table'
+import { errorToString, isActionError } from '@/lib/errors'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
 
     const studies = await fetchStudiesForOrgAction({ orgSlug })
+    if (isActionError(studies)) {
+        return (
+            <Stack p="md">
+                <Title>Error loading studies</Title>
+                <Text c="red">{errorToString(studies)}</Text>
+            </Stack>
+        )
+    }
 
     return (
         <Stack p="md">

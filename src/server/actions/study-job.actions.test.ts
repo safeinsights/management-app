@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { db, insertTestStudyJobData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { db, insertTestStudyJobData, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction, loadStudyJobAction } from './study-job.actions'
 
 vi.mock('@/server/storage', () => ({
@@ -12,9 +12,9 @@ describe('Study Job Actions', () => {
         const { org } = await mockSessionWithTestData()
         const { job, study } = await insertTestStudyJobData({ org })
 
-        const jobInfo = await loadStudyJobAction({ studyJobId: job.id })
+        const result = actionResult(await loadStudyJobAction({ studyJobId: job.id }))
 
-        expect(jobInfo).toMatchObject({
+        expect(result).toMatchObject({
             studyJobId: job.id,
             studyId: study.id,
             createdAt: expect.any(Date),
@@ -34,10 +34,10 @@ describe('Study Job Actions', () => {
             .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
             .executeTakeFirstOrThrow()
 
-        const files = await fetchApprovedJobFilesAction({ studyJobId: job.id })
+        const result = actionResult(await fetchApprovedJobFilesAction({ studyJobId: job.id }))
 
-        expect(files).toHaveLength(1)
-        expect(files[0].path).toBe('test.csv')
+        expect(result).toHaveLength(1)
+        expect(result[0].path).toBe('test.csv')
     })
 
     test('fetchEncryptedJobFilesAction', async () => {
@@ -47,12 +47,14 @@ describe('Study Job Actions', () => {
             .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-LOG' })
             .executeTakeFirstOrThrow()
 
-        const files = await fetchEncryptedJobFilesAction({
-            jobId: job.id,
-            orgSlug: org.slug,
-        })
+        const result = actionResult(
+            await fetchEncryptedJobFilesAction({
+                jobId: job.id,
+                orgSlug: org.slug,
+            }),
+        )
 
-        expect(files).toHaveLength(1)
-        expect(files[0].fileType).toBe('ENCRYPTED-LOG')
+        expect(result).toHaveLength(1)
+        expect(result[0].fileType).toBe('ENCRYPTED-LOG')
     })
 })

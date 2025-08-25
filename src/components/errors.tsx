@@ -8,8 +8,6 @@ import { captureException } from '@sentry/nextjs'
 import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
-export * from '@/lib/errors'
-
 export const reportError = (error: unknown, title = 'An error occurred') => {
     captureException(error)
     notifications.show({
@@ -27,16 +25,21 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {
         const failure = extractActionFailure(err)
         if (failure) {
-            const formErrorKeys = Object.keys(failure)
-            const fieldKeys = Object.keys(form.values)
-            const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
-
-            const unknownKeys = difference(nonFieldKeys, fieldKeys)
-
-            if (unknownKeys.length === 0) {
-                form.setErrors(failure)
-            } else {
+            // Handle both string and object errors
+            if (typeof failure === 'string') {
                 reportError(err)
+            } else {
+                const formErrorKeys = Object.keys(failure)
+                const fieldKeys = Object.keys(form.values)
+                const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
+
+                const unknownKeys = difference(nonFieldKeys, fieldKeys)
+
+                if (unknownKeys.length === 0) {
+                    form.setErrors(failure)
+                } else {
+                    reportError(err)
+                }
             }
         } else {
             reportError(err)
