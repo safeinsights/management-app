@@ -154,6 +154,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 color: 'green',
             })
             router.push(`/researcher/dashboard`)
+            window.location.assign(`/researcher/dashboard`)
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
             console.error(error)
