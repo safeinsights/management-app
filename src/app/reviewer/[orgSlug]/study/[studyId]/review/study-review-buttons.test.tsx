@@ -94,17 +94,16 @@ describe('StudyReviewButtons', () => {
             expect(checkbox.checked).toBe(true)
         })
 
-        it('shows a disabled checkbox when no test image exists', async () => {
+        it('does not show the checkbox when no test image exists', async () => {
             mockDoesTestImageExistForStudyAction.mockResolvedValue(false)
 
             // Use a unique study object to ensure a unique query key, avoiding cache collisions between tests.
             const uniqueStudy = { ...mockStudy, id: 'study-456-disabled' }
             renderWithProviders(<StudyReviewButtons study={uniqueStudy} />)
 
-            const checkbox = await screen.findByTestId('test-image-checkbox-disabled')
-            expect(checkbox).toBeInTheDocument()
-            expect(checkbox).toBeDisabled()
-            expect(screen.getByText(/test base image not existing/)).toBeInTheDocument()
+            await waitFor(() => {
+                expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+            })
         })
     })
 })

@@ -56,24 +56,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         const label = 'Run this code against test base image'
 
         if (!testImageExists) {
-            return (
-                <Checkbox
-                    checked={false}
-                    data-testid="test-image-checkbox-disabled"
-                    disabled
-                    style={{ marginLeft: 'auto' }}
-                    label={
-                        <>
-                            <Text span td="line-through" c="dimmed">
-                                {label}
-                            </Text>
-                            <Text span c="dimmed">
-                                {' (test base image not existing)'}
-                            </Text>
-                        </>
-                    }
-                />
-            )
+            return null
         }
 
         return (
