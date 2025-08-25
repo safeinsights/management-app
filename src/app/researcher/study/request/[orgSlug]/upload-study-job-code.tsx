@@ -1,6 +1,18 @@
 'use client'
 import { FC } from 'react'
-import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme, FileInput } from '@mantine/core'
+import {
+    ActionIcon,
+    Divider,
+    Group,
+    Paper,
+    Stack,
+    Text,
+    Title,
+    Grid,
+    GridCol,
+    useMantineTheme,
+    FileInput,
+} from '@mantine/core'
 import {
     CheckCircleIcon,
     UploadIcon,
@@ -109,6 +121,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 studyProposalForm.setFieldValue('mainCodeFile', file)
                                 studyProposalForm.validateField('totalFileSize')
                             }}
+                            autoFocus
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: one .r file only.
@@ -198,12 +211,13 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                     <CheckCircleIcon weight="fill" color="#2F9844" />
                                     <Text>{file.name}</Text>
                                 </Group>
-                                <XCircleIcon
+                                <ActionIcon
+                                    variant="transparent"
+                                    aria-label={`Remove file ${file.name}`}
                                     onClick={() => removeAdditionalFiles(file)}
-                                    style={{ cursor: 'pointer' }}
-                                    color={theme.colors.grey[2]}
-                                    weight="bold"
-                                />
+                                >
+                                    <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
+                                </ActionIcon>
                             </Group>
                         ))}
                     </GridCol>
