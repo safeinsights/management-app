@@ -7,7 +7,7 @@ import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation } from '@tanstack/react-query'
 import dayjs from 'dayjs'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 
 export const JobReviewButtons = ({
     job,
@@ -17,7 +17,6 @@ export const JobReviewButtons = ({
     decryptedResults?: JobFileInfo[]
 }) => {
     const theme = useMantineTheme()
-    const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const {
@@ -45,7 +44,7 @@ export const JobReviewButtons = ({
         },
         onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
-            router.push('/')
+            window.location.assign(`/reviewer/${orgSlug}/dashboard`)
         },
     })
 

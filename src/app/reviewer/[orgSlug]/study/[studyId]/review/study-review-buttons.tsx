@@ -3,7 +3,7 @@
 import React, { FC, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Button, Group, Checkbox, Stack } from '@mantine/core'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
@@ -15,7 +15,6 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { useSession } from '@/hooks/session'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
-    const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
@@ -35,7 +34,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
         onError: reportMutationError('Failed to update study status'),
-        onSuccess: () => router.push(backPath),
+        onSuccess: () => window.location.assign(backPath),
     })
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
