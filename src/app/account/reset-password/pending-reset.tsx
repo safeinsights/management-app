@@ -10,7 +10,7 @@ import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
-import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
+import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
 
 const createPasswordSchema = () => {
     let schema = z.string()
@@ -131,14 +131,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         resendCode()
     }
 
-    const checkRequirements = (password: string) => {
-        return PASSWORD_REQUIREMENTS.map((requirement) => ({
-            ...requirement,
-            meets: requirement.re.test(password),
-        }))
-    }
-
-    const passwordRequirements = checkRequirements(verificationForm.values.password)
+    const { requirements, shouldShowRequirements } = usePasswordRequirements(verificationForm.values.password)
 
     if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
 
@@ -184,7 +177,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         mb="xs"
                     />
 
-                    {verificationForm.values.password && <Requirements requirements={passwordRequirements} />}
+                    {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                     <PasswordInput
                         key={verificationForm.key('confirmPassword')}
@@ -195,7 +188,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         mb="md"
                     />
                     <Button type="submit" size="lg" loading={isPending} disabled={!verificationForm.isValid()}>
-                        Update new password
+                        Update password
                     </Button>
                 </Stack>
             </Paper>

@@ -1,18 +1,21 @@
 'use client'
 
-import { Flex, Button, TextInput, PasswordInput, Text, Alert, useMantineTheme } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { FC, use } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { onCreateAccountAction, onPendingUserLoginAction, getOrgInfoForInviteAction } from '../create-account.action'
-import { zodResolver, z } from '@/components/common'
-import { handleMutationErrorsWithForm } from '@/components/errors'
-import { useAuth, useSignIn } from '@clerk/nextjs'
-import { SuccessPanel } from '@/components/panel'
-import { useRouter } from 'next/navigation'
+import {
+    PASSWORD_REQUIREMENTS,
+    Requirements,
+    usePasswordRequirements,
+} from '@/app/account/reset-password/password-requirements'
+import { z, zodResolver } from '@/components/common'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
-import { InputError } from '@/components/errors'
-import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
+import { SuccessPanel } from '@/components/panel'
+import { useAuth, useSignIn } from '@clerk/nextjs'
+import { Alert, Button, Flex, PasswordInput, Text, TextInput, useMantineTheme } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
+import { FC, use } from 'react'
+import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
 
 const Success: FC = () => {
     const router = useRouter()
@@ -71,6 +74,8 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
             confirmPassword: '',
         },
     })
+
+    const { requirements, shouldShowRequirements } = usePasswordRequirements(form.values.password)
 
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: (form: FormValues) => onCreateAccountAction({ inviteId, form }),
@@ -147,18 +152,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
                 />
 
-                {(() => {
-                    const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
-                        ...req,
-                        meets: req.re.test(form.values.password),
-                    }))
-
-                    const allMet = requirements.every((r) => r.meets)
-
-                    if (!(form.values.password || form.errors.password) || allMet) return null
-
-                    return <Requirements requirements={requirements} />
-                })()}
+                {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                 <PasswordInput
                     radius="sm"
