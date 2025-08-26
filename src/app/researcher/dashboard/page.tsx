@@ -15,7 +15,6 @@ import {
     TableTr,
     Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 
@@ -62,13 +61,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
 
     const rows = studies.map((study) => (
         <TableTr fz="md" key={study.id}>
-            <TableTd>
-                <Tooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title}
-                    </Text>
-                </Tooltip>
-            </TableTd>
+            <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
