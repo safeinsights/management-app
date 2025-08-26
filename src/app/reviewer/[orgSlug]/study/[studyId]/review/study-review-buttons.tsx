@@ -1,9 +1,9 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button, Group, Checkbox, Stack } from '@mantine/core'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
@@ -15,9 +15,11 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { useSession } from '@/hooks/session'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
+    const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
+    const queryClient = useQueryClient()
 
     const backPath = `/reviewer/${orgSlug}/dashboard`
 
@@ -34,7 +36,10 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
             return rejectStudyProposalAction({ orgSlug, studyId: study.id })
         },
         onError: reportMutationError('Failed to update study status'),
-        onSuccess: () => window.location.assign(backPath),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            router.push(backPath)
+        },
     })
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
