@@ -27,7 +27,7 @@ test.describe('MFA Setup Visibility', () => {
 
         // Check if the Phone Number input is visible
         await page.getByPlaceholder('Enter phone number').fill('+15555550101')
-        await page.getByRole('button', { name: /send code/i }).click()
+        await page.getByRole('button', { name: /send verification code/i }).click()
 
         await page.getByLabel('Input Code').fill('424242')
         await page.getByRole('button', { name: /verify code/i }).click()
