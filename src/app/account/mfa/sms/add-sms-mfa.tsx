@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { Anchor, Button, Container, Stack, Text, Paper, Title, Group, Stepper, PinInput } from '@mantine/core'
-import { useRouter } from 'next/navigation'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { Link } from '@/components/links'
 import { PhoneNumberResource } from '@clerk/types'
@@ -11,19 +10,22 @@ import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
+import logger from '@/lib/logger'
 import { sleep } from '@/lib/util'
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import styles from './panel.module.css'
 import { InputError } from '@/components/errors'
+import BackupCodes from '../app/backup-codes'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
+
 export function AddSMSMFA() {
-    const router = useRouter()
     const { isLoaded, user } = useUser()
     const [isVerifying, setIsVerifying] = useState(false)
+    const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
@@ -91,7 +93,7 @@ export function AddSMSMFA() {
             const errorMessage = errorToString(error)
 
             if (errorMessage?.includes('`phone_number` must be a `phone_number`')) {
-                phoneForm.setFieldError('phoneNumber', 'Please enter a valid phone number.')
+                phoneForm.setFieldError('phoneNumber', 'Please enter a valid US phone number.')
             } else {
                 phoneForm.setFieldError('phoneNumber', errorMessage)
             }
@@ -120,9 +122,21 @@ export function AddSMSMFA() {
             const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
+                // Generate backup codes after verification
+                if (user && !user.backupCodeEnabled) {
+                    try {
+                        const resource = await user.createBackupCode()
+                        setBackupCodes(resource.codes || [])
+                    } catch (err) {
+                        logger.error({ err, message: 'Error generating backup codes' })
+                        setBackupCodes([])
+                    }
+                }
                 notifications.show({ message: 'Verification successful', color: 'green' })
                 await user.reload()
-                router.push('/account/mfa/app')
+                {
+                    backupCodes ? <BackupCodes codes={backupCodes} /> : null
+                }
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
@@ -146,7 +160,7 @@ export function AddSMSMFA() {
 
     return (
         <Container>
-            <Paper bg="white" shadow="none" p={30} radius="none">
+            <Paper bg="white" p="xxl" radius="sm" maw={500} my={{ base: '1rem', lg: 0 }}>
                 <Stack gap="lg">
                     <Stepper
                         unstyled
@@ -221,7 +235,9 @@ export function AddSMSMFA() {
                                             We’ve sent a 6-digit code to your phone number ending in {'****'}
                                             {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
                                         </Text>
-
+                                        <Title order={4} ta="center" mt="xs">
+                                            Enter your code
+                                        </Title>
                                         <PinInput
                                             length={6}
                                             placeholder=""
@@ -239,7 +255,7 @@ export function AddSMSMFA() {
                                             radius="sm"
                                             disabled={!/\d{6,}/.test(phoneForm.values.phoneNumber)}
                                         >
-                                            Verify Code
+                                            Verify code
                                         </Button>
                                         <Group>
                                             <Text fz="md" color="grey.7">

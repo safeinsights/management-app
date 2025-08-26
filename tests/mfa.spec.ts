@@ -8,7 +8,7 @@ test.describe('MFA Setup Visibility', () => {
         // Visit the main MFA page first
         await visitClerkProtectedPage({ page, url: '/account/mfa?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
         await expect(page.getByRole('link', { name: 'SMS Verification' })).toBeVisible()
-        await expect(page.getByRole('link', { name: 'Authenticator App Verification' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Authenticator app verification' })).toBeVisible()
     })
 
     test('checks Authenticator App page elements', async ({ page }) => {
