@@ -12,25 +12,26 @@ import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
 
-const createPasswordSchema = () => {
-    let schema = z.string()
-
-    PASSWORD_REQUIREMENTS.forEach((req) => {
-        schema = schema.regex(req.re, req.message)
-    })
-
-    return schema
-}
-
 const verificationFormSchema = z
     .object({
         code: z.string().min(1, 'Verification code is required'),
-        password: createPasswordSchema(),
-        confirmPassword: z.string().min(1, 'Password confirmation is required'),
+        password: (() => {
+            let schema = z.string().max(64)
+            PASSWORD_REQUIREMENTS.forEach((req) => {
+                schema = schema.regex(req.re, req.message)
+            })
+            return schema
+        })(),
+        confirmPassword: z.string(),
     })
-    .refine((data) => data.password === data.confirmPassword, {
-        message: 'Passwords do not match',
-        path: ['confirmPassword'],
+    .superRefine(({ confirmPassword, password }, ctx) => {
+        if (confirmPassword !== password) {
+            ctx.addIssue({
+                code: 'custom',
+                message: 'Passwords do not match. Please re-enter them.',
+                path: ['confirmPassword'],
+            })
+        }
     })
 
 type VerificationFormValues = z.infer<typeof verificationFormSchema>
@@ -48,12 +49,14 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     const searchParams = useSearchParams()
 
     const verificationForm = useForm<VerificationFormValues>({
+        validate: zodResolver(verificationFormSchema),
+        validateInputOnBlur: true,
+        validateInputOnChange: ['password', 'confirmPassword'],
         initialValues: {
             code: '',
             password: '',
             confirmPassword: '',
         },
-        validate: zodResolver(verificationFormSchema),
     })
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
@@ -175,6 +178,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         placeholder="********"
                         aria-label="New password"
                         mb="xs"
+                        error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
                     />
 
                     {shouldShowRequirements && <Requirements requirements={requirements} />}
@@ -186,6 +190,11 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                         placeholder="********"
                         aria-label="Confirm New password"
                         mb="md"
+                        error={
+                            verificationForm.errors.confirmPassword && (
+                                <InputError error={verificationForm.errors.confirmPassword} />
+                            )
+                        }
                     />
                     <Button type="submit" size="lg" loading={isPending} disabled={!verificationForm.isValid()}>
                         Update password
