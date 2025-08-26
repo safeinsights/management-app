@@ -69,7 +69,7 @@ export function ManageMFA() {
                     <Text fz="md" color="grey.7">
                         Can’t access your MFA device?
                     </Text>
-                    <ButtonLink href="/account/mfa/" size="md" variant="outline" fullWidth>
+                    <ButtonLink href="/account/mfa/recovery" size="md" variant="outline" fullWidth>
                         Try recovery code
                     </ButtonLink>
                 </Stack>
