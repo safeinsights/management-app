@@ -227,7 +227,6 @@ export function AddSMSMFA() {
                                             placeholder=""
                                             size="lg"
                                             type="number"
-                                            align="center"
                                             error={otpForm.errors.code !== undefined}
                                             {...otpForm.getInputProps('code')}
                                         />
