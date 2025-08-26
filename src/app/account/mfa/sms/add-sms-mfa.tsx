@@ -161,10 +161,8 @@ export function AddSMSMFA() {
                         <Stepper.Step label="Send verification code" description="Enter your phone number">
                             {!isVerifying && (
                                 <form onSubmit={phoneForm.onSubmit((values) => sendVerificationCode(values))}>
-                                    <Stack>
-                                        <Title order={2} align="center">
-                                            SMS verification
-                                        </Title>
+                                    <Stack justify="center">
+                                        <Title order={2}>SMS verification</Title>
                                         <Text>
                                             Enter your phone number to receive a verification code via SMS to complete
                                             the setup.
@@ -187,7 +185,6 @@ export function AddSMSMFA() {
                                             <InputError error={phoneForm.errors.phoneNumber} />
                                         )}
                                         <Button
-                                            href="/verify-sms"
                                             type="submit"
                                             loading={isSendingSms}
                                             w="100%"
@@ -219,16 +216,13 @@ export function AddSMSMFA() {
                             {isVerifying && (
                                 <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
                                     <Stack align="center" gap="sm">
-                                        <Title order={2} align="center">
-                                            Verify your code
-                                        </Title>
+                                        <Title order={2}>Verify your code</Title>
                                         <Text>
                                             We’ve sent a 6-digit code to your phone number ending in {'****'}
                                             {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
                                         </Text>
 
                                         <PinInput
-                                            label="Input Code"
                                             length={6}
                                             placeholder=""
                                             size="lg"

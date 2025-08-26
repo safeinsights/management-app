@@ -2,7 +2,7 @@
 
 import { ButtonLink } from '@/components/links'
 import { useUser } from '@clerk/nextjs'
-import { Paper, Stack, Text, Title, Divider } from '@mantine/core'
+import { Paper, Stack, Text, Title, Divider, Container } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 
