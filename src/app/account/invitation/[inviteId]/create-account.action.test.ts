@@ -1,5 +1,5 @@
 import { db } from '@/database'
-import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -76,7 +76,8 @@ describe('Create Account Actions', () => {
             confirmPassword: 'password',
         }
 
-        await expect(onCreateAccountAction({ inviteId: v7(), form })).rejects.toThrow('not found')
+        const result = await onCreateAccountAction({ inviteId: v7(), form })
+        expect(result).toEqual({ error: expect.objectContaining({ invite: 'not found' }) })
     })
 
     it('onCreateAccountAction rejects existing user', async () => {
@@ -100,7 +101,8 @@ describe('Create Account Actions', () => {
             password: 'password',
             confirmPassword: 'password',
         }
-        await expect(onCreateAccountAction({ inviteId: invite.id, form })).rejects.toThrow(/already has account/)
+        const result = await onCreateAccountAction({ inviteId: invite.id, form })
+        expect(result).toEqual({ error: expect.objectContaining({ user: 'already has account' }) })
     })
 
     it('onJoinTeamAccountAction adds to existing user', async () => {
@@ -120,7 +122,8 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        const { id: userId } = await onJoinTeamAccountAction({ inviteId: invite.id })
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        const userId = result.id
         expect(userId).toEqual(user.id)
         const orgUsers = await db.selectFrom('orgUser').select('orgId').where('userId', '=', userId).execute()
         expect(orgUsers).toHaveLength(2)
@@ -192,7 +195,7 @@ describe('Create Account Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        const result = await getOrgInfoForInviteAction({ inviteId: invite.id })
+        const result = actionResult(await getOrgInfoForInviteAction({ inviteId: invite.id }))
 
         expect(result).toMatchObject({
             id: org.id,
@@ -203,6 +206,7 @@ describe('Create Account Actions', () => {
     })
 
     it('getOrgInfoForInviteAction throws error for invalid invite', async () => {
-        await expect(getOrgInfoForInviteAction({ inviteId: v7() })).rejects.toThrow()
+        const result = await getOrgInfoForInviteAction({ inviteId: v7() })
+        expect(result).toEqual({ error: expect.stringContaining('no result') })
     })
 })
