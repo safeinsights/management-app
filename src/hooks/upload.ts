@@ -1,21 +1,59 @@
-import { PresignedPost } from '@aws-sdk/s3-presigned-post'
-import { useMutation } from '@tanstack/react-query'
+import { type PresignedPost } from '@aws-sdk/s3-presigned-post'
+import logger from '@/lib/logger'
 
-export function useUploadFile() {
-    return useMutation({
-        mutationFn: async ({ file, upload }: { file: File; upload: PresignedPost }) => {
-            const body = new FormData()
-            for (const [key, value] of Object.entries(upload.fields)) {
-                body.append(key, value)
-            }
-            body.append('file', file)
-            const response = await fetch(upload.url, {
-                method: 'POST',
-                body,
-            })
-            if (!response.ok) {
-                throw new Error(`failed to upload file ${await response.text()}`)
-            }
-        },
-    })
+// import { useMutation } from '@tanstack/react-query'
+// import { useCallback } from 'react'
+
+// export function useUploadFiles() {
+//     return useMutation({
+//         mutationFn: async ({ file, upload }: { file: File; upload: PresignedPost }) => {
+//             const body = new FormData()
+//             for (const [key, value] of Object.entries(upload.fields)) {
+//                 body.append(key, value)
+//             }
+//             body.append('file', file)
+//             const response = await fetch(upload.url, {
+//                 method: 'POST',
+//                 body,
+//             })
+//             if (!response.ok) {
+//                 throw new Error(`failed to upload file ${await response.text()}`)
+//             }
+//         },
+//     })
+// }
+
+
+
+async function uploadFile(file: File, upload: PresignedPost) {
+    const body = new FormData()
+    for (const [key, value] of Object.entries(upload.fields)) {
+        body.append(key, value)
+    }
+    body.append('file', file)
+    const failureMsg = `failed to upload file ${file.name}.  please remove it and attempt to re-upload`
+    try {
+        const response = await fetch(upload.url, {
+            method: 'POST',
+            body,
+        })
+        if (!response.ok) {
+            logger.error(`Upload failed with status ${response.status}: ${response.statusText}`)
+            throw new Error(failureMsg)
+        }
+    } catch (error) {
+        logger.error(`Upload error: ${error}`)
+        throw new Error(failureMsg)
+    }
+}
+
+type FileUpload = [File | null, PresignedPost]
+
+export function uploadFiles(files: FileUpload[]) {
+    return Promise.all(
+        files.map(([file, upload]) => {
+            if (!file) return Promise.resolve(null)
+            return uploadFile(file, upload)
+        }),
+    )
 }

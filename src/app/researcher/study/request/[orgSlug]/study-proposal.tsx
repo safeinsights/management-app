@@ -54,21 +54,6 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
     return null
 }
 
-async function uploadCodeFiles(
-    files: File[],
-    upload: PresignedPost,
-    studyJobId: string,
-    uploadFile: (args: { file: File; upload: PresignedPost }) => Promise<unknown>,
-) {
-    const manifest = new CodeReviewManifest(studyJobId, 'r')
-    for (const codeFile of files) {
-        manifest.files.push(codeFile)
-        await uploadFile({ file: codeFile, upload })
-    }
-
-    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    return await uploadFile({ file: manifestFile, upload })
-}
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const [stepIndex, setStepIndex] = useState(0)
@@ -191,13 +176,13 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
             <Group mt="xxl" style={{ width: '100%' }}>
                 {stepIndex === 1 && (
-                    <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                    <Button type="button" disabled={isPending} variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
                         Back
                     </Button>
                 )}
 
                 <Group style={{ marginLeft: 'auto' }}>
-                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
                     <StepperButtons
                         form={studyProposalForm}
                         stepIndex={stepIndex}
