@@ -202,7 +202,12 @@ export const getStudyOrgIdForJobId = async (jobId: string) => {
 }
 
 export const getStudyOrgIdForStudyId = async (studyId: string) => {
-    return await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
+    return await db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['orgId', 'org.slug as orgSlug'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow()
 }
 
 export const getOrgIdFromSlug = async ({ orgSlug }: { orgSlug: string }) => {

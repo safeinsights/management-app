@@ -155,21 +155,19 @@ export const onCreateStudyAction = new Action('onCreateStudyAction')
         }
     })
 
-export const onDeleteStudyAction = new Action('onDeleteStudyAction')
-    .params(
-        z.object({
-            orgSlug: z.string(),
-            studyId: z.string(),
-            studyJobId: z.string(),
-        }),
-    )
-    .middleware(async ({ params: { studyId } }) => ({ orgId: (await getStudyOrgIdForStudyId(studyId)).orgId }))
+export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getStudyOrgIdForStudyId(studyId))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
+<<<<<<< HEAD
     .handler(async ({ db, params: { orgSlug, studyId } }) => {
+=======
+    .handler(async ({ orgSlug, params: { studyId } }) => {
+>>>>>>> 9e47cd72 (ensure tmp study is deleted if files fail to upload)
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
-        const jobIds = jobs.map((job) => job.id)
 
-        if (jobIds.length > 0) {
+        if (jobs.length > 0) {
+            const jobIds = jobs.map((job) => job.id)
             await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
             await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
             await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()

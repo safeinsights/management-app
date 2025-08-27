@@ -12,7 +12,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@/components/common'
-import { CodeReviewManifest } from '@/lib/code-manifest'
 import { actionResult } from '@/lib/utils'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
@@ -20,7 +19,11 @@ import { omit } from 'remeda'
 import { useUploadFile } from '@/hooks/upload'
 =======
 import logger from '@/lib/logger'
+<<<<<<< HEAD
 >>>>>>> 61bb8359 (upload using XMLHttpRequest)
+=======
+import { errorToString, isActionError } from '@/lib/errors'
+>>>>>>> 9e47cd72 (ensure tmp study is deleted if files fail to upload)
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -60,60 +63,55 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
 
 async function uploadFile(file: File, upload: PresignedPost) {
-    return new Promise<File>((resolve, reject) => {
-        const body = new FormData()
-        // fetch would occasionally cause a 'net::ERR_H2_OR_QUIC_REQUIRED' error
-        // comment on https://github.com/aws/aws-sdk-js-v3/issues/6504 suggested using good old XMLHttpRequest
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', upload.url)
-
-        // Do not set content-type, per https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects
-        // Doing so will prevent the browser from being able to set the Content-Type header with the boundary expression
-        // it will use to delimit form fields in the request body.
-        // BAD: xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
-
-        for (const [key, value] of Object.entries(upload.fields)) {
-            body.append(key, value)
+    const body = new FormData()
+    for (const [key, value] of Object.entries(upload.fields)) {
+        body.append(key, value)
+    }
+    body.append('file', file)
+    const failureMsg = `failed to upload file ${file.name}.  please remove it and attempt to re-upload`
+    try {
+        const response = await fetch(upload.url, {
+            method: 'POST',
+            body,
+        })
+        if (!response.ok) {
+            logger.error(`Upload failed with status ${response.status}: ${response.statusText}`)
+            throw new Error(failureMsg)
         }
-
-        body.append('file', file)
-
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = (event.loaded / event.total) * 100
-                logger.info(`Upload progress: ${percentComplete.toFixed(2)}%`)
-            }
-        }
-
-        xhr.onload = () => {
-            // will likely be a 204
-            if (xhr.status > 200 && xhr.status < 300) {
-                resolve(file)
-            } else {
-                const msg = `Upload failed with status ${xhr.status}: ${xhr.responseText}`
-                logger.error(msg)
-                reject(new Error(msg))
-            }
-        }
-
-        xhr.onerror = () => {
-            reject(new Error('XHR request failed with unknown status'))
-        }
-
-        xhr.send(body)
-    })
+    } catch (error) {
+        logger.error(`Upload error: ${error}`)
+        throw new Error(failureMsg)
+    }
 }
 
-async function uploadCodeFiles(uploads: Promise<File>[], files: File[], upload: PresignedPost, studyJobId: string) {
-    const manifest = new CodeReviewManifest(studyJobId, 'r')
-    for (const codeFile of files) {
-        manifest.files.push(codeFile)
-        uploads.push(uploadFile(codeFile, upload))
-    }
+type FileUpload = [File | null, PresignedPost]
 
-    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    uploads.push(uploadFile(manifestFile, upload))
-    return uploads
+function uploadFiles(files: FileUpload[]) {
+    return Promise.all(
+        files.map(([file, upload]) => {
+            if (!file) return Promise.resolve(null)
+            return uploadFile(file, upload)
+        }),
+    )
+}
+
+// we do not want to  send any actual files, only their paths to the server action,
+// they will be uploaded after study is created
+function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
+    return {
+        ...omit(formValues, [
+            'agreementDocument',
+            'descriptionDocument',
+            'irbDocument',
+            'mainCodeFile',
+            'additionalCodeFiles',
+        ]),
+        descriptionDocPath: formValues.descriptionDocument!.name,
+        agreementDocPath: formValues.agreementDocument!.name,
+        irbDocPath: formValues.irbDocument!.name,
+        mainCodeFilePath: formValues.mainCodeFile!.name,
+        additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
+    }
 }
 
 
@@ -149,39 +147,15 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // Don't send any actual files to the server action, because they can't handle the file sizes
-            const valuesWithoutFiles = omit(formValues, [
-                'agreementDocument',
-                'descriptionDocument',
-                'irbDocument',
-                'mainCodeFile',
-                'additionalCodeFiles',
-            ])
-
-            const valuesWithFilenames = {
-                ...valuesWithoutFiles,
-                descriptionDocPath: formValues.descriptionDocument!.name,
-                agreementDocPath: formValues.agreementDocument!.name,
-                irbDocPath: formValues.irbDocument!.name,
-                mainCodeFilePath: formValues.mainCodeFile!.name,
-                additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
-            }
-            const {
-                studyId,
-                studyJobId,
-                urlForMainCodeUpload,
-                urlForAdditionalCodeUpload,
-                urlForAgreementUpload,
-                urlForIrbUpload,
-                urlForDescriptionUpload,
-            } = actionResult(
+            const { studyId, studyJobId, ...urls } = actionResult(
                 await onCreateStudyAction({
                     orgSlug,
-                    studyInfo: valuesWithFilenames,
+                    studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
                     codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
                 }),
             )
+<<<<<<< HEAD
 <<<<<<< HEAD
             await uploadFile({ file: formValues.irbDocument!, upload: urlForIrbUpload })
             await uploadFile({ file: formValues.agreementDocument!, upload: urlForAgreementUpload })
@@ -199,6 +173,26 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
 >>>>>>> 61bb8359 (upload using XMLHttpRequest)
             return { studyId, studyJobId }
+=======
+
+            try {
+                await uploadFiles([
+                    [formValues.irbDocument, urls.urlForAdditionalCodeUpload],
+                    [formValues.agreementDocument, urls.urlForAdditionalCodeUpload],
+                    [formValues.descriptionDocument, urls.urlForAgreementUpload],
+                    [formValues.mainCodeFile, urls.urlForMainCodeUpload],
+                    ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForAdditionalCodeUpload] as FileUpload),
+                ])
+            } catch (err: unknown) {
+                const result = await onDeleteStudyAction({ studyId })
+                if (isActionError(result)) {
+                    logger.error(
+                        `Failed to remove temp study details after upload failure: ${errorToString(result.error)}`,
+                    )
+                }
+                throw err
+            }
+>>>>>>> 9e47cd72 (ensure tmp study is deleted if files fail to upload)
         },
         onSuccess() {
             notifications.show({
@@ -210,19 +204,11 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             router.push(`/researcher/dashboard`)
         },
-        onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
-            console.error(error)
+        onError: async (error) => {
             notifications.show({
                 color: 'red',
-                title: 'Failed to upload file',
-                message: error.message,
-            })
-            if (!context) return
-
-            await onDeleteStudyAction({
-                orgSlug: orgSlug,
-                studyId: context.studyId,
-                studyJobId: context.studyJobId,
+                title: 'Failed to create study',
+                message: `${errorToString(error)}\nPlease contact support.`,
             })
         },
     })
