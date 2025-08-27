@@ -123,20 +123,21 @@ export function AddSMSMFA() {
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
                 // Generate backup codes after verification
-                if (user && !user.backupCodeEnabled) {
-                    try {
-                        const resource = await user.createBackupCode()
-                        setBackupCodes(resource.codes || [])
-                    } catch (err) {
-                        logger.error({ err, message: 'Error generating backup codes' })
-                        setBackupCodes([])
+                if (user) {
+                    if (user.backupCodeEnabled) {
+                        setBackupCodes(user.backupCodes || [])
+                    } else {
+                        try {
+                            const resource = await user.createBackupCode()
+                            setBackupCodes(resource.codes || [])
+                        } catch (err) {
+                            logger.error({ err, message: 'Error generating backup codes' })
+                            setBackupCodes([])
+                        }
                     }
                 }
                 notifications.show({ message: 'Verification successful', color: 'green' })
                 await user.reload()
-                {
-                    backupCodes ? <BackupCodes codes={backupCodes} /> : null
-                }
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
@@ -146,7 +147,6 @@ export function AddSMSMFA() {
                 errorToString(err, { form_code_incorrect: 'Invalid verification code. Please try again.' }),
             )
         }
-
         // Set phone number as MFA
         try {
             await setReservedForSecondFactor(phoneObj)
@@ -227,7 +227,7 @@ export function AddSMSMFA() {
                             )}
                         </Stepper.Step>
                         <Stepper.Step label="Verify code" description="Enter the code sent to your phone number">
-                            {isVerifying && (
+                            {isVerifying && !backupCodes && (
                                 <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
                                     <Stack align="center" gap="sm">
                                         <Title order={2}>Verify your code</Title>
@@ -243,6 +243,7 @@ export function AddSMSMFA() {
                                             placeholder=""
                                             size="lg"
                                             type="number"
+                                            data-testid="sms-pin-input"
                                             error={otpForm.errors.code !== undefined}
                                             {...otpForm.getInputProps('code')}
                                         />
@@ -278,6 +279,7 @@ export function AddSMSMFA() {
                                     </Stack>
                                 </form>
                             )}
+                            {backupCodes && <BackupCodes codes={backupCodes} />}
                         </Stepper.Step>
                     </Stepper>
                 </Stack>
