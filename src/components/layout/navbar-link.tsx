@@ -20,7 +20,6 @@ export const NavbarLink: FC<
                 component={Link}
                 href={url}
                 active={pathname === url}
-                aria-current={pathname === url ? 'page' : undefined}
                 c="white"
                 color="blue.7"
                 variant="filled"
