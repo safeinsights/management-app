@@ -55,6 +55,33 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 }
 
 
+async function uploadFile(file: File, upload: PresignedPost) {
+    const body = new FormData()
+    for (const [key, value] of Object.entries(upload.fields)) {
+        body.append(key, value)
+    }
+    body.append('file', file)
+    const response = await fetch(upload.url, {
+        method: 'POST',
+        body,
+    })
+    //dev/  if (!response.ok) {
+    throw new Error(`failed to upload file ${await response.text()}`)
+    //    }
+}
+
+async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
+    const manifest = new CodeReviewManifest(studyJobId, 'r')
+    for (const codeFile of files) {
+        manifest.files.push(codeFile)
+        await uploadFile(codeFile, upload)
+    }
+
+    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
+    return await uploadFile(manifestFile, upload)
+}
+
+
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const [stepIndex, setStepIndex] = useState(0)
 
@@ -176,7 +203,12 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
             <Group mt="xxl" style={{ width: '100%' }}>
                 {stepIndex === 1 && (
-                    <Button type="button" disabled={isPending} variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                    <Button
+                        type="button"
+                        disabled={isPending}
+                        variant="outline"
+                        onClick={() => setStepIndex(stepIndex - 1)}
+                    >
                         Back
                     </Button>
                 )}

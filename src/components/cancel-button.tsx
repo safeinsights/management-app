@@ -3,7 +3,7 @@ import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { AppModal } from '@/components/modal'
 
-export function CancelButton({ isDirty, disabled }: { isDirty: boolean, disabled: boolean }) {
+export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
     const router = useRouter()
 
