@@ -1,11 +1,13 @@
 'use server'
 
 import { ClerkProvider } from '@clerk/nextjs'
-import { AppShell } from './app-shell'
+import { currentUser } from '@clerk/nextjs/server'
 import { LoadingOverlay } from '@mantine/core'
+import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
+import { AppShell } from './app-shell'
 
 type Props = {
     children: ReactNode
@@ -15,6 +17,11 @@ type Props = {
 export async function UserLayout({ children, showOverlay = false }: Props) {
     const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
+
+    const user = await currentUser()
+    if (user && user.twoFactorEnabled === false) {
+        redirect('/account/mfa')
+    }
 
     return (
         <ClerkProvider publishableKey={clerkPublishableKey}>

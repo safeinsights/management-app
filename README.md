@@ -132,6 +132,16 @@ If there are failures, a trace file will be stored under the `./test-results` di
 
 If there are playwright failures on GitHub actions, the trace file will be stored under the "Artifacts" section of the code run. You can download the trace.zip and then run `npx playwright show-trace <path to download>` to view the failure details.
 
+### trivy vulnerability scanner
+
+To run trivy locally, you'll need to install it. For mac that would be e.g. `brew install trivy`
+
+And then run it to get report back on your terminal
+
+```bash
+trivy fs --config trivy.yaml --format table .
+```
+
 ## Deployment 🚀
 
 ### Suggested Way of Deploying Lambda Functions (for future)

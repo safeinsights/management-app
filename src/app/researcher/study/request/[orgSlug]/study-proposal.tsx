@@ -11,8 +11,9 @@ import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
-import { zodResolver } from 'mantine-form-zod-resolver'
+import { zodResolver } from '@/components/common'
 import { CodeReviewManifest } from '@/lib/code-manifest'
+import { actionResult } from '@/lib/utils'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
 
@@ -124,7 +125,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 mainCodeFilePath: formValues.mainCodeFile!.name,
                 additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
             }
-
             const {
                 studyId,
                 studyJobId,
@@ -133,12 +133,14 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 urlForAgreementUpload,
                 urlForIrbUpload,
                 urlForDescriptionUpload,
-            } = await onCreateStudyAction({
-                orgSlug,
-                studyInfo: valuesWithFilenames,
-                mainCodeFileName: formValues.mainCodeFile!.name,
-                codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
-            })
+            } = actionResult(
+                await onCreateStudyAction({
+                    orgSlug,
+                    studyInfo: valuesWithFilenames,
+                    mainCodeFileName: formValues.mainCodeFile!.name,
+                    codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
+                }),
+            )
             await uploadFile(formValues.irbDocument!, urlForIrbUpload)
             await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
             await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)

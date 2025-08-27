@@ -1,7 +1,7 @@
-import { AddMFAPanel } from './panel'
+import { AddAppMFA } from './add-app-mfa'
 
 export const dynamic = 'force-dynamic'
 
 export default function AddMFAPage() {
-    return <AddMFAPanel />
+    return <AddAppMFA />
 }

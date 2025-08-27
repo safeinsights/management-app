@@ -2,8 +2,7 @@
 
 import { ActionFailure, Action, z } from './action'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
-import { sessionFromClerk } from '@/server/clerk'
+import { syncCurrentClerkUser, updateClerkUserMetadata, sessionFromClerk } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {

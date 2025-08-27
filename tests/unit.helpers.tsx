@@ -500,3 +500,6 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
 
     return { session, org, user, orgUser, ...mocks }
 }
+
+// Re-export actionResult for backwards compatibility in tests
+export { actionResult } from '@/lib/utils'

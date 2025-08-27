@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
-import { renderWithProviders } from '@/tests/unit.helpers'
-import { StudiesTable } from './table'
 import { StudyJobStatus, StudyStatus } from '@/database/types'
+import { renderWithProviders } from '@/tests/unit.helpers'
+import { screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StudiesTable } from './table'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
@@ -32,9 +32,10 @@ const mockStudies = [
         status: 'PENDING-REVIEW' as StudyStatus,
         title: 'Study Title 1',
         createdBy: 'Person A',
-        latestJobStatus: 'JOB-PACKAGING' as StudyJobStatus,
+        jobStatusChanges: [{ status: 'JOB-PACKAGING' as StudyJobStatus }],
         latestStudyJobId: 'job-1',
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
     {
         id: 'study-2',
@@ -53,8 +54,9 @@ const mockStudies = [
         createdBy: 'Person B',
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
-        latestJobStatus: 'RUN-COMPLETE' as StudyJobStatus,
+        jobStatusChanges: [{ status: 'RUN-COMPLETE' as StudyJobStatus }],
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
     {
         id: 'study-3',
@@ -73,8 +75,9 @@ const mockStudies = [
         title: 'Study Title 3',
         createdBy: 'Person C',
         latestStudyJobId: null,
-        latestJobStatus: null,
+        jobStatusChanges: [],
         orgSlug: 'test-org',
+        errorStudyJobId: null,
     },
 ]
 

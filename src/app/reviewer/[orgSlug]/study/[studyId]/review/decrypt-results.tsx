@@ -1,19 +1,20 @@
-import React, { FC, useState } from 'react'
-import { useForm } from '@mantine/form'
-import { Button, Group, Stack, Textarea } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import * as Sentry from '@sentry/nextjs'
-import { ResultsReader } from 'si-encryption/job-results/reader'
-import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
-import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
-import { useParams } from 'next/navigation'
-import type { LatestJobForStudy } from '@/server/db/queries'
-import { JobFileInfo } from '@/lib/types'
 import { reportMutationError } from '@/components/errors'
 import { ViewFile } from '@/components/job-results'
-import { FileType } from '@/database/types'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { FileType } from '@/database/types'
+import { JobFileInfo } from '@/lib/types'
+import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import type { LatestJobForStudy } from '@/server/db/queries'
+import { Button, Group, Stack, Textarea } from '@mantine/core'
+import { isNotEmpty, useForm } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import * as Sentry from '@sentry/nextjs'
+import { useQuery } from '@/components/common'
+import { useMutation } from '@tanstack/react-query'
+import { useParams } from 'next/navigation'
+import { FC, useState } from 'react'
+import { ResultsReader } from 'si-encryption/job-results/reader'
+import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 
 interface StudyResultsFormValues {
     privateKey: string
@@ -38,6 +39,10 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const form = useForm({
         mode: 'uncontrolled',
         initialValues: { privateKey: '' },
+        validate: {
+            privateKey: isNotEmpty('Required'),
+        },
+        validateInputOnChange: true,
     })
 
     const { isLoading: isLoadingBlob, data: encryptedFiles } = useQuery({
@@ -124,7 +129,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                             key={form.key('privateKey')}
                         />
                         <Group>
-                            <Button type="submit" disabled={!form.isValid || isLoadingBlob} loading={isDecrypting}>
+                            <Button type="submit" disabled={!form.isValid() || isLoadingBlob} loading={isDecrypting}>
                                 View Results
                             </Button>
                         </Group>

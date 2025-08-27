@@ -56,3 +56,15 @@ export const sessionFromMetadata = ({
         ability,
     }
 }
+
+export const navigateToDashboard = (router: { push: (path: string) => void }, session: UserSessionWithAbility) => {
+    if (session.team.isResearcher) {
+        router.push('/researcher/dashboard')
+        return
+    }
+    if (session.team.isReviewer) {
+        router.push(`/reviewer/${session.team.slug}/dashboard`)
+        return
+    }
+    router.push('/')
+}

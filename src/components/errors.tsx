@@ -1,14 +1,12 @@
 'use client'
 
-import { notifications } from '@mantine/notifications'
-import { Alert, AlertProps, Flex, useMantineTheme } from '@mantine/core'
-import { LockIcon, WarningIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, ReactNode } from 'react'
 import { errorToString, extractActionFailure } from '@/lib/errors'
+import { Alert, AlertProps, Group, Text, useMantineTheme } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { LockIcon, WarningCircleIcon, WarningIcon } from '@phosphor-icons/react/dist/ssr'
 import { captureException } from '@sentry/nextjs'
+import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
-
-export * from '@/lib/errors'
 
 export const reportError = (error: unknown, title = 'An error occurred') => {
     captureException(error)
@@ -27,16 +25,21 @@ export function handleMutationErrorsWithForm(form: FormErrorHandler) {
     return (err: unknown) => {
         const failure = extractActionFailure(err)
         if (failure) {
-            const formErrorKeys = Object.keys(failure)
-            const fieldKeys = Object.keys(form.values)
-            const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
-
-            const unknownKeys = difference(nonFieldKeys, fieldKeys)
-
-            if (unknownKeys.length === 0) {
-                form.setErrors(failure)
-            } else {
+            // Handle both string and object errors
+            if (typeof failure === 'string') {
                 reportError(err)
+            } else {
+                const formErrorKeys = Object.keys(failure)
+                const fieldKeys = Object.keys(form.values)
+                const nonFieldKeys = formErrorKeys.filter((k) => k !== 'form')
+
+                const unknownKeys = difference(nonFieldKeys, fieldKeys)
+
+                if (unknownKeys.length === 0) {
+                    form.setErrors(failure)
+                } else {
+                    reportError(err)
+                }
             }
         } else {
             reportError(err)
@@ -89,9 +92,11 @@ export const InputError: FC<{ error: ReactNode }> = ({ error }) => {
     if (!error) return null
 
     return (
-        <Flex gap="xs" my={2} component="span" data-testid="input-error" bg="#FFEFEF" px="md" py="sm">
-            <WarningCircleIcon size={20} color={theme.colors.red[7]} weight="fill" />
-            {error}
-        </Flex>
+        <Group gap="xs">
+            <WarningCircleIcon size={14} color={theme.colors.red[7]} weight="fill" />
+            <Text c="red.7" size="sm" component="span">
+                {error}
+            </Text>
+        </Group>
     )
 }

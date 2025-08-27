@@ -1,7 +1,7 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/components/common'
 import { Button, Group, Checkbox, Stack } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'

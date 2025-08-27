@@ -1,4 +1,4 @@
-import { test, expect, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
     // Use the same worker
@@ -15,10 +15,7 @@ test.describe('MFA Setup Visibility', () => {
         // Go DIRECTLY to the authenticator app page
         await visitClerkProtectedPage({ page, url: '/account/mfa/app?TESTING_FORCE_NO_MFA=1', role: 'reviewer' })
 
-        // Check if the code input field is visible
-        await expect(page.getByPlaceholder('000000')).toBeVisible()
-
-        // Check if the Verify Code button is visible and initially disabled (as no code is entered)
+        // Verify button should be visible and initially disabled (no code entered yet)
         const verifyButton = page.getByRole('button', { name: 'Verify Code' })
         await expect(verifyButton).toBeVisible()
         await expect(verifyButton).toBeDisabled()

@@ -1,13 +1,14 @@
 'use client'
 
-import React, { FC, useState } from 'react'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import { JobReviewButtons } from './job-review-buttons'
-import { DecryptResults } from './decrypt-results'
-import type { LatestJobForStudy } from '@/server/db/queries'
-import { JobFileInfo } from '@/lib/types'
+import { CopyingInput } from '@/components/copying-input'
 import { JobResults } from '@/components/job-results'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { JobFileInfo } from '@/lib/types'
+import type { LatestJobForStudy } from '@/server/db/queries'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { FC, useState } from 'react'
+import { DecryptResults } from './decrypt-results'
+import { JobReviewButtons } from './job-review-buttons'
 
 const ALLOWED_STATUS = ['FILES-APPROVED', 'RUN-COMPLETE', 'FILES-REJECTED', 'JOB-ERRORED']
 
@@ -55,7 +56,17 @@ export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const { isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
-        return <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
+        return (
+            <Stack>
+                <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
+                <Group justify="flex-start" align="center">
+                    <Text size="xs" fw="bold">
+                        Job ID:
+                    </Text>
+                    <CopyingInput value={job.id} tooltipLabel="Copy" />
+                </Group>
+            </Stack>
+        )
     }
 
     if (isComplete) {

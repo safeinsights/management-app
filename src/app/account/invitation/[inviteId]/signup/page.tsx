@@ -1,18 +1,15 @@
 'use client'
 
-import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
+import { Flex, Button, TextInput, PasswordInput, Text, Alert, useMantineTheme } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, use } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, zodResolver, z } from '@/components/common'
 import { onCreateAccountAction, onPendingUserLoginAction, getOrgInfoForInviteAction } from '../create-account.action'
-import { z } from 'zod'
-import { zodResolver } from 'mantine-form-zod-resolver'
-import { handleMutationErrorsWithForm } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
-import { InputError } from '@/components/errors'
 import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
 
 const Success: FC = () => {
@@ -27,7 +24,6 @@ const Success: FC = () => {
         </SuccessPanel>
     )
 }
-
 const formSchema = z
     .object({
         firstName: z.string().min(2, 'Name must be 2-50 characters').max(50, 'Name must be 2-50 characters'),
@@ -61,7 +57,7 @@ type InviteData = {
 
 const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
-
+    const theme = useMantineTheme()
     const form = useForm({
         validate: zodResolver(formSchema),
         validateInputOnBlur: true,
@@ -99,15 +95,30 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
 
     return (
         <form onSubmit={form.onSubmit((values) => createAccount(values))}>
-            <Flex direction="column" gap="lg" maw={500} mx="auto">
+            <Flex direction="column" gap="lg" maw={500} mx="auto" pb="xxl">
                 <Text size="md">
                     You&apos;ve been invited to join {orgName}. Please fill out the details below to create your
                     account.
                 </Text>
-                <TextInput label="Email" value={email} disabled />
+                <TextInput
+                    label="Email"
+                    radius="sm"
+                    value={email}
+                    disabled
+                    c="charcoal.9"
+                    styles={{
+                        input: {
+                            backgroundColor: theme.colors.charcoal[1],
+                            borderColor: theme.colors.charcoal[1],
+                            color: theme.colors.charcoal[9],
+                        },
+                    }}
+                />
 
-                <Group grow gap="md">
+                <Flex direction="row" gap="xl">
                     <TextInput
+                        radius="sm"
+                        flex="1"
                         key={form.key('firstName')}
                         {...form.getInputProps('firstName')}
                         label="First name"
@@ -116,14 +127,17 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                     />
 
                     <TextInput
+                        radius="sm"
+                        flex="1"
                         key={form.key('lastName')}
                         {...form.getInputProps('lastName')}
                         label="Last name"
                         placeholder="Enter your last name"
                         error={form.errors.lastName && <InputError error={form.errors.lastName} />}
                     />
-                </Group>
+                </Flex>
                 <PasswordInput
+                    radius="sm"
                     label="Enter password"
                     key={form.key('password')}
                     placeholder="********"
@@ -145,6 +159,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                 })()}
 
                 <PasswordInput
+                    radius="sm"
                     label="Confirm password"
                     key={form.key('confirmPassword')}
                     placeholder="********"
@@ -164,7 +179,15 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                 )}
 
                 <Flex mt="sm">
-                    <Button type="submit" loading={isCreating} disabled={!form.isValid()} w="100%" size="md">
+                    <Button
+                        type="submit"
+                        loading={isCreating}
+                        disabled={!form.isValid()}
+                        w="100%"
+                        size="lg"
+                        bg="grey.1"
+                        styles={{ label: { color: theme.colors.grey[7] } }}
+                    >
                         Create Account
                     </Button>
                 </Flex>

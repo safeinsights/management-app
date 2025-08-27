@@ -17,7 +17,7 @@ describe('Study Results Approve/Reject buttons', async () => {
     const testResults = [
         {
             path: 'test.csv',
-            contents: new TextEncoder().encode('test123').buffer as ArrayBuffer,
+            contents: new TextEncoder().encode('test123').buffer,
             sourceId: 'test',
             fileType: 'APPROVED-RESULT' as FileType,
         },

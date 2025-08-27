@@ -1,5 +1,5 @@
-import { Flex, Text, ThemeIcon } from '@mantine/core'
-import { Check, X } from '@phosphor-icons/react'
+import { Flex, Text, useMantineTheme } from '@mantine/core'
+import { CheckIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
 interface RequirementItem {
     re: RegExp
@@ -25,15 +25,18 @@ export const PASSWORD_REQUIREMENTS = [
 
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
-
+    const theme = useMantineTheme()
     for (let i = 0; i < requirements.length; i += 2) {
         rows.push(
             <Flex key={i} direction="row" gap="md">
                 {requirements.slice(i, i + 2).map((requirement, index) => (
                     <Flex key={i + index} align="center" gap="xs" style={{ flex: 1 }}>
-                        <ThemeIcon color={requirement.meets ? 'green.9' : 'red.9'} size={16} radius="xl">
-                            {requirement.meets ? <Check size={12} /> : <X size={12} />}
-                        </ThemeIcon>
+                        {requirement.meets ? (
+                            <CheckIcon size={14} color={theme.colors.green[9]} />
+                        ) : (
+                            <XCircleIcon size={14} color={theme.colors.red[7]} />
+                        )}
+
                         <Text size="sm">{requirement.label}</Text>
                     </Flex>
                 ))}
