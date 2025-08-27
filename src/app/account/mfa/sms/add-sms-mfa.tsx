@@ -124,8 +124,6 @@ export function AddSMSMFA() {
             if (phoneVerifyAttempt.verification.status === 'verified') {
                 // Generate backup codes after verification
                 if (user.backupCodeEnabled) {
-                    setBackupCodes(user.backupCodes || [])
-                } else {
                     try {
                         const resource = await user.createBackupCode()
                         setBackupCodes(resource.codes || [])
