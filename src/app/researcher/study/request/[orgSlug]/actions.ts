@@ -91,11 +91,15 @@ const onCreateStudyActionArgsSchema = z.object({
     codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = new Action('onCreateStudyAction')
+export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
     .params(onCreateStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
+<<<<<<< HEAD
     .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId, db }) => {
+=======
+    .handler(async ({ db, params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
+>>>>>>> f197aeda (Use action.db so queries runs inside transaction)
         const userId = session.user.id
 
         const studyId = uuidv7()
@@ -160,10 +164,14 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsM
     .middleware(async ({ params: { studyId } }) => await getStudyOrgIdForStudyId(studyId))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
 <<<<<<< HEAD
+<<<<<<< HEAD
     .handler(async ({ db, params: { orgSlug, studyId } }) => {
 =======
     .handler(async ({ orgSlug, params: { studyId } }) => {
 >>>>>>> 9e47cd72 (ensure tmp study is deleted if files fail to upload)
+=======
+    .handler(async ({ db, orgSlug, params: { studyId } }) => {
+>>>>>>> f197aeda (Use action.db so queries runs inside transaction)
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
 
         if (jobs.length > 0) {
