@@ -16,7 +16,7 @@ import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { ResubmitProposalFormValues, StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { InputError } from '@/components/errors'
@@ -39,7 +39,7 @@ export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: Fi
 }
 
 export const UploadStudyJobCode: FC<{
-    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues | ResubmitProposalFormValues>
     resubmit?: boolean
 }> = ({ studyProposalForm, resubmit }) => {
     const theme = useMantineTheme()

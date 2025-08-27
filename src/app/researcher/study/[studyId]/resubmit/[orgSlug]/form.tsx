@@ -11,22 +11,22 @@ import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation } from '@tanstack/react-query'
 import { CancelButton } from '@/components/cancel-button'
 import { useUploadFile } from '@/hooks/upload'
-import z from 'zod'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { reportMutationError } from '@/components/errors'
+import { ResubmitProposalFormValues } from '../../../request/[orgSlug]/study-proposal-form-schema'
+import { PresignedPost } from '@aws-sdk/s3-presigned-post'
+import { z } from 'zod'
 
 const resubmitStudySchema = z.object({
-    mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }),
+    mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
     additionalCodeFiles: z.array(z.instanceof(File)).default([]),
 })
-
-type ResubmitStudyFormValues = z.infer<typeof resubmitStudySchema>
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
 
-    const studyProposalForm = useForm<ResubmitStudyFormValues>({
+    const studyProposalForm = useForm<ResubmitProposalFormValues>({
         validate: zodResolver(resubmitStudySchema),
         initialValues: {
             mainCodeFile: null,
@@ -37,12 +37,19 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { mutateAsync: uploadFile } = useUploadFile()
 
     const { isPending, mutate: resubmitStudy } = useMutation({
-        mutationFn: async (formValues: ResubmitStudyFormValues) => {
-            const { urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addJobToStudyAction({
+        mutationFn: async (formValues: ResubmitProposalFormValues) => {
+            const actionResponse = (await addJobToStudyAction({
                 studyId: study.id,
+                orgSlug: study.orgSlug,
                 mainCodeFileName: formValues.mainCodeFile!.name,
                 codeFileNames: formValues.additionalCodeFiles.map((f) => f.name),
-            })
+            })) as {
+                studyId: string
+                studyJobId: string
+                urlForMainCodeUpload: PresignedPost
+                urlForAdditionalCodeUpload: PresignedPost
+            }
+            const { urlForMainCodeUpload, urlForAdditionalCodeUpload } = actionResponse
 
             await uploadFile({ file: formValues.mainCodeFile!, upload: urlForMainCodeUpload })
 
@@ -63,7 +70,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: ResubmitStudyFormValues) => resubmitStudy(values))}>
+        <form onSubmit={studyProposalForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
             <Stack>
                 <UploadStudyJobCode studyProposalForm={studyProposalForm} resubmit />
 
