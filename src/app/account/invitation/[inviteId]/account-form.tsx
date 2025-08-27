@@ -1,13 +1,11 @@
 'use client'
 
-import {
-    PASSWORD_REQUIREMENTS,
-    Requirements,
-    usePasswordRequirements,
-} from '@/app/account/reset-password/password-requirements'
-import { useForm, useState, z, zodResolver, type FC } from '@/components/common'
+import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
+import { useMutation } from '@/components/common'
+import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
+import { useForm, type FC, useState, z, zodResolver } from '@/components/common'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
-import { LoadingMessage } from '@/components/loading'
+import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Group, PasswordInput, Text, TextInput } from '@mantine/core'
@@ -15,6 +13,8 @@ import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
 import { SignOutPanel } from './signout-panel'
+import { LoadingMessage } from '@/components/loading'
+import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
 
 const Success: FC = () => {
     const router = useRouter()

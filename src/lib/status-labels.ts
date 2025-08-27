@@ -6,6 +6,10 @@ export type StatusLabel = {
     tooltip?: string
 }
 
+// ORDER MATTERS in the below lists
+// The LAST status found will be displayed
+// EXCEPT for 'JOB-ERRORED' which takes precedence over all other statuses if it exists
+
 // Proposal -> Code -> Results
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     // Proposal

@@ -62,9 +62,10 @@ describe('Study Actions', () => {
             userId: otherUser.id,
             orgId: otherOrg.id,
         })
-        // was inserted in beforeEach, should throw on dupe insert
+        // was inserted in beforeEach, should return error
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
-        await expect(getStudyAction({ studyId })).rejects.toThrow()
+        const result = await getStudyAction({ studyId })
+        expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
         expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
     })
 

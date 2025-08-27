@@ -2,10 +2,11 @@ import { Panel } from '@/components/panel'
 import { Button, Flex, Loader, Text, TextInput } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useSignIn, useUser } from '@clerk/nextjs'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/components/common'
 import type { SignInResource } from '@clerk/types'
 import type { MFAState } from './logic'
 import { errorToString } from '@/lib/errors'
+import { actionResult } from '@/lib/utils'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 
@@ -42,10 +43,18 @@ export const RequestMFA: React.FC<{ mfa: MFAState; onReset: () => void }> = ({ m
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
-                const result = await onUserSignInAction()
-                if (result?.redirectToReviewerKey) {
-                    router.push('/account/keys')
-                } else {
+                try {
+                    const result = actionResult(await onUserSignInAction())
+                    if (result?.redirectToReviewerKey) {
+                        router.push('/account/keys')
+                    } else {
+                        const redirectUrl = searchParams.get('redirect_url')
+                        router.push(redirectUrl || '/')
+                    }
+                } catch (error) {
+                    // If onUserSignInAction returns an error, we still want to continue with navigation
+                    // since the user is already signed in via Clerk
+                    console.error('onUserSignInAction failed:', error)
                     const redirectUrl = searchParams.get('redirect_url')
                     router.push(redirectUrl || '/')
                 }
