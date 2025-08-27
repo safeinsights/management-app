@@ -20,7 +20,8 @@ export function NavbarProfileMenu() {
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
     const firstMenuItemRef = useRef<HTMLButtonElement>(null)
 
-    const closeAndCall = (fn: () => void) => () => {
+    const closeAndCall = (fn: () => void) => (e: React.MouseEvent) => {
+        e.stopPropagation()
         fn()
         close()
     }
@@ -46,10 +47,7 @@ export function NavbarProfileMenu() {
                     leftSection={<UserIcon aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        closeAndCall(() => openUserProfile())()
-                    }}
+                    onClick={closeAndCall(() => openUserProfile())}
                     aria-label="My Account"
                     role="menuitem"
                     component="button"
@@ -59,10 +57,7 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<LockIcon aria-hidden="true" />}
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            closeAndCall(() => router.push('/reviewer/keys'))()
-                        }}
+                        onClick={closeAndCall(() => router.push('/reviewer/keys'))}
                         c="white"
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"
@@ -74,10 +69,7 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOutIcon aria-hidden="true" />}
-                    onClick={(e) => {
-                        e.stopPropagation()
-                        closeAndCall(() => signOut())()
-                    }}
+                    onClick={closeAndCall(() => signOut())}
                     c="white"
                     className={styles.navLinkProfileHover}
                     aria-label="Sign Out"
