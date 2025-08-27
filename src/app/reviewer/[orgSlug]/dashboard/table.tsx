@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionReturnType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import dayjs from 'dayjs'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
@@ -20,11 +20,11 @@ import {
 } from '@mantine/core'
 import { FC } from 'react'
 import { Link } from '@/components/links'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@/components/common'
 import { StudyJobStatus } from '@/database/types'
 import { Refresher } from '@/components/refresher'
 
-type Studies = ActionReturnType<typeof fetchStudiesForOrgAction>
+type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
     return (
@@ -41,9 +41,9 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             <TableTd>{study.reviewerName}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
+                    audience="reviewer"
                     studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobErrored={!!study.errorStudyJobId}
+                    jobStatusChanges={study.jobStatusChanges || []}
                 />
             </TableTd>
             <TableTd>
@@ -68,9 +68,12 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })
 
-    if (!studies.length) return <Title order={5}>You have no studies to review.</Title>
+    // Handle case where studies might be undefined or an error
+    if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
 
-    const needsRefreshed = !!studies.find((s) => !FINAL_STATUS.includes(s.latestJobStatus || 'INITIATED'))
+    const needsRefreshed = studies.some((study) =>
+        study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
+    )
 
     return (
         <Stack>

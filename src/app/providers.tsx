@@ -4,12 +4,11 @@ import '../../sentry.client.config' // this is needed to make sure the client si
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
-import { useEffect } from 'react'
+import { useEffect, type FC, type ReactNode } from 'react'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { FC, ReactNode } from 'react'
 
 function makeQueryClient() {
     return new QueryClient({

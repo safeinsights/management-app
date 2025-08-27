@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import {
     getReviewerPublicKeyAction,
     setReviewerPublicKeyAction,
@@ -18,7 +18,13 @@ describe('User Keys Actions', () => {
         await mockSessionWithTestData({ isReviewer: false })
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
-        await expect(getReviewerPublicKeyAction()).rejects.toThrow(/cannot view ReviewerKey/)
+        try {
+            actionResult(await getReviewerPublicKeyAction())
+            expect.fail('Expected an error to be thrown')
+        } catch (error) {
+            expect(error).toBeInstanceOf(Error)
+            expect((error as Error).message).toMatch(/cannot view ReviewerKey/)
+        }
     })
 
     it('getReviewerPublicKeyAction returns the public key for the current user', async () => {
@@ -29,7 +35,7 @@ describe('User Keys Actions', () => {
 
         await db.insertInto('userPublicKey').values({ userId: user.id, publicKey, fingerprint }).execute()
 
-        const result = await getReviewerPublicKeyAction()
+        const result = actionResult(await getReviewerPublicKeyAction())
         expect(result).toBeDefined()
         expect(result?.fingerprint).toEqual(fingerprint)
     })
@@ -42,9 +48,9 @@ describe('User Keys Actions', () => {
 
         await setReviewerPublicKeyAction({ publicKey, fingerprint })
 
-        const newKey = await getReviewerPublicKeyAction()
-        expect(newKey).toBeDefined()
-        expect(newKey?.fingerprint).toEqual(fingerprint)
+        const newKeyResult = actionResult(await getReviewerPublicKeyAction())
+        expect(newKeyResult).toBeDefined()
+        expect(newKeyResult?.fingerprint).toEqual(fingerprint)
     })
 
     it('updateReviewerPublicKeyAction updates the public key for the current user', async () => {
@@ -62,8 +68,8 @@ describe('User Keys Actions', () => {
 
         await updateReviewerPublicKeyAction({ publicKey: newPublicKey, fingerprint: newFingerprint })
 
-        const updatedKey = await getReviewerPublicKeyAction()
-        expect(updatedKey).toBeDefined()
-        expect(updatedKey?.fingerprint).toEqual(newFingerprint)
+        const updatedKeyResult = actionResult(await getReviewerPublicKeyAction())
+        expect(updatedKeyResult).toBeDefined()
+        expect(updatedKeyResult?.fingerprint).toEqual(newFingerprint)
     })
 })

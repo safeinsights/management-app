@@ -2,6 +2,7 @@
 
 import DashboardSkeleton from '@/components/layout/skeleton/dashboard'
 import { useSession } from '@/hooks/session'
+import { navigateToDashboard } from '@/lib/session'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -14,11 +15,7 @@ export const UserNav = () => {
         if (!session) return
 
         setIsNavigating(true)
-        if (session.team.isResearcher) {
-            router.push('/researcher/dashboard')
-        } else if (session.team.isReviewer) {
-            router.push(`/reviewer/${session.team.slug}/dashboard`)
-        }
+        navigateToDashboard(router, session)
     }, [session, router])
 
     // Show dashboard skeleton while session is loading or during navigation

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
+import { actionResponseIsError } from '@/hooks/query-wrappers'
 import { Action, ActionFailure } from './action'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 
@@ -63,7 +64,8 @@ describe('Action Builder', () => {
 
             const invalidInput = { name: 'John', age: 'thirty' }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await expect(action(invalidInput as any)).rejects.toThrow(ActionFailure)
+            const result = await action(invalidInput as any)
+            expect(result).toEqual({ error: expect.stringContaining('Validation error') })
             expect(mockHandler).not.toHaveBeenCalled()
         })
     })
@@ -142,6 +144,68 @@ describe('Action Builder', () => {
                     db: expect.any(Object),
                 }),
             )
+        })
+    })
+
+    describe('error handling', () => {
+        it('catches exceptions and returns them as error objects', async () => {
+            const errorMessage = 'Something went wrong'
+            const mockHandler = vi.fn().mockRejectedValue(new Error(errorMessage))
+
+            const action = new Action('error-test').handler(mockHandler)
+
+            const result = await action()
+
+            expect(result).toEqual({ error: errorMessage })
+            expect(mockHandler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    params: undefined,
+                    session: expect.any(Object),
+                    db: expect.any(Object),
+                }),
+            )
+        })
+
+        it('catches ActionFailure exceptions with string errors and returns them as error objects', async () => {
+            const failureMessage = 'Action failed'
+            const mockHandler = vi.fn().mockImplementation(() => {
+                throw new ActionFailure(failureMessage)
+            })
+
+            const action = new Action('action-failure-test').handler(mockHandler)
+
+            const result = await action()
+
+            expect(result).toEqual({ error: failureMessage })
+        })
+
+        it('catches ActionFailure exceptions with object errors and returns them as error objects', async () => {
+            const failureObject = { field1: 'Error message 1', field2: 'Error message 2' }
+            const mockHandler = vi.fn().mockImplementation(() => {
+                throw new ActionFailure(failureObject)
+            })
+
+            const action = new Action('action-failure-object-test').handler(mockHandler)
+
+            const result = await action()
+
+            expect(result).toEqual({ error: failureObject })
+        })
+
+        it('catches handler exceptions and returns them as error objects', async () => {
+            const mockHandler = vi.fn(async () => {
+                if (1) throw new Error('hi')
+                return { foo: 'bar' }
+            })
+
+            const action = new Action('middleware-error-test').handler(mockHandler)
+
+            const result = await action()
+            if (!actionResponseIsError(result)) {
+                expect(result.foo).toBe('bar')
+            }
+
+            expect(result).toEqual({ error: 'hi' })
         })
     })
 })

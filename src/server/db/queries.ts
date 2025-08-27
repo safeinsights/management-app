@@ -1,6 +1,6 @@
 import { db, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { ActionReturnType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { ActionSuccessType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
@@ -79,7 +79,7 @@ export const getReviewerPublicKeyByUserId = async (userId: string) => {
     return result?.publicKey
 }
 
-export type LatestJobForStudy = ActionReturnType<typeof latestJobForStudy>
+export type LatestJobForStudy = ActionSuccessType<typeof latestJobForStudy>
 export const latestJobForStudy = async (studyId: string) => {
     return await Action.db
         .selectFrom('studyJob')

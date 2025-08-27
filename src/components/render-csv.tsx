@@ -1,12 +1,11 @@
 'use client'
 
-import { FC } from 'react'
+import { type FC } from 'react'
 import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
-import { LoadingOverlay } from '@mantine/core'
+import { LoadingOverlay, Flex } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
 import { useQuery, skipToken } from '@tanstack/react-query'
-import { Flex } from '@mantine/core'
 
 type CSV = Record<string, string | number>
 

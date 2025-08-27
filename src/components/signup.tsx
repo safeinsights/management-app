@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { reportError, isClerkApiError } from './errors'
+import { reportError } from './errors'
+import { isClerkApiError } from '@/lib/errors'
 import {
     Anchor,
     Button,
@@ -148,7 +149,7 @@ export function SignUp() {
         } catch (err: unknown) {
             reportError(err, 'failed to create signup')
             if (isClerkApiError(err)) {
-                const emailError = err.errors.find((error) => error.meta?.paramName === 'email_address')
+                const emailError = err.errors.find((error: ClerkAPIError) => error.meta?.paramName === 'email_address')
                 if (emailError) {
                     form.setFieldError('email', emailError.longMessage)
                 }

@@ -15,9 +15,7 @@ import {
     TableTh,
     TableThead,
     TableTr,
-    Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +25,8 @@ import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { useSession } from '@/hooks/session'
+import { ErrorAlert } from '@/components/errors'
+import { isActionError, errorToString } from '@/lib/errors'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -58,25 +58,22 @@ export const StudiesTable: React.FC = () => {
     })
     const { session } = useSession()
 
-    if (isLoading) return <Text>Loading studies...</Text>
-    if (!session) return null
+    if (!session || isLoading) return null
+
+    if (!studies || isActionError(studies)) {
+        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
+    }
 
     const rows = studies?.map((study) => (
         <TableTr fz="md" key={study.id}>
-            <TableTd>
-                <Tooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title}
-                    </Text>
-                </Tooltip>
-            </TableTd>
+            <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
                     studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobErrored={!!study.errorStudyJobId}
+                    audience="researcher"
+                    jobStatusChanges={study.jobStatusChanges}
                 />
             </TableTd>
             <TableTd>

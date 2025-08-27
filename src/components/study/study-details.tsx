@@ -6,6 +6,7 @@ import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { StudyDocumentType } from '@/lib/types'
 import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
+import { isActionError } from '@/lib/errors'
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -43,7 +44,8 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction({ studyId }))
-    if (!study) {
+
+    if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 

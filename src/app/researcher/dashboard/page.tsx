@@ -1,15 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import {
-    Group,
-    Stack,
-    Text,
-    Title,
-} from '@mantine/core'
+import { Group, Stack, Text, Title } from '@mantine/core'
 
 import { UserName } from '@/components/user-name'
 import { StudiesTable } from './table'
+export const dynamic = 'force-dynamic'
 
 export default function ResearcherDashboardPage(): React.ReactElement {
     return (
