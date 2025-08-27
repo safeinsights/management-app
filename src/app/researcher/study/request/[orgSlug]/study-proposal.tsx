@@ -16,7 +16,11 @@ import { CodeReviewManifest } from '@/lib/code-manifest'
 import { actionResult } from '@/lib/utils'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
+<<<<<<< HEAD
 import { useUploadFile } from '@/hooks/upload'
+=======
+import logger from '@/lib/logger'
+>>>>>>> 61bb8359 (upload using XMLHttpRequest)
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -56,29 +60,60 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
 
 async function uploadFile(file: File, upload: PresignedPost) {
-    const body = new FormData()
-    for (const [key, value] of Object.entries(upload.fields)) {
-        body.append(key, value)
-    }
-    body.append('file', file)
-    const response = await fetch(upload.url, {
-        method: 'POST',
-        body,
+    return new Promise<File>((resolve, reject) => {
+        const body = new FormData()
+        // fetch would occasionally cause a 'net::ERR_H2_OR_QUIC_REQUIRED' error
+        // comment on https://github.com/aws/aws-sdk-js-v3/issues/6504 suggested using good old XMLHttpRequest
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', upload.url)
+
+        // Do not set content-type, per https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest_API/Using_FormData_Objects
+        // Doing so will prevent the browser from being able to set the Content-Type header with the boundary expression
+        // it will use to delimit form fields in the request body.
+        // BAD: xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+
+        for (const [key, value] of Object.entries(upload.fields)) {
+            body.append(key, value)
+        }
+
+        body.append('file', file)
+
+        xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100
+                logger.info(`Upload progress: ${percentComplete.toFixed(2)}%`)
+            }
+        }
+
+        xhr.onload = () => {
+            // will likely be a 204
+            if (xhr.status > 200 && xhr.status < 300) {
+                resolve(file)
+            } else {
+                const msg = `Upload failed with status ${xhr.status}: ${xhr.responseText}`
+                logger.error(msg)
+                reject(new Error(msg))
+            }
+        }
+
+        xhr.onerror = () => {
+            reject(new Error('XHR request failed with unknown status'))
+        }
+
+        xhr.send(body)
     })
-    //dev/  if (!response.ok) {
-    throw new Error(`failed to upload file ${await response.text()}`)
-    //    }
 }
 
-async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
+async function uploadCodeFiles(uploads: Promise<File>[], files: File[], upload: PresignedPost, studyJobId: string) {
     const manifest = new CodeReviewManifest(studyJobId, 'r')
     for (const codeFile of files) {
         manifest.files.push(codeFile)
-        await uploadFile(codeFile, upload)
+        uploads.push(uploadFile(codeFile, upload))
     }
 
     const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    return await uploadFile(manifestFile, upload)
+    uploads.push(uploadFile(manifestFile, upload))
+    return uploads
 }
 
 
@@ -147,11 +182,22 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
                 }),
             )
+<<<<<<< HEAD
             await uploadFile({ file: formValues.irbDocument!, upload: urlForIrbUpload })
             await uploadFile({ file: formValues.agreementDocument!, upload: urlForAgreementUpload })
             await uploadFile({ file: formValues.descriptionDocument!, upload: urlForDescriptionUpload })
             await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId, uploadFile)
             await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId, uploadFile)
+=======
+            const uploads: Promise<File>[] = []
+            uploads.push(uploadFile(formValues.irbDocument!, urlForIrbUpload))
+            uploads.push(uploadFile(formValues.agreementDocument!, urlForAgreementUpload))
+            uploads.push(uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload))
+            uploadCodeFiles(uploads, [formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId)
+            uploadCodeFiles(uploads, formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
+            await Promise.all(uploads)
+
+>>>>>>> 61bb8359 (upload using XMLHttpRequest)
             return { studyId, studyJobId }
         },
         onSuccess() {
