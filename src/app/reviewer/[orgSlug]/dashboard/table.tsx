@@ -63,7 +63,6 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
         refetch,
         isRefetching,
     } = useQuery({
-        enabled: false,
         initialData: initialStudies,
         queryKey: ['org-studies', orgSlug],
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
