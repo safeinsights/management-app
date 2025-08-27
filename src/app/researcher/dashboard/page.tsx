@@ -1,13 +1,11 @@
 import * as React from 'react'
 import {
-    Alert,
     Divider,
     Flex,
     Group,
     Paper,
     Stack,
     Table,
-    TableCaption,
     TableTbody,
     TableTd,
     TableTh,
@@ -15,7 +13,6 @@ import {
     TableTr,
     Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 
@@ -26,7 +23,7 @@ import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { sessionFromClerk } from '@/server/clerk'
 import { ErrorAlert } from '@/components/errors'
-
+import { isActionError, errorToString } from '@/lib/errors'
 export const dynamic = 'force-dynamic'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
@@ -37,38 +34,32 @@ const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     )
 }
 
-const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
-    if (!visible) return null
-
-    return (
-        <TableCaption>
-            <Alert variant="transparent">
-                You haven&apos;t started a study yet
-                <Stack>
-                    <NewStudyLink orgSlug={slug} />
-                </Stack>
-            </Alert>
-        </TableCaption>
-    )
-}
+const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
+    <TableTr>
+        <TableTd colSpan={5}>
+            <Stack align="center" gap="md" p="md">
+                <Text>You haven&apos;t started a study yet</Text>
+                <NewStudyLink orgSlug={slug} />
+            </Stack>
+        </TableTd>
+    </TableTr>
+)
 
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    const studies = await fetchStudiesForCurrentResearcherAction()
     const session = await sessionFromClerk()
 
     if (!session) {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
 
+    const studies = await fetchStudiesForCurrentResearcherAction()
+    if (!studies || isActionError(studies)) {
+        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
+    }
+
     const rows = studies.map((study) => (
         <TableTr fz="md" key={study.id}>
-            <TableTd>
-                <Tooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title}
-                    </Text>
-                </Tooltip>
-            </TableTd>
+            <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
             <TableTd>
@@ -79,7 +70,12 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
+                <Link
+                    href={`/researcher/study/${study.id}/review`}
+                    aria-label={`View details for study ${study.title}`}
+                >
+                    View
+                </Link>
             </TableTd>
         </TableTr>
     ))
@@ -106,7 +102,6 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     </Group>
                     <Divider c="charcoal.1" />
                     <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
                         <TableThead fz="sm">
                             <TableTr>
                                 <TableTh>Study Name</TableTh>
@@ -116,7 +111,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                                 <TableTh>Study Details</TableTh>
                             </TableTr>
                         </TableThead>
-                        <TableTbody>{rows}</TableTbody>
+                        <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
                     </Table>
                 </Stack>
             </Paper>

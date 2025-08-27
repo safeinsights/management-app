@@ -56,6 +56,7 @@ export const StudyProposalForm: FC<{
                             aria-label="Study Title"
                             placeholder="Enter a title (max. 50 characters)"
                             {...studyProposalForm.getInputProps('title')}
+                            autoFocus
                         />
                     </Grid.Col>
                 </Grid>

@@ -4,6 +4,7 @@ import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { getReviewerPublicKeyByUserId } from '../db/queries'
 import { revalidatePath } from 'next/cache'
 import { z, ActionFailure, Action } from './action'
+import { ActionSuccessType } from '@/lib/types'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
@@ -65,7 +66,7 @@ export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction
     .requireAbilityTo('view', 'ReviewerKey')
     .handler(async ({ session }) => getReviewerPublicKeyByUserId(session.user.id))
 
-export type OrgUserReturn = Awaited<ReturnType<typeof getUsersForOrgAction>>[number]
+export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
 export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
     .params(z.object({ orgSlug: z.string() }).merge(orgSchema.pick({ name: true, description: true })))
