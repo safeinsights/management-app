@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, JOB_FINAL_STATUSES } from '@/lib/types'
 import dayjs from 'dayjs'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'

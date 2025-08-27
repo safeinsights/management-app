@@ -1,5 +1,4 @@
 'use server'
-
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { db } from '@/database'
@@ -10,6 +9,81 @@ import { onStudyCreated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Action, z } from '@/server/actions/action'
 import { getOrgIdFromSlug, getStudyOrgIdForStudyId } from '@/server/db/queries'
+import { DB } from '@/database/types'
+import { Kysely } from 'kysely'
+
+async function addStudyJob(
+    db: Kysely<DB>,
+    userId: string,
+    studyId: string,
+    orgSlug: string,
+    mainCodeFileName: string,
+    codeFileNames: string[],
+) {
+    const studyJob = await db
+        .insertInto('studyJob')
+        .values({
+            language: 'R', // TODO: make this dynamic based on user selection
+            studyId: studyId,
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            studyJobId: studyJob.id,
+            status: 'INITIATED',
+        })
+        .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('jobStatusChange')
+        .values({
+            userId: userId,
+            status: 'CODE-SUBMITTED',
+            studyJobId: studyJob.id,
+        })
+        .execute()
+
+    await db
+        .insertInto('studyJobFile')
+        .values({
+            name: mainCodeFileName,
+            path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
+            studyJobId: studyJob.id,
+            fileType: 'MAIN-CODE',
+        })
+        .executeTakeFirstOrThrow()
+
+    for (const fileName of codeFileNames) {
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                name: fileName,
+                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
+                studyJobId: studyJob.id,
+                fileType: 'SUPPLEMENTAL-CODE',
+            })
+            .executeTakeFirstOrThrow()
+    }
+
+    const studyJobCodePath = pathForStudyJobCode({
+        orgSlug,
+        studyId,
+        studyJobId: studyJob.id,
+    })
+
+    // s3 signed urls for client to upload
+    const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+    const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+
+    return {
+        studyJobId: studyJob.id,
+        urlForMainCodeUpload,
+        urlForAdditionalCodeUpload,
+    }
+}
 
 const onCreateStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
@@ -18,11 +92,11 @@ const onCreateStudyActionArgsSchema = z.object({
     codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = new Action('onCreateStudyAction')
+export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
     .params(onCreateStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
+    .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId, db }) => {
         const userId = session.user.id
 
         const studyId = uuidv7()
@@ -46,65 +120,16 @@ export const onCreateStudyAction = new Action('onCreateStudyAction')
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const studyJob = await db
-            .insertInto('studyJob')
-            .values({
-                language: 'R', // TODO: make this dynamic based on user selection
-                studyId: studyId,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                studyJobId: studyJob.id,
-                status: 'INITIATED',
-            })
-            .executeTakeFirstOrThrow()
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: userId,
-                status: 'CODE-SUBMITTED',
-                studyJobId: studyJob.id,
-            })
-            .execute()
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: mainCodeFileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
-                studyJobId: studyJob.id,
-                fileType: 'MAIN-CODE',
-            })
-            .executeTakeFirstOrThrow()
-
-        for (const fileName of codeFileNames) {
-            await db
-                .insertInto('studyJobFile')
-                .values({
-                    name: fileName,
-                    path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
-                    studyJobId: studyJob.id,
-                    fileType: 'SUPPLEMENTAL-CODE',
-                })
-                .executeTakeFirstOrThrow()
-        }
+        const { studyJobId, urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            mainCodeFileName,
+            codeFileNames,
+        )
 
         onStudyCreated({ userId, studyId })
-
-        const studyJobCodePath = pathForStudyJobCode({
-            orgSlug,
-            studyId,
-            studyJobId: studyJob.id,
-        })
-
-        // s3 signed urls for client to upload
-        const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
-        const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
 
         const urlForAgreementUpload = await signedUrlForStudyUpload(
             pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
@@ -122,7 +147,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction')
 
         return {
             studyId: studyId,
-            studyJobId: studyJob.id,
+            studyJobId,
             urlForMainCodeUpload,
             urlForAdditionalCodeUpload,
             urlForAgreementUpload,
@@ -164,84 +189,31 @@ const addJobToStudyActionArgsSchema = z.object({
     codeFileNames: z.array(z.string()),
 })
 
-export const addJobToStudyAction = new Action('addJobToStudyAction')
+export const addJobToStudyAction = new Action('addJobToStudyAction', { performsMutations: true })
     .params(addJobToStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => {
         const { orgId } = await getStudyOrgIdForStudyId(studyId)
         return { orgId }
     })
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, mainCodeFileName, codeFileNames }, session }) => {
+    .handler(async ({ params: { studyId, orgSlug, mainCodeFileName, codeFileNames }, session, db }) => {
         const userId = session.user.id
 
-        // Create new job for existing study
-        const studyJob = await db
-            .insertInto('studyJob')
-            .values({
-                language: 'R',
-                studyId: studyId,
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                studyJobId: studyJob.id,
-                status: 'INITIATED',
-            })
-            .executeTakeFirstOrThrow()
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: userId,
-                status: 'CODE-SUBMITTED',
-                studyJobId: studyJob.id,
-            })
-            .execute()
-
-        await db
-            .insertInto('studyJobFile')
-            .values({
-                name: mainCodeFileName,
-                path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, mainCodeFileName),
-                studyJobId: studyJob.id,
-                fileType: 'MAIN-CODE',
-            })
-            .executeTakeFirstOrThrow()
-
-        for (const fileName of codeFileNames) {
-            await db
-                .insertInto('studyJobFile')
-                .values({
-                    name: fileName,
-                    path: pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId: studyJob.id }, fileName),
-                    studyJobId: studyJob.id,
-                    fileType: 'SUPPLEMENTAL-CODE',
-                })
-                .executeTakeFirstOrThrow()
-        }
-
-        // Update study status to PENDING-REVIEW
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
-
-        const studyJobCodePath = pathForStudyJobCode({
-            orgSlug,
+        const { studyJobId, urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addStudyJob(
+            db,
+            userId,
             studyId,
-            studyJobId: studyJob.id,
-        })
-
-        // Generate signed URLs for uploads
-        const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
-        const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+            orgSlug,
+            mainCodeFileName,
+            codeFileNames,
+        )
 
         revalidatePath('/researcher/dashboard')
         revalidatePath(`/researcher/study/${studyId}/review`)
 
         return {
             studyId,
-            studyJobId: studyJob.id,
+            studyJobId,
             urlForMainCodeUpload,
             urlForAdditionalCodeUpload,
         }

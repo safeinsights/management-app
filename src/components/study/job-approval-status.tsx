@@ -44,11 +44,7 @@ export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
 export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const filesStatusChange = job.statusChanges.find((statusChange) => {
-        return (
-            statusChange.status === 'FILES-APPROVED' ||
-            statusChange.status === 'FILES-REJECTED' ||
-            statusChange.status === 'JOB-ERRORED'
-        )
+        return ['FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'].includes(statusChange.status)
     })
 
     if (!filesStatusChange) {
