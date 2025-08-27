@@ -2,14 +2,13 @@
 
 import * as React from 'react'
 import {
-    Alert,
+    Text,
     Divider,
     Flex,
     Group,
     Paper,
     Stack,
     Table,
-    TableCaption,
     TableTbody,
     TableTd,
     TableTh,
@@ -36,20 +35,16 @@ const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     )
 }
 
-const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
-    if (!visible) return null
-
-    return (
-        <TableCaption>
-            <Alert variant="transparent">
-                You haven&apos;t started a study yet
-                <Stack>
-                    <NewStudyLink orgSlug={slug} />
-                </Stack>
-            </Alert>
-        </TableCaption>
-    )
-}
+const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
+    <TableTr>
+        <TableTd colSpan={5}>
+            <Stack align="center" gap="md" p="md">
+                <Text>You haven&apos;t started a study yet</Text>
+                <NewStudyLink orgSlug={slug} />
+            </Stack>
+        </TableTd>
+    </TableTr>
+)
 
 export const StudiesTable: React.FC = () => {
     const { data: studies, isLoading } = useQuery({
@@ -64,7 +59,7 @@ export const StudiesTable: React.FC = () => {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
     }
 
-    const rows = studies?.map((study) => (
+    const rows = studies.map((study) => (
         <TableTr fz="md" key={study.id}>
             <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
@@ -77,7 +72,12 @@ export const StudiesTable: React.FC = () => {
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
+                <Link
+                    href={`/researcher/study/${study.id}/review`}
+                    aria-label={`View details for study ${study.title}`}
+                >
+                    View
+                </Link>
             </TableTd>
         </TableTr>
     ))
@@ -92,19 +92,27 @@ export const StudiesTable: React.FC = () => {
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
-                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                    <NoStudiesCaption visible={!studies?.length} slug={session.team.slug} />
-                    <TableThead fz="sm">
-                        <TableTr>
-                            <TableTh>Study Name</TableTh>
-                            <TableTh>Submitted On</TableTh>
-                            <TableTh>Submitted To</TableTh>
-                            <TableTh>Status</TableTh>
-                            <TableTh>Study Details</TableTh>
-                        </TableTr>
-                    </TableThead>
-                    <TableTbody>{rows}</TableTbody>
-                </Table>
+                <Stack>
+                    <Group justify="space-between">
+                        <Title order={3}>Proposed Studies</Title>
+                        <Flex justify="flex-end">
+                            <NewStudyLink orgSlug={session.team.slug} />
+                        </Flex>
+                    </Group>
+                    <Divider c="charcoal.1" />
+                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                        <TableThead fz="sm">
+                            <TableTr>
+                                <TableTh>Study Name</TableTh>
+                                <TableTh>Submitted On</TableTh>
+                                <TableTh>Submitted To</TableTh>
+                                <TableTh>Status</TableTh>
+                                <TableTh>Study Details</TableTh>
+                            </TableTr>
+                        </TableThead>
+                        <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
+                    </Table>
+                </Stack>
             </Stack>
         </Paper>
     )
