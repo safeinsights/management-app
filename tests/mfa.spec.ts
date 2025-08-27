@@ -1,4 +1,4 @@
-import { expect, test, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage, Page } from './e2e.helpers'
 
 test.describe('MFA Setup Visibility', () => {
     // Use the same worker
@@ -22,14 +22,14 @@ test.describe('MFA Setup Visibility', () => {
     })
 
     test('checks SMS page elements', async ({ page }) => {
-        async function fillPinInput(page, pinInputTestId: string, pinCode: string) {
+        async function fillPinInput(page: Page, pinInputTestId: string, pinCode: string) {
             const pinInputLocator = page.locator(`[data-testid="${pinInputTestId}"]`)
             const firstPinInput = pinInputLocator.locator('input').first()
 
             await firstPinInput.focus()
             await page.keyboard.type(pinCode)
         }
-        async function testPinInput(page, pinInputTestId: string, pinCode: string, expectedValues: string[]) {
+        async function testPinInput(page: Page, pinInputTestId: string, pinCode: string, expectedValues: string[]) {
             await fillPinInput(page, pinInputTestId, pinCode)
 
             const pinInputLocator = page.locator(`[data-testid="${pinInputTestId}"]`)

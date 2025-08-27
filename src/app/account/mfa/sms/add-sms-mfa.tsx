@@ -123,17 +123,15 @@ export function AddSMSMFA() {
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
                 // Generate backup codes after verification
-                if (user) {
-                    if (user.backupCodeEnabled) {
-                        setBackupCodes(user.backupCodes || [])
-                    } else {
-                        try {
-                            const resource = await user.createBackupCode()
-                            setBackupCodes(resource.codes || [])
-                        } catch (err) {
-                            logger.error({ err, message: 'Error generating backup codes' })
-                            setBackupCodes([])
-                        }
+                if (user.backupCodeEnabled) {
+                    setBackupCodes(user.backupCodes || [])
+                } else {
+                    try {
+                        const resource = await user.createBackupCode()
+                        setBackupCodes(resource.codes || [])
+                    } catch (err) {
+                        logger.error({ err, message: 'Error generating backup codes' })
+                        setBackupCodes([])
                     }
                 }
                 notifications.show({ message: 'Verification successful', color: 'green' })
