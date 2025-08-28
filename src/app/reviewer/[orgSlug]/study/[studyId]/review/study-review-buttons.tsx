@@ -1,31 +1,23 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Button, Group, Checkbox, Stack } from '@mantine/core'
+import { useMutation } from '@tanstack/react-query'
+import { Button, Group, Stack } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
     type SelectedStudy,
-    doesTestImageExistForStudyAction,
 } from '@/server/actions/study.actions'
 import { reportMutationError } from '@/components/errors'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { useSession } from '@/hooks/session'
+import { TestImageCheckbox } from './test-image-checkbox'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
-
-    const { data: testImageExists, isLoading: isTestImageQueryLoading } = useQuery({
-        queryKey: ['testImageExists', study.id],
-        queryFn: () => doesTestImageExistForStudyAction({ studyId: study.id }),
-        enabled: !!session?.team.isAdmin,
-    })
 
     const backPath = `/reviewer/${orgSlug}/dashboard`
 
@@ -49,25 +41,6 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         return <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
     }
 
-    const TestingCheck = () => {
-        if (!session?.team.isAdmin) return null
-        if (isTestImageQueryLoading) return null
-
-        if (!testImageExists) {
-            return null
-        }
-
-        return (
-            <Checkbox
-                data-testid="test-image-checkbox"
-                checked={useTestImage}
-                style={{ marginLeft: 'auto' }}
-                onChange={(event) => setUseTestImage(event.currentTarget.checked)}
-                label="Run this code against test base image"
-            />
-        )
-    }
-
     return (
         <Stack>
             <Group justify="flex-end">
@@ -87,7 +60,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
                     Approve
                 </Button>
             </Group>
-            <TestingCheck />
+            <TestImageCheckbox studyId={study.id} checked={useTestImage} onChange={setUseTestImage} />
         </Stack>
     )
 }

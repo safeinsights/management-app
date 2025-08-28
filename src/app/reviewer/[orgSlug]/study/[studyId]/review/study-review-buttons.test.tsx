@@ -4,93 +4,107 @@ import {
     screen,
     userEvent,
     mockSessionWithTestData,
-    waitFor,
     insertTestStudyJobData,
+    waitFor,
 } from '@/tests/unit.helpers'
 import { StudyReviewButtons } from './study-review-buttons'
-import { getStudyAction, doesTestImageExistForStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
+import {
+    getStudyAction,
+    approveStudyProposalAction,
+    rejectStudyProposalAction,
+    type SelectedStudy,
+} from '@/server/actions/study.actions'
+import { memoryRouter } from 'next-router-mock'
 
-// Mock the action
+// Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
     const original = await importOriginal<typeof import('@/server/actions/study.actions')>()
     return {
         ...original,
         approveStudyProposalAction: vi.fn(),
         rejectStudyProposalAction: vi.fn(),
-        doesTestImageExistForStudyAction: vi.fn(),
+        doesTestImageExistForStudyAction: vi.fn(), // still needed by the new component
     }
 })
 
-const mockDoesTestImageExistForStudyAction = vi.mocked(doesTestImageExistForStudyAction)
+const mockApproveAction = vi.mocked(approveStudyProposalAction)
+const mockRejectAction = vi.mocked(rejectStudyProposalAction)
 
 describe('StudyReviewButtons', () => {
-    beforeEach(() => {
+    let study: SelectedStudy
+
+    beforeEach(async () => {
         vi.clearAllMocks()
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true, orgSlug: 'test-org' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        study = await getStudyAction({ studyId: dbStudy.id })
     })
 
-    describe('for non-admin users', () => {
-        it('does not show the test image checkbox', async () => {
-            const { org, user } = await mockSessionWithTestData({ isAdmin: false, isReviewer: true })
-            const { study: dbStudy } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-            })
-            const study = await getStudyAction({ studyId: dbStudy.id })
+    it('renders Approve and Reject buttons for a pending study', () => {
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
+    })
 
-            renderWithProviders(<StudyReviewButtons study={study} />)
+    it('calls approve action on Approve button click', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-            await waitFor(() => {
-                expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-            })
+        const approveButton = screen.getByRole('button', { name: 'Approve' })
+        await user.click(approveButton)
+
+        expect(mockApproveAction).toHaveBeenCalledWith({
+            studyId: study.id,
+            orgSlug: 'test-org',
+            useTestImage: false,
         })
     })
 
-    describe('for admin users', () => {
-        let study: SelectedStudy
+    it('calls reject action on Reject button click', async () => {
+        const user = userEvent.setup()
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-        beforeEach(async () => {
-            const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true })
-            const { study: dbStudy } = await insertTestStudyJobData({
-                org,
-                researcherId: user.id,
-                studyStatus: 'PENDING-REVIEW',
-            })
-            study = await getStudyAction({ studyId: dbStudy.id })
+        const rejectButton = screen.getByRole('button', { name: 'Reject' })
+        await user.click(rejectButton)
+
+        expect(mockRejectAction).toHaveBeenCalledWith({
+            studyId: study.id,
+            orgSlug: 'test-org',
         })
+    })
 
-        it('shows an enabled checkbox when a test image exists', async () => {
-            mockDoesTestImageExistForStudyAction.mockResolvedValue(true)
+    it('redirects on successful approval', async () => {
+        const user = userEvent.setup()
+        mockApproveAction.mockResolvedValueOnce(undefined) // simulate successful action
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-            renderWithProviders(<StudyReviewButtons study={study} />)
+        const approveButton = screen.getByRole('button', { name: 'Approve' })
+        await user.click(approveButton)
 
-            const checkbox = await screen.findByTestId('test-image-checkbox')
-            expect(checkbox).toBeInTheDocument()
-            expect(checkbox).toBeEnabled()
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe('/reviewer/test-org/dashboard')
         })
+    })
 
-        it('toggles the checkbox on click', async () => {
-            const user = userEvent.setup()
-            mockDoesTestImageExistForStudyAction.mockResolvedValue(true)
+    it('renders status for approved study and no buttons', async () => {
+        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date() }
+        renderWithProviders(<StudyReviewButtons study={approvedStudy} />)
 
-            renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.getByText(/approved on/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+    })
 
-            const checkbox = (await screen.findByTestId('test-image-checkbox')) as HTMLInputElement
-            expect(checkbox.checked).toBe(false)
+    it('renders status for rejected study and no buttons', async () => {
+        const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date() }
+        renderWithProviders(<StudyReviewButtons study={rejectedStudy} />)
 
-            await user.click(checkbox)
-
-            expect(checkbox.checked).toBe(true)
-        })
-
-        it('does not show the checkbox when no test image exists', async () => {
-            mockDoesTestImageExistForStudyAction.mockResolvedValue(false)
-
-            renderWithProviders(<StudyReviewButtons study={study} />)
-
-            await waitFor(() => {
-                expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
-            })
-        })
+        expect(screen.getByText(/rejected on/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 })
