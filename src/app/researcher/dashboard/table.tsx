@@ -92,27 +92,18 @@ export const StudiesTable: React.FC = () => {
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
-                <Stack>
-                    <Group justify="space-between">
-                        <Title order={3}>Proposed Studies</Title>
-                        <Flex justify="flex-end">
-                            <NewStudyLink orgSlug={session.team.slug} />
-                        </Flex>
-                    </Group>
-                    <Divider c="charcoal.1" />
-                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <TableThead fz="sm">
-                            <TableTr>
-                                <TableTh>Study Name</TableTh>
-                                <TableTh>Submitted On</TableTh>
-                                <TableTh>Submitted To</TableTh>
-                                <TableTh>Status</TableTh>
-                                <TableTh>Study Details</TableTh>
-                            </TableTr>
-                        </TableThead>
-                        <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
-                    </Table>
-                </Stack>
+                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                    <TableThead fz="sm">
+                        <TableTr>
+                            <TableTh>Study Name</TableTh>
+                            <TableTh>Submitted On</TableTh>
+                            <TableTh>Submitted To</TableTh>
+                            <TableTh>Status</TableTh>
+                            <TableTh>Study Details</TableTh>
+                        </TableTr>
+                    </TableThead>
+                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
+                </Table>
             </Stack>
         </Paper>
     )

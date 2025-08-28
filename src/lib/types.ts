@@ -79,6 +79,8 @@ export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
+export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 // inactivity timeout and warning threshold for user sessions
