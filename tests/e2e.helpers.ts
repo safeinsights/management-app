@@ -219,5 +219,4 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
         await goto(page, url)
         await clerkLoaded(page)
     }
-    await page.waitForLoadState('networkidle')
 }
