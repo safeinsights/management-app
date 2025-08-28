@@ -7,7 +7,7 @@ import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { SelectedStudy } from '@/server/actions/study.actions'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@/common'
 import { CancelButton } from '@/components/cancel-button'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { zodResolver } from 'mantine-form-zod-resolver'
@@ -27,7 +27,7 @@ const resubmitStudySchema = z.object({
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
-
+    const queryClient = useQueryClient()
     const studyProposalForm = useForm<ResubmitProposalFormValues>({
         validate: zodResolver(resubmitStudySchema),
         initialValues: {
@@ -61,6 +61,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
             }
         },
         onSuccess() {
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             notifications.show({
                 title: 'Study Resubmitted',
                 message:

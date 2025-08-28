@@ -91,7 +91,7 @@ const onCreateStudyActionArgsSchema = z.object({
 
 export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
     .params(onCreateStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
+    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
     .handler(async ({ db, params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
         const userId = session.user.id

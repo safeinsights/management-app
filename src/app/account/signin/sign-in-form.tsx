@@ -1,4 +1,4 @@
-import { zodResolver, useForm, Link, Flex, Button } from '@/components/common'
+import { zodResolver, useForm, Link, Flex, Button } from '@/common'
 import { TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import { reportError } from '@/components/errors'

@@ -17,8 +17,7 @@ import {
     Title,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import { useQuery } from '@tanstack/react-query'
-
+import { useQuery } from '@/common'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { ButtonLink, Link } from '@/components/links'

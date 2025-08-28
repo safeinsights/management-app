@@ -13,10 +13,9 @@ import {
 } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { StudyCodeUpload } from '@/components/study-code-upload'
-import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
-import { zodResolver } from '@/components/common'
+import { zodResolver, useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
 import { omit } from 'remeda'
 import logger from '@/lib/logger'
@@ -107,6 +106,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
+    const queryClient = useQueryClient()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -138,6 +138,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             }
         },
         onSuccess() {
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:

@@ -3,7 +3,7 @@
 import { Flex, Button, TextInput, PasswordInput, Text, Alert, useMantineTheme } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { FC, use } from 'react'
-import { useMutation, useQuery, zodResolver, z } from '@/components/common'
+import { useMutation, useQuery, zodResolver, z } from '@/common'
 import { onCreateAccountAction, onPendingUserLoginAction, getOrgInfoForInviteAction } from '../create-account.action'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'

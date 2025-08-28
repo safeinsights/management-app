@@ -4,7 +4,7 @@ import { LoadingMessage } from '@/components/loading'
 import { ActionIcon, Button, Divider, Flex, Text } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { XIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMutation, useQuery, useQueryClient } from '@/components/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { FC } from 'react'
 import { getPendingUsersAction, reInviteUserAction } from './admin-users.actions'
 

@@ -2,7 +2,7 @@
 
 import React, { FC, useMemo } from 'react'
 import { Group, LoadingOverlay, Stack, Text, useMantineTheme } from '@mantine/core'
-import { useQuery } from '@/components/common'
+import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'

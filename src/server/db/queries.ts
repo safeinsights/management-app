@@ -214,7 +214,7 @@ export const getInfoForStudyId = async (studyId: string) => {
 export const getOrgIdFromSlug = async ({ orgSlug }: { orgSlug: string }) => {
     return Action.db
         .selectFrom('org')
-        .select(['org.id', 'org.slug'])
+        .select(['org.id as orgId', 'org.slug as orgSlug'])
         .where('slug', '=', orgSlug)
         .executeTakeFirstOrThrow()
 }

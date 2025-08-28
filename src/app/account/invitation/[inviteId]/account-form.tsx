@@ -1,9 +1,9 @@
 'use client'
 
 import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
-import { useMutation } from '@/components/common'
+import { useMutation } from '@/common'
 import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
-import { useForm, type FC, useState, z, zodResolver } from '@/components/common'
+import { useForm, type FC, useState, z, zodResolver } from '@/common'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { SuccessPanel } from '@/components/panel'
