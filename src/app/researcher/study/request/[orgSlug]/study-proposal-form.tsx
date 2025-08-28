@@ -6,15 +6,22 @@ import { Divider, FileInput, Grid, Paper, Stack, TextInput, Title, useMantineThe
 import { FormFieldLabel } from '@/components/form-field-label' // adjust path if needed
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { StudyProposalFormValues, ResubmitProposalFormValues } from './study-proposal-form-schema'
 import { InputError } from '@/components/errors'
 
 export const StudyProposalForm: FC<{
-    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues | ResubmitProposalFormValues>
 }> = ({ studyProposalForm }) => {
     const { user } = useUser()
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
+
+    // This component is only used in the create flow, so we can be sure that the values
+    // will be of type StudyProposalFormValues. This type guard narrows the type for the
+    // rest of the component.
+    if (!('title' in studyProposalForm.values)) {
+        return null
+    }
 
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
         if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
