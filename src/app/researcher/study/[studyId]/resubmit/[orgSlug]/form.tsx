@@ -4,7 +4,6 @@ import { Button, Group, Stack } from '@mantine/core'
 import { addJobToStudyAction } from '@/app/researcher/study/request/[orgSlug]/actions'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import { UploadStudyJobCode } from '@/app/researcher/study/request/[orgSlug]/upload-study-job-code'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { SelectedStudy } from '@/server/actions/study.actions'
@@ -16,6 +15,7 @@ import { reportMutationError } from '@/components/errors'
 import { ResubmitProposalFormValues } from '../../../request/[orgSlug]/study-proposal-form-schema'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { z } from 'zod'
+import { ReuploadCode } from './reupload-code'
 
 const resubmitStudySchema = z.object({
     mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
@@ -72,7 +72,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     return (
         <form onSubmit={studyProposalForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
             <Stack>
-                <UploadStudyJobCode studyProposalForm={studyProposalForm} resubmit />
+                <ReuploadCode studyProposalForm={studyProposalForm} />
 
                 <Group justify="flex-end" mt="md">
                     <CancelButton isDirty={studyProposalForm.isDirty()} />
