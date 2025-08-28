@@ -16,13 +16,6 @@ export const StudyProposalForm: FC<{
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
 
-    // This component is only used in the create flow, so we can be sure that the values
-    // will be of type StudyProposalFormValues. This type guard narrows the type for the
-    // rest of the component.
-    if (!('title' in studyProposalForm.values)) {
-        return null
-    }
-
     const getFileUploadIcon = (color: string, fileName?: string | null) => {
         if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
         const Icons: [RegExp, React.ReactNode][] = [

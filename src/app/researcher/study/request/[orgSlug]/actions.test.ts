@@ -8,14 +8,10 @@ vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
         ...actual,
-        signedUrlForStudyUpload: vi.fn().mockResolvedValue({ url: 'test-signed-url', fields: {} }),
+        signedUrlForStudyUpload: vi.fn().mockResolvedValue('test-signed-url'),
         deleteFolderContents: vi.fn(),
     }
 })
-
-vi.mock('@/server/events', () => ({
-    onStudyCreated: vi.fn(),
-}))
 
 describe('Request Study Actions', () => {
     it('onCreateStudyAction creates a study', async () => {
@@ -50,7 +46,7 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
-    }, 30000)
+    })
 
     it('onDeleteStudyAction deletes a study', async () => {
         const { org } = await mockSessionWithTestData({ isResearcher: true })
@@ -63,5 +59,5 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
-    }, 30000)
+    })
 })
