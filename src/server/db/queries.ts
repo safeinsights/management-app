@@ -192,16 +192,17 @@ export const getOrgInfoForUserId = async (userId: string) => {
         .execute()
 }
 
-export const getStudyOrgIdForJobId = async (jobId: string) => {
+export const getInfoForStudyJobId = async (studyJobId: string) => {
     return await Action.db
-        .selectFrom('study')
-        .innerJoin('studyJob', 'studyJob.studyId', 'study.id')
-        .where('studyJob.id', '=', jobId)
-        .select(['study.orgId'])
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId'])
+        .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
 
-export const getStudyOrgIdForStudyId = async (studyId: string) => {
+export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')

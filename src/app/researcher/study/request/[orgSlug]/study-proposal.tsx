@@ -1,11 +1,18 @@
+'use client'
+
 import React, { useState } from 'react'
 import { Button, Group, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
-import { useForm } from '@mantine/form'
-import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
+import { useForm, UseFormReturnType } from '@mantine/form'
+import {
+    studyProposalFormSchema,
+    codeFilesSchema,
+    StudyProposalFormValues,
+    StudyJobCodeFilesValues,
+} from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
-import { UploadStudyJobCode } from './upload-study-job-code'
+import { StudyCodeUpload } from '@/components/study-code-upload'
 import { useMutation } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
@@ -51,7 +58,6 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
     }
     return null
 }
-
 
 // we do not want to  send any actual files, only their paths to the server action,
 // they will be uploaded after study is created
@@ -99,6 +105,9 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         ],
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
+
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             const { studyId, studyJobId, ...urls } = actionResult(
@@ -112,11 +121,11 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
             try {
                 await uploadFiles([
-                    [formValues.irbDocument, urls.urlForAdditionalCodeUpload],
-                    [formValues.agreementDocument, urls.urlForAdditionalCodeUpload],
+                    [formValues.irbDocument, urls.urlForIrbUpload],
+                    [formValues.agreementDocument, urls.urlForAgreementUpload],
                     [formValues.descriptionDocument, urls.urlForAgreementUpload],
-                    [formValues.mainCodeFile, urls.urlForMainCodeUpload],
-                    ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForAdditionalCodeUpload] as FileUpload),
+                    [formValues.mainCodeFile, urls.urlForCodeUpload],
+                    ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForCodeUpload] as FileUpload),
                 ])
             } catch (err: unknown) {
                 const result = await onDeleteStudyAction({ studyId })
@@ -162,7 +171,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 </Stepper.Step>
 
                 <Stepper.Step>
-                    <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                    <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
                 </Stepper.Step>
             </Stepper>
 

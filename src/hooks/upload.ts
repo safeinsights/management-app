@@ -1,7 +1,6 @@
 import { type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import logger from '@/lib/logger'
 
-
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
     for (const [key, value] of Object.entries(upload.fields)) {

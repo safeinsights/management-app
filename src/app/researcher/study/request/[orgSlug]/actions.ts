@@ -2,12 +2,12 @@
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 import { v7 as uuidv7 } from 'uuid'
-import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
+import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { onStudyCreated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
 import { Action, z } from '@/server/actions/action'
-import { getOrgIdFromSlug, getStudyOrgIdForStudyId } from '@/server/db/queries'
+import { getOrgIdFromSlug, getInfoForStudyId, getInfoForStudyJobId } from '@/server/db/queries'
 import { DB } from '@/database/types'
 import { Kysely } from 'kysely'
 
@@ -74,13 +74,11 @@ async function addStudyJob(
     })
 
     // s3 signed urls for client to upload
-    const urlForMainCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
-    const urlForAdditionalCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+    const urlForCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
 
     return {
         studyJobId: studyJob.id,
-        urlForMainCodeUpload,
-        urlForAdditionalCodeUpload,
+        urlForCodeUpload,
     }
 }
 
@@ -95,11 +93,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
     .params(onCreateStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-<<<<<<< HEAD
-    .handler(async ({ params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId, db }) => {
-=======
     .handler(async ({ db, params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
->>>>>>> f197aeda (Use action.db so queries runs inside transaction)
         const userId = session.user.id
 
         const studyId = uuidv7()
@@ -123,7 +117,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
             .returning('id')
             .executeTakeFirstOrThrow()
 
-        const { studyJobId, urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addStudyJob(
+        const { studyJobId, urlForCodeUpload } = await addStudyJob(
             db,
             userId,
             studyId,
@@ -151,60 +145,56 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
         return {
             studyId: studyId,
             studyJobId,
-            urlForMainCodeUpload,
-            urlForAdditionalCodeUpload,
+            urlForCodeUpload,
             urlForAgreementUpload,
             urlForIrbUpload,
             urlForDescriptionUpload,
         }
     })
 
+export const onDeleteStudyJobAction = new Action('onDeleteStudyJobAction', { performsMutations: true })
+    .params(z.object({ studyJobId: z.string() }))
+    .middleware(async ({ params: { studyJobId } }) => await getInfoForStudyJobId(studyJobId))
+    .requireAbilityTo('delete', 'StudyJob') // will use orgId from above
+    .handler(async ({ db, studyId, orgSlug, params: { studyJobId } }) => {
+        await db.deleteFrom('jobStatusChange').where('studyJobId', '=', studyJobId).execute()
+        await db.deleteFrom('studyJobFile').where('studyJobId', '=', studyJobId).execute()
+        await db.deleteFrom('studyJob').where('id', '=', studyJobId).execute()
+
+        await deleteFolderContents(pathForStudyJobCode({ orgSlug, studyJobId, studyId }))
+    })
+
 export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getStudyOrgIdForStudyId(studyId))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
-<<<<<<< HEAD
-<<<<<<< HEAD
-    .handler(async ({ db, params: { orgSlug, studyId } }) => {
-=======
-    .handler(async ({ orgSlug, params: { studyId } }) => {
->>>>>>> 9e47cd72 (ensure tmp study is deleted if files fail to upload)
-=======
     .handler(async ({ db, orgSlug, params: { studyId } }) => {
->>>>>>> f197aeda (Use action.db so queries runs inside transaction)
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
-
         if (jobs.length > 0) {
             const jobIds = jobs.map((job) => job.id)
             await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
             await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
             await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
         }
-
         await db.deleteFrom('study').where('id', '=', studyId).execute()
-
         // Clean up the files from s3
-        await deleteFolderContents(`studies/${orgSlug}/${studyId}`)
+        await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     })
 
 const addJobToStudyActionArgsSchema = z.object({
     studyId: z.string(),
-    orgSlug: z.string(),
     mainCodeFileName: z.string(),
     codeFileNames: z.array(z.string()),
 })
 
 export const addJobToStudyAction = new Action('addJobToStudyAction', { performsMutations: true })
     .params(addJobToStudyActionArgsSchema)
-    .middleware(async ({ params: { studyId } }) => {
-        const { orgId } = await getStudyOrgIdForStudyId(studyId)
-        return { orgId }
-    })
-    .requireAbilityTo('update', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, mainCodeFileName, codeFileNames }, session, db }) => {
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'StudyJob')
+    .handler(async ({ orgSlug, params: { studyId, mainCodeFileName, codeFileNames }, session, db }) => {
         const userId = session.user.id
 
-        const { studyJobId, urlForMainCodeUpload, urlForAdditionalCodeUpload } = await addStudyJob(
+        const { studyJobId, urlForCodeUpload } = await addStudyJob(
             db,
             userId,
             studyId,
@@ -216,10 +206,5 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         revalidatePath('/researcher/dashboard')
         revalidatePath(`/researcher/study/${studyId}/review`)
 
-        return {
-            studyId,
-            studyJobId,
-            urlForMainCodeUpload,
-            urlForAdditionalCodeUpload,
-        }
+        return { studyJobId, urlForCodeUpload }
     })

@@ -37,7 +37,7 @@ type Abilities =
     | Ability<'PendingUser', 'claim', object>
     | Ability<'TeamMembers', 'view', { orgSlug: string }>
     | Ability<'Study', 'view' | 'create' | 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId: UUID }>
-    | Ability<'StudyJob', 'view' | 'create', { orgId: UUID }>
+    | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId: UUID }>
     | Ability<'ReviewerKey', 'view' | 'update', object>
     | Ability<'Team', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'TeamMembers', 'view', { orgId?: UUID; orgSlug?: string }>
