@@ -29,6 +29,7 @@ export function AddSMSMFA() {
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
+    const [isVerifyingCode, setIsVerifyingCode] = useState(false)
     const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
@@ -117,6 +118,8 @@ export function AddSMSMFA() {
             return
         }
 
+        setIsVerifyingCode(true)
+
         try {
             // Verify that the provided code matches the code sent to the user
             const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
@@ -126,6 +129,7 @@ export function AddSMSMFA() {
                 try {
                     await setReservedForSecondFactor(phoneObj)
                     await makeDefaultSecondFactor(phoneObj)
+                    notifications.show({ message: 'MFA enabled', color: 'green' })
                 } catch (error) {
                     console.error(error)
                     otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
@@ -151,6 +155,8 @@ export function AddSMSMFA() {
                 'code',
                 errorToString(err, { form_code_incorrect: 'Invalid verification code. Please try again.' }),
             )
+        } finally {
+            setIsVerifyingCode(false)
         }
     }
 
@@ -172,7 +178,9 @@ export function AddSMSMFA() {
                             {!isVerifying && (
                                 <form onSubmit={phoneForm.onSubmit((values) => sendVerificationCode(values))}>
                                     <Stack justify="center">
-                                        <Title order={2}>SMS verification</Title>
+                                        <Title order={3} ta="center">
+                                            SMS verification
+                                        </Title>
                                         <Text>
                                             Enter your phone number to receive a verification code via SMS to complete
                                             the setup.
@@ -226,7 +234,7 @@ export function AddSMSMFA() {
                             {isVerifying && !backupCodes && (
                                 <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
                                     <Stack align="center" gap="sm">
-                                        <Title order={2}>Verify your code</Title>
+                                        <Title order={3}>Verify your code</Title>
                                         <Text>
                                             We’ve sent a 6-digit code to your phone number ending in {'****'}
                                             {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
@@ -250,7 +258,8 @@ export function AddSMSMFA() {
                                             size="md"
                                             variant="primary"
                                             radius="sm"
-                                            disabled={!/\d{6,}/.test(phoneForm.values.phoneNumber)}
+                                            loading={isVerifyingCode}
+                                            disabled={!/\d{6,}/.test(otpForm.values.code)}
                                         >
                                             Verify code
                                         </Button>
