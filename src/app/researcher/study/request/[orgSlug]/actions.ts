@@ -1,7 +1,6 @@
 'use server'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
-import { db } from '@/database'
 import { v7 as uuidv7 } from 'uuid'
 import { pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
@@ -156,7 +155,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
         }
     })
 
-export const onDeleteStudyAction = new Action('onDeleteStudyAction')
+export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
     .params(
         z.object({
             orgSlug: z.string(),
@@ -166,7 +165,7 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction')
     )
     .middleware(async ({ params: { studyId } }) => ({ orgId: (await getStudyOrgIdForStudyId(studyId)).orgId }))
     .requireAbilityTo('delete', 'Study') // will use orgId from above
-    .handler(async ({ params: { orgSlug, studyId } }) => {
+    .handler(async ({ db, params: { orgSlug, studyId } }) => {
         const jobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
         const jobIds = jobs.map((job) => job.id)
 

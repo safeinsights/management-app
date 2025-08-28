@@ -52,9 +52,6 @@ export const ReuploadCode: FC<{
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 2 of 2
-            </Text>
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
