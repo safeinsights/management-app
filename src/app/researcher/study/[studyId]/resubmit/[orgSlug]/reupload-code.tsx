@@ -24,19 +24,17 @@ import { Dropzone, FileWithPath } from '@mantine/dropzone'
 import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { ResubmitProposalFormValues } from '../../../request/[orgSlug]/study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { InputError } from '@/components/errors'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/app/researcher/utils/file-upload' // Removed useAdditionalFilesManagement
+import { handleDuplicateUpload, useFileUploadIcons } from '@/app/researcher/utils/file-upload'
 
-export const UploadStudyJobCode: FC<{
-    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+export const ReuploadCode: FC<{
+    studyProposalForm: UseFormReturnType<ResubmitProposalFormValues>
 }> = ({ studyProposalForm }) => {
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
-
-    const { getFileUploadIcon } = useFileUploadIcons()
 
     const removeAdditionalFiles = (fileToRemove: FileWithPath) => {
         const updatedAdditionalFiles = studyProposalForm
@@ -45,6 +43,7 @@ export const UploadStudyJobCode: FC<{
         studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles as File[])
         studyProposalForm.validateField('totalFileSize')
     }
+    const { getFileUploadIcon } = useFileUploadIcons()
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }
     const inputSpan = { base: 12, sm: 8, lg: 4 }
@@ -53,9 +52,6 @@ export const UploadStudyJobCode: FC<{
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 2 of 2
-            </Text>
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
             <Text mb="md">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
@@ -123,8 +119,8 @@ export const UploadStudyJobCode: FC<{
                                 const additionalFiles = uniqueBy(
                                     [...filteredFiles, ...previousFiles],
                                     (file) => file.name,
-                                ) as File[]
-                                studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
+                                )
+                                studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles as File[])
                                 studyProposalForm.validateField('totalFileSize')
                             }}
                             onReject={(rejections) =>

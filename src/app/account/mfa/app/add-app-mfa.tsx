@@ -188,7 +188,7 @@ function AddTotpScreenContent({
                         type="number"
                         value={form.values.code}
                         error={Boolean(form.errors.code)}
-                        placeholder=""
+                        placeholder="0"
                         {...form.getInputProps('code')}
                     />
                     <InputError error={form.errors.code} />

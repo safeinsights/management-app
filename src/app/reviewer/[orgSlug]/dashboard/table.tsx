@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, JOB_FINAL_STATUSES } from '@/lib/types'
 import dayjs from 'dayjs'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
@@ -63,7 +63,6 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
         refetch,
         isRefetching,
     } = useQuery({
-        enabled: false,
         initialData: initialStudies,
         queryKey: ['org-studies', orgSlug],
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),

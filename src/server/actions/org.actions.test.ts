@@ -14,18 +14,21 @@ import {
 import logger from '@/lib/logger'
 
 describe('Org Actions', () => {
-    const newOrg = {
-        slug: 'new-org',
-        name: 'A Testing Org',
-        email: 'new-org@example.com',
-        publicKey: 'no-such-key',
-    }
-
+    let newOrg: { slug: string; name: string; email: string; publicKey: string }
     beforeEach(async () => {
+        newOrg = {
+            slug: `test-org-${faker.string.uuid()}`,
+            name: 'A Testing Org',
+            email: 'new-org@example.com',
+            publicKey: 'no-such-key',
+        }
         await mockSessionWithTestData({ isAdmin: true })
-
-        // vi.mocked(auth).mockResolvedValue({
-        await insertOrgAction(newOrg)
+        try {
+            await insertOrgAction(newOrg)
+        } catch (e) {
+            console.error('Error inserting newOrg in beforeEach:', e)
+            throw e
+        }
     })
 
     describe('inserttOrgAction', () => {
@@ -53,7 +56,7 @@ describe('Org Actions', () => {
             expect(result).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        slug: 'new-org',
+                        slug: newOrg.slug, // Use newOrg.slug here
                         totalStudies: expect.any(String),
                     }),
                 ]),
@@ -70,7 +73,7 @@ describe('Org Actions', () => {
                 .executeTakeFirstOrThrow()
             await deleteOrgAction({ orgId: org.id })
             const result = await fetchOrgsStatsAction()
-            expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: 'new-org' })]))
+            expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
     })
 

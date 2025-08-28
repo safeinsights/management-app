@@ -104,6 +104,7 @@ export const getStudyAction = new Action('getStudyAction')
         const study = await db
             .selectFrom('study')
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+            .innerJoin('org', (join) => join.onRef('study.orgId', '=', 'org.id'))
             .select([
                 'study.id',
                 'study.approvedAt',
@@ -122,6 +123,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.irbDocPath',
                 'study.reviewerId',
                 'study.agreementDocPath',
+                'org.slug as orgSlug',
             ])
             .select('researcher.fullName as createdBy')
             .where('study.id', '=', studyId)

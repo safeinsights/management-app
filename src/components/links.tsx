@@ -24,6 +24,7 @@ export type ButtonLinkProps = ButtonProps & {
     href: string
     target?: string
     children: ReactNode
+    fullWidth?: boolean
 }
 
 export type DownloadLinkProps = AnchorProps & {
