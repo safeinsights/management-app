@@ -244,7 +244,7 @@ export function AddSMSMFA() {
                                         </Title>
                                         <PinInput
                                             length={6}
-                                            placeholder=""
+                                            placeholder="0"
                                             size="lg"
                                             type="number"
                                             data-testid="sms-pin-input"
