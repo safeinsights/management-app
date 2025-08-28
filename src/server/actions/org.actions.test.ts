@@ -23,7 +23,12 @@ describe('Org Actions', () => {
             publicKey: 'no-such-key',
         }
         await mockSessionWithTestData({ isAdmin: true })
-        await insertOrgAction(newOrg)
+        try {
+            await insertOrgAction(newOrg)
+        } catch (e) {
+            console.error('Error inserting newOrg in beforeEach:', e)
+            throw e
+        }
     })
 
     describe('inserttOrgAction', () => {

@@ -5,12 +5,7 @@ import { Button, Group, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
 import { useForm } from '@mantine/form'
-import {
-    studyProposalFormSchema,
-    codeFilesSchema,
-    StudyProposalFormValues,
-    ResubmitProposalFormValues,
-} from './study-proposal-form-schema'
+import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -79,7 +74,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const [stepIndex, setStepIndex] = useState(0)
 
     const router = useRouter()
-    const studyProposalForm = useForm<StudyProposalFormValues | ResubmitProposalFormValues>({
+    const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
@@ -175,11 +170,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     return (
-        <form
-            onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues | ResubmitProposalFormValues) =>
-                createStudy(values as StudyProposalFormValues),
-            )}
-        >
+        <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
             <Stepper
                 unstyled
                 active={stepIndex}
