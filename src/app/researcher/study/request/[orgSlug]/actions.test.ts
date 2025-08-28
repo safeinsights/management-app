@@ -8,10 +8,14 @@ vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
         ...actual,
-        signedUrlForStudyUpload: vi.fn().mockResolvedValue('test-signed-url'),
+        signedUrlForStudyUpload: vi.fn().mockResolvedValue({ url: 'test-signed-url', fields: {} }),
         deleteFolderContents: vi.fn(),
     }
 })
+
+vi.mock('@/server/events', () => ({
+    onStudyCreated: vi.fn(),
+}))
 
 describe('Request Study Actions', () => {
     it('onCreateStudyAction creates a study', async () => {
