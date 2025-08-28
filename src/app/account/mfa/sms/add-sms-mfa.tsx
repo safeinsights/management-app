@@ -1,22 +1,22 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useReverification, useUser } from '@clerk/nextjs'
-import { Anchor, Button, Container, Stack, Text, Paper, Title, Group, Stepper, PinInput } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
+import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
-import { PhoneNumberResource } from '@clerk/types'
-import { useForm } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
-import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/util'
+import { useReverification, useUser } from '@clerk/nextjs'
+import { PhoneNumberResource } from '@clerk/types'
+import { Anchor, Button, Container, Group, Paper, PinInput, Stack, Stepper, Text, Title } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import { CaretLeftIcon } from '@phosphor-icons/react'
+import { redirect } from 'next/navigation'
+import { useState } from 'react'
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
-import styles from './panel.module.css'
-import { InputError } from '@/components/errors'
 import BackupCodes from '../app/backup-codes'
+import styles from './panel.module.css'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
@@ -122,18 +122,27 @@ export function AddSMSMFA() {
             const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
-                // Generate backup codes after verification
-                if (user.backupCodeEnabled) {
-                    try {
+                // First, enable this phone as a second factor
+                try {
+                    await setReservedForSecondFactor(phoneObj)
+                    await makeDefaultSecondFactor(phoneObj)
+                } catch (error) {
+                    console.error(error)
+                    otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
+                    return
+                }
+                // Then, generate backup codes
+                try {
+                    if (user && !user.backupCodeEnabled) {
                         const resource = await user.createBackupCode()
                         setBackupCodes(resource.codes || [])
-                    } catch (err) {
-                        logger.error({ err, message: 'Error generating backup codes' })
-                        setBackupCodes([])
                     }
+                } catch (err) {
+                    logger.error({ err, message: 'Error generating backup codes' })
+                    setBackupCodes([])
                 }
+
                 notifications.show({ message: 'Verification successful', color: 'green' })
-                await user.reload()
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
@@ -142,15 +151,6 @@ export function AddSMSMFA() {
                 'code',
                 errorToString(err, { form_code_incorrect: 'Invalid verification code. Please try again.' }),
             )
-        }
-        // Set phone number as MFA
-        try {
-            await setReservedForSecondFactor(phoneObj)
-            await makeDefaultSecondFactor(phoneObj)
-            notifications.show({ message: 'MFA enabled', color: 'green' })
-            await user.reload()
-        } catch (error) {
-            console.error(error)
         }
     }
 
