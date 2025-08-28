@@ -1,22 +1,22 @@
 'use client'
 
-import React, { useState } from 'react'
-import { useReverification, useUser } from '@clerk/nextjs'
-import { Anchor, Button, Container, Stack, Text, Paper, Title, Group, Stepper, PinInput } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
+import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
-import { PhoneNumberResource } from '@clerk/types'
-import { useForm } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
-import { redirect } from 'next/navigation'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { sleep } from '@/lib/util'
+import { useReverification, useUser } from '@clerk/nextjs'
+import { PhoneNumberResource } from '@clerk/types'
+import { Anchor, Button, Container, Group, Paper, PinInput, Stack, Stepper, Text, Title } from '@mantine/core'
+import { useForm } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import { CaretLeftIcon } from '@phosphor-icons/react'
+import { redirect } from 'next/navigation'
+import { useState } from 'react'
 import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
-import styles from './panel.module.css'
-import { InputError } from '@/components/errors'
 import BackupCodes from '../app/backup-codes'
+import styles from './panel.module.css'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
@@ -29,6 +29,7 @@ export function AddSMSMFA() {
     const [phoneObj, setPhoneObj] = useState<PhoneNumberResource | undefined>()
     const [isSendingSms, setIsSendingSms] = useState(false)
     const [lastSentTime, setLastSentTime] = useState<number | null>(null)
+    const [isVerifyingCode, setIsVerifyingCode] = useState(false)
     const createPhoneNumber = useReverification((phone: string) => user?.createPhoneNumber({ phoneNumber: phone }))
     const setReservedForSecondFactor = useReverification((phone: PhoneNumberResource) =>
         phone.setReservedForSecondFactor({ reserved: true }),
@@ -117,23 +118,35 @@ export function AddSMSMFA() {
             return
         }
 
+        setIsVerifyingCode(true)
+
         try {
             // Verify that the provided code matches the code sent to the user
             const phoneVerifyAttempt = await phoneObj.attemptVerification({ code: values.code })
 
             if (phoneVerifyAttempt.verification.status === 'verified') {
-                // Generate backup codes after verification
-                if (user.backupCodeEnabled) {
-                    try {
+                // First, enable this phone as a second factor
+                try {
+                    await setReservedForSecondFactor(phoneObj)
+                    await makeDefaultSecondFactor(phoneObj)
+                    notifications.show({ message: 'MFA enabled', color: 'green' })
+                } catch (error) {
+                    console.error(error)
+                    otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
+                    return
+                }
+                // Then, generate backup codes
+                try {
+                    if (user && !user.backupCodeEnabled) {
                         const resource = await user.createBackupCode()
                         setBackupCodes(resource.codes || [])
-                    } catch (err) {
-                        logger.error({ err, message: 'Error generating backup codes' })
-                        setBackupCodes([])
                     }
+                } catch (err) {
+                    logger.error({ err, message: 'Error generating backup codes' })
+                    setBackupCodes([])
                 }
+
                 notifications.show({ message: 'Verification successful', color: 'green' })
-                await user.reload()
             } else {
                 otpForm.setFieldError('code', errorToString(phoneVerifyAttempt))
             }
@@ -142,15 +155,8 @@ export function AddSMSMFA() {
                 'code',
                 errorToString(err, { form_code_incorrect: 'Invalid verification code. Please try again.' }),
             )
-        }
-        // Set phone number as MFA
-        try {
-            await setReservedForSecondFactor(phoneObj)
-            await makeDefaultSecondFactor(phoneObj)
-            notifications.show({ message: 'MFA enabled', color: 'green' })
-            await user.reload()
-        } catch (error) {
-            console.error(error)
+        } finally {
+            setIsVerifyingCode(false)
         }
     }
 
@@ -172,7 +178,9 @@ export function AddSMSMFA() {
                             {!isVerifying && (
                                 <form onSubmit={phoneForm.onSubmit((values) => sendVerificationCode(values))}>
                                     <Stack justify="center">
-                                        <Title order={2}>SMS verification</Title>
+                                        <Title order={3} ta="center">
+                                            SMS verification
+                                        </Title>
                                         <Text>
                                             Enter your phone number to receive a verification code via SMS to complete
                                             the setup.
@@ -226,7 +234,7 @@ export function AddSMSMFA() {
                             {isVerifying && !backupCodes && (
                                 <form onSubmit={otpForm.onSubmit((values) => verifyCodeAndSetMfa(values))}>
                                     <Stack align="center" gap="sm">
-                                        <Title order={2}>Verify your code</Title>
+                                        <Title order={3}>Verify your code</Title>
                                         <Text>
                                             We’ve sent a 6-digit code to your phone number ending in {'****'}
                                             {phoneObj?.phoneNumber?.slice(-4)}. Please enter it below to continue.
@@ -236,7 +244,7 @@ export function AddSMSMFA() {
                                         </Title>
                                         <PinInput
                                             length={6}
-                                            placeholder=""
+                                            placeholder="0"
                                             size="lg"
                                             type="number"
                                             data-testid="sms-pin-input"
@@ -250,7 +258,8 @@ export function AddSMSMFA() {
                                             size="md"
                                             variant="primary"
                                             radius="sm"
-                                            disabled={!/\d{6,}/.test(phoneForm.values.phoneNumber)}
+                                            loading={isVerifyingCode}
+                                            disabled={!/\d{6,}/.test(otpForm.values.code)}
                                         >
                                             Verify code
                                         </Button>
