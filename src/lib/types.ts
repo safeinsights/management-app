@@ -1,6 +1,7 @@
 import type { FileType, StudyJobStatus, StudyStatus } from '../database/types'
 import { z } from 'zod'
 import { FileEntry } from 'si-encryption/job-results/types'
+import type { ActionResponse } from '@/lib/errors'
 
 export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
 
@@ -78,6 +79,8 @@ export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus
 
+export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
 export const CLERK_ADMIN_ORG_SLUG = 'safe-insights' as const
 
 // inactivity timeout and warning threshold for user sessions
@@ -91,7 +94,12 @@ export enum AuthRole {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ActionReturnType<T extends (...args: any) => any> = Awaited<ReturnType<T>>
+export type ActionResult<T extends (...args: any) => any> = Awaited<ReturnType<T>>
+
+// Helper to extract success data type from ActionResponse (excluding error case)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type ActionSuccessType<T extends (...args: any) => any> =
+    ActionResult<T> extends ActionResponse<infer U> ? U : never
 
 export type JobFileInfo = FileEntry & {
     sourceId: string
@@ -113,3 +121,6 @@ export const BLANK_SESSION: UserSession = {
 }
 
 Object.freeze(BLANK_SESSION)
+
+// Import the unified ActionResponse type from errors
+export type { ActionResponse } from '@/lib/errors'

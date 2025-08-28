@@ -1,15 +1,23 @@
-'use client'
 import { FC } from 'react'
-import { Divider, Group, Paper, Stack, Text, Title, Grid, GridCol, useMantineTheme, FileInput } from '@mantine/core'
+import {
+    ActionIcon,
+    Divider,
+    Group,
+    Paper,
+    Stack,
+    Text,
+    Title,
+    Grid,
+    GridCol,
+    useMantineTheme,
+    FileInput,
+} from '@mantine/core'
 import {
     CheckCircleIcon,
     UploadIcon,
     UploadSimpleIcon,
     XIcon,
     XCircleIcon,
-    FileDocIcon,
-    FilePdfIcon,
-    FileTextIcon,
     AsteriskIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { Dropzone, FileWithPath } from '@mantine/dropzone'
@@ -20,51 +28,26 @@ import { StudyProposalFormValues } from './study-proposal-form-schema'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { InputError } from '@/components/errors'
+import { handleDuplicateUpload, useFileUploadIcons } from '@/app/researcher/utils/file-upload' // Removed useAdditionalFilesManagement
 
-// Detects if any uploaded files share the same name as the main code file and shows a notification.
-export const handleDuplicateUpload = (mainFile: File | null, additionalFiles: FileWithPath[] | null): boolean => {
-    if (!mainFile || !additionalFiles) return false
-
-    const duplicateFound = additionalFiles.some((file) => file.name === mainFile.name)
-
-    if (duplicateFound) {
-        notifications.show({
-            color: 'red',
-            title: 'Duplicate filename',
-            message: `The file name "${mainFile.name}" has already been uploaded. Please choose a different file name or remove the existing one before continuing.`,
-        })
-    }
-
-    return duplicateFound
-}
-
-export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<StudyProposalFormValues> }> = ({
-    studyProposalForm,
-}) => {
+export const UploadStudyJobCode: FC<{
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+}> = ({ studyProposalForm }) => {
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
+
+    const { getFileUploadIcon } = useFileUploadIcons()
 
     const removeAdditionalFiles = (fileToRemove: FileWithPath) => {
         const updatedAdditionalFiles = studyProposalForm
             .getValues()
             .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
-        studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
+        studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles as File[])
         studyProposalForm.validateField('totalFileSize')
     }
 
     const titleSpan = { base: 12, sm: 4, lg: 2 }
     const inputSpan = { base: 12, sm: 8, lg: 4 }
-
-    const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
-        const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdfIcon key="pdf" size={14} color={color} />],
-        ]
-        const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
-    }
 
     const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
 
@@ -75,11 +58,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
             </Text>
             <Title order={4}>Study Code</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="md">
-                Upload the code you intend to run on the data organization&apos;s dataset. This is a critical step in
-                your proposal, as it defines the analysis that will produce the results you aim to obtain from the
-                organization&apos;s data.
-            </Text>
+            <Text mb="md">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
             <Group grow justify="center" align="center" mt="md">
                 <Grid>
                     <Grid.Col span={titleSpan}>
@@ -109,6 +88,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 studyProposalForm.setFieldValue('mainCodeFile', file)
                                 studyProposalForm.validateField('totalFileSize')
                             }}
+                            autoFocus
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: one .r file only.
@@ -143,7 +123,7 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                 const additionalFiles = uniqueBy(
                                     [...filteredFiles, ...previousFiles],
                                     (file) => file.name,
-                                )
+                                ) as File[]
                                 studyProposalForm.setFieldValue('additionalCodeFiles', additionalFiles)
                                 studyProposalForm.validateField('totalFileSize')
                             }}
@@ -198,12 +178,13 @@ export const UploadStudyJobCode: FC<{ studyProposalForm: UseFormReturnType<Study
                                     <CheckCircleIcon weight="fill" color="#2F9844" />
                                     <Text>{file.name}</Text>
                                 </Group>
-                                <XCircleIcon
+                                <ActionIcon
+                                    variant="transparent"
+                                    aria-label={`Remove file ${file.name}`}
                                     onClick={() => removeAdditionalFiles(file)}
-                                    style={{ cursor: 'pointer' }}
-                                    color={theme.colors.grey[2]}
-                                    weight="bold"
-                                />
+                                >
+                                    <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
+                                </ActionIcon>
                             </Group>
                         ))}
                     </GridCol>

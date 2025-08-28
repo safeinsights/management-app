@@ -5,7 +5,7 @@ import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -19,6 +19,7 @@ export const JobReviewButtons = ({
     const theme = useMantineTheme()
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const queryClient = useQueryClient()
 
     const {
         mutate: updateStudyJob,
@@ -45,7 +46,8 @@ export const JobReviewButtons = ({
         },
         onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
-            router.push('/')
+            queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
+            router.push(`/reviewer/${orgSlug}/dashboard`)
         },
     })
 

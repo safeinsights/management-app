@@ -1,5 +1,6 @@
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
+import { isActionError } from '@/lib/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
@@ -13,14 +14,12 @@ import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review
 
 export const dynamic = 'force-dynamic'
 
-export default async function StudyReviewPage(props: { params: Promise<{ studyId: string }> }) {
+export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId } = await props.params
 
     // getStudyAction will check permissions
     const study = await getStudyAction({ studyId })
-
-    // Ensure the study exists and user has permission to view it
-    if (!study) {
+    if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
@@ -41,7 +40,9 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
+                        {!isActionError(study) && (
+                            <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
+                        )}
                     </Group>
                     <StudyDetails studyId={studyId} />
                 </Stack>
@@ -66,7 +67,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        <FileApprovalStatus job={job} />
+                        <FileApprovalStatus job={job} orgSlug={study.orgSlug} />
                     </Group>
                     <Divider c="dimmed" />
                     <JobResultsStatusMessage job={job} />

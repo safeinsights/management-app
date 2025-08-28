@@ -5,17 +5,17 @@ import * as R from 'remeda'
 import { FC, useMemo, useState } from 'react'
 import { deleteOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
 import { getNewOrg } from '@/schema/org'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@/components/common'
 import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
 import { useDisclosure } from '@mantine/hooks'
 import { EditOrgForm } from './edit-org-form'
 import { useRouter } from 'next/navigation'
-import { ActionReturnType } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { UserListIcon } from '@phosphor-icons/react'
 
-type Org = ActionReturnType<typeof fetchOrgsStatsAction>[number]
+type Org = ActionSuccessType<typeof fetchOrgsStatsAction>[number]
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({

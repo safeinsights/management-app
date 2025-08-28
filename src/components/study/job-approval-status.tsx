@@ -1,9 +1,10 @@
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { Group, Text } from '@mantine/core'
+import { Button, Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
+import { Link } from '../links'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -41,13 +42,21 @@ export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     return <JobApprovalStatus statusChange={codeStatusChange} />
 }
 
-export const FileApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const filesStatusChange = job.statusChanges.find((statusChange) => {
-        return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
+        return ['FILES-APPROVED', 'FILES-REJECTED', 'JOB-ERRORED'].includes(statusChange.status)
     })
 
     if (!filesStatusChange) {
         return null
+    }
+
+    if (filesStatusChange.status === 'JOB-ERRORED') {
+        return (
+            <Button component={Link} href={`/researcher/study/${job.studyId}/resubmit/${orgSlug}`}>
+                Resubmit study code
+            </Button>
+        )
     }
 
     return <JobApprovalStatus statusChange={filesStatusChange} />

@@ -1,88 +1,25 @@
 import * as React from 'react'
-import {
-    Alert,
-    Divider,
-    Flex,
-    Group,
-    Paper,
-    Stack,
-    Table,
-    TableCaption,
-    TableTbody,
-    TableTd,
-    TableTh,
-    TableThead,
-    TableTr,
-    Text,
-    Title,
-    Tooltip,
-} from '@mantine/core'
-import dayjs from 'dayjs'
+import { Group, Stack, Text, Title } from '@mantine/core'
 
-import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { UserName } from '@/components/user-name'
-import { DisplayStudyStatus } from '@/components/study/display-study-status'
-import { ButtonLink, Link } from '@/components/links'
-import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { sessionFromClerk } from '@/server/clerk'
+import { StudiesTable } from './table'
 import { ErrorAlert } from '@/components/errors'
-
+import { isActionError, errorToString } from '@/lib/errors'
+import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
+import { sessionFromClerk } from '@/server/clerk'
 export const dynamic = 'force-dynamic'
 
-const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
-    return (
-        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/researcher/study/request/${orgSlug}`}>
-            Propose New Study
-        </ButtonLink>
-    )
-}
-
-const NoStudiesCaption: React.FC<{ visible: boolean; slug: string }> = ({ visible, slug }) => {
-    if (!visible) return null
-
-    return (
-        <TableCaption>
-            <Alert variant="transparent">
-                You haven&apos;t started a study yet
-                <Stack>
-                    <NewStudyLink orgSlug={slug} />
-                </Stack>
-            </Alert>
-        </TableCaption>
-    )
-}
-
 export default async function ResearcherDashboardPage(): Promise<React.ReactElement> {
-    const studies = await fetchStudiesForCurrentResearcherAction()
     const session = await sessionFromClerk()
 
     if (!session) {
         return <ErrorAlert error="Your account is not configured correctly. No organizations found" />
     }
 
-    const rows = studies.map((study) => (
-        <TableTr fz="md" key={study.id}>
-            <TableTd>
-                <Tooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                        {study.title}
-                    </Text>
-                </Tooltip>
-            </TableTd>
-            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-            <TableTd>{study.reviewerTeamName}</TableTd>
-            <TableTd>
-                <DisplayStudyStatus
-                    studyStatus={study.status}
-                    jobStatus={study.latestJobStatus}
-                    jobErrored={!!study.errorStudyJobId}
-                />
-            </TableTd>
-            <TableTd>
-                <Link href={`/researcher/study/${study.id}/review`}>View</Link>
-            </TableTd>
-        </TableTr>
-    ))
+    const studies = await fetchStudiesForCurrentResearcherAction()
+    if (!studies || isActionError(studies)) {
+        return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
+    }
 
     return (
         <Stack p="xl">
@@ -96,30 +33,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                     its details. We continuously iterate to improve your experience and welcome your feedback.
                 </Text>
             </Group>
-            <Paper shadow="xs" p="xl">
-                <Stack>
-                    <Group justify="space-between">
-                        <Title order={3}>Proposed Studies</Title>
-                        <Flex justify="flex-end">
-                            <NewStudyLink orgSlug={session.team.slug} />
-                        </Flex>
-                    </Group>
-                    <Divider c="charcoal.1" />
-                    <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                        <NoStudiesCaption visible={!studies.length} slug={session.team.slug} />
-                        <TableThead fz="sm">
-                            <TableTr>
-                                <TableTh>Study Name</TableTh>
-                                <TableTh>Submitted On</TableTh>
-                                <TableTh>Submitted To</TableTh>
-                                <TableTh>Status</TableTh>
-                                <TableTh>Study Details</TableTh>
-                            </TableTr>
-                        </TableThead>
-                        <TableTbody>{rows}</TableTbody>
-                    </Table>
-                </Stack>
-            </Paper>
+            <StudiesTable />
         </Stack>
     )
 }

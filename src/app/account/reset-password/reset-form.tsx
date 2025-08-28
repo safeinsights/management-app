@@ -5,7 +5,7 @@ import { isEmail, useForm } from '@mantine/form'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { errorToString } from '@/lib/errors'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/components/common'
 
 interface ResetFormValues {
     email: string

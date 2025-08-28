@@ -8,13 +8,15 @@ import { useForm } from '@mantine/form'
 import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@/components/common'
 import { CodeReviewManifest } from '@/lib/code-manifest'
+import { actionResult } from '@/lib/utils'
 import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
+import { useUploadFile } from '@/hooks/upload'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -52,30 +54,20 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
     return null
 }
 
-async function uploadFile(file: File, upload: PresignedPost) {
-    const body = new FormData()
-    for (const [key, value] of Object.entries(upload.fields)) {
-        body.append(key, value)
-    }
-    body.append('file', file)
-    const response = await fetch(upload.url, {
-        method: 'POST',
-        body,
-    })
-    if (!response.ok) {
-        throw new Error(`failed to upload file ${await response.text()}`)
-    }
-}
-
-async function uploadCodeFiles(files: File[], upload: PresignedPost, studyJobId: string) {
+async function uploadCodeFiles(
+    files: File[],
+    upload: PresignedPost,
+    studyJobId: string,
+    uploadFile: (args: { file: File; upload: PresignedPost }) => Promise<unknown>,
+) {
     const manifest = new CodeReviewManifest(studyJobId, 'r')
     for (const codeFile of files) {
         manifest.files.push(codeFile)
-        await uploadFile(codeFile, upload)
+        await uploadFile({ file: codeFile, upload })
     }
 
     const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    return await uploadFile(manifestFile, upload)
+    return await uploadFile({ file: manifestFile, upload })
 }
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
@@ -105,6 +97,9 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         ],
     })
 
+    const { mutateAsync: uploadFile } = useUploadFile()
+    const queryClient = useQueryClient()
+
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             // Don't send any actual files to the server action, because they can't handle the file sizes
@@ -124,7 +119,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 mainCodeFilePath: formValues.mainCodeFile!.name,
                 additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
             }
-
             const {
                 studyId,
                 studyJobId,
@@ -133,17 +127,19 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 urlForAgreementUpload,
                 urlForIrbUpload,
                 urlForDescriptionUpload,
-            } = await onCreateStudyAction({
-                orgSlug,
-                studyInfo: valuesWithFilenames,
-                mainCodeFileName: formValues.mainCodeFile!.name,
-                codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
-            })
-            await uploadFile(formValues.irbDocument!, urlForIrbUpload)
-            await uploadFile(formValues.agreementDocument!, urlForAgreementUpload)
-            await uploadFile(formValues.descriptionDocument!, urlForDescriptionUpload)
-            await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId)
-            await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId)
+            } = actionResult(
+                await onCreateStudyAction({
+                    orgSlug,
+                    studyInfo: valuesWithFilenames,
+                    mainCodeFileName: formValues.mainCodeFile!.name,
+                    codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
+                }),
+            )
+            await uploadFile({ file: formValues.irbDocument!, upload: urlForIrbUpload })
+            await uploadFile({ file: formValues.agreementDocument!, upload: urlForAgreementUpload })
+            await uploadFile({ file: formValues.descriptionDocument!, upload: urlForDescriptionUpload })
+            await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId, uploadFile)
+            await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId, uploadFile)
             return { studyId, studyJobId }
         },
         onSuccess() {
@@ -153,6 +149,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             router.push(`/researcher/dashboard`)
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
@@ -173,7 +170,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+        <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
             <Stepper
                 unstyled
                 active={stepIndex}
