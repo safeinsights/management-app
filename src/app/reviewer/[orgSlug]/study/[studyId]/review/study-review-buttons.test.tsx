@@ -12,16 +12,6 @@ vi.mock('@/server/actions/study.actions', async (importOriginal) => {
     }
 })
 
-// Mock next/navigation
-vi.mock('next/navigation', () => ({
-    useRouter: () => ({
-        push: vi.fn(),
-    }),
-    useParams: () => ({
-        orgSlug: 'test-org',
-    }),
-}))
-
 const mockStudy: SelectedStudy = {
     id: 'study-123',
     status: 'PENDING-REVIEW',
