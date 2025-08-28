@@ -1,29 +1,6 @@
 import { type PresignedPost } from '@aws-sdk/s3-presigned-post'
 import logger from '@/lib/logger'
 
-// import { useMutation } from '@tanstack/react-query'
-// import { useCallback } from 'react'
-
-// export function useUploadFiles() {
-//     return useMutation({
-//         mutationFn: async ({ file, upload }: { file: File; upload: PresignedPost }) => {
-//             const body = new FormData()
-//             for (const [key, value] of Object.entries(upload.fields)) {
-//                 body.append(key, value)
-//             }
-//             body.append('file', file)
-//             const response = await fetch(upload.url, {
-//                 method: 'POST',
-//                 body,
-//             })
-//             if (!response.ok) {
-//                 throw new Error(`failed to upload file ${await response.text()}`)
-//             }
-//         },
-//     })
-// }
-
-
 
 async function uploadFile(file: File, upload: PresignedPost) {
     const body = new FormData()
@@ -47,7 +24,7 @@ async function uploadFile(file: File, upload: PresignedPost) {
     }
 }
 
-type FileUpload = [File | null, PresignedPost]
+export type FileUpload = [File | null, PresignedPost]
 
 export function uploadFiles(files: FileUpload[]) {
     return Promise.all(
