@@ -1,9 +1,8 @@
 'use client'
-
 import { ButtonLink, Link } from '@/components/links'
 import { Panel } from '@/components/panel'
 import { useUser } from '@clerk/nextjs'
-import { Container, Paper, Stack, Text, Title } from '@mantine/core'
+import { Paper, Stack, Text, Title, Container } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 
