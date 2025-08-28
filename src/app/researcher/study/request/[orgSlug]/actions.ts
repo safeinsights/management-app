@@ -91,7 +91,7 @@ const onCreateStudyActionArgsSchema = z.object({
     codeFileNames: z.array(z.string()),
 })
 
-export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
+export const onCreateStudyAction = new Action('onCreateStudyAction')
     .params(onCreateStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => ({ orgId: (await getOrgIdFromSlug({ orgSlug })).id }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
@@ -155,7 +155,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
         }
     })
 
-export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsMutations: true })
+export const onDeleteStudyAction = new Action('onDeleteStudyAction')
     .params(
         z.object({
             orgSlug: z.string(),
