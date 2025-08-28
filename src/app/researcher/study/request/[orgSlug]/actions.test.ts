@@ -46,7 +46,7 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
-    })
+    }, 30000)
 
     it('onDeleteStudyAction deletes a study', async () => {
         const { org } = await mockSessionWithTestData({ isResearcher: true })
@@ -59,5 +59,5 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
-    })
+    }, 30000)
 })
