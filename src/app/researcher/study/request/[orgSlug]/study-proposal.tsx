@@ -8,7 +8,7 @@ import { useForm } from '@mantine/form'
 import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
 import { UploadStudyJobCode } from './upload-study-job-code'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
 import { zodResolver } from '@/components/common'
@@ -98,6 +98,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     const { mutateAsync: uploadFile } = useUploadFile()
+    const queryClient = useQueryClient()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -148,6 +149,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             router.push(`/researcher/dashboard`)
         },
         onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
