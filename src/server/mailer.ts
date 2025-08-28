@@ -86,7 +86,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
         subject: 'Results ready for review',
         template: 'vb - encrypted results ready for review',
         vars: {
-            userFullName: study.reviewerFullName,
+            fullName: study.reviewerFullName,
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
