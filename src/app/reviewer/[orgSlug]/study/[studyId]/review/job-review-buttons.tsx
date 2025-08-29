@@ -5,7 +5,7 @@ import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@/common'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
 

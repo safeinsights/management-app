@@ -3,7 +3,7 @@ import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { AppModal } from '@/components/modal'
 
-export function CancelButton({ isDirty }: { isDirty: boolean }) {
+export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
     const router = useRouter()
 
@@ -39,7 +39,7 @@ export function CancelButton({ isDirty }: { isDirty: boolean }) {
                 </Stack>
             </AppModal>
 
-            <Button type="button" variant="outline" c="purple.5" onClick={handleCancel}>
+            <Button type="button" variant="outline" c="purple.5" disabled={disabled} onClick={handleCancel}>
                 Cancel
             </Button>
         </>

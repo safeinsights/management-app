@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { DataTable } from 'mantine-datatable'
-import { useMutation, useQuery } from '@/components/common'
+import { useMutation, useQuery } from '@/common'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
 import { Select, Flex, Text } from '@mantine/core'

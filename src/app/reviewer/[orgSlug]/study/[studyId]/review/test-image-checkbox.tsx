@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery } from '@/common'
 import { Checkbox } from '@mantine/core'
 import { useSession } from '@/hooks/session'
 import { doesTestImageExistForStudyAction } from '@/server/actions/study.actions'

@@ -1,7 +1,7 @@
 'use client'
 
 import { Stack, Title, Divider, Paper, Text, Table, Button, Group } from '@mantine/core'
-import { useQuery, useQueryClient, useMutation } from '@/components/common'
+import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'

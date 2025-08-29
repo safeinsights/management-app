@@ -1,6 +1,6 @@
 'use client'
 
-import { zodResolver, useMutation, useForm, useState, z } from '@/components/common'
+import { zodResolver, useMutation, useForm, useState, z } from '@/common'
 import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSignIn } from '@clerk/nextjs'
