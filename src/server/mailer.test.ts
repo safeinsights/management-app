@@ -102,7 +102,7 @@ describe('mailgun email functions', () => {
                 subject: expect.stringContaining('ready for review'),
                 template: 'vb - encrypted results ready for review',
                 vars: expect.objectContaining({
-                    userFullName: reviewer.fullName,
+                    fullName: reviewer.fullName,
                     studyTitle: study.title,
                     submittedBy: expect.any(String),
                     studyURL: expect.stringContaining(`/reviewer/${org.slug}/study/${study.id}/review`),
