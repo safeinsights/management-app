@@ -86,6 +86,7 @@ export const codeFilesSchema = z
 
 export const StudyProposalActionSchema = z.intersection(studyProposalFormSchema, codeFilesSchema)
 
+export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,

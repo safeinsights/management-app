@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useWrappedQuery, useWrappedMutation } from './query-wrappers'
+import { useQuery, useMutation } from './query-wrappers'
 import { type ActionResponse } from '@/lib/types'
 import { renderHook, waitFor } from '@testing-library/react'
+// eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 
@@ -24,14 +25,14 @@ describe('Query Wrappers', () => {
         vi.clearAllMocks()
     })
 
-    describe('useWrappedQuery', () => {
+    describe('useQuery', () => {
         it('should handle error when API response has error property', async () => {
             const errorMessage = 'Something went wrong'
             const mockQueryFn = vi.fn().mockResolvedValue({ error: errorMessage } as ActionResponse<unknown>)
 
             const { result } = renderHook(
                 () =>
-                    useWrappedQuery({
+                    useQuery({
                         queryKey: ['test-error'],
                         queryFn: mockQueryFn,
                     }),
@@ -47,7 +48,7 @@ describe('Query Wrappers', () => {
 
             const { result } = renderHook(
                 () =>
-                    useWrappedQuery({
+                    useQuery({
                         queryKey: ['test-raw'],
                         queryFn: mockQueryFn,
                     }),
@@ -69,7 +70,7 @@ describe('Query Wrappers', () => {
 
             const { result } = renderHook(
                 () =>
-                    useWrappedQuery({
+                    useQuery({
                         queryKey: ['test-complex'],
                         queryFn: mockQueryFn,
                     }),
@@ -83,14 +84,14 @@ describe('Query Wrappers', () => {
         })
     })
 
-    describe('useWrappedMutation', () => {
+    describe('useMutation', () => {
         it('should handle error when API response has error property', async () => {
             const errorMessage = 'Mutation failed'
             const mockMutationFn = vi.fn().mockResolvedValue({ error: errorMessage } as ActionResponse<unknown>)
 
             const { result } = renderHook(
                 () =>
-                    useWrappedMutation({
+                    useMutation({
                         mutationFn: mockMutationFn,
                     }),
                 { wrapper: createWrapper() },
@@ -107,7 +108,7 @@ describe('Query Wrappers', () => {
 
             const { result } = renderHook(
                 () =>
-                    useWrappedMutation({
+                    useMutation({
                         mutationFn: mockMutationFn,
                     }),
                 { wrapper: createWrapper() },

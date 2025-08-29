@@ -1,6 +1,6 @@
 'use client'
 
-import { zodResolver, useMutation, useQueryClient, useForm } from '@/components/common'
+import { zodResolver, useMutation, useQueryClient, useForm } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { SuccessPanel } from '@/components/panel'

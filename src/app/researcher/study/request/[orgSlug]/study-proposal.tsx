@@ -4,19 +4,23 @@ import React, { useState } from 'react'
 import { Button, Group, Stepper } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { CancelButton } from '@/components/cancel-button'
-import { useForm } from '@mantine/form'
-import { studyProposalFormSchema, codeFilesSchema, StudyProposalFormValues } from './study-proposal-form-schema'
+import { useForm, UseFormReturnType } from '@mantine/form'
+import {
+    studyProposalFormSchema,
+    codeFilesSchema,
+    StudyProposalFormValues,
+    StudyJobCodeFilesValues,
+} from './study-proposal-form-schema'
 import { StudyProposalForm } from './study-proposal-form'
-import { UploadStudyJobCode } from './upload-study-job-code'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { StudyCodeUpload } from '@/components/study-code-upload'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { useRouter } from 'next/navigation'
-import { zodResolver } from '@/components/common'
-import { CodeReviewManifest } from '@/lib/code-manifest'
+import { zodResolver, useMutation, useQueryClient } from '@/common'
 import { actionResult } from '@/lib/utils'
-import { PresignedPost } from '@aws-sdk/s3-presigned-post'
 import { omit } from 'remeda'
-import { useUploadFile } from '@/hooks/upload'
+import logger from '@/lib/logger'
+import { errorToString, isActionError } from '@/lib/errors'
+import { uploadFiles, type FileUpload } from '@/hooks/upload'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -54,20 +58,23 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
     return null
 }
 
-async function uploadCodeFiles(
-    files: File[],
-    upload: PresignedPost,
-    studyJobId: string,
-    uploadFile: (args: { file: File; upload: PresignedPost }) => Promise<unknown>,
-) {
-    const manifest = new CodeReviewManifest(studyJobId, 'r')
-    for (const codeFile of files) {
-        manifest.files.push(codeFile)
-        await uploadFile({ file: codeFile, upload })
+// we do not want to  send any actual files, only their paths to the server action,
+// they will be uploaded after study is created
+function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
+    return {
+        ...omit(formValues, [
+            'agreementDocument',
+            'descriptionDocument',
+            'irbDocument',
+            'mainCodeFile',
+            'additionalCodeFiles',
+        ]),
+        descriptionDocPath: formValues.descriptionDocument!.name,
+        agreementDocPath: formValues.agreementDocument!.name,
+        irbDocPath: formValues.irbDocument!.name,
+        mainCodeFilePath: formValues.mainCodeFile!.name,
+        additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
     }
-
-    const manifestFile = new File([manifest.asJSON], 'manifest.json', { type: 'application/json' })
-    return await uploadFile({ file: manifestFile, upload })
 }
 
 export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
@@ -97,80 +104,60 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         ],
     })
 
-    const { mutateAsync: uploadFile } = useUploadFile()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // Don't send any actual files to the server action, because they can't handle the file sizes
-            const valuesWithoutFiles = omit(formValues, [
-                'agreementDocument',
-                'descriptionDocument',
-                'irbDocument',
-                'mainCodeFile',
-                'additionalCodeFiles',
-            ])
-
-            const valuesWithFilenames = {
-                ...valuesWithoutFiles,
-                descriptionDocPath: formValues.descriptionDocument!.name,
-                agreementDocPath: formValues.agreementDocument!.name,
-                irbDocPath: formValues.irbDocument!.name,
-                mainCodeFilePath: formValues.mainCodeFile!.name,
-                additionalCodeFilePaths: formValues.additionalCodeFiles.map((file) => file.name),
-            }
-            const {
-                studyId,
-                studyJobId,
-                urlForMainCodeUpload,
-                urlForAdditionalCodeUpload,
-                urlForAgreementUpload,
-                urlForIrbUpload,
-                urlForDescriptionUpload,
-            } = actionResult(
+            const { studyId, studyJobId, ...urls } = actionResult(
                 await onCreateStudyAction({
                     orgSlug,
-                    studyInfo: valuesWithFilenames,
+                    studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
                     codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
                 }),
             )
-            await uploadFile({ file: formValues.irbDocument!, upload: urlForIrbUpload })
-            await uploadFile({ file: formValues.agreementDocument!, upload: urlForAgreementUpload })
-            await uploadFile({ file: formValues.descriptionDocument!, upload: urlForDescriptionUpload })
-            await uploadCodeFiles([formValues.mainCodeFile!], urlForMainCodeUpload, studyJobId, uploadFile)
-            await uploadCodeFiles(formValues.additionalCodeFiles, urlForAdditionalCodeUpload, studyJobId, uploadFile)
-            return { studyId, studyJobId }
+
+            try {
+                await uploadFiles([
+                    [formValues.irbDocument, urls.urlForIrbUpload],
+                    [formValues.agreementDocument, urls.urlForAgreementUpload],
+                    [formValues.descriptionDocument, urls.urlForAgreementUpload],
+                    [formValues.mainCodeFile, urls.urlForCodeUpload],
+                    ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForCodeUpload] as FileUpload),
+                ])
+            } catch (err: unknown) {
+                const result = await onDeleteStudyAction({ studyId })
+                if (isActionError(result)) {
+                    logger.error(
+                        `Failed to remove temp study details after upload failure: ${errorToString(result.error)}`,
+                    )
+                }
+                throw err
+            }
         },
         onSuccess() {
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             router.push(`/researcher/dashboard`)
         },
-        onError: async (error, _, context: { studyId: string; studyJobId: string } | undefined) => {
-            console.error(error)
+        onError: async (error) => {
             notifications.show({
                 color: 'red',
-                title: 'Failed to upload file',
-                message: error.message,
-            })
-            if (!context) return
-
-            await onDeleteStudyAction({
-                orgSlug: orgSlug,
-                studyId: context.studyId,
-                studyJobId: context.studyJobId,
+                title: 'Failed to create study',
+                message: `${errorToString(error)}\nPlease contact support.`,
             })
         },
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
+        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
             <Stepper
                 unstyled
                 active={stepIndex}
@@ -185,19 +172,24 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 </Stepper.Step>
 
                 <Stepper.Step>
-                    <UploadStudyJobCode studyProposalForm={studyProposalForm} />
+                    <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
                 </Stepper.Step>
             </Stepper>
 
             <Group mt="xxl" style={{ width: '100%' }}>
                 {stepIndex === 1 && (
-                    <Button type="button" variant="outline" onClick={() => setStepIndex(stepIndex - 1)}>
+                    <Button
+                        type="button"
+                        disabled={isPending}
+                        variant="outline"
+                        onClick={() => setStepIndex(stepIndex - 1)}
+                    >
                         Back
                     </Button>
                 )}
 
                 <Group style={{ marginLeft: 'auto' }}>
-                    <CancelButton isDirty={studyProposalForm.isDirty()} />
+                    <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
                     <StepperButtons
                         form={studyProposalForm}
                         stepIndex={stepIndex}

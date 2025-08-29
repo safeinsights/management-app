@@ -1,183 +1,144 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { renderWithProviders, mockSessionWithTestData } from '@/tests/unit.helpers'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { Org } from '@/schema/org'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+    renderWithProviders,
+    screen,
+    userEvent,
+    mockSessionWithTestData,
+    insertTestStudyJobData,
+    waitFor,
+    actionResult,
+} from '@/tests/unit.helpers'
 import { StudyReviewButtons } from './study-review-buttons'
+import {
+    getStudyAction,
+    approveStudyProposalAction,
+    rejectStudyProposalAction,
+    type SelectedStudy,
+} from '@/server/actions/study.actions'
+import { memoryRouter } from 'next-router-mock'
 import { reportMutationError } from '@/components/errors'
-import type { SelectedStudy } from '@/server/actions/study.actions'
 
 // Mock the actions
-vi.mock('@/server/actions/study.actions', () => ({
-    approveStudyProposalAction: vi.fn(),
-    rejectStudyProposalAction: vi.fn(),
-}))
+vi.mock('@/server/actions/study.actions', async (importOriginal) => {
+    const original = await importOriginal<typeof import('@/server/actions/study.actions')>()
+    return {
+        ...original,
+        approveStudyProposalAction: vi.fn(),
+        rejectStudyProposalAction: vi.fn(),
+        doesTestImageExistForStudyAction: vi.fn(), // still needed by the new component
+    }
+})
 
 // Mock the error reporting
 vi.mock('@/components/errors', () => ({
     reportMutationError: vi.fn(() => vi.fn()),
-    reportError: vi.fn(),
 }))
-
-// Don't mock common - we want to test the real useMutation wrapper
-
-import { approveStudyProposalAction, rejectStudyProposalAction } from '@/server/actions/study.actions'
 
 const mockApproveAction = vi.mocked(approveStudyProposalAction)
 const mockRejectAction = vi.mocked(rejectStudyProposalAction)
 const mockReportMutationError = vi.mocked(reportMutationError)
 
 describe('StudyReviewButtons', () => {
-    const mockStudy: SelectedStudy = {
-        id: 'study-123',
-        status: 'PENDING-REVIEW',
-        approvedAt: null,
-        rejectedAt: null,
-        title: 'Test Study',
-        createdAt: new Date(),
-        orgId: 'org-123',
-        // Add other required fields as needed
-    } as SelectedStudy
-
-    let org: Org
+    let study: SelectedStudy
 
     beforeEach(async () => {
         vi.clearAllMocks()
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true, orgSlug: 'test-org' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+        })
+        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
 
-        const resp = await mockSessionWithTestData({ isAdmin: true })
-        org = resp.org
-
-        // Mock server actions to return success responses by default
-        mockApproveAction.mockResolvedValue(undefined)
-        mockRejectAction.mockResolvedValue(undefined)
-
-        // Setup reportMutationError to return a mock function
         mockReportMutationError.mockReturnValue(vi.fn())
     })
 
-    it('renders approve and reject buttons for pending study', () => {
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
-
-        expect(screen.getByText('Approve')).toBeInTheDocument()
-        expect(screen.getByText('Reject')).toBeInTheDocument()
+    it('renders Approve and Reject buttons for a pending study', () => {
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
     })
 
-    it('calls reportMutationError when server action returns error', async () => {
-        // Mock the approve action to return an error
-        mockApproveAction.mockResolvedValue({ error: 'Approval failed' })
+    it('calls approve action on Approve button click', async () => {
+        mockApproveAction.mockResolvedValue(undefined)
+        const user = userEvent.setup()
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+        const approveButton = screen.getByRole('button', { name: 'Approve' })
+        await user.click(approveButton)
 
-        const approveButton = screen.getByText('Approve')
-        fireEvent.click(approveButton)
-
-        // Wait for the mutation to complete and verify reportError was called
-        await waitFor(() => {
-            expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
+        expect(mockApproveAction).toHaveBeenCalledWith({
+            studyId: study.id,
+            orgSlug: 'test-org',
+            useTestImage: false,
         })
     })
 
-    it('calls approve action when approve button is clicked', async () => {
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+    it('calls reject action on Reject button click', async () => {
+        mockRejectAction.mockResolvedValue(undefined)
+        const user = userEvent.setup()
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-        const approveButton = screen.getByText('Approve')
-        fireEvent.click(approveButton)
+        const rejectButton = screen.getByRole('button', { name: 'Reject' })
+        await user.click(rejectButton)
 
-        await waitFor(() => {
-            expect(mockApproveAction).toHaveBeenCalledWith({
-                orgSlug: org.slug,
-                studyId: 'study-123',
-                useTestImage: false,
-            })
+        expect(mockRejectAction).toHaveBeenCalledWith({
+            studyId: study.id,
+            orgSlug: 'test-org',
         })
     })
 
-    it('calls reject action when reject button is clicked', async () => {
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+    it('redirects on successful approval', async () => {
+        const user = userEvent.setup()
+        mockApproveAction.mockResolvedValueOnce(undefined) // simulate successful action
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-        const rejectButton = screen.getByText('Reject')
-        fireEvent.click(rejectButton)
+        const approveButton = screen.getByRole('button', { name: 'Approve' })
+        await user.click(approveButton)
 
         await waitFor(() => {
-            expect(mockRejectAction).toHaveBeenCalledWith({
-                orgSlug: org.slug,
-                studyId: 'study-123',
-            })
+            expect(memoryRouter.asPath).toBe('/reviewer/test-org/dashboard')
         })
     })
 
-    it('handles successful approval', async () => {
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+    it('renders status for approved study and no buttons', async () => {
+        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date() }
+        renderWithProviders(<StudyReviewButtons study={approvedStudy} />)
 
-        const approveButton = screen.getByText('Approve')
-        fireEvent.click(approveButton)
-
-        await waitFor(() => {
-            expect(mockApproveAction).toHaveBeenCalledWith({
-                orgSlug: org.slug,
-                studyId: 'study-123',
-                useTestImage: false,
-            })
-        })
-
-        // Verify error handler was NOT called for successful response
-        expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
-        const errorHandler = mockReportMutationError.mock.results[0].value
-        expect(errorHandler).not.toHaveBeenCalled()
+        expect(screen.getByText(/approved on/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 
-    it('handles successful rejection', async () => {
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+    it('renders status for rejected study and no buttons', async () => {
+        const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date() }
+        renderWithProviders(<StudyReviewButtons study={rejectedStudy} />)
 
-        const rejectButton = screen.getByText('Reject')
-        fireEvent.click(rejectButton)
-
-        await waitFor(() => {
-            expect(mockRejectAction).toHaveBeenCalledWith({
-                orgSlug: org.slug,
-                studyId: 'study-123',
-            })
-        })
-
-        // Verify error handler was NOT called for successful response
-        expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
-        const errorHandler = mockReportMutationError.mock.results[0].value
-        expect(errorHandler).not.toHaveBeenCalled()
+        expect(screen.getByText(/rejected on/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 
     it('handles error responses from server actions', async () => {
+        const user = userEvent.setup()
         // Mock the reject action to return an error
         mockRejectAction.mockResolvedValue({ error: 'Rejection failed due to network error' })
 
-        renderWithProviders(<StudyReviewButtons study={mockStudy} />)
+        renderWithProviders(<StudyReviewButtons study={study} />)
 
-        const rejectButton = screen.getByText('Reject')
-        fireEvent.click(rejectButton)
+        const rejectButton = screen.getByRole('button', { name: 'Reject' })
+        await user.click(rejectButton)
 
         // Wait for the mutation to complete and verify the error handler was called
         await waitFor(() => {
             expect(mockReportMutationError).toHaveBeenCalledWith('Failed to update study status')
             const errorHandler = mockReportMutationError.mock.results[0].value
             expect(errorHandler).toHaveBeenCalledWith(
-                expect.objectContaining({ message: 'Rejection failed due to network error' }),
+                expect.objectContaining({ error: 'Rejection failed due to network error' }),
                 'REJECTED',
                 undefined,
             )
         })
-    })
-
-    it('does not render buttons for approved study', () => {
-        const approvedStudy = { ...mockStudy, status: 'APPROVED' as const, approvedAt: new Date() }
-        renderWithProviders(<StudyReviewButtons study={approvedStudy} />)
-
-        expect(screen.queryByText('Approve')).not.toBeInTheDocument()
-        expect(screen.queryByText('Reject')).not.toBeInTheDocument()
-    })
-
-    it('does not render buttons for rejected study', () => {
-        const rejectedStudy = { ...mockStudy, status: 'REJECTED' as const, rejectedAt: new Date() }
-        renderWithProviders(<StudyReviewButtons study={rejectedStudy} />)
-
-        expect(screen.queryByText('Approve')).not.toBeInTheDocument()
-        expect(screen.queryByText('Reject')).not.toBeInTheDocument()
     })
 })

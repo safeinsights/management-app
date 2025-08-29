@@ -8,6 +8,7 @@ import { useEffect, type FC, type ReactNode } from 'react'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
+// eslint-disable-next-line no-restricted-imports
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 function makeQueryClient() {

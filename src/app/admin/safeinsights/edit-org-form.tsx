@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/components/common'
+import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/common'
 import { Button, Textarea, TextInput } from '@mantine/core'
 import { updateOrgAction, insertOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
 import { orgSchema, type ValidatedOrg } from '@/schema/org'

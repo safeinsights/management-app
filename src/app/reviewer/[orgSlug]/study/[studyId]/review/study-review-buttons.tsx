@@ -1,9 +1,8 @@
 'use client'
 
 import React, { FC, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useMutation } from '@/components/common'
-import { Button, Group, Checkbox, Stack } from '@mantine/core'
+import { useMutation, useQueryClient } from '@/common'
+import { Button, Group, Stack } from '@mantine/core'
 import { useParams, useRouter } from 'next/navigation'
 import type { StudyStatus } from '@/database/types'
 import {
@@ -13,12 +12,11 @@ import {
 } from '@/server/actions/study.actions'
 import { reportMutationError } from '@/components/errors'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { useSession } from '@/hooks/session'
+import { TestImageCheckbox } from './test-image-checkbox'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { session } = useSession()
     const [useTestImage, setUseTestImage] = useState(false)
     const queryClient = useQueryClient()
 
@@ -47,19 +45,6 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         return <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
     }
 
-    const TestingCheck = () => {
-        if (!session?.team.isAdmin) return null
-
-        return (
-            <Checkbox
-                checked={useTestImage}
-                style={{ marginLeft: 'auto' }}
-                onChange={(event) => setUseTestImage(event.currentTarget.checked)}
-                label="Run this code against test base image"
-            />
-        )
-    }
-
     return (
         <Stack>
             <Group justify="flex-end">
@@ -79,7 +64,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
                     Approve
                 </Button>
             </Group>
-            <TestingCheck />
+            <TestImageCheckbox studyId={study.id} checked={useTestImage} onChange={setUseTestImage} />
         </Stack>
     )
 }

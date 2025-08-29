@@ -1,6 +1,6 @@
-import { db, jsonArrayFrom } from '@/database'
+import { jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
-import { ActionSuccessType, CLERK_ADMIN_ORG_SLUG } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
 import { wasCalledFromAPI } from '../api-context'
 import { findOrCreateSiUserId } from './mutations'
@@ -29,7 +29,7 @@ export async function siUser(throwIfNotFound = true): Promise<SiUser | null> {
 }
 
 export async function getStudyJobInfo(studyJobId: string) {
-    return await db
+    return await Action.db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
@@ -60,7 +60,7 @@ export async function getStudyJobInfo(studyJobId: string) {
 }
 
 export const getReviewerPublicKey = async (userId: string) => {
-    const result = await db
+    const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.fingerprint', 'userPublicKey.publicKey'])
         .where('userPublicKey.userId', '=', userId)
@@ -70,7 +70,7 @@ export const getReviewerPublicKey = async (userId: string) => {
 }
 
 export const getReviewerPublicKeyByUserId = async (userId: string) => {
-    const result = await db
+    const result = await Action.db
         .selectFrom('userPublicKey')
         .select(['userPublicKey.publicKey'])
         .where('userPublicKey.userId', '=', userId)
@@ -108,7 +108,7 @@ export const latestJobForStudy = async (studyId: string) => {
 }
 
 export const jobInfoForJobId = async (jobId: string) => {
-    return await db
+    return await Action.db
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
@@ -118,7 +118,7 @@ export const jobInfoForJobId = async (jobId: string) => {
 }
 
 export const studyInfoForStudyId = async (studyId: string) => {
-    return await db
+    return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'study.orgId', 'org.id')
         .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug'])
@@ -127,7 +127,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
 }
 
 export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
-    const query = db
+    const query = Action.db
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
         .innerJoin('org', 'orgUser.orgId', 'org.id')
@@ -154,7 +154,7 @@ export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', or
 // this is called primarlily by the mail functions to get study infoormation
 // some of these functions are called by API which lacks a user, do not use siUser inside this
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
-    const res = await db
+    const res = await Action.db
         .selectFrom('study')
         .innerJoin('user as researcher', 'study.researcherId', 'researcher.id')
         .leftJoin('user as reviewer', 'study.reviewerId', 'reviewer.id')
@@ -180,11 +180,11 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
 }
 
 export const getUserById = async (userId: string) => {
-    return await db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
+    return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
-    return await db
+    return await Action.db
         .selectFrom('orgUser')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
         .select(['org.id', 'org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
@@ -192,21 +192,31 @@ export const getOrgInfoForUserId = async (userId: string) => {
         .execute()
 }
 
-export const getStudyOrgIdForJobId = async (jobId: string) => {
-    return await db
-        .selectFrom('study')
-        .innerJoin('studyJob', 'studyJob.studyId', 'study.id')
-        .where('studyJob.id', '=', jobId)
-        .select(['study.orgId'])
+export const getInfoForStudyJobId = async (studyJobId: string) => {
+    return await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId'])
+        .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
 
-export const getStudyOrgIdForStudyId = async (studyId: string) => {
-    return await db.selectFrom('study').select('orgId').where('id', '=', studyId).executeTakeFirstOrThrow()
+export const getInfoForStudyId = async (studyId: string) => {
+    return await Action.db
+        .selectFrom('study')
+        .innerJoin('org', 'org.id', 'study.orgId')
+        .select(['orgId', 'org.slug as orgSlug'])
+        .where('study.id', '=', studyId)
+        .executeTakeFirstOrThrow()
 }
 
 export const getOrgIdFromSlug = async ({ orgSlug }: { orgSlug: string }) => {
-    return db.selectFrom('org').select(['org.id', 'org.slug']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+    return Action.db
+        .selectFrom('org')
+        .select(['org.id as orgId', 'org.slug as orgSlug'])
+        .where('slug', '=', orgSlug)
+        .executeTakeFirstOrThrow()
 }
 
 type JobDetails = { id: string; name: string; path: string }
@@ -226,7 +236,7 @@ export async function getStudyJobFileOfType(
     fileType: FileType,
     throwIfNotFound = true,
 ): Promise<Selectable<JobDetails> | undefined> {
-    const file = await db
+    const file = await Action.db
         .selectFrom('studyJobFile')
         .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path'])
         .where('studyJobId', '=', studyJobId)

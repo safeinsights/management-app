@@ -5,7 +5,7 @@ import {
     Requirements,
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
-import { useForm, useMutation, useState, z, zodResolver, type FC } from '@/components/common'
+import { useForm, useMutation, useState, z, zodResolver, type FC } from '@/common'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { SuccessPanel } from '@/components/panel'

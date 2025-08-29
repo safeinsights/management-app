@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Select, Stack, TextInput, Checkbox } from '@mantine/core'
-import { useMutation, zodResolver, z, useForm } from '@/components/common'
+import { useMutation, zodResolver, z, useForm } from '@/common'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction } from './base-images.actions'
 import { Language } from '@/database/types'
