@@ -1,5 +1,6 @@
 'use client'
 
+import { ClerkErrorAlert } from '@/components/clerk-errors'
 import { useForm, useMutation, useState, z, zodResolver } from '@/components/common'
 import { InputError } from '@/components/errors'
 import { errorToString, isClerkApiError } from '@/lib/errors'
@@ -51,7 +52,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
     const verificationForm = useForm<VerificationFormValues>({
         validate: zodResolver(verificationFormSchema),
         validateInputOnBlur: true,
-        validateInputOnChange: ['password', 'confirmPassword'],
+        validateInputOnChange: ['password'],
         initialValues: {
             code: '',
             password: '',
@@ -71,15 +72,25 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
             })
         },
         onError(error: unknown) {
-            if (isClerkApiError(error)) {
-                setVerificationError(
-                    errorToString(error, { form_code_incorrect: 'Incorrect verification code. Please try again.' }),
-                )
-            } else {
+            if (!isClerkApiError(error)) {
                 verificationForm.setErrors({
                     code: errorToString(error),
                 })
+                return
             }
+
+            const clerkErr = error.errors[0]
+
+            // If the verification code is incorrect, show inline error instead of alert
+            if (clerkErr.code === 'form_code_incorrect') {
+                setVerificationError('Incorrect verification code. Please try again.')
+                return
+            }
+
+            // Clerk error, show alert (e.g. too many attempts/compromised password)
+            verificationForm.setErrors({
+                form: error as unknown as string,
+            })
         },
         async onSuccess(info?: SignInResource) {
             if (!setActive || !info) {
@@ -195,6 +206,10 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
                                 <InputError error={verificationForm.errors.confirmPassword} />
                             )
                         }
+                    />
+                    <ClerkErrorAlert
+                        onClose={() => verificationForm.clearFieldError('form')}
+                        error={verificationForm.errors.form}
                     />
                     <Button type="submit" size="lg" loading={isPending} disabled={!verificationForm.isValid()}>
                         Update password
