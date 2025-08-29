@@ -20,8 +20,33 @@ export const PASSWORD_REQUIREMENTS = [
         label: 'One special symbol',
         message: 'Password must contain at least one special symbol',
     },
-    { re: /^.{8,}$/, label: '8 character minimum', message: '8 character minimum' },
+    { re: /^.{8,}$/, label: '8 character minimum', message: 'Password must be at least 8 characters long' },
 ]
+
+/**
+ * Helper function to check password requirements and determine if they should be displayed
+ */
+export function usePasswordRequirements(password: string) {
+    const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
+        ...req,
+        meets: req.re.test(password),
+    }))
+
+    const allRequirementsMet = requirements.every((r) => r.meets)
+
+    const shouldShowRequirements = () => {
+        if (allRequirementsMet) return false
+
+        // Show requirements only if password field has content
+        return password.length > 0
+    }
+
+    return {
+        requirements,
+        allRequirementsMet,
+        shouldShowRequirements: shouldShowRequirements(),
+    }
+}
 
 export function Requirements({ requirements }: RequirementsProps) {
     const rows = []
