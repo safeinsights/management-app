@@ -1,11 +1,11 @@
 'use client'
 
-import { zodResolver, useMutation, useForm, useState, z } from '@/common'
-import { Button, TextInput, Paper, PasswordInput, Title, Flex } from '@mantine/core'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useForm, useMutation, useState, z, zodResolver } from '@/common'
+import { errorToString, isClerkApiError } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
-import { errorToString, isClerkApiError } from '@/lib/errors'
+import { Button, Flex, Paper, PasswordInput, TextInput, Title } from '@mantine/core'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { PASSWORD_REQUIREMENTS, Requirements } from './password-requirements'
@@ -107,7 +107,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const passwordRequirements = checkRequirements(verificationForm.values.password)
 
-    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
+    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} />
 
     return (
         <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
