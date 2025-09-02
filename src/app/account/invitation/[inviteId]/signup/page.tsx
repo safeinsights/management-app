@@ -180,8 +180,8 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
                         disabled={!form.isValid()}
                         w="100%"
                         size="lg"
-                        bg="grey.1"
-                        styles={{ label: { color: theme.colors.grey[7] } }}
+                        bg={!form.isValid() ? 'grey.1' : undefined}
+                        styles={!form.isValid() ? { label: { color: theme.colors.grey[7] } } : undefined}
                     >
                         Create Account
                     </Button>
