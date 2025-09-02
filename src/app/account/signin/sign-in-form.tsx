@@ -138,7 +138,7 @@ export const SignInForm: FC<{
                         size="lg"
                         disabled={!form.isValid()}
                         type="submit"
-                        bg={!form.isValid() ? 'grey.1' : ''}
+                        bg={!form.isValid() ? 'grey.1' : undefined}
                     >
                         Login
                     </Button>
