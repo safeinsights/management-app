@@ -1,16 +1,19 @@
 'use client'
 
-import { Flex, Button, TextInput, PasswordInput, Text, Group, Alert } from '@mantine/core'
-import { useMutation } from '@/common'
-import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
-import { useForm, type FC, useState, z, zodResolver } from '@/common'
+import {
+    PASSWORD_REQUIREMENTS,
+    Requirements,
+    usePasswordRequirements,
+} from '@/app/account/reset-password/password-requirements'
+import { useForm, useMutation, useState, z, zodResolver, type FC } from '@/common'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
-import { useAuth, useSignIn } from '@clerk/nextjs'
-import { SuccessPanel } from '@/components/panel'
-import { useRouter } from 'next/navigation'
-import { SignOutPanel } from './signout-panel'
 import { LoadingMessage } from '@/components/loading'
-import { PASSWORD_REQUIREMENTS, Requirements } from '@/app/account/reset-password/password-requirements'
+import { SuccessPanel } from '@/components/panel'
+import { useAuth, useSignIn } from '@clerk/nextjs'
+import { Alert, Button, Flex, Group, PasswordInput, Text, TextInput } from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import { onCreateAccountAction, onPendingUserLoginAction } from './create-account.action'
+import { SignOutPanel } from './signout-panel'
 
 const Success: FC = () => {
     const router = useRouter()
@@ -70,6 +73,8 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
         },
     })
 
+    const { requirements, shouldShowRequirements } = usePasswordRequirements(form.values.password)
+
     const { mutate: createAccount, isPending: isCreating } = useMutation({
         mutationFn: (form: FormValues) => onCreateAccountAction({ inviteId, form }),
         onError: handleMutationErrorsWithForm(form),
@@ -128,18 +133,7 @@ const SetupAccountForm: FC<InviteProps & { onComplete(): void }> = ({ inviteId, 
                     error={undefined} // prevent the password input from showing an error in favor of the custom requirements below
                 />
 
-                {(() => {
-                    const requirements = PASSWORD_REQUIREMENTS.map((req) => ({
-                        ...req,
-                        meets: req.re.test(form.values.password),
-                    }))
-
-                    const allMet = requirements.every((r) => r.meets)
-
-                    if (!(form.values.password || form.errors.password) || allMet) return null
-
-                    return <Requirements requirements={requirements} />
-                })()}
+                {shouldShowRequirements && <Requirements requirements={requirements} />}
 
                 <PasswordInput
                     label="Confirm password"
