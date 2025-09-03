@@ -39,7 +39,7 @@ export function ResetPassword() {
     }
 
     if (pendingReset) {
-        return <PendingReset pendingReset={pendingReset} />
+        return <PendingReset pendingReset={pendingReset} onResetUpdate={setPendingReset} />
     }
 
     return <ResetForm onCompleteAction={onComplete} />
