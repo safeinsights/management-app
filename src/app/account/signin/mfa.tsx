@@ -26,6 +26,10 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
 
+    // Determine which second-factor strategies are available for this sign-in attempt
+    const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
+    const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
+
     const form = useForm({
         initialValues: {
             code: '',
@@ -126,12 +130,16 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         You can choose to receive verification codes via text message (SMS) or use an authenticator app.
                     </Text>
                     <Stack gap="xl">
-                        <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
-                            SMS Verification
-                        </Button>
-                        <Button w="100%" variant="outline" size="lg" onClick={() => onSelectMethod('totp')}>
-                            Authenticator app verification
-                        </Button>
+                        {hasSMS && (
+                            <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
+                                SMS Verification
+                            </Button>
+                        )}
+                        {hasTOTP && (
+                            <Button w="100%" variant="outline" size="lg" onClick={() => onSelectMethod('totp')}>
+                                Authenticator app verification
+                            </Button>
+                        )}
                     </Stack>
                     <Divider my="xs" c="charcoal.1" />
                     <Text size="md" c="grey.7">
