@@ -1,6 +1,5 @@
 'use client'
 import { useMutation } from '@/common'
-import { ButtonLink } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
@@ -21,6 +20,7 @@ type Method = 'sms' | 'totp'
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const [step, setStep] = useState<Step>('select')
     const [method, setMethod] = useState<Method | null>(null)
+    const [isNavigatingToReset, setIsNavigatingToReset] = useState<boolean>(false)
     const { isLoaded, setActive } = useSignIn()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -137,9 +137,18 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     <Text size="md" c="grey.7">
                         Can&apos;t access your MFA device?
                     </Text>
-                    <ButtonLink href="/account/mfa/reset-mfa" w="100%" variant="outline" size="lg">
+                    <Button
+                        w="100%"
+                        variant="outline"
+                        size="lg"
+                        loading={isNavigatingToReset}
+                        onClick={() => {
+                            setIsNavigatingToReset(true)
+                            router.push('/account/signin/reset-mfa')
+                        }}
+                    >
                         Try recovery code
-                    </ButtonLink>
+                    </Button>
                 </Stack>
             )}
 

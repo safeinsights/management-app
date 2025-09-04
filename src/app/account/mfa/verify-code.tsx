@@ -44,8 +44,10 @@ export const VerifyCode = ({
 
     return (
         <form onSubmit={form.onSubmit(onSubmit)} style={{ width: '100%' }}>
-            <Stack align="center" gap="sm">
-                <Title order={3}>Verify your code</Title>
+            <Stack align="center" gap="md" mb="xl">
+                <Title order={3} mb="xs">
+                    Verify your code
+                </Title>
                 <Text>
                     {method === 'sms'
                         ? `We've sent a 6-digit code to your phone number ending in
@@ -55,7 +57,7 @@ export const VerifyCode = ({
                 {method === 'totp' && (
                     <Text>This code changes every 30 seconds and helps ensure your account remains secure.</Text>
                 )}
-                <Title order={4} ta="center" mt="xs">
+                <Title order={4} ta="center" mt="xs" mb={'-0.5rem'}>
                     Enter your code
                 </Title>
                 <PinInput
@@ -74,6 +76,7 @@ export const VerifyCode = ({
                     size="lg"
                     variant="primary"
                     radius="sm"
+                    mt="xs"
                     loading={isVerifyingCode}
                     disabled={!/\d{6,}/.test(form.values.code)}
                 >
@@ -81,11 +84,12 @@ export const VerifyCode = ({
                 </Button>
                 {method === 'sms' && (
                     <Group>
-                        <Text fz="md" c="grey.7">
+                        <Text fz="sm" c="grey.7">
                             Didn’t receive a code?{' '}
                             <Anchor
                                 component="button"
                                 c="blue.7"
+                                fz="sm"
                                 underline="always"
                                 style={{
                                     opacity: canResendCode ? 1 : 0.4,
@@ -99,12 +103,14 @@ export const VerifyCode = ({
                         </Text>
                     </Group>
                 )}
-                <Group gap="xs" justify="center" mb="xl">
-                    <Button onClick={resetFlow} mt="md" fw={600} fz="md" variant="subtle">
-                        <CaretLeftIcon size={20} />
-                        Back to options
-                    </Button>
-                </Group>
+                {method === 'totp' && (
+                    <Group gap="xs" justify="center">
+                        <Button onClick={resetFlow} mt="md" fw={600} fz="md" variant="subtle">
+                            <CaretLeftIcon size={20} />
+                            Back to options
+                        </Button>
+                    </Group>
+                )}
             </Stack>
         </form>
     )
