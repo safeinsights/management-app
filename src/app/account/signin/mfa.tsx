@@ -11,16 +11,16 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import { VerifyCode } from '../mfa/verify-code'
 import { MFAState } from './logic'
+import { RecoveryCodeMFAReset } from './reset-mfa'
 
 export const dynamic = 'force-dynamic'
 
-type Step = 'select' | 'verify'
+export type Step = 'select' | 'verify' | 'reset'
 type Method = 'sms' | 'totp'
 
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const [step, setStep] = useState<Step>('select')
     const [method, setMethod] = useState<Method | null>(null)
-    const [isNavigatingToReset, setIsNavigatingToReset] = useState<boolean>(false)
     const { isLoaded, setActive } = useSignIn()
     const router = useRouter()
     const searchParams = useSearchParams()
@@ -149,10 +149,8 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         w="100%"
                         variant="outline"
                         size="lg"
-                        loading={isNavigatingToReset}
                         onClick={() => {
-                            setIsNavigatingToReset(true)
-                            router.push('/account/signin/reset-mfa')
+                            setStep('reset')
                         }}
                     >
                         Try recovery code
@@ -171,6 +169,8 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     resetFlow={resetFlow}
                 />
             )}
+
+            {step === 'reset' && <RecoveryCodeMFAReset setStep={setStep} />}
         </Paper>
     )
 }

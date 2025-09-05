@@ -16,7 +16,7 @@ export function FocusedLayoutShell({ children }: Props) {
     const theme = useMantineTheme()
     const pathname = usePathname()
     const router = useRouter()
-    const isSignInFlow = pathname.startsWith('/account/signin')
+    const isSignInFlow = pathname.startsWith('/account/signin') || pathname.startsWith('/account/reset-password')
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
