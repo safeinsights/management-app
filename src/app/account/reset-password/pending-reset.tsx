@@ -147,7 +147,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const { requirements, shouldShowRequirements } = usePasswordRequirements(verificationForm.values.password)
 
-    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} onReset={() => setNeedsMFA(false)} />
+    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} />
 
     return (
         <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>

@@ -220,3 +220,11 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
         await clerkLoaded(page)
     }
 }
+
+export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
+    const pin = pinCode.split('')
+    const pinInputs = page.getByTestId(testId).locator('input')
+    for (let i = 0; i < pin.length; i++) {
+        await pinInputs.nth(i).fill(pin[i])
+    }
+}
