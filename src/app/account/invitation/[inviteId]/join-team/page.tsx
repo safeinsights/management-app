@@ -1,7 +1,7 @@
 'use client'
 
 import { FC, use, useState } from 'react'
-import { useMutation, useQuery } from '@/components/common'
+import { useMutation, useQuery } from '@/common'
 import { Flex, Text, Button } from '@mantine/core'
 import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
 import { reportMutationError } from '@/components/errors'

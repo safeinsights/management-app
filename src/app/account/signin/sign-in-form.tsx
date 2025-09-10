@@ -1,4 +1,4 @@
-import { zodResolver, useForm, Link, Flex, Button } from '@/components/common'
+import { zodResolver, useForm, Link, Flex, Button } from '@/common'
 import { TextInput, PasswordInput, Paper, Title } from '@mantine/core'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import { reportError } from '@/components/errors'
@@ -138,7 +138,7 @@ export const SignInForm: FC<{
                         size="lg"
                         disabled={!form.isValid()}
                         type="submit"
-                        bg={!form.isValid() ? 'grey.1' : ''}
+                        bg={!form.isValid() ? 'grey.1' : undefined}
                     >
                         Login
                     </Button>

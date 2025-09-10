@@ -35,6 +35,7 @@ export function defineAbilityFor(session: UserSession) {
         permit('create', 'StudyJob', { orgId: session.team.id })
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
+        permit('delete', 'StudyJob', { orgId: session.team.id })
     }
 
     if (isReviewer || isTeamAdmin) {

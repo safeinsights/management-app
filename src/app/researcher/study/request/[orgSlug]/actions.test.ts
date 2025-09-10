@@ -50,10 +50,9 @@ describe('Request Study Actions', () => {
 
     it('onDeleteStudyAction deletes a study', async () => {
         const { org } = await mockSessionWithTestData({ isResearcher: true })
-        const { studyId, jobs } = await insertTestStudyData({ org })
-        const studyJobId = jobs[0].id
+        const { studyId } = await insertTestStudyData({ org })
 
-        await onDeleteStudyAction({ orgSlug: org.slug, studyId, studyJobId })
+        await onDeleteStudyAction({ studyId })
 
         const study = await db.selectFrom('study').selectAll('study').where('id', '=', studyId).executeTakeFirst()
         expect(study).toBeUndefined()

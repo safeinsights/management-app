@@ -1,4 +1,4 @@
-import { db } from '@/database'
+import { Action } from '../actions/action'
 
 type SiUserOptionalAttrs = {
     firstName?: string | null
@@ -7,10 +7,10 @@ type SiUserOptionalAttrs = {
 }
 
 export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptionalAttrs = {}) => {
-    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkId).executeTakeFirst()
+    let user = await Action.db.selectFrom('user').select('id').where('clerkId', '=', clerkId).executeTakeFirst()
 
     if (!user) {
-        user = await db
+        user = await Action.db
             .insertInto('user')
             .values({
                 clerkId,

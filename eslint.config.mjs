@@ -37,6 +37,13 @@ const eslintConfig = [
         },
         rules: {
             'custom/noSelectAllWithoutArgs': 'error',
+            'no-restricted-imports': [
+                'error',
+                {
+                    name: '@tanstack/react-query',
+                    message: 'Please import tanstack from @/common instead.',
+                },
+            ],
             'no-console': ['error', { allow: ['warn', 'error'] }],
             '@typescript-eslint/no-unused-vars': [
                 'error',

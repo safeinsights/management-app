@@ -13,7 +13,7 @@ import {
     CopyButton,
     Flex,
 } from '@mantine/core'
-import { useMutation } from '@/components/common'
+import { useMutation } from '@/common'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
 import { useDisclosure } from '@mantine/hooks'

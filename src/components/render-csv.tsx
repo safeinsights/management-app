@@ -5,6 +5,8 @@ import Papa from 'papaparse'
 import { DataTable } from 'mantine-datatable'
 import { LoadingOverlay, Flex } from '@mantine/core'
 import { ErrorAlert } from '@/components/errors'
+
+// eslint-disable-next-line no-restricted-imports
 import { useQuery, skipToken } from '@tanstack/react-query'
 
 type CSV = Record<string, string | number>

@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionSuccessType, JOB_FINAL_STATUSES } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import dayjs from 'dayjs'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
@@ -20,7 +20,7 @@ import {
 } from '@mantine/core'
 import { FC } from 'react'
 import { Link } from '@/components/links'
-import { useQuery } from '@/components/common'
+import { useQuery } from '@/common'
 import { StudyJobStatus } from '@/database/types'
 import { Refresher } from '@/components/refresher'
 

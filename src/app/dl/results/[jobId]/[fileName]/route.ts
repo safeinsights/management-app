@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { urlForFile } from '@/server/storage'
-import { getStudyJobFileOfType, getStudyOrgIdForJobId } from '@/server/db/queries'
+import { getStudyJobFileOfType, getInfoForStudyJobId } from '@/server/db/queries'
 import { sessionFromClerk } from '@/server/clerk'
 import { toRecord } from '@/lib/permissions'
 
@@ -11,12 +11,12 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
         return NextResponse.json({ error: 'no job id or file name provided' }, { status: 400 })
     }
 
-    const study = await getStudyOrgIdForJobId(jobId)
+    const info = await getInfoForStudyJobId(jobId)
 
     const file = await getStudyJobFileOfType(jobId, 'APPROVED-RESULT')
 
     const session = await sessionFromClerk()
-    if (file && !session?.can('view', toRecord('StudyJob', { orgId: study.orgId }))) {
+    if (file && !session?.can('view', toRecord('StudyJob', { orgId: info.orgId }))) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }
 

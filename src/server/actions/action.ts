@@ -182,6 +182,7 @@ export class Action<
 
                 // Choose between transaction and regular db
                 let result: Res
+
                 if (this.options.performsMutations) {
                     result = await db.transaction().execute(execute)
                 } else {

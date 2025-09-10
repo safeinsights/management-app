@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from '@/components/common'
+import { useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
 import { Link } from '@/components/links'
 import logger from '@/lib/logger'

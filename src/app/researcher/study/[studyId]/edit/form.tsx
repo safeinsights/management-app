@@ -5,7 +5,7 @@ import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { type FormValues, schema } from './schema'
 import Link from 'next/link'
-import { useMutation, zodResolver } from '@/components/common'
+import { useMutation, zodResolver } from '@/common'
 import { css } from '@/styles'
 
 export const labelStyle = css({

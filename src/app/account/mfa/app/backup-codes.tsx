@@ -1,4 +1,4 @@
-import { useState, type FC } from '@/components/common'
+import { useState, type FC } from '@/common'
 import { AppModal } from '@/components/modal'
 import { useSession } from '@/hooks/session'
 import { navigateToDashboard } from '@/lib/session'
