@@ -2,7 +2,6 @@
 
 import { FC, useEffect, useState } from 'react'
 import { NavLink } from '@mantine/core'
-import Link from 'next/link'
 import { GearIcon, UsersThreeIcon, SlidersIcon, GlobeIcon } from '@phosphor-icons/react/dist/ssr'
 import styles from './navbar-items.module.css'
 import { useSession } from '@/hooks/session'
