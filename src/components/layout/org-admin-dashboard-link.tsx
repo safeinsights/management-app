@@ -19,15 +19,11 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const { session } = useSession()
 
     const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
-    const isAdminURL = Boolean(pathname.startsWith(orgAdminBaseUrl))
-
-    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminURL)
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(pathname.startsWith('/admin/'))
 
     useEffect(() => {
-        if (isAdminURL && !isAdminMenuOpen) {
-            setIsAdminMenuOpen(true)
-        }
-    }, [isAdminURL, isAdminMenuOpen])
+        setIsAdminMenuOpen(pathname.startsWith('/admin/'))
+    }, [pathname])
 
     if (!isVisible) return null
 
@@ -37,13 +33,9 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 label="Admin"
                 leftSection={<GearIcon />}
                 component="button"
-                onClick={() => {
-                    if (!pathname.startsWith(orgAdminBaseUrl)) {
-                        setIsAdminMenuOpen((prev) => !prev)
-                    }
-                }}
-                active={false}
-                opened={isAdminURL || isAdminMenuOpen}
+                onClick={() => setIsAdminMenuOpen((prev) => !prev)}
+                active={pathname.startsWith('/admin/')}
+                opened={isAdminMenuOpen}
                 c="white"
                 className={styles.navLinkHover}
                 rightSection={null}
@@ -56,28 +48,18 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     icon={<GlobeIcon />}
                     pl="xl"
                 />
-                <NavLink
+                <NavbarLink
+                    isVisible={true}
                     label="Manage Team"
-                    leftSection={<UsersThreeIcon size={20} />}
-                    component={Link}
-                    href={`${orgAdminBaseUrl}`}
-                    active={pathname === `${orgAdminBaseUrl}`}
-                    c="white"
-                    color="blue.7"
-                    variant="filled"
-                    className={styles.navLinkHover}
+                    icon={<UsersThreeIcon size={20} />}
+                    url={`${orgAdminBaseUrl}`}
                     pl="xl"
                 />
-                <NavLink
+                <NavbarLink
+                    isVisible={true}
                     label="Settings"
-                    leftSection={<SlidersIcon size={20} />}
-                    component={Link}
-                    href={`${orgAdminBaseUrl}/settings`}
-                    active={pathname === `${orgAdminBaseUrl}/settings`}
-                    c="white"
-                    color="blue.7"
-                    variant="filled"
-                    className={styles.navLinkHover}
+                    icon={<SlidersIcon size={20} />}
+                    url={`${orgAdminBaseUrl}/settings`}
                     pl="xl"
                 />
             </NavLink>
