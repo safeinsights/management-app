@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { SelectedStudy } from '@/server/actions/study.actions'
 import { useMutation, useQueryClient } from '@/common'
-import { CancelButton } from '@/components/cancel-button'
+import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { reportMutationError } from '@/components/errors'
@@ -79,7 +79,11 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                 <StudyCodeUpload studyProposalForm={studyProposalForm} />
 
                 <Group justify="flex-end" mt="md">
-                    <CancelButton isDirty={studyProposalForm.isDirty()} disabled={isPending} />
+                    <ResubmitCancelButton
+                        isDirty={studyProposalForm.isDirty()}
+                        disabled={isPending}
+                        href={`/researcher/study/${study.id}`}
+                    />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code
                     </Button>
