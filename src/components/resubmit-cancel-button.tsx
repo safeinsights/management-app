@@ -10,7 +10,7 @@ export function ResubmitCancelButton({
 }: {
     isDirty: boolean
     disabled: boolean
-    href?: string
+    href: string
 }) {
     const [isOpen, setIsOpen] = useState(false)
     const router = useRouter()
@@ -23,7 +23,7 @@ export function ResubmitCancelButton({
         }
     }
 
-    const confirmCancel = async () => {
+    const confirmCancel = () => {
         router.push(href || '/')
     }
 

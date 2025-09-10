@@ -43,19 +43,17 @@ export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 }
 
 export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
-    const filesStatusChange = job.statusChanges.find((statusChange) => {
+    const hasBeenReviewed = job.statusChanges.find((statusChange) => {
         return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
     })
+
     const hasErrored = job.statusChanges.some((statusChange) => statusChange.status === 'JOB-ERRORED')
 
-    if (!filesStatusChange) {
+    if (!hasBeenReviewed) {
         return null
     }
 
-    if (
-        (filesStatusChange.status === 'FILES-APPROVED' && hasErrored) ||
-        (filesStatusChange.status === 'FILES-REJECTED' && hasErrored)
-    ) {
+    if (hasBeenReviewed && hasErrored) {
         return (
             <Button component={Link} href={`/researcher/study/${job.studyId}/resubmit/${orgSlug}`}>
                 Resubmit study code
@@ -63,5 +61,5 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }>
         )
     }
 
-    return <JobApprovalStatus statusChange={filesStatusChange} />
+    return <JobApprovalStatus statusChange={hasBeenReviewed} />
 }
