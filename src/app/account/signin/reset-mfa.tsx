@@ -3,7 +3,9 @@
 import { useState } from '@/common'
 import { InputError } from '@/components/errors'
 import { AppModal } from '@/components/modal'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { actionResult } from '@/lib/utils'
+import { resetUserMFAAction } from '@/server/actions/user.actions'
+import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
@@ -15,7 +17,6 @@ export const dynamic = 'force-dynamic'
 
 export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
-    const { user } = useUser()
     const router = useRouter()
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -62,26 +63,12 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
             // activate the session verified by backup code
             await setActive?.({ session: verifiedSessionId })
 
-            if (user) {
-                // Disable TOTP if enabled
-                if (user.totpEnabled) {
-                    await user.disableTOTP()
-                }
+            const result = actionResult(await resetUserMFAAction())
 
-                // Remove any phone numbers used for MFA
-                for (const phone of user.phoneNumbers) {
-                    if (phone.reservedForSecondFactor || phone.defaultSecondFactor) {
-                        try {
-                            await phone.destroy()
-                        } catch {
-                            await phone.setReservedForSecondFactor({ reserved: false })
-                        }
-                    }
-                }
+            if (result?.twoFactorEnabled === false) {
+                notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
+                router.push('/account/mfa')
             }
-
-            notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
-            router.push('/account/mfa')
         } catch {
             notifications.show({ message: 'Failed to reset MFA', color: 'red' })
         } finally {

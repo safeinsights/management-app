@@ -51,7 +51,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         },
         onError(error: unknown) {
             form.setErrors({
-                code: errorToString(error),
+                code: errorToString(error, {
+                    form_code_incorrect: 'Invalid verification code. Please try again.',
+                }),
             })
         },
         async onSuccess(signInAttempt?: SignInResource) {
