@@ -18,12 +18,13 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const pathname = usePathname()
     const { session } = useSession()
 
+    const isAdminPage = pathname.startsWith('/admin/')
     const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
-    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(pathname.startsWith('/admin/'))
+    const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {
-        setIsAdminMenuOpen(pathname.startsWith('/admin/'))
-    }, [pathname])
+        setIsAdminMenuOpen(isAdminPage)
+    }, [isAdminPage])
 
     if (!isVisible) return null
 
@@ -34,7 +35,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 leftSection={<GearIcon />}
                 component="button"
                 onClick={() => setIsAdminMenuOpen((prev) => !prev)}
-                active={pathname.startsWith('/admin/')}
+                active={isAdminPage}
                 opened={isAdminMenuOpen}
                 c="white"
                 className={styles.navLinkHover}
