@@ -21,6 +21,7 @@ import { omit } from 'remeda'
 import logger from '@/lib/logger'
 import { errorToString, isActionError } from '@/lib/errors'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
+import ProxyProvider from '@/components/proxy-provider'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -157,6 +158,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     return (
+        <ProxyProvider isDirty={studyProposalForm.isDirty()}>
         <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
             <Stepper
                 unstyled
@@ -199,5 +201,6 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                 </Group>
             </Group>
         </form>
+        </ProxyProvider>
     )
 }
