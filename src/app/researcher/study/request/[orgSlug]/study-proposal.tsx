@@ -21,6 +21,7 @@ import { omit } from 'remeda'
 import logger from '@/lib/logger'
 import { errorToString, isActionError } from '@/lib/errors'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
+import ProxyProvider from '@/components/proxy-provider'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -157,47 +158,49 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stepper
-                unstyled
-                active={stepIndex}
-                styles={{
-                    steps: {
-                        display: 'none',
-                    },
-                }}
-            >
-                <Stepper.Step>
-                    <StudyProposalForm studyProposalForm={studyProposalForm} />
-                </Stepper.Step>
+        <ProxyProvider isDirty={studyProposalForm.isDirty()}>
+            <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+                <Stepper
+                    unstyled
+                    active={stepIndex}
+                    styles={{
+                        steps: {
+                            display: 'none',
+                        },
+                    }}
+                >
+                    <Stepper.Step>
+                        <StudyProposalForm studyProposalForm={studyProposalForm} />
+                    </Stepper.Step>
 
-                <Stepper.Step>
-                    <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
-                </Stepper.Step>
-            </Stepper>
+                    <Stepper.Step>
+                        <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
+                    </Stepper.Step>
+                </Stepper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                {stepIndex === 1 && (
-                    <Button
-                        type="button"
-                        disabled={isPending}
-                        variant="outline"
-                        onClick={() => setStepIndex(stepIndex - 1)}
-                    >
-                        Back
-                    </Button>
-                )}
+                <Group mt="xxl" style={{ width: '100%' }}>
+                    {stepIndex === 1 && (
+                        <Button
+                            type="button"
+                            disabled={isPending}
+                            variant="outline"
+                            onClick={() => setStepIndex(stepIndex - 1)}
+                        >
+                            Back
+                        </Button>
+                    )}
 
-                <Group style={{ marginLeft: 'auto' }}>
-                    <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
-                    <StepperButtons
-                        form={studyProposalForm}
-                        stepIndex={stepIndex}
-                        isPending={isPending}
-                        setStepIndex={setStepIndex}
-                    />
+                    <Group style={{ marginLeft: 'auto' }}>
+                        <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
+                        <StepperButtons
+                            form={studyProposalForm}
+                            stepIndex={stepIndex}
+                            isPending={isPending}
+                            setStepIndex={setStepIndex}
+                        />
+                    </Group>
                 </Group>
-            </Group>
-        </form>
+            </form>
+        </ProxyProvider>
     )
 }

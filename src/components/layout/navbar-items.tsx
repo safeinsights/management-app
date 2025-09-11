@@ -2,7 +2,7 @@
 
 import { useSession } from '@/hooks/session'
 import { Stack } from '@mantine/core'
-import { StudentIcon, UserListIcon, BookOpenIcon, BooksIcon } from '@phosphor-icons/react/dist/ssr'
+import { StudentIcon, UserListIcon, BookOpenIcon, BooksIcon, ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 import { OrgSwitcher } from '../org/org-switcher'
 import { NavbarLink } from './navbar-link'
@@ -30,9 +30,11 @@ export const NavbarItems: FC = () => {
             />
             <NavbarLink
                 icon={<BookOpenIcon />}
+                rightIcon={<ArrowSquareOutIcon />}
                 isVisible={isAdmin || isReviewer}
                 url={'https://kb.safeinsights.org/resource-center'}
                 label={'Resource Center'}
+                newTab
             />
 
             <NavbarLink
@@ -43,9 +45,11 @@ export const NavbarItems: FC = () => {
             />
             <NavbarLink
                 icon={<BooksIcon />}
+                rightIcon={<ArrowSquareOutIcon />}
                 isVisible={isAdmin || isResearcher}
                 url={'https://kb.safeinsights.org/data-catalog'}
                 label={'Data Catalog'}
+                newTab
             />
         </Stack>
     )

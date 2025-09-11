@@ -1,7 +1,7 @@
 'use client'
 
+import { useForm, useMutation, useState, z, zodResolver } from '@/common'
 import { ClerkErrorAlert } from '@/components/clerk-errors'
-import { zodResolver, useMutation, useForm, useState, z } from '@/common'
 import { InputError } from '@/components/errors'
 import { errorToString, isClerkApiError } from '@/lib/errors'
 import { onUserResetPWAction } from '@/server/actions/user.actions'
@@ -39,11 +39,12 @@ type VerificationFormValues = z.infer<typeof verificationFormSchema>
 
 interface PendingResetProps {
     pendingReset: SignInResource
+    onResetUpdate?: (updated: SignInResource) => void
 }
 
-export function PendingReset({ pendingReset }: PendingResetProps) {
+export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps) {
     const { isLoaded, setActive, signIn } = useSignIn()
-    const [mfaSignIn, setNeedsMFA] = useState<MFAState>(false)
+    const [needsMFA, setNeedsMFA] = useState<MFAState>(false)
     const [verificationError, setVerificationError] = useState<string | null>(null)
     const [canResend, setCanResend] = useState(true)
     const router = useRouter()
@@ -62,10 +63,12 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const { isPending, mutate: onSubmitVerification } = useMutation({
         async mutationFn(form: VerificationFormValues) {
-            if (!isLoaded || !pendingReset || Object.keys(pendingReset).length === 0) return
+            if (!isLoaded || (!signIn && (!pendingReset || Object.keys(pendingReset).length === 0))) return
             setVerificationError(null)
 
-            return await pendingReset.attemptFirstFactor({
+            const resetInstance = signIn ?? pendingReset
+
+            return await resetInstance!.attemptFirstFactor({
                 strategy: 'reset_password_email_code',
                 code: form.code,
                 password: form.password,
@@ -135,7 +138,12 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
         onError: (error: unknown) => {
             console.error('Failed to resend code:', error)
         },
-        onSuccess: () => {
+        onSuccess: (newSignIn) => {
+            // use the latest sign-in instance
+            if (newSignIn && onResetUpdate) {
+                onResetUpdate(newSignIn)
+            }
+
             setCanResend(false)
             setTimeout(() => setCanResend(true), 30000)
         },
@@ -147,7 +155,7 @@ export function PendingReset({ pendingReset }: PendingResetProps) {
 
     const { requirements, shouldShowRequirements } = usePasswordRequirements(verificationForm.values.password)
 
-    if (mfaSignIn) return <RequestMFA mfa={mfaSignIn} />
+    if (needsMFA) return <RequestMFA mfa={needsMFA} onReset={() => setNeedsMFA(false)} />
 
     return (
         <form onSubmit={verificationForm.onSubmit((values) => onSubmitVerification(values))}>
