@@ -10,9 +10,11 @@ type NavbarLinkProps = NavLinkProps & {
     url: string
     label: string
     icon: React.ReactNode
+    rightIcon?: React.ReactNode
+    newTab?: boolean
 }
 
-export const NavbarLink: FC<NavbarLinkProps> = ({ isVisible, url, label, icon, ...linkProps }) => {
+export const NavbarLink: FC<NavbarLinkProps> = ({ isVisible, url, label, icon, rightIcon, newTab, ...linkProps }) => {
     const pathname = usePathname()
 
     if (!isVisible) return null
@@ -23,12 +25,14 @@ export const NavbarLink: FC<NavbarLinkProps> = ({ isVisible, url, label, icon, .
             <NavLink
                 label={label}
                 leftSection={icon}
+                rightSection={rightIcon}
                 component={isExternal ? undefined : Link}
                 href={url}
                 active={pathname === url}
                 c="white"
                 color="blue.7"
                 variant="filled"
+                target={newTab ? '_blank' : '_self'}
                 className={styles.navLinkHover}
                 {...linkProps}
             />
