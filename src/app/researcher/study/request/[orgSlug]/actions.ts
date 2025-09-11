@@ -203,6 +203,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
             codeFileNames,
         )
 
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
         revalidatePath('/researcher/dashboard')
         revalidatePath(`/researcher/study/${studyId}/review`)
 
