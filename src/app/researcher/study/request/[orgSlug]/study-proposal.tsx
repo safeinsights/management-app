@@ -159,48 +159,48 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
 
     return (
         <ProxyProvider isDirty={studyProposalForm.isDirty()}>
-        <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-            <Stepper
-                unstyled
-                active={stepIndex}
-                styles={{
-                    steps: {
-                        display: 'none',
-                    },
-                }}
-            >
-                <Stepper.Step>
-                    <StudyProposalForm studyProposalForm={studyProposalForm} />
-                </Stepper.Step>
+            <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+                <Stepper
+                    unstyled
+                    active={stepIndex}
+                    styles={{
+                        steps: {
+                            display: 'none',
+                        },
+                    }}
+                >
+                    <Stepper.Step>
+                        <StudyProposalForm studyProposalForm={studyProposalForm} />
+                    </Stepper.Step>
 
-                <Stepper.Step>
-                    <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
-                </Stepper.Step>
-            </Stepper>
+                    <Stepper.Step>
+                        <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
+                    </Stepper.Step>
+                </Stepper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                {stepIndex === 1 && (
-                    <Button
-                        type="button"
-                        disabled={isPending}
-                        variant="outline"
-                        onClick={() => setStepIndex(stepIndex - 1)}
-                    >
-                        Back
-                    </Button>
-                )}
+                <Group mt="xxl" style={{ width: '100%' }}>
+                    {stepIndex === 1 && (
+                        <Button
+                            type="button"
+                            disabled={isPending}
+                            variant="outline"
+                            onClick={() => setStepIndex(stepIndex - 1)}
+                        >
+                            Back
+                        </Button>
+                    )}
 
-                <Group style={{ marginLeft: 'auto' }}>
-                    <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
-                    <StepperButtons
-                        form={studyProposalForm}
-                        stepIndex={stepIndex}
-                        isPending={isPending}
-                        setStepIndex={setStepIndex}
-                    />
+                    <Group style={{ marginLeft: 'auto' }}>
+                        <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />
+                        <StepperButtons
+                            form={studyProposalForm}
+                            stepIndex={stepIndex}
+                            isPending={isPending}
+                            setStepIndex={setStepIndex}
+                        />
+                    </Group>
                 </Group>
-            </Group>
-        </form>
+            </form>
         </ProxyProvider>
     )
 }

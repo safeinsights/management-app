@@ -10,10 +10,10 @@ import { Button, Text, Stack, Group } from '@mantine/core'
 
 const ProxyContext = createContext<ProxyInstance>([undefined, () => {}])
 
-const ProxyProvider: FC<PropsWithChildren<{isDirty: boolean }>> = ({ children, isDirty }) => {
+const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, isDirty }) => {
     const router = useRouter()
     const [tips, setTips] = useState<string | undefined>()
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false)
     const msg = tips === undefined ? tips : tips || 'Are you sure want to leave this page?'
 
     const pathname = usePathname()
@@ -26,78 +26,79 @@ const ProxyProvider: FC<PropsWithChildren<{isDirty: boolean }>> = ({ children, i
 
     useEffect(() => {
         // Track the target URL for navigation after confirmation
-        const targetUrl = { current: '' };
+        const targetUrl = { current: '' }
 
         // Handle browser reload/close
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (isDirty) {
-                event.preventDefault();
-                event.returnValue = '';
+                event.preventDefault()
+                event.returnValue = ''
                 return event.returnValue
             }
-        };
+        }
 
         // Handle browser back/forward buttons
         const handlePopState = (event: PopStateEvent) => {
             if (isDirty) {
-                event.preventDefault();
-                setIsOpen(true);
+                event.preventDefault()
+                setIsOpen(true)
             }
-        };
+        }
 
         // Handle in-app navigation
         const handleClick = (event: MouseEvent) => {
-            if (!isDirty) return;
-            
+            if (!isDirty) return
+
             // Find the closest anchor element
-            const target = event.target as HTMLElement;
-            const link = target.closest('a');
-            
+            const target = event.target as HTMLElement
+            const link = target.closest('a')
+
             // Only process if it's a link and not marked to skip
             if (link && link.tagName === 'A' && !link.hasAttribute('data-skip-navigation')) {
-                const href = link.getAttribute('href');
+                const href = link.getAttribute('href')
                 if (href) {
-                    const isExternal = href.startsWith('http') && !href.startsWith(window.location.origin);
-                    const isInternal = href.startsWith('/') || href.startsWith('#');
-                    
+                    const isExternal = href.startsWith('http') && !href.startsWith(window.location.origin)
+                    const isInternal = href.startsWith('/') || href.startsWith('#')
+
                     if (isInternal || isExternal) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        event.stopImmediatePropagation();
-                        
+                        event.preventDefault()
+                        event.stopPropagation()
+                        event.stopImmediatePropagation()
+
                         // Store the target URL for later navigation
-                        targetUrl.current = isExternal ? href : 
-                            href.startsWith('http') 
-                                ? href.replace(window.location.origin, '') 
-                                : href;
-                        
+                        targetUrl.current = isExternal
+                            ? href
+                            : href.startsWith('http')
+                              ? href.replace(window.location.origin, '')
+                              : href
+
                         // Show the modal
-                        setIsOpen(true);
+                        setIsOpen(true)
                     }
                 }
             }
-        };
+        }
 
         // Add event listeners with capture phase to ensure we catch the event early
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        window.addEventListener('popstate', handlePopState);
-        document.addEventListener('click', handleClick, { capture: true });
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        window.addEventListener('popstate', handlePopState)
+        document.addEventListener('click', handleClick, { capture: true })
 
         return () => {
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            window.removeEventListener('popstate', handlePopState);
-            document.removeEventListener('click', handleClick, { capture: true });
-        };
-    }, [isDirty]);
+            window.removeEventListener('beforeunload', handleBeforeUnload)
+            window.removeEventListener('popstate', handlePopState)
+            document.removeEventListener('click', handleClick, { capture: true })
+        }
+    }, [isDirty])
 
     const confirmNavigation = () => {
-        setIsOpen(false);
-            router.push('/');
-    };
+        setIsOpen(false)
+        router.push('/')
+    }
 
     const handleBackToForm = () => {
-        setIsOpen(false);
-    };
+        setIsOpen(false)
+    }
 
     return (
         <ProxyContext.Provider value={[msg, setTips]}>
@@ -129,25 +130,25 @@ const ProxyProvider: FC<PropsWithChildren<{isDirty: boolean }>> = ({ children, i
             {children}
 
             <>
-                <AppModal 
-                    isOpen={isOpen} 
-                    onClose={handleBackToForm} 
+                <AppModal
+                    isOpen={isOpen}
+                    onClose={handleBackToForm}
                     title="Cancel proposal?"
-                    overlayProps={{ 
-                        style: { 
-                            position: 'fixed', 
+                    overlayProps={{
+                        style: {
+                            position: 'fixed',
                             zIndex: 10000,
-                            pointerEvents: isOpen ? 'auto' : 'none'
-                        } 
+                            pointerEvents: isOpen ? 'auto' : 'none',
+                        },
                     }}
                     modalProps={{
-                        style: { pointerEvents: 'auto' }
+                        style: { pointerEvents: 'auto' },
                     }}
                 >
                     <Stack>
                         <Text size="md">
-                        You&apos;re about to cancel this study proposal draft. On cancel, the current proposal will be
-                        deleted and you won&apos;t be able to retrieve it in the future.
+                            You&apos;re about to cancel this study proposal draft. On cancel, the current proposal will
+                            be deleted and you won&apos;t be able to retrieve it in the future.
                         </Text>
                         <Text size="md">Do you want to proceed?</Text>
                         <Group>
