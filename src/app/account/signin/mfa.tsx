@@ -9,9 +9,9 @@ import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/cor
 import { isNotEmpty, useForm } from '@mantine/form'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
-import { VerifyCode } from '../mfa/verify-code'
 import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
+import { VerifyCode } from './verify-code'
 
 export const dynamic = 'force-dynamic'
 
