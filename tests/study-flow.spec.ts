@@ -65,7 +65,7 @@ test.describe('Studies', () => {
         // await page.getByRole('button', { name: /all studies/i }).click()
         await page.waitForLoadState('networkidle')
 
-        await expect(page.getByText(studyFeatures.studyTitle).first()).toBeVisible()
+        await expect(page.getByRole('row').filter({ hasText: studyFeatures.studyTitle })).toBeVisible()
     })
 
     test('reviewer reviews and approves the study', async ({ page, studyFeatures }) => {
@@ -73,9 +73,11 @@ test.describe('Studies', () => {
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
-        const title = studyFeatures.studyTitle.substring(0, 30)
+        const title = studyFeatures.studyTitle
 
-        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).first().click()
+        const studyRow = page.getByRole('row').filter({ hasText: title })
+        await expect(studyRow).toBeVisible()
+        await studyRow.getByRole('link', { name: 'View' }).first().click()
 
         await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 
@@ -94,7 +96,9 @@ test.describe('Studies', () => {
         await page.unroute(studyPageUrl)
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
 
-        await page.getByRole('row', { name: title }).getByRole('link', { name: 'View' }).click()
+        const viewLink = page.getByRole('row').filter({ hasText: title }).getByRole('link', { name: 'View' })
+        await expect(viewLink).toBeVisible()
+        await viewLink.click()
 
         await expect(page.getByText(/approved on/i)).toBeVisible()
     })
