@@ -1,0 +1,92 @@
+import {
+    renderWithProviders,
+    mockSessionWithTestData,
+    describe,
+    it,
+    expect,
+    screen,
+    faker,
+    userEvent,
+    mockPathname,
+} from '@/tests/unit.helpers'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
+
+describe('OrgAdminDashboardLink', () => {
+    it('has all submenu URLs starting with /admin/', async () => {
+        const orgSlug = faker.lorem.slug()
+        // Mock session for an SI admin user to ensure all links are visible
+        await mockSessionWithTestData({ orgSlug, isAdmin: true, isSiAdmin: true })
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
+
+        // Click the Admin button to ensure the menu is open
+        const adminButton = screen.getByRole('button', { name: /Admin/i })
+        await userEvent.click(adminButton)
+
+        // Get all the submenu links
+        const siAdminDashboardLink = screen.getByRole('link', { name: 'SI Admin Dashboard' })
+        const manageTeamLink = screen.getByRole('link', { name: 'Manage Team' })
+        const settingsLink = screen.getByRole('link', { name: 'Settings' })
+
+        // Assert that their href attributes start with /admin/
+        expect(siAdminDashboardLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
+        expect(manageTeamLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
+        expect(settingsLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
+    })
+
+    it('renders nothing when isVisible is false', async () => {
+        await mockSessionWithTestData({ isAdmin: true })
+        renderWithProviders(<OrgAdminDashboardLink isVisible={false} />)
+        expect(screen.queryByRole('button', { name: /Admin/i })).not.toBeInTheDocument()
+    })
+
+    it('shows SI Admin Dashboard link only for SI admins', async () => {
+        const orgSlug = faker.lorem.slug()
+
+        // Test with SI Admin
+        await mockSessionWithTestData({ orgSlug, isAdmin: true, isSiAdmin: true })
+        const { unmount } = renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
+        let adminButton = screen.getByRole('button', { name: /Admin/i })
+        await userEvent.click(adminButton)
+        expect(screen.getByRole('link', { name: 'SI Admin Dashboard' })).toBeInTheDocument()
+        unmount()
+
+        // Test with regular Org Admin
+        await mockSessionWithTestData({ orgSlug, isAdmin: true, isSiAdmin: false })
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
+        adminButton = screen.getByRole('button', { name: /Admin/i })
+        await userEvent.click(adminButton)
+        expect(screen.queryByRole('link', { name: 'SI Admin Dashboard' })).not.toBeInTheDocument()
+    })
+
+    it('is open by default when on an admin page', async () => {
+        const orgSlug = faker.lorem.slug()
+        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        mockPathname(`/admin/team/${orgSlug}`)
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
+
+        expect(screen.getByRole('link', { name: 'Manage Team' })).toBeVisible()
+        expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible()
+    })
+
+    it('toggles the submenu on click', async () => {
+        const orgSlug = faker.lorem.slug()
+        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        mockPathname('/')
+
+        renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
+        const adminButton = screen.getByRole('button', { name: /Admin/i })
+
+        // Menu should be closed initially
+        expect(screen.queryByRole('link', { name: 'Manage Team' })).not.toBeInTheDocument()
+
+        // Click to open
+        await userEvent.click(adminButton)
+        expect(screen.getByRole('link', { name: 'Manage Team' })).toBeVisible()
+
+        // Click to close
+        await userEvent.click(adminButton)
+        expect(screen.queryByRole('link', { name: 'Manage Team' })).not.toBeInTheDocument()
+    })
+})
