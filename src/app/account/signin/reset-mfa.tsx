@@ -3,7 +3,7 @@
 import { useState } from '@/common'
 import { InputError } from '@/components/errors'
 import { AppModal } from '@/components/modal'
-import { actionResult } from '@/lib/utils'
+import { useMutation } from '@/hooks/query-wrappers'
 import { resetUserMFAAction } from '@/server/actions/user.actions'
 import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
@@ -20,7 +20,6 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
     const router = useRouter()
 
     const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-    const [isProcessing, setIsProcessing] = useState(false)
     const [verifiedSessionId, setVerifiedSessionId] = useState<string | null>(null)
 
     const form = useForm({
@@ -28,6 +27,26 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
         validate: {
             code: (value: string) =>
                 /^[a-zA-Z0-9]+$/.test(value.trim()) ? null : 'Only alphanumeric characters are allowed',
+        },
+    })
+
+    const { mutate: resetMfa, isPending: isProcessing } = useMutation<{ twoFactorEnabled: boolean }>({
+        mutationFn: async () => {
+            if (!verifiedSessionId) throw new Error('No verified session')
+
+            // activate the session verified by backup code
+            await setActive?.({ session: verifiedSessionId })
+
+            return await resetUserMFAAction()
+        },
+        onSuccess: (result) => {
+            if (result?.twoFactorEnabled === false) {
+                notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
+                router.push('/account/mfa')
+            }
+        },
+        onError: () => {
+            notifications.show({ message: 'Failed to reset MFA', color: 'red' })
         },
     })
 
@@ -53,26 +72,6 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
             setIsConfirmOpen(true)
         } catch {
             form.setFieldError('code', 'Code is incorrect or already in use. Please try another.')
-        }
-    }
-
-    const proceedReset = async () => {
-        if (!verifiedSessionId) return
-        setIsProcessing(true)
-        try {
-            // activate the session verified by backup code
-            await setActive?.({ session: verifiedSessionId })
-
-            const result = actionResult(await resetUserMFAAction())
-
-            if (result?.twoFactorEnabled === false) {
-                notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
-                router.push('/account/mfa')
-            }
-        } catch {
-            notifications.show({ message: 'Failed to reset MFA', color: 'red' })
-        } finally {
-            setIsProcessing(false)
         }
     }
 
@@ -123,7 +122,7 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
                 isConfirmOpen={isConfirmOpen}
                 setIsConfirmOpen={setIsConfirmOpen}
                 isProcessing={isProcessing}
-                proceedReset={proceedReset}
+                proceedReset={resetMfa}
             />
         </Stack>
     )
