@@ -69,7 +69,7 @@ export const VerifyCode = ({
                     error={!!form.errors.code}
                     {...form.getInputProps('code')}
                 />
-                {form.errors.code && <InputError error={form.errors.code} />}
+                <InputError error={form.errors.code} />
                 <Button
                     type="submit"
                     w="100%"

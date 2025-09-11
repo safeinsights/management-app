@@ -77,57 +77,55 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
     }
 
     return (
-        <>
-            <Stack mb="xxl">
-                <Title mb="xs" ta="center" order={3}>
-                    Use recovery code to reset your MFA
-                </Title>
-                <Text size="md">
-                    If you no longer have access to your authentication device, you can use one of your saved recovery
-                    codes to verify your identity and reset your Multi-Factor Authentication (MFA).
-                </Text>
-                <Text size="md">Enter one of your recovery codes below. Each code can only be used once.</Text>
-                <Text size="md" c="red.8" mb="xs">
-                    <b>Note:</b> If you proceed with this option, you will be required to reset your chosen MFA method.
-                    This ensures your account remains secure.
-                </Text>
+        <Stack mb="xxl">
+            <Title mb="xs" ta="center" order={3}>
+                Use recovery code to reset your MFA
+            </Title>
+            <Text size="md">
+                If you no longer have access to your authentication device, you can use one of your saved recovery codes
+                to verify your identity and reset your Multi-Factor Authentication (MFA).
+            </Text>
+            <Text size="md">Enter one of your recovery codes below. Each code can only be used once.</Text>
+            <Text size="md" c="red.8" mb="xs">
+                <b>Note:</b> If you proceed with this option, you will be required to reset your chosen MFA method. This
+                ensures your account remains secure.
+            </Text>
 
-                <form onSubmit={form.onSubmit(handleSubmit)}>
-                    <Stack gap="xs">
-                        <TextInput
-                            label="Enter recovery code"
-                            placeholder="Each code can only be used once"
-                            key={form.key('code')}
-                            {...form.getInputProps('code')}
-                            error={undefined}
-                            autoComplete="one-time-code"
-                        />
-                        <InputError error={form.errors.code} />
-                        <Button
-                            type="submit"
-                            fullWidth
-                            size="lg"
-                            disabled={form.values.code.trim().length === 0 || Boolean(form.errors.code)}
-                            mt="md"
-                        >
-                            Reset MFA
+            <form onSubmit={form.onSubmit(handleSubmit)}>
+                <Stack gap="xs">
+                    <TextInput
+                        label="Enter recovery code"
+                        placeholder="Each code can only be used once"
+                        key={form.key('code')}
+                        {...form.getInputProps('code')}
+                        error={undefined}
+                        autoComplete="one-time-code"
+                    />
+                    <InputError error={form.errors.code} />
+                    <Button
+                        type="submit"
+                        fullWidth
+                        size="lg"
+                        disabled={form.values.code.trim().length === 0 || Boolean(form.errors.code)}
+                        mt="md"
+                    >
+                        Reset MFA
+                    </Button>
+                    <Group gap="xs" justify="center">
+                        <Button onClick={() => setStep('select')} mt="md" fw={600} fz="md" variant="subtle">
+                            <CaretLeftIcon size={20} />
+                            Back to options
                         </Button>
-                        <Group gap="xs" justify="center">
-                            <Button onClick={() => setStep('select')} mt="md" fw={600} fz="md" variant="subtle">
-                                <CaretLeftIcon size={20} />
-                                Back to options
-                            </Button>
-                        </Group>
-                    </Stack>
-                </form>
-            </Stack>
+                    </Group>
+                </Stack>
+            </form>
             <ConfirmationModal
                 isConfirmOpen={isConfirmOpen}
                 setIsConfirmOpen={setIsConfirmOpen}
                 isProcessing={isProcessing}
                 proceedReset={proceedReset}
             />
-        </>
+        </Stack>
     )
 }
 

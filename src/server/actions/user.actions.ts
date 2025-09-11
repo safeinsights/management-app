@@ -1,6 +1,5 @@
 'use server'
 
-import logger from '@/lib/logger'
 import { clerkClient } from '@clerk/nextjs/server'
 import { sessionFromClerk, syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
@@ -65,28 +64,19 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
     })
 
 export const resetUserMFAAction = new Action('resetUserMFAAction')
-    .middleware(async ({ session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { clerkId: session.user.clerkUserId }
-    })
-    .handler(async ({ clerkId }) => {
+    .requireAbilityTo('reset', 'MFA')
+    .handler(async ({ session }) => {
+        const clerkId = session!.user.clerkUserId
+
         const client = await clerkClient()
-        try {
-            // Disable all MFA methods, delete phone numbers for reset to avoid verification issues
-            try {
-                await client.users.disableUserMFA(clerkId)
+        // Disable all MFA methods, delete phone numbers for reset to avoid verification issues
+        await client.users.disableUserMFA(clerkId)
 
-                const user = await client.users.getUser(clerkId)
+        const user = await client.users.getUser(clerkId)
 
-                for (const phoneNumber of user.phoneNumbers) {
-                    await client.phoneNumbers.deletePhoneNumber(phoneNumber.id)
-                }
-            } catch (err) {
-                logger.error('Error disabling MFA', err)
-                throw err
-            }
-            return { twoFactorEnabled: false }
-        } catch {
-            throw new ActionFailure({ user: 'Failed to reset MFA' })
+        for (const phoneNumber of user.phoneNumbers) {
+            await client.phoneNumbers.deletePhoneNumber(phoneNumber.id)
         }
+
+        return { twoFactorEnabled: false }
     })
