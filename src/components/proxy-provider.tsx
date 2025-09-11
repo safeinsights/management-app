@@ -141,9 +141,6 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
                             pointerEvents: isOpen ? 'auto' : 'none',
                         },
                     }}
-                    modalProps={{
-                        style: { pointerEvents: 'auto' },
-                    }}
                 >
                     <Stack>
                         <Text size="md">
