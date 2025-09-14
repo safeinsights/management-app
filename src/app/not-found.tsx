@@ -4,7 +4,7 @@ import { FocusedLayoutShell } from '@/components/layout/focused-layout-shell'
 import { ClerkProvider } from '@clerk/nextjs'
 import { Button, Paper, Stack, Text, Title } from '@mantine/core'
 import { useRouter } from 'next/navigation'
-import { NotFoundImage } from '../../public/svg/not-found-image'
+import { NotFoundImage } from '../../public/svg/404-image'
 
 export default function NotFound() {
     const router = useRouter()
@@ -23,7 +23,7 @@ export default function NotFound() {
                             The page you are trying to open does not exist. <br />
                             The page address may have been mistyped, or the page <br /> has been moved to another URL.
                         </Text>
-                        <Button size="md" onClick={() => router.push('/')} mt="xl" style={{ margin: '0 auto' }}>
+                        <Button size="md" onClick={() => router.back()} mt="xl" style={{ margin: '0 auto' }}>
                             Take me back
                         </Button>
                     </Stack>
