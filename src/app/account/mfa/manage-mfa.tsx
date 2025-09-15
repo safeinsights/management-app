@@ -2,7 +2,7 @@
 import { ButtonLink, Link } from '@/components/links'
 import { Panel } from '@/components/panel'
 import { useUser } from '@clerk/nextjs'
-import { Paper, Stack, Text, Title, Container } from '@mantine/core'
+import { Container, Paper, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
 
@@ -30,6 +30,8 @@ export function ManageMFA() {
         notifications.show({ message: 'You must be logged in to access this page', color: 'blue' })
         return redirect('/')
     }
+
+    user.reload() // ensure latest twoFactorEnabled state
 
     if (user.twoFactorEnabled && !window.location.search.includes('TESTING_FORCE_NO_MFA')) return <HasMFA />
 

@@ -1,10 +1,10 @@
-import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import { setupClerkTestingToken } from '@clerk/testing/playwright'
+import { faker } from '@faker-js/faker'
+import { type BrowserType, type Page, test as baseTest } from '@playwright/test'
 import fs from 'fs'
+import { addCoverageReport } from 'monocart-reporter'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { addCoverageReport } from 'monocart-reporter'
-import { faker } from '@faker-js/faker'
 
 export { clerk } from '@clerk/testing/playwright'
 export * from './common.helpers'
@@ -205,8 +205,12 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     await page.getByLabel('password').fill(creds.password)
     await page.getByRole('button', { name: 'login' }).click()
 
-    await page.getByLabel('code').fill(creds.mfa)
-    await page.getByRole('button', { name: 'login' }).click()
+    await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: 'SMS Verification' }).click()
+
+    await page.getByRole('heading', { name: /verify your code/i }).waitFor({ state: 'visible' })
+    await fillPinInput(page, creds.mfa, 'sms-pin-input')
+    await page.getByRole('button', { name: 'Verify code' }).click()
     await page.waitForLoadState()
 
     await page.waitForFunction(() => window.Clerk?.user?.primaryEmailAddress?.emailAddress)
@@ -218,5 +222,13 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     if (page.url() != url) {
         await goto(page, url)
         await clerkLoaded(page)
+    }
+}
+
+export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
+    const pin = pinCode.split('')
+    const pinInputs = page.getByTestId(testId).locator('input')
+    for (let i = 0; i < pin.length; i++) {
+        await pinInputs.nth(i).fill(pin[i])
     }
 }

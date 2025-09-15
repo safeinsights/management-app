@@ -1,5 +1,5 @@
-import { UUID } from './types'
 import { MongoAbility } from '@casl/ability'
+import { UUID } from './types'
 
 // eslint-disable-next-line  @typescript-eslint/no-explicit-any
 type Ability<Kind extends string, Actions extends string, Properties extends Record<string, any>> = [
@@ -42,6 +42,7 @@ type Abilities =
     | Ability<'Team', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
     | Ability<'TeamMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
+    | Ability<'MFA', 'reset', object>
 
 export type PermissionsObjectSubjects = Extract<Abilities[1], object>
 

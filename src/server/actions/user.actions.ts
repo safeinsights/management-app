@@ -1,9 +1,10 @@
 'use server'
 
-import { ActionFailure, Action, z } from './action'
-import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { syncCurrentClerkUser, updateClerkUserMetadata, sessionFromClerk } from '../clerk'
+import { clerkClient } from '@clerk/nextjs/server'
+import { sessionFromClerk, syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
+import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
+import { Action, ActionFailure, z } from './action'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
     const user = await syncCurrentClerkUser()
@@ -60,4 +61,22 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
     .handler(async ({ params: { orgSlug, userId, ...update }, db, orgUser }) => {
         await db.updateTable('orgUser').set(update).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
         onUserRoleUpdate({ userId, before: orgUser, after: update })
+    })
+
+export const resetUserMFAAction = new Action('resetUserMFAAction')
+    .requireAbilityTo('reset', 'MFA')
+    .handler(async ({ session }) => {
+        const clerkId = session!.user.clerkUserId
+
+        const client = await clerkClient()
+        // Disable all MFA methods, delete phone numbers for reset to avoid verification issues
+        await client.users.disableUserMFA(clerkId)
+
+        const user = await client.users.getUser(clerkId)
+
+        for (const phoneNumber of user.phoneNumbers) {
+            await client.phoneNumbers.deletePhoneNumber(phoneNumber.id)
+        }
+
+        return { twoFactorEnabled: false }
     })

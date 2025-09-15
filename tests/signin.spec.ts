@@ -1,4 +1,4 @@
-import { clerk, test, TestingUsers, CLERK_MFA_CODE } from './e2e.helpers'
+import { clerk, CLERK_MFA_CODE, expect, fillPinInput, test, TestingUsers } from './e2e.helpers'
 
 test.describe('user sign in', async () => {
     for (const [role, props] of Object.entries(TestingUsers)) {
@@ -14,12 +14,16 @@ test.describe('user sign in', async () => {
 
             await fillForm()
 
-            await page.getByRole('button', { name: 'reenter' }).click()
+            await page
+                .getByRole('heading', { name: /multi-factor authentication required/i })
+                .waitFor({ state: 'visible' })
+            await page.getByRole('button', { name: 'SMS Verification' }).click()
 
-            await fillForm()
-
-            await page.getByLabel('code').fill(CLERK_MFA_CODE)
-            await page.getByRole('button', { name: 'login' }).click()
+            await page.getByRole('heading', { name: /verify your code/i }).waitFor({ state: 'visible' })
+            await fillPinInput(page, CLERK_MFA_CODE, 'sms-pin-input')
+            const verifyBtn = page.getByRole('button', { name: /verify code/i })
+            await expect(verifyBtn).toBeEnabled()
+            await verifyBtn.click()
 
             await page.waitForURL('/')
         })
