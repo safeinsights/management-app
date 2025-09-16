@@ -1,3 +1,4 @@
+// error boundaries are class components @link https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 'use client'
 
 import { FocusedLayoutShell } from '@/components/layout/focused-layout-shell'
@@ -15,11 +16,11 @@ interface Props {
 interface State {
     hasError: boolean
     eventId?: string
+    navigating?: boolean
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-    state: State = { hasError: false }
-
+    state: State = { hasError: false, navigating: false }
     static getDerivedStateFromError(): State {
         return { hasError: true }
     }
@@ -52,7 +53,15 @@ export class ErrorBoundary extends Component<Props, State> {
                                     <Button size="md" variant="outline" onClick={() => window.location.reload()}>
                                         Refresh
                                     </Button>
-                                    <Button size="md" onClick={() => window.history.back()}>
+                                    <Button
+                                        size="md"
+                                        loading={this.state.navigating}
+                                        onClick={() =>
+                                            this.setState({ navigating: true }, () => {
+                                                window.location.href = '/'
+                                            })
+                                        }
+                                    >
                                         Take me back
                                     </Button>
                                 </Group>
@@ -65,5 +74,3 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.children
     }
 }
-
-export default ErrorBoundary

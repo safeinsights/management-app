@@ -3,7 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
-import { captureConsoleIntegration, replayIntegration } from '@sentry/nextjs'
+import { captureConsoleIntegration } from '@sentry/nextjs'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -14,7 +14,14 @@ Sentry.init({
         captureConsoleIntegration({
             levels: ['warn', 'error'],
         }),
-        replayIntegration({ maskAllText: false, minReplayDuration: 5000 }),
+        ...(typeof Sentry.replayIntegration === 'function'
+            ? [
+                  Sentry.replayIntegration({
+                      maskAllText: false,
+                      minReplayDuration: 5000,
+                  }),
+              ]
+            : []),
     ],
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
