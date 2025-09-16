@@ -1,11 +1,12 @@
 'use client'
 
 import { AppShell, AppShellFooter, AppShellHeader, AppShellMain, Group, Text, useMantineTheme } from '@mantine/core'
-import { SafeInsightsLogo } from './si-logo'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
+import { usePathname, useRouter } from 'next/navigation'
 import { ReactNode } from 'react'
 import { ActivityContext } from '../activity-context'
+import { SafeInsightsLogo } from './si-logo'
 
 type Props = {
     children: ReactNode
@@ -13,6 +14,9 @@ type Props = {
 
 export function FocusedLayoutShell({ children }: Props) {
     const theme = useMantineTheme()
+    const pathname = usePathname()
+    const router = useRouter()
+    const isSignInFlow = pathname.startsWith('/account/signin') || pathname.startsWith('/account/reset-password')
 
     return (
         <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
@@ -20,7 +24,12 @@ export function FocusedLayoutShell({ children }: Props) {
             <ActivityContext />
 
             <AppShellHeader bg="purple.8" withBorder={false}>
-                <Group h="100%" p="md">
+                <Group
+                    h="100%"
+                    p="md"
+                    style={{ cursor: isSignInFlow ? 'pointer' : '' }}
+                    onClick={() => isSignInFlow && router.push('/account/signin?restart=true')}
+                >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>
             </AppShellHeader>

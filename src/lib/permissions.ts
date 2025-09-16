@@ -21,6 +21,7 @@ export function defineAbilityFor(session: UserSession) {
     // action all users can perform
     permit('update', 'User', { id: session.user.id })
     permit('claim', 'PendingUser')
+    permit('reset', 'MFA')
 
     permit('view', 'Team', { orgSlug: session.team.slug })
 
