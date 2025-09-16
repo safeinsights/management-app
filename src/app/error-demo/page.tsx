@@ -1,10 +1,12 @@
 // use this page to test the error boundary
 'use client'
 
-function ErrorTest(): never {
-    throw new Error('Test error')
-}
+import { useEffect } from 'react'
 
 export default function ErrorDemoPage() {
-    return <ErrorTest />
+    useEffect(() => {
+        throw new Error('Test error')
+    }, [])
+
+    return null
 }
