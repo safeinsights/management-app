@@ -1,12 +1,22 @@
 // error boundaries are class components @link https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 'use client'
 
-import { FocusedLayoutShell } from '@/components/layout/focused-layout-shell'
-import { ClerkProvider } from '@clerk/nextjs'
-import { Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import {
+    AppShell,
+    AppShellFooter,
+    AppShellHeader,
+    AppShellMain,
+    Button,
+    Group,
+    Paper,
+    Stack,
+    Text,
+    Title,
+} from '@mantine/core'
 import * as Sentry from '@sentry/nextjs'
 import { Component, ErrorInfo, ReactNode } from 'react'
 import { AppErrorImage } from '../../public/svg/app-error-image'
+import { SafeInsightsLogo } from './layout/si-logo'
 
 interface Props {
     children?: ReactNode
@@ -33,8 +43,18 @@ export class ErrorBoundary extends Component<Props, State> {
     render() {
         if (this.state.hasError) {
             return (
-                <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? ''}>
-                    <FocusedLayoutShell>
+                <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
+                    <AppShellHeader bg="purple.8" withBorder={false}>
+                        <Group h="100%" p="md">
+                            <SafeInsightsLogo width={250} height={54} />
+                        </Group>
+                    </AppShellHeader>
+
+                    <AppShellMain
+                        bg="purple.8"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        px="md"
+                    >
                         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
                             <AppErrorImage style={{ margin: '0 auto' }} />
                             <Stack mb="xxl" ta="center" align="center" gap="0">
@@ -67,8 +87,13 @@ export class ErrorBoundary extends Component<Props, State> {
                                 </Group>
                             </Stack>
                         </Paper>
-                    </FocusedLayoutShell>
-                </ClerkProvider>
+                    </AppShellMain>
+                    <AppShellFooter p="md" bg="purple.9" bd="none">
+                        <Group justify="left" c="white">
+                            <Text c="white">© 2025 - SafeInsights, Rice University</Text>
+                        </Group>
+                    </AppShellFooter>
+                </AppShell>
             )
         }
         return this.props.children

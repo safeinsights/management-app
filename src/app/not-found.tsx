@@ -12,7 +12,6 @@ import {
     Stack,
     Text,
     Title,
-    useMantineTheme,
 } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -20,7 +19,6 @@ import { NotFoundImage } from '../../public/svg/404-image'
 
 export default function NotFound() {
     const router = useRouter()
-    const theme = useMantineTheme()
     const [loading, setLoading] = useState(false)
 
     return (
@@ -61,7 +59,7 @@ export default function NotFound() {
                     </Stack>
                 </Paper>
             </AppShellMain>
-            <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">
+            <AppShellFooter p="md" bg="purple.9" bd="none">
                 <Group justify="left" c="white">
                     <Text c="white">© 2025 - SafeInsights, Rice University</Text>
                 </Group>
