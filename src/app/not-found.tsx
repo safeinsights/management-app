@@ -1,19 +1,41 @@
 'use client'
 
-import { FocusedLayoutShell } from '@/components/layout/focused-layout-shell'
-import { ClerkProvider } from '@clerk/nextjs'
-import { Button, Paper, Stack, Text, Title } from '@mantine/core'
+import { SafeInsightsLogo } from '@/components/layout/si-logo'
+import {
+    AppShell,
+    AppShellFooter,
+    AppShellHeader,
+    AppShellMain,
+    Button,
+    Group,
+    Paper,
+    Stack,
+    Text,
+    Title,
+    useMantineTheme,
+} from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { NotFoundImage } from '../../public/svg/404-image'
 
 export default function NotFound() {
     const router = useRouter()
+    const theme = useMantineTheme()
     const [loading, setLoading] = useState(false)
 
     return (
-        <ClerkProvider publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
-            <FocusedLayoutShell>
+        <AppShell header={{ height: 70 }} footer={{ height: 60 }}>
+            <AppShellHeader bg="purple.8" withBorder={false}>
+                <Group h="100%" p="md">
+                    <SafeInsightsLogo width={250} height={54} />
+                </Group>
+            </AppShellHeader>
+
+            <AppShellMain
+                bg="purple.8"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                px="md"
+            >
                 <Paper bg="white" p="xxl" radius="sm" maw={600} my={{ base: '1rem', lg: 0 }}>
                     <Stack mb="xxl" ta="center" align="center" gap="0">
                         <NotFoundImage style={{ margin: '0 auto' }} />
@@ -38,7 +60,12 @@ export default function NotFound() {
                         </Button>
                     </Stack>
                 </Paper>
-            </FocusedLayoutShell>
-        </ClerkProvider>
+            </AppShellMain>
+            <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">
+                <Group justify="left" c="white">
+                    <Text c="white">© 2025 - SafeInsights, Rice University</Text>
+                </Group>
+            </AppShellFooter>
+        </AppShell>
     )
 }
