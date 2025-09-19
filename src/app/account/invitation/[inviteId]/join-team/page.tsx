@@ -1,12 +1,12 @@
 'use client'
 
-import { FC, use, useState } from 'react'
 import { useMutation, useQuery } from '@/common'
-import { Flex, Text, Button } from '@mantine/core'
-import { onJoinTeamAccountAction, getOrgInfoForInviteAction } from '../create-account.action'
 import { reportMutationError } from '@/components/errors'
-import { useRouter } from 'next/navigation'
 import { LoadingMessage } from '@/components/loading'
+import { Button, Flex, Paper, Text, Title } from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import { FC, use, useState } from 'react'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../create-account.action'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -38,14 +38,19 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     }
 
     return (
-        <Flex direction="column" gap="lg" maw={500} mx="auto">
-            <Text size="md" ta="center">
-                You&apos;re now a member of {org.name}
-            </Text>
-            <Button onClick={() => joinTeam()} loading={isJoining || isDisabled}>
-                Visit your {org.name} dashboard
-            </Button>
-        </Flex>
+        <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
+            <Flex direction="column" gap="lg" maw={500} mx="auto">
+                <Title mb="lg" order={3} ta="center">
+                    Welcome To SafeInsights!
+                </Title>
+                <Text size="md" ta="center">
+                    You&apos;re now a member of {org.name}
+                </Text>
+                <Button onClick={() => joinTeam()} loading={isJoining || isDisabled}>
+                    Visit your {org.name} dashboard
+                </Button>
+            </Flex>
+        </Paper>
     )
 }
 
