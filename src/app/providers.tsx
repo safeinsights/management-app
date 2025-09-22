@@ -1,13 +1,14 @@
 'use client'
 
 import '../../sentry.client.config' // this is needed to make sure the client side config is loaded
-import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
+import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { useEffect, type FC, type ReactNode } from 'react'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
+import { ErrorBoundary } from '@/components/error-boundary'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -52,7 +53,9 @@ export const Providers: FC<Props> = ({ children }) => {
     return (
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme}>
-                <ModalsProvider>{children}</ModalsProvider>
+                <ModalsProvider>
+                    <ErrorBoundary>{children}</ErrorBoundary>
+                </ModalsProvider>
             </MantineProvider>
         </QueryClientProvider>
     )
