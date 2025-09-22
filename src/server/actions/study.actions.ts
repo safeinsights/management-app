@@ -50,8 +50,8 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
         return { orgId: org.orgId }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ session, db }) => {
-        return fetchStudiesQuery(db, session.team.id)
+    .handler(async ({ db, orgId }) => {
+        return fetchStudiesQuery(db, orgId)
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
             .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
             .select([
@@ -82,8 +82,8 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
         return { orgId: session.team.id }
     })
     .requireAbilityTo('view', 'Study')
-    .handler(async ({ session, db }) => {
-        return await fetchStudiesQuery(db, session.team.id)
+    .handler(async ({ orgId, db }) => {
+        return await fetchStudiesQuery(db, orgId)
             .innerJoin('org', 'org.id', 'study.orgId')
             .select([
                 'study.id',
