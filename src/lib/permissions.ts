@@ -32,7 +32,7 @@ export function defineAbilityFor(session: UserSession) {
     }
 
     if (isResearcher || isTeamAdmin) {
-        permit('create', 'Study', { orgId: session.team.id })
+        permit('create', 'Study') // allow creating studies for any organization
         permit('create', 'StudyJob', { orgId: session.team.id })
         permit('update', 'Study', { orgId: session.team.id })
         permit('delete', 'Study', { orgId: session.team.id })
