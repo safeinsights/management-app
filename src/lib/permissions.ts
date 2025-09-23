@@ -12,9 +12,9 @@ export { subject, type AppAbility, type PermissionsActionSubjectMap, type Permis
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
-    const { isAdmin: isTeamAdmin } = session.team
-    const isResearcher = isLabOrg(session.team)
-    const isReviewer = isEnclaveOrg(session.team)
+    const { isAdmin: isOrgAdmin } = session.org
+    const isResearcher = isLabOrg(session.org)
+    const isReviewer = isEnclaveOrg(session.org)
     const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     // https://casl.js.org/v6/en/guide/conditions-in-depth
@@ -25,50 +25,50 @@ export function defineAbilityFor(session: UserSession) {
     permit('claim', 'PendingUser')
     permit('reset', 'MFA')
 
-    permit('view', 'Team', { orgSlug: session.team.slug })
+    permit('view', 'Org', { orgSlug: session.org.slug })
 
-    if (isResearcher || isReviewer || isTeamAdmin) {
-        permit('view', 'Study', { orgId: session.team.id })
-        permit('view', 'StudyJob', { orgId: session.team.id })
-        permit('view', 'Team', { orgSlug: session.team.slug })
+    if (isResearcher || isReviewer || isOrgAdmin) {
+        permit('view', 'Study', { orgId: session.org.id })
+        permit('view', 'StudyJob', { orgId: session.org.id })
+        permit('view', 'Org', { orgSlug: session.org.slug })
     }
 
-    if (isResearcher || isTeamAdmin) {
-        permit('create', 'Study', { orgId: session.team.id })
-        permit('create', 'StudyJob', { orgId: session.team.id })
-        permit('update', 'Study', { orgId: session.team.id })
-        permit('delete', 'Study', { orgId: session.team.id })
-        permit('delete', 'StudyJob', { orgId: session.team.id })
+    if (isResearcher || isOrgAdmin) {
+        permit('create', 'Study', { orgId: session.org.id })
+        permit('create', 'StudyJob', { orgId: session.org.id })
+        permit('update', 'Study', { orgId: session.org.id })
+        permit('delete', 'Study', { orgId: session.org.id })
+        permit('delete', 'StudyJob', { orgId: session.org.id })
     }
 
-    if (isReviewer || isTeamAdmin) {
+    if (isReviewer || isOrgAdmin) {
         permit('view', 'ReviewerKey')
         permit('update', 'ReviewerKey')
-        permit('approve', 'Study', { orgId: session.team.id })
-        permit('reject', 'Study', { orgId: session.team.id })
-        permit('view', 'Study', { orgId: session.team.id })
-        permit('review', 'Study', { orgId: session.team.id })
+        permit('approve', 'Study', { orgId: session.org.id })
+        permit('reject', 'Study', { orgId: session.org.id })
+        permit('view', 'Study', { orgId: session.org.id })
+        permit('review', 'Study', { orgId: session.org.id })
     }
 
-    if (isTeamAdmin) {
-        permit('update', 'User', { orgId: session.team.id })
-        permit('invite', 'User', { orgId: session.team.id })
-        permit('view', 'User', { orgSlug: session.team.slug })
-        permit('view', 'Team', { orgSlug: session.team.slug })
-        permit('view', 'TeamMembers', { orgSlug: session.team.slug })
-        permit('update', 'Team', { orgSlug: session.team.slug })
+    if (isOrgAdmin) {
+        permit('update', 'User', { orgId: session.org.id })
+        permit('invite', 'User', { orgId: session.org.id })
+        permit('view', 'User', { orgSlug: session.org.slug })
+        permit('view', 'Org', { orgSlug: session.org.slug })
+        permit('view', 'OrgMembers', { orgSlug: session.org.slug })
+        permit('update', 'Org', { orgSlug: session.org.slug })
     }
 
     if (isSiAdmin) {
-        permit('create', 'Team')
+        permit('create', 'Org')
         permit('update', 'User')
         permit('view', 'User')
         permit('invite', 'User')
         permit('view', 'Study')
         permit('view', 'StudyJob')
-        permit('view', 'Team')
-        permit('update', 'Team')
-        permit('delete', 'Team')
+        permit('view', 'Org')
+        permit('update', 'Org')
+        permit('delete', 'Org')
         permit('view', 'Orgs')
     }
 

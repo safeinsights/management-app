@@ -20,7 +20,7 @@ export const RegenerateKeys: FC = () => {
 
     return (
         <Stack p="xl" mx="sm">
-            <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${session?.team.slug}/dashboard`], ['Reviewer Key']]} />
+            <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${session?.org.slug}/dashboard`], ['Reviewer Key']]} />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>

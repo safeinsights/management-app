@@ -173,7 +173,7 @@ export class Action<
 
                         if (session) {
                             Sentry.setUser({ id: session.user.id })
-                            Sentry.setTag('team', session.team.slug)
+                            Sentry.setTag('org', session.org.slug)
                         }
 
                         return handlerFn(ctx)

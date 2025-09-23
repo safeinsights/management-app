@@ -12,7 +12,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
 
     const session = await sessionFromClerk()
 
-    if (session?.team.slug !== params.orgSlug) {
+    if (session?.org.slug !== params.orgSlug) {
         return (
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs crumbs={{ current: 'Propose a study' }} />

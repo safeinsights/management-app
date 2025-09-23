@@ -40,7 +40,7 @@ export type SessionUser = {
     clerkUserId: string
 }
 
-export type Team = UserOrgRoles & {
+export type Org = UserOrgRoles & {
     id: string
     type: OrgType
     slug: string
@@ -48,7 +48,7 @@ export type Team = UserOrgRoles & {
 
 export type UserSession = {
     user: SessionUser
-    team: Team
+    org: Org
 }
 
 export type TreeNode = {
@@ -145,7 +145,7 @@ export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false
 
 export const BLANK_SESSION: UserSession = {
     user: { id: '', isSiAdmin: false, clerkUserId: '' },
-    team: { id: '', type: 'enclave', slug: '', isAdmin: false },
+    org: { id: '', type: 'enclave', slug: '', isAdmin: false },
 }
 
 Object.freeze(BLANK_SESSION)

@@ -11,7 +11,7 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}, orgType: 'enclave' | 'l
             clerkUserId: faker.string.alpha(),
             isSiAdmin: false,
         },
-        team: {
+        org: {
             id: faker.string.uuid(),
             type: orgType,
             slug: 'test',
@@ -29,7 +29,7 @@ test('reviewer role', () => {
         ability.can('approve', 'Study'),
     ).toBeTruthy()
 
-    expect(ability.can('update', toRecord('Study', { orgId: session.team.id }))).toBeFalsy()
+    expect(ability.can('update', toRecord('Study', { orgId: session.org.id }))).toBeFalsy()
     expect(ability.can('invite', 'User')).toBe(false)
     expect(ability.can('update', toRecord('User', { id: session.user.id }))).toBe(true)
     expect(ability.can('update', toRecord('User', { id: faker.string.uuid() }))).toBe(false)
@@ -51,8 +51,8 @@ test('researcher role', () => {
 test('admin role', () => {
     const { ability, session } = createAbilty({ isAdmin: true })
     expect(ability.can('approve', 'Study')).toBeTruthy()
-    expect(ability.can('approve', toRecord('Study', { orgId: session.team.id }))).toBeTruthy()
-    expect(ability.can('invite', toRecord('User', { orgId: session.team.id }))).toBe(true)
-    expect(ability.can('update', toRecord('User', { orgId: session.team.id }))).toBe(true)
+    expect(ability.can('approve', toRecord('Study', { orgId: session.org.id }))).toBeTruthy()
+    expect(ability.can('invite', toRecord('User', { orgId: session.org.id }))).toBe(true)
+    expect(ability.can('update', toRecord('User', { orgId: session.org.id }))).toBe(true)
     expect(ability.can('update', toRecord('User', { id: faker.string.uuid(), orgId: faker.string.uuid() }))).toBe(false)
 })

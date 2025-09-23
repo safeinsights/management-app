@@ -79,7 +79,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
     .middleware(async ({ session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { orgId: session.team.id }
+        return { orgId: session.org.id }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ orgId, db }) => {

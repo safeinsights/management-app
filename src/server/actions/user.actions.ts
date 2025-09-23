@@ -12,14 +12,12 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
     const metadata = await updateClerkUserMetadata(user.id)
     onUserLogIn({ userId: user.id })
 
-    if (Object.values(metadata.teams).some(team => isEnclaveOrg(team))) {
+    if (Object.values(metadata.orgs).some((org) => isEnclaveOrg(org))) {
         const publicKey = await getReviewerPublicKey(user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
         }
     }
-
-    return {}
 })
 
 export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
@@ -31,7 +29,7 @@ export const syncUserMetadataAction = new Action('syncUserMetadataAction').handl
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .middleware(async ({ session }) => {
         if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { id: session.user.id, orgId: session.team.id }
+        return { id: session.user.id, orgId: session.org.id }
     })
     .requireAbilityTo('update', 'User')
     .handler(async ({ session }) => {

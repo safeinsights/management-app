@@ -16,7 +16,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .middleware(async ({ params: { orgSlug }, db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
-    .requireAbilityTo('update', 'Team')
+    .requireAbilityTo('update', 'Org')
     .handler(async ({ params: input, orgId, db }) => {
         const newBaseImage = await db
             .insertInto('orgBaseImage')
@@ -44,7 +44,7 @@ const deleteOrgBaseImageSchema = z.object({
 
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
-    .requireAbilityTo('update', 'Team')
+    .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { imageId, orgSlug }, db }) => {
         await db
             .deleteFrom('orgBaseImage')
@@ -62,7 +62,7 @@ const fetchOrgBaseImagesSchema = z.object({
 })
 export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
     .params(fetchOrgBaseImagesSchema)
-    .requireAbilityTo('view', 'Team')
+    .requireAbilityTo('view', 'Org')
     .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('orgBaseImage')

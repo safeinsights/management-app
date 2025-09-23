@@ -67,7 +67,7 @@ export const getPendingUsersAction = new Action('getPendingUsersAction')
             .executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
-    .requireAbilityTo('view', 'Team')
+    .requireAbilityTo('view', 'Org')
     .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('pendingUser')

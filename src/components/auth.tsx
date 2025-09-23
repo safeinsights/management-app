@@ -12,9 +12,9 @@ export const Protect: React.FC<ProtectProps> = ({ role, children }) => {
 
     if (!isLoaded || !session) return null
 
-    if (role == AuthRole.Admin && session.team.isAdmin) return children
-    if (role == AuthRole.Researcher && isLabOrg(session.team)) return children
-    if (role == AuthRole.Reviewer && isEnclaveOrg(session.team)) return children
+    if (role == AuthRole.Admin && session.org.isAdmin) return children
+    if (role == AuthRole.Researcher && isLabOrg(session.org)) return children
+    if (role == AuthRole.Reviewer && isEnclaveOrg(session.org)) return children
 
     return null
 }

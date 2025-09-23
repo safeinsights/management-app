@@ -8,7 +8,6 @@ import logger from '@/lib/logger'
 import { findOrCreateOrgMembership } from './mutations'
 import { NotFoundError } from '@/lib/errors'
 
-
 export { type UserSessionWithAbility } from './session'
 
 type ClerkOrganizationProps = {
@@ -42,19 +41,20 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 }
 
 export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo> {
-    const teams = await getOrgInfoForUserId(userId)
+    const orgs = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
         format: 'v2',
         user: { id: userId },
-        teams: teams.reduce(
-            (acc, team) => {
-                acc[team.slug] = {
-                    ...team,
-                    isAdmin: team.isAdmin || false,
+        teams: null,
+        orgs: orgs.reduce(
+            (acc, org) => {
+                acc[org.slug] = {
+                    ...org,
+                    isAdmin: org.isAdmin || false,
                 }
                 return acc
             },
-            {} as UserInfo['teams'],
+            {} as UserInfo['orgs'],
         ),
     }
     return metadata
@@ -118,20 +118,20 @@ export const syncCurrentClerkUser = async () => {
     for (const env of Object.values(clerkUser.publicMetadata || {})) {
         if (isObjectType(env)) {
             const envData = env as Record<string, unknown>
-            if (isObjectType(envData.teams)) {
+            // TODO: remove v1Metadata migration and 'teams' access after 2026-02-15
+            const orgs = envData['orgs'] || (envData['teams'] as Record<string, unknown>)
+
+            if (isObjectType(orgs)) {
                 // Check if this is v1 metadata (no format field or not v2)
                 // TODO: remove v1Metadata migration after 2026-02-15
                 const isV1Metadata = !envData.format || envData.format !== 'v2'
 
-                for (const slug of Object.keys(envData.teams)) {
-                    
-                    const teams = envData.teams as Record<string, unknown>
+                for (const slug of Object.keys(orgs)) {
                     try {
                         if (isV1Metadata) {
-                            const info = teams[slug] as UserTeamMembershipInfoV1
+                            const info = (orgs as Record<string, unknown>)[slug] as UserOrgMembershipInfoV1
                             if (info.isReviewer) {
                                 await findOrCreateOrgMembership({ userId: user.id, ...info })
-
                             } else if (info.isResearcher) {
                                 await findOrCreateOrgMembership({
                                     userId: user.id,
@@ -143,15 +143,15 @@ export const syncCurrentClerkUser = async () => {
                                     const client = await clerkClient()
                                     await client.users.updateUserMetadata(clerkUser.id, {
                                         publicMetadata: {
-                                            [`${ENVIRONMENT_ID}`]: { teams: { [`${slug}`]: null } }
+                                            [`${ENVIRONMENT_ID}`]: { orgs: { [`${slug}`]: null } },
                                         },
                                     })
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    delete (envData.teams as any)[slug]
+                                    delete (envData.orgs as Record<string, any>)[slug]
                                 }
                             }
                         } else {
-                            const info = teams[slug] as UserTeamMembershipInfo
+                            const info = (orgs as Record<string, unknown>)[slug] as UserOrgMembershipInfo
                             await findOrCreateOrgMembership({ userId: user.id, ...info })
                         }
                     } catch (e) {

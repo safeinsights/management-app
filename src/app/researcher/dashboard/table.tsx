@@ -89,7 +89,7 @@ export const StudiesTable: React.FC = () => {
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <NewStudyLink orgSlug={session.team.slug} />
+                        <NewStudyLink orgSlug={session.org.slug} />
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
@@ -104,7 +104,7 @@ export const StudiesTable: React.FC = () => {
                             <TableTh fw={600}>Study Details</TableTh>
                         </TableTr>
                     </TableThead>
-                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
+                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.org.slug} />}</TableTbody>
                 </Table>
             </Stack>
         </Paper>

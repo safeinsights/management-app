@@ -17,10 +17,10 @@ export const TestImageCheckbox: React.FC<TestImageCheckboxProps> = ({ studyId, c
     const { data: testImageExists, isLoading: isTestImageQueryLoading } = useQuery({
         queryKey: ['testImageExists', studyId],
         queryFn: () => doesTestImageExistForStudyAction({ studyId }),
-        enabled: !!session?.team.isAdmin,
+        enabled: !!session?.org.isAdmin,
     })
 
-    if (!session?.team.isAdmin || isTestImageQueryLoading || !testImageExists) {
+    if (!session?.org.isAdmin || isTestImageQueryLoading || !testImageExists) {
         return null
     }
 

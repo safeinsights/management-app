@@ -9,7 +9,7 @@ import { ActionSuccessType } from '@/lib/types'
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
     .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
-    .requireAbilityTo('update', 'Team')
+    .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { id, ...update }, db }) => {
         return await db.updateTable('org').set(update).where('id', '=', id).returningAll().executeTakeFirstOrThrow()
     })
@@ -17,14 +17,14 @@ export const updateOrgAction = new Action('updateOrgAction', { performsMutations
 export const insertOrgAction = new Action('insertOrgAction')
     .params(orgSchema)
     .middleware(async ({ params: { slug } }) => ({ orgSlug: slug })) // translate params for requireAbility below
-    .requireAbilityTo('create', 'Team')
+    .requireAbilityTo('create', 'Org')
     .handler(async ({ db, params: org }) => {
         return await db.insertInto('org').values(org).returningAll().executeTakeFirstOrThrow()
     })
 
 export const getOrgFromIdAction = new Action('getOrgFromIdAction')
     .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('view', 'Team')
+    .requireAbilityTo('view', 'Org')
     .handler(async ({ db, params: { orgId } }) => {
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
@@ -51,12 +51,12 @@ export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
 
 export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
-    .requireAbilityTo('delete', 'Team')
+    .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('view', 'Team')
+    .requireAbilityTo('view', 'Org')
     .handler(async ({ db, params: { orgSlug } }) =>
         db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
@@ -77,11 +77,11 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
             description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
         }),
     )
-    .requireAbilityTo('update', 'Team')
+    .requireAbilityTo('update', 'Org')
     .handler(async ({ db, session, params: { orgSlug, name, description } }) => {
         // Check for duplicate name for existing organizations
         const existingOrg = await db.selectFrom('org').select('id').where('name', '=', name).executeTakeFirst()
-        if (existingOrg && existingOrg.id !== session.team.id) {
+        if (existingOrg && existingOrg.id !== session.org.id) {
             throw new ActionFailure({ name: 'Name is already in use. Enter a unique name.' })
         }
 

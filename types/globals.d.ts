@@ -2,7 +2,7 @@ export {}
 
 declare global {
     // V1 format (legacy)
-    interface UserTeamMembershipInfoV1 {
+    interface UserOrgMembershipInfoV1 {
         id: string
         slug: string
         isAdmin: boolean
@@ -11,7 +11,7 @@ declare global {
     }
 
     // V2 format (new)
-    interface UserTeamMembershipInfo {
+    interface UserOrgMembershipInfo {
         id: string
         slug: string
         type: 'enclave' | 'lab'
@@ -23,8 +23,9 @@ declare global {
         user: {
             id: string
         }
-        teams: {
-            [k: string]: UserTeamMembershipInfo
+        teams: null
+        orgs: {
+            [k: string]: UserOrgMembershipInfo
         }
     }
 
@@ -33,7 +34,7 @@ declare global {
     }
 
     interface UserPreferences {
-        currentTeamSlug: string
+        currentOrgSlug: string
     }
 
     interface UserUnsafeMetadata {

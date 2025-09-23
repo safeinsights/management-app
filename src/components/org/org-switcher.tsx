@@ -20,9 +20,9 @@ export const OrgSwitcher: FC = () => {
     const info = (user.publicMetadata[env] as UserInfo) || null
     if (!info) return null
 
-    const teams = info.teams || {}
+    const orgs = info.orgs || {}
 
-    if (Object.keys(teams).length < 2) {
+    if (Object.keys(orgs).length < 2) {
         return null
     }
 
@@ -34,7 +34,7 @@ export const OrgSwitcher: FC = () => {
             unsafeMetadata: {
                 ...user.unsafeMetadata,
                 [`${env}`]: {
-                    currentTeamSlug: value,
+                    currentOrgSlug: value,
                 },
             },
         }).then(() => {
@@ -48,8 +48,8 @@ export const OrgSwitcher: FC = () => {
 
     return (
         <Flex mx="sm" direction="column">
-            <Text c="white">Switch team:</Text>
-            <Select c="white" data={Object.keys(teams)} value={session?.team.slug || ''} onChange={onChange} />
+            <Text c="white">Switch org:</Text>
+            <Select c="white" data={Object.keys(orgs)} value={session?.org.slug || ''} onChange={onChange} />
         </Flex>
     )
 }

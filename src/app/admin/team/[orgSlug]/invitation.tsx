@@ -87,7 +87,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                             value="contributor"
                             label="Contributor (full access within their role; no admin privileges)"
                         />
-                        <Radio value="admin" label="Administrator (manages team-level settings and contributors)" />
+                        <Radio value="admin" label="Administrator (manages org-level settings and contributors)" />
                     </Flex>
                 </Radio.Group>
             </Flex>

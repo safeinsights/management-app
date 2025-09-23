@@ -24,16 +24,10 @@ test.describe('Organization Admin', () => {
 
         await page.getByLabel(/email/i).fill(email)
         await page.keyboard.press('Tab')
-        await expect(page.getByText(/a role must be selected/i)).toBeVisible()
-
-        await page.getByLabel('Reviewer (can review and approve studies)').click()
-
-        await page.keyboard.press('Tab')
-        await page.keyboard.press('Tab')
 
         await expect(page.getByText(/a permission must be selected/i)).toBeVisible()
 
-        await page.getByLabel('Administrator (manages team-level settings and contributors)').click()
+        await page.getByLabel('Administrator (manages org-level settings and contributors)').click()
 
         await page.getByRole('button', { name: /send invitation/i }).click()
         await expect(page.getByText(/invitation sent successfully/i)).toBeVisible({ timeout: 10000 })

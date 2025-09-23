@@ -176,12 +176,7 @@ export const getOrgInfoForUserId = async (userId: string) => {
         .where('userId', '=', userId)
         .execute()
 
-    // Map org type to role flags for backward compatibility with Clerk metadata
-    return orgs.map((org) => ({
-        ...org,
-        isResearcher: org.type === 'lab',
-        isReviewer: org.type === 'enclave',
-    }))
+    return orgs
 }
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {

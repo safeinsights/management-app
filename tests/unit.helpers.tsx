@@ -336,10 +336,10 @@ export const mockClerkSession = (values: MockSession | null) => {
     const auth = clerkAuth as unknown as Mock
     const unsafeMetadata = {
         [`${ENVIRONMENT_ID}`]: {
-            currentTeamSlug: values.orgSlug,
+            currentOrgSlug: values.orgSlug,
         },
     }
-    const teams: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string; type?: 'enclave' | 'lab' }> = {
+    const orgs: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string; type?: 'enclave' | 'lab' }> = {
         [values.orgSlug]: {
             id: values.orgId,
             slug: values.orgSlug,
@@ -350,7 +350,7 @@ export const mockClerkSession = (values: MockSession | null) => {
     }
 
     if (values.isSiAdmin) {
-        teams[CLERK_ADMIN_ORG_SLUG] = {
+        orgs[CLERK_ADMIN_ORG_SLUG] = {
             id: 'si-org-id-mock',
             slug: CLERK_ADMIN_ORG_SLUG,
             type: 'enclave',
@@ -363,7 +363,7 @@ export const mockClerkSession = (values: MockSession | null) => {
             user: {
                 id: values.userId,
             },
-            teams,
+            orgs,
         },
     }
     const userProperties = {
@@ -486,7 +486,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         twoFactorEnabled: options.twoFactorEnabled,
     })
 
-    const session = { user, team: { id: org.id, slug: org.slug } }
+    const session = { user, org: { id: org.id, slug: org.slug } }
 
     return { session, org, user, orgUser, ...mocks }
 }

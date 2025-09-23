@@ -24,11 +24,11 @@ function redirectToRole(request: NextRequest, route: string, session: UserSessio
         request.url,
         JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
     )
-    if (isLabOrg(session.team)) {
+    if (isLabOrg(session.org)) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
-    if (isEnclaveOrg(session.team)) {
-        return NextResponse.redirect(new URL(`/reviewer/${session.team.slug}/dashboard`, request.url))
+    if (isEnclaveOrg(session.org)) {
+        return NextResponse.redirect(new URL(`/reviewer/${session.org.slug}/dashboard`, request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
 }
@@ -42,7 +42,7 @@ export default clerkMiddleware(async (auth, req) => {
         Sentry.setUser({
             id: session.user.id,
         })
-        Sentry.setTag('org', session.team.slug)
+        Sentry.setTag('org', session.org.slug)
     } else {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
@@ -57,15 +57,15 @@ export default clerkMiddleware(async (auth, req) => {
         }
     }
 
-    const { isAdmin } = session.team
-    const isResearcher = isLabOrg(session.team)
-    const isReviewer = isEnclaveOrg(session.team)
+    const { isAdmin } = session.org
+    const isResearcher = isLabOrg(session.org)
+    const isReviewer = isEnclaveOrg(session.org)
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToRole(req, 'si admin', session)
     }
 
-    if (isOrgAdminRoute(req) && !isAdmin && session.team.slug == req.nextUrl.pathname.split('/')[2]) {
+    if (isOrgAdminRoute(req) && !isAdmin && session.org.slug == req.nextUrl.pathname.split('/')[2]) {
         return redirectToRole(req, 'org-admin', session)
     }
 

@@ -26,16 +26,21 @@ export const sessionFromMetadata = ({
     }
 
     const userPrefs = (prefs[env] as Record<string, string>) || {}
-    const teamSlug = userPrefs['currentTeamSlug'] || Object.values(info.teams)[0]?.slug
-    if (!teamSlug) throw new Error(`user does not belong to any teams`)
 
-    const team = info.teams[teamSlug]
-    if (!team)
+    // TODO: remove 'teams' once all users are on v2 after 2026-02-15
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>)
+
+    const orgSlug = userPrefs['currentOrgSlug'] || Object.values(orgs)[0]?.slug
+    if (!orgSlug) throw new Error(`user does not belong to any orgs`)
+
+    const org = orgs[orgSlug]
+    if (!org)
         throw new Error(
-            `in env ${env}, clerk user ${clerkUserId} does not belong to team with slug ${teamSlug} but was set in prefs: ${JSON.stringify(prefs, null, 2)}`,
+            `in env ${env}, clerk user ${clerkUserId} does not belong to org with slug ${orgSlug} but was set in prefs: ${JSON.stringify(prefs, null, 2)}`,
         )
 
-    const isSiAdmin = Boolean(info.teams[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
+    const isSiAdmin = Boolean(orgs[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 
     const session: UserSession = {
         user: {
@@ -43,11 +48,11 @@ export const sessionFromMetadata = ({
             clerkUserId,
             isSiAdmin,
         },
-        team: {
-            id: team.id,
-            slug: team.slug,
-            type: info.format === 'v2' && 'type' in team ? (team as UserTeamMembershipInfo).type : 'enclave',
-            isAdmin: team.isAdmin || isSiAdmin,
+        org: {
+            id: org.id,
+            slug: org.slug,
+            type: org.type || 'lab',
+            isAdmin: org.isAdmin || isSiAdmin,
         },
     }
     const ability = defineAbilityFor(session)
@@ -60,12 +65,12 @@ export const sessionFromMetadata = ({
 }
 
 export const navigateToDashboard = (router: { push: (path: string) => void }, session: UserSessionWithAbility) => {
-    if (isLabOrg(session.team)) {
+    if (isLabOrg(session.org)) {
         router.push('/researcher/dashboard')
         return
     }
-    if (isEnclaveOrg(session.team)) {
-        router.push(`/reviewer/${session.team.slug}/dashboard`)
+    if (isEnclaveOrg(session.org)) {
+        router.push(`/reviewer/${session.org.slug}/dashboard`)
         return
     }
     router.push('/')

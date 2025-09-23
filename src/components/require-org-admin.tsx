@@ -10,7 +10,7 @@ export const RequireOrgAdmin = () => {
     const router = useRouter()
 
     useLayoutEffect(() => {
-        if (!session || session.team.isAdmin) return
+        if (!session || session.org.isAdmin) return
 
         navigateToDashboard(router, session)
     }, [session, router])

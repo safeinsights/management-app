@@ -18,7 +18,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const { session } = useSession()
 
     const isAdminPage = pathname.startsWith('/admin/')
-    const orgAdminBaseUrl = `/admin/team/${session?.team.slug}`
+    const orgAdminBaseUrl = `/admin/team/${session?.org.slug}`
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {
@@ -50,7 +50,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 />
                 <NavbarLink
                     isVisible={true}
-                    label="Manage Team"
+                    label="Manage Org"
                     icon={<UsersThreeIcon size={20} />}
                     url={`${orgAdminBaseUrl}`}
                     pl="xl"

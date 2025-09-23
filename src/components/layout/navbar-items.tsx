@@ -15,9 +15,9 @@ export const NavbarItems: FC = () => {
 
     if (!isLoaded) return <NavbarSkeleton />
 
-    const { isAdmin } = session.team
-    const isResearcher = isLabOrg(session.team)
-    const isReviewer = isEnclaveOrg(session.team)
+    const { isAdmin } = session.org
+    const isResearcher = isLabOrg(session.org)
+    const isReviewer = isEnclaveOrg(session.org)
 
     const isMultiple = (isResearcher && isReviewer) || isAdmin
 
@@ -28,7 +28,7 @@ export const NavbarItems: FC = () => {
             <NavbarLink
                 icon={<UserListIcon />}
                 isVisible={isAdmin || isReviewer}
-                url={`/reviewer/${session.team.slug}/dashboard`}
+                url={`/reviewer/${session.org.slug}/dashboard`}
                 label={`${isMultiple ? 'Reviewer‘s ' : ''}Dashboard`}
             />
             <NavbarLink
