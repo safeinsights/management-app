@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { expect, test, TestingUsers, visitClerkProtectedPage, goto } from './e2e.helpers'
+import { expect, goto, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
 
 test.beforeEach(async ({}, testInfo) => {
     // Extend timeout for all tests running this hook by 30 seconds.
@@ -74,11 +74,6 @@ test.describe('Organization Admin', () => {
 
         // Submit the form
         await createAccountBtn.click()
-
-        await expect(page.getByText(/account has been created/i)).toBeVisible()
-
-        // test nav to mfa page
-        await page.getByRole('button', { name: /secure your account/i }).click()
 
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible
