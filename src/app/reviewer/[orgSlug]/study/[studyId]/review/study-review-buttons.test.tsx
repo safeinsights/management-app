@@ -43,7 +43,7 @@ describe('StudyReviewButtons', () => {
 
     beforeEach(async () => {
         vi.clearAllMocks()
-        const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true, orgSlug: 'test-org' })
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave', orgSlug: 'test-org' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,

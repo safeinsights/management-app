@@ -28,42 +28,32 @@ export const findOrCreateSiUserId = async (clerkId: string, attrs: SiUserOptiona
 export async function findOrCreateOrgMembership({
     userId,
     slug,
-    isResearcher = true,
-    isReviewer = true,
     isAdmin = false,
 }: {
     userId: string
     slug: string
-    isResearcher?: boolean
-    isReviewer?: boolean
     isAdmin?: boolean
 }) {
     const orgInfo = await db
         .selectFrom('orgUser')
         .innerJoin('org', (join) => join.on('org.slug', '=', slug).onRef('org.id', '=', 'orgUser.orgId'))
-        .select([
-            'org.id',
-            'org.slug',
-            'org.name',
-            'orgUser.id as orgUserId',
-            'orgUser.isResearcher',
-            'orgUser.isReviewer',
-        ])
+        .select(['org.id', 'org.slug', 'org.name', 'org.type', 'orgUser.id as orgUserId', 'orgUser.isAdmin'])
         .where('orgUser.userId', '=', userId)
         .executeTakeFirst()
 
     if (orgInfo) {
-        if (orgInfo.isResearcher != isResearcher || orgInfo.isReviewer != isReviewer) {
-            db.updateTable('orgUser')
-                .set({ isResearcher, isReviewer, isAdmin })
+        if (orgInfo.isAdmin != isAdmin) {
+            await db
+                .updateTable('orgUser')
+                .set({ isAdmin })
                 .where('id', '=', orgInfo.orgUserId)
                 .executeTakeFirstOrThrow()
         }
-        return { ...orgInfo, isReviewer, isResearcher }
+        return { ...orgInfo, isAdmin }
     } else {
         const org = await db
             .selectFrom('org')
-            .select(['org.id', 'org.slug', 'org.name'])
+            .select(['org.id', 'org.slug', 'org.name', 'org.type'])
             .where('org.slug', '=', slug)
             .executeTakeFirstOrThrow(throwNotFound(`organization with slug ${slug}`))
 
@@ -71,12 +61,10 @@ export async function findOrCreateOrgMembership({
             .insertInto('orgUser')
             .values({
                 userId,
-                isReviewer,
-                isResearcher,
                 isAdmin,
                 orgId: org.id,
             })
             .executeTakeFirstOrThrow()
-        return { ...org, isReviewer, isResearcher, isAdmin }
+        return { ...org, isAdmin }
     }
 }

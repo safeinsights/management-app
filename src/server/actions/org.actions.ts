@@ -40,7 +40,8 @@ export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
                 'org.name',
                 'org.slug',
                 'org.email',
-                'org.publicKey',
+                'org.type',
+                'org.settings',
                 'org.description',
                 (eb) => eb.fn.count('study.id').as('totalStudies'),
             ])
@@ -69,7 +70,13 @@ export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction
 export type OrgUserReturn = ActionSuccessType<typeof getUsersForOrgAction>[number]
 
 export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
-    .params(z.object({ orgSlug: z.string() }).merge(orgSchema.pick({ name: true, description: true })))
+    .params(
+        z.object({
+            orgSlug: z.string(),
+            name: z.string().trim().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
+            description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
+        }),
+    )
     .requireAbilityTo('update', 'Team')
     .handler(async ({ db, session, params: { orgSlug, name, description } }) => {
         // Check for duplicate name for existing organizations
@@ -122,9 +129,8 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
                 'user.createdAt',
                 'user.email',
                 'orgUser.id as orgUserId',
-                'orgUser.isResearcher',
                 'orgUser.isAdmin',
-                'orgUser.isReviewer',
+                'org.type as orgType',
                 'latestAuditEntry.createdAt as latestActivityAt',
             ])
             .where('org.slug', '=', orgSlug)

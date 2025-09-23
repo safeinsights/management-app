@@ -1,11 +1,13 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
-import { capitalize, isObjectType, omit } from 'remeda'
+import { capitalize, isObjectType } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { ENVIRONMENT_ID, PROD_ENV } from './config'
 import { marshalSession, type syncUserMetadataFn } from './session'
 import logger from '@/lib/logger'
 import { findOrCreateOrgMembership } from './mutations'
+import { NotFoundError } from '@/lib/errors'
+
 
 export { type UserSessionWithAbility } from './session'
 
@@ -42,15 +44,13 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo> {
     const teams = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
+        format: 'v2',
         user: { id: userId },
         teams: teams.reduce(
             (acc, team) => {
                 acc[team.slug] = {
-                    id: team.id,
-                    slug: team.slug,
+                    ...team,
                     isAdmin: team.isAdmin || false,
-                    isReviewer: team.isReviewer || false,
-                    isResearcher: team.isResearcher || false,
                 }
                 return acc
             },
@@ -71,9 +71,7 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     await client.users.updateUserMetadata(clerkId, {
         publicMetadata: {
-            // remove legacy items
-            // TODO: remove the `omit` after 2025-08-15, evverything should be migrated by then
-            ...omit(user.publicMetadata, ['orgs', 'memberships', 'userId']),
+            ...user.publicMetadata,
             [`${ENVIRONMENT_ID}`]: metadata,
         },
     })
@@ -117,13 +115,52 @@ export const syncCurrentClerkUser = async () => {
     }
 
     // loop through each env and attempt to establish the same roles in this one
-    for (const env in Object.values(clerkUser.publicMetadata || {})) {
-        if (isObjectType(env) && isObjectType(env['teams'])) {
-            for (const slug of Object.keys(env['teams'])) {
-                const info = env['teams'][slug] as UserTeamMembershipInfo
-                try {
-                    findOrCreateOrgMembership({ userId: user.id, ...info })
-                } catch {} // do nothing if org didn't exist
+    for (const env of Object.values(clerkUser.publicMetadata || {})) {
+        if (isObjectType(env)) {
+            const envData = env as Record<string, unknown>
+            if (isObjectType(envData.teams)) {
+                // Check if this is v1 metadata (no format field or not v2)
+                // TODO: remove v1Metadata migration after 2026-02-15
+                const isV1Metadata = !envData.format || envData.format !== 'v2'
+
+                for (const slug of Object.keys(envData.teams)) {
+                    
+                    const teams = envData.teams as Record<string, unknown>
+                    try {
+                        if (isV1Metadata) {
+                            const info = teams[slug] as UserTeamMembershipInfoV1
+                            if (info.isReviewer) {
+                                await findOrCreateOrgMembership({ userId: user.id, ...info })
+
+                            } else if (info.isResearcher) {
+                                await findOrCreateOrgMembership({
+                                    userId: user.id,
+                                    slug: `${slug}-lab`,
+                                    isAdmin: false,
+                                })
+                                // no other roles, need to remove the org from metadata
+                                if (!info.isReviewer && !info.isAdmin) {
+                                    const client = await clerkClient()
+                                    await client.users.updateUserMetadata(clerkUser.id, {
+                                        publicMetadata: {
+                                            [`${ENVIRONMENT_ID}`]: { teams: { [`${slug}`]: null } }
+                                        },
+                                    })
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    delete (envData.teams as any)[slug]
+                                }
+                            }
+                        } else {
+                            const info = teams[slug] as UserTeamMembershipInfo
+                            await findOrCreateOrgMembership({ userId: user.id, ...info })
+                        }
+                    } catch (e) {
+                        // not found is thrown when the org doesn't exist
+                        if (!(e instanceof NotFoundError)) {
+                            throw e
+                        }
+                    }
+                }
             }
         }
     }

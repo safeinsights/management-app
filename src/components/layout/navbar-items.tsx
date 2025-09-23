@@ -1,6 +1,7 @@
 'use client'
 
 import { useSession } from '@/hooks/session'
+import { isLabOrg, isEnclaveOrg } from '@/lib/types'
 import { Stack } from '@mantine/core'
 import { StudentIcon, UserListIcon, BookOpenIcon, BooksIcon, ArrowSquareOutIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
@@ -14,9 +15,11 @@ export const NavbarItems: FC = () => {
 
     if (!isLoaded) return <NavbarSkeleton />
 
-    const { isAdmin, isResearcher, isReviewer } = session.team
+    const { isAdmin } = session.team
+    const isResearcher = isLabOrg(session.team)
+    const isReviewer = isEnclaveOrg(session.team)
 
-    const isMultiple = (session.team.isResearcher && session.team.isReviewer) || session.team.isAdmin
+    const isMultiple = (isResearcher && isReviewer) || isAdmin
 
     return (
         <Stack gap="sm">

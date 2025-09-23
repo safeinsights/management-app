@@ -4,7 +4,7 @@ import type { UserSession, UserOrgRoles } from './types'
 import { faker } from '@faker-js/faker'
 import { defineAbilityFor, toRecord } from './permissions'
 
-const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
+const createAbilty = (roles: Partial<UserOrgRoles> = {}, orgType: 'enclave' | 'lab' = 'enclave') => {
     const session: UserSession = {
         user: {
             id: faker.string.uuid(),
@@ -13,10 +13,9 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
         },
         team: {
             id: faker.string.uuid(),
+            type: orgType,
             slug: 'test',
             isAdmin: false,
-            isResearcher: false,
-            isReviewer: false,
             ...roles,
         },
     }
@@ -24,9 +23,9 @@ const createAbilty = (roles: Partial<UserOrgRoles> = {}) => {
 }
 
 test('reviewer role', () => {
-    const { ability, session } = createAbilty({ isReviewer: true })
+    const { ability, session } = createAbilty({}, 'enclave')
     expect(
-        // general form, yes researcher can approve studies
+        // general form, yes reviewer can approve studies
         ability.can('approve', 'Study'),
     ).toBeTruthy()
 
@@ -37,7 +36,7 @@ test('reviewer role', () => {
 })
 
 test('researcher role', () => {
-    const { ability } = createAbilty({ isResearcher: true })
+    const { ability } = createAbilty({}, 'lab')
 
     expect(
         // n.b. using cannot

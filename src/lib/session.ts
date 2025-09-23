@@ -1,4 +1,4 @@
-import { CLERK_ADMIN_ORG_SLUG, UserSession } from './types'
+import { CLERK_ADMIN_ORG_SLUG, UserSession, isLabOrg, isEnclaveOrg } from './types'
 
 // this contains the logic to create a UserSession from Clerk metadata
 // it's in lib so it can be used in both server and client contexts
@@ -44,7 +44,9 @@ export const sessionFromMetadata = ({
             isSiAdmin,
         },
         team: {
-            ...team,
+            id: team.id,
+            slug: team.slug,
+            type: info.format === 'v2' && 'type' in team ? (team as UserTeamMembershipInfo).type : 'enclave',
             isAdmin: team.isAdmin || isSiAdmin,
         },
     }
@@ -58,11 +60,11 @@ export const sessionFromMetadata = ({
 }
 
 export const navigateToDashboard = (router: { push: (path: string) => void }, session: UserSessionWithAbility) => {
-    if (session.team.isResearcher) {
+    if (isLabOrg(session.team)) {
         router.push('/researcher/dashboard')
         return
     }
-    if (session.team.isReviewer) {
+    if (isEnclaveOrg(session.team)) {
         router.push(`/reviewer/${session.team.slug}/dashboard`)
         return
     }

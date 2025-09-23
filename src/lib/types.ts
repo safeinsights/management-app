@@ -1,11 +1,38 @@
-import type { FileType, StudyJobStatus, StudyStatus } from '../database/types'
+import type { FileType, StudyJobStatus, StudyStatus, OrgType } from '../database/types'
 import { z } from 'zod'
 import { FileEntry } from 'si-encryption/job-results/types'
 import type { ActionResponse } from '@/lib/errors'
 
-export type UserOrgRoles = { isAdmin: boolean; isResearcher: boolean; isReviewer: boolean }
+export type UserOrgRoles = { isAdmin: boolean }
 
 export type UUID = string
+
+// Settings types for different org types
+export type EnclaveSettings = {
+    publicKey: string
+}
+
+export type LabSettings = Record<string, never> // Empty object for now, can be extended later
+
+// Discriminated union types for organizations
+export type EnclaveOrg = {
+    type: 'enclave'
+    settings: EnclaveSettings
+}
+
+export type LabOrg = {
+    type: 'lab'
+    settings: LabSettings
+}
+
+// Type guards
+export function isEnclaveOrg(org: { type: OrgType }): org is EnclaveOrg {
+    return org.type === 'enclave'
+}
+
+export function isLabOrg(org: { type: OrgType }): org is LabOrg {
+    return org.type === 'lab'
+}
 
 export type SessionUser = {
     id: string
@@ -15,6 +42,7 @@ export type SessionUser = {
 
 export type Team = UserOrgRoles & {
     id: string
+    type: OrgType
     slug: string
 }
 
@@ -117,7 +145,7 @@ export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false
 
 export const BLANK_SESSION: UserSession = {
     user: { id: '', isSiAdmin: false, clerkUserId: '' },
-    team: { id: '', slug: '', isAdmin: false, isResearcher: false, isReviewer: false },
+    team: { id: '', type: 'enclave', slug: '', isAdmin: false },
 }
 
 Object.freeze(BLANK_SESSION)

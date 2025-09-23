@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import * as Sentry from '@sentry/nextjs'
 import { marshalSession } from './server/session'
-import { type UserSession, BLANK_SESSION } from './lib/types'
+import { type UserSession, BLANK_SESSION, isLabOrg, isEnclaveOrg } from './lib/types'
 import { omit } from 'remeda'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
@@ -24,10 +24,10 @@ function redirectToRole(request: NextRequest, route: string, session: UserSessio
         request.url,
         JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
     )
-    if (session.team.isResearcher) {
+    if (isLabOrg(session.team)) {
         return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
     }
-    if (session.team.isReviewer) {
+    if (isEnclaveOrg(session.team)) {
         return NextResponse.redirect(new URL(`/reviewer/${session.team.slug}/dashboard`, request.url))
     }
     return NextResponse.redirect(new URL('/', request.url))
@@ -57,7 +57,9 @@ export default clerkMiddleware(async (auth, req) => {
         }
     }
 
-    const { isAdmin, isResearcher, isReviewer } = session.team
+    const { isAdmin } = session.team
+    const isResearcher = isLabOrg(session.team)
+    const isReviewer = isEnclaveOrg(session.team)
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToRole(req, 'si admin', session)

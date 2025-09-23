@@ -48,8 +48,6 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .values({
                 orgId,
                 email: invite.email,
-                isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
-                isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',
                 isAdmin: invite.permission == 'admin',
             })
             .returning('id')

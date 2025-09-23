@@ -146,7 +146,7 @@ export const errorToString = (error: unknown, clerkOverrides?: Record<string, st
     return 'Unknown error occured'
 }
 
-export class AccessDeniedError extends ActionFailure {
+class RecordError extends ActionFailure {
     constructor(sanitizedError: Record<string, string>) {
         super(sanitizedError)
         // Set message for backwards compatibility
@@ -154,9 +154,13 @@ export class AccessDeniedError extends ActionFailure {
     }
 }
 
+export class AccessDeniedError extends RecordError {}
+
+export class NotFoundError extends RecordError {}
+
 // a utility function to throw an AccessDeniedError with a message
 // useful for passing into kysely's takeFirstOrThrow
 export const throwAccessDenied = (part: string) => () =>
     new AccessDeniedError({ user: `not allowed access to ${part}` })
 
-export const throwNotFound = (part: string) => () => new AccessDeniedError({ user: `${part} was not found` })
+export const throwNotFound = (part: string) => () => new NotFoundError({ user: `${part} was not found` })

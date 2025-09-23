@@ -106,7 +106,7 @@ export class Action<
                 const msg =
                     `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
                     `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                    `session: ${JSON.stringify(session.team, null, 2)}\n`
+                    `session: ${JSON.stringify(session, null, 2)}\n`
                 logger.error(msg)
                 throw new ActionFailure({ permission_denied: msg })
             }

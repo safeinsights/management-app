@@ -19,12 +19,20 @@ async function setupUsers() {
 
     const org = await db
         .selectFrom('org')
-        .select(['id', 'publicKey'])
+        .select(['id', 'settings', 'type'])
         .where('slug', '=', 'openstax')
         .executeTakeFirstOrThrow()
 
-    if (org.publicKey.length < 1000) {
-        await db.updateTable('org').set({ publicKey: pubKeyStr }).where('id', '=', org.id).execute()
+    // Update publicKey in settings for enclave org
+    if (org.type === 'enclave') {
+        const settings = org.settings as any
+        if (!settings.publicKey || settings.publicKey.length < 1000) {
+            await db
+                .updateTable('org')
+                .set({ settings: { ...settings, publicKey: pubKeyStr } })
+                .where('id', '=', org.id)
+                .execute()
+        }
     }
 
     for (const clerkId of CLERK_ADMIN_TEST_IDS) {
@@ -32,11 +40,15 @@ async function setupUsers() {
             firstName: 'Test Admin User',
             lastName: 'Test Admin User',
         })
+        // Admins should be in both enclave and lab orgs
         await findOrCreateOrgMembership({
             userId,
             slug: 'openstax',
-            isReviewer: false,
-            isResearcher: true,
+            isAdmin: true,
+        })
+        await findOrCreateOrgMembership({
+            userId,
+            slug: 'openstax-lab',
             isAdmin: true,
         })
         console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
@@ -47,7 +59,8 @@ async function setupUsers() {
             firstName: 'Test Researcher User',
             lastName: 'Test Researcher User',
         })
-        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: false, isResearcher: true })
+        // Researchers go to lab org
+        await findOrCreateOrgMembership({ userId, slug: 'openstax-lab', isAdmin: false })
         console.log(`setup researcher user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 
@@ -62,7 +75,8 @@ async function setupUsers() {
                 .values({ fingerprint, userId, publicKey: pubKey })
                 .executeTakeFirstOrThrow()
         }
-        await findOrCreateOrgMembership({ userId, slug: 'openstax', isReviewer: true, isResearcher: false })
+        // Reviewers go to enclave org
+        await findOrCreateOrgMembership({ userId, slug: 'openstax', isAdmin: false })
         console.log(`setup reviewer user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 }

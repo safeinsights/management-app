@@ -15,7 +15,7 @@ vi.mock('@/server/events', () => ({
 
 describe('User Keys Actions', () => {
     it('only allows reviewer users to access the actions', async () => {
-        await mockSessionWithTestData({ isReviewer: false })
+        await mockSessionWithTestData({ orgType: 'lab' })
         vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
         try {
@@ -28,7 +28,7 @@ describe('User Keys Actions', () => {
     })
 
     it('getReviewerPublicKeyAction returns the public key for the current user', async () => {
-        const { user } = await mockSessionWithTestData({ isReviewer: true })
+        const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         const publicKey = Buffer.from('test-public-key')
         const fingerprint = 'test-fingerprint'
@@ -41,7 +41,7 @@ describe('User Keys Actions', () => {
     })
 
     it('setReviewerPublicKeyAction sets the public key for the current user', async () => {
-        const { user } = await mockSessionWithTestData({ isReviewer: true })
+        const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
         const publicKey = Buffer.from('new-public-key').buffer
         const fingerprint = 'new-fingerprint'

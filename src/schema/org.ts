@@ -2,7 +2,15 @@ import { z } from 'zod'
 import { Selectable } from 'kysely'
 import { Org as DefinedOrg } from '@/database/types'
 
-export const orgSchema = z.object({
+// Settings schemas for different org types
+const enclaveSettingsSchema = z.object({
+    publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
+})
+
+const labSettingsSchema = z.object({}).strict() // Empty for now
+
+// Base org schema
+const baseOrgSchema = z.object({
     slug: z.string().regex(/^[a-z0-9-]+$/, { message: 'Invalid slug: must be all lowercase alphanumeric or dashes' }),
     name: z
         .string()
@@ -16,7 +24,6 @@ export const orgSchema = z.object({
             message: 'Name cannot be only numbers',
         }),
     email: z.string().email({ message: 'Invalid email address' }),
-    publicKey: z.string().min(1, { message: 'PubKey cannot be blank' }),
     description: z
         .string()
         .max(250, 'Word limit is 250 characters')
@@ -25,19 +32,45 @@ export const orgSchema = z.object({
         .optional(),
 })
 
-export const updateOrgSchema = orgSchema.extend({
-    id: z.string(),
+// Discriminated union schemas
+export const enclaveOrgSchema = baseOrgSchema.extend({
+    type: z.literal('enclave'),
+    settings: enclaveSettingsSchema,
 })
+
+export const labOrgSchema = baseOrgSchema.extend({
+    type: z.literal('lab'),
+    settings: labSettingsSchema,
+})
+
+export const orgSchema = z.discriminatedUnion('type', [enclaveOrgSchema, labOrgSchema])
+
+export const updateOrgSchema = z.discriminatedUnion('type', [
+    enclaveOrgSchema.extend({ id: z.string() }),
+    labOrgSchema.extend({ id: z.string() }),
+])
 
 export type ValidatedOrg = z.infer<typeof orgSchema>
 
-export const getNewOrg = (): NewOrg => {
-    return {
-        slug: '',
-        name: '',
-        email: '',
-        publicKey: '',
-        description: null,
+export const getNewOrg = (type: 'enclave' | 'lab' = 'enclave'): NewOrg => {
+    if (type === 'enclave') {
+        return {
+            slug: '',
+            name: '',
+            email: '',
+            type: 'enclave',
+            settings: { publicKey: '' },
+            description: null,
+        } as NewOrg
+    } else {
+        return {
+            slug: '',
+            name: '',
+            email: '',
+            type: 'lab',
+            settings: {},
+            description: null,
+        } as NewOrg
     }
 }
 

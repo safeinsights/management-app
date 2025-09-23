@@ -135,17 +135,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
     }
 }
 
-export const insertTestUser = async ({
-    org,
-    isResearcher = true,
-    isReviewer = true,
-    isAdmin = false,
-}: {
-    org: MinimalTestOrg
-    isResearcher?: boolean
-    isReviewer?: boolean
-    isAdmin?: boolean
-}) => {
+export const insertTestUser = async ({ org, isAdmin = false }: { org: MinimalTestOrg; isAdmin?: boolean }) => {
     const user = await db
         .insertInto('user')
         .values({
@@ -163,14 +153,13 @@ export const insertTestUser = async ({
         .values({
             orgId: org.id,
             userId: user.id,
-            isResearcher,
             isAdmin,
-            isReviewer,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
 
-    if (isReviewer) {
+    // Add user public key for enclave orgs (reviewers)
+    if (org.type === 'enclave') {
         await db
             .insertInto('userPublicKey')
             .values({
@@ -184,7 +173,7 @@ export const insertTestUser = async ({
     return { user, orgUser }
 }
 
-type MinimalTestOrg = { slug: string; id: string }
+type MinimalTestOrg = { slug: string; id: string; type: 'enclave' | 'lab' }
 
 export const insertTestStudyJobData = async ({
     org,
@@ -254,8 +243,8 @@ export const insertTestStudyJobUsers = async ({ org }: { org?: MinimalTestOrg } 
     if (!org) {
         org = await insertTestOrg()
     }
-    const { user: user1 } = await insertTestUser({ org, isReviewer: true })
-    const { user: user2 } = await insertTestUser({ org, isReviewer: false })
+    const { user: user1 } = await insertTestUser({ org })
+    const { user: user2 } = await insertTestUser({ org })
 
     const { study, job, ...rest } = await insertTestStudyJobData({ org })
 
@@ -274,6 +263,7 @@ export type InsertTestOrgOptions = {
     description?: string | null
     email?: string
     publicKey?: string
+    type?: 'enclave' | 'lab'
 }
 
 export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.string.alpha(10) }) => {
@@ -290,7 +280,8 @@ export const insertTestOrg = async (opts: InsertTestOrgOptions = { slug: faker.s
                 name: opts.name || faker.company.name(),
                 description: opts.description ?? null,
                 email: opts.email || `${opts.slug}@example.com`,
-                publicKey: opts.publicKey || defaultPublicKey,
+                type: opts.type || 'enclave',
+                settings: opts.type === 'lab' ? {} : { publicKey: opts.publicKey || defaultPublicKey },
             })
             .returningAll()
             .executeTakeFirstOrThrow())
@@ -320,6 +311,7 @@ type MockSession = {
     imageUrl?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
+    orgType?: 'enclave' | 'lab'
     isSiAdmin?: boolean
     twoFactorEnabled?: boolean
 }
@@ -347,13 +339,12 @@ export const mockClerkSession = (values: MockSession | null) => {
             currentTeamSlug: values.orgSlug,
         },
     }
-    const teams: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string }> = {
+    const teams: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string; type?: 'enclave' | 'lab' }> = {
         [values.orgSlug]: {
             id: values.orgId,
             slug: values.orgSlug,
+            type: values.orgType || 'enclave',
             isAdmin: false,
-            isReviewer: true,
-            isResearcher: true,
             ...(values.roles || {}),
         },
     }
@@ -362,13 +353,13 @@ export const mockClerkSession = (values: MockSession | null) => {
         teams[CLERK_ADMIN_ORG_SLUG] = {
             id: 'si-org-id-mock',
             slug: CLERK_ADMIN_ORG_SLUG,
+            type: 'enclave',
             isAdmin: true,
-            isReviewer: true,
-            isResearcher: true,
         }
     }
     const publicMetadata = {
         [`${ENVIRONMENT_ID}`]: {
+            format: 'v2',
             user: {
                 id: values.userId,
             },
@@ -454,8 +445,7 @@ export const mockClerkSession = (values: MockSession | null) => {
 
 type MockSessionWithTestDataOptions = {
     orgSlug?: string
-    isResearcher?: boolean
-    isReviewer?: boolean
+    orgType?: 'enclave' | 'lab'
     isAdmin?: boolean
     isSiAdmin?: boolean
     clerkId?: string
@@ -465,8 +455,11 @@ type MockSessionWithTestDataOptions = {
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
     if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
 
-    const org = await insertTestOrg({ slug: options.orgSlug })
-    const { user, orgUser } = await insertTestUser({ org: { id: org.id, slug: options.orgSlug }, ...options })
+    const org = await insertTestOrg({ slug: options.orgSlug, type: options.orgType })
+    const { user, orgUser } = await insertTestUser({
+        org: { id: org.id, slug: options.orgSlug, type: org.type },
+        isAdmin: options.isAdmin,
+    })
 
     if (options.isSiAdmin) {
         const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
@@ -476,8 +469,6 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
                 orgId: siOrg.id,
                 userId: user.id,
                 isAdmin: true,
-                isResearcher: true,
-                isReviewer: true,
             })
             .execute()
     }
@@ -488,10 +479,9 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
         orgSlug: org.slug,
         orgId: org.id,
         roles: {
-            isResearcher: options.isResearcher ?? true,
-            isReviewer: options.isReviewer ?? true,
             isAdmin: options.isAdmin ?? false,
         },
+        orgType: options.orgType ?? 'enclave',
         isSiAdmin: options.isSiAdmin,
         twoFactorEnabled: options.twoFactorEnabled,
     })

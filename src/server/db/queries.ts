@@ -126,29 +126,14 @@ export const studyInfoForStudyId = async (studyId: string) => {
         .executeTakeFirst()
 }
 
-export const getUsersByRoleAndOrgId = async (role: 'researcher' | 'reviewer', orgId: string) => {
-    const query = Action.db
+export const getUsersForOrgId = async (orgId: string) => {
+    return Action.db
         .selectFrom('user')
         .innerJoin('orgUser', 'user.id', 'orgUser.userId')
-        .innerJoin('org', 'orgUser.orgId', 'org.id')
         .distinctOn('user.id')
         .select(['user.id', 'user.email', 'user.fullName'])
-        .where((eb) => {
-            const filters = []
-            filters.push(eb('orgUser.orgId', '=', orgId))
-
-            if (role === 'researcher') {
-                filters.push(eb('orgUser.isResearcher', '=', true))
-            }
-
-            if (role === 'reviewer') {
-                filters.push(eb('orgUser.isReviewer', '=', true))
-            }
-
-            return eb.and(filters)
-        })
-
-    return await query.execute()
+        .where('orgUser.orgId', '=', orgId)
+        .execute()
 }
 
 // this is called primarlily by the mail functions to get study infoormation
@@ -184,12 +169,19 @@ export const getUserById = async (userId: string) => {
 }
 
 export const getOrgInfoForUserId = async (userId: string) => {
-    return await Action.db
+    const orgs = await Action.db
         .selectFrom('orgUser')
         .innerJoin('org', 'org.id', 'orgUser.orgId')
-        .select(['org.id', 'org.slug', 'isAdmin', 'isResearcher', 'isReviewer'])
+        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
         .where('userId', '=', userId)
         .execute()
+
+    // Map org type to role flags for backward compatibility with Clerk metadata
+    return orgs.map((org) => ({
+        ...org,
+        isResearcher: org.type === 'lab',
+        isReviewer: org.type === 'enclave',
+    }))
 }
 
 export const getInfoForStudyJobId = async (studyJobId: string) => {

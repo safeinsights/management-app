@@ -1,4 +1,4 @@
-import { type UserSession } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -12,7 +12,9 @@ export { subject, type AppAbility, type PermissionsActionSubjectMap, type Permis
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
-    const { isAdmin: isTeamAdmin, isResearcher, isReviewer } = session.team
+    const { isAdmin: isTeamAdmin } = session.team
+    const isResearcher = isLabOrg(session.team)
+    const isReviewer = isEnclaveOrg(session.team)
     const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     // https://casl.js.org/v6/en/guide/conditions-in-depth

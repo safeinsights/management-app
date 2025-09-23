@@ -43,6 +43,8 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'R'
 
+export type OrgType = 'enclave' | 'lab'
+
 export type StudyJobStatus =
     | 'CODE-APPROVED'
     | 'CODE-REJECTED'
@@ -86,8 +88,9 @@ export interface Org {
     email: string
     id: Generated<string>
     name: string
-    publicKey: string
+    settings: Generated<Json>
     slug: string
+    type: Generated<OrgType>
     updatedAt: Generated<Timestamp>
 }
 
@@ -105,8 +108,6 @@ export interface OrgBaseImage {
 export interface OrgUser {
     id: Generated<string>
     isAdmin: boolean
-    isResearcher: Generated<boolean>
-    isReviewer: boolean
     joinedAt: Generated<Timestamp>
     orgId: string
     userId: string
@@ -118,8 +119,6 @@ export interface PendingUser {
     email: string
     id: Generated<string>
     isAdmin: Generated<boolean>
-    isResearcher: boolean
-    isReviewer: boolean
     orgId: string
 }
 
