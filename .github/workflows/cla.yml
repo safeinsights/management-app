@@ -1,4 +1,5 @@
 name: "CLA Assistant"
+
 on:
   issue_comment:
     types: [created]
@@ -15,9 +16,75 @@ permissions:
 jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
+    # Only run on PRs or comments on PRs
+    if: >
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+
     steps:
+      # Check if all commit authors in the PR are members of safeinsights/all-devs
+      - name: Check team membership for commit authors
+        id: teamcheck
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.ORG_READ_TOKEN }}  # token must have read:org
+          script: |
+            const org = 'safeinsights';
+            const teamSlug = 'all-devs';
+
+            const prNumber = context.payload.pull_request
+              ? context.payload.pull_request.number
+              : context.payload.issue.number;
+
+            // Get all commits on the PR
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100
+            });
+
+            // Collect unique GitHub logins for commit authors; null/unknown authors are treated as external
+            const authors = Array.from(new Set(
+              commits.map(c => (c.author && c.author.login) ? c.author.login : null)
+            ));
+
+            // For any null author, force CLA (cannot prove team membership)
+            if (authors.includes(null)) {
+              core.setOutput('skip_cla', 'false');
+              core.setOutput('authors', JSON.stringify(authors));
+              return;
+            }
+
+            // Check membership for each author
+            let allInTeam = true;
+            for (const login of authors) {
+              try {
+                await github.request(
+                  'GET /orgs/{org}/teams/{team_slug}/memberships/{username}',
+                  { org, team_slug: teamSlug, username: login }
+                );
+              } catch (e) {
+                // 404/403 means not a member or token lacks org scope → require CLA
+                allInTeam = false;
+                break;
+              }
+            }
+
+            core.setOutput('skip_cla', allInTeam ? 'true' : 'false');
+            core.setOutput('authors', JSON.stringify(authors));
+
       - name: "CLA Assistant"
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # Run only when:
+        # - this is a PR event, OR a PR comment with the signing/recheck phrases
+        # - and NOT all authors are in the excluded team
+        if: >
+          (
+            github.event_name == 'pull_request_target' ||
+            (github.event_name == 'issue_comment' &&
+             (github.event.comment.body == 'recheck' ||
+              github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA'))
+          ) && steps.teamcheck.outputs.skip_cla != 'true'
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,13 +96,4 @@ jobs:
           # Branch that stores the signatures file; MUST NOT be protected
           branch: 'otter-303-test2'
           # Exempt known users/bots from signing (optional)
-          allowlist: 'dependabot[bot],bot*'
-          # Optional customizations (uncomment to use)
-          # create-file-commit-message: 'Create CLA signatures file'
-          # signed-commit-message: '$contributorName has signed the CLA in $owner/$repo#$pullRequestNo'
-          # custom-notsigned-prcomment: 'Please read and sign our CLA by replying with the signature phrase.'
-          # custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
-          # custom-allsigned-prcomment: 'All contributors have signed the CLA.'
-          # lock-pullrequest-aftermerge: true
-          # suggest-recheck: true
-          # use-dco-flag: false
+          # allowlist: 'dependabot[bot],bot*'
