@@ -15,12 +15,12 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     // Proposal
     'PENDING-REVIEW': {
         type: 'Proposal',
-        label: 'Awaiting Review',
+        label: 'Needs Review',
         tooltip: 'This proposal is now ready for review. Open the study for more details.',
     },
     'CODE-SUBMITTED': {
         type: 'Proposal',
-        label: 'Awaiting Review',
+        label: 'Needs Review',
         tooltip: 'This proposal is now ready for review. Open the study for more details.',
     },
     APPROVED: {

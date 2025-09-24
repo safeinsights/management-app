@@ -23,12 +23,13 @@ import { Link } from '@/components/links'
 import { useQuery } from '@/common'
 import { StudyJobStatus } from '@/database/types'
 import { Refresher } from '@/components/refresher'
+import { getStudyStage } from '@/lib/util'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
     return (
-        <TableTr key={study.id}>
+        <TableTr key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
@@ -38,7 +39,8 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
-            <TableTd>{study.reviewerName}</TableTd>
+            <TableTd>{orgSlug}</TableTd>
+            <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
                     audience="reviewer"
@@ -89,6 +91,7 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                         <TableTh fw={600}>Submitted On</TableTh>
                         <TableTh fw={600}>Submitted By</TableTh>
                         <TableTh fw={600}>Reviewed By</TableTh>
+                        <TableTh fw={600}>Stage</TableTh>
                         <TableTh fw={600}>Status</TableTh>
                         <TableTh fw={600}>Details</TableTh>
                     </TableTr>

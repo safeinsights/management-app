@@ -20,6 +20,5 @@ export const mainStyles = css({
 })
 
 export const footerStyles = css({
-    fontSize: '80%',
     fontStyle: 'oblique',
 })

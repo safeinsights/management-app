@@ -82,7 +82,7 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label={
                         <>
-                            Hi! <UserName />
+                            Hi, <UserName />
                         </>
                     }
                     leftSection={<UserAvatar />}
