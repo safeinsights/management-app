@@ -15,7 +15,18 @@ test.describe('Studies', () => {
 
         await page.waitForTimeout(1000)
 
+        // propose new study button
         await page.getByTestId('new-study').first().click()
+
+        // wait for Step 1 panel to render and select openstax as the org for following steps
+        await expect(page.getByText('Step 1 of 3')).toBeVisible()
+        const orgSelect = page.getByTestId('org-select')
+        await orgSelect.waitFor({ state: 'visible' })
+
+        await page.waitForTimeout(1000)
+        await expect(orgSelect).toBeEnabled()
+        await orgSelect.click()
+        await page.getByRole('option', { name: /openstax/i }).click()
 
         await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
         await page.getByLabel(/investigator/i).fill('Ricky McResearcher')

@@ -12,13 +12,12 @@ type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
 
-    const { data: orgs } = useQuery({
+    const { data: orgs, isLoading } = useQuery({
         queryKey: ['all-orgs'],
         queryFn: () => listAllOrgsAction(),
     })
 
-    if (!isLoaded || !user || !orgs) return null
-
+    if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
     return (
@@ -42,9 +41,11 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                     <Grid.Col span={inputSpan}>
                         <Select
                             id="studyOrg"
-                            data={orgs.map((org) => ({ value: org.slug, label: org.name }))}
+                            data-testid="org-select"
+                            data={orgs?.map((o) => ({ value: o.slug, label: o.name }))}
                             value={form.values.orgSlug}
                             placeholder="Select a data organization"
+                            disabled={isLoading}
                             onChange={(value) => {
                                 form.setFieldValue('orgSlug', value || '')
                             }}
