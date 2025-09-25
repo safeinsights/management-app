@@ -8,6 +8,7 @@ import { useSession } from '@/hooks/session'
 import { usePathname } from 'next/navigation'
 import { NavbarLink } from './navbar-link'
 import { RefWrapper } from './nav-ref-wrapper'
+import { getAdminOrg } from '@/lib/types'
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
@@ -16,9 +17,10 @@ interface OrgAdminDashboardLinkProps {
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
     const pathname = usePathname()
     const { session } = useSession()
+    const adminOrg = session ? getAdminOrg(session) : null
 
     const isAdminPage = pathname.startsWith('/admin/')
-    const orgAdminBaseUrl = `/admin/team/${session?.org.slug}`
+    const orgAdminBaseUrl = adminOrg ? `/admin/team/${adminOrg.slug}` : '/admin'
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {

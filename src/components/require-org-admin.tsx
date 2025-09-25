@@ -1,19 +1,19 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { useLayoutEffect } from 'react'
 import { useSession } from '../hooks/session'
-import { navigateToDashboard } from '../lib/session'
 
 export const RequireOrgAdmin = () => {
     const { session } = useSession()
+    const { orgSlug } = useParams<{ orgSlug?: string }>()
     const router = useRouter()
 
     useLayoutEffect(() => {
-        if (!session || session.org.isAdmin) return
+        if (!session || !orgSlug || session.orgs[orgSlug]?.isAdmin) return
 
-        navigateToDashboard(router, session)
-    }, [session, router])
+        router.push('/dashboard')
+    }, [session, router, orgSlug])
 
     return null
 }
