@@ -76,7 +76,8 @@ export const SignInForm: FC<{
             //incorrect email or password
             if (
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
-                errorMessage === clerkErrorOverrides.form_identifier_not_found
+                errorMessage === clerkErrorOverrides.form_identifier_not_found ||
+                errorMessage === "You're already signed in."
             ) {
                 form.setFieldError('email', ' ')
                 form.setFieldError('password', errorMessage)
