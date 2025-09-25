@@ -27,15 +27,15 @@ export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileN
 
 export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
 
-export function extractOrgSlugFromPath(pathname: string): string | null {
+export function extractOrgSlugFromPath(pathname: string) {
     const pathParts = pathname.split('/')
     if (pathParts.length >= 3) {
         if (pathParts[1] === 'admin' && pathParts[2] === 'team') {
-            return pathParts[3] || null
+            return pathParts[3]
         }
         if (pathParts[1] === 'reviewer' || pathParts[1] === 'dashboard') {
-            return pathParts[2] || null
+            return pathParts[2]
         }
     }
-    return null
+    return undefined
 }

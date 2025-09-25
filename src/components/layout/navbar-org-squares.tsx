@@ -56,9 +56,10 @@ const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, 
 type Props = {
     isMainDashboard: boolean
     orgs: Orgs
+    focusedOrgSlug?: string
 }
 
-export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, orgs }) => {
+export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgSlug, orgs }) => {
     return (
         <Flex
             direction="column"
@@ -77,7 +78,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, orgs }) => 
             {orgs.map((org) => (
                 <Square
                     color="white"
-                    isActive={org.slug === 'openstax'}
+                    isActive={org.slug === focusedOrgSlug}
                     key={org.id}
                     href={`/dashboard/${org.slug}`}
                     eventCount={org.eventCount}

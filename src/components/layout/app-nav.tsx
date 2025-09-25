@@ -27,7 +27,7 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop
     return (
         <AppShellNavbar bg="purple.8">
             <Group h="100%" gap={0}>
-                <NavbarOrgSquares isMainDashboard={isMainDashboard} orgs={orgs || []} />
+                <NavbarOrgSquares isMainDashboard={isMainDashboard} focusedOrgSlug={focusedOrgSlug} orgs={orgs || []} />
                 <Stack h="100%" flex={1}>
                     <AppShellSection grow>
                         {isMainDashboard ? <NavOrgsList orgs={orgs || []} /> : <NavOrgLinks org={focusedOrg} />}
