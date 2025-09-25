@@ -29,6 +29,15 @@ export async function up(db: Kysely<any>): Promise<void> {
     // For each existing org (which are all enclaves now), create a corresponding lab org
     const existingOrgs = await db.selectFrom('org').selectAll('org').execute()
 
+    await db.schema
+        .alterTable('orgUser')
+        .alterColumn('is_reviewer', (col) => col.dropNotNull())
+        .execute()
+    await db.schema
+        .alterTable('orgUser')
+        .alterColumn('is_researcher', (col) => col.dropNotNull())
+        .execute()
+
     for (const org of existingOrgs) {
         const labSlug = `${org.slug}-lab`
         const labName = `${org.name} Lab`

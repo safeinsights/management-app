@@ -28,7 +28,6 @@ import { isActionError, errorToString } from '@/lib/errors'
 import { getStudyStage } from '@/lib/util'
 import { getLabOrg } from '@/lib/types'
 
-
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
         <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/researcher/study/request/${orgSlug}`}>
