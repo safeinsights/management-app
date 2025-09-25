@@ -1,4 +1,4 @@
-import { type UserSession, isLabOrg, isEnclaveOrg } from './types'
+import { type UserSession, isLabOrg, isEnclaveOrg, isOrgAdmin } from './types'
 import { AbilityBuilder, createMongoAbility, subject } from '@casl/ability'
 import {
     AppAbility,
@@ -12,9 +12,13 @@ export { subject, type AppAbility, type PermissionsActionSubjectMap, type Permis
 
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
-    const { isAdmin: isOrgAdmin } = session.org
-    const isResearcher = isLabOrg(session.org)
-    const isReviewer = isEnclaveOrg(session.org)
+    const orgs = Object.values(session.orgs)
+    const usersOrgIds = orgs.map((o) => o.id)
+
+    const usersAdminOrgIds = orgs.filter(isOrgAdmin).map((o) => o.id)
+    const usersReviewerOrgIds = orgs.filter(isEnclaveOrg).map((o) => o.id)
+    const usersResearcherOrgIds = orgs.filter(isLabOrg).map((o) => o.id)
+
     const { can: permit, build } = new AbilityBuilder<AppAbility>(createMongoAbility)
 
     // https://casl.js.org/v6/en/guide/conditions-in-depth
@@ -25,40 +29,47 @@ export function defineAbilityFor(session: UserSession) {
     permit('claim', 'PendingUser')
     permit('reset', 'MFA')
 
-    permit('view', 'Org', { orgSlug: session.org.slug })
+    // everyone can view studies, the action will return the appropriate listing
+    permit('view', 'Studies')
 
-    if (isResearcher || isReviewer || isOrgAdmin) {
-        permit('view', 'Study', { orgId: session.org.id })
-        permit('view', 'StudyJob', { orgId: session.org.id })
-        permit('view', 'Org', { orgSlug: session.org.slug })
+    permit('view', 'OrgMembers', { orgId: { $in: usersOrgIds } })
+
+    // can view orgs, studies and jobs for all orgs that the user belongs to
+    permit('view', 'Org', { orgId: { $in: usersOrgIds } })
+    permit('view', 'Study', { orgId: { $in: usersOrgIds } })
+    permit('view', 'StudyJob', { orgId: { $in: usersOrgIds } })
+
+    // users who belong to any researche orgs can create studies for ANY org
+    if (usersResearcherOrgIds.length) {
+        permit('create', 'Study')
+        permit('update', 'Study')
+        permit('delete', 'Study')
+        permit('create', 'StudyJob')
+        permit('delete', 'StudyJob')
     }
 
-    if (isResearcher || isOrgAdmin) {
-        permit('create', 'Study', { orgId: session.org.id })
-        permit('create', 'StudyJob', { orgId: session.org.id })
-        permit('update', 'Study', { orgId: session.org.id })
-        permit('delete', 'Study', { orgId: session.org.id })
-        permit('delete', 'StudyJob', { orgId: session.org.id })
-    }
+    // can view studies and jobs for all orgs that the user's org has submitted
+    permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
+    permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    if (isReviewer || isOrgAdmin) {
+    // user who belong to any enclave orgs can view/create/update thier keys
+    if (usersReviewerOrgIds.length) {
         permit('view', 'ReviewerKey')
         permit('update', 'ReviewerKey')
-        permit('approve', 'Study', { orgId: session.org.id })
-        permit('reject', 'Study', { orgId: session.org.id })
-        permit('view', 'Study', { orgId: session.org.id })
-        permit('review', 'Study', { orgId: session.org.id })
     }
 
-    if (isOrgAdmin) {
-        permit('update', 'User', { orgId: session.org.id })
-        permit('invite', 'User', { orgId: session.org.id })
-        permit('view', 'User', { orgSlug: session.org.slug })
-        permit('view', 'Org', { orgSlug: session.org.slug })
-        permit('view', 'OrgMembers', { orgSlug: session.org.slug })
-        permit('update', 'Org', { orgSlug: session.org.slug })
-    }
+    // allow review of studies for enclave orgs that the user belongs to
+    permit('approve', 'Study', { orgId: { $in: usersReviewerOrgIds } })
+    permit('reject', 'Study', { orgId: { $in: usersReviewerOrgIds } })
+    permit('review', 'Study', { orgId: { $in: usersReviewerOrgIds } })
 
+    // admins can update and invite
+    permit('update', 'User', { orgId: { $in: usersAdminOrgIds } })
+    permit('invite', 'User', { orgId: { $in: usersAdminOrgIds } })
+    permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
+    permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
+
+    // SI admins can do anythig
     if (isSiAdmin) {
         permit('create', 'Org')
         permit('update', 'User')

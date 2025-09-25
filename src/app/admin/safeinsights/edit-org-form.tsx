@@ -2,12 +2,12 @@
 
 import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/common'
 import { Button, Textarea, TextInput, Select } from '@mantine/core'
-import { updateOrgAction, insertOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
+import { updateOrgAction, insertOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
 
-type Org = Omit<ActionSuccessType<typeof fetchOrgsStatsAction>[number], 'totalStudies'>
+type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
 type NewOrg = Omit<Org, 'id'>
 
 // Transform org data to match form expectations
@@ -27,15 +27,21 @@ const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
     if (orgData.type === 'enclave') {
         const settings = orgData.settings as { publicKey?: string } | null
         return {
-            ...orgData,
+            slug: orgData.slug,
+            name: orgData.name,
+            email: '',
             type: 'enclave',
             settings: { publicKey: settings?.publicKey || '' },
+            description: null,
         } as ValidatedOrg
     } else {
         return {
-            ...orgData,
+            slug: orgData.slug,
+            name: orgData.name,
+            email: '',
             type: 'lab',
             settings: {},
+            description: null,
         } as ValidatedOrg
     }
 }

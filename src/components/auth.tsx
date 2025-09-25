@@ -1,4 +1,4 @@
-import { AuthRole, isLabOrg, isEnclaveOrg } from '@/lib/types'
+import { AuthRole, getLabOrg, getEnclaveOrg, getAdminOrg } from '@/lib/types'
 import { useSession } from '../hooks/session'
 
 type ProtectProps = {
@@ -12,9 +12,9 @@ export const Protect: React.FC<ProtectProps> = ({ role, children }) => {
 
     if (!isLoaded || !session) return null
 
-    if (role == AuthRole.Admin && session.org.isAdmin) return children
-    if (role == AuthRole.Researcher && isLabOrg(session.org)) return children
-    if (role == AuthRole.Reviewer && isEnclaveOrg(session.org)) return children
+    if (role == AuthRole.Admin && getAdminOrg(session)) return children
+    if (role == AuthRole.Researcher && getLabOrg(session)) return children
+    if (role == AuthRole.Reviewer && getEnclaveOrg(session)) return children
 
     return null
 }

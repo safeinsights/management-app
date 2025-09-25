@@ -7,10 +7,12 @@ import { useDisclosure } from '@mantine/hooks'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useSession } from '@/hooks/session'
 import { useRouter } from 'next/navigation'
+import { getEnclaveOrg } from '@/lib/types'
 
 export const RegenerateKeys: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const { session } = useSession()
+    const enclaveOrg = session ? getEnclaveOrg(session) : null
     const router = useRouter()
 
     const handleConfirmAndProceed = () => {
@@ -20,7 +22,12 @@ export const RegenerateKeys: FC = () => {
 
     return (
         <Stack p="xl" mx="sm">
-            <PageBreadcrumbs crumbs={[['Dashboard', `/reviewer/${session?.org.slug}/dashboard`], ['Reviewer Key']]} />
+            <PageBreadcrumbs
+                crumbs={[
+                    ['Dashboard', enclaveOrg ? `/reviewer/${enclaveOrg.slug}/dashboard` : '/dashboard'],
+                    ['Reviewer Key'],
+                ]}
+            />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
                 <Stack>

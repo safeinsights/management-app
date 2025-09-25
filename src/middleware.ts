@@ -1,11 +1,11 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
-import * as Sentry from '@sentry/nextjs'
 import { marshalSession } from './server/session'
-import { type UserSession, BLANK_SESSION, isLabOrg, isEnclaveOrg } from './lib/types'
+import { type UserSession, BLANK_SESSION, isLabOrg, isEnclaveOrg, isOrgAdmin, type Org } from './lib/types'
 import { omit } from 'remeda'
-
+import { setSentryFromSession } from '@/lib/sentry'
+import { extractOrgSlugFromPath } from '@/lib/paths'
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
 const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
@@ -18,19 +18,17 @@ const ANON_ROUTES: Array<string> = [
     '/account/invitation',
 ]
 
-function redirectToRole(request: NextRequest, route: string, session: UserSession) {
+function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
+    return Object.values(session.orgs).find((org) => org.slug === orgSlug) || null
+}
+
+function redirectToDashboard(request: NextRequest, route: string, session: UserSession) {
     log.warn(
         `Blocking unauthorized ${route} route access. session: %s`,
         request.url,
         JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
     )
-    if (isLabOrg(session.org)) {
-        return NextResponse.redirect(new URL('/researcher/dashboard', request.url))
-    }
-    if (isEnclaveOrg(session.org)) {
-        return NextResponse.redirect(new URL(`/reviewer/${session.org.slug}/dashboard`, request.url))
-    }
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/dashboard', request.url))
 }
 
 export default clerkMiddleware(async (auth, req) => {
@@ -39,10 +37,7 @@ export default clerkMiddleware(async (auth, req) => {
     let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)
 
     if (session) {
-        Sentry.setUser({
-            id: session.user.id,
-        })
-        Sentry.setTag('org', session.org.slug)
+        setSentryFromSession(session)
     } else {
         if (ANON_ROUTES.find((r) => req.nextUrl.pathname.startsWith(r))) {
             return NextResponse.next()
@@ -57,24 +52,27 @@ export default clerkMiddleware(async (auth, req) => {
         }
     }
 
-    const { isAdmin } = session.org
-    const isResearcher = isLabOrg(session.org)
-    const isReviewer = isEnclaveOrg(session.org)
+    const currentOrgSlug = extractOrgSlugFromPath(req.nextUrl.pathname)
+    const currentOrg = currentOrgSlug ? getOrgFromSlug(session, currentOrgSlug) : null
+
+    const isAdmin = currentOrg ? isOrgAdmin(currentOrg) : false
+    const isResearcher = currentOrg ? isLabOrg(currentOrg) : false
+    const isReviewer = currentOrg ? isEnclaveOrg(currentOrg) : false
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
-        return redirectToRole(req, 'si admin', session)
+        return redirectToDashboard(req, 'si admin', session)
     }
 
-    if (isOrgAdminRoute(req) && !isAdmin && session.org.slug == req.nextUrl.pathname.split('/')[2]) {
-        return redirectToRole(req, 'org-admin', session)
+    if (isOrgAdminRoute(req) && !isAdmin && currentOrgSlug) {
+        return redirectToDashboard(req, 'org-admin', session)
     }
 
     if (isReviewerRoute(req) && !(isReviewer || isAdmin)) {
-        return redirectToRole(req, 'reviewer', session)
+        return redirectToDashboard(req, 'reviewer', session)
     }
 
     if (isResearcherRoute(req) && !(isResearcher || isAdmin)) {
-        return redirectToRole(req, 'researcher', session)
+        return redirectToDashboard(req, 'researcher', session)
     }
 
     return NextResponse.next()

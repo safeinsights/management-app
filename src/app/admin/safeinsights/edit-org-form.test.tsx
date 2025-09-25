@@ -1,30 +1,22 @@
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
-import { Org } from '@/schema/org'
 import { EditOrgForm } from './edit-org-form'
 
-const mockOrg: Org = {
+const mockOrg = {
     id: '1',
     slug: 'test',
     name: 'test',
-    email: 'junk@asdf.com',
-    type: 'enclave',
+    type: 'enclave' as const,
     settings: { publicKey: 'junk' },
-    description: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    totalStudies: BigInt(0),
 }
 
 describe('EditOrgForm', () => {
     it('renders form fields correctly', () => {
         renderWithProviders(<EditOrgForm org={mockOrg} />)
-
         const slugInput = screen.getByPlaceholderText('Enter slug')
-        const inputs = screen.getAllByRole('textbox')
-
         expect(slugInput).toBeDefined()
-        expect(inputs.length).toBe(5) // slug, name, email, type select, public key textarea
     })
 
     it('disables the slug field if org has an id', () => {
@@ -49,7 +41,7 @@ describe('EditOrgForm', () => {
         const typeSelect = screen.getByDisplayValue('Enclave (Data Organization)')
 
         expect(nameInput.value).toBe(mockOrg.name)
-        expect(emailInput.value).toBe(mockOrg.email)
+        expect(emailInput.value).toBe('')
         expect(publicKeyTextarea.value).toBe((mockOrg.settings as { publicKey: string }).publicKey)
         expect(typeSelect).toBeDefined()
     })

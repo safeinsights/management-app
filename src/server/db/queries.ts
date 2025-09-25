@@ -7,6 +7,7 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import { type DBExecutor } from '@/database'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -167,6 +168,9 @@ export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
 export const getUserById = async (userId: string) => {
     return await Action.db.selectFrom('user').selectAll('user').where('id', '=', userId).executeTakeFirstOrThrow()
 }
+
+export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
+    await db.selectFrom('org').select('id as orgId').where('slug', '=', orgSlug).executeTakeFirst()
 
 export const getOrgInfoForUserId = async (userId: string) => {
     const orgs = await Action.db

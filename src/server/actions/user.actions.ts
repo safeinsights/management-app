@@ -4,7 +4,7 @@ import { clerkClient } from '@clerk/nextjs/server'
 import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { Action, ActionFailure, z } from './action'
+import { Action, z } from './action'
 import { isEnclaveOrg } from '@/lib/types'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
@@ -28,8 +28,7 @@ export const syncUserMetadataAction = new Action('syncUserMetadataAction').handl
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .middleware(async ({ session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { id: session.user.id, orgId: session.org.id }
+        return { id: session?.user.id }
     })
     .requireAbilityTo('update', 'User')
     .handler(async ({ session }) => {

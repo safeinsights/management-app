@@ -25,6 +25,10 @@ export type LabOrg = {
     settings: LabSettings
 }
 
+export function isOrgAdmin(org: { isAdmin: boolean }) {
+    return org.isAdmin == true
+}
+
 // Type guards
 export function isEnclaveOrg(org: { type: OrgType }): org is EnclaveOrg {
     return org.type === 'enclave'
@@ -32,6 +36,23 @@ export function isEnclaveOrg(org: { type: OrgType }): org is EnclaveOrg {
 
 export function isLabOrg(org: { type: OrgType }): org is LabOrg {
     return org.type === 'lab'
+}
+
+// Helper functions to get orgs from session
+export function getLabOrg(session: UserSession): Org | null {
+    return Object.values(session.orgs).find(isLabOrg) || null
+}
+
+export function getEnclaveOrg(session: UserSession): Org | null {
+    return Object.values(session.orgs).find(isEnclaveOrg) || null
+}
+
+export function getAdminOrg(session: UserSession): Org | null {
+    return Object.values(session.orgs).find(isOrgAdmin) || null
+}
+
+export function getOrgBySlug(session: UserSession, slug: string): Org | null {
+    return Object.values(session.orgs).find((org) => org.slug === slug) || null
 }
 
 export type SessionUser = {
@@ -48,7 +69,7 @@ export type Org = UserOrgRoles & {
 
 export type UserSession = {
     user: SessionUser
-    org: Org
+    orgs: Record<string, Org>
 }
 
 export type TreeNode = {
@@ -145,7 +166,7 @@ export type IsUnknown<T> = unknown extends T ? (T extends unknown ? true : false
 
 export const BLANK_SESSION: UserSession = {
     user: { id: '', isSiAdmin: false, clerkUserId: '' },
-    org: { id: '', type: 'enclave', slug: '', isAdmin: false },
+    orgs: {},
 }
 
 Object.freeze(BLANK_SESSION)

@@ -1,9 +1,9 @@
 'use server'
 
 import { orgSchema, updateOrgSchema } from '@/schema/org'
-import { getReviewerPublicKeyByUserId } from '../db/queries'
+import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
 import { revalidatePath } from 'next/cache'
-import { z, ActionFailure, Action } from './action'
+import { z, Action } from './action'
 import { ActionSuccessType } from '@/lib/types'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
@@ -29,23 +29,43 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
-export const fetchOrgsStatsAction = new Action('fetchOrgsStatsAction')
+export const fetchOrgsWithStatsAction = new Action('fetchOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db }) => {
+    .handler(async ({ db, session }) => {
         return await db
-            .selectFrom('org')
+            .selectFrom('orgUser')
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
             .leftJoin('study', 'study.orgId', 'org.id')
             .select([
                 'org.id',
                 'org.name',
                 'org.slug',
-                'org.email',
+                'org.type',
+                // TODO: replace this with whatever stats we need
+                (eb) => eb.fn.count('study.id').as('eventCount'),
+            ])
+            .groupBy(['org.id'])
+            .where('orgUser.userId', '=', session.user.id)
+            .execute()
+    })
+
+export const fetchOrgsWithStudyCountsAction = new Action('fetchOrgsWithStudyCountsAction')
+    .requireAbilityTo('view', 'Orgs')
+    .handler(async ({ db, session }) => {
+        return await db
+            .selectFrom('orgUser')
+            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .leftJoin('study', 'study.orgId', 'org.id')
+            .select([
+                'org.id',
+                'org.name',
+                'org.slug',
                 'org.type',
                 'org.settings',
-                'org.description',
                 (eb) => eb.fn.count('study.id').as('totalStudies'),
             ])
             .groupBy(['org.id'])
+            .where('orgUser.userId', '=', session.user.id)
             .execute()
     })
 
@@ -77,15 +97,10 @@ export const updateOrgSettingsAction = new Action('updateOrgSettingsAction')
             description: z.string().max(250, 'Word limit is 250 characters').nullable().optional(),
         }),
     )
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ db, session, params: { orgSlug, name, description } }) => {
-        // Check for duplicate name for existing organizations
-        const existingOrg = await db.selectFrom('org').select('id').where('name', '=', name).executeTakeFirst()
-        if (existingOrg && existingOrg.id !== session.org.id) {
-            throw new ActionFailure({ name: 'Name is already in use. Enter a unique name.' })
-        }
-
-        await db.updateTable('org').set({ name, description }).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+    .handler(async ({ db, orgId, params: { orgSlug, name, description } }) => {
+        await db.updateTable('org').set({ name, description }).where('id', '=', orgId).executeTakeFirstOrThrow()
 
         // If both DB and Clerk updates are successful
         revalidatePath(`/admin/team/${orgSlug}/settings`)

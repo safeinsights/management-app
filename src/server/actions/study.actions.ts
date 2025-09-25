@@ -2,7 +2,7 @@
 
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { StudyJobStatus } from '@/database/types'
-import { ActionFailure, throwNotFound } from '@/lib/errors'
+import { throwNotFound } from '@/lib/errors'
 import { ActionSuccessType } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
@@ -11,7 +11,7 @@ import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file
-function fetchStudiesQuery(db: DBExecutor, orgId: string) {
+function fetchStudiesQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
         .leftJoin(
@@ -36,7 +36,6 @@ function fetchStudiesQuery(db: DBExecutor, orgId: string) {
                     .orderBy('createdAt', 'desc'),
             ).as('jobStatusChanges'),
         ])
-        .where('study.orgId', '=', orgId)
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
@@ -51,7 +50,7 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ db, orgId }) => {
-        return fetchStudiesQuery(db, orgId)
+        return fetchStudiesQuery(db)
             .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
             .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
             .select([
@@ -72,18 +71,15 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 'reviewer.fullName as reviewerName',
                 'latestStudyJob.jobId as latestStudyJobId',
             ])
+            .where('study.orgId', '=', orgId)
             .orderBy('study.createdAt', 'desc')
             .execute()
     })
 
 export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
-    .middleware(async ({ session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { orgId: session.org.id }
-    })
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ orgId, db }) => {
-        return await fetchStudiesQuery(db, orgId)
+    .requireAbilityTo('view', 'Studies')
+    .handler(async ({ db, session }) => {
+        return await fetchStudiesQuery(db)
             .innerJoin('org', 'org.id', 'study.orgId')
             .select([
                 'study.id',
@@ -94,6 +90,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
                 'org.name as reviewerTeamName',
                 'latestStudyJob.jobId as latestStudyJobId',
             ])
+            .where('study.researcherId', '=', session.user.id)
             .orderBy('study.createdAt', 'desc')
             .execute()
     })

@@ -53,24 +53,13 @@ export const updateOrgSchema = z.discriminatedUnion('type', [
 export type ValidatedOrg = z.infer<typeof orgSchema>
 
 export const getNewOrg = (type: 'enclave' | 'lab' = 'enclave'): NewOrg => {
-    if (type === 'enclave') {
-        return {
-            slug: '',
-            name: '',
-            email: '',
-            type: 'enclave',
-            settings: { publicKey: '' },
-            description: null,
-        } as NewOrg
-    } else {
-        return {
-            slug: '',
-            name: '',
-            email: '',
-            type: 'lab',
-            settings: {},
-            description: null,
-        } as NewOrg
+    return {
+        slug: '',
+        name: '',
+        email: '',
+        type,
+        settings: type == 'enclave' ? { publicKey: '' } : '',
+        description: null,
     }
 }
 

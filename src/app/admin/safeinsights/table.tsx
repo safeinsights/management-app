@@ -3,8 +3,7 @@
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
 import * as R from 'remeda'
 import { FC, useMemo, useState } from 'react'
-import { deleteOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
-import { getNewOrg } from '@/schema/org'
+import { deleteOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
@@ -15,12 +14,12 @@ import { useRouter } from 'next/navigation'
 import { ActionSuccessType } from '@/lib/types'
 import { UserListIcon } from '@phosphor-icons/react'
 
-type Org = ActionSuccessType<typeof fetchOrgsStatsAction>[number]
+type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({
         queryKey: ['orgs'],
-        queryFn: fetchOrgsStatsAction,
+        queryFn: fetchOrgsWithStudyCountsAction,
     })
 
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
@@ -29,7 +28,10 @@ export function OrgsAdminTable() {
     })
     const sortedMembers = useMemo(() => {
         const accessor = sortStatus.columnAccessor as keyof Org
-        const newOrgs = R.sortBy(data, (org: Org) => org[accessor] as string | number | Date | boolean | bigint)
+        const newOrgs = R.sortBy(
+            data as Org[],
+            (org: Org) => org[accessor] as string | number | Date | boolean | bigint,
+        )
         return sortStatus.direction === 'desc' ? R.reverse(newOrgs) : newOrgs
     }, [data, sortStatus])
 
@@ -70,7 +72,7 @@ const AddMember: FC = () => {
         <Flex justify={'space-between'} my="lg" align={'center'}>
             <Title>Organizations</Title>
             <Modal opened={opened} onClose={close} title="Add organization" closeOnClickOutside={false}>
-                <EditOrgForm org={getNewOrg()} onCompleteAction={close} />
+                <EditOrgForm onCompleteAction={close} />
             </Modal>
             <Button onClick={open}>Add new organization</Button>
         </Flex>
