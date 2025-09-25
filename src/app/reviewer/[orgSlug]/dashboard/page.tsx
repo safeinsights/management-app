@@ -21,14 +21,14 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
     }
 
     return (
-        <Stack p="md">
-            <Title>
-                Hi <UserName />!
+        <Stack p="xxl">
+            <Title order={1} mt="xxl">
+                Hi! <UserName />!
             </Title>
-            <Text>
-                <strong>Welcome to your SafeInsights dashboard!</strong> Here you can find study proposals submitted to
-                your organization, view their status and know when you need to take action. We continuously iterate to
-                improve your experience and welcome your feedback.
+            <Text mb="xxl">
+                Welcome to your dashboard. You can review submitted study proposals here. Check the status of various
+                studies and know when tasks are due. We continuously iterate to improve your experience and welcome your
+                feedback.
             </Text>
             <Paper shadow="xs" p="xl">
                 <StudiesTable studies={studies} orgSlug={orgSlug} />

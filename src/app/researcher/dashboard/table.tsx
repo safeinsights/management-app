@@ -25,6 +25,7 @@ import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { useSession } from '@/hooks/session'
 import { ErrorAlert } from '@/components/errors'
 import { isActionError, errorToString } from '@/lib/errors'
+import { getStudyStage } from '@/lib/util'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -59,10 +60,11 @@ export const StudiesTable: React.FC = () => {
     }
 
     const rows = studies.map((study) => (
-        <TableTr fz="md" key={study.id}>
+        <TableTr fz="md" key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
             <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
+            <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
                     studyStatus={study.status}
@@ -82,7 +84,7 @@ export const StudiesTable: React.FC = () => {
     ))
 
     return (
-        <Paper shadow="xs" p="xl">
+        <Paper shadow="xs" p="xxl">
             <Stack>
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
@@ -92,13 +94,14 @@ export const StudiesTable: React.FC = () => {
                 </Group>
                 <Divider c="charcoal.1" />
                 <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                    <TableThead fz="sm">
+                    <TableThead>
                         <TableTr>
-                            <TableTh>Study Name</TableTh>
-                            <TableTh>Submitted On</TableTh>
-                            <TableTh>Submitted To</TableTh>
-                            <TableTh>Status</TableTh>
-                            <TableTh>Study Details</TableTh>
+                            <TableTh fw={600}>Study Name</TableTh>
+                            <TableTh fw={600}>Submitted On</TableTh>
+                            <TableTh fw={600}>Submitted To</TableTh>
+                            <TableTh fw={600}>Stage</TableTh>
+                            <TableTh fw={600}>Status</TableTh>
+                            <TableTh fw={600}>Study Details</TableTh>
                         </TableTr>
                     </TableThead>
                     <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>

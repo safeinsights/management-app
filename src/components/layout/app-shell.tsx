@@ -83,7 +83,7 @@ export function AppShell({ children }: Props) {
             </AppShellMain>
 
             <AppShellFooter p="md" bg="purple.9" bd="none">
-                <Text ta="left" c="white">
+                <Text ta="left" c="white" fz="sm">
                     © 2025 - SafeInsights, Rice University
                 </Text>
             </AppShellFooter>

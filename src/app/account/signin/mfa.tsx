@@ -29,6 +29,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
+    const hasBoth = Boolean(hasSMS && hasTOTP)
 
     const form = useForm({
         initialValues: {
@@ -85,13 +86,15 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
 
     const onSelectMethod = async (method: Method) => {
         if (!mfa || !isLoaded) return
-        if (method === 'sms') {
+
+        if (mfa.signIn.status === 'needs_second_factor' && method === 'sms') {
             try {
                 await mfa.signIn.prepareSecondFactor({ strategy: 'phone_code' })
             } catch (err) {
                 console.error('Error preparing second factor', err)
             }
         }
+
         setMethod(method)
         setStep('verify')
     }
@@ -124,12 +127,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     <Title mb="xs" ta="center" order={3}>
                         Multi-Factor Authentication required
                     </Title>
-                    <Text size="md">
+                    <Text size="md" mb="xs">
                         To complete the log in process, please verify your identity using Multi-Factor Authentication
                         (MFA).
-                    </Text>
-                    <Text size="md" mb="xs">
-                        You can choose to receive verification codes via text message (SMS) or use an authenticator app.
                     </Text>
                     <Stack gap="xl">
                         {hasSMS && (
@@ -138,7 +138,12 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                             </Button>
                         )}
                         {hasTOTP && (
-                            <Button w="100%" variant="outline" size="lg" onClick={() => onSelectMethod('totp')}>
+                            <Button
+                                w="100%"
+                                variant={hasBoth ? 'outline' : 'primary'}
+                                size="lg"
+                                onClick={() => onSelectMethod('totp')}
+                            >
                                 Authenticator app verification
                             </Button>
                         )}

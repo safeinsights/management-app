@@ -1,12 +1,12 @@
-import { zodResolver, useForm, Link, Flex, Button } from '@/common'
-import { TextInput, PasswordInput, Paper, Title } from '@mantine/core'
-import { clerkErrorOverrides, errorToString } from '@/lib/errors'
+import { Button, Flex, Link, useForm, zodResolver } from '@/common'
 import { reportError } from '@/components/errors'
+import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
-import { type MFAState, signInToMFAState } from './logic'
-import { FC, useEffect, useState } from 'react'
+import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { FC, useEffect, useState } from 'react'
 import { z } from 'zod'
+import { type MFAState } from './logic'
 import { SignInError } from './sign-in-error'
 
 const signInSchema = z.object({
@@ -65,8 +65,8 @@ export const SignInForm: FC<{
                 router.push(redirectUrl || '/')
             }
             if (attempt.status === 'needs_second_factor') {
-                const state = await signInToMFAState(attempt)
-                await onComplete(state)
+                // Auth method not yet determined, set to false for now
+                await onComplete({ signIn: attempt, usingSMS: false })
             }
         } catch (err: unknown) {
             reportError(err, 'Failed Signin Attempt')
@@ -76,7 +76,8 @@ export const SignInForm: FC<{
             //incorrect email or password
             if (
                 errorMessage === clerkErrorOverrides.form_password_incorrect ||
-                errorMessage === clerkErrorOverrides.form_identifier_not_found
+                errorMessage === clerkErrorOverrides.form_identifier_not_found ||
+                errorMessage === "You're already signed in."
             ) {
                 form.setFieldError('email', ' ')
                 form.setFieldError('password', errorMessage)

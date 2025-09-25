@@ -48,6 +48,6 @@ describe('Org Dashboard', () => {
 
         renderWithProviders(await OrgDashboardPage(props))
 
-        expect(screen.getByText(/Welcome to your SafeInsights dashboard!/i)).toBeDefined()
+        expect(screen.getByText(/Welcome to your dashboard./i)).toBeDefined()
     })
 })

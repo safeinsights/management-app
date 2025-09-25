@@ -124,3 +124,5 @@ Object.freeze(BLANK_SESSION)
 
 // Import the unified ActionResponse type from errors
 export type { ActionResponse } from '@/lib/errors'
+
+export type StudyStage = 'Proposal' | 'Code' | 'Results'
