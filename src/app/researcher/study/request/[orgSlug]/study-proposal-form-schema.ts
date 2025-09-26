@@ -27,6 +27,7 @@ const validateDocumentFile = (label: string) => {
 
 export const studyProposalFormSchema = z
     .object({
+        orgSlug: z.string().min(1, { message: 'Data organization is required' }),
         title: z
             .string()
             .min(5, { message: 'Title must be at least 5 characters long' })
@@ -90,7 +91,7 @@ export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,
-    'title' | 'descriptionDocument' | 'irbDocument' | 'agreementDocument' | 'piName'
+    'title' | 'descriptionDocument' | 'irbDocument' | 'agreementDocument' | 'piName' | 'orgSlug'
 >
 
 export const studyProposalApiSchema = z.object({

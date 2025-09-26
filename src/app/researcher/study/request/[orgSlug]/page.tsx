@@ -28,7 +28,7 @@ export default async function OrgHomePage(props: { params: Promise<{ orgSlug: st
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ current: 'Propose a study' }} />
             <Title order={1}>Propose a study</Title>
-            <StudyProposal orgSlug={params.orgSlug} />
+            <StudyProposal />
         </Stack>
     )
 }
