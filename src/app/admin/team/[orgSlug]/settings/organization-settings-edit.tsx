@@ -6,7 +6,7 @@ import { zodResolver, useMutation } from '@/common'
 import { notifications } from '@mantine/notifications'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { z } from 'zod'
-import { orgSchema as baseOrgSchema, type Org } from '@/schema/org'
+import { type Org } from '@/schema/org'
 import { updateOrgSettingsAction } from '@/server/actions/org.actions'
 import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
 
@@ -22,7 +22,7 @@ export const FormFieldMessage: React.FC<FormFieldMessageProps> = ({ message }) =
     )
 }
 
-export const settingsFormSchema = baseOrgSchema.pick({ name: true }).extend({
+export const settingsFormSchema = z.object({
     name: z.string().min(1, 'Name is required').max(50, 'Name cannot exceed 50 characters'),
     description: z.string().max(250, 'Word limit is 250 characters').default(''),
 })

@@ -25,7 +25,7 @@ vi.mock('@/server/actions/study.actions', async (importOriginal) => {
         ...original,
         approveStudyProposalAction: vi.fn(),
         rejectStudyProposalAction: vi.fn(),
-        doesTestImageExistForStudyAction: vi.fn(), // still needed by the new component
+        doesTestImageExistForStudyAction: vi.fn().mockResolvedValue(true), // Mock to return true
     }
 })
 
@@ -43,7 +43,7 @@ describe('StudyReviewButtons', () => {
 
     beforeEach(async () => {
         vi.clearAllMocks()
-        const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true, orgSlug: 'test-org' })
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave', orgSlug: 'test-org' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,

@@ -76,8 +76,6 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .values({
                     userId: user.id,
                     orgId: invite.orgId,
-                    isResearcher: invite.isResearcher,
-                    isReviewer: invite.isReviewer,
                     isAdmin: invite.isAdmin,
                 })
                 .returning('id')
@@ -177,8 +175,6 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 .values({
                     userId: user.id,
                     orgId: invite.orgId,
-                    isResearcher: invite.isResearcher,
-                    isReviewer: invite.isReviewer,
                     isAdmin: invite.isAdmin,
                 })
                 .returning('id')

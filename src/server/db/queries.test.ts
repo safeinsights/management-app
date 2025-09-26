@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
-import { getReviewerPublicKey, getUsersByRoleAndOrgId, jobInfoForJobId, studyInfoForStudyId } from './queries'
+import { getReviewerPublicKey, getUsersForOrgId, jobInfoForJobId, studyInfoForStudyId } from './queries'
 
 async function insertRecords() {
     const org1 = await insertTestOrg({ slug: 'test-org-1' })
@@ -72,23 +72,18 @@ describe('studyInfoForStudyId', () => {
     })
 })
 
-describe('getUsersByRoleAndMemberId', () => {
-    it('returns users with role reviewer for a member', async () => {
+describe('getUsersForOrgId', () => {
+    it('returns users for an org', async () => {
         const { org1, org1User1 } = await insertRecords()
-        const users = await getUsersByRoleAndOrgId('reviewer', org1.id)
+        const users = await getUsersForOrgId(org1.id)
         expect(users).not.toBeNull()
-        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ id: org1User1.id })]))
+        expect(users.length).toBeGreaterThan(0)
+        const userIds = users.map((u) => u.id)
+        expect(userIds).toContain(org1User1.id)
     })
 
-    it('returns users with role researcher for a member', async () => {
-        const { org1, org1User2 } = await insertRecords()
-        const users = await getUsersByRoleAndOrgId('researcher', org1.id)
-        expect(users).not.toBeNull()
-        expect(users).toEqual(expect.arrayContaining([expect.objectContaining({ id: org1User2.id })]))
-    })
-
-    it('returns empty array when memberId is invalid', async () => {
-        const users = await getUsersByRoleAndOrgId('researcher', invalidUUID)
+    it('returns empty array when orgId is invalid', async () => {
+        const users = await getUsersForOrgId(invalidUUID)
         expect(users).toEqual([])
     })
 })

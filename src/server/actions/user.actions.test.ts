@@ -29,7 +29,7 @@ describe('User Actions', () => {
     })
 
     test('onUserSignInAction should create a new user and redirect to reviewer key page', async () => {
-        const { user } = await mockSessionWithTestData({ isReviewer: true })
+        const { user } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         // Manually remove the auto-created key for this test
         await db.deleteFrom('userPublicKey').where('userId', '=', user.id).execute()
@@ -42,7 +42,7 @@ describe('User Actions', () => {
     })
 
     test('onUserSignInAction should not redirect if user has a public key', async () => {
-        await mockSessionWithTestData({ isReviewer: true })
+        await mockSessionWithTestData({ orgType: 'enclave' })
         const result = await onUserSignInAction()
         expect(result).toBeUndefined()
     })
@@ -67,8 +67,6 @@ describe('User Actions', () => {
             orgSlug: org.slug,
             userId: userToUpdate.id,
             isAdmin: true,
-            isResearcher: false,
-            isReviewer: true,
         })
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
     })
@@ -81,8 +79,6 @@ describe('User Actions', () => {
             orgSlug: org.slug,
             userId: userToUpdate.id,
             isAdmin: true,
-            isResearcher: false,
-            isReviewer: true,
         })
 
         const updatedUser = await db
@@ -92,7 +88,6 @@ describe('User Actions', () => {
             .executeTakeFirstOrThrow()
 
         expect(updatedUser.isAdmin).toBe(true)
-        expect(updatedUser.isResearcher).toBe(false)
-        expect(updatedUser.isReviewer).toBe(true)
+        // In the new structure, roles are determined by org type, not user fields
     })
 })

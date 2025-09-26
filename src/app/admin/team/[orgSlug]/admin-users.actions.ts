@@ -48,8 +48,6 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .values({
                 orgId,
                 email: invite.email,
-                isResearcher: invite.role == 'multiple' || invite.role == 'researcher',
-                isReviewer: invite.role == 'multiple' || invite.role == 'reviewer',
                 isAdmin: invite.permission == 'admin',
             })
             .returning('id')
@@ -69,7 +67,7 @@ export const getPendingUsersAction = new Action('getPendingUsersAction')
             .executeTakeFirstOrThrow()
         return { orgId: org.orgId }
     })
-    .requireAbilityTo('view', 'Team')
+    .requireAbilityTo('view', 'Org')
     .handler(async ({ params: { orgSlug }, db }) => {
         return await db
             .selectFrom('pendingUser')

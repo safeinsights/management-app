@@ -1,14 +1,15 @@
 import { ZodType, ZodError, z } from 'zod'
 import { PermissionsActionSubjectMap, PermissionsSubjectToObjectMap, toRecord } from '@/lib/permissions'
-
+import * as Sentry from '@sentry/nextjs'
 import { type UserSession, type IsUnknown } from '@/lib/types'
 import { sessionFromClerk, type UserSessionWithAbility } from '../clerk'
-import * as Sentry from '@sentry/nextjs'
+
 import { AccessDeniedError, ActionFailure, type ActionResponse } from '@/lib/errors'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import logger from '@/lib/logger'
 import { omit } from 'remeda'
 import { db, type DBExecutor } from '@/database'
+import { setSentryFromSession } from '@/lib/sentry'
 
 type MiddlewareFn<PrevCtx, NewCtx> = (ctx: PrevCtx) => Promise<NewCtx>
 type HandlerFn<Ctx, Res> = (ctx: Ctx) => Promise<Res>
@@ -106,7 +107,7 @@ export class Action<
                 const msg =
                     `in ${this.actionName} action; cannot ${String(action)} ${String(subject)}.\n` +
                     `input: ${JSON.stringify(abilityArgs || {}, null, 2)}\n` +
-                    `session: ${JSON.stringify(session.team, null, 2)}\n`
+                    `session: ${JSON.stringify(omit(session, ['ability']), null, 2)}\n`
                 logger.error(msg)
                 throw new ActionFailure({ permission_denied: msg })
             }
@@ -172,8 +173,7 @@ export class Action<
                         }
 
                         if (session) {
-                            Sentry.setUser({ id: session.user.id })
-                            Sentry.setTag('team', session.team.slug)
+                            setSentryFromSession(session)
                         }
 
                         return handlerFn(ctx)

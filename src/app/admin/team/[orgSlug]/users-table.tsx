@@ -6,7 +6,7 @@ import { useMutation, useQuery } from '@/common'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
 import { Select, Flex, Text } from '@mantine/core'
-import { PERMISSION_LABELS, permissionLabelForUser, ROLE_LABELS, roleLabelForUser } from '@/lib/role'
+import { PERMISSION_LABELS, permissionLabelForUser, roleDisplayForOrgType } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
 import { reportMutationError } from '@/components/errors'
 import { UserAvatar } from '@/components/user-avatar'
@@ -24,8 +24,6 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () 
             updateUserRoleAction({
                 orgSlug,
                 userId: user.id,
-                isResearcher: user.isResearcher,
-                isReviewer: user.isReviewer,
                 isAdmin: label == 'Administrator',
             }),
         onSuccess,
@@ -39,39 +37,6 @@ const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () 
             placeholder="Pick value"
             value={isPending ? variables.label : permissionLabelForUser(user)}
             data={PERMISSION_LABELS}
-        />
-    )
-}
-
-const RoleSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () => void }> = ({
-    orgSlug,
-    user,
-    onSuccess,
-}) => {
-    const {
-        mutate: updatePermission,
-        isPending,
-        variables,
-    } = useMutation({
-        mutationFn: ({ user, label }: { user: User; label: string }) =>
-            updateUserRoleAction({
-                orgSlug,
-                userId: user.id,
-                isResearcher: label == 'Multiple' || label == 'Researcher',
-                isReviewer: label == 'Multiple' || label == 'Reviewer',
-                isAdmin: user.isAdmin,
-            }),
-        onSuccess,
-        onError: reportMutationError('Failed to update user role'),
-    })
-
-    return (
-        <Select
-            disabled={isPending}
-            onChange={(label) => label && updatePermission({ user, label })}
-            placeholder="Pick value"
-            value={isPending ? variables.label : roleLabelForUser(user)}
-            data={user.isAdmin ? ['Multiple'] : ROLE_LABELS}
         />
     )
 }
@@ -123,22 +88,20 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                             <InfoTooltip
                                 text={
                                     <Flex direction="column">
-                                        <Text>Shows someone’s role within the organization:</Text>
+                                        <Text>Shows the role determined by organization type:</Text>
                                         <Text>
-                                            <b>Researcher</b> – can submit studies and access results
+                                            <b>Researcher</b> – can submit studies and access results (Lab
+                                            organizations)
                                         </Text>
                                         <Text>
-                                            <b>Reviewer</b> – can review and approve studies
-                                        </Text>
-                                        <Text>
-                                            <b>Multiple</b> – holds both roles
+                                            <b>Reviewer</b> – can review and approve studies (Enclave organizations)
                                         </Text>
                                     </Flex>
                                 }
                             />
                         </Flex>
                     ),
-                    render: (user: User) => <RoleSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
+                    render: (user: User) => <Text>{roleDisplayForOrgType(user.orgType)}</Text>,
                 },
                 {
                     title: (

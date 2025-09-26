@@ -24,7 +24,7 @@ vi.mock('@/server/events', () => ({
 
 describe('Study Actions', () => {
     it('successfully approves a study proposal', async () => {
-        const { user, org } = await mockSessionWithTestData({ isReviewer: true })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
@@ -77,7 +77,7 @@ describe('Study Actions', () => {
 
     describe('doesTestImageExistForStudyAction', () => {
         it('returns true when a test image exists for the study language and org', async () => {
-            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
             await db
                 .insertInto('orgBaseImage')
@@ -97,7 +97,7 @@ describe('Study Actions', () => {
         })
 
         it('returns false when no test image exists for the study org', async () => {
-            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
 
             const result = await doesTestImageExistForStudyAction({ studyId: study.id })
@@ -106,7 +106,7 @@ describe('Study Actions', () => {
         })
 
         it('returns false when only non-test images exist', async () => {
-            const { org } = await mockSessionWithTestData({ isReviewer: true })
+            const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
             await db
                 .insertInto('orgBaseImage')
@@ -126,7 +126,7 @@ describe('Study Actions', () => {
         })
 
         it('returns false for a test image in a different org', async () => {
-            const { org: studyOrg } = await mockSessionWithTestData({ isReviewer: true })
+            const { org: studyOrg } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org: studyOrg, studyStatus: 'PENDING-REVIEW' })
 
             const otherOrg = await insertTestOrg()
@@ -149,7 +149,7 @@ describe('Study Actions', () => {
     })
 
     it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
-        const { user, org } = await mockSessionWithTestData({ isReviewer: true })
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         const otherOrg = await insertTestOrg()
         const { user: otherUser } = await insertTestUser({ org: otherOrg })

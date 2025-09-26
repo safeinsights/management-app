@@ -19,7 +19,6 @@ describe('Admin Users Actions', () => {
 
         const invite = {
             email: 'newuser@test.com',
-            role: 'researcher' as const,
             permission: 'admin' as const,
         }
 
@@ -31,8 +30,6 @@ describe('Admin Users Actions', () => {
             .where('email', '=', invite.email)
             .executeTakeFirst()
         expect(pendingUser).toBeDefined()
-        expect(pendingUser?.isResearcher).toBe(true)
-        expect(pendingUser?.isReviewer).toBe(false)
         expect(pendingUser?.isAdmin).toBe(true)
     })
 
@@ -46,14 +43,16 @@ describe('Admin Users Actions', () => {
             .values({
                 orgId: org.id,
                 email: 'pending1@test.com',
-                isResearcher: true,
-                isReviewer: false,
                 isAdmin: false,
             })
             .execute()
         await db
             .insertInto('pendingUser')
-            .values({ orgId: org.id, email: 'pending2@test.com', isResearcher: false, isReviewer: true, isAdmin: true })
+            .values({
+                orgId: org.id,
+                email: 'pending2@test.com',
+                isAdmin: false,
+            })
             .execute()
 
         const pendingUsersResult = actionResult(await getPendingUsersAction({ orgSlug: org.slug }))
@@ -67,8 +66,6 @@ describe('Admin Users Actions', () => {
             .values({
                 orgId: org.id,
                 email: 'reinvite@test.com',
-                isResearcher: true,
-                isReviewer: false,
                 isAdmin: false,
             })
             .returningAll()

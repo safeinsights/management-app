@@ -6,6 +6,7 @@ import { throwNotFound } from '@/lib/errors'
 import { Action } from '@/server/actions/action'
 
 import { orgBaseImageSchema } from './base-images.schema'
+import { orgIdFromSlug } from '@/server/db/queries'
 
 const actionSchema = orgBaseImageSchema.extend({
     orgSlug: z.string(),
@@ -13,10 +14,8 @@ const actionSchema = orgBaseImageSchema.extend({
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .params(actionSchema)
-    .middleware(async ({ params: { orgSlug }, db }) =>
-        db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
-    )
-    .requireAbilityTo('update', 'Team')
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('update', 'Org')
     .handler(async ({ params: input, orgId, db }) => {
         const newBaseImage = await db
             .insertInto('orgBaseImage')
@@ -44,13 +43,12 @@ const deleteOrgBaseImageSchema = z.object({
 
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
-    .requireAbilityTo('update', 'Team')
-    .handler(async ({ params: { imageId, orgSlug }, db }) => {
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ orgId, params: { imageId, orgSlug }, db }) => {
         await db
             .deleteFrom('orgBaseImage')
-            .using('org')
-            .whereRef('org.id', '=', 'orgBaseImage.orgId')
-            .where('org.slug', '=', orgSlug)
+            .where('orgBaseImage.orgId', '=', orgId)
             .where('orgBaseImage.id', '=', imageId)
             .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${imageId}`))
 
@@ -62,12 +60,13 @@ const fetchOrgBaseImagesSchema = z.object({
 })
 export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
     .params(fetchOrgBaseImagesSchema)
-    .requireAbilityTo('view', 'Team')
-    .handler(async ({ params: { orgSlug }, db }) => {
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'Org')
+    .handler(async ({ orgId, db }) => {
         return await db
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')
-            .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-            .where('org.slug', '=', orgSlug)
+
+            .where('orgBaseImage.orgId', '=', orgId)
             .execute()
     })

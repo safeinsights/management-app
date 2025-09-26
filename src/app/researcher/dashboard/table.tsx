@@ -26,6 +26,7 @@ import { useSession } from '@/hooks/session'
 import { ErrorAlert } from '@/components/errors'
 import { isActionError, errorToString } from '@/lib/errors'
 import { getStudyStage } from '@/lib/util'
+import { getLabOrg } from '@/lib/types'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -52,8 +53,9 @@ export const StudiesTable: React.FC = () => {
         queryFn: () => fetchStudiesForCurrentResearcherAction(),
     })
     const { session } = useSession()
+    const labOrg = session ? getLabOrg(session) : null
 
-    if (!session || isLoading) return null
+    if (!session || !labOrg || isLoading) return null
 
     if (!studies || isActionError(studies)) {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
@@ -89,7 +91,7 @@ export const StudiesTable: React.FC = () => {
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <NewStudyLink orgSlug={session.team.slug} />
+                        <NewStudyLink orgSlug={labOrg.slug} />
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
@@ -104,7 +106,7 @@ export const StudiesTable: React.FC = () => {
                             <TableTh fw={600}>Study Details</TableTh>
                         </TableTr>
                     </TableThead>
-                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
+                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={labOrg.slug} />}</TableTbody>
                 </Table>
             </Stack>
         </Paper>

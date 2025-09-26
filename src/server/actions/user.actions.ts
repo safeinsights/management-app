@@ -1,20 +1,18 @@
 'use server'
 
 import { clerkClient } from '@clerk/nextjs/server'
-import { sessionFromClerk, syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
+import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
-import { Action, ActionFailure, z } from './action'
+import { Action, z } from './action'
+import { isEnclaveOrg } from '@/lib/types'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
     const user = await syncCurrentClerkUser()
-    await updateClerkUserMetadata(user.id)
+    const metadata = await updateClerkUserMetadata(user.id)
     onUserLogIn({ userId: user.id })
 
-    const session = await sessionFromClerk()
-    if (!session) throw new ActionFailure({ user: `is not logged in when after signing in?` })
-
-    if (session.team.isReviewer) {
+    if (Object.values(metadata.orgs).some((org) => isEnclaveOrg(org))) {
         const publicKey = await getReviewerPublicKey(user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
@@ -30,8 +28,7 @@ export const syncUserMetadataAction = new Action('syncUserMetadataAction').handl
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')
     .middleware(async ({ session }) => {
-        if (!session) throw new ActionFailure({ user: 'Unauthorized' })
-        return { id: session.user.id, orgId: session.team.id }
+        return { id: session?.user.id }
     })
     .requireAbilityTo('update', 'User')
     .handler(async ({ session }) => {
@@ -44,23 +41,25 @@ export const updateUserRoleAction = new Action('updateUserRoleAction')
             orgSlug: z.string(),
             userId: z.string(),
             isAdmin: z.boolean(),
-            isResearcher: z.boolean(),
-            isReviewer: z.boolean(),
         }),
     )
     .middleware(async ({ params: { userId, orgSlug }, db }) => {
         const orgUser = await db
             .selectFrom('orgUser')
-            .select(['orgUser.id', 'orgId', 'isResearcher', 'isReviewer', 'isAdmin'])
+            .select(['orgUser.id', 'orgId', 'isAdmin'])
             .where('orgUser.userId', '=', userId)
             .innerJoin('org', (join) => join.on('org.slug', '=', orgSlug).onRef('org.id', '=', 'orgUser.orgId'))
             .executeTakeFirstOrThrow()
         return { orgUser, orgId: orgUser.orgId, id: userId }
     })
     .requireAbilityTo('update', 'User')
-    .handler(async ({ params: { orgSlug, userId, ...update }, db, orgUser }) => {
-        await db.updateTable('orgUser').set(update).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
-        onUserRoleUpdate({ userId, before: orgUser, after: update })
+    .handler(async ({ params: { userId, isAdmin }, db, orgUser }) => {
+        await db.updateTable('orgUser').set({ isAdmin }).where('id', '=', orgUser.id).executeTakeFirstOrThrow()
+        onUserRoleUpdate({
+            userId,
+            before: { ...orgUser },
+            after: { isAdmin },
+        })
     })
 
 export const resetUserMFAAction = new Action('resetUserMFAAction')
