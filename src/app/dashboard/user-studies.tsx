@@ -1,15 +1,15 @@
 'use client'
 
-import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import { useState } from 'react'
+import { ResearcherUserStudiesTable } from './user-tables/researcher-user-studies-table'
 import { ReviewerUserStudiesTable } from './user-tables/reviewer-user-studies-table'
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()
-    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>('researcher')
+    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>('reviewer')
 
     if (!session) return null
 
@@ -31,13 +31,13 @@ export default function UserStudiesDashboard() {
                         value={activeTab}
                         onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
                         data={[
-                            { label: 'Researcher', value: 'researcher' },
                             { label: 'Reviewer', value: 'reviewer' },
+                            { label: 'Researcher', value: 'researcher' },
                         ]}
                     />
                 </Flex>
 
-                {activeTab === 'researcher' ? <ResearcherStudiesTable /> : <ReviewerUserStudiesTable />}
+                {activeTab === 'reviewer' ? <ReviewerUserStudiesTable /> : <ResearcherUserStudiesTable />}
             </Paper>
         </Stack>
     )

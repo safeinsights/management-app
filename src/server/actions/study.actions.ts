@@ -95,6 +95,26 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
             .execute()
     })
 
+export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
+    .requireAbilityTo('view', 'Studies')
+    .handler(async ({ db, session }) => {
+        return await fetchStudiesQuery(db)
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select([
+                'study.id',
+                'study.title',
+                'study.piName',
+                'study.status',
+                'study.createdAt',
+                'org.name as orgName',
+                'org.slug as orgSlug',
+                'latestStudyJob.jobId as latestStudyJobId',
+            ])
+            .where('study.researcherId', '=', session.user.id)
+            .orderBy('study.createdAt', 'desc')
+            .execute()
+    })
+
 export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
