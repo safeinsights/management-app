@@ -1,13 +1,13 @@
 'use client'
 
 import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
-import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import { useState } from 'react'
+import { ReviewerUserStudiesTable } from './user-tables/reviewer-user-studies-table'
 
-export default function AllStudiesDashboard() {
+export default function UserStudiesDashboard() {
     const { session } = useSession()
     const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>('researcher')
 
@@ -25,24 +25,20 @@ export default function AllStudiesDashboard() {
                 enhance your experience, so your feedback is greatly appreciated.
             </Text>
 
-            <Flex justify="space-between" align="center" mb="md">
-                <SegmentedControl
-                    value={activeTab}
-                    onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
-                    data={[
-                        { label: 'Researcher', value: 'researcher' },
-                        { label: 'Reviewer', value: 'reviewer' },
-                    ]}
-                />
-            </Flex>
+            <Paper shadow="xs" p="xl">
+                <Flex justify="flex-end" align="center">
+                    <SegmentedControl
+                        value={activeTab}
+                        onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
+                        data={[
+                            { label: 'Researcher', value: 'researcher' },
+                            { label: 'Reviewer', value: 'reviewer' },
+                        ]}
+                    />
+                </Flex>
 
-            {activeTab === 'researcher' ? (
-                <ResearcherStudiesTable />
-            ) : (
-                <Paper shadow="xs" p="xl">
-                    <ReviewerStudiesTable />
-                </Paper>
-            )}
+                {activeTab === 'researcher' ? <ResearcherStudiesTable /> : <ReviewerUserStudiesTable />}
+            </Paper>
         </Stack>
     )
 }

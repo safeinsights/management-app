@@ -7,7 +7,7 @@ import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
-import { fetchStudiesForCurrentReviewerAction, fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
     Flex,
@@ -26,13 +26,8 @@ import dayjs from 'dayjs'
 import { FC } from 'react'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
-type AllStudies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
-const Row: FC<{ study: Studies[number] | AllStudies[number]; orgSlug?: string }> = ({ study, orgSlug }) => {
-    const studyWithOrg = study as typeof study & { orgSlug?: string; orgName?: string }
-    const displayOrgSlug = orgSlug || studyWithOrg.orgSlug
-    const displayOrgName = orgSlug || studyWithOrg.orgName
-
+const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
     return (
         <TableTr key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
@@ -44,7 +39,7 @@ const Row: FC<{ study: Studies[number] | AllStudies[number]; orgSlug?: string }>
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
-            <TableTd>{displayOrgName}</TableTd>
+            <TableTd>{orgSlug}</TableTd>
             <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
@@ -54,7 +49,7 @@ const Row: FC<{ study: Studies[number] | AllStudies[number]; orgSlug?: string }>
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/reviewer/${displayOrgSlug}/study/${study.id}/review`} c="blue.7">
+                <Link href={`/reviewer/${orgSlug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Link>
             </TableTd>
@@ -64,9 +59,9 @@ const Row: FC<{ study: Studies[number] | AllStudies[number]; orgSlug?: string }>
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-export const ReviewerStudiesTable: FC<{ studies?: Studies | AllStudies; orgSlug?: string }> = ({
+export const ReviewerStudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({
     studies: initialStudies,
-    orgSlug = '',
+    orgSlug,
 }) => {
     const {
         data: studies,
@@ -74,14 +69,8 @@ export const ReviewerStudiesTable: FC<{ studies?: Studies | AllStudies; orgSlug?
         isRefetching,
     } = useQuery({
         initialData: initialStudies,
-        queryKey: orgSlug ? ['org-studies', orgSlug] : ['all-reviewer-studies'],
-        queryFn: async () => {
-            if (orgSlug) {
-                return await fetchStudiesForOrgAction({ orgSlug }) // studies per org
-            } else {
-                return await fetchStudiesForCurrentReviewerAction() // all studies
-            }
-        },
+        queryKey: ['org-studies', orgSlug],
+        queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })
 
     // Handle case where studies might be undefined or an error

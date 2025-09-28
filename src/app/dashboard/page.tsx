@@ -1,5 +1,5 @@
-import AllStudiesDashboard from './all-studies'
+import UserStudiesDashboard from './user-studies'
 
-export default function AllStudiesDashboardPage() {
-    return <AllStudiesDashboard />
+export default function UserStudiesDashboardPage() {
+    return <UserStudiesDashboard />
 }
