@@ -9,9 +9,12 @@ import { screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OrgDashboardPage from './page'
 
-vi.mock('@/server/actions/org.actions', () => ({
-    getOrgFromSlugAction: vi.fn(),
-}))
+vi.mock('@/server/actions/org.actions', async () => {
+    return {
+        getOrgFromSlugAction: vi.fn(),
+        getReviewerPublicKeyAction: vi.fn(),
+    }
+})
 
 vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => []),
@@ -49,6 +52,6 @@ describe('Org Dashboard', () => {
 
         renderWithProviders(await OrgDashboardPage(props))
 
-        expect(screen.getByText(/Welcome to your dashboard./i)).toBeDefined()
+        expect(screen.getByText(/Welcome to the/i)).toBeDefined()
     })
 })
