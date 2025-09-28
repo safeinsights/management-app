@@ -2,7 +2,7 @@ import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { StudiesTable } from './table'
+import { StudiesTable } from './reviewer-table'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'

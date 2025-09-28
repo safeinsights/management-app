@@ -95,6 +95,46 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
             .execute()
     })
 
+export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
+    .requireAbilityTo('view', 'Studies')
+    .handler(async ({ db, session }) => {
+        // Get all org IDs where the user is a reviewer (belongs to enclave orgs)
+        const userOrgs = Object.values(session.orgs)
+        const reviewerOrgIds = userOrgs.filter((org) => org.type === 'enclave').map((org) => org.id)
+
+        if (reviewerOrgIds.length === 0) {
+            return []
+        }
+
+        return await fetchStudiesQuery(db)
+            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+            .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select([
+                'study.id',
+                'study.approvedAt',
+                'study.rejectedAt',
+                'study.containerLocation',
+                'study.createdAt',
+                'study.dataSources',
+                'study.irbProtocols',
+                'study.orgId',
+                'study.outputMimeType',
+                'study.piName',
+                'study.researcherId',
+                'study.status',
+                'study.title',
+                'researcher.fullName as createdBy',
+                'reviewer.fullName as reviewerName',
+                'org.name as orgName',
+                'org.slug as orgSlug',
+                'latestStudyJob.jobId as latestStudyJobId',
+            ])
+            .where('study.orgId', 'in', reviewerOrgIds)
+            .orderBy('study.createdAt', 'desc')
+            .execute()
+    })
+
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {

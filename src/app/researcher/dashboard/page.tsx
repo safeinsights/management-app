@@ -1,10 +1,10 @@
-import * as React from 'react'
 import { Stack, Text, Title } from '@mantine/core'
+import * as React from 'react'
 
-import { UserName } from '@/components/user-name'
-import { StudiesTable } from './table'
+import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ErrorAlert } from '@/components/errors'
-import { isActionError, errorToString } from '@/lib/errors'
+import { UserName } from '@/components/user-name'
+import { errorToString, isActionError } from '@/lib/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 export const dynamic = 'force-dynamic'
@@ -31,7 +31,7 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
                 details of each study here. We continuously iterate to improve your experience and welcome your
                 feedback.
             </Text>
-            <StudiesTable />
+            <ResearcherStudiesTable />
         </Stack>
     )
 }

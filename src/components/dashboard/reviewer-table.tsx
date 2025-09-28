@@ -1,13 +1,17 @@
 'use client'
 
-import { ActionSuccessType } from '@/lib/types'
-import dayjs from 'dayjs'
-import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+import { useQuery } from '@/common'
+import { Link } from '@/components/links'
+import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { StudyJobStatus } from '@/database/types'
+import { ActionSuccessType } from '@/lib/types'
+import { getStudyStage } from '@/lib/util'
+import { fetchStudiesForCurrentReviewerAction, fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
+    Flex,
     Stack,
-    Title,
     Table,
     TableTbody,
     TableTd,
@@ -15,19 +19,20 @@ import {
     TableThead,
     TableTr,
     Text,
+    Title,
     Tooltip,
-    Flex,
 } from '@mantine/core'
+import dayjs from 'dayjs'
 import { FC } from 'react'
-import { Link } from '@/components/links'
-import { useQuery } from '@/common'
-import { StudyJobStatus } from '@/database/types'
-import { Refresher } from '@/components/refresher'
-import { getStudyStage } from '@/lib/util'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
+type AllStudies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
-const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+const Row: FC<{ study: Studies[number] | AllStudies[number]; orgSlug?: string }> = ({ study, orgSlug }) => {
+    const studyWithOrg = study as typeof study & { orgSlug?: string; orgName?: string }
+    const displayOrgSlug = orgSlug || studyWithOrg.orgSlug
+    const displayOrgName = orgSlug || studyWithOrg.orgName
+
     return (
         <TableTr key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
@@ -39,7 +44,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
-            <TableTd>{orgSlug}</TableTd>
+            <TableTd>{displayOrgName}</TableTd>
             <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
@@ -49,7 +54,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/reviewer/${orgSlug}/study/${study.id}/review`} c="blue.7">
+                <Link href={`/reviewer/${displayOrgSlug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Link>
             </TableTd>
@@ -59,15 +64,24 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studies: initialStudies, orgSlug }) => {
+export const ReviewerStudiesTable: FC<{ studies?: Studies | AllStudies; orgSlug?: string }> = ({
+    studies: initialStudies,
+    orgSlug = '',
+}) => {
     const {
         data: studies,
         refetch,
         isRefetching,
     } = useQuery({
         initialData: initialStudies,
-        queryKey: ['org-studies', orgSlug],
-        queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
+        queryKey: orgSlug ? ['org-studies', orgSlug] : ['all-reviewer-studies'],
+        queryFn: async () => {
+            if (orgSlug) {
+                return await fetchStudiesForOrgAction({ orgSlug }) // studies per org
+            } else {
+                return await fetchStudiesForCurrentReviewerAction() // all studies
+            }
+        },
     })
 
     // Handle case where studies might be undefined or an error
@@ -84,6 +98,10 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
             </Flex>
             <Divider c="charcoal.1" />
+            <Text mb="md">
+                Review all the studies submitted to your organization. Studies that need your attention will be labeled
+                ‘Needs review’.
+            </Text>
             <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                 <TableThead>
                     <TableTr>
