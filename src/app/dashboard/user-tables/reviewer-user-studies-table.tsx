@@ -5,6 +5,7 @@ import { Link } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
+import { ActionSuccessType } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
 import {
@@ -24,6 +25,8 @@ import {
 import dayjs from 'dayjs'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
+type Studies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
 export const ReviewerUserStudiesTable = () => {
     const {
@@ -66,34 +69,38 @@ export const ReviewerUserStudiesTable = () => {
                 </TableThead>
                 <TableTbody>
                     {studies.map((study) => (
-                        <TableTr key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
-                            <TableTd>
-                                <Tooltip label={study.title}>
-                                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                                        {study.title}
-                                    </Text>
-                                </Tooltip>
-                            </TableTd>
-                            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-                            <TableTd>{study.createdBy}</TableTd>
-                            <TableTd>{study.orgName}</TableTd>
-                            <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
-                            <TableTd>
-                                <DisplayStudyStatus
-                                    audience="reviewer"
-                                    studyStatus={study.status}
-                                    jobStatusChanges={study.jobStatusChanges || []}
-                                />
-                            </TableTd>
-                            <TableTd>
-                                <Link href={`/reviewer/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
-                                    View
-                                </Link>
-                            </TableTd>
-                        </TableTr>
+                        <StudyRow key={study.id} study={study} />
                     ))}
                 </TableTbody>
             </Table>
         </Stack>
     )
 }
+
+const StudyRow = ({ study }: { study: Studies[number] }) => (
+    <TableTr bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+        <TableTd>
+            <Tooltip label={study.title}>
+                <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                    {study.title}
+                </Text>
+            </Tooltip>
+        </TableTd>
+        <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+        <TableTd>{study.createdBy}</TableTd>
+        <TableTd>{study.orgName}</TableTd>
+        <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
+        <TableTd>
+            <DisplayStudyStatus
+                audience="reviewer"
+                studyStatus={study.status}
+                jobStatusChanges={study.jobStatusChanges || []}
+            />
+        </TableTd>
+        <TableTd>
+            <Link href={`/reviewer/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
+                View
+            </Link>
+        </TableTd>
+    </TableTr>
+)
