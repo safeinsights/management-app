@@ -95,7 +95,7 @@ export const ResearcherUserStudiesTable = () => {
                     </TableThead>
                     <TableTbody>
                         {studies.map((study) => (
-                            <TableTr key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+                            <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
                                 <TableTd>{study.title}</TableTd>
                                 <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
                                 <TableTd>{study.orgName}</TableTd>

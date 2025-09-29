@@ -62,7 +62,7 @@ export const ResearcherStudiesTable: React.FC = () => {
     }
 
     const rows = studies.map((study) => (
-        <TableTr fz="md" key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
             <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>

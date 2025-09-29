@@ -78,7 +78,7 @@ export const ReviewerUserStudiesTable = () => {
 }
 
 const StudyRow = ({ study }: { study: Studies[number] }) => (
-    <TableTr bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+    <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
         <TableTd>
             <Tooltip label={study.title}>
                 <Text lineClamp={2} style={{ cursor: 'pointer' }}>
