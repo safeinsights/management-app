@@ -1,8 +1,15 @@
 'use client'
 
-import * as React from 'react'
+import { useQuery } from '@/common'
+import { ErrorAlert } from '@/components/errors'
+import { ButtonLink, Link } from '@/components/links'
+import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { useSession } from '@/hooks/session'
+import { errorToString, isActionError } from '@/lib/errors'
+import { getLabOrg } from '@/lib/types'
+import { getStudyStage } from '@/lib/util'
+import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import {
-    Text,
     Divider,
     Flex,
     Group,
@@ -14,19 +21,12 @@ import {
     TableTh,
     TableThead,
     TableTr,
+    Text,
     Title,
 } from '@mantine/core'
-import dayjs from 'dayjs'
-import { useQuery } from '@/common'
-import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
-import { DisplayStudyStatus } from '@/components/study/display-study-status'
-import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { useSession } from '@/hooks/session'
-import { ErrorAlert } from '@/components/errors'
-import { isActionError, errorToString } from '@/lib/errors'
-import { getStudyStage } from '@/lib/util'
-import { getLabOrg } from '@/lib/types'
+import dayjs from 'dayjs'
+import * as React from 'react'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -47,7 +47,7 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
     </TableTr>
 )
 
-export const StudiesTable: React.FC = () => {
+export const ResearcherStudiesTable: React.FC = () => {
     const { data: studies, isLoading } = useQuery({
         queryKey: ['researcher-studies'],
         queryFn: () => fetchStudiesForCurrentResearcherAction(),
