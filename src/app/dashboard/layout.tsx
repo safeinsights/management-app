@@ -1,3 +1,5 @@
+'use server'
+
 import { ErrorAlert } from '@/components/errors'
 import { AppShell } from '@/components/layout/app-shell'
 import SentryUserProvider from '@/components/sentry-user-provider'
