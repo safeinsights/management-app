@@ -17,7 +17,6 @@ interface InviteFormProps {
     orgSlug: string
 }
 
-type Role = 'reviewer' | 'researcher' | 'multiple'
 type Permissions = 'contributor' | 'admin'
 
 const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
@@ -36,7 +35,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         validateInputOnBlur: true,
         initialValues: {
             email: '',
-            role: '',
             permission: '',
         },
     })
@@ -64,7 +62,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             onSubmit={studyProposalForm.onSubmit((values) =>
                 inviteUser({
                     ...values,
-                    role: values.role as Role,
                     permission: values.permission as Permissions,
                 }),
             )}
@@ -78,21 +75,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 {...studyProposalForm.getInputProps('email')}
                 error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
             />
-            <Flex mb="md" fw="semibold">
-                <Radio.Group
-                    label="Assign Role"
-                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
-                    name="role"
-                    {...studyProposalForm.getInputProps('role', { type: 'checkbox' })}
-                >
-                    <Flex gap="md" mt="xs" direction="column">
-                        <Radio value="multiple" label="Multiple (can switch between reviewer and researcher roles)" />
-                        <Radio value="reviewer" label="Reviewer (can review and approve studies)" />
-                        <Radio value="researcher" label="Researcher (can submit studies and access results)" />
-                    </Flex>
-                </Radio.Group>
-            </Flex>
-
             <Flex mb="sm" fw="semibold">
                 <Radio.Group
                     label="Assign Permissions"
@@ -105,7 +87,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                             value="contributor"
                             label="Contributor (full access within their role; no admin privileges)"
                         />
-                        <Radio value="admin" label="Administrator (manages team-level settings and contributors)" />
+                        <Radio value="admin" label="Administrator (manages org-level settings and contributors)" />
                     </Flex>
                 </Radio.Group>
             </Flex>

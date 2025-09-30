@@ -14,7 +14,12 @@ import {
 vi.mock('@/server/events')
 
 describe('Create Account Actions', () => {
-    let org = { id: '', slug: '', name: '' }
+    let org: { id: string; slug: string; name: string; type: 'enclave' | 'lab' } = {
+        id: '',
+        slug: '',
+        name: '',
+        type: 'enclave',
+    }
 
     beforeEach(async () => {
         org = await insertTestOrg()
@@ -55,8 +60,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()
@@ -88,8 +91,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: org.id,
                 email: user.email!,
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()
@@ -115,8 +116,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: newOrg.id,
                 email: user.email!,
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()
@@ -143,8 +142,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: org.id,
                 email: user.email!,
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()
@@ -164,8 +161,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()
@@ -188,8 +183,6 @@ describe('Create Account Actions', () => {
             .values({
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
-                isResearcher: true,
-                isReviewer: true,
                 isAdmin: false,
             })
             .returningAll()

@@ -49,7 +49,7 @@ describe('useStudyStatus', () => {
             const reviewerResult = useStudyStatus(createTestParams(studyStatus, 'reviewer'))
 
             expect(researcherResult?.label).toBe('Under Review')
-            expect(reviewerResult?.label).toBe('Awaiting Review')
+            expect(reviewerResult?.label).toBe('Needs Review')
         })
 
         it('uses correct status keys for each audience', () => {

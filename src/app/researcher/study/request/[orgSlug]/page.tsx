@@ -6,13 +6,16 @@ import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyProposal } from './study-proposal'
 import { sessionFromClerk } from '@/server/clerk'
+import { getOrgBySlug } from '@/lib/types'
 
 export default async function OrgHomePage(props: { params: Promise<{ orgSlug: string }> }) {
     const params = await props.params
 
     const session = await sessionFromClerk()
 
-    if (session?.team.slug !== params.orgSlug) {
+    const targetOrg = session ? getOrgBySlug(session, params.orgSlug) : null
+
+    if (!targetOrg) {
         return (
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs crumbs={{ current: 'Propose a study' }} />

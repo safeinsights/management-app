@@ -26,16 +26,15 @@ export const sessionFromMetadata = ({
     }
 
     const userPrefs = (prefs[env] as Record<string, string>) || {}
-    const teamSlug = userPrefs['currentTeamSlug'] || Object.values(info.teams)[0]?.slug
-    if (!teamSlug) throw new Error(`user does not belong to any teams`)
 
-    const team = info.teams[teamSlug]
-    if (!team)
-        throw new Error(
-            `in env ${env}, clerk user ${clerkUserId} does not belong to team with slug ${teamSlug} but was set in prefs: ${JSON.stringify(prefs, null, 2)}`,
-        )
+    // TODO: remove 'teams' once all users are on v2 after 2026-02-15
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>)
 
-    const isSiAdmin = Boolean(info.teams[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
+    const orgSlug = userPrefs['currentOrgSlug'] || Object.values(orgs)[0]?.slug
+    if (!orgSlug) throw new Error(`user does not belong to any orgs`)
+
+    const isSiAdmin = Boolean(orgs[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 
     const session: UserSession = {
         user: {
@@ -43,10 +42,7 @@ export const sessionFromMetadata = ({
             clerkUserId,
             isSiAdmin,
         },
-        team: {
-            ...team,
-            isAdmin: team.isAdmin || isSiAdmin,
-        },
+        orgs,
     }
     const ability = defineAbilityFor(session)
 
@@ -55,16 +51,4 @@ export const sessionFromMetadata = ({
         can: ability.can.bind(ability), // directly expose the can method for devx
         ability,
     }
-}
-
-export const navigateToDashboard = (router: { push: (path: string) => void }, session: UserSessionWithAbility) => {
-    if (session.team.isResearcher) {
-        router.push('/researcher/dashboard')
-        return
-    }
-    if (session.team.isReviewer) {
-        router.push(`/reviewer/${session.team.slug}/dashboard`)
-        return
-    }
-    router.push('/')
 }

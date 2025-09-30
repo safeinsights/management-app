@@ -26,7 +26,7 @@ describe('TestImageCheckbox', () => {
 
     beforeEach(async () => {
         onChange = vi.fn()
-        const { org, user } = await mockSessionWithTestData({ isAdmin: true, isReviewer: true })
+        const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
         const { study: dbStudy } = await insertTestStudyJobData({
             org,
             researcherId: user.id,
@@ -36,7 +36,7 @@ describe('TestImageCheckbox', () => {
     })
 
     it('renders nothing for non-admin users', async () => {
-        await mockSessionWithTestData({ isAdmin: false, isReviewer: true })
+        await mockSessionWithTestData({ isAdmin: false, orgType: 'enclave' })
         renderWithProviders(<TestImageCheckbox studyId={studyId} checked={false} onChange={onChange} />)
         expect(screen.queryByTestId('test-image-checkbox')).not.toBeInTheDocument()
     })

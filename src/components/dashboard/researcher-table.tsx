@@ -1,8 +1,15 @@
 'use client'
 
-import * as React from 'react'
+import { useQuery } from '@/common'
+import { ErrorAlert } from '@/components/errors'
+import { ButtonLink, Link } from '@/components/links'
+import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { useSession } from '@/hooks/session'
+import { errorToString, isActionError } from '@/lib/errors'
+import { getLabOrg } from '@/lib/types'
+import { getStudyStage } from '@/lib/util'
+import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import {
-    Text,
     Divider,
     Flex,
     Group,
@@ -14,17 +21,12 @@ import {
     TableTh,
     TableThead,
     TableTr,
+    Text,
     Title,
 } from '@mantine/core'
-import dayjs from 'dayjs'
-import { useQuery } from '@/common'
-import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
-import { DisplayStudyStatus } from '@/components/study/display-study-status'
-import { ButtonLink, Link } from '@/components/links'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
-import { useSession } from '@/hooks/session'
-import { ErrorAlert } from '@/components/errors'
-import { isActionError, errorToString } from '@/lib/errors'
+import dayjs from 'dayjs'
+import * as React from 'react'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -45,24 +47,26 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
     </TableTr>
 )
 
-export const StudiesTable: React.FC = () => {
+export const ResearcherStudiesTable: React.FC = () => {
     const { data: studies, isLoading } = useQuery({
         queryKey: ['researcher-studies'],
         queryFn: () => fetchStudiesForCurrentResearcherAction(),
     })
     const { session } = useSession()
+    const labOrg = session ? getLabOrg(session) : null
 
-    if (!session || isLoading) return null
+    if (!session || !labOrg || isLoading) return null
 
     if (!studies || isActionError(studies)) {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
     }
 
     const rows = studies.map((study) => (
-        <TableTr fz="md" key={study.id}>
+        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
             <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewerTeamName}</TableTd>
+            <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
                     studyStatus={study.status}
@@ -82,26 +86,27 @@ export const StudiesTable: React.FC = () => {
     ))
 
     return (
-        <Paper shadow="xs" p="xl">
+        <Paper shadow="xs" p="xxl">
             <Stack>
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <NewStudyLink orgSlug={session.team.slug} />
+                        <NewStudyLink orgSlug={labOrg.slug} />
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
                 <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                    <TableThead fz="sm">
+                    <TableThead>
                         <TableTr>
-                            <TableTh>Study Name</TableTh>
-                            <TableTh>Submitted On</TableTh>
-                            <TableTh>Submitted To</TableTh>
-                            <TableTh>Status</TableTh>
-                            <TableTh>Study Details</TableTh>
+                            <TableTh fw={600}>Study Name</TableTh>
+                            <TableTh fw={600}>Submitted On</TableTh>
+                            <TableTh fw={600}>Submitted To</TableTh>
+                            <TableTh fw={600}>Stage</TableTh>
+                            <TableTh fw={600}>Status</TableTh>
+                            <TableTh fw={600}>Study Details</TableTh>
                         </TableTr>
                     </TableThead>
-                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={session.team.slug} />}</TableTbody>
+                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={labOrg.slug} />}</TableTbody>
                 </Table>
             </Stack>
         </Paper>

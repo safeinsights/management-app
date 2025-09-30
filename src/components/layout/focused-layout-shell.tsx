@@ -43,7 +43,9 @@ export function FocusedLayoutShell({ children }: Props) {
             </AppShellMain>
             <AppShellFooter p="md" bg={theme.colors.purple[9]} bd="none">
                 <Group justify="left" c="white">
-                    <Text c="white">© 2025 - SafeInsights, Rice University</Text>
+                    <Text c="white" fz="sm">
+                        © 2025 - SafeInsights, Rice University
+                    </Text>
                 </Group>
             </AppShellFooter>
         </AppShell>

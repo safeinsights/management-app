@@ -24,7 +24,7 @@ describe('Study Results Approve/Reject buttons', async () => {
     ]
 
     const insertAndRender = async (studyStatus: StudyStatus) => {
-        const { org } = await mockSessionWithTestData({ isReviewer: true })
+        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
         const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         return await act(async () => {
             const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)

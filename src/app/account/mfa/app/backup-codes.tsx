@@ -1,7 +1,6 @@
 import { useState, type FC } from '@/common'
 import { AppModal } from '@/components/modal'
 import { useSession } from '@/hooks/session'
-import { navigateToDashboard } from '@/lib/session'
 import { useUser } from '@clerk/nextjs'
 import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
@@ -31,7 +30,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
 
     const goToDashboard = () => {
         if (!isSessionLoaded || !session) return
-        navigateToDashboard(router, session)
+        router.push('/dashboard')
     }
 
     if (!isLoaded) return null

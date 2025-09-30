@@ -5,7 +5,7 @@ import { db } from '@/database'
 
 describe('Edit Study Actions', () => {
     it('onUpdateStudyAction updates a study', async () => {
-        const { user, org } = await mockSessionWithTestData()
+        const { user, org } = await mockSessionWithTestData({ orgType: 'lab' })
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
         const updatedStudyData = {

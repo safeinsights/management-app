@@ -25,7 +25,9 @@ test.describe('user sign in', async () => {
             await expect(verifyBtn).toBeEnabled()
             await verifyBtn.click()
 
-            await page.waitForURL('/')
+            // Wait for successful login to laod load dashboard.  Note that for some roles
+            // the reviewer key page is actually what loads but that also works since it contains the word 'dashbaord'
+            await expect(page.locator('text=dashboard').first()).toBeVisible()
         })
     }
 })

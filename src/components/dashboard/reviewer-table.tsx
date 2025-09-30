@@ -1,13 +1,17 @@
 'use client'
 
-import { ActionSuccessType } from '@/lib/types'
-import dayjs from 'dayjs'
-import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+import { useQuery } from '@/common'
+import { Link } from '@/components/links'
+import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
+import { StudyJobStatus } from '@/database/types'
+import { ActionSuccessType } from '@/lib/types'
+import { getStudyStage } from '@/lib/util'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
+    Flex,
     Stack,
-    Title,
     Table,
     TableTbody,
     TableTd,
@@ -15,20 +19,17 @@ import {
     TableThead,
     TableTr,
     Text,
+    Title,
     Tooltip,
-    Flex,
 } from '@mantine/core'
+import dayjs from 'dayjs'
 import { FC } from 'react'
-import { Link } from '@/components/links'
-import { useQuery } from '@/common'
-import { StudyJobStatus } from '@/database/types'
-import { Refresher } from '@/components/refresher'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
     return (
-        <TableTr key={study.id}>
+        <TableTr fz={14} key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
                 <Tooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
@@ -38,7 +39,8 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
-            <TableTd>{study.reviewerName}</TableTd>
+            <TableTd>{orgSlug}</TableTd>
+            <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus
                     audience="reviewer"
@@ -57,7 +59,10 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studies: initialStudies, orgSlug }) => {
+export const ReviewerStudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({
+    studies: initialStudies,
+    orgSlug,
+}) => {
     const {
         data: studies,
         refetch,
@@ -82,6 +87,10 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
             </Flex>
             <Divider c="charcoal.1" />
+            <Text mb="md">
+                Review all the studies submitted to your organization. Studies that need your attention will be labeled
+                ‘Needs review’.
+            </Text>
             <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
                 <TableThead>
                     <TableTr>
@@ -89,6 +98,7 @@ export const StudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({ studie
                         <TableTh fw={600}>Submitted On</TableTh>
                         <TableTh fw={600}>Submitted By</TableTh>
                         <TableTh fw={600}>Reviewed By</TableTh>
+                        <TableTh fw={600}>Stage</TableTh>
                         <TableTh fw={600}>Status</TableTh>
                         <TableTh fw={600}>Details</TableTh>
                     </TableTr>

@@ -1,3 +1,5 @@
+'use client'
+
 import { type FC, useState, useMemo, useEffect } from 'react'
 import { z } from 'zod'
 import { zod4Resolver } from 'mantine-form-zod-resolver'

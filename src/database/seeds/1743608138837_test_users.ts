@@ -19,8 +19,7 @@ type AccountInfo = {
     lastName: string
     email: string
     isAdmin?: boolean
-    isResearcher?: boolean
-    isReviewer?: boolean
+    orgType?: 'enclave' | 'lab' | 'both'
 }
 
 const adminUser: AccountInfo = {
@@ -40,14 +39,14 @@ const ACCOUNTS: Record<string, AccountInfo[]> = {
             firstName: 'Researchy',
             lastName: 'McPerson',
             email: 'si-research-tester-dbfyq3@mailinator.com',
-            isResearcher: true,
+            orgType: 'lab',
         },
         {
             clerkId: 'user_2xxt9CAEXzHV9rrMEDQ7UOQgK6Z',
             firstName: 'Mr Org',
             lastName: 'McOrgson',
             email: 'si-member-tester-dbfyq3@mailinator.com',
-            isReviewer: true,
+            orgType: 'enclave',
         },
     ],
 }
@@ -57,13 +56,34 @@ export async function seed(db: Kysely<DB>): Promise<void> {
     if (process.env.NO_TESTING_DATA) return
 
     for (const orgSlug of Object.keys(ACCOUNTS)) {
-        const org = await db
+        // Create the enclave org
+        const enclaveOrg = await db
             .insertInto('org')
             .values({
                 slug: orgSlug,
                 name: titleize(orgSlug),
                 email: 'contact@safeinsights.org',
-                publicKey: 'BAD KEY, UPDATE ME',
+                type: 'enclave' as const,
+                settings: { publicKey: 'BAD KEY, UPDATE ME' },
+            })
+            .onConflict((oc) =>
+                oc.column('slug').doUpdateSet((eb) => ({
+                    slug: eb.ref('excluded.slug'),
+                    name: eb.ref('excluded.name'),
+                })),
+            )
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        // Create the lab org
+        const labOrg = await db
+            .insertInto('org')
+            .values({
+                slug: `${orgSlug}-lab`,
+                name: `${titleize(orgSlug)} Lab`,
+                email: 'contact@safeinsights.org',
+                type: 'lab' as const,
+                settings: {},
             })
             .onConflict((oc) =>
                 oc.column('slug').doUpdateSet((eb) => ({
@@ -81,16 +101,24 @@ export async function seed(db: Kysely<DB>): Promise<void> {
                 updatedAt: new Date(),
             })
 
-            // Add researcher to orgUser
-            await findOrCreateOrgUser(db, {
-                isResearcher: false,
-                isReviewer: false,
-                isAdmin: false,
-                ...pick(userInfo, ['isResearcher', 'isReviewer', 'isAdmin']),
-                orgId: org.id,
-                userId: user.id,
-                joinedAt: new Date(),
-            })
+            // Add user to appropriate org based on their orgType
+            if (userInfo.orgType === 'lab' || userInfo.orgType === 'both') {
+                await findOrCreateOrgUser(db, {
+                    isAdmin: userInfo.isAdmin || false,
+                    orgId: labOrg.id,
+                    userId: user.id,
+                    joinedAt: new Date(),
+                })
+            }
+
+            if (userInfo.orgType === 'enclave' || userInfo.orgType === 'both' || userInfo.isAdmin) {
+                await findOrCreateOrgUser(db, {
+                    isAdmin: userInfo.isAdmin || false,
+                    orgId: enclaveOrg.id,
+                    userId: user.id,
+                    joinedAt: new Date(),
+                })
+            }
         }
     }
 }

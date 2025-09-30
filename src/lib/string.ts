@@ -52,3 +52,16 @@ export function titleize(str: string) {
     }
     return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 }
+
+export function orgInitials(orgName: string, type: string) {
+    if (!orgName || !type) {
+        return ''
+    }
+
+    const nameInitials = orgName
+        .split(/\s+/)
+        .map((word) => word.charAt(0).toUpperCase())
+        .join('')
+
+    return nameInitials + (type == 'enclave' ? '-D' : '-L')
+}

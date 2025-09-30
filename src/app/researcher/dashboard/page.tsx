@@ -1,10 +1,10 @@
+import { Stack, Text, Title } from '@mantine/core'
 import * as React from 'react'
-import { Group, Stack, Text, Title } from '@mantine/core'
 
-import { UserName } from '@/components/user-name'
-import { StudiesTable } from './table'
+import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ErrorAlert } from '@/components/errors'
-import { isActionError, errorToString } from '@/lib/errors'
+import { UserName } from '@/components/user-name'
+import { errorToString, isActionError } from '@/lib/errors'
 import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 export const dynamic = 'force-dynamic'
@@ -22,18 +22,16 @@ export default async function ResearcherDashboardPage(): Promise<React.ReactElem
     }
 
     return (
-        <Stack p="xl">
-            <Title order={1}>
-                Hi <UserName />!
+        <Stack p="xxl">
+            <Title order={1} mt="xxl">
+                Hi, <UserName />!
             </Title>
-            <Group gap="sm">
-                <Title order={4}>Welcome to SafeInsights!</Title>
-                <Text>
-                    This is your dashboard. Here, you can submit new research proposals, view their status and access
-                    its details. We continuously iterate to improve your experience and welcome your feedback.
-                </Text>
-            </Group>
-            <StudiesTable />
+            <Text mb="xxl">
+                Welcome to the researcher dashboard. You can submit new proposals, view study status, and access the
+                details of each study here. We continuously iterate to improve your experience and welcome your
+                feedback.
+            </Text>
+            <ResearcherStudiesTable />
         </Stack>
     )
 }

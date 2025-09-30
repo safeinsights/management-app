@@ -25,12 +25,12 @@ describe('OrgAdminDashboardLink', () => {
 
         // Get all the submenu links
         const siAdminDashboardLink = screen.getByRole('link', { name: 'SI Admin Dashboard' })
-        const manageTeamLink = screen.getByRole('link', { name: 'Manage Team' })
+        const manageOrgLink = screen.getByRole('link', { name: 'Manage Org' })
         const settingsLink = screen.getByRole('link', { name: 'Settings' })
 
         // Assert that their href attributes start with /admin/
         expect(siAdminDashboardLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
-        expect(manageTeamLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
+        expect(manageOrgLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
         expect(settingsLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
     })
 
@@ -66,7 +66,7 @@ describe('OrgAdminDashboardLink', () => {
 
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
 
-        expect(screen.getByRole('link', { name: 'Manage Team' })).toBeVisible()
+        expect(screen.getByRole('link', { name: 'Manage Org' })).toBeVisible()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible()
     })
 
@@ -79,14 +79,14 @@ describe('OrgAdminDashboardLink', () => {
         const adminButton = screen.getByRole('button', { name: /Admin/i })
 
         // Menu should be closed initially
-        expect(screen.queryByRole('link', { name: 'Manage Team' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Manage Org' })).not.toBeInTheDocument()
 
         // Click to open
         await userEvent.click(adminButton)
-        expect(screen.getByRole('link', { name: 'Manage Team' })).toBeVisible()
+        expect(screen.getByRole('link', { name: 'Manage Org' })).toBeVisible()
 
         // Click to close
         await userEvent.click(adminButton)
-        expect(screen.queryByRole('link', { name: 'Manage Team' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Manage Org' })).not.toBeInTheDocument()
     })
 })

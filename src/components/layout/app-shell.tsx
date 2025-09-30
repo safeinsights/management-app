@@ -5,30 +5,30 @@ import {
     AppShellFooter,
     AppShellHeader,
     AppShellMain,
-    AppShellNavbar,
-    AppShellSection,
     Burger,
     Group,
-    Stack,
     Text,
     useMantineTheme,
 } from '@mantine/core'
+
 import { useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { SafeInsightsLogo } from './si-logo'
 import Link from 'next/link'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import { ReactNode } from 'react'
-import { NavbarItems } from '@/components/layout/navbar-items'
+
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
-import { NavbarProfileMenu } from './navbar-profile-menu'
+
 import { ActivityContext } from '../activity-context'
+import { AppNav } from './app-nav'
 
 type Props = { children: ReactNode }
 
 export function AppShell({ children }: Props) {
     const theme = useMantineTheme()
+
     const isDesktop = useMediaQuery(
         `(min-width: ${theme.breakpoints.sm})`,
         true, // initialValue to prevent hydration error
@@ -62,28 +62,14 @@ export function AppShell({ children }: Props) {
                 </Group>
             </AppShellHeader>
 
-            <AppShellNavbar bg="purple.8">
-                <Stack py="md">
-                    {isDesktop && (
-                        <AppShellSection>
-                            <Link href="/">
-                                <SafeInsightsLogo />
-                            </Link>
-                        </AppShellSection>
-                    )}
-                </Stack>
-                <AppShellSection grow>
-                    <NavbarItems />
-                </AppShellSection>
-                <NavbarProfileMenu />
-            </AppShellNavbar>
+            <AppNav isDesktop={isDesktop} />
 
             <AppShellMain bg="grey.10" style={{ maxWidth: 1600, width: '100%', margin: '0 auto' }}>
                 {children}
             </AppShellMain>
 
             <AppShellFooter p="md" bg="purple.9" bd="none">
-                <Text ta="left" c="white">
+                <Text ta="left" c="white" fz="sm">
                     © 2025 - SafeInsights, Rice University
                 </Text>
             </AppShellFooter>

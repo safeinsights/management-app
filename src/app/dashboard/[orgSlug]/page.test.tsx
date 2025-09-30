@@ -1,17 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { screen } from '@testing-library/react'
-import { renderWithProviders } from '@/tests/unit.helpers'
-import OrgDashboardPage from './page'
-import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { faker } from '@faker-js/faker'
 import { Org } from '@/schema/org'
+import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+import { renderWithProviders } from '@/tests/unit.helpers'
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
+import { faker } from '@faker-js/faker'
+import { screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import OrgDashboardPage from './page'
 
-vi.mock('@/server/actions/org.actions', () => ({
-    getOrgFromSlugAction: vi.fn(),
-}))
+vi.mock('@/server/actions/org.actions', async () => {
+    return {
+        getOrgFromSlugAction: vi.fn(),
+        getReviewerPublicKeyAction: vi.fn(),
+    }
+})
 
 vi.mock('@/server/actions/study.actions', () => ({
     fetchStudiesForOrgAction: vi.fn(() => []),
@@ -23,7 +26,8 @@ const mockOrg: Org = {
     slug: 'test-org',
     name: faker.company.name(),
     email: faker.internet.email({ provider: 'test.com' }),
-    publicKey: 'fake-key',
+    type: 'enclave',
+    settings: { publicKey: 'fake-key' },
     description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -48,6 +52,6 @@ describe('Org Dashboard', () => {
 
         renderWithProviders(await OrgDashboardPage(props))
 
-        expect(screen.getByText(/Welcome to your SafeInsights dashboard!/i)).toBeDefined()
+        expect(screen.getByText(/Welcome to the/i)).toBeDefined()
     })
 })
