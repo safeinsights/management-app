@@ -8,6 +8,7 @@ import { ReactNode } from 'react'
 import { ErrorAlert } from '../errors'
 import SentryUserProvider from '../sentry-user-provider'
 import { AppShell } from './app-shell'
+import { connection } from 'next/server'
 
 type Props = {
     children: ReactNode
@@ -15,6 +16,7 @@ type Props = {
 }
 
 export async function UserLayout({ children, showOverlay = false }: Props) {
+    await connection() // force server rendering so we can access env vars
     const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
 
