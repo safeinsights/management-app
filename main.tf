@@ -36,12 +36,18 @@ resource "coder_agent" "main" {
     #!/bin/bash
     set -e
 
-    # Install code-server (binary only, don't start it here)
-    curl -fsSL https://code-server.dev/install.sh | sh -s -- --method=standalone --prefix=/tmp/code-server
+    # Install code-server
+    curl -fsSL https://code-server.dev/install.sh \
+      | sh -s -- --method=standalone --prefix=/tmp/code-server
 
-    # Create workspace directory
     mkdir -p /home/coder/workspace
-    cd /home/coder/workspace
+
+    # Start code-server (detached, logs to /tmp)
+    nohup /tmp/code-server/bin/code-server \
+      --auth none \
+      --bind-addr 127.0.0.1:13337 \
+      /home/coder/workspace \
+      > /tmp/code-server.log 2>&1 &
 
     # Create main.r file
     cat > main.r << 'EOF'
@@ -110,7 +116,7 @@ EOF
 }
 
 # Run code-server as a managed app
-resource "coder_app" "code-server" {
+resource "coder_app" "code_server" {
     agent_id     = coder_agent.main.id
     slug         = "code-server"
     display_name = "VS Code"
@@ -118,10 +124,9 @@ resource "coder_app" "code-server" {
     subdomain    = true
     share        = "owner"
 
-    # Coder supervises this command
-    command = "/tmp/code-server/bin/code-server --bind-addr 0.0.0.0:13337 --auth none /home/coder/workspace"
+    # In v2, use `url` to point to the web service
+    url = "http://127.0.0.1:13337/"
 }
-
 
 resource "docker_container" "workspace" {
     count = data.coder_workspace.me.start_count
