@@ -49,8 +49,8 @@ resource "coder_agent" "main" {
       /home/coder/workspace \
       > /tmp/code-server.log 2>&1 &
 
-    # Create main.r file
-    cat > main.r << 'EOF'
+        # Create main.r file
+    cat > /home/coder/workspace/main.r << 'EOF'
 # Main R Script
 print("Hello from Coder!")
 
@@ -65,7 +65,7 @@ print(paste("Total:", total))
 EOF
 
     # Create readme.md file
-    cat > readme.md << 'EOF'
+    cat > /home/coder/workspace/readme.md << 'EOF'
 # My Coder Workspace
 
 Welcome to your Coder workspace!
@@ -83,6 +83,7 @@ Welcome to your Coder workspace!
 - [Coder Documentation](https://coder.com/docs)
 - [R Documentation](https://www.r-project.org/)
 EOF
+
 
     # Set proper permissions
     chown -R coder:coder /home/coder/workspace
