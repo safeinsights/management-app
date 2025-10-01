@@ -36,7 +36,7 @@ describe('RequireMFA', () => {
 
     describe('invite signup → session lost → re-login MFA flow', () => {
         beforeEach(() => {
-            router.setCurrentUrl('/researcher/dashboard')
+            router.setCurrentUrl(`/${mockSessionValues.orgSlug}/dashboard`)
         })
 
         it('redirects to /account/mfa until MFA is completed', async () => {
@@ -51,14 +51,14 @@ describe('RequireMFA', () => {
 
             // 2. user completes MFA → Clerk now returns twoFactorEnabled === true
             mockClerkSession({ ...mockSessionValues, twoFactorEnabled: true })
-            router.setCurrentUrl('/researcher/dashboard')
+            router.setCurrentUrl(`/${mockSessionValues.orgSlug}/dashboard`)
 
             await act(async () => {
                 render(<RequireMFA />, { wrapper: TestingProviders })
             })
 
             // stays on requested page – no more redirect
-            expect(router.asPath).toBe('/researcher/dashboard')
+            expect(router.asPath).toBe(`/${mockSessionValues.orgSlug}/dashboard`)
         })
     })
 })

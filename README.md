@@ -64,7 +64,7 @@ For developing locally without docker compose, you will need to:
 
 ## Roles and screens
 
-- Researcher dashboard is located at: `/researcher/dashboard`
+- dashboard is located at: `/dashboard`
 - Reviewers can access the review dashboard at: `/reviewer/<org slug>/dashboard`
 - There are two admin types and screens:
     - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.

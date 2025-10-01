@@ -76,10 +76,12 @@ export const deleteOrgAction = new Action('deleteOrgAction')
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
+    .middleware(async ({ db, params: { orgSlug } }) => {
+        const org = await db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+        return { org, orgId: org.id }
+    })
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ db, params: { orgSlug } }) =>
-        db.selectFrom('org').selectAll('org').where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
-    )
+    .handler(async ({ org }) => org)
 
 // TODO: move this to a more appropriate place, likely a reviewers.actions.ts file
 // also all we really need is if they have a public key, so we can just return a boolean

@@ -59,8 +59,8 @@ export const ResearcherUserStudiesTable = () => {
                     <Text>You haven&apos;t started a study yet</Text>
                     <ButtonLink
                         leftSection={<PlusIcon />}
-                        href={`/researcher/study/request/${labOrg?.slug}`}
-                        data-testid="propose-study"
+                        href={`/${labOrg.slug}/study/request`}
+                        data-testid="new-study"
                     >
                         Propose New Study
                     </ButtonLink>
@@ -75,7 +75,11 @@ export const ResearcherUserStudiesTable = () => {
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <ButtonLink leftSection={<PlusIcon />} href={`/researcher/study/request/${labOrg?.slug}`}>
+                        <ButtonLink
+                            leftSection={<PlusIcon />}
+                            data-testid="new-study"
+                            href={`/${labOrg.slug}/study/request`}
+                        >
                             Propose New Study
                         </ButtonLink>
                     </Flex>
@@ -108,7 +112,7 @@ export const ResearcherUserStudiesTable = () => {
                                     />
                                 </TableTd>
                                 <TableTd>
-                                    <Link href={`/researcher/study/${study.id}/review`}>View</Link>
+                                    <Link href={`/${labOrg.slug}/study/${study.id}/review`}>View</Link>
                                 </TableTd>
                             </TableTr>
                         ))}

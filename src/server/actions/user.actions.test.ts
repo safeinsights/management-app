@@ -44,7 +44,7 @@ describe('User Actions', () => {
     test('onUserSignInAction should not redirect if user has a public key', async () => {
         await mockSessionWithTestData({ orgType: 'enclave' })
         const result = await onUserSignInAction()
-        expect(result).toBeUndefined()
+        expect(result).toEqual({})
     })
 
     test('syncUserMetadataAction should sync metadata', async () => {

@@ -16,6 +16,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
+                    orgSlug: study.orgSlug,
                     studyId,
                     current: 'Resubmit study code',
                 }}

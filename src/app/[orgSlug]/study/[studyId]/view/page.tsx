@@ -10,7 +10,7 @@ import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
-import { JobResultsStatusMessage } from '@/app/researcher/study/[studyId]/review/job-results-status-message'
+import { JobResultsStatusMessage } from './job-results-status-message'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +30,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId,
+                    orgSlug: study.orgSlug,
                     current: 'Study Details',
                 }}
             />
