@@ -11,13 +11,13 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
     const user = await syncCurrentClerkUser()
     const metadata = await updateClerkUserMetadata(user.id)
     onUserLogIn({ userId: user.id })
-
     if (Object.values(metadata.orgs).some((org) => isEnclaveOrg(org))) {
         const publicKey = await getReviewerPublicKey(user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
         }
     }
+    return {}
 })
 
 export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {

@@ -17,7 +17,7 @@ const EnclaveLinks: React.FC<Props> = ({ org }) => {
         <>
             <NavbarLink
                 isVisible={true}
-                url={`/dashboard/${org.slug}`}
+                url={`/${org.slug}/dashboard`}
                 label={org.name}
                 icon={<HouseIcon size={16} />}
             />
@@ -37,7 +37,7 @@ const LabLinks: React.FC<Props> = ({ org }) => {
         <>
             <NavbarLink
                 isVisible={true}
-                url={`/dashboard/${org.slug}`}
+                url={`/${org.slug}/dashboard`}
                 label={org.name}
                 icon={<HouseIcon size={16} />}
             />

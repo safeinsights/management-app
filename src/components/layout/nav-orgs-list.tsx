@@ -21,7 +21,7 @@ export const NavOrgsList: React.FC<Props> = ({ orgs }) => {
                 <NavbarLink
                     key={org.slug}
                     isVisible={true}
-                    url={`/dashboard/${org.slug}`}
+                    url={`/${org.slug}/dashboard`}
                     label={org.name}
                     icon={
                         <Flex

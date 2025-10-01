@@ -12,7 +12,7 @@ import '@mantine/core/styles.layer.css'
 import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 
-import { Providers } from './providers'
+import { Providers } from '@/components/layout/providers'
 import { type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
 

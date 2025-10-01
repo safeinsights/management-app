@@ -5,6 +5,7 @@ import { ErrorAlert } from '@/components/errors'
 import { ButtonLink, Link } from '@/components/links'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { useSession } from '@/hooks/session'
+import { useParams } from 'next/navigation'
 import { errorToString, isActionError } from '@/lib/errors'
 import { getLabOrg } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
@@ -30,7 +31,7 @@ import * as React from 'react'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
-        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/researcher/study/request/${orgSlug}`}>
+        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/${orgSlug}/study/request`}>
             Propose New Study
         </ButtonLink>
     )
@@ -52,8 +53,9 @@ export const ResearcherStudiesTable: React.FC = () => {
         queryKey: ['researcher-studies'],
         queryFn: () => fetchStudiesForCurrentResearcherAction(),
     })
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const { session } = useSession()
-    const labOrg = session ? getLabOrg(session) : null
+    const labOrg = session ? session.orgs[orgSlug] || getLabOrg(session) : null
 
     if (!session || !labOrg || isLoading) return null
 
@@ -75,10 +77,7 @@ export const ResearcherStudiesTable: React.FC = () => {
                 />
             </TableTd>
             <TableTd>
-                <Link
-                    href={`/researcher/study/${study.id}/review`}
-                    aria-label={`View details for study ${study.title}`}
-                >
+                <Link href={`/${orgSlug}/study/${study.id}/view`} aria-label={`View details for study ${study.title}`}>
                     View
                 </Link>
             </TableTd>

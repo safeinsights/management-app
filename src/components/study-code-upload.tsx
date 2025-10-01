@@ -26,8 +26,8 @@ import { UseFormReturnType } from '@mantine/form'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { InputError } from '@/components/errors'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/app/researcher/utils/file-upload'
-import { StudyJobCodeFilesValues } from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
+import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 
 interface StudyCodeUploadProps {
     studyProposalForm: UseFormReturnType<StudyJobCodeFilesValues>

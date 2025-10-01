@@ -2,14 +2,14 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { marshalSession } from './server/session'
-import { type UserSession, BLANK_SESSION, isLabOrg, isEnclaveOrg, isOrgAdmin, type Org } from './lib/types'
+import { type UserSession, BLANK_SESSION, isOrgAdmin, type Org } from './lib/types'
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
+
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
-const isOrgAdminRoute = createRouteMatcher(['/admin/team(.*)/admin(.*)'])
-const isReviewerRoute = createRouteMatcher(['/reviewer(.*)'])
-const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
+const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
+const isOrgRoute = createRouteMatcher(['/[orgSlug]'])
 
 const ANON_ROUTES: Array<string> = [
     '/account/reset-password',
@@ -24,7 +24,7 @@ function getOrgFromSlug(session: UserSession, orgSlug: string): Org | null {
 
 function redirectToDashboard(request: NextRequest, route: string, session: UserSession) {
     log.warn(
-        `Blocking unauthorized ${route} route access. session: %s`,
+        `Blocking unauthorized ${route} route access to: `,
         request.url,
         JSON.stringify(omit(session as any, ['ability']), null, 2), // eslint-disable-line @typescript-eslint/no-explicit-any
     )
@@ -56,8 +56,6 @@ export default clerkMiddleware(async (auth, req) => {
     const currentOrg = currentOrgSlug ? getOrgFromSlug(session, currentOrgSlug) : null
 
     const isAdmin = currentOrg ? isOrgAdmin(currentOrg) : false
-    const isResearcher = currentOrg ? isLabOrg(currentOrg) : false
-    const isReviewer = currentOrg ? isEnclaveOrg(currentOrg) : false
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToDashboard(req, 'si admin', session)
@@ -67,12 +65,8 @@ export default clerkMiddleware(async (auth, req) => {
         return redirectToDashboard(req, 'org-admin', session)
     }
 
-    if (isReviewerRoute(req) && !(isReviewer || isAdmin)) {
-        return redirectToDashboard(req, 'reviewer', session)
-    }
-
-    if (isResearcherRoute(req) && !(isResearcher || isAdmin)) {
-        return redirectToDashboard(req, 'researcher', session)
+    if (isOrgRoute(req) && (!currentOrgSlug || !session.orgs[currentOrgSlug])) {
+        return redirectToDashboard(req, 'org-member', session)
     }
 
     return NextResponse.next()
