@@ -66,7 +66,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         router.push('/account/keys')
                     } else {
                         const redirectUrl = searchParams.get('redirect_url')
-                        router.push(redirectUrl || '/')
+                        router.push(redirectUrl || '/dashboard')
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation

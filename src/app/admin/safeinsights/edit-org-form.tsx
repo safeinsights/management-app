@@ -1,22 +1,58 @@
 'use client'
 
 import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/common'
-import { Button, Textarea, TextInput } from '@mantine/core'
-import { updateOrgAction, insertOrgAction, fetchOrgsStatsAction } from '@/server/actions/org.actions'
+import { Button, Textarea, TextInput, Select } from '@mantine/core'
+import { updateOrgAction, insertOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
 
-type Org = Omit<ActionSuccessType<typeof fetchOrgsStatsAction>[number], 'totalStudies'>
+type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
 type NewOrg = Omit<Org, 'id'>
 
+// Transform org data to match form expectations
+const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
+    if (!orgData) {
+        return {
+            slug: '',
+            name: '',
+            email: '',
+            type: 'enclave',
+            settings: { publicKey: '' },
+            description: null,
+        } as ValidatedOrg
+    }
+
+    // Handle both old and new formats
+    if (orgData.type === 'enclave') {
+        const settings = orgData.settings as { publicKey?: string } | null
+        return {
+            slug: orgData.slug,
+            name: orgData.name,
+            email: '',
+            type: 'enclave',
+            settings: { publicKey: settings?.publicKey || '' },
+            description: null,
+        } as ValidatedOrg
+    } else {
+        return {
+            slug: orgData.slug,
+            name: orgData.name,
+            email: '',
+            type: 'lab',
+            settings: {},
+            description: null,
+        } as ValidatedOrg
+    }
+}
+
 export const EditOrgForm: FC<{
-    org: Org | NewOrg
+    org?: Org | NewOrg
     onCompleteAction?: () => void
 }> = ({ org, onCompleteAction }) => {
     const form = useForm<ValidatedOrg>({
         validate: zodResolver(orgSchema),
-        initialValues: org,
+        initialValues: getInitialValues(org),
         validateInputOnBlur: true,
     })
 
@@ -24,7 +60,7 @@ export const EditOrgForm: FC<{
 
     const { isPending, mutate: upsertOrg } = useMutation({
         mutationFn: async (data: ValidatedOrg) => {
-            if ('id' in org) return await updateOrgAction({ id: org.id, ...data })
+            if (org && 'id' in org) return await updateOrgAction({ id: org.id, ...data })
             return await insertOrgAction(data)
         },
         onError: (error: unknown) => {
@@ -36,6 +72,8 @@ export const EditOrgForm: FC<{
         },
     })
 
+    const isEnclave = form.values.type === 'enclave'
+
     return (
         <form onSubmit={form.onSubmit((values) => upsertOrg(values))}>
             <TextInput
@@ -44,7 +82,7 @@ export const EditOrgForm: FC<{
                 data-autofocus
                 name="slug"
                 key={form.key('slug')}
-                disabled={'id' in org && !!org.id}
+                disabled={org && 'id' in org && !!org.id}
                 {...form.getInputProps('slug')}
                 required
             />
@@ -68,16 +106,40 @@ export const EditOrgForm: FC<{
                 required
             />
 
-            <Textarea
-                label="Public Key"
-                resize="vertical"
-                description="Validates server authentication JWT"
-                placeholder="Enter your public key"
-                name="publicKey"
-                key={form.key('publicKey')}
-                {...form.getInputProps('publicKey')}
+            <Select
+                label="Organization Type"
+                description="Type determines the role of users in this organization"
+                name="type"
+                key={form.key('type')}
+                data={[
+                    { value: 'enclave', label: 'Enclave (Data Organization)' },
+                    { value: 'lab', label: 'Lab (Research Organization)' },
+                ]}
+                {...form.getInputProps('type')}
+                onChange={(value) => {
+                    form.setFieldValue('type', value as 'enclave' | 'lab')
+                    // Reset settings when type changes
+                    if (value === 'enclave') {
+                        form.setFieldValue('settings', { publicKey: '' })
+                    } else {
+                        form.setFieldValue('settings', {})
+                    }
+                }}
                 required
             />
+
+            {isEnclave && (
+                <Textarea
+                    label="Public Key"
+                    resize="vertical"
+                    description="Validates server authentication JWT"
+                    placeholder="Enter your public key"
+                    name="settings.publicKey"
+                    key={form.key('settings.publicKey')}
+                    {...form.getInputProps('settings.publicKey')}
+                    required
+                />
+            )}
 
             <Button type="submit" fullWidth mt="md" loading={isPending}>
                 Submit

@@ -35,12 +35,14 @@ export function toRecord<T extends string, Properties extends Record<string, any
 type Abilities =
     | Ability<'User', 'invite' | 'update' | 'view', { id?: UUID; orgId?: UUID; orgSlug?: string }>
     | Ability<'PendingUser', 'claim', object>
-    | Ability<'TeamMembers', 'view', { orgSlug: string }>
-    | Ability<'Study', 'view' | 'create' | 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId: UUID }>
-    | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId: UUID }>
+    | Ability<'OrgMembers', 'view', { orgId: UUID }>
+    | Ability<'Studies', 'view', object>
+    | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
+    | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
+    | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'ReviewerKey', 'view' | 'update', object>
-    | Ability<'Team', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
-    | Ability<'TeamMembers', 'view', { orgId?: UUID; orgSlug?: string }>
+    | Ability<'Org', 'view' | 'update' | 'create' | 'delete', { orgId?: UUID; orgSlug?: string }>
+    | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
 

@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 
 import { db } from '@/database'
 import jwt from 'jsonwebtoken'
+import { isEnclaveOrg } from '@/lib/types'
 import { Org } from '@/schema/org'
 
 export const orgFromAuthToken = async (): Promise<Org> => {
@@ -29,11 +30,22 @@ export const orgFromAuthToken = async (): Promise<Org> => {
         throw new Error('Org not found')
     }
 
+    // Only enclave orgs have publicKey for JWT validation
+    if (!isEnclaveOrg(org)) {
+        throw new Error(`Org ${org.slug} is not an enclave org and cannot validate JWT tokens`)
+    }
+
+    const settings = org.settings as { publicKey?: string }
+    const publicKey = settings?.publicKey
+    if (!publicKey) {
+        throw new Error(`Org ${org.slug} does not have a public key configured`)
+    }
+
     // Verify and decode the JWT
-    const decodedToken = jwt.verify(token, org.publicKey, { algorithms: ['RS256'] })
+    const decodedToken = jwt.verify(token, publicKey, { algorithms: ['RS256'] })
 
     if (!decodedToken) {
-        throw new Error(`public key validation failed for JWT.  Org ${org.slug} public key was:\n${org.publicKey}`)
+        throw new Error(`public key validation failed for JWT.  Org ${org.slug} public key was:\n${publicKey}`)
     }
 
     return org

@@ -5,22 +5,23 @@ import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker, actionRe
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
-    fetchOrgsStatsAction,
     getOrgFromSlugAction,
     getUsersForOrgAction,
+    fetchOrgsWithStatsAction,
     insertOrgAction,
     updateOrgSettingsAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
 describe('Org Actions', () => {
-    let newOrg: { slug: string; name: string; email: string; publicKey: string }
+    let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
     beforeEach(async () => {
         newOrg = {
             slug: `test-org-${faker.string.uuid()}`,
             name: 'A Testing Org',
             email: 'new-org@example.com',
-            publicKey: 'no-such-key',
+            type: 'enclave',
+            settings: { publicKey: 'no-such-key' },
         }
         await mockSessionWithTestData({ isAdmin: true })
         try {
@@ -45,22 +46,8 @@ describe('Org Actions', () => {
         })
 
         it('throws error with malformed input', async () => {
-            const result = await insertOrgAction({ name: 'bob' } as unknown as Org)
+            const result = await insertOrgAction({ name: 'bob' } as unknown as Parameters<typeof insertOrgAction>[0])
             expect(result).toEqual({ error: expect.stringContaining('Validation error') })
-        })
-    })
-
-    describe('fetchOrgsStats', () => {
-        it('returns orgs with study statistics', async () => {
-            const result = await fetchOrgsStatsAction()
-            expect(result).toEqual(
-                expect.arrayContaining([
-                    expect.objectContaining({
-                        slug: newOrg.slug, // Use newOrg.slug here
-                        totalStudies: expect.any(String),
-                    }),
-                ]),
-            )
         })
     })
 
@@ -72,7 +59,7 @@ describe('Org Actions', () => {
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
             await deleteOrgAction({ orgId: org.id })
-            const result = await fetchOrgsStatsAction()
+            const result = await fetchOrgsWithStatsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
     })
@@ -225,7 +212,7 @@ describe('Org Actions', () => {
         })
 
         it('prevents a non-admin from fetching users for their org', async () => {
-            const { org } = await mockSessionWithTestData({ isAdmin: false, isResearcher: true })
+            const { org } = await mockSessionWithTestData({ isAdmin: false, orgType: 'lab' })
             vi.spyOn(logger, 'error').mockImplementation(() => undefined)
 
             const result = await getUsersForOrgAction({

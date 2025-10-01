@@ -27,6 +27,7 @@
         "update-db-types": "kysely-codegen --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint validate-actions",
         "test:e2e": "playwright test",
+        "test:e2e:debug": "playwright test --ui --headed --debug",
         "test:unit": "vitest",
         "test": "run-p -c test:*",
         "test:coverage": "tsx tests/merged-coverage.ts",
