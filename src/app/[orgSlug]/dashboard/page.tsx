@@ -4,10 +4,10 @@ import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { errorToString, isActionError } from '@/lib/errors'
 import { titleize } from '@/lib/string'
-import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { Stack, Text, Title } from '@mantine/core'
+import { isEnclaveOrg } from '@/lib/types'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
