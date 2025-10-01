@@ -1,5 +1,5 @@
 import { StudyProposalFormValues } from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
-import { useQuery } from '@/common'
+import { useMemo, useQuery } from '@/common'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { listAllOrgsAction } from '@/server/actions/org.actions'
@@ -16,6 +16,11 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
         queryKey: ['all-orgs'],
         queryFn: () => listAllOrgsAction(),
     })
+
+    const enclaveOrgs = useMemo(() => {
+        if (!orgs) return []
+        return Object.values(orgs).filter((org) => org.type === 'enclave')
+    }, [orgs])
 
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
@@ -42,7 +47,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                         <Select
                             id="studyOrg"
                             data-testid="org-select"
-                            data={orgs?.map((o) => ({ value: o.slug, label: o.name }))}
+                            data={enclaveOrgs.map((o) => ({ value: o.slug, label: o.name }))}
                             value={form.values.orgSlug}
                             placeholder="Select a data organization"
                             disabled={isLoading}

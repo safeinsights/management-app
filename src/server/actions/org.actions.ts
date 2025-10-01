@@ -75,7 +75,7 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
 export const listAllOrgsAction = new Action('listAllOrgsAction').handler(async ({ db }) => {
-    return await db.selectFrom('org').select(['slug', 'name']).orderBy('name', 'asc').execute()
+    return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
 })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
