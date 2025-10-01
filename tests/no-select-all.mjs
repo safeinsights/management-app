@@ -1,5 +1,5 @@
 // custom-rules/no-select-all-without-args.js
-export default {
+const noSelectAllWithoutArgs = {
     meta: {
         type: 'problem',
         docs: {
@@ -36,3 +36,5 @@ export default {
         }
     },
 }
+
+export default noSelectAllWithoutArgs

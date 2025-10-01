@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
 import { useParams } from 'next/navigation'
 import { render } from '@testing-library/react'
+// eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'

@@ -25,6 +25,7 @@ async function setupUsers() {
 
     // Update publicKey in settings for enclave org
     if (org.type === 'enclave') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const settings = org.settings as any
         if (!settings.publicKey || settings.publicKey.length < 1000) {
             await db

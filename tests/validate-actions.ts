@@ -167,6 +167,7 @@ function analyzeDirectory(directoryPath: string): void {
             overallSuccess = false
             errorLogs.push(...logs)
         } else if (VERBOSE) {
+            // eslint-disable-next-line no-console
             logs.forEach((log) => console.log(log))
         }
     }
@@ -176,6 +177,7 @@ function analyzeDirectory(directoryPath: string): void {
         errorLogs.forEach((log) => console.error(log))
         process.exit(1)
     } else {
+        // eslint-disable-next-line no-console
         if (VERBOSE) console.log('All files passed analysis.')
     }
 }
