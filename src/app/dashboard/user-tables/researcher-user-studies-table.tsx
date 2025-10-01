@@ -6,7 +6,6 @@ import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
-import { getLabOrg } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
 import { fetchStudiesForCurrentResearcherUserAction } from '@/server/actions/study.actions'
 import {
@@ -26,6 +25,7 @@ import {
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { useMemo } from 'react'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -40,13 +40,25 @@ export const ResearcherUserStudiesTable = () => {
         queryFn: () => fetchStudiesForCurrentResearcherUserAction(),
     })
 
-    // check if user can create a study
-    const labOrg = session ? getLabOrg(session) : null
+    const labOrgs = useMemo(() => {
+        if (!session) return []
+        return Object.values(session.orgs).filter((org) => org.type === 'lab')
+    }, [session])
 
-    // temp message
-    if (!labOrg) {
+    const enclaveOrgs = useMemo(() => {
+        if (!session) return []
+        return Object.values(session.orgs).filter((org) => org.type === 'enclave')
+    }, [session])
+
+    if (!labOrgs.length) {
         return <Title order={5}>You are not a member of any lab organizations.</Title>
     }
+
+    if (!enclaveOrgs.length) {
+        return <Title order={5}>No organizations are available for study proposals.</Title>
+    }
+
+    const primaryEnclaveOrg = enclaveOrgs[0]
 
     const needsRefreshed = studies?.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
@@ -59,7 +71,7 @@ export const ResearcherUserStudiesTable = () => {
                     <Text>You haven&apos;t started a study yet</Text>
                     <ButtonLink
                         leftSection={<PlusIcon />}
-                        href={`/researcher/study/request/${labOrg?.slug}`}
+                        href={`/researcher/study/request/${primaryEnclaveOrg.slug}`}
                         data-testid="propose-study"
                     >
                         Propose New Study
@@ -75,7 +87,10 @@ export const ResearcherUserStudiesTable = () => {
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <ButtonLink leftSection={<PlusIcon />} href={`/researcher/study/request/${labOrg?.slug}`}>
+                        <ButtonLink
+                            leftSection={<PlusIcon />}
+                            href={`/researcher/study/request/${primaryEnclaveOrg.slug}`}
+                        >
                             Propose New Study
                         </ButtonLink>
                     </Flex>

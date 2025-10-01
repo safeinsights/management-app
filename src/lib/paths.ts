@@ -36,6 +36,10 @@ export function extractOrgSlugFromPath(pathname: string) {
         if (pathParts[1] === 'reviewer' || pathParts[1] === 'dashboard') {
             return pathParts[2]
         }
+        if (pathParts[1] === 'researcher') {
+            if (pathParts[2] === 'study' && pathParts[3] === 'request' && pathParts[4]) return pathParts[4]
+            if (pathParts[2] === 'study' && pathParts[4] === 'resubmit' && pathParts[5]) return pathParts[5]
+        }
     }
     return undefined
 }
