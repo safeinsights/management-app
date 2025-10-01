@@ -11,7 +11,10 @@ const compat = new FlatCompat({
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
     {
-        ignores: ['.*', 'CHANGELOG.md', 'src/styles/generated/'],
+        ignores: ['node_modules/**', '.next/**', 'out/**', 'build/**', 'next-env.d.ts'],
+    },
+    {
+        ignores: ['.*', 'CHANGELOG.md', 'src/styles/generated/', 'test-results/**', 'tests/coverage/**'],
     },
     ...compat.extends('next/core-web-vitals'),
     ...compat.extends('next/typescript'),

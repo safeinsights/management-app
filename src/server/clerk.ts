@@ -147,7 +147,7 @@ export const syncCurrentClerkUser = async () => {
                                         },
                                     })
                                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    delete ((envData.orgs || {} )as Record<string, any>)[slug]
+                                    delete ((envData.orgs || {}) as Record<string, any>)[slug]
                                 }
                             }
                         } else {

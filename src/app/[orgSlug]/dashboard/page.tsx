@@ -9,9 +9,7 @@ import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { Paper, Stack, Text, Title } from '@mantine/core'
 import { isEnclaveOrg } from '@/lib/types'
 
-
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
-
     const { orgSlug } = await props.params
 
     const org = await getOrgFromSlugAction({ orgSlug })
