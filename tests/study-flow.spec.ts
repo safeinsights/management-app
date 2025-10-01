@@ -70,7 +70,6 @@ test.describe('Studies', () => {
 
     //  disabled until we get the org selector working
     test.skip('reviewer reviews and approves the study', async ({ page, studyFeatures }) => {
-
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax-lab/dashboard' })
 
         await expect(page.getByText('Review Studies')).toBeVisible()

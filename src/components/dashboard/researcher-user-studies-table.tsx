@@ -75,7 +75,11 @@ export const ResearcherUserStudiesTable = () => {
                 <Group justify="space-between">
                     <Title order={3}>Proposed Studies</Title>
                     <Flex justify="flex-end">
-                        <ButtonLink leftSection={<PlusIcon />} data-testid="new-study" href={`/${labOrg.slug}/study/request`}>
+                        <ButtonLink
+                            leftSection={<PlusIcon />}
+                            data-testid="new-study"
+                            href={`/${labOrg.slug}/study/request`}
+                        >
                             Propose New Study
                         </ButtonLink>
                     </Flex>

@@ -83,7 +83,6 @@ export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .requireAbilityTo('view', 'Org')
     .handler(async ({ org }) => org)
 
-
 // TODO: move this to a more appropriate place, likely a reviewers.actions.ts file
 // also all we really need is if they have a public key, so we can just return a boolean
 export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
