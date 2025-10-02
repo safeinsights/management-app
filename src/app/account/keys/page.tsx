@@ -1,10 +1,7 @@
-import { getReviewerPublicKeyAction } from '@/server/actions/user-keys.actions'
-import { GenerateKeys } from './generate-keys'
+import { RegenerateKeys } from './regenerate-keys'
 
 export const dynamic = 'force-dynamic'
 
-export default async function KeysPage() {
-    const publicKey = await getReviewerPublicKeyAction()
-
-    return <GenerateKeys isRegenerating={!!publicKey} />
+export default async function ManageKeysPage() {
+    return <RegenerateKeys />
 }

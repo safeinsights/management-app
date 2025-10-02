@@ -148,7 +148,7 @@ export const StudyProposal: React.FC = () => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/researcher/dashboard`)
+            router.push(`/${orgSlug}/dashboard`)
         },
         onError: async (error) => {
             notifications.show({

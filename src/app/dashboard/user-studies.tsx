@@ -4,8 +4,8 @@ import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import { useState } from 'react'
-import { ResearcherUserStudiesTable } from './user-tables/researcher-user-studies-table'
-import { ReviewerUserStudiesTable } from './user-tables/reviewer-user-studies-table'
+import { ResearcherUserStudiesTable } from '@/components/dashboard/researcher-user-studies-table'
+import { ReviewerUserStudiesTable } from '@/components/dashboard/reviewer-user-studies-table'
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()

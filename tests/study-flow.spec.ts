@@ -11,7 +11,7 @@ test.beforeEach(async ({}, testInfo) => {
 
 test.describe('Studies', () => {
     test.skip('researcher creates a study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/researcher/dashboard' })
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         await page.waitForTimeout(1000)
 
@@ -81,7 +81,7 @@ test.describe('Studies', () => {
 
     //  disabled until we get the org selector working
     test.skip('reviewer reviews and approves the study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax-lab/dashboard' })
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 

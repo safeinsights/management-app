@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { notifications } from '@mantine/notifications'
-import { handleDuplicateUpload } from '@/app/researcher/utils/file-upload'
+import { handleDuplicateUpload } from '@/hooks/file-upload'
 
 const createFile = (name: string): File => new File(['test'], name)
 

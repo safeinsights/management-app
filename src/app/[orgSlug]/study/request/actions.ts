@@ -140,7 +140,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
             pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
         )
 
-        revalidatePath('/researcher/dashboard')
+        revalidatePath(`/${orgSlug}/dashboard`)
 
         return {
             studyId: studyId,
@@ -205,8 +205,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
 
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
-        revalidatePath('/researcher/dashboard')
-        revalidatePath(`/researcher/study/${studyId}/review`)
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         return { studyJobId, urlForCodeUpload }
     })

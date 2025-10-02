@@ -56,7 +56,7 @@ const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, 
 type Props = {
     isMainDashboard: boolean
     orgs: Orgs
-    focusedOrgSlug?: string
+    focusedOrgSlug?: string | null
 }
 
 export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgSlug, orgs }) => {
@@ -80,7 +80,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                     color="white"
                     isActive={org.slug === focusedOrgSlug}
                     key={org.id}
-                    href={`/dashboard/${org.slug}`}
+                    href={`/${org.slug}/dashboard`}
                     eventCount={org.eventCount}
                 >
                     {orgInitials(org.name, org.type)}

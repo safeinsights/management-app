@@ -39,9 +39,9 @@ export const OrgBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/reviewer/${orgSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/reviewer/${orgSlug}/study/${studyId}/review`])
+        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
     }
     if (current) {
         crumbs.push([current])
@@ -51,27 +51,16 @@ export const OrgBreadcrumbs: FC<{
 
 export const ResearcherBreadcrumbs: FC<{
     crumbs: {
+        orgSlug: string
         studyTitle?: string
         studyId?: string
         current?: string
     }
-}> = ({ crumbs: { studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`]]
+}> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
+    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/researcher/study/${studyId}/review`])
+        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
     }
-    if (current) {
-        crumbs.push([current])
-    }
-    return <PageBreadcrumbs crumbs={crumbs} />
-}
-
-export const AdminBreadcrumbs: FC<{
-    crumbs: {
-        current?: string
-    }
-}> = ({ crumbs: { current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/researcher/dashboard`], ['Admin']]
     if (current) {
         crumbs.push([current])
     }

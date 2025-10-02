@@ -28,6 +28,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('update', 'User', { id: session.user.id })
     permit('claim', 'PendingUser')
     permit('reset', 'MFA')
+    permit('view', 'Orgs')
 
     // everyone can view studies, the action will return the appropriate listing
     permit('view', 'Studies')
@@ -80,7 +81,6 @@ export function defineAbilityFor(session: UserSession) {
         permit('view', 'Org')
         permit('update', 'Org')
         permit('delete', 'Org')
-        permit('view', 'Orgs')
     }
 
     return build({
