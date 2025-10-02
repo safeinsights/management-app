@@ -3,26 +3,7 @@ terraform {
         coder = {
             source = "coder/coder"
         }
-        docker = {
-            source = "kreuzwerker/docker"
-        }
     }
-}
-
-# Configure Docker provider
-provider "docker" {
-    host = "unix:///var/run/docker.sock"
-}
-
-variable "docker_image" {
-    description = "Docker image to use for the workspace"
-    default     = "codercom/enterprise-base:ubuntu"
-}
-
-variable "docker_network" {
-    description = "Docker network name"
-    default     = "bridge"
-    type        = string
 }
 
 data "coder_workspace" "me" {}
@@ -31,6 +12,7 @@ data "coder_workspace_owner" "me" {}
 resource "coder_agent" "main" {
     arch = "amd64"
     os   = "linux"
+    provisioner = "host"
 
     startup_script = <<-EOT
     #!/bin/bash
@@ -49,45 +31,10 @@ resource "coder_agent" "main" {
       /home/coder/workspace \
       > /tmp/code-server.log 2>&1 &
 
-        # Create main.r file
-    cat > /home/coder/workspace/main.r << 'EOF'
-# Main R Script
-print("Hello from Coder!")
+    # Example workspace files
+    echo '# Hello from Coder on AWS!' > /home/coder/workspace/readme.md
 
-data <- data.frame(
-  id = 1:5,
-  value = c(10, 20, 30, 40, 50)
-)
-
-print(data)
-total <- sum(data$value)
-print(paste("Total:", total))
-EOF
-
-    # Create readme.md file
-    cat > /home/coder/workspace/readme.md << 'EOF'
-# My Coder Workspace
-
-Welcome to your Coder workspace!
-
-## Files
-- `main.r` - Main R script with example code
-- `readme.md` - This file
-
-## Getting Started
-1. Open `main.r` to see the example R code
-2. Install R if needed: `sudo apt-get update && sudo apt-get install -y r-base`
-3. Run the R script: `Rscript main.r`
-
-## Resources
-- [Coder Documentation](https://coder.com/docs)
-- [R Documentation](https://www.r-project.org/)
-EOF
-
-
-    # Set proper permissions
     chown -R coder:coder /home/coder/workspace
-
     echo "Workspace initialized successfully!"
   EOT
 
@@ -116,7 +63,6 @@ EOF
     }
 }
 
-# Run code-server as a managed app
 resource "coder_app" "code_server" {
     agent_id     = coder_agent.main.id
     slug         = "code-server"
@@ -124,28 +70,5 @@ resource "coder_app" "code_server" {
     icon         = "/icon/code.svg"
     subdomain    = true
     share        = "owner"
-
-    # In v2, use `url` to point to the web service
-    url = "http://127.0.0.1:13337/"
-}
-
-resource "docker_container" "workspace" {
-    count = data.coder_workspace.me.start_count
-    image = var.docker_image
-    name  = "coder-${data.coder_workspace_owner.me.name}-${lower(data.coder_workspace.me.name)}"
-
-    command = ["sh", "-c", coder_agent.main.init_script]
-
-    env = [
-        "CODER_AGENT_TOKEN=${coder_agent.main.token}",
-    ]
-
-    host {
-        host = "host.docker.internal"
-        ip   = "host-gateway"
-    }
-
-    networks_advanced {
-        name = var.docker_network
-    }
+    url          = "http://127.0.0.1:13337/"
 }
