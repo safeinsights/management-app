@@ -1,10 +1,10 @@
+import { useSession } from '@/hooks/session'
 import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
 import { fetchOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
-import { NavbarLink } from './navbar-link'
 import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
+import { NavbarLink } from './navbar-link'
 import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
-import { useSession } from '@/hooks/session'
 
 type Org = ActionSuccessType<typeof fetchOrgsWithStatsAction>[number]
 
@@ -66,7 +66,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
             </Title>
             <Divider />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}
-            <OrgAdminDashboardLink isVisible={!session.orgs[org.slug]?.isAdmin} />
+            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} />
         </Stack>
     )
 }

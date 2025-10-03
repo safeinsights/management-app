@@ -47,7 +47,7 @@ export const ReviewerUserStudiesTable = () => {
     return (
         <Stack>
             <Flex justify={'space-between'} align={'center'}>
-                <Title order={3}>Review Studies</Title>
+                <Title order={3}>My Studies</Title>
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isFetching} />
             </Flex>
             <Divider c="charcoal.1" />
