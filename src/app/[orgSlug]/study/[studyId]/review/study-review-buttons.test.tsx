@@ -1,22 +1,22 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { reportMutationError } from '@/components/errors'
 import {
-    renderWithProviders,
-    screen,
-    userEvent,
-    mockSessionWithTestData,
-    insertTestStudyJobData,
-    waitFor,
-    actionResult,
-} from '@/tests/unit.helpers'
-import { StudyReviewButtons } from './study-review-buttons'
-import {
-    getStudyAction,
     approveStudyProposalAction,
+    getStudyAction,
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
+import {
+    actionResult,
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
-import { reportMutationError } from '@/components/errors'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StudyReviewButtons } from './study-review-buttons'
 
 // Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
@@ -98,7 +98,7 @@ describe('StudyReviewButtons', () => {
         await user.click(approveButton)
 
         await waitFor(() => {
-            expect(memoryRouter.asPath).toBe('/reviewer/test-org/dashboard')
+            expect(memoryRouter.asPath).toBe('/test-org/dashboard')
         })
     })
 

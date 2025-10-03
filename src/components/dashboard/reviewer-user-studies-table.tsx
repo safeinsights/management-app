@@ -98,7 +98,7 @@ const StudyRow = ({ study }: { study: Studies[number] }) => (
             />
         </TableTd>
         <TableTd>
-            <Link href={`/reviewer/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
+            <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
                 View
             </Link>
         </TableTd>

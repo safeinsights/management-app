@@ -1,18 +1,18 @@
 'use client'
 
-import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
-import * as R from 'remeda'
-import { FC, useMemo, useState } from 'react'
-import { deleteOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
 import { useMutation, useQuery, useQueryClient } from '@/common'
-import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
-import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
 import { SuretyGuard } from '@/components/surety-guard'
-import { useDisclosure } from '@mantine/hooks'
-import { EditOrgForm } from './edit-org-form'
-import { useRouter } from 'next/navigation'
 import { ActionSuccessType } from '@/lib/types'
+import { deleteOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
+import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { UserListIcon } from '@phosphor-icons/react'
+import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
+import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
+import { useRouter } from 'next/navigation'
+import { FC, useMemo, useState } from 'react'
+import * as R from 'remeda'
+import { EditOrgForm } from './edit-org-form'
 
 type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
 
@@ -111,7 +111,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     size="sm"
                     variant="subtle"
                     color="blue"
-                    onClick={() => router.push(`/reviewer/${org.slug}/dashboard`)}
+                    onClick={() => router.push(`/${org.slug}/dashboard`)}
                 >
                     <UserListIcon />
                 </ActionIcon>

@@ -49,7 +49,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/reviewer/${orgSlug}/study/${study.id}/review`} c="blue.7">
+                <Link href={`/${orgSlug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Link>
             </TableTd>

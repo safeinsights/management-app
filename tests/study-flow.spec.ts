@@ -106,7 +106,7 @@ test.describe('Studies', () => {
         expect(approvalRequestCount).toBe(1)
 
         await page.unroute(studyPageUrl)
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer/openstax/dashboard' })
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         const viewLink = page.getByRole('row').filter({ hasText: title }).getByRole('link', { name: 'View' })
         await expect(viewLink).toBeVisible()

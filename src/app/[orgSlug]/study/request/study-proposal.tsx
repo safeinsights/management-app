@@ -148,7 +148,8 @@ export const StudyProposal: React.FC = () => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/${orgSlug}/dashboard`)
+            const redirectOrgSlug = studyProposalForm.values.orgSlug
+            router.push(`/${redirectOrgSlug}/dashboard`)
         },
         onError: async (error) => {
             notifications.show({

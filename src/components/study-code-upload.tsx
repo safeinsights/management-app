@@ -1,9 +1,9 @@
-import { StudyJobCodeFilesValues } from '@/app/researcher/study/request/[orgSlug]/study-proposal-form-schema'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/app/researcher/utils/file-upload'
 import { InputError } from '@/components/errors'
 import { FormFieldLabel } from '@/components/form-field-label'
+import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { ACCEPTED_FILE_FORMATS_TEXT, ACCEPTED_FILE_TYPES } from '@/lib/types'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import {
     ActionIcon,
     Divider,
