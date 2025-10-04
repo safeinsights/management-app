@@ -5,6 +5,7 @@ import { Link } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
+import { useSession } from '@/hooks/session'
 import { ActionSuccessType } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
@@ -29,13 +30,18 @@ const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-A
 type Studies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
 export const ReviewerUserStudiesTable = () => {
+    const { session } = useSession()
+
+    const userId = session?.user.id
+
     const {
         data: studies,
         refetch,
         isFetching,
     } = useQuery({
-        queryKey: ['user-reviewer-studies'],
+        queryKey: ['user-reviewer-studies', userId],
         queryFn: () => fetchStudiesForCurrentReviewerAction(),
+        staleTime: 0,
     })
 
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>

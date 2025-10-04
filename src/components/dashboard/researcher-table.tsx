@@ -5,11 +5,10 @@ import { ErrorAlert } from '@/components/errors'
 import { ButtonLink, Link } from '@/components/links'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { useSession } from '@/hooks/session'
-import { useParams } from 'next/navigation'
 import { errorToString, isActionError } from '@/lib/errors'
 import { getLabOrg } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
-import { fetchStudiesForCurrentResearcherAction } from '@/server/actions/study.actions'
+import { fetchStudiesSubmittedByLabOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
     Flex,
@@ -27,6 +26,7 @@ import {
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { useParams } from 'next/navigation'
 import * as React from 'react'
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
@@ -49,11 +49,11 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
 )
 
 export const ResearcherStudiesTable: React.FC = () => {
-    const { data: studies, isLoading } = useQuery({
-        queryKey: ['researcher-studies'],
-        queryFn: () => fetchStudiesForCurrentResearcherAction(),
-    })
     const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { data: studies, isLoading } = useQuery({
+        queryKey: ['researcher-studies', orgSlug],
+        queryFn: () => fetchStudiesSubmittedByLabOrgAction({ orgSlug }),
+    })
     const { session } = useSession()
     const labOrg = session ? session.orgs[orgSlug] || getLabOrg(session) : null
 

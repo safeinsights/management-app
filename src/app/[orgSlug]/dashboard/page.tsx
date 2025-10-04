@@ -1,13 +1,13 @@
 'use server'
 
-import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
+import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { errorToString, isActionError } from '@/lib/errors'
 import { titleize } from '@/lib/string'
+import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
-import { Paper, Stack, Text, Title } from '@mantine/core'
-import { isEnclaveOrg } from '@/lib/types'
+import { Stack, Text, Title } from '@mantine/core'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
@@ -36,9 +36,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 study proposals here. Check the status of various studies and know when tasks are due. We continuously
                 iterate to improve your experience and welcome your feedback.
             </Text>
-            <Paper shadow="xs" p="xl">
-                {isEnclave ? <ReviewerStudiesTable studies={studies} orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
-            </Paper>
+            {isEnclave ? <ReviewerStudiesTable studies={studies} orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
         </Stack>
     )
 }

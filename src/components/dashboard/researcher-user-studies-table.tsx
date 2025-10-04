@@ -30,13 +30,17 @@ const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-A
 
 export const ResearcherUserStudiesTable = () => {
     const { session } = useSession()
+
+    const userId = session?.user.id
+
     const {
         data: studies,
         refetch,
         isFetching,
     } = useQuery({
-        queryKey: ['user-researcher-studies'],
+        queryKey: ['user-researcher-studies', userId],
         queryFn: () => fetchStudiesForCurrentResearcherUserAction(),
+        staleTime: 0,
     })
 
     const labOrgs = useMemo(() => {
@@ -44,16 +48,11 @@ export const ResearcherUserStudiesTable = () => {
         return Object.values(session.orgs).filter((org) => org.type === 'lab')
     }, [session])
 
-    const enclaveOrgs = useMemo(() => {
-        if (!session) return []
-        return Object.values(session.orgs).filter((org) => org.type === 'enclave')
-    }, [session])
-
     if (!labOrgs.length) {
         return <Title order={5}>You are not a member of any lab organizations.</Title>
     }
 
-    const primaryEnclaveOrg = enclaveOrgs[0]
+    const primaryLabOrg = labOrgs[0]
 
     const needsRefreshed = studies?.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
@@ -65,7 +64,7 @@ export const ResearcherUserStudiesTable = () => {
                 <Text>You haven&apos;t started a study yet</Text>
                 <ButtonLink
                     leftSection={<PlusIcon />}
-                    href={`/${primaryEnclaveOrg.slug}/study/request`}
+                    href={`/${primaryLabOrg.slug}/study/request`}
                     data-testid="new-study"
                 >
                     Propose New Study
@@ -82,7 +81,7 @@ export const ResearcherUserStudiesTable = () => {
                     <ButtonLink
                         leftSection={<PlusIcon />}
                         data-testid="new-study"
-                        href={`/${primaryEnclaveOrg.slug}/study/request`}
+                        href={`/${primaryLabOrg.slug}/study/request`}
                     >
                         Propose New Study
                     </ButtonLink>
