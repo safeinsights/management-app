@@ -1,13 +1,13 @@
 'use client'
 
-import { Button, Stack, Text, Group, Title, Paper, Divider } from '@mantine/core'
 import { AppModal } from '@/components/modal'
-import { FC } from 'react'
-import { useDisclosure } from '@mantine/hooks'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useSession } from '@/hooks/session'
-import { useRouter } from 'next/navigation'
 import { getEnclaveOrg } from '@/lib/types'
+import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
+import { useRouter } from 'next/navigation'
+import { FC } from 'react'
 
 export const RegenerateKeys: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
@@ -23,10 +23,7 @@ export const RegenerateKeys: FC = () => {
     return (
         <Stack p="xl" mx="sm">
             <PageBreadcrumbs
-                crumbs={[
-                    ['Dashboard', enclaveOrg ? `/reviewer/${enclaveOrg.slug}/dashboard` : '/dashboard'],
-                    ['Reviewer Key'],
-                ]}
+                crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Reviewer Key']]}
             />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">

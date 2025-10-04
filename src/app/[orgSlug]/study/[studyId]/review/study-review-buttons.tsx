@@ -1,17 +1,17 @@
 'use client'
 
-import React, { FC, useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
-import { Button, Group, Stack } from '@mantine/core'
-import { useParams, useRouter } from 'next/navigation'
+import { reportMutationError } from '@/components/errors'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import { reportMutationError } from '@/components/errors'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { Button, Group, Stack } from '@mantine/core'
+import { useParams, useRouter } from 'next/navigation'
+import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
@@ -20,7 +20,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const [useTestImage, setUseTestImage] = useState(false)
     const queryClient = useQueryClient()
 
-    const backPath = `/reviewer/${orgSlug}/dashboard`
+    const backPath = `/${orgSlug}/dashboard`
 
     const {
         mutate: updateStudy,

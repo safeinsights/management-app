@@ -1,33 +1,34 @@
+import { InputError } from '@/components/errors'
+import { FormFieldLabel } from '@/components/form-field-label'
+import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
+import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
+import { ACCEPTED_FILE_FORMATS_TEXT, ACCEPTED_FILE_TYPES } from '@/lib/types'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import {
     ActionIcon,
     Divider,
+    FileInput,
+    Grid,
+    GridCol,
     Group,
     Paper,
     Stack,
     Text,
     Title,
-    Grid,
-    GridCol,
     useMantineTheme,
-    FileInput,
 } from '@mantine/core'
+import { Dropzone } from '@mantine/dropzone'
+import { UseFormReturnType } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
 import {
+    AsteriskIcon,
     CheckCircleIcon,
     UploadIcon,
     UploadSimpleIcon,
-    XIcon,
     XCircleIcon,
-    AsteriskIcon,
+    XIcon,
 } from '@phosphor-icons/react/dist/ssr'
-import { Dropzone } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
-import { UseFormReturnType } from '@mantine/form'
-import { FormFieldLabel } from '@/components/form-field-label'
-import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
-import { InputError } from '@/components/errors'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 
 interface StudyCodeUploadProps {
     studyProposalForm: UseFormReturnType<StudyJobCodeFilesValues>
@@ -52,8 +53,7 @@ export const StudyCodeUpload = ({
     }
     const { getFileUploadIcon } = useFileUploadIcons()
 
-    const titleSpan = { base: 12, sm: 4, lg: 2 }
-    const inputSpan = { base: 12, sm: 8, lg: 4 }
+    const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
     const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
 
@@ -61,7 +61,7 @@ export const StudyCodeUpload = ({
         <Paper p="xl">
             {showStepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 2
+                    Step 3 of 3
                 </Text>
             )}
             <Title order={4}>{title}</Title>

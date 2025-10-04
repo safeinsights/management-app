@@ -1,10 +1,10 @@
 'use server'
 
-import { orgSchema, updateOrgSchema } from '@/schema/org'
-import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
-import { revalidatePath } from 'next/cache'
-import { z, Action } from './action'
 import { ActionSuccessType } from '@/lib/types'
+import { orgSchema, updateOrgSchema } from '@/schema/org'
+import { revalidatePath } from 'next/cache'
+import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
+import { Action, z } from './action'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
@@ -73,6 +73,10 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
+
+export const listAllOrgsAction = new Action('listAllOrgsAction').handler(async ({ db }) => {
+    return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
+})
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))

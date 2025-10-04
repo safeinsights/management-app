@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import logger from '@/lib/logger'
+import { onStudyApproved } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -8,15 +9,14 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { describe, expect, it, vi } from 'vitest'
+import { latestJobForStudy } from '../db/queries'
 import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
-    fetchStudiesForCurrentResearcherAction,
+    fetchStudiesSubmittedByLabOrgAction,
     getStudyAction,
 } from './study.actions'
-import { latestJobForStudy } from '../db/queries'
-import { onStudyApproved } from '@/server/events'
-import logger from '@/lib/logger'
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
@@ -148,7 +148,7 @@ describe('Study Actions', () => {
         })
     })
 
-    it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
+    it('fetchStudiesSubmittedByLabOrgAction requires user to be a researcher', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         const otherOrg = await insertTestOrg()
@@ -156,11 +156,11 @@ describe('Study Actions', () => {
 
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toEqual(
+        await expect(fetchStudiesSubmittedByLabOrgAction({ orgSlug: org.slug })).resolves.toEqual(
             expect.arrayContaining([expect.objectContaining({ id: studyId })]),
         )
 
         mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id })
-        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toHaveLength(0)
+        await expect(fetchStudiesSubmittedByLabOrgAction({ orgSlug: org.slug })).resolves.toHaveLength(0)
     })
 })

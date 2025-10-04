@@ -1,14 +1,13 @@
 'use client'
 
-import { FC, useEffect, useState } from 'react'
-import { NavLink } from '@mantine/core'
-import { GearIcon, UsersThreeIcon, SlidersIcon, GlobeIcon } from '@phosphor-icons/react/dist/ssr'
-import styles from './navbar-items.module.css'
 import { useSession } from '@/hooks/session'
-import { usePathname } from 'next/navigation'
-import { NavbarLink } from './navbar-link'
+import { NavLink } from '@mantine/core'
+import { GearIcon, GlobeIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { useParams, usePathname } from 'next/navigation'
+import { FC, useEffect, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
-import { getAdminOrg } from '@/lib/types'
+import styles from './navbar-items.module.css'
+import { NavbarLink } from './navbar-link'
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
@@ -17,10 +16,10 @@ interface OrgAdminDashboardLinkProps {
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
     const pathname = usePathname()
     const { session } = useSession()
-    const adminOrg = session ? getAdminOrg(session) : null
+    const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const isAdminPage = pathname.startsWith('/admin/')
-    const orgAdminBaseUrl = adminOrg ? `/admin/team/${adminOrg.slug}` : '/admin'
+    const orgAdminBaseUrl = orgSlug ? `/admin/team/${orgSlug}` : '/admin'
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {

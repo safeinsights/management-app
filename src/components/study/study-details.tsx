@@ -1,12 +1,13 @@
-import { FC, use } from 'react'
-import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { getStudyAction } from '@/server/actions/study.actions'
-import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
-import { StudyDocumentType } from '@/lib/types'
+import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
+import { isActionError } from '@/lib/errors'
 import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
-import { isActionError } from '@/lib/errors'
+import { StudyDocumentType } from '@/lib/types'
+import { getStudyAction } from '@/server/actions/study.actions'
+import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
+import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
+import { FC, use } from 'react'
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -49,8 +50,7 @@ export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const titleSpan = { base: 12, sm: 4, lg: 2 }
-    const inputSpan = { base: 12, sm: 8, lg: 4 }
+    const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
     return (
         <Stack>

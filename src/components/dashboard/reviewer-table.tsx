@@ -11,6 +11,7 @@ import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
     Flex,
+    Paper,
     Stack,
     Table,
     TableTbody,
@@ -49,7 +50,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 />
             </TableTd>
             <TableTd>
-                <Link href={`/reviewer/${orgSlug}/study/${study.id}/review`} c="blue.7">
+                <Link href={`/${orgSlug}/study/${study.id}/review`} c="blue.7">
                     View
                 </Link>
             </TableTd>
@@ -81,34 +82,36 @@ export const ReviewerStudiesTable: FC<{ studies: Studies; orgSlug: string }> = (
     )
 
     return (
-        <Stack>
-            <Flex justify={'space-between'} align={'center'}>
-                <Title order={3}>Review Studies</Title>
-                <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
-            </Flex>
-            <Divider c="charcoal.1" />
-            <Text mb="md">
-                Review all the studies submitted to your organization. Studies that need your attention will be labeled
-                ‘Needs review’.
-            </Text>
-            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                <TableThead>
-                    <TableTr>
-                        <TableTh fw={600}>Study Name</TableTh>
-                        <TableTh fw={600}>Submitted On</TableTh>
-                        <TableTh fw={600}>Submitted By</TableTh>
-                        <TableTh fw={600}>Reviewed By</TableTh>
-                        <TableTh fw={600}>Stage</TableTh>
-                        <TableTh fw={600}>Status</TableTh>
-                        <TableTh fw={600}>Details</TableTh>
-                    </TableTr>
-                </TableThead>
-                <TableTbody>
-                    {studies.map((study) => (
-                        <Row key={study.id} study={study} orgSlug={orgSlug} />
-                    ))}
-                </TableTbody>
-            </Table>
-        </Stack>
+        <Paper shadow="xs" p="xxl">
+            <Stack>
+                <Flex justify={'space-between'} align={'center'}>
+                    <Title order={3}>Review Studies</Title>
+                    <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isRefetching} />
+                </Flex>
+                <Divider c="charcoal.1" />
+                <Text mb="md">
+                    Review all the studies submitted to your organization. Studies that need your attention will be
+                    labeled ‘Needs review’.
+                </Text>
+                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                    <TableThead>
+                        <TableTr>
+                            <TableTh fw={600}>Study Name</TableTh>
+                            <TableTh fw={600}>Submitted On</TableTh>
+                            <TableTh fw={600}>Submitted By</TableTh>
+                            <TableTh fw={600}>Reviewed By</TableTh>
+                            <TableTh fw={600}>Stage</TableTh>
+                            <TableTh fw={600}>Status</TableTh>
+                            <TableTh fw={600}>Details</TableTh>
+                        </TableTr>
+                    </TableThead>
+                    <TableTbody>
+                        {studies.map((study) => (
+                            <Row key={study.id} study={study} orgSlug={orgSlug} />
+                        ))}
+                    </TableTbody>
+                </Table>
+            </Stack>
+        </Paper>
     )
 }

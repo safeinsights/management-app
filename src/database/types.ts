@@ -139,6 +139,7 @@ export interface Study {
     researcherId: string
     reviewerId: string | null
     status: Generated<StudyStatus>
+    submittedByOrgId: string
     title: string
 }
 

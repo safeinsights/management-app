@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, insertTestStudyData, actionResult } from '@/tests/unit.helpers'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 import { db } from '@/database'
 import * as aws from '@/server/aws'
+import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { describe, expect, it, vi } from 'vitest'
+import { onCreateStudyAction, onDeleteStudyAction } from './actions'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -15,7 +15,12 @@ vi.mock('@/server/aws', async () => {
 
 describe('Request Study Actions', () => {
     it('onCreateStudyAction creates a study', async () => {
-        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        // create the enclave that owns the data
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test' })
+
+        // create its lab counterpart
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
         const studyInfo = {
             title: 'Test Study',
@@ -29,10 +34,11 @@ describe('Request Study Actions', () => {
 
         const result = actionResult(
             await onCreateStudyAction({
-                orgSlug: org.slug,
+                orgSlug: enclave.slug,
                 studyInfo,
                 mainCodeFileName: 'main.R',
                 codeFileNames: ['helpers.R'],
+                submittingOrgSlug: lab.slug,
             }),
         )
 

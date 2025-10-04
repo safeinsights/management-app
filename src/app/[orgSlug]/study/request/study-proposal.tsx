@@ -1,27 +1,28 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Button, Group, Stepper } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
+import { useMutation, useQueryClient, zodResolver } from '@/common'
 import { CancelButton } from '@/components/cancel-button'
-import { useForm, UseFormReturnType } from '@mantine/form'
-import {
-    studyProposalFormSchema,
-    codeFilesSchema,
-    StudyProposalFormValues,
-    StudyJobCodeFilesValues,
-} from './study-proposal-form-schema'
-import { StudyProposalForm } from './study-proposal-form'
-import { StudyCodeUpload } from '@/components/study-code-upload'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
-import { useRouter } from 'next/navigation'
-import { zodResolver, useMutation, useQueryClient } from '@/common'
-import { actionResult } from '@/lib/utils'
-import { omit } from 'remeda'
-import logger from '@/lib/logger'
-import { errorToString, isActionError } from '@/lib/errors'
-import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import ProxyProvider from '@/components/proxy-provider'
+import { StudyCodeUpload } from '@/components/study-code-upload'
+import { uploadFiles, type FileUpload } from '@/hooks/upload'
+import { errorToString, isActionError } from '@/lib/errors'
+import logger from '@/lib/logger'
+import { getLabSlug } from '@/lib/org'
+import { actionResult } from '@/lib/utils'
+import { Button, Group, Stepper } from '@mantine/core'
+import { useForm, UseFormReturnType } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import { useParams, useRouter } from 'next/navigation'
+import React, { useState } from 'react'
+import { omit } from 'remeda'
+import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import { StudyProposalForm } from './study-proposal-form'
+import {
+    codeFilesSchema,
+    StudyJobCodeFilesValues,
+    studyProposalFormSchema,
+    StudyProposalFormValues,
+} from './study-proposal-form-schema'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -69,6 +70,7 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
             'irbDocument',
             'mainCodeFile',
             'additionalCodeFiles',
+            'orgSlug',
         ]),
         descriptionDocPath: formValues.descriptionDocument!.name,
         agreementDocPath: formValues.agreementDocument!.name,
@@ -78,7 +80,7 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
     }
 }
 
-export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
+export const StudyProposal: React.FC = () => {
     const [stepIndex, setStepIndex] = useState(0)
 
     const router = useRouter()
@@ -93,9 +95,11 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
             agreementDocument: null,
             mainCodeFile: null,
             additionalCodeFiles: [],
+            orgSlug: '',
         },
         validateInputOnChange: [
             'title',
+            'orgSlug',
             'piName',
             'descriptionDocument',
             'irbDocument',
@@ -108,18 +112,19 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
+    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
             const { studyId, studyJobId, ...urls } = actionResult(
                 await onCreateStudyAction({
-                    orgSlug,
+                    orgSlug: formValues.orgSlug,
                     studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
                     codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
+                    submittingOrgSlug: getLabSlug(submittingOrgSlug),
                 }),
             )
-
             try {
                 await uploadFiles([
                     [formValues.irbDocument, urls.urlForIrbUpload],
@@ -146,7 +151,7 @@ export const StudyProposal: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/${orgSlug}/dashboard`)
+            router.push(`/dashboard`)
         },
         onError: async (error) => {
             notifications.show({

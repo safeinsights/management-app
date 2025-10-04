@@ -76,9 +76,16 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
             .execute()
     })
 
-export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesForCurrentResearcherAction')
+export const fetchStudiesSubmittedByLabOrgAction = new Action('fetchStudiesSubmittedByLabOrgAction')
+    .params(z.object({ orgSlug: z.string() }))
     .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db, session, params: { orgSlug } }) => {
+        // If the current user is not a member of the requested lab organisation, return an empty list.
+        const labOrg = session.orgs[orgSlug]
+        if (!labOrg) {
+            return []
+        }
+
         return await fetchStudiesQuery(db)
             .innerJoin('org', 'org.id', 'study.orgId')
             .select([
@@ -90,7 +97,7 @@ export const fetchStudiesForCurrentResearcherAction = new Action('fetchStudiesFo
                 'org.name as reviewerTeamName',
                 'latestStudyJob.jobId as latestStudyJobId',
             ])
-            .where('study.researcherId', '=', session.user.id)
+            .where('study.submittedByOrgId', '=', labOrg.id)
             .orderBy('study.createdAt', 'desc')
             .execute()
     })

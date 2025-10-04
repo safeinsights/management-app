@@ -5,6 +5,7 @@ import { Link } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
+import { useSession } from '@/hooks/session'
 import { ActionSuccessType } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
@@ -29,12 +30,16 @@ const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-A
 type Studies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
 export const ReviewerUserStudiesTable = () => {
+    const { session } = useSession()
+
+    const userId = session?.user.id
+
     const {
         data: studies,
         refetch,
         isFetching,
     } = useQuery({
-        queryKey: ['user-reviewer-studies'],
+        queryKey: ['user-reviewer-studies', userId],
         queryFn: () => fetchStudiesForCurrentReviewerAction(),
     })
 
@@ -47,7 +52,7 @@ export const ReviewerUserStudiesTable = () => {
     return (
         <Stack>
             <Flex justify={'space-between'} align={'center'}>
-                <Title order={3}>Review Studies</Title>
+                <Title order={3}>My Studies</Title>
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isFetching} />
             </Flex>
             <Divider c="charcoal.1" />
@@ -98,7 +103,7 @@ const StudyRow = ({ study }: { study: Studies[number] }) => (
             />
         </TableTd>
         <TableTd>
-            <Link href={`/reviewer/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
+            <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
                 View
             </Link>
         </TableTd>

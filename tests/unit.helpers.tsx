@@ -76,6 +76,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('study')
         .values({
             orgId: org.id,
+            submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
@@ -197,6 +198,7 @@ export const insertTestStudyJobData = async ({
         .insertInto('study')
         .values({
             orgId: org.id,
+            submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
