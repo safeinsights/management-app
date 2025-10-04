@@ -5,6 +5,8 @@ import { useJobResultsStatus } from '@/components/use-job-results-status'
 import { LatestJobForStudy } from '@/server/db/queries'
 import { Group, Stack, Text } from '@mantine/core'
 import { FC } from 'react'
+import { ResubmitButton } from '@/components/study/resubmit-button'
+import { DownloadButton } from '@/components/study/download-button'
 
 interface ErroredProps {
     isApproved: boolean
@@ -12,7 +14,7 @@ interface ErroredProps {
     jobId: string
 }
 
-export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const { isApproved, isRejected, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
@@ -21,16 +23,30 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy }> = ({ job })
 
     if (isComplete) {
         if (isApproved) {
-            return <Text>The results of your study have been approved and are now available to you!</Text>
+            return (
+                <Stack>
+                    <Text>
+                        The results of your study have been approved by the data organization and are now available to
+                        you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.
+                    </Text>
+                    <Group>
+                        <DownloadButton />
+                        <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
+                    </Group>
+                </Stack>
+            )
         }
 
         if (isRejected) {
             return (
-                <Text>
-                    The results of your study have not been released by the data organization, possibly due to the
-                    presence of personally identifiable information (PII). Consider contacting the data organization for
-                    further guidance.
-                </Text>
+                <Stack>
+                    <Text>
+                        The results of your study have not been released by the data organization, possibly due to the
+                        presence of personally identifiable information (PII). Consider re-submitting an updated study
+                        code.
+                    </Text>
+                    <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
+                </Stack>
             )
         }
     }

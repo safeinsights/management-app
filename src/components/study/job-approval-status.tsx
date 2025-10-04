@@ -1,10 +1,10 @@
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { Button, Group, Text } from '@mantine/core'
+import { Group, Stack, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { Link } from '../links'
+import { ResubmitButton } from './resubmit-button'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -30,13 +30,25 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     )
 }
 
-export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+export const CodeApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const codeStatusChange = job.statusChanges.find((statusChange) => {
         return statusChange.status === 'CODE-APPROVED' || statusChange.status === 'CODE-REJECTED'
     })
 
     if (!codeStatusChange) {
         return null
+    }
+
+    if (codeStatusChange.status === 'CODE-REJECTED') {
+        return (
+            <Stack>
+                <Text>
+                    This study&apos;s code has not been approved by the data organization. Consider re-submitting an
+                    updated study code.
+                </Text>
+                <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
+            </Stack>
+        )
     }
 
     return <JobApprovalStatus statusChange={codeStatusChange} />
@@ -54,11 +66,7 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }>
     }
 
     if (hasBeenReviewed && hasErrored) {
-        return (
-            <Button component={Link} href={`/researcher/study/${job.studyId}/resubmit/${orgSlug}`}>
-                Resubmit study code
-            </Button>
-        )
+        return <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
     }
 
     return <JobApprovalStatus statusChange={hasBeenReviewed} />
