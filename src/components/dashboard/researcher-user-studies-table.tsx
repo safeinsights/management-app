@@ -40,7 +40,6 @@ export const ResearcherUserStudiesTable = () => {
     } = useQuery({
         queryKey: ['user-researcher-studies', userId],
         queryFn: () => fetchStudiesForCurrentResearcherUserAction(),
-        staleTime: 0,
     })
 
     const labOrgs = useMemo(() => {

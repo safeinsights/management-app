@@ -41,7 +41,6 @@ export const ReviewerUserStudiesTable = () => {
     } = useQuery({
         queryKey: ['user-reviewer-studies', userId],
         queryFn: () => fetchStudiesForCurrentReviewerAction(),
-        staleTime: 0,
     })
 
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
