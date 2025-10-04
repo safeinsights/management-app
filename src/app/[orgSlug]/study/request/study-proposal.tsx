@@ -7,11 +7,12 @@ import { StudyCodeUpload } from '@/components/study-code-upload'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
+import { getLabSlug } from '@/lib/org'
 import { actionResult } from '@/lib/utils'
 import { Button, Group, Stepper } from '@mantine/core'
 import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { useRouter } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import React, { useState } from 'react'
 import { omit } from 'remeda'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
@@ -111,6 +112,7 @@ export const StudyProposal: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
+    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -120,6 +122,7 @@ export const StudyProposal: React.FC = () => {
                     studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
                     codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
+                    submittingOrgSlug: getLabSlug(submittingOrgSlug),
                 }),
             )
             try {

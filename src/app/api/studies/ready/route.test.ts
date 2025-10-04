@@ -101,6 +101,7 @@ test('includes approved studies only', async () => {
         .insertInto('study')
         .values({
             orgId: org.id,
+            submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: user.id,

@@ -1,15 +1,15 @@
 'use server'
-import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
-import { studyProposalApiSchema } from './study-proposal-form-schema'
-import { v7 as uuidv7 } from 'uuid'
+import { DB } from '@/database/types'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
-import { onStudyCreated } from '@/server/events'
-import { revalidatePath } from 'next/cache'
 import { Action, z } from '@/server/actions/action'
-import { getOrgIdFromSlug, getInfoForStudyId, getInfoForStudyJobId } from '@/server/db/queries'
-import { DB } from '@/database/types'
+import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
+import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
+import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
+import { revalidatePath } from 'next/cache'
+import { v7 as uuidv7 } from 'uuid'
+import { studyProposalApiSchema } from './study-proposal-form-schema'
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -87,70 +87,80 @@ const onCreateStudyActionArgsSchema = z.object({
     studyInfo: studyProposalApiSchema,
     mainCodeFileName: z.string(),
     codeFileNames: z.array(z.string()),
+    submittingOrgSlug: z.string(),
 })
 
 export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
     .params(onCreateStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
     .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(async ({ db, params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames }, session, orgId }) => {
-        const userId = session.user.id
-
-        const studyId = uuidv7()
-
-        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug: orgSlug })
-
-        await db
-            .insertInto('study')
-            .values({
-                id: studyId,
-                title: studyInfo.title,
-                piName: studyInfo.piName,
-                descriptionDocPath: studyInfo.descriptionDocPath,
-                irbDocPath: studyInfo.irbDocPath,
-                agreementDocPath: studyInfo.agreementDocPath,
-                orgId: orgId,
-                researcherId: userId,
-                containerLocation,
-                status: 'PENDING-REVIEW',
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        const { studyJobId, urlForCodeUpload } = await addStudyJob(
+    .handler(
+        async ({
             db,
-            userId,
-            studyId,
-            orgSlug,
-            mainCodeFileName,
-            codeFileNames,
-        )
+            params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames, submittingOrgSlug },
+            session,
+            orgId,
+        }) => {
+            const userId = session.user.id
+            const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
 
-        onStudyCreated({ userId, studyId })
+            const studyId = uuidv7()
 
-        const urlForAgreementUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-        )
+            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
-        const urlForIrbUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-        )
+            await db
+                .insertInto('study')
+                .values({
+                    id: studyId,
+                    title: studyInfo.title,
+                    piName: studyInfo.piName,
+                    descriptionDocPath: studyInfo.descriptionDocPath,
+                    irbDocPath: studyInfo.irbDocPath,
+                    agreementDocPath: studyInfo.agreementDocPath,
+                    orgId,
+                    researcherId: userId,
+                    submittedByOrgId: submittingLab.orgId,
+                    containerLocation,
+                    status: 'PENDING-REVIEW',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
 
-        const urlForDescriptionUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-        )
+            const { studyJobId, urlForCodeUpload } = await addStudyJob(
+                db,
+                userId,
+                studyId,
+                orgSlug,
+                mainCodeFileName,
+                codeFileNames,
+            )
 
-        revalidatePath(`/${orgSlug}/dashboard`)
+            onStudyCreated({ userId, studyId })
 
-        return {
-            studyId: studyId,
-            studyJobId,
-            urlForCodeUpload,
-            urlForAgreementUpload,
-            urlForIrbUpload,
-            urlForDescriptionUpload,
-        }
-    })
+            const urlForAgreementUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            )
+
+            const urlForIrbUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            )
+
+            const urlForDescriptionUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            )
+
+            revalidatePath(`/${orgSlug}/dashboard`)
+
+            return {
+                studyId: studyId,
+                studyJobId,
+                urlForCodeUpload,
+                urlForAgreementUpload,
+                urlForIrbUpload,
+                urlForDescriptionUpload,
+            }
+        },
+    )
 
 export const onDeleteStudyJobAction = new Action('onDeleteStudyJobAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
