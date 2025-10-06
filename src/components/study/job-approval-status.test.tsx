@@ -22,7 +22,7 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'CODE-APPROVED' as StudyJobStatus, createdAt: '2024-03-03T00:00:00Z' }],
         }
-        renderWithProviders(<CodeApprovalStatus job={job} />)
+        renderWithProviders(<CodeApprovalStatus job={job} orgSlug="test-org" />)
 
         expect(screen.getByText(/Approved/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
@@ -33,9 +33,9 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'CODE-REJECTED' as StudyJobStatus, createdAt: '2024-04-04T00:00:00Z' }],
         }
-        renderWithProviders(<CodeApprovalStatus job={job} />)
-        expect(screen.getByText(/Rejected/)).toBeDefined()
-        expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
+        renderWithProviders(<CodeApprovalStatus job={job} orgSlug="test-org" />)
+        expect(screen.getByText(/This study's code has not been approved/)).toBeDefined()
+        expect(screen.getByText(/Resubmit study code/)).toBeDefined()
     })
 
     it('shows approved status for FILES-APPROVED', () => {
