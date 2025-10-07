@@ -119,7 +119,7 @@ export const BaseImages: React.FC = () => {
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">
-                        Base images for researcher code
+                        Base Research Container Images
                     </Title>
                     <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
                         Add Image
