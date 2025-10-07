@@ -1,7 +1,7 @@
-import type { FileType, StudyJobStatus, StudyStatus, OrgType } from '../database/types'
-import { z } from 'zod'
-import { FileEntry } from 'si-encryption/job-results/types'
 import type { ActionResponse } from '@/lib/errors'
+import { FileEntry } from 'si-encryption/job-results/types'
+import { z } from 'zod'
+import type { FileType, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -79,8 +79,7 @@ export type TreeNode = {
     children?: TreeNode[]
 }
 
-// only R for now
-export type SupportedLanguages = 'r'
+export type SupportedLanguages = 'r' | 'python'
 export type CodeManifestFileInfo = {
     size: number
     contentType: string
@@ -175,3 +174,12 @@ Object.freeze(BLANK_SESSION)
 export type { ActionResponse } from '@/lib/errors'
 
 export type StudyStage = 'Proposal' | 'Code' | 'Results'
+
+export type StudyLanguage = 'R' | 'PYTHON'
+
+export function getLanguageForFileName(fileName: string): StudyLanguage {
+    const lower = fileName.toLowerCase()
+    if (lower.endsWith('.py') || lower.endsWith('.ipynb')) return 'PYTHON'
+
+    return 'R'
+}

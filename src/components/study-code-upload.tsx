@@ -66,8 +66,8 @@ export const StudyCodeUpload = ({
             )}
             <Title order={4}>{title}</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="md">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
-            <Group grow justify="center" align="center" mt="md">
+            <Text mb="xl">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
+            <Group grow justify="center" align="center">
                 <Grid>
                     <Grid.Col span={titleSpan}>
                         <Group gap="xs">
@@ -82,7 +82,7 @@ export const StudyCodeUpload = ({
                             aria-label="Upload Main Code File"
                             placeholder="Upload Main Code File"
                             clearable
-                            accept={'.r,.R'}
+                            accept={'.r,.R,.rmd,.json,.csv,.txt,.py,.ipynb'}
                             value={studyProposalForm.values.mainCodeFile}
                             onChange={(file) => {
                                 const { additionalCodeFiles } = studyProposalForm.getValues()
@@ -99,7 +99,7 @@ export const StudyCodeUpload = ({
                             autoFocus
                         />
                         <Text size="xs" c="dimmed">
-                            Accepted formats: one .r file only.
+                            {ACCEPTED_FILE_FORMATS_TEXT}
                         </Text>
                     </Grid.Col>
                 </Grid>
