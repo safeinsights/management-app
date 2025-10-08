@@ -4,12 +4,11 @@ import { Table, Button, Text } from '@mantine/core'
 import { TrashIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useMutation, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
-import { deleteStarterCodeAction } from './starter-code.actions'
+import { deleteStarterCodeAction, downloadStarterCodeAction, fetchStarterCodesAction } from './starter-code.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchStarterCodesAction } from './starter-code.actions'
 
 type StarterCode = ActionSuccessType<typeof fetchStarterCodesAction>[number]
 
@@ -28,18 +27,36 @@ const StarterCodeRow: React.FC<{ starterCode: StarterCode }> = ({ starterCode })
         onError: reportMutationError('Failed to delete starter code'),
     })
 
+    const downloadMutation = useMutation({
+        mutationFn: downloadStarterCodeAction,
+        onSuccess: (data) => {
+            // Create a download link
+            const url = data.url
+            const link = document.createElement('a')
+            link.href = url
+            link.download = starterCode.fileName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+        },
+        onError: reportMutationError('Failed to download starter code'),
+    })
+
+    const handleDownload = () => {
+        downloadMutation.mutate({ id: starterCode.id, orgSlug })
+    }
+
     return (
         <Table.Tr>
             <Table.Td>{starterCode.name}</Table.Td>
             <Table.Td>{starterCode.language}</Table.Td>
             <Table.Td>
                 <Button
-                    component="a"
-                    href={starterCode.url}
-                    download
                     variant="subtle"
                     size="xs"
                     leftSection={<DownloadSimpleIcon />}
+                    onClick={handleDownload}
+                    loading={downloadMutation.isPending}
                 >
                     {starterCode.fileName}
                 </Button>
@@ -83,4 +100,3 @@ export const StarterCodeTable: React.FC<{ starterCodes: StarterCode[] }> = ({ st
         </Table>
     )
 }
-
