@@ -175,10 +175,8 @@ export type { ActionResponse } from '@/lib/errors'
 
 export type StudyStage = 'Proposal' | 'Code' | 'Results'
 
-export type StudyLanguage = 'R' | 'PYTHON'
-
-// for v0.5 we support just r and python, data-only extensions uploaded as main code should error e.g. .csv, .json, .txt
-export function getLanguageForFileName(fileName: string): StudyLanguage {
+// for v0.5 we support just r and python
+export function getLanguageForFileName(fileName: string) {
     const lower = fileName.toLowerCase()
     if (lower.endsWith('.py') || lower.endsWith('.ipynb')) return 'PYTHON'
 

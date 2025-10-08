@@ -82,7 +82,7 @@ export const StudyCodeUpload = ({
                             aria-label="Upload Main Code File"
                             placeholder="Upload Main Code File"
                             clearable
-                            accept={'.r,.R,.rmd,.json,.csv,.txt,.py,.ipynb'}
+                            accept={'.r,.R,.rmd,.py,.ipynb'}
                             value={studyProposalForm.values.mainCodeFile}
                             onChange={(file) => {
                                 const { additionalCodeFiles } = studyProposalForm.getValues()
@@ -99,7 +99,7 @@ export const StudyCodeUpload = ({
                             autoFocus
                         />
                         <Text size="xs" c="dimmed">
-                            {ACCEPTED_FILE_FORMATS_TEXT}
+                            Accepted formats: .r, .rmd, .py, .ipynb.
                         </Text>
                     </Grid.Col>
                 </Grid>

@@ -56,10 +56,10 @@ export const codeFilesSchema = z
         mainCodeFile: z.union([z.instanceof(File, { message: 'Main code file is required' }), z.null()]).refine(
             (file) => {
                 if (file === null) return false
-                return /\.(R|r|rmd|json|csv|txt|py|ipynb)$/i.test(file.name)
+                return /\.(R|r|rmd|py|ipynb)$/i.test(file.name)
             },
             {
-                message: 'Only .R, .r, .rmd, .json, .csv, .txt, .py, and .ipynb files are allowed for code files.',
+                message: 'Only .R, .r, .rmd, .py, and .ipynb files are allowed for code files.',
             },
         ),
         additionalCodeFiles: z
