@@ -1,12 +1,12 @@
 'use client'
 
-import { Button, Select, Stack, TextInput, Checkbox } from '@mantine/core'
-import { useMutation, zodResolver, z, useForm } from '@/common'
+import { useForm, useMutation, z, zodResolver } from '@/common'
+import { reportMutationError } from '@/components/errors'
+import { reportSuccess } from '@/components/notices'
+import { Language } from '@/database/types'
+import { Button, Checkbox, Select, Stack, TextInput } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction } from './base-images.actions'
-import { Language } from '@/database/types'
-import { reportSuccess } from '@/components/notices'
-import { reportMutationError } from '@/components/errors'
 import { orgBaseImageSchema } from './base-images.schema'
 
 type FormValues = z.infer<typeof orgBaseImageSchema>
@@ -55,7 +55,10 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                 <Select
                     label="Language"
                     placeholder="Select language"
-                    data={[{ value: 'R', label: 'R' }]}
+                    data={[
+                        { value: 'R', label: 'R' },
+                        { value: 'PYTHON', label: 'Python' },
+                    ]}
                     {...form.getInputProps('language')}
                 />
                 <TextInput
