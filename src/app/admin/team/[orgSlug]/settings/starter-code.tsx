@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Stack, Title, Divider, Paper, Text, Button, Group } from '@mantine/core'
@@ -43,7 +42,8 @@ export const StarterCode: React.FC = () => {
                             Starter Code
                         </Title>
                         <Text c="dimmed" fz="sm">
-                            Upload starter code to assist Researchers with their coding experience. SafeInsights will include this when Researchers use the SafeInsights IDE
+                            Upload starter code to assist Researchers with their coding experience. SafeInsights will
+                            include this when Researchers use the SafeInsights IDE
                         </Text>
                     </Stack>
                     <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
@@ -72,4 +72,3 @@ export const StarterCode: React.FC = () => {
         </Paper>
     )
 }
-
