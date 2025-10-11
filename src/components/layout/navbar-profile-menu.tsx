@@ -1,17 +1,17 @@
 'use client'
 
-import { AppShellSection, Collapse, NavLink } from '@mantine/core'
-import { useDisclosure, useClickOutside } from '@mantine/hooks'
-import { CaretRightIcon, SignOutIcon, UserIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
-import { useClerk } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
-import styles from './navbar-items.module.css'
 import { AuthRole } from '@/lib/types'
+import { useClerk } from '@clerk/nextjs'
+import { AppShellSection, Collapse, NavLink } from '@mantine/core'
+import { useClickOutside, useDisclosure } from '@mantine/hooks'
+import { CaretRightIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
-import { RefWrapper } from './nav-ref-wrapper'
-import { useRef, useCallback } from 'react'
+import { useCallback, useRef } from 'react'
 import { Protect } from '../auth'
+import { RefWrapper } from './nav-ref-wrapper'
+import styles from './navbar-items.module.css'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
@@ -57,7 +57,7 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<LockIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => router.push('/reviewer/keys'))}
+                        onClick={closeAndCall(() => router.push('/reviewer-key'))}
                         c="white"
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"

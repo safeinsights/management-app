@@ -9,7 +9,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { useRouter } from 'next/navigation'
 import { FC } from 'react'
 
-export const RegenerateKeys: FC = () => {
+export const RegenerateKey: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const { session } = useSession()
     const enclaveOrg = session ? getEnclaveOrg(session) : null
@@ -23,7 +23,10 @@ export const RegenerateKeys: FC = () => {
     return (
         <Stack p="xl" mx="sm">
             <PageBreadcrumbs
-                crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Reviewer Key']]}
+                crumbs={[
+                    ['Dashboard', enclaveOrg ? `/reviewer/${enclaveOrg.slug}/dashboard` : '/dashboard'],
+                    ['Reviewer Key'],
+                ]}
             />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
