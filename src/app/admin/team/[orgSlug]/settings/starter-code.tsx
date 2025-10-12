@@ -47,7 +47,7 @@ export const StarterCode: React.FC = () => {
                         </Text>
                     </Stack>
                     <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                        + Add Code
+                        Add Code
                     </Button>
                 </Group>
                 <Divider c="dimmed" />
