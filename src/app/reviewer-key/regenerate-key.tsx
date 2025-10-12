@@ -23,10 +23,7 @@ export const RegenerateKey: FC = () => {
     return (
         <Stack p="xl" mx="sm">
             <PageBreadcrumbs
-                crumbs={[
-                    ['Dashboard', enclaveOrg ? `/reviewer/${enclaveOrg.slug}/dashboard` : '/dashboard'],
-                    ['Reviewer Key'],
-                ]}
+                crumbs={[['Dashboard', enclaveOrg ? `/${enclaveOrg.slug}/dashboard` : '/dashboard'], ['Reviewer Key']]}
             />
             <Title my="xxl">Reviewer key</Title>
             <Paper shadow="xs" p="xxl">
