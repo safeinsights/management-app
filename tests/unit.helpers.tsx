@@ -1,27 +1,28 @@
 import { db } from '@/database'
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
+import { Org } from '@/schema/org'
+import { ENVIRONMENT_ID } from '@/server/config'
+import { latestJobForStudy } from '@/server/db/queries'
+import { theme } from '@/theme'
+import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
+import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+// eslint-disable-next-line no-restricted-imports
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render } from '@testing-library/react'
+import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
 import { useParams } from 'next/navigation'
-import { render } from '@testing-library/react'
+import os from 'os'
+import path from 'path'
 // eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MantineProvider } from '@mantine/core'
-import { ModalsProvider } from '@mantine/modals'
-import { theme } from '@/theme'
 import { ReactElement } from 'react'
-import { useClerk, useAuth, useUser, useSession } from '@clerk/nextjs'
-import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { Mock, vi } from 'vitest'
-import { ENVIRONMENT_ID } from '@/server/config'
-import { latestJobForStudy } from '@/server/db/queries'
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 
 import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
@@ -35,10 +36,10 @@ export const mockPathname = (path: string) => {
     ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
 }
 
-export { faker } from '@faker-js/faker'
 export { db } from '@/database'
-export { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-export { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+export { faker } from '@faker-js/faker'
+export { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -182,11 +183,13 @@ export const insertTestStudyJobData = async ({
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
+    language,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
+    language?: Language
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -216,7 +219,7 @@ export const insertTestStudyJobData = async ({
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
+            language: language || 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
