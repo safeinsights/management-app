@@ -55,7 +55,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <CodeApprovalStatus job={job} />
+                        <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
@@ -71,7 +71,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <FileApprovalStatus job={job} orgSlug={study.orgSlug} />
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} />
+                    <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} />
                     <JobResults job={job} />
                 </Stack>
             </Paper>

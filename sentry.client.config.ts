@@ -14,8 +14,10 @@ Sentry.init({
         captureConsoleIntegration({
             levels: ['warn', 'error'],
         }),
+        // eslint-disable-next-line import/namespace
         ...(typeof Sentry.replayIntegration === 'function'
             ? [
+                  // eslint-disable-next-line import/namespace
                   Sentry.replayIntegration({
                       maskAllText: false,
                       minReplayDuration: 5000,

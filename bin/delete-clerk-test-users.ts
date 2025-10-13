@@ -3,8 +3,6 @@ import 'dotenv/config'
 import { deleteClerkTestUsers } from '../tests/clerk'
 import dayjs from 'dayjs'
 
-console.log()
-
 const cutoff = dayjs(process.argv[2]).toDate()
 
 deleteClerkTestUsers(cutoff).catch((err: unknown) => {

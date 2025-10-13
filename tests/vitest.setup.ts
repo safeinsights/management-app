@@ -1,5 +1,5 @@
 import 'dotenv/config' // read .env file before other imports, to match Next.js default
-import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock } from 'vitest'
+import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vitest'
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
@@ -8,9 +8,9 @@ import { cleanup } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
 import * as matchers from '@testing-library/jest-dom/matchers'
-import { expect } from 'vitest'
 
 declare module 'vitest' {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     interface Assertion<T = any> extends jest.Matchers<void, T>, TestingLibraryMatchers<T, void> {}
 }
 
@@ -46,6 +46,7 @@ beforeAll(async () => {
             useSearchParams: () => {
                 const router = useRouter()
                 const path = router.query
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 return new URLSearchParams(path as any)
             },
         }
