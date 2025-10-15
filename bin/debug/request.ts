@@ -42,6 +42,7 @@ export class DebugRequest {
 
     async perform() {
         const url = `${this.baseURL}/api/${this.path}`
+        // eslint-disable-next-line no-console
         console.log(`Sending request to ${url}`)
         const response = await fetch(url, {
             method: this.method,

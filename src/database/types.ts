@@ -41,7 +41,7 @@ export type JsonPrimitive = boolean | number | string | null
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type Language = 'R'
+export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
