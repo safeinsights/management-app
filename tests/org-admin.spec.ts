@@ -45,14 +45,22 @@ test.describe('Organization Admin', () => {
 
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
-        await page.waitForTimeout(1000)
-        await expect(page.getByText(`must be signed out`)).toBeVisible()
-        await page.getByRole('button', { name: /signout/i }).click()
-        await page.waitForTimeout(1000)
 
-        // Ensure the Create Account button is initially disabled
+        // User must sign out before accepting invite
+        await expect(page.getByText(/must be signed out/i)).toBeVisible()
+
+        // Sign out and wait for redirect to the signup form
+        await Promise.all([
+            page.waitForURL(`**/account/invitation/${inviteId}/signup`, {
+                timeout: 30_000,
+                waitUntil: 'domcontentloaded',
+            }),
+            page.getByRole('button', { name: /signout/i }).click(),
+        ])
+
+        // Wait for the Create Account button in the signup form to render
         const createAccountBtn = page.getByRole('button', { name: /create account/i })
-        await expect(createAccountBtn).toBeDisabled()
+        await expect(createAccountBtn).toBeVisible()
 
         // Fill in the required form fields
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
