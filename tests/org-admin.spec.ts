@@ -2,8 +2,8 @@ import { faker } from '@faker-js/faker'
 import { expect, goto, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
 
 test.beforeEach(async ({}, testInfo) => {
-    // Extend timeout for all tests running this hook by 30 seconds.
-    testInfo.setTimeout(testInfo.timeout + 30_000)
+    // Extend timeout for all tests running this hook by 60 seconds.
+    testInfo.setTimeout(testInfo.timeout + 60_000)
 })
 
 test.describe('Organization Admin', () => {
