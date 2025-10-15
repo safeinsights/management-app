@@ -1,11 +1,11 @@
 import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Badge, Flex } from '@mantine/core'
 import { SmallMonoColorLogo } from './small-mono-color-logo'
 import { ButtonLink, type ButtonLinkProps } from '../links'
 
-type Orgs = ActionSuccessType<typeof fetchOrgsWithStatsAction>
+type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
 
 const WIDTH = 60
 const SQUARE_SIZE = 48

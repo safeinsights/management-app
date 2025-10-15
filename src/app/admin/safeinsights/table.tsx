@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { SuretyGuard } from '@/components/surety-guard'
 import { ActionSuccessType } from '@/lib/types'
-import { deleteOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
+import { deleteOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { UserListIcon } from '@phosphor-icons/react'
@@ -14,14 +14,13 @@ import { FC, useMemo, useState } from 'react'
 import * as R from 'remeda'
 import { EditOrgForm } from './edit-org-form'
 
-type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
+type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 
 export function OrgsAdminTable() {
     const { data = [] } = useQuery({
         queryKey: ['orgs'],
-        queryFn: fetchOrgsWithStudyCountsAction,
+        queryFn: fetchAdminOrgsWithStatsAction,
     })
-
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus<Org>>({
         columnAccessor: 'name',
         direction: 'asc',
@@ -51,6 +50,7 @@ export function OrgsAdminTable() {
                     { accessor: 'slug', sortable: true },
                     { accessor: 'name', sortable: true },
                     { accessor: 'email', sortable: true },
+                    { accessor: 'totalUsers', title: '# Users', textAlign: 'center', sortable: true },
                     { accessor: 'totalStudies', title: '# Studies', textAlign: 'center', sortable: true },
                     {
                         accessor: 'actions',

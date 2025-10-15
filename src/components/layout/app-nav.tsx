@@ -4,7 +4,7 @@ import { NavbarProfileMenu } from './navbar-profile-menu'
 import { useQuery } from '@/common'
 import { Stack, AppShellNavbar, AppShellSection, Group } from '@mantine/core'
 import { usePathname } from 'next/navigation'
-import { fetchOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { NavbarOrgSquares } from './navbar-org-squares'
 import { NavOrgsList } from './nav-orgs-list'
 import { NavOrgLinks } from './nav-org-links'
@@ -15,7 +15,7 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop
 
     const { data: orgs } = useQuery({
         placeholderData: [],
-        queryFn: async () => fetchOrgsWithStatsAction(),
+        queryFn: async () => fetchUsersOrgsWithStatsAction(),
         queryKey: ['orgs-with-stats'],
     })
 
