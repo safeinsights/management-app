@@ -3,12 +3,21 @@
 import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserPublicKeyCreated, onUserPublicKeyUpdated } from '@/server/events'
 import { revalidatePath } from 'next/cache'
-import { Action, z, ActionFailure } from './action'
+import { Action, ActionFailure, z } from './action'
 
 export const getReviewerPublicKeyAction = new Action('getReviewerPublicKeyAction')
     .requireAbilityTo('view', 'ReviewerKey')
     .handler(async ({ session }) => {
         return await getReviewerPublicKey(session.user.id)
+    })
+
+// Helper that returns a boolean instead of the full row so we can safely
+// pass the value to client components without serialization issues.
+export const reviewerKeyExistsAction = new Action('reviewerKeyExistsAction')
+    .requireAbilityTo('view', 'ReviewerKey')
+    .handler(async ({ session }) => {
+        const key = await getReviewerPublicKey(session.user.id)
+        return Boolean(key)
     })
 
 const setOrgUserPublicKeySchema = z.object({

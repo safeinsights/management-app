@@ -16,7 +16,9 @@ test.describe('Organization Admin', () => {
         await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })
 
         // create an invite
-        await page.getByRole('button', { name: /invite people/i }).click()
+        const inviteBtn = page.getByRole('button', { name: /invite people/i })
+        await inviteBtn.waitFor({ state: 'visible' })
+        await inviteBtn.click({ force: true })
         await page.waitForSelector('input[type="email"]', { state: 'visible' })
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
