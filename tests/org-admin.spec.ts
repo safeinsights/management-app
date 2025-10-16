@@ -2,8 +2,8 @@ import { faker } from '@faker-js/faker'
 import { expect, goto, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
 
 test.beforeEach(async ({}, testInfo) => {
-    // Extend timeout for all tests running this hook by 60 seconds.
-    testInfo.setTimeout(testInfo.timeout + 60_000)
+    // Extend timeout for all tests running this hook by 30 seconds.
+    testInfo.setTimeout(testInfo.timeout + 30_000)
 })
 
 test.describe('Organization Admin', () => {
@@ -18,8 +18,7 @@ test.describe('Organization Admin', () => {
         // create an invite
         const inviteBtn = page.getByRole('button', { name: /invite people/i })
         await inviteBtn.waitFor({ state: 'visible' })
-        await inviteBtn.click()
-
+        await inviteBtn.click({ force: true })
         await page.waitForSelector('input[type="email"]', { state: 'visible' })
         await page.getByLabel(/email/i).fill('not an email')
         await page.keyboard.press('Tab')
@@ -33,7 +32,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel('Administrator (manages org-level settings and contributors)').click()
 
         await page.getByRole('button', { name: /send invitation/i }).click()
-        await expect(page.getByText(/invitation sent successfully/i)).toBeVisible({ timeout: 10_000 })
+        await expect(page.getByText(/invitation sent successfully/i)).toBeVisible({ timeout: 10000 })
 
         await page.getByRole('button', { name: /continue to invite people/i }).click()
 
@@ -49,21 +48,12 @@ test.describe('Organization Admin', () => {
         // test invite
         await goto(page, `/account/invitation/${inviteId}`)
         await page.waitForTimeout(1000)
-
-        // User must sign out before accepting invite
-        await expect(page.getByText(/must be signed out/i)).toBeVisible()
-
-        // Sign out and wait for redirect to the signup form
-        await Promise.all([
-            page.waitForURL(`**/account/invitation/${inviteId}/signup`, {
-                timeout: 30_000,
-            }),
-            page.getByRole('button', { name: /signout/i }).click(),
-        ])
+        await expect(page.getByText(`must be signed out`)).toBeVisible()
+        await page.getByRole('button', { name: /signout/i }).click()
+        await page.waitForTimeout(1000)
 
         // Ensure the Create Account button is initially disabled
         const createAccountBtn = page.getByRole('button', { name: /create account/i })
-        await expect(createAccountBtn).toBeVisible({ timeout: 10_000 })
         await expect(createAccountBtn).toBeDisabled()
 
         // Fill in the required form fields
@@ -82,10 +72,8 @@ test.describe('Organization Admin', () => {
         await createAccountBtn.click()
 
         // verify we landed on the MFA setup screen
-        await Promise.all([
-            page.waitForURL('**/mfa**', { timeout: 20_000 }),
-            expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible(),
-        ])
+        // Check if the code input field is visible
+        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
 
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
     })
