@@ -20,7 +20,7 @@ import { headers } from 'next/headers.js'
 import { useParams } from 'next/navigation'
 import os from 'os'
 import path from 'path'
-// eslint-disable-next-line no-restricted-imports
+
 import { ReactElement } from 'react'
 import { Mock, vi } from 'vitest'
 
