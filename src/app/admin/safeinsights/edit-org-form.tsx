@@ -2,12 +2,12 @@
 
 import { useForm, zodResolver, type FC, useMutation, useQueryClient } from '@/common'
 import { Button, Textarea, TextInput, Select } from '@mantine/core'
-import { updateOrgAction, insertOrgAction, fetchOrgsWithStudyCountsAction } from '@/server/actions/org.actions'
+import { updateOrgAction, insertOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { orgSchema, type ValidatedOrg } from '@/schema/org'
 import { type ActionSuccessType } from '@/lib/types'
 import { reportError } from '@/components/errors'
 
-type Org = ActionSuccessType<typeof fetchOrgsWithStudyCountsAction>[number]
+type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 type NewOrg = Omit<Org, 'id'>
 
 // Transform org data to match form expectations

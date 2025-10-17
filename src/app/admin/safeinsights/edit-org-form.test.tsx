@@ -9,6 +9,7 @@ const mockOrg = {
     name: 'test',
     type: 'enclave' as const,
     settings: { publicKey: 'junk' },
+    totalUsers: BigInt(0),
     totalStudies: BigInt(0),
 }
 

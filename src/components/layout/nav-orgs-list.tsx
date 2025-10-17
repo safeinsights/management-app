@@ -1,11 +1,11 @@
 import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
-import { fetchOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Flex, Stack } from '@mantine/core'
 import { NavbarLink } from './navbar-link'
 import { HouseIcon } from '@phosphor-icons/react'
 
-type Orgs = ActionSuccessType<typeof fetchOrgsWithStatsAction>
+type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
 
 const SQUARE_SIZE = 28
 
