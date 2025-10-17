@@ -9,11 +9,9 @@ test.beforeEach(async ({}, testInfo) => {
     testInfo.setTimeout(testInfo.timeout + 30_000)
 })
 
-test.describe('Studies', () => {
-    test.skip('researcher creates a study', async ({ page, studyFeatures }) => {
+test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
+    await test.step('researcher creates a study', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-
-        await page.waitForTimeout(1000)
 
         // propose new study button
         await page.getByTestId('new-study').first().click()
@@ -66,22 +64,15 @@ test.describe('Studies', () => {
 
         await page.getByRole('button', { name: 'Submit', exact: true }).click()
 
-        // TODO Final step changed? these aren't in the mockups :thinking:
-        // await expect(page.getByTestId('study-title')).toHaveValue(studyFeatures.studyTitle)
-        //
-        // await page.getByRole('checkbox', { name: /highlights/i }).check()
-        //
-        // await page.getByRole('button', { name: /submit proposal/i }).click()
-        //
-        // await page.getByRole('button', { name: /all studies/i }).click()
-        await page.waitForLoadState('networkidle')
+        const role = page.locator('label').filter({ hasText: 'Researcher' })
+        await role.click()
 
         await expect(page.getByRole('row').filter({ hasText: studyFeatures.studyTitle })).toBeVisible()
     })
 
     //  disabled until we get the org selector working
-    test.skip('reviewer reviews and approves the study', async ({ page, studyFeatures }) => {
-        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax-lab/dashboard' })
+    await test.step('reviewer reviews and approves the study', async () => {
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         await expect(page.getByText('Review Studies')).toBeVisible()
 
