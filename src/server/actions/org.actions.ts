@@ -59,6 +59,7 @@ export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStats
             .select([
                 'org.id',
                 'org.name',
+                'org.email',
                 'org.slug',
                 'org.type',
                 'org.settings',
