@@ -9,7 +9,7 @@ test.beforeEach(async ({}, testInfo) => {
     testInfo.setTimeout(testInfo.timeout + 30_000)
 })
 
-test('Creating and reviewing a studiy', async ({ page, studyFeatures }) => {
+test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a study', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
