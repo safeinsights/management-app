@@ -4,6 +4,7 @@ import { OrganizationSettingsManager } from './organization-settings-manager'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { BaseImages } from './base-images'
+import { StarterCode } from './starter-code'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
@@ -30,6 +31,7 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
             <OrganizationSettingsManager org={org} />
             <ApiKeySettingsDisplay />
             <BaseImages />
+            <StarterCode />
         </Stack>
     )
 }
