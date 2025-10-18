@@ -70,55 +70,53 @@ export const ResearcherUserStudiesTable = () => {
     }
 
     return (
-        <Paper shadow="xs" p="xxl">
-            <Stack>
-                <Group justify="space-between">
-                    <Title order={3}>Proposed Studies</Title>
-                    <Flex justify="flex-end">
-                        <ButtonLink
-                            leftSection={<PlusIcon />}
-                            data-testid="new-study"
-                            href={`/${labOrg.slug}/study/request`}
-                        >
-                            Propose New Study
-                        </ButtonLink>
-                    </Flex>
-                </Group>
-                <Divider c="charcoal.1" />
-                <Refresher isEnabled={Boolean(needsRefreshed)} refresh={refetch} isPending={isFetching} />
-                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
-                    <TableThead>
-                        <TableTr>
-                            <TableTh fw={600}>Study Name</TableTh>
-                            <TableTh fw={600}>Submitted On</TableTh>
-                            <TableTh fw={600}>Submitted To</TableTh>
-                            <TableTh fw={600}>Stage</TableTh>
-                            <TableTh fw={600}>Status</TableTh>
-                            <TableTh fw={600}>Study Details</TableTh>
+        <Stack>
+            <Group justify="space-between">
+                <Title order={3}>My studies</Title>
+                <Flex justify="flex-end">
+                    <ButtonLink
+                        leftSection={<PlusIcon />}
+                        data-testid="new-study"
+                        href={`/${labOrg.slug}/study/request`}
+                    >
+                        Propose New Study
+                    </ButtonLink>
+                </Flex>
+            </Group>
+            <Divider c="charcoal.1" />
+            <Refresher isEnabled={Boolean(needsRefreshed)} refresh={refetch} isPending={isFetching} />
+            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                <TableThead>
+                    <TableTr>
+                        <TableTh fw={600}>Study Name</TableTh>
+                        <TableTh fw={600}>Submitted On</TableTh>
+                        <TableTh fw={600}>Submitted To</TableTh>
+                        <TableTh fw={600}>Stage</TableTh>
+                        <TableTh fw={600}>Status</TableTh>
+                        <TableTh fw={600}>Study Details</TableTh>
+                    </TableTr>
+                </TableThead>
+                <TableTbody>
+                    {studies.map((study) => (
+                        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+                            <TableTd>{study.title}</TableTd>
+                            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+                            <TableTd>{study.orgName}</TableTd>
+                            <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
+                            <TableTd>
+                                <DisplayStudyStatus
+                                    studyStatus={study.status}
+                                    audience="researcher"
+                                    jobStatusChanges={study.jobStatusChanges}
+                                />
+                            </TableTd>
+                            <TableTd>
+                                <Link href={`/${labOrg.slug}/study/${study.id}/review`}>View</Link>
+                            </TableTd>
                         </TableTr>
-                    </TableThead>
-                    <TableTbody>
-                        {studies.map((study) => (
-                            <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
-                                <TableTd>{study.title}</TableTd>
-                                <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-                                <TableTd>{study.orgName}</TableTd>
-                                <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
-                                <TableTd>
-                                    <DisplayStudyStatus
-                                        studyStatus={study.status}
-                                        audience="researcher"
-                                        jobStatusChanges={study.jobStatusChanges}
-                                    />
-                                </TableTd>
-                                <TableTd>
-                                    <Link href={`/${labOrg.slug}/study/${study.id}/review`}>View</Link>
-                                </TableTd>
-                            </TableTr>
-                        ))}
-                    </TableTbody>
-                </Table>
-            </Stack>
-        </Paper>
+                    ))}
+                </TableTbody>
+            </Table>
+        </Stack>
     )
 }
