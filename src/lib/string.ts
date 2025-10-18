@@ -53,15 +53,31 @@ export function titleize(str: string) {
     return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 }
 
-export function orgInitials(orgName: string, type: string) {
+// Returns only the initials or the initials with the icon type suffix
+export function orgInitials(orgName: string, type: string, initialsOnly: boolean = false) {
     if (!orgName || !type) {
         return ''
     }
 
-    const nameInitials = orgName
-        .split(/\s+/)
-        .map((word) => word.charAt(0).toUpperCase())
-        .join('')
+    // Remove whitespace and take up to first 3 characters
+    const compact = orgName.replace(/\s+/g, '')
+    const firstThree = compact.substring(0, Math.min(3, compact.length)).toUpperCase()
 
-    return nameInitials + (type == 'enclave' ? '-D' : '-L')
+    if (initialsOnly) {
+        return firstThree
+    }
+
+    return firstThree + (type === 'enclave' ? '-D' : '-L')
+}
+
+// Returns the initials with the title text type suffix
+export function orgInitialsTitle(orgName: string, type: string) {
+    if (!orgName || !type) {
+        return ''
+    }
+
+    const compact = orgName.replace(/\s+/g, '')
+    const firstThree = compact.substring(0, Math.min(3, compact.length)).toUpperCase()
+
+    return firstThree + (type === 'enclave' ? '-Data Org' : '-Research Lab')
 }

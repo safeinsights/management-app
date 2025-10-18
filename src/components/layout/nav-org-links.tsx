@@ -1,4 +1,5 @@
 import { useSession } from '@/hooks/session'
+import { orgInitialsTitle } from '@/lib/string'
 import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
@@ -62,7 +63,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
     return (
         <Stack>
             <Title c="white" py="md" px="sm" order={4}>
-                {org.name}
+                {orgInitialsTitle(org.name, org.type)}
             </Title>
             <Divider />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}

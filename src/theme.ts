@@ -48,6 +48,7 @@ const green: MantineColorsTuple = [
     '#44C55E',
     '#37AF4F',
     '#2F9844',
+    '#2B8A3E',
 ]
 const yellow: MantineColorsTuple = [
     '#FFF9E5',
