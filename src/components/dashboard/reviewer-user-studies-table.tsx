@@ -51,8 +51,6 @@ export const ReviewerUserStudiesTable = () => {
             study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
     )
 
-    if (!relevantStudies.length) return <Title order={5}>You have no studies to review.</Title>
-
     const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )

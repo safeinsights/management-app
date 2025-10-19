@@ -31,6 +31,8 @@ const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-A
 
 export const ResearcherUserStudiesTable = () => {
     const { session } = useSession()
+    const userId = session?.user.id
+
     const {
         data: studies,
         refetch,
@@ -48,11 +50,18 @@ export const ResearcherUserStudiesTable = () => {
         return <Title order={5}>You are not a member of any lab organizations.</Title>
     }
 
-    const needsRefreshed = studies?.some((study) =>
+    // Show studies created by the current researcher OR those they have updated via status changes
+    const relevantStudies = studies?.filter(
+        (study) =>
+            study.researcherId === userId ||
+            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+    )
+
+    const needsRefreshed = relevantStudies?.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
 
-    if (!studies || studies.length === 0) {
+    if (!relevantStudies || relevantStudies.length === 0) {
         return (
             <Paper shadow="xs" p="xxl">
                 <Stack align="center" gap="md">
@@ -97,7 +106,7 @@ export const ResearcherUserStudiesTable = () => {
                     </TableTr>
                 </TableThead>
                 <TableTbody>
-                    {studies.map((study) => (
+                    {relevantStudies.map((study) => (
                         <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
                             <TableTd>{study.title}</TableTd>
                             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>

@@ -104,7 +104,7 @@ export const fetchStudiesSubmittedByLabOrgAction = new Action('fetchStudiesSubmi
 
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db }) => {
         return await fetchStudiesQuery(db)
             .innerJoin('org', 'org.id', 'study.orgId')
             .select([
@@ -113,11 +113,11 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
                 'study.piName',
                 'study.status',
                 'study.createdAt',
+                'study.researcherId',
                 'org.name as orgName',
                 'org.slug as orgSlug',
                 'latestStudyJob.jobId as latestStudyJobId',
             ])
-            .where('study.researcherId', '=', session.user.id)
             .orderBy('study.createdAt', 'desc')
             .execute()
     })

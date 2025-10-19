@@ -2,6 +2,7 @@
 
 import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { errorToString, isActionError } from '@/lib/errors'
 import { orgInitials, orgInitialsTitle } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
@@ -36,6 +37,12 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="xxl" gap="xxl">
+            <PageBreadcrumbs
+                crumbs={[
+                    ['Dashboard', '/dashboard'],
+                    [orgInitialsOnly + (isEnclave ? ' Data Organization' : ' Research Lab')],
+                ]}
+            />
             <Title order={1}>{orgInitialsTitleText} dashboard</Title>
             <Text>{description}</Text>
             {isEnclave ? <ReviewerStudiesTable studies={studies} orgSlug={orgSlug} /> : <ResearcherStudiesTable />}

@@ -43,7 +43,7 @@ export function AppShell({ children }: Props) {
             header={{ height: 60, collapsed: isDesktop }}
             footer={{ height: 60 }}
             navbar={{
-                width: 250,
+                width: 260,
                 breakpoint: 'sm',
                 collapsed: { mobile: !opened, desktop: false },
             }}
