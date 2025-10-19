@@ -6,7 +6,7 @@ import '@mantine/notifications/styles.css'
 import { usePathname, useRouter } from 'next/navigation'
 import { ReactNode } from 'react'
 import { ActivityContext } from '../activity-context'
-import { SafeInsightsLogo } from './si-logo'
+import { SafeInsightsLogo } from './svg/si-logo'
 
 type Props = {
     children: ReactNode

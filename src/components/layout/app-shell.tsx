@@ -16,7 +16,7 @@ import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
-import { SafeInsightsLogo } from './si-logo'
+import { SafeInsightsLogo } from './svg/si-logo'
 
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'

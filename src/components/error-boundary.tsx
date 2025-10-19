@@ -16,7 +16,7 @@ import {
 import * as Sentry from '@sentry/nextjs'
 import { Component, ErrorInfo, ReactNode } from 'react'
 import { AppErrorImage } from '../../public/svg/app-error-image'
-import { SafeInsightsLogo } from './layout/si-logo'
+import { SafeInsightsLogo } from './layout/svg/si-logo'
 
 interface Props {
     children?: ReactNode
