@@ -30,7 +30,7 @@ function fetchStudiesQuery(db: DBExecutor) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status'])
+                    .select(['jobStatusChange.status', 'jobStatusChange.userId'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc'),
@@ -149,6 +149,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
                 'study.outputMimeType',
                 'study.piName',
                 'study.researcherId',
+                'study.reviewerId',
                 'study.status',
                 'study.title',
                 'researcher.fullName as createdBy',

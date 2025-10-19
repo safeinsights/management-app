@@ -44,8 +44,16 @@ export const ReviewerUserStudiesTable = () => {
     })
 
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
+    // Filter studies: reviewer assignment or any status change authored by current user
+    const relevantStudies = studies.filter(
+        (study) =>
+            study.reviewerId === userId ||
+            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+    )
 
-    const needsRefreshed = studies.some((study) =>
+    if (!relevantStudies.length) return <Title order={5}>You have no studies to review.</Title>
+
+    const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
 
@@ -73,7 +81,7 @@ export const ReviewerUserStudiesTable = () => {
                     </TableTr>
                 </TableThead>
                 <TableTbody>
-                    {studies.map((study) => (
+                    {relevantStudies.map((study) => (
                         <StudyRow key={study.id} study={study} />
                     ))}
                 </TableTbody>
