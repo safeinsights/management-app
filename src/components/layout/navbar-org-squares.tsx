@@ -1,13 +1,14 @@
+import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
 import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Badge, Flex } from '@mantine/core'
-import { SmallMonoColorLogo } from './small-mono-color-logo'
 import { ButtonLink, type ButtonLinkProps } from '../links'
+import { SiBulbLogo } from './svg/si-bulb-logo'
 
 type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
 
-const WIDTH = 60
+const WIDTH = 70
 const SQUARE_SIZE = 48
 
 type SquareProps = ButtonLinkProps & {
@@ -16,19 +17,6 @@ type SquareProps = ButtonLinkProps & {
     eventCount?: string | number | bigint
     children: React.ReactNode
 }
-
-const ActiveStripe = () => (
-    <Flex
-        pos="absolute"
-        left={-4}
-        top={6}
-        bottom={0}
-        w={4}
-        h={36}
-        bg="blue.8"
-        style={{ borderTopLeftRadius: '8px', borderBottomLeftRadius: '8px' }}
-    />
-)
 
 const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, ...props }) => {
     return (
@@ -42,7 +30,6 @@ const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, 
             style={{ borderRadius: SQUARE_SIZE / 4, overflow: 'visible' }}
             pos="relative"
         >
-            {isActive ? <ActiveStripe /> : null}
             {eventCount == null ? null : (
                 <Badge size="sm" pos="absolute" right={-4} top={-4} bottom={0} fz="sx" color="red">
                     {eventCount}
@@ -65,27 +52,39 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             direction="column"
             align="center"
             h="100%"
-            bg="#7A7485"
-            gap="sm"
+            bg="purple.8"
+            gap="xs"
             w={WIDTH}
             ml={isMainDashboard ? -WIDTH : 0}
             style={{ transition: 'margin 0.3s ease' }}
         >
-            <Square color="#100A4C" my="lg" href="/dashboard">
-                <SmallMonoColorLogo width={24} />
+            <Square color="white" my="lg" href="/dashboard">
+                <SiBulbLogo width={24} />
             </Square>
 
-            {orgs.map((org) => (
-                <Square
-                    color="white"
-                    isActive={org.slug === focusedOrgSlug}
-                    key={org.id}
-                    href={`/${org.slug}/dashboard`}
-                    eventCount={org.eventCount}
-                >
-                    {orgInitials(org.name, org.type)}
-                </Square>
-            ))}
+            {orgs.map((org) => {
+                const isActive = org.slug === focusedOrgSlug
+                const wrapperBg = isActive ? (org.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : 'purple.8'
+                return (
+                    <Flex
+                        key={org.id}
+                        w="100%"
+                        justify="center"
+                        bg={wrapperBg}
+                        style={{ transition: 'background-color 0.2s ease' }}
+                        py={8}
+                    >
+                        <Square
+                            color="white"
+                            isActive={isActive}
+                            href={`/${org.slug}/dashboard`}
+                            eventCount={org.eventCount}
+                        >
+                            {orgInitials(org.name, org.type)}
+                        </Square>
+                    </Flex>
+                )
+            })}
         </Flex>
     )
 }

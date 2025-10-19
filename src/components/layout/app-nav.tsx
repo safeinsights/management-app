@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@/common'
+import { ENCLAVE_BG, LAB_BG } from '@/lib/constants'
 import { extractOrgSlugFromPath } from '@/lib/paths'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { AppShellNavbar, AppShellSection, Group, Stack } from '@mantine/core'
@@ -29,7 +30,7 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop
 
     const focusedOrgSlug = extractOrgSlugFromPath(path)
     const focusedOrg = focusedOrgSlug ? sortedOrgs.find((o) => o.slug == focusedOrgSlug) : undefined
-    const focusedOrgTheme = focusedOrg ? (focusedOrg.type === 'enclave' ? 'purple.6' : 'green.10') : undefined
+    const focusedOrgTheme = focusedOrg ? (focusedOrg.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : undefined
 
     return (
         <AppShellNavbar bg={focusedOrgTheme || 'purple.8'}>
