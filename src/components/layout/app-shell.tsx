@@ -16,7 +16,7 @@ import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
-import { SafeInsightsLogo } from './si-logo'
+import { SafeInsightsLogo } from './svg/si-logo'
 
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
@@ -43,7 +43,7 @@ export function AppShell({ children }: Props) {
             header={{ height: 60, collapsed: isDesktop }}
             footer={{ height: 60 }}
             navbar={{
-                width: 250,
+                width: 260,
                 breakpoint: 'sm',
                 collapsed: { mobile: !opened, desktop: false },
             }}

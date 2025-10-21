@@ -1,6 +1,6 @@
 'use client'
 
-import { SafeInsightsLogo } from '@/components/layout/si-logo'
+import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
 import {
     AppShell,
     AppShellFooter,
