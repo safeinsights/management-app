@@ -42,6 +42,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             'study.title as studyTitle',
             'org.id as orgId',
             'org.slug as orgSlug',
+            'study.submittedByOrgId',
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
@@ -170,7 +171,7 @@ export const getUserById = async (userId: string) => {
 }
 
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
-    await db.selectFrom('org').select('id as orgId').where('slug', '=', orgSlug).executeTakeFirst()
+    await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
 export const getOrgInfoForUserId = async (userId: string) => {
     const orgs = await Action.db

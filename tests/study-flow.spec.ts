@@ -64,9 +64,6 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
 
         await page.getByRole('button', { name: 'Submit', exact: true }).click()
 
-        const role = page.locator('label').filter({ hasText: 'Researcher' })
-        await role.click()
-
         await expect(page.getByRole('row').filter({ hasText: studyFeatures.studyTitle })).toBeVisible()
     })
 

@@ -5,10 +5,10 @@ import { ErrorAlert } from '@/components/errors'
 import { ButtonLink, Link } from '@/components/links'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { useSession } from '@/hooks/session'
-import { errorToString, isActionError } from '@/lib/errors'
+import { errorToString } from '@/lib/errors'
 import { getLabOrg } from '@/lib/types'
 import { getStudyStage } from '@/lib/util'
-import { fetchStudiesSubmittedByLabOrgAction } from '@/server/actions/study.actions'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
     Flex,
@@ -50,16 +50,21 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
 
 export const ResearcherStudiesTable: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { data: studies, isLoading } = useQuery({
+    const {
+        data: studies = [],
+        isLoading,
+        isError,
+    } = useQuery({
         queryKey: ['researcher-studies', orgSlug],
-        queryFn: () => fetchStudiesSubmittedByLabOrgAction({ orgSlug }),
+        placeholderData: [],
+        queryFn: () => fetchStudiesForOrgAction({ orgSlug }),
     })
     const { session } = useSession()
     const labOrg = session ? session.orgs[orgSlug] || getLabOrg(session) : null
 
     if (!session || !labOrg || isLoading) return null
 
-    if (!studies || isActionError(studies)) {
+    if (isError) {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
     }
 
@@ -67,7 +72,7 @@ export const ResearcherStudiesTable: React.FC = () => {
         <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
             <TableTd>{study.title}</TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-            <TableTd>{study.reviewerTeamName}</TableTd>
+            <TableTd>{study.reviewingEnclaveName}</TableTd>
             <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
             <TableTd>
                 <DisplayStudyStatus

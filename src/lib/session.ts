@@ -6,7 +6,8 @@ import { CLERK_ADMIN_ORG_SLUG, UserSession } from './types'
 import { defineAbilityFor, type AppAbility } from './permissions'
 
 export { subject, type AppAbility } from './permissions'
-export type UserSessionWithAbility = UserSession & { ability: AppAbility; can: AppAbility['can'] }
+type MembershipInfo = { belongsToLab: boolean; belongsToEnclave: boolean }
+export type UserSessionWithAbility = UserSession & { ability: AppAbility; can: AppAbility['can'] } & MembershipInfo
 
 export const sessionFromMetadata = ({
     env,
@@ -44,10 +45,21 @@ export const sessionFromMetadata = ({
         },
         orgs,
     }
+    const membershipInfo: MembershipInfo = Object.values(orgs).reduce(
+        (acc: MembershipInfo, org) => {
+            const mb: MembershipInfo = { ...acc }
+            if (org.isAdmin || org.type === 'lab') mb.belongsToLab = true
+            if (org.isAdmin || org.type === 'enclave') mb.belongsToEnclave = true
+            return mb
+        },
+        { belongsToEnclave: session.user.isSiAdmin, belongsToLab: session.user.isSiAdmin },
+    )
+
     const ability = defineAbilityFor(session)
 
     return {
         ...session,
+        ...membershipInfo,
         can: ability.can.bind(ability), // directly expose the can method for devx
         ability,
     }

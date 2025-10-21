@@ -30,15 +30,22 @@ export function defineAbilityFor(session: UserSession) {
     permit('reset', 'MFA')
     permit('view', 'Orgs')
 
-    // everyone can view studies, the action will return the appropriate listing
+    // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
+
+    permit('view', 'OrgStudies', { orgType: 'enclave', orgId: { $in: usersReviewerOrgIds } })
+    permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
 
     permit('view', 'OrgMembers', { orgId: { $in: usersOrgIds } })
 
     // can view orgs, studies and jobs for all orgs that the user belongs to
     permit('view', 'Org', { orgId: { $in: usersOrgIds } })
-    permit('view', 'Study', { orgId: { $in: usersOrgIds } })
-    permit('view', 'StudyJob', { orgId: { $in: usersOrgIds } })
+
+    permit('view', 'Study', { orgId: { $in: usersReviewerOrgIds } })
+    permit('view', 'StudyJob', { orgId: { $in: usersReviewerOrgIds } })
+
+    permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
+    permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
     // users who belong to any researche orgs can create studies for ANY org
     if (usersResearcherOrgIds.length) {

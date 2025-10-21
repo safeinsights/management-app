@@ -12,13 +12,10 @@ import { extractOrgSlugFromPath } from '@/lib/paths'
 
 export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop }) => {
     const path = usePathname()
-
-    const { data: orgs } = useQuery({
-        placeholderData: [],
+    const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsWithStatsAction(),
         queryKey: ['orgs-with-stats'],
     })
-
     const isMainDashboard = path == '/dashboard'
 
     const focusedOrgSlug = extractOrgSlugFromPath(path)

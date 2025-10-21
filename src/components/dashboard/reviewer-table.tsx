@@ -60,16 +60,13 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-export const ReviewerStudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({
-    studies: initialStudies,
-    orgSlug,
-}) => {
+export const ReviewerStudiesTable: FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const {
         data: studies,
         refetch,
         isRefetching,
     } = useQuery({
-        initialData: initialStudies,
+        placeholderData: [],
         queryKey: ['org-studies', orgSlug],
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })
