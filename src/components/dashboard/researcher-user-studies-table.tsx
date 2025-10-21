@@ -6,8 +6,8 @@ import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
-import { getLabOrg, ActionSuccessType } from '@/lib/types'
 import { useStudyStatus } from '@/hooks/use-study-status'
+import { ActionSuccessType, getLabOrg } from '@/lib/types'
 
 import { fetchStudiesForCurrentResearcherUserAction } from '@/server/actions/study.actions'
 import {
@@ -133,30 +133,10 @@ export const ResearcherUserStudiesTable = () => {
                 </TableThead>
                 <TableTbody>
                     {relevantStudies.map((study) => (
-                        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
-                            <TableTd>{study.title}</TableTd>
-                            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-                            <TableTd>{study.orgName}</TableTd>
-                            <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
-                            <TableTd>
-                                <DisplayStudyStatus
-                                    studyStatus={study.status}
-                                    audience="researcher"
-                                    jobStatusChanges={study.jobStatusChanges}
-                                />
-                            </TableTd>
-                            <TableTd>
-                                <Link href={`/${labOrg.slug}/study/${study.id}/review`}>View</Link>
-                            </TableTd>
-                        </TableTr>
-                    </TableThead>
-                    <TableTbody>
-                        {studies.map((study) => (
-                            <StudyRow orgSlug={labOrg.slug} study={study} key={study.id} />
-                        ))}
-                    </TableTbody>
-                </Table>
-            </Stack>
-        </Paper>
+                        <StudyRow orgSlug={labOrg.slug} study={study} key={study.id} />
+                    ))}
+                </TableTbody>
+            </Table>
+        </Stack>
     )
 }

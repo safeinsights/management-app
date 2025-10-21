@@ -3,7 +3,6 @@
 import { ResearcherUserStudiesTable } from '@/components/dashboard/researcher-user-studies-table'
 import { ReviewerUserStudiesTable } from '@/components/dashboard/reviewer-user-studies-table'
 import { useSession } from '@/hooks/session'
-import { getEnclaveOrg, getLabOrg } from '@/lib/types'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import { useState } from 'react'
 
@@ -15,17 +14,13 @@ export default function UserStudiesDashboard() {
 
     if (!session) return null
 
-    // Determine the org types the user belongs to
-    const hasLabOrg = Boolean(getLabOrg(session))
-    const hasDataOrg = Boolean(getEnclaveOrg(session))
-
     const renderTable = () => {
-        if (hasLabOrg && hasDataOrg) {
+        if (session.belongsToEnclave && session.belongsToLab) {
             return activeTab === 'reviewer' ? <ReviewerUserStudiesTable /> : <ResearcherUserStudiesTable />
         }
 
-        if (hasDataOrg) return <ReviewerUserStudiesTable />
-        if (hasLabOrg) return <ResearcherUserStudiesTable />
+        if (session.belongsToEnclave) return <ReviewerUserStudiesTable />
+        if (session.belongsToLab) return <ResearcherUserStudiesTable />
     }
 
     return (
