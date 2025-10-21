@@ -5,8 +5,9 @@ import { Link } from '@/components/links'
 import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
+import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType } from '@/lib/types'
-import { getStudyStage } from '@/lib/util'
+
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -29,6 +30,12 @@ import { FC } from 'react'
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+    const status = useStudyStatus({
+        studyStatus: study.status,
+        audience: 'reviewer',
+        jobStatusChanges: study.jobStatusChanges,
+    })
+
     return (
         <TableTr fz={14} key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
@@ -41,13 +48,9 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
             <TableTd>{orgSlug}</TableTd>
-            <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
+            <TableTd>{status.stage}</TableTd>
             <TableTd>
-                <DisplayStudyStatus
-                    audience="reviewer"
-                    studyStatus={study.status}
-                    jobStatusChanges={study.jobStatusChanges || []}
-                />
+                <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
                 <Link href={`/${orgSlug}/study/${study.id}/review`} c="blue.7">
@@ -60,16 +63,13 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
-export const ReviewerStudiesTable: FC<{ studies: Studies; orgSlug: string }> = ({
-    studies: initialStudies,
-    orgSlug,
-}) => {
+export const ReviewerStudiesTable: FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const {
         data: studies,
         refetch,
         isRefetching,
     } = useQuery({
-        initialData: initialStudies,
+        placeholderData: [],
         queryKey: ['org-studies', orgSlug],
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })

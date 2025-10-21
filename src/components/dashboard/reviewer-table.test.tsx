@@ -11,10 +11,6 @@ vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
 }))
 
-vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForOrgAction: vi.fn(),
-}))
-
 const mockStudies = [
     {
         id: 'study-1',
@@ -81,6 +77,10 @@ const mockStudies = [
     },
 ]
 
+vi.mock('@/server/actions/study.actions', () => ({
+    fetchStudiesForOrgAction: vi.fn(() => mockStudies),
+}))
+
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
         user: {
@@ -91,13 +91,13 @@ beforeEach(() => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" studies={[]} />)
+        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
 
         expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" studies={mockStudies} />)
+        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
 
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()

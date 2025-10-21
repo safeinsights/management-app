@@ -9,7 +9,9 @@ import { useState } from 'react'
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()
-    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>('reviewer')
+    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>(
+        session?.belongsToEnclave ? 'reviewer' : 'researcher',
+    )
 
     if (!session) return null
 
@@ -34,19 +36,18 @@ export default function UserStudiesDashboard() {
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 
             <Paper shadow="xs" p="xl">
-                {hasLabOrg && hasDataOrg && (
-                    <Flex justify="flex-end" align="center" mb="sm">
+                <Flex justify="flex-end" align="center">
+                    {session.belongsToEnclave && session.belongsToLab ? (
                         <SegmentedControl
                             value={activeTab}
                             onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
-                            size="sm"
                             data={[
                                 { label: 'Reviewer', value: 'reviewer' },
                                 { label: 'Researcher', value: 'researcher' },
                             ]}
                         />
-                    </Flex>
-                )}
+                    ) : null}
+                </Flex>
 
                 {renderTable()}
             </Paper>

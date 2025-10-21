@@ -6,8 +6,9 @@ import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
+import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType } from '@/lib/types'
-import { getStudyStage } from '@/lib/util'
+
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -88,30 +89,34 @@ export const ReviewerUserStudiesTable = () => {
     )
 }
 
-const StudyRow = ({ study }: { study: Studies[number] }) => (
-    <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
-        <TableTd>
-            <Tooltip label={study.title}>
-                <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                    {study.title}
-                </Text>
-            </Tooltip>
-        </TableTd>
-        <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-        <TableTd>{study.createdBy}</TableTd>
-        <TableTd>{study.orgName}</TableTd>
-        <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
-        <TableTd>
-            <DisplayStudyStatus
-                audience="reviewer"
-                studyStatus={study.status}
-                jobStatusChanges={study.jobStatusChanges || []}
-            />
-        </TableTd>
-        <TableTd>
-            <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
-                View
-            </Link>
-        </TableTd>
-    </TableTr>
-)
+const StudyRow = ({ study }: { study: Studies[number] }) => {
+    const status = useStudyStatus({
+        studyStatus: study.status,
+        audience: 'reviewer',
+        jobStatusChanges: study.jobStatusChanges,
+    })
+
+    return (
+        <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+            <TableTd>
+                <Tooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                        {study.title}
+                    </Text>
+                </Tooltip>
+            </TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+            <TableTd>{study.createdBy}</TableTd>
+            <TableTd>{study.orgName}</TableTd>
+            <TableTd>{status.stage}</TableTd>
+            <TableTd>
+                <DisplayStudyStatus status={status} />
+            </TableTd>
+            <TableTd>
+                <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
+                    View
+                </Link>
+            </TableTd>
+        </TableTr>
+    )
+}

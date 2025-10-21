@@ -23,7 +23,7 @@ const baseOrgSchema = z.object({
         .refine((val) => !/^\d+$/.test(val), {
             message: 'Name cannot be only numbers',
         }),
-    email: z.string().email({ message: 'Invalid email address' }),
+    email: z.email({ message: 'Invalid email address' }),
     description: z
         .string()
         .max(250, 'Word limit is 250 characters')

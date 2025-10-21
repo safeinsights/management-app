@@ -3,11 +3,10 @@
 import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
-import { errorToString, isActionError } from '@/lib/errors'
+import { isActionError } from '@/lib/errors'
 import { orgInitials, orgInitialsTitle } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
-import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import { Stack, Text, Title } from '@mantine/core'
 
 export default async function OrgDashboardPage(props: { params: Promise<{ orgSlug: string }> }) {
@@ -18,15 +17,6 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
         throw new Error(`Organization not found: ${orgSlug}`)
     }
 
-    const studies = await fetchStudiesForOrgAction({ orgSlug })
-    if (isActionError(studies)) {
-        return (
-            <Stack p="md">
-                <Title>Error loading studies</Title>
-                <Text c="red">{errorToString(studies)}</Text>
-            </Stack>
-        )
-    }
     const isEnclave = isEnclaveOrg(org)
     const orgInitialsOnly = orgInitials(org.name, org.type, true)
     const orgInitialsTitleText = orgInitialsTitle(org.name, org.type)
@@ -45,7 +35,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
             />
             <Title order={1}>{orgInitialsTitleText} dashboard</Title>
             <Text>{description}</Text>
-            {isEnclave ? <ReviewerStudiesTable studies={studies} orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
+            {isEnclave ? <ReviewerStudiesTable orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
         </Stack>
     )
 }

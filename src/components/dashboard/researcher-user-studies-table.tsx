@@ -6,8 +6,9 @@ import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
-import { getLabOrg } from '@/lib/types'
-import { getStudyStage } from '@/lib/util'
+import { getLabOrg, ActionSuccessType } from '@/lib/types'
+import { useStudyStatus } from '@/hooks/use-study-status'
+
 import { fetchStudiesForCurrentResearcherUserAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -28,6 +29,31 @@ import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
+type Studies = ActionSuccessType<typeof fetchStudiesForCurrentResearcherUserAction>
+
+const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+    const status = useStudyStatus({
+        studyStatus: study.status,
+        audience: 'researcher',
+        jobStatusChanges: study.jobStatusChanges,
+    })
+
+    return (
+        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+            <TableTd>{study.title}</TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+            <TableTd>{study.orgName}</TableTd>
+            <TableTd>{status.stage}</TableTd>
+            <TableTd>
+                <DisplayStudyStatus status={status} />
+            </TableTd>
+            <TableTd>
+                <Link href={`/${orgSlug}/study/${study.id}/review`}>View</Link>
+            </TableTd>
+        </TableTr>
+    )
+}
 
 export const ResearcherUserStudiesTable = () => {
     const { session } = useSession()
@@ -123,9 +149,14 @@ export const ResearcherUserStudiesTable = () => {
                                 <Link href={`/${labOrg.slug}/study/${study.id}/review`}>View</Link>
                             </TableTd>
                         </TableTr>
-                    ))}
-                </TableTbody>
-            </Table>
-        </Stack>
+                    </TableThead>
+                    <TableTbody>
+                        {studies.map((study) => (
+                            <StudyRow orgSlug={labOrg.slug} study={study} key={study.id} />
+                        ))}
+                    </TableTbody>
+                </Table>
+            </Stack>
+        </Paper>
     )
 }

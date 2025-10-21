@@ -27,21 +27,15 @@ const getInitialValues = (orgData?: Org | NewOrg): ValidatedOrg => {
     if (orgData.type === 'enclave') {
         const settings = orgData.settings as { publicKey?: string } | null
         return {
-            slug: orgData.slug,
-            name: orgData.name,
-            email: '',
+            ...orgData,
             type: 'enclave',
             settings: { publicKey: settings?.publicKey || '' },
-            description: null,
         } as ValidatedOrg
     } else {
         return {
-            slug: orgData.slug,
-            name: orgData.name,
-            email: '',
+            ...orgData,
             type: 'lab',
             settings: {},
-            description: null,
         } as ValidatedOrg
     }
 }
@@ -55,7 +49,6 @@ export const EditOrgForm: FC<{
         initialValues: getInitialValues(org),
         validateInputOnBlur: true,
     })
-
     const queryClient = useQueryClient()
 
     const { isPending, mutate: upsertOrg } = useMutation({

@@ -11,7 +11,7 @@ import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file
-function fetchStudiesQuery(db: DBExecutor) {
+function fetchStudyQuery(db: DBExecutor) {
     return db
         .selectFrom('study')
         .leftJoin(
@@ -36,165 +36,91 @@ function fetchStudiesQuery(db: DBExecutor) {
                     .orderBy('createdAt', 'desc'),
             ).as('jobStatusChanges'),
         ])
+        .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
+        .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
+        .select([
+            'study.id',
+            'study.approvedAt',
+            'study.rejectedAt',
+            'study.containerLocation',
+            'study.createdAt',
+            'study.dataSources',
+            'study.irbProtocols',
+            'study.orgId',
+            'study.submittedByOrgId',
+            'study.outputMimeType',
+            'study.piName',
+            'study.researcherId',
+            'study.status',
+            'study.title',
+            'researcher.fullName as createdBy',
+            'reviewer.fullName as reviewerName',
+            'latestStudyJob.jobId as latestStudyJobId',
+        ])
+
+        .orderBy('study.createdAt', 'desc')
 }
 
 export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
     .params(z.object({ orgSlug: z.string() }))
-    .middleware(async ({ params: { orgSlug }, db }) => {
-        const org = await db
-            .selectFrom('org')
-            .select(['id as orgId'])
-            .where('slug', '=', orgSlug)
-            .executeTakeFirstOrThrow()
-        return { orgId: org.orgId }
-    })
-    .requireAbilityTo('view', 'Study')
-    .handler(async ({ db, orgId }) => {
-        return fetchStudiesQuery(db)
-            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-            .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
-            .select([
-                'study.id',
-                'study.approvedAt',
-                'study.rejectedAt',
-                'study.containerLocation',
-                'study.createdAt',
-                'study.dataSources',
-                'study.irbProtocols',
-                'study.orgId',
-                'study.outputMimeType',
-                'study.piName',
-                'study.researcherId',
-                'study.status',
-                'study.title',
-                'researcher.fullName as createdBy',
-                'reviewer.fullName as reviewerName',
-                'latestStudyJob.jobId as latestStudyJobId',
-            ])
-            .where('study.orgId', '=', orgId)
-            .orderBy('study.createdAt', 'desc')
-            .execute()
-    })
-
-export const fetchStudiesSubmittedByLabOrgAction = new Action('fetchStudiesSubmittedByLabOrgAction')
-    .params(z.object({ orgSlug: z.string() }))
-    .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db, session, params: { orgSlug } }) => {
-        // If the current user is not a member of the requested lab organisation, return an empty list.
-        const labOrg = session.orgs[orgSlug]
-        if (!labOrg) {
-            return []
+    .middleware(
+        async ({ params: { orgSlug }, db }) =>
+            await db
+                .selectFrom('org')
+                .select(['id as orgId', 'type as orgType'])
+                .where('slug', '=', orgSlug)
+                .executeTakeFirst(),
+    )
+    .requireAbilityTo('view', 'OrgStudies')
+    .handler(async ({ db, orgId, orgType }) => {
+        let query = fetchStudyQuery(db)
+        if (orgType === 'enclave') {
+            query = query.where('study.orgId', '=', orgId)
         }
-
-        return await fetchStudiesQuery(db)
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .select([
-                'study.id',
-                'study.title',
-                'study.piName',
-                'study.status',
-                'study.createdAt',
-                'org.name as reviewerTeamName',
-                'latestStudyJob.jobId as latestStudyJobId',
-            ])
-            .where('study.submittedByOrgId', '=', labOrg.id)
-            .orderBy('study.createdAt', 'desc')
+        if (orgType === 'lab') {
+            query = query.where('study.submittedByOrgId', '=', orgId)
+        }
+        return query
+            .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
+            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+            .select(['reviewerOrg.name as reviewingEnclaveName'])
+            .select(['submittingOrg.name as submittingLabName'])
             .execute()
     })
 
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db }) => {
-        return await fetchStudiesQuery(db)
+        return fetchStudyQuery(db)
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select([
-                'study.id',
-                'study.title',
-                'study.piName',
-                'study.status',
-                'study.createdAt',
-                'study.researcherId',
-                'org.name as orgName',
-                'org.slug as orgSlug',
-                'latestStudyJob.jobId as latestStudyJobId',
-            ])
-            .orderBy('study.createdAt', 'desc')
+            .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
     })
 
 export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForCurrentReviewerAction')
     .requireAbilityTo('view', 'Studies')
     .handler(async ({ db, session }) => {
-        // Get all org IDs where the user is a reviewer (belongs to enclave orgs)
         const userOrgs = Object.values(session.orgs)
         const reviewerOrgIds = userOrgs.filter((org) => org.type === 'enclave').map((org) => org.id)
-
         if (reviewerOrgIds.length === 0) {
             return []
         }
-
-        return await fetchStudiesQuery(db)
-            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-            .leftJoin('user as reviewer', (join) => join.onRef('study.reviewerId', '=', 'reviewer.id'))
-            .innerJoin('org', 'org.id', 'study.orgId')
-            .select([
-                'study.id',
-                'study.approvedAt',
-                'study.rejectedAt',
-                'study.containerLocation',
-                'study.createdAt',
-                'study.dataSources',
-                'study.irbProtocols',
-                'study.orgId',
-                'study.outputMimeType',
-                'study.piName',
-                'study.researcherId',
-                'study.reviewerId',
-                'study.status',
-                'study.title',
-                'researcher.fullName as createdBy',
-                'reviewer.fullName as reviewerName',
-                'org.name as orgName',
-                'org.slug as orgSlug',
-                'latestStudyJob.jobId as latestStudyJobId',
-            ])
+        return fetchStudyQuery(db)
             .where('study.orgId', 'in', reviewerOrgIds)
-            .orderBy('study.createdAt', 'desc')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
     })
 
 export const getStudyAction = new Action('getStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId }, db }) => {
-        const study = await db
-            .selectFrom('study')
-            .innerJoin('user as researcher', (join) => join.onRef('study.researcherId', '=', 'researcher.id'))
-            .innerJoin('org', (join) => join.onRef('study.orgId', '=', 'org.id'))
-            .select([
-                'study.id',
-                'study.approvedAt',
-                'study.rejectedAt',
-                'study.containerLocation',
-                'study.createdAt',
-                'study.dataSources',
-                'study.irbProtocols',
-                'study.orgId',
-                'study.outputMimeType',
-                'study.piName',
-                'study.researcherId',
-                'study.status',
-                'study.title',
-                'study.descriptionDocPath',
-                'study.irbDocPath',
-                'study.reviewerId',
-                'study.agreementDocPath',
-                'org.slug as orgSlug',
-            ])
-            .select('researcher.fullName as createdBy')
+        const study = await fetchStudyQuery(db)
             .where('study.id', '=', studyId)
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select(['org.slug as orgSlug', 'study.descriptionDocPath', 'study.irbDocPath', 'study.agreementDocPath'])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
-
-        return { study, orgId: study.orgId }
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })
     .requireAbilityTo('view', 'Study')
     .handler(async ({ study }) => {
