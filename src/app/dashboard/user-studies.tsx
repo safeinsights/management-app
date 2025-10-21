@@ -36,6 +36,7 @@ export default function UserStudiesDashboard() {
                         <SegmentedControl
                             value={activeTab}
                             onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
+                            mb="sm"
                             data={[
                                 { label: 'Reviewer', value: 'reviewer' },
                                 { label: 'Researcher', value: 'researcher' },
