@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
 import { mockClerkSession, renderWithProviders } from '@/tests/unit.helpers'
-import { RegenerateKeys } from './regenerate-keys'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
-import { generateKeyPair } from 'si-encryption/util/keypair'
 import router from 'next-router-mock'
+import { generateKeyPair } from 'si-encryption/util/keypair'
+import { describe, expect, it, vi } from 'vitest'
+import { RegenerateKey } from './regenerate-key'
 
 vi.mock('si-encryption/util/keypair', () => ({
     generateKeyPair: vi.fn(),
@@ -29,7 +29,7 @@ describe('Reviewer keypair regeneration', () => {
         }
         vi.mocked(generateKeyPair).mockResolvedValue(mockKeys as never)
 
-        renderWithProviders(<RegenerateKeys />)
+        renderWithProviders(<RegenerateKey />)
 
         await waitFor(() => {
             expect(screen.getByText('Reviewer key', { selector: 'h1' })).toBeDefined()

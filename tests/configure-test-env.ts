@@ -12,11 +12,23 @@ const CLERK_REVIEWER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2xxt
 
 export const CLERK_RESEARCHER_TEST_IDS: Set<string> = new Set(PROD_ENV ? [] : ['user_2xxpiScCXELkKuYlrnxqLnQh0c2'])
 
-async function setupUsers() {
-    const pubKeyStr = await readTestSupportFile('public_key.pem')
+const pubKeyStr = await readTestSupportFile('public_key.pem')
+
+async function ensurePublicKey(userId: string) {
     const pubKey = Buffer.from(pemToArrayBuffer(pubKeyStr)) // db exp;ects nodejs buffer
     const fingerprint = await readTestSupportFile('public_key.sig')
 
+    const pkey = await db.selectFrom('userPublicKey').where('userId', '=', userId).executeTakeFirst()
+
+    if (!pkey) {
+        await db
+            .insertInto('userPublicKey')
+            .values({ fingerprint, userId, publicKey: pubKey })
+            .executeTakeFirstOrThrow()
+    }
+}
+
+async function setupUsers() {
     const org = await db
         .selectFrom('org')
         .select(['id', 'settings', 'type'])
@@ -25,6 +37,7 @@ async function setupUsers() {
 
     // Update publicKey in settings for enclave org
     if (org.type === 'enclave') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const settings = org.settings as any
         if (!settings.publicKey || settings.publicKey.length < 1000) {
             await db
@@ -40,6 +53,7 @@ async function setupUsers() {
             firstName: 'Test Admin User',
             lastName: 'Test Admin User',
         })
+        await ensurePublicKey(userId)
         // Admins should be in both enclave and lab orgs
         await findOrCreateOrgMembership({
             userId,
@@ -67,14 +81,8 @@ async function setupUsers() {
     for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
         const userId = await findOrCreateSiUserId(clerkId, { firstName: 'Test Org User' })
 
-        const pkey = await db.selectFrom('userPublicKey').where('userId', '=', userId).executeTakeFirst()
+        await ensurePublicKey(userId)
 
-        if (!pkey) {
-            await db
-                .insertInto('userPublicKey')
-                .values({ fingerprint, userId, publicKey: pubKey })
-                .executeTakeFirstOrThrow()
-        }
         // Reviewers go to enclave org
         await findOrCreateOrgMembership({ userId, slug: 'openstax', isAdmin: false })
         console.log(`setup reviewer user ${userId} ${clerkId}`) // eslint-disable-line no-console

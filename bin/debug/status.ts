@@ -10,5 +10,6 @@ req.path = `job/${jobId}/status`
 req.method = 'GET'
 
 req.perform().then((json) => {
+    // eslint-disable-next-line no-console
     console.dir(json)
 })

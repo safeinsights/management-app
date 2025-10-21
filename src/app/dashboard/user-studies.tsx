@@ -9,7 +9,9 @@ import { ReviewerUserStudiesTable } from '@/components/dashboard/reviewer-user-s
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()
-    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>('reviewer')
+    const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>(
+        session?.belongsToEnclave ? 'reviewer' : 'researcher',
+    )
 
     if (!session) return null
 
@@ -27,14 +29,16 @@ export default function UserStudiesDashboard() {
 
             <Paper shadow="xs" p="xl">
                 <Flex justify="flex-end" align="center">
-                    <SegmentedControl
-                        value={activeTab}
-                        onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
-                        data={[
-                            { label: 'Reviewer', value: 'reviewer' },
-                            { label: 'Researcher', value: 'researcher' },
-                        ]}
-                    />
+                    {session.belongsToEnclave && session.belongsToLab ? (
+                        <SegmentedControl
+                            value={activeTab}
+                            onChange={(value) => setActiveTab(value as 'researcher' | 'reviewer')}
+                            data={[
+                                { label: 'Reviewer', value: 'reviewer' },
+                                { label: 'Researcher', value: 'researcher' },
+                            ]}
+                        />
+                    ) : null}
                 </Flex>
 
                 {activeTab === 'reviewer' ? <ReviewerUserStudiesTable /> : <ResearcherUserStudiesTable />}

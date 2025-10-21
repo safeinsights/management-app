@@ -9,7 +9,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { useRouter } from 'next/navigation'
 import { FC } from 'react'
 
-export const RegenerateKeys: FC = () => {
+export const RegenerateKey: FC = () => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const { session } = useSession()
     const enclaveOrg = session ? getEnclaveOrg(session) : null

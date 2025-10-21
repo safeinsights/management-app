@@ -29,7 +29,7 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
-export const fetchOrgsWithStatsAction = new Action('fetchOrgsWithStatsAction')
+export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db, session }) => {
         return await db
@@ -49,23 +49,24 @@ export const fetchOrgsWithStatsAction = new Action('fetchOrgsWithStatsAction')
             .execute()
     })
 
-export const fetchOrgsWithStudyCountsAction = new Action('fetchOrgsWithStudyCountsAction')
+export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db }) => {
         return await db
-            .selectFrom('orgUser')
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .selectFrom('org')
             .leftJoin('study', 'study.orgId', 'org.id')
+            .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
             .select([
                 'org.id',
                 'org.name',
+                'org.email',
                 'org.slug',
                 'org.type',
                 'org.settings',
-                (eb) => eb.fn.count('study.id').as('totalStudies'),
+                (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
+                (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
             ])
             .groupBy(['org.id'])
-            .where('orgUser.userId', '=', session.user.id)
             .execute()
     })
 

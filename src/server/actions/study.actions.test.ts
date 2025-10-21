@@ -14,7 +14,7 @@ import { latestJobForStudy } from '../db/queries'
 import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
-    fetchStudiesSubmittedByLabOrgAction,
+    fetchStudiesForOrgAction,
     getStudyAction,
 } from './study.actions'
 
@@ -28,6 +28,35 @@ describe('Study Actions', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        const job = await latestJobForStudy(study.id)
+
+        expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
+    })
+
+    it('successfully approves a python language study proposal', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+
+        await db
+            .insertInto('orgBaseImage')
+            .values({
+                name: 'Python Base',
+                language: 'PYTHON',
+                cmdLine: 'python %f',
+                url: 'test/url',
+                isTesting: true,
+                orgId: org.id,
+            })
+            .execute()
+
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            language: 'PYTHON',
+        })
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
         const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
@@ -148,7 +177,7 @@ describe('Study Actions', () => {
         })
     })
 
-    it('fetchStudiesSubmittedByLabOrgAction requires user to be a researcher', async () => {
+    it('fetchStudiesForOrgAction requires user to be a researcher', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         const otherOrg = await insertTestOrg()
@@ -156,11 +185,13 @@ describe('Study Actions', () => {
 
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        await expect(fetchStudiesSubmittedByLabOrgAction({ orgSlug: org.slug })).resolves.toEqual(
+        await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toEqual(
             expect.arrayContaining([expect.objectContaining({ id: studyId })]),
         )
 
         mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id })
-        await expect(fetchStudiesSubmittedByLabOrgAction({ orgSlug: org.slug })).resolves.toHaveLength(0)
+        await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
     })
 })
