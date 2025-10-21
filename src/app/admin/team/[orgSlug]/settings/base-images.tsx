@@ -51,6 +51,15 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
             <Table.Td>{image.language}</Table.Td>
             <Table.Td>{image.url}</Table.Td>
             <Table.Td>{image.cmdLine}</Table.Td>
+            <Table.Td>
+                {image.skeletonCodeUrl ? (
+                    <a href={image.skeletonCodeUrl} target="_blank" rel="noopener noreferrer">
+                        Download
+                    </a>
+                ) : (
+                    'N/A'
+                )}
+            </Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
                 <DeleteBaseImg />
@@ -78,6 +87,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
                     <Table.Th>Language</Table.Th>
                     <Table.Th>URL</Table.Th>
                     <Table.Th>Command Line</Table.Th>
+                    <Table.Th>Starter Code</Table.Th>
                     <Table.Th>Is Testing</Table.Th>
                     <Table.Th>Actions</Table.Th>
                 </Table.Tr>
