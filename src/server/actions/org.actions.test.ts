@@ -95,6 +95,12 @@ describe('Org Actions', () => {
             const newName = 'Updated Org Name Successfully by Test'
             const newDescription = 'Updated Org Description Successfully by Test'
 
+            const secondOrg = await insertTestOrg({
+                slug: faker.string.alpha(),
+                name: initialName,
+                description: initialDescription,
+            })
+
             const result = actionResult(
                 await updateOrgSettingsAction({
                     orgSlug: targetOrgSlug,
@@ -102,12 +108,6 @@ describe('Org Actions', () => {
                     description: newDescription,
                 }),
             )
-
-            const secondOrg = await insertTestOrg({
-                slug: faker.string.alpha(),
-                name: initialName,
-                description: initialDescription,
-            })
 
             expect(result).toEqual({
                 success: true,

@@ -70,10 +70,18 @@ describe('triggerBuildImageForJob', () => {
             { name: 'DOCKER_BASE_IMAGE_LOCATION', value: mockJobInfo.baseImageURL },
             { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' }, // %f replaced
             { name: 'DOCKER_CODE_LOCATION', value: `a-bad-url:job-123` },
+            {
+                name: 'ON_FAILURE_PAYLOAD',
+                value: JSON.stringify({
+                    jobId: mockJobInfo.studyJobId,
+                    status: 'JOB-ERRORED',
+                    message: 'Containerization process failed',
+                }),
+            },
         ]
 
         expect(startBuildCommandArgs.environmentVariablesOverride).toEqual(expect.arrayContaining(expectedEnvVars))
-        expect(startBuildCommandArgs.environmentVariablesOverride.length).toBe(expectedEnvVars.length)
+        expect(startBuildCommandArgs.environmentVariablesOverride.length).toBe(7)
 
         // Assert that send was called on the client
         const codeBuildClientInstance = (CodeBuildClient as unknown as Mock).mock.results[0].value
