@@ -92,7 +92,7 @@ export const latestJobForStudy = async (studyId: string) => {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt'])
+                    .select(['jobStatusChange.status', 'jobStatusChange.createdAt', 'jobStatusChange.message'])
                     .orderBy('createdAt', 'desc')
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id'),
             ).as('statusChanges'),

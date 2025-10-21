@@ -177,6 +177,14 @@ export async function triggerBuildImageForJob(
                         status: 'JOB-READY',
                     }),
                 },
+                {
+                    name: 'ON_FAILURE_PAYLOAD',
+                    value: JSON.stringify({
+                        jobId: info.studyJobId,
+                        status: 'JOB-ERRORED',
+                        message: 'Containerization process failed',
+                    }),
+                },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
                 { name: 'DOCKER_CMD_LINE', value: cmd },
                 { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.baseImageURL },
