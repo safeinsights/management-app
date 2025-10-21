@@ -39,7 +39,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
         const { name, cmdLine, language, url, isTesting } = validationResult.data
         const skeletonCodeFile = formData.get('skeletonCode') as File | null
 
-        // TODO: Handle file upload to S3 and get the URL.
+        // TODO: Handle file upload to S3 and get the URL. Incorporate lib/paths and use the file record ID for path generation.
         const skeletonCodeUrl = skeletonCodeFile ? `https://example.com/skeletons/${skeletonCodeFile.name}` : null
 
         const newBaseImage = await db

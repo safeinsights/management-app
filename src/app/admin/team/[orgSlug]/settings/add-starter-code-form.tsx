@@ -11,7 +11,7 @@ import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { FileCodeIcon } from '@phosphor-icons/react/dist/ssr'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 1024 * 1024 // 1MB
 
 const schema = z.object({
     name: z.string().min(1, { message: 'Name is required' }),
