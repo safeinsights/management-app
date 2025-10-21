@@ -64,9 +64,10 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
 
         await page.getByRole('button', { name: 'Submit', exact: true }).click()
 
-        const role = page.locator('label').filter({ hasText: 'Researcher' })
-        await role.click()
+        // Wait until redirected to user dashboard
+        await page.waitForURL('**/dashboard')
 
+        // For users who are only researchers, the role toggle isn't present so verify the study appears
         await expect(page.getByRole('row').filter({ hasText: studyFeatures.studyTitle })).toBeVisible()
     })
 
