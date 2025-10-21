@@ -6,9 +6,9 @@ import { ButtonLink, Link } from '@/components/links'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { useSession } from '@/hooks/session'
 import { errorToString } from '@/lib/errors'
-import { getLabOrg } from '@/lib/types'
-import { getStudyStage } from '@/lib/util'
+import { getLabOrg, ActionSuccessType } from '@/lib/types'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
+
 import {
     Divider,
     Flex,
@@ -28,6 +28,9 @@ import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
 import * as React from 'react'
+import { useStudyStatus } from '@/hooks/use-study-status'
+
+type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
@@ -47,6 +50,31 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
         </TableTd>
     </TableTr>
 )
+
+const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+    const status = useStudyStatus({
+        studyStatus: study.status,
+        audience: 'researcher',
+        jobStatusChanges: study.jobStatusChanges,
+    })
+
+    return (
+        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+            <TableTd>{study.title}</TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+            <TableTd>{study.reviewingEnclaveName}</TableTd>
+            <TableTd>{status.stage}</TableTd>
+            <TableTd>
+                <DisplayStudyStatus status={status} />
+            </TableTd>
+            <TableTd>
+                <Link href={`/${orgSlug}/study/${study.id}/view`} aria-label={`View details for study ${study.title}`}>
+                    View
+                </Link>
+            </TableTd>
+        </TableTr>
+    )
+}
 
 export const ResearcherStudiesTable: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -68,26 +96,7 @@ export const ResearcherStudiesTable: React.FC = () => {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />
     }
 
-    const rows = studies.map((study) => (
-        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
-            <TableTd>{study.title}</TableTd>
-            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-            <TableTd>{study.reviewingEnclaveName}</TableTd>
-            <TableTd>{getStudyStage(study.status, 'researcher')}</TableTd>
-            <TableTd>
-                <DisplayStudyStatus
-                    studyStatus={study.status}
-                    audience="researcher"
-                    jobStatusChanges={study.jobStatusChanges}
-                />
-            </TableTd>
-            <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/view`} aria-label={`View details for study ${study.title}`}>
-                    View
-                </Link>
-            </TableTd>
-        </TableTr>
-    ))
+    const rows = studies.map((study) => <StudyRow key={study.id} study={study} orgSlug={labOrg.slug} />)
 
     return (
         <Paper shadow="xs" p="xxl">
@@ -110,7 +119,7 @@ export const ResearcherStudiesTable: React.FC = () => {
                             <TableTh fw={600}>Study Details</TableTh>
                         </TableTr>
                     </TableThead>
-                    <TableTbody>{studies.length > 0 ? rows : <NoStudiesRow slug={labOrg.slug} />}</TableTbody>
+                    <TableTbody>{rows.length > 0 ? rows : <NoStudiesRow slug={labOrg.slug} />}</TableTbody>
                 </Table>
             </Stack>
         </Paper>

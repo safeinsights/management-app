@@ -1,26 +1,11 @@
 'use client'
 
-import { type StudyStatus } from '@/database/types'
-import { useStudyStatus, type MinimalStatusChange } from '@/hooks/use-study-status'
+import { StatusLabel } from '@/lib/status-labels'
 import { Flex, Text, Tooltip } from '@mantine/core'
 import React, { FC } from 'react'
 
-export const DisplayStudyStatus: FC<{
-    studyStatus: StudyStatus
-    audience: 'reviewer' | 'researcher'
-    jobStatusChanges: MinimalStatusChange[]
-}> = ({ audience, studyStatus, jobStatusChanges }) => {
-    const statusLabel = useStudyStatus({
-        studyStatus,
-        audience,
-        jobStatusChanges,
-    })
-
-    if (!statusLabel) {
-        return null
-    }
-
-    const { label, tooltip } = statusLabel
+export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
+    const { label, tooltip } = status
     const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
 
     const statusStyle: Record<'Approved' | 'Errored' | 'Rejected' | 'Under Review', { color?: string }> = {
