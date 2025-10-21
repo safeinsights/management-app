@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/nextjs'
-import { StudyStage } from './types'
 
 export type TimeOpts =
     | { [key: number]: 'ms' }
@@ -40,25 +39,4 @@ export function sanitizeFileName(fileName: string) {
         .replace(/^\/+/, '') // leading slashes
         .replace(/\.\./g, '') // no directory traversal with ..
         .replace(/[^\x00-\x7F]/g, '') // non-ascii
-}
-
-// helper function to get the stage based on status and audience
-export function getStudyStage(status: string, audience: 'researcher' | 'reviewer'): StudyStage {
-    const normalizedStatus = status.toLowerCase().replace(/_/g, '-')
-
-    if (normalizedStatus.includes('results-')) {
-        return 'Results'
-    }
-
-    if (audience === 'researcher') {
-        if (['approved', 'code-approved', 'job-errored'].includes(normalizedStatus)) {
-            return 'Code'
-        }
-    } else {
-        if (normalizedStatus.startsWith('job-') || ['approved', 'code-approved'].includes(normalizedStatus)) {
-            return 'Code'
-        }
-    }
-
-    return 'Proposal'
 }
