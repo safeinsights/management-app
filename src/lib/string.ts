@@ -53,31 +53,40 @@ export function titleize(str: string) {
     return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 }
 
-// Returns only the initials or the initials with the icon type suffix
-export function orgInitials(orgName: string, type: string, initialsOnly: boolean = false) {
-    if (!orgName || !type) {
-        return ''
-    }
+// ----- Organization initials helpers -----
 
-    // Remove whitespace and take up to first 3 characters
-    const compact = orgName.replace(/\s+/g, '')
-    const firstThree = compact.substring(0, Math.min(3, compact.length)).toUpperCase()
-
-    if (initialsOnly) {
-        return firstThree
-    }
-
-    return firstThree + (type === 'enclave' ? '-D' : '-L')
+// Map of suffixes based on organization type
+const ORG_SUFFIX_SHORT: Record<string, string> = {
+    enclave: '-D',
+    lab: '-L',
 }
 
-// Returns the initials with the title text type suffix
-export function orgInitialsTitle(orgName: string, type: string) {
-    if (!orgName || !type) {
-        return ''
-    }
+const ORG_SUFFIX_LONG: Record<string, string> = {
+    enclave: '-Data Org',
+    lab: '-Research Lab',
+}
 
+// Shared helper that derives the 1-3 character uppercase initials
+function orgFirstThree(orgName: string): string {
+    if (!orgName) return ''
     const compact = orgName.replace(/\s+/g, '')
-    const firstThree = compact.substring(0, Math.min(3, compact.length)).toUpperCase()
+    return compact.substring(0, Math.min(3, compact.length)).toUpperCase()
+}
 
-    return firstThree + (type === 'enclave' ? '-Data Org' : '-Research Lab')
+// Returns only the initials or the initials with the icon type suffix (short form)
+export function orgInitials(orgName: string, type: string, initialsOnly: boolean = false) {
+    if (!orgName || !type) return ''
+
+    const firstThree = orgFirstThree(orgName)
+    if (initialsOnly) return firstThree
+
+    return firstThree + ORG_SUFFIX_SHORT[type]
+}
+
+// Returns the initials with the title text type suffix (long form)
+export function orgInitialsTitle(orgName: string, type: string) {
+    if (!orgName || !type) return ''
+
+    const firstThree = orgFirstThree(orgName)
+    return firstThree + ORG_SUFFIX_LONG[type]
 }
