@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDidUpdate } from '@mantine/hooks'
-import { type TimeOpts, timeOptsToMS } from '@/lib/util'
+import { type TimeOpts, timeOptsToMS } from '@/lib/utils'
 
 interface UseTimerOptions {
     isEnabled: boolean
