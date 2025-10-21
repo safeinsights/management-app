@@ -15,7 +15,15 @@ describe('Base Images Actions', () => {
             isTesting: true,
         }
 
-        const result = actionResult(await createOrgBaseImageAction({ orgSlug: org.slug, ...baseImageData }))
+        const formData = new FormData()
+        formData.append('name', baseImageData.name)
+        formData.append('cmdLine', baseImageData.cmdLine)
+        formData.append('language', baseImageData.language)
+        formData.append('url', baseImageData.url)
+        formData.append('isTesting', baseImageData.isTesting.toString())
+        formData.append('skeletonCode', new File(['test content'], 'test.txt'))
+
+        const result = actionResult(await createOrgBaseImageAction({ orgSlug: org.slug, formData }))
         expect(result).toBeDefined()
         expect(result.url).toEqual(baseImageData.url)
     })
