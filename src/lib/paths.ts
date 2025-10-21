@@ -1,5 +1,5 @@
 import type { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
-import { sanitizeFileName } from './util'
+import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
 

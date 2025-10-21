@@ -3,21 +3,12 @@
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
-import { ActionSuccessType, type UserSession } from '@/lib/types'
+import { ActionSuccessType } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_IMAGE_BUILD } from '../config'
 import { Action, z } from './action'
-
-const labOrgIds = (session: UserSession) =>
-    Object.values(session.orgs)
-        .filter((org) => org.type === 'lab')
-        .map((org) => org.id)
-const enclaveOrgIds = (session: UserSession) =>
-    Object.values(session.orgs)
-        .filter((org) => org.type === 'enclave')
-        .map((org) => org.id)
 
 // NOT exported, for internal use by actions in this file
 function fetchStudyQuery(db: DBExecutor) {
@@ -81,21 +72,19 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, session, orgType }) => {
+    .handler(async ({ db, orgId, orgType }) => {
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            query = query.where('study.orgId', 'in', enclaveOrgIds(session))
+            query = query.where('study.orgId', '=', orgId)
         }
         if (orgType === 'lab') {
-            query = query.where('study.orgId', 'in', labOrgIds(session))
+            query = query.where('study.submittedByOrgId', '=', orgId)
         }
         return query
-            .where('study.orgId', '=', orgId)
             .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
             .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
             .select(['reviewerOrg.name as reviewingEnclaveName'])
             .select(['submittingOrg.name as submittingLabName'])
-
             .execute()
     })
 
