@@ -25,9 +25,7 @@ export default function UserStudiesDashboard() {
 
     return (
         <Stack p="xxl" gap="xxl">
-            <Title order={1} mb="sm">
-                My dashboard
-            </Title>
+            <Title order={1}>My dashboard</Title>
             <Text>Welcome to your personal dashboard! Here, you can track the status of all your studies.</Text>
 
             <Paper shadow="xs" p="xl">
