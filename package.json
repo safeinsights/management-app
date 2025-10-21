@@ -94,7 +94,7 @@
         "@next/eslint-plugin-next": "^15.5.2",
         "@octokit/rest": "^22.0.0",
         "@pandacss/dev": "^1.2.0",
-        "@playwright/test": "^1.55",
+        "@playwright/test": "^1.56",
         "@testing-library/jest-dom": "^6.8.0",
         "@testing-library/react": "^16.3",
         "@testing-library/user-event": "^14.6.1",
