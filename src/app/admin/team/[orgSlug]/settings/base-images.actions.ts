@@ -23,7 +23,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
         const rawData = {
             name: formData.get('name') as string,
             cmdLine: formData.get('cmdLine') as string,
-            language: formData.get('language') as 'R' | 'Python',
+            language: formData.get('language') as 'R' | 'PYTHON',
             url: formData.get('url') as string,
             isTesting: formData.get('isTesting') === 'true',
         }
@@ -48,7 +48,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
                 orgId: orgId,
                 name,
                 cmdLine,
-                language,
+                language: language as 'R' | 'PYTHON',
                 url,
                 isTesting,
                 skeletonCodeUrl,

@@ -3,11 +3,10 @@
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { Language } from '@/database/types'
-import { Button, Checkbox, Select, Stack, TextInput } from '@mantine/core'
+import { Button, Checkbox, FileInput, Select, Stack, TextInput } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction } from './base-images.actions'
-import { orgBaseImageSchema } from './base-images.schema'
+import { orgBaseImageFormSchema } from './base-images.schema'
 
 type FormValues = z.infer<typeof orgBaseImageFormSchema>
 
@@ -22,7 +21,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
         initialValues: {
             name: '',
             cmdLine: '',
-            language: 'R' as Language,
+            language: 'R',
             url: '',
             isTesting: false,
             skeletonCode: undefined,
