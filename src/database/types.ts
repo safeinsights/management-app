@@ -106,6 +106,16 @@ export interface OrgBaseImage {
     url: string
 }
 
+export interface OrgStarterCode {
+    id: Generated<string>
+    orgId: string
+    name: string
+    language: Language
+    url: string
+    createdAt: Generated<Timestamp>
+    updatedAt: Generated<Timestamp>
+}
+
 export interface OrgUser {
     id: Generated<string>
     isAdmin: boolean
@@ -186,6 +196,7 @@ export interface DB {
     jobStatusChange: JobStatusChange
     org: Org
     orgBaseImage: OrgBaseImage
+    orgStarterCode: OrgStarterCode
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study

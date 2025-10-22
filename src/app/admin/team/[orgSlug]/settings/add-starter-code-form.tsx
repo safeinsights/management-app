@@ -57,7 +57,7 @@ export const AddStarterCodeForm: React.FC<AddStarterCodeFormProps> = ({ onComple
         onError: reportMutationError('Failed to add starter code'),
     })
 
-    const handleSubmit = async (values: typeof form.values) => {
+    const handleSubmit = (values: typeof form.values) => {
         if (!values.file) return
         mutation.mutate({ ...values, orgSlug, file: values.file })
     }
