@@ -34,7 +34,7 @@ const StarterCodeRow: React.FC<{ starterCode: StarterCode }> = ({ starterCode })
             const url = data.url
             const link = document.createElement('a')
             link.href = url
-            link.download = starterCode.fileName
+            link.download = starterCode.name
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
@@ -58,7 +58,7 @@ const StarterCodeRow: React.FC<{ starterCode: StarterCode }> = ({ starterCode })
                     onClick={handleDownload}
                     loading={downloadMutation.isPending}
                 >
-                    {starterCode.fileName}
+                    {starterCode.name}
                 </Button>
             </Table.Td>
             <Table.Td>
