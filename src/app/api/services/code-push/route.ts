@@ -6,7 +6,8 @@ import { NextResponse } from 'next/server'
 
 const schema = z.object({
     jobId: z.string(),
-    status: z.enum(['JOB-PACKAGING', 'JOB-READY']),
+    status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
+    message: z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
             userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
             studyJobId: job.jobId,
             status: body.status,
+            message: body.message,
         })
         .execute()
 

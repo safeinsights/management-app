@@ -12,13 +12,16 @@ interface ErroredProps {
     isApproved: boolean
     isRejected: boolean
     jobId: string
+    statusChanges: LatestJobForStudy['statusChanges']
 }
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const { isApproved, isRejected, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
-        return <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} />
+        return (
+            <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} statusChanges={job.statusChanges} />
+        )
     }
 
     if (isComplete) {
@@ -54,7 +57,11 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
     return <Text>Study results will become available once the data organization reviews and approves them.</Text>
 }
 
-const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
+const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId, statusChanges }) => {
+    // Find the error message from the JOB-ERRORED status change
+    const errorStatusChange = statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
+    const errorMessage = errorStatusChange?.message
+
     let message: string | null = null
     if (isApproved) {
         message = 'The code errored out! Review error logs and consider re-submitting an updated study code.'
@@ -70,6 +77,16 @@ const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
     return (
         <Stack>
             <Text>{message}</Text>
+            {errorMessage && (
+                <Stack gap="xs">
+                    <Text size="sm" fw="bold">
+                        Error Details:
+                    </Text>
+                    <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                        {errorMessage}
+                    </Text>
+                </Stack>
+            )}
             <Group justify="flex-start" align="center">
                 <Text size="xs" fw="bold">
                     Job ID:
