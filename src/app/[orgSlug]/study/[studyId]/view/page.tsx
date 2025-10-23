@@ -1,15 +1,16 @@
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { isActionError } from '@/lib/errors'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { latestJobForStudy } from '@/server/db/queries'
 import { JobResults } from '@/components/job-results'
-import { StudyDetails } from '@/components/study/study-details'
-import { getStudyAction } from '@/server/actions/study.actions'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
-import React from 'react'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
+import { CreateWorkspaceButton } from '@/components/study/create-workspace-button'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { StudyDetails } from '@/components/study/study-details'
+import { isActionError } from '@/lib/errors'
+import { getStudyAction } from '@/server/actions/study.actions'
+import { latestJobForStudy } from '@/server/db/queries'
+import { currentUser } from '@clerk/nextjs/server'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { JobResultsStatusMessage } from './job-results-status-message'
 
 export const dynamic = 'force-dynamic'
@@ -19,11 +20,17 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     // getStudyAction will check permissions
     const study = await getStudyAction({ studyId })
+    const user = await currentUser()
     if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
     const job = await latestJobForStudy(studyId)
+    const email = user?.primaryEmailAddress?.emailAddress ?? ''
+    let name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`
+    if (name.length === 0) {
+        name = study.researcherId
+    }
 
     return (
         <Stack p="xl" gap="xl">
@@ -55,7 +62,16 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
+                        <Group>
+                            <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
+                            <CreateWorkspaceButton
+                                name={name}
+                                email={email}
+                                userId={study.researcherId}
+                                studyId={studyId}
+                                studyTitle={study.title}
+                            />
+                        </Group>
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
