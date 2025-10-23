@@ -3,13 +3,12 @@
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { Language } from '@/database/types'
-import { Button, Checkbox, Select, Stack, TextInput } from '@mantine/core'
+import { Button, Checkbox, FileInput, Select, Stack, TextInput } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction } from './base-images.actions'
-import { orgBaseImageSchema } from './base-images.schema'
+import { orgBaseImageFormSchema } from './base-images.schema'
 
-type FormValues = z.infer<typeof orgBaseImageSchema>
+type FormValues = z.infer<typeof orgBaseImageFormSchema>
 
 interface AddBaseImageFormProps {
     onCompleteAction: () => void
@@ -22,11 +21,12 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
         initialValues: {
             name: '',
             cmdLine: '',
-            language: 'R' as Language,
+            language: 'R',
             url: '',
             isTesting: false,
+            skeletonCode: undefined,
         },
-        validate: zodResolver(orgBaseImageSchema),
+        validate: zodResolver(orgBaseImageFormSchema),
     })
 
     const { mutate: updateBaseImage, isPending } = useMutation({
@@ -39,7 +39,17 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
     })
 
     const onSubmit = form.onSubmit((values) => {
-        updateBaseImage({ orgSlug, ...values })
+        const formData = new FormData()
+        formData.append('name', values.name)
+        formData.append('cmdLine', values.cmdLine)
+        formData.append('language', values.language)
+        formData.append('url', values.url)
+        formData.append('isTesting', values.isTesting.toString())
+        if (values.skeletonCode) {
+            formData.append('skeletonCode', values.skeletonCode)
+        }
+
+        updateBaseImage({ orgSlug, formData })
     })
 
     return (
@@ -66,6 +76,12 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                     description="network path where base image is stored, including tag"
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
+                />
+                <FileInput
+                    label="Starter Code"
+                    description="Upload starter code to assist Researchers with their coding experience."
+                    placeholder="Select a file"
+                    {...form.getInputProps('skeletonCode')}
                 />
                 <Checkbox
                     label="Is Testing Image"

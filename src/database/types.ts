@@ -41,7 +41,7 @@ export type JsonPrimitive = boolean | number | string | null
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type Language = 'PYTHON' | 'R'
+export type Language = 'R' | 'PYTHON'
 
 export type OrgType = 'enclave' | 'lab'
 
@@ -102,7 +102,18 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
+    skeletonCodeUrl: string | null
     url: string
+}
+
+export interface OrgStarterCode {
+    id: Generated<string>
+    orgId: string
+    name: string
+    language: Language
+    url: string
+    createdAt: Generated<Timestamp>
+    updatedAt: Generated<Timestamp>
 }
 
 export interface OrgUser {
@@ -185,6 +196,7 @@ export interface DB {
     jobStatusChange: JobStatusChange
     org: Org
     orgBaseImage: OrgBaseImage
+    orgStarterCode: OrgStarterCode
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study
