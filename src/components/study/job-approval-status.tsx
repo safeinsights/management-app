@@ -1,6 +1,6 @@
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { Group, Stack, Text } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -30,25 +30,13 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     )
 }
 
-export const CodeApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
+export const CodeApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job }) => {
     const codeStatusChange = job.statusChanges.find((statusChange) => {
         return statusChange.status === 'CODE-APPROVED' || statusChange.status === 'CODE-REJECTED'
     })
 
     if (!codeStatusChange) {
         return null
-    }
-
-    if (codeStatusChange.status === 'CODE-REJECTED') {
-        return (
-            <Stack>
-                <Text>
-                    This study&apos;s code has not been approved by the data organization. Consider re-submitting an
-                    updated study code.
-                </Text>
-                <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
-            </Stack>
-        )
     }
 
     return <JobApprovalStatus statusChange={codeStatusChange} />
