@@ -2,7 +2,7 @@
 
 import { isActionError } from '@/lib/errors'
 import { createUserAndWorkspace, getStudyWorkspaceUrl } from '@/server/actions/coder.actions'
-import { Button, Group, Text } from '@mantine/core'
+import { Button, Group, Alert } from '@mantine/core'
 import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
@@ -11,9 +11,17 @@ interface OpenWorkspaceButtonProps {
     userId: string
     studyId: string
     alreadyExists: boolean
+    isReady: boolean
 }
 
-export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExists }: OpenWorkspaceButtonProps) => {
+// Helper function to open workspace in new tab
+const openWorkspaceInNewTab = (url: string) => {
+    const target = '_blank'
+    const windowRef = window.open(url, target)
+    if (windowRef) windowRef.focus()
+}
+
+export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExists, isReady }: OpenWorkspaceButtonProps) => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
@@ -28,16 +36,13 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExist
                 const workspaceUrlResponse = await getStudyWorkspaceUrl({ email, userId, studyId })
                 if (!isActionError(workspaceUrlResponse)) {
                     console.warn(`Workspace ${workspaceUrlResponse.url}`)
-                    const url = workspaceUrlResponse.url
-                    const target = '_blank'
-                    const windowRef = window.open(url, target)
-                    if (windowRef) windowRef.focus()
-                    setSuccess('Workspace opened successfully')
+                    openWorkspaceInNewTab(workspaceUrlResponse.url)
+                    setSuccess('Workspace opened successfully in a new tab')
                 } else {
                     setError(
                         typeof workspaceUrlResponse.error === 'string'
                             ? workspaceUrlResponse.error
-                            : 'An unknown error occurred',
+                            : 'Failed to retrieve workspace URL',
                     )
                 }
             } else {
@@ -50,31 +55,56 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExist
                 })
 
                 if (isActionError(result)) {
-                    setError(typeof result.error === 'string' ? result.error : 'An unknown error occurred')
+                    setError(typeof result.error === 'string' ? result.error : 'Failed to create workspace')
                 } else if (result.success) {
-                    setSuccess(`Workspace created successfully: ${result.workspaceName}`)
-                    const url = result.workspace.url
-                    const target = '_blank'
-                    const windowRef = window.open(url, target)
-                    if (windowRef) windowRef.focus()
+                    setSuccess(`Workspace creation in progress!: ${result.workspaceName}`)
                 } else {
                     setError('Failed to create workspace')
                 }
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred')
+            const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred'
+            setError(`Operation failed: ${errorMessage}`)
         } finally {
             setLoading(false)
         }
     }
 
     return (
-        <Group>
-            <Button onClick={handleOpenWorkspace} loading={loading} disabled={loading}>
-                {loading ? 'Processing...' : (alreadyExists ? 'Open' : 'Create') + ' Workspace'}
+        <Group gap="sm">
+            {error && (
+                <Alert 
+                    variant="light" 
+                    color="red" 
+                    title="Error" 
+                    style={{ marginTop: '0.5rem' }}
+                    aria-live="assertive"
+                >
+                    {error}
+                </Alert>
+            )}
+            {success && (
+                <Alert 
+                    variant="light" 
+                    color="green" 
+                    title="Success" 
+                    style={{ marginTop: '0.5rem' }}
+                    aria-live="polite"
+                >
+                    {success}
+                </Alert>
+            )}
+            <Button 
+                onClick={handleOpenWorkspace} 
+                loading={loading} 
+                disabled={loading || (alreadyExists && !isReady)}
+                aria-busy={loading}
+                aria-disabled={loading || (alreadyExists && !isReady)}
+            >
+                {
+                    !alreadyExists ? 'Create Workspace' : isReady ? 'Open Workspace' : 'Creating Workspace'
+                }
             </Button>
-            {error && <Text c="red">{error}</Text>}
-            {success && <Text c="green">{success}</Text>}
         </Group>
     )
 }

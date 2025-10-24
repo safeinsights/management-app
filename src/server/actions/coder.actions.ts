@@ -93,7 +93,7 @@ export const checkWorkspaceExists = new Action('checkWorkspaceExists', { perform
             // Return true if workspace exists (200 OK), false if not found (404)
             return {
                 exists: response.ok,
-                data: response.json(),
+                data: await response.json(),
             }
         } catch (error) {
             console.error('Error checking workspace existence:', error)
