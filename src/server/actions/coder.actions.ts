@@ -8,11 +8,11 @@ function generateUsername(email: string, userId: string) {
     const emailUsername = email.split('@')[0] || ''
 
     // Remove all non-alphanumeric characters and convert to lowercase
-    let username = emailUsername.replace(/[^a-z0-9]/gi, '').toLowerCase()
+    let username = emailUsername.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
 
     // If username is empty or too short, use userId
     if (username.length === 0) {
-        username = userId.replace(/[^a-z0-9]/gi, '').toLowerCase()
+        username = userId.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
     }
 
     // Truncate to less than 10 characters
@@ -25,17 +25,20 @@ function generateUsername(email: string, userId: string) {
 
 function generateWorkspaceName(studyId: string) {
     return studyId
-        .replace(/[^a-z0-9]/gi, '')
+        .replaceAll(/[^a-z0-9]/gi, '')
         .toLowerCase()
-        .substring(0.31)
+        .substring(0, 10)
 }
 
 export const getStudyWorkspaceUrl = new Action('getStudyWorkspaceUrl', { performsMutations: false })
     .params(
         z.object({
-            userId: z.string().nonempty().trim(),
-            studyId: z.string().nonempty().trim(),
-            email: z.string().nonempty().email('Invalid email address'),
+            userId: z.string().nonempty(),
+            studyId: z.string().nonempty(),
+            email: z
+                .string()
+                .nonempty()
+                .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address'),
         }),
     )
     .handler(async ({ params: { userId, email, studyId } }) => {
@@ -53,9 +56,12 @@ export const getStudyWorkspaceUrl = new Action('getStudyWorkspaceUrl', { perform
 export const checkWorkspaceExists = new Action('checkWorkspaceExists', { performsMutations: false })
     .params(
         z.object({
-            email: z.string().nonempty().email('Invalid email address'),
-            userId: z.string().nonempty().trim(),
-            studyId: z.string().nonempty().trim(),
+            email: z
+                .string()
+                .nonempty()
+                .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address'),
+            userId: z.string().nonempty(),
+            studyId: z.string().nonempty(),
         }),
     )
     .handler(async ({ params: { userId, email, studyId } }) => {
@@ -87,21 +93,25 @@ export const checkWorkspaceExists = new Action('checkWorkspaceExists', { perform
             // Return true if workspace exists (200 OK), false if not found (404)
             return {
                 exists: response.ok,
+                data: response.json(),
             }
         } catch (error) {
             console.error('Error checking workspace existence:', error)
             // If there's an error (other than 404), we'll consider it as workspace not existing
-            return { exists: false }
+            return { exists: false, data: undefined }
         }
     })
 
 export const createUserAndWorkspace = new Action('createUserAndWorkspace', { performsMutations: true })
     .params(
         z.object({
-            name: z.string().nonempty().trim(),
-            userId: z.string().nonempty().trim(),
-            email: z.string().nonempty().email('Invalid email address'),
-            studyId: z.string().nonempty().trim(),
+            name: z.string().nonempty(),
+            userId: z.string().nonempty(),
+            email: z
+                .string()
+                .nonempty()
+                .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address'),
+            studyId: z.string().nonempty(),
         }),
     )
     .handler(async ({ params: { name, userId, email, studyId } }) => {
