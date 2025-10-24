@@ -1,12 +1,13 @@
 import { AlertNotFound } from '@/components/errors'
 import { JobResults } from '@/components/job-results'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { CreateWorkspaceButton } from '@/components/study/create-workspace-button'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
+import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
 import { isActionError } from '@/lib/errors'
+import { checkWorkspaceExists } from '@/server/actions/coder.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { currentUser } from '@clerk/nextjs/server'
@@ -24,13 +25,22 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
+    let workspaceAlreadyExists = false
 
     const job = await latestJobForStudy(studyId)
     const email = user?.primaryEmailAddress?.emailAddress ?? ''
+    const userId = study.researcherId
     let name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`
     if (name.length === 0) {
         name = study.researcherId
     }
+
+    const workspaceData = await checkWorkspaceExists({
+        email,
+        userId,
+        studyId,
+    })
+    if (!isActionError(workspaceData)) workspaceAlreadyExists = workspaceData.exists
 
     return (
         <Stack p="xl" gap="xl">
@@ -64,12 +74,12 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         </Title>
                         <Group>
                             <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
-                            <CreateWorkspaceButton
+                            <OpenWorkspaceButton
                                 name={name}
                                 email={email}
                                 userId={study.researcherId}
                                 studyId={studyId}
-                                studyTitle={study.title}
+                                alreadyExists={workspaceAlreadyExists}
                             />
                         </Group>
                     </Group>

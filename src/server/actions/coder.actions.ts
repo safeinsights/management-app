@@ -30,9 +30,70 @@ function generateWorkspaceName(studyId: string) {
         .substring(0.31)
 }
 
-function userWorkspaceUrl(endpoint: string) {
-    return `${endpoint}/workspaces`
-}
+export const getStudyWorkspaceUrl = new Action('getStudyWorkspaceUrl', { performsMutations: false })
+    .params(
+        z.object({
+            userId: z.string().nonempty().trim(),
+            studyId: z.string().nonempty().trim(),
+            email: z.string().nonempty().email('Invalid email address'),
+        }),
+    )
+    .handler(async ({ params: { userId, email, studyId } }) => {
+        const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
+        if (!CODER_API_ENDPOINT) {
+            throw new Error('CODER_API_ENDPOINT environment variable is not set')
+        }
+        const workspaceName = generateWorkspaceName(studyId)
+        const userName = generateUsername(email, userId)
+        return {
+            url: `${CODER_API_ENDPOINT}/@${userName}/${workspaceName}.main/apps/code-server`,
+        }
+    })
+
+export const checkWorkspaceExists = new Action('checkWorkspaceExists', { performsMutations: false })
+    .params(
+        z.object({
+            email: z.string().nonempty().email('Invalid email address'),
+            userId: z.string().nonempty().trim(),
+            studyId: z.string().nonempty().trim(),
+        }),
+    )
+    .handler(async ({ params: { userId, email, studyId } }) => {
+        // Load environment variables
+        const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
+        const CODER_TOKEN = process.env.CODER_TOKEN
+
+        if (!CODER_API_ENDPOINT) {
+            throw new Error('CODER_API_ENDPOINT environment variable is not set')
+        }
+        if (!CODER_TOKEN) {
+            throw new Error('CODER_TOKEN environment variable is not set')
+        }
+        const workspaceName = generateWorkspaceName(studyId)
+        const username = generateUsername(email, userId)
+
+        console.warn(`Checking workspace ${workspaceName} for user ${username}`)
+        try {
+            // Check if workspace exists using the API endpoint
+            // GET /users/{user}/workspace/{workspacename}
+            const response = await fetch(`${CODER_API_ENDPOINT}/api/v2/users/${username}/workspace/${workspaceName}`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'Coder-Session-Token': CODER_TOKEN,
+                },
+            })
+
+            // Return true if workspace exists (200 OK), false if not found (404)
+            return {
+                exists: response.ok,
+            }
+        } catch (error) {
+            console.error('Error checking workspace existence:', error)
+            // If there's an error (other than 404), we'll consider it as workspace not existing
+            return { exists: false }
+        }
+    })
 
 export const createUserAndWorkspace = new Action('createUserAndWorkspace', { performsMutations: true })
     .params(
@@ -41,10 +102,9 @@ export const createUserAndWorkspace = new Action('createUserAndWorkspace', { per
             userId: z.string().nonempty().trim(),
             email: z.string().nonempty().email('Invalid email address'),
             studyId: z.string().nonempty().trim(),
-            studyTitle: z.string().nonempty().trim().max(32, 'The name cannot be longer than 32 characters'),
         }),
     )
-    .handler(async ({ params: { name, userId, email, studyId, studyTitle } }) => {
+    .handler(async ({ params: { name, userId, email, studyId } }) => {
         // Load environment variables
         const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
         const CODER_TOKEN = process.env.CODER_TOKEN
@@ -66,7 +126,6 @@ export const createUserAndWorkspace = new Action('createUserAndWorkspace', { per
         }
 
         let userData
-        let userCreated = false
 
         try {
             // First, try to get the user by name
@@ -106,7 +165,6 @@ export const createUserAndWorkspace = new Action('createUserAndWorkspace', { per
                 }
 
                 userData = await createUserResponse.json()
-                userCreated = true
             } else {
                 // Some other error occurred
                 const errorText = await userResponse.text()
@@ -115,7 +173,7 @@ export const createUserAndWorkspace = new Action('createUserAndWorkspace', { per
 
             // Prepare workspace name
             const data = {
-                name: studyTitle,
+                name: generateWorkspaceName(studyId),
                 template_id: CODER_TEMPLATE_ID,
                 automatic_updates: 'always',
                 rich_parameter_values: [
@@ -152,8 +210,6 @@ export const createUserAndWorkspace = new Action('createUserAndWorkspace', { per
                 user: userData,
                 workspace: workspaceData,
                 workspaceName: generateWorkspaceName(studyId),
-                userCreated: userCreated,
-                url: userWorkspaceUrl(CODER_API_ENDPOINT),
             }
         } catch (error) {
             console.error('Error in createUserAndWorkspace:', error)
