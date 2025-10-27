@@ -25,7 +25,16 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
         return await db
             .selectFrom('org')
             .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
-            .select(['org.id', 'org.name', 'org.slug', 'pendingUser.email'])
+            .leftJoin('user as invitingUser', 'invitingUser.id', 'pendingUser.invitedByUserId')
+            .select([
+                'org.id',
+                'org.name',
+                'org.slug',
+                'pendingUser.isAdmin',
+                'pendingUser.email',
+                'invitingUser.firstName as invitingUserFirstName',
+                'invitingUser.lastName as invitingUserLastName',
+            ])
             .where('pendingUser.id', '=', inviteId)
             .executeTakeFirstOrThrow()
     })
@@ -99,7 +108,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 emailAddress: invite.email,
             })
 
-            // auto-verify email (the user has already followed the emailed invite link)
+            // auto-verify email (the user has already followed the email invite link)
             await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
         }
 

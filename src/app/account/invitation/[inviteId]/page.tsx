@@ -50,7 +50,8 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
     }
 
     if (pendingInvite?.matchingUser) {
-        redirect(`/account/invitation/${inviteId}/join-team`, RedirectType.replace)
+        // redirect to the join team page after signing in
+        redirect(`/account/signin?redirect_url=/account/invitation/${inviteId}/join-team`, RedirectType.replace)
     } else {
         return (
             <InviteAccountPanel
