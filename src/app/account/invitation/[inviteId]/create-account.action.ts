@@ -25,7 +25,7 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
         return await db
             .selectFrom('org')
             .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
-            .leftJoin('user as invitingUser', 'invitingUser.id', 'pendingUser.invitedByUserId')
+            .innerJoin('user as invitingUser', 'invitingUser.id', 'pendingUser.invitedByUserId')
             .select([
                 'org.id',
                 'org.name',
