@@ -1,5 +1,4 @@
-'use client'
-
+import { type StatusChange } from '@/components/use-job-results-status'
 import { CopyingInput } from '@/components/copying-input'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -12,13 +11,16 @@ interface ErroredProps {
     isApproved: boolean
     isRejected: boolean
     jobId: string
+    statusChanges: StatusChange[]
 }
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
     const { isApproved, isRejected, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
 
     if (isErrored) {
-        return <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} />
+        return (
+            <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} statusChanges={job.statusChanges} />
+        )
     }
 
     if (isComplete) {
@@ -30,13 +32,25 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.
                     </Text>
                     <Group>
-                        <DownloadButton />
+                        <DownloadButton studyId={job.studyId} jobId={job.id} />
                         <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                     </Group>
                 </Stack>
             )
         }
 
+        const isCodeRejected = job.statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
+        if (isCodeRejected) {
+            return (
+                <Stack>
+                    <Text>
+                        This study&apos;s code has not been approved by the data organization. Consider re-submitting an
+                        updated study code.
+                    </Text>
+                    <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
+                </Stack>
+            )
+        }
         if (isRejected) {
             return (
                 <Stack>
@@ -54,13 +68,18 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
     return <Text>Study results will become available once the data organization reviews and approves them.</Text>
 }
 
-const Errored: FC<ErroredProps> = ({ isApproved, isRejected, jobId }) => {
+const Errored: FC<ErroredProps> = ({ jobId, statusChanges }) => {
     let message: string | null = null
-    if (isApproved) {
-        message = 'The code errored out! Review error logs and consider re-submitting an updated study code.'
-    } else if (isRejected) {
+    const isCodeRejected = statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
+    const isFilesRejected = statusChanges.some((sc) => sc.status === 'FILES-REJECTED')
+
+    if (isCodeRejected) {
         message =
             'The code errored out! While logs are not available at this time, consider re-submitting an updated study code.'
+    } else if (isFilesRejected) {
+        message = 'The results errored out! Review error logs and consider re-submitting an updated study code.'
+    } else {
+        message = 'The study job errored out! Review error logs and consider re-submitting an updated study code.'
     }
 
     if (!message) {
