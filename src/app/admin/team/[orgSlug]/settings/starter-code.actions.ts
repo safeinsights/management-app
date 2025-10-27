@@ -6,7 +6,8 @@ import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
 import { s3BucketName, getS3Client, signedUrlForFile } from '@/server/aws'
-import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { pathForStarterCode, s3UrlForStarterCode } from '@/lib/paths'
 
 const createStarterCodeSchema = z.object({
     orgSlug: z.string(),
@@ -22,23 +23,43 @@ export const createStarterCodeAction = new Action('createStarterCodeAction')
     .handler(async ({ params, orgId, db }) => {
         const { name, language, file, orgSlug } = params
 
-        // TODO: Handle file upload to S3 and get the URL.
-        const fileUrl = `https://example.com/starter-code/${file.name}`
-
-        const newStarterCode = await db
-            .insertInto('orgStarterCode')
+        // create base image record first
+        const newBaseImage = await db
+            .insertInto('orgBaseImage')
             .values({
                 orgId: orgId,
                 name,
                 language: language.toUpperCase() as 'R' | 'PYTHON',
-                url: fileUrl,
+                cmdLine: '',
+                url: '',
+                isTesting: false,
             })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const s3Key = pathForStarterCode(orgId, newBaseImage.id)
+
+        // upload to S3
+        const fileBuffer = Buffer.from(await file.arrayBuffer())
+        await getS3Client().send(
+            new PutObjectCommand({
+                Bucket: s3BucketName(),
+                Key: s3Key,
+                Body: fileBuffer,
+                ContentType: file.type,
+            }),
+        )
+
+        const updated = await db
+            .updateTable('orgBaseImage')
+            .set({ skeletonCodeUrl: s3UrlForStarterCode(orgId, newBaseImage.id, s3BucketName()) })
+            .where('id', '=', newBaseImage.id)
             .returningAll()
             .executeTakeFirstOrThrow()
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
 
-        return newStarterCode
+        return updated
     })
 
 const fetchStarterCodesSchema = z.object({
@@ -50,10 +71,12 @@ export const fetchStarterCodesAction = new Action('fetchStarterCodesAction')
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
     .handler(async ({ orgId, db }) => {
+        // Fetch only base images that have skeleton code
         return await db
-            .selectFrom('orgStarterCode')
-            .selectAll('orgStarterCode')
-            .where('orgStarterCode.orgId', '=', orgId)
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.skeletonCodeUrl', 'is not', null)
             .execute()
     })
 
@@ -61,22 +84,23 @@ const deleteStarterCodeSchema = z.object({
     orgSlug: z.string(),
     id: z.string(),
 })
+
 export const deleteStarterCodeAction = new Action('deleteStarterCodeAction')
     .params(deleteStarterCodeSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ orgId, params: { id, orgSlug }, db }) => {
-        const starterCode = await db
-            .selectFrom('orgStarterCode')
-            .selectAll('orgStarterCode')
-            .where('orgStarterCode.orgId', '=', orgId)
-            .where('orgStarterCode.id', '=', id)
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
             .executeTakeFirst()
 
-        if (starterCode && starterCode.url.startsWith('s3://')) {
-            const s3Key = starterCode.url.replace(`s3://${s3BucketName()}/`, '')
+        if (baseImage?.skeletonCodeUrl) {
+            const s3Key = pathForStarterCode(orgId, id)
 
-            // delete the file from S3
+            // delete from S3
             try {
                 await getS3Client().send(
                     new DeleteObjectCommand({
@@ -90,9 +114,9 @@ export const deleteStarterCodeAction = new Action('deleteStarterCodeAction')
         }
 
         await db
-            .deleteFrom('orgStarterCode')
-            .where('orgStarterCode.orgId', '=', orgId)
-            .where('orgStarterCode.id', '=', id)
+            .deleteFrom('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
             .executeTakeFirstOrThrow(throwNotFound(`Failed to delete starter code with id ${id}`))
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
@@ -108,21 +132,20 @@ export const downloadStarterCodeAction = new Action('downloadStarterCodeAction')
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
     .handler(async ({ params: { id }, orgId, db }) => {
-        const starterCode = await db
-            .selectFrom('orgStarterCode')
-            .selectAll('orgStarterCode')
-            .where('orgStarterCode.orgId', '=', orgId)
-            .where('orgStarterCode.id', '=', id)
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
             .executeTakeFirst()
 
-        if (!starterCode) {
+        if (!baseImage?.skeletonCodeUrl) {
             throw throwNotFound(`Starter code with id ${id} not found`)
         }
 
-        // extract S3 key from URL
-        const s3Key = starterCode.url.replace(`s3://${s3BucketName()}/`, '')
+        const s3Key = pathForStarterCode(orgId, id)
 
         const downloadUrl = await signedUrlForFile(s3Key)
 
-        return { url: downloadUrl, fileName: starterCode.name }
+        return { url: downloadUrl, fileName: baseImage.name }
     })

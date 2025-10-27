@@ -19,6 +19,12 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
+// Starter code paths
+export const pathForStarterCode = (orgId: string, baseImageId: string) => `starter-code/${orgId}/${baseImageId}`
+
+export const s3UrlForStarterCode = (orgId: string, baseImageId: string, bucketName: string) =>
+    `s3://${bucketName}/${pathForStarterCode(orgId, baseImageId)}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 
