@@ -33,6 +33,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
         validateInputOnBlur: true,
         initialValues: {
             email: '',
+            permission: '',
         },
     })
 
@@ -59,6 +60,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             onSubmit={studyProposalForm.onSubmit((values) =>
                 inviteUser({
                     ...values,
+                    permission: values.permission as 'contributor' | 'admin',
                 }),
             )}
         >

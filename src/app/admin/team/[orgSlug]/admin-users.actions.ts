@@ -48,6 +48,7 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .values({
                 orgId,
                 email: invite.email,
+                isAdmin: invite.permission === 'admin',
             })
             .returning('id')
             .executeTakeFirstOrThrow()
