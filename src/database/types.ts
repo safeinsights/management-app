@@ -118,6 +118,7 @@ export interface PendingUser {
     createdAt: Generated<Timestamp>
     email: string
     id: Generated<string>
+    invitedByUserId: string | null
     isAdmin: Generated<boolean>
     orgId: string
 }

@@ -1,9 +1,10 @@
 'use client'
 
-import { zodResolver, useMutation, useQueryClient, useForm } from '@/common'
+import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { SuccessPanel } from '@/components/panel'
+import { useSession } from '@/hooks/session'
 import { Button, Flex, Radio, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
@@ -29,6 +30,7 @@ const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
 
 const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, onInvited }) => {
     const queryClient = useQueryClient()
+    const { session, isLoaded } = useSession()
 
     const studyProposalForm = useForm({
         validate: zodResolver(inviteUserSchema),
@@ -40,7 +42,8 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
     })
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
-        mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
+        mutationFn: (invite: InviteUserFormValues) =>
+            orgAdminInviteUserAction({ invite, orgSlug, invitedByUserId: session?.user.id ?? '' }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data) {
             studyProposalForm.reset()
@@ -92,7 +95,12 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 </Radio.Group>
             </Flex>
 
-            <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid()}>
+            <Button
+                type="submit"
+                mt="sm"
+                loading={isInviting}
+                disabled={!studyProposalForm.isValid() || !isLoaded || !session}
+            >
                 Send invitation
             </Button>
         </form>

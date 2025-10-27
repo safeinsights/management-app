@@ -1,6 +1,6 @@
 import { db } from '@/database'
 import { sendInviteEmail } from '@/server/mailer'
-import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
+import { actionResult, faker, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { getPendingUsersAction, orgAdminInviteUserAction, reInviteUserAction } from './admin-users.actions'
 
@@ -22,7 +22,7 @@ describe('Admin Users Actions', () => {
             permission: 'admin' as const,
         }
 
-        await orgAdminInviteUserAction({ orgSlug: org.slug, invite })
+        await orgAdminInviteUserAction({ orgSlug: org.slug, invite, invitedByUserId: faker.string.uuid() })
 
         const pendingUser = await db
             .selectFrom('pendingUser')
