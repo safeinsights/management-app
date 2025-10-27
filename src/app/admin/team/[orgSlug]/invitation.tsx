@@ -4,7 +4,7 @@ import { zodResolver, useMutation, useQueryClient, useForm } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { SuccessPanel } from '@/components/panel'
-import { Button, TextInput } from '@mantine/core'
+import { Button, Flex, Radio, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
@@ -75,6 +75,22 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid()}>
                 Send invitation
             </Button>
+            <Flex mb="sm" fw="semibold">
+                <Radio.Group
+                    label="Assign Permissions"
+                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
+                    name="permission"
+                    {...studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
+                >
+                    <Flex gap="md" mt="xs" direction="column">
+                        <Radio
+                            value="contributor"
+                            label="Contributor (full access within their role; no admin privileges)"
+                        />
+                        <Radio value="admin" label="Administrator (manages org-level settings and contributors)" />
+                    </Flex>
+                </Radio.Group>
+            </Flex>
         </form>
     )
 }
