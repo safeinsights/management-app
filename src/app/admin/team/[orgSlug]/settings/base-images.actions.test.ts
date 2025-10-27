@@ -7,25 +7,21 @@ describe('Base Images Actions', () => {
     it('createOrgBaseImageAction creates a base image', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        const baseImageData = {
-            name: 'Test Image',
-            cmdLine: 'test command',
-            language: 'R' as const,
-            url: 'test-url',
-            isTesting: true,
-        }
+        const result = actionResult(
+            await createOrgBaseImageAction({
+                orgSlug: org.slug,
+                name: 'Test Image',
+                cmdLine: 'test command',
+                language: 'r',
+                url: 'test-url',
+                isTesting: true,
+            }),
+        )
 
-        const formData = new FormData()
-        formData.append('name', baseImageData.name)
-        formData.append('cmdLine', baseImageData.cmdLine)
-        formData.append('language', baseImageData.language)
-        formData.append('url', baseImageData.url)
-        formData.append('isTesting', baseImageData.isTesting.toString())
-        formData.append('skeletonCode', new File(['test content'], 'test.txt'))
-
-        const result = actionResult(await createOrgBaseImageAction({ orgSlug: org.slug, formData }))
         expect(result).toBeDefined()
-        expect(result.url).toEqual(baseImageData.url)
+        expect(result.url).toEqual('test-url')
+        expect(result.name).toEqual('Test Image')
+        expect(result.skeletonCodeUrl).toBeNull()
     })
 
     it('deleteOrgBaseImageAction deletes a base image', async () => {
@@ -39,6 +35,7 @@ describe('Base Images Actions', () => {
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
+                skeletonCodeUrl: null,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -60,6 +57,7 @@ describe('Base Images Actions', () => {
                 language: 'R',
                 url: 'test-url',
                 isTesting: true,
+                skeletonCodeUrl: null,
             })
             .execute()
 
