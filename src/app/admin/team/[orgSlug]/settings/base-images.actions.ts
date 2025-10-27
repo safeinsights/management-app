@@ -2,97 +2,146 @@
 
 import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
-import { throwNotFound } from '@/lib/errors'
-import { Action, ActionFailure } from '@/server/actions/action'
-
-import { orgBaseImageSchema } from './base-images.schema'
+import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
+import { throwNotFound } from '@/lib/errors'
+import { s3BucketName, getS3Client, signedUrlForFile } from '@/server/aws'
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { pathForStarterCode, s3UrlForStarterCode } from '@/lib/paths'
 
-const actionSchema = z.object({
+const createStarterCodeSchema = z.object({
     orgSlug: z.string(),
-    formData: z.instanceof(FormData),
+    name: z.string(),
+    language: z.enum(['r', 'python']),
+    file: z.instanceof(File),
 })
 
-export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
-    .params(actionSchema)
+export const createStarterCodeAction = new Action('createStarterCodeAction')
+    .params(createStarterCodeSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { formData, orgSlug } = params
-
-        const rawData = {
-            name: formData.get('name') as string,
-            cmdLine: formData.get('cmdLine') as string,
-            language: formData.get('language') as 'R' | 'PYTHON',
-            url: formData.get('url') as string,
-            isTesting: formData.get('isTesting') === 'true',
-        }
-
-        const validationResult = orgBaseImageSchema.safeParse(rawData)
-        if (!validationResult.success) {
-            throw new ActionFailure({
-                message: 'Validation failed',
-                errors: JSON.stringify(validationResult.error.flatten()),
-            })
-        }
-
-        const { name, cmdLine, language, url, isTesting } = validationResult.data
-        const skeletonCodeFile = formData.get('skeletonCode') as File | null
-
-        // TODO: Handle file upload to S3 and get the URL. Incorporate lib/paths and use the file record ID for path generation.
-        const skeletonCodeUrl = skeletonCodeFile ? `https://example.com/skeletons/${skeletonCodeFile.name}` : null
+        const { name, language, file, orgSlug } = params
 
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
                 orgId: orgId,
                 name,
-                cmdLine,
-                language: language as 'R' | 'PYTHON',
-                url,
-                isTesting,
-                skeletonCodeUrl,
+                language: language.toUpperCase() as 'R' | 'PYTHON',
+                cmdLine: '',
+                url: '',
+                isTesting: false,
             })
             .returningAll()
-            .executeTakeFirstOrThrow(throwNotFound(`Failed to create new image`))
+            .executeTakeFirstOrThrow()
 
-        // Revalidate the page to show the new image immediately
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
+        const s3Key = pathForStarterCode(orgId, newBaseImage.id)
 
-        return newBaseImage
-    })
+        const fileBuffer = Buffer.from(await file.arrayBuffer())
+        await getS3Client().send(
+            new PutObjectCommand({
+                Bucket: s3BucketName(),
+                Key: s3Key,
+                Body: fileBuffer,
+                ContentType: file.type,
+            }),
+        )
 
-const deleteOrgBaseImageSchema = z.object({
-    orgSlug: z.string(),
-    imageId: z.string(),
-})
-
-export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
-    .params(deleteOrgBaseImageSchema)
-    .middleware(orgIdFromSlug)
-    .requireAbilityTo('update', 'Org')
-    .handler(async ({ orgId, params: { imageId, orgSlug }, db }) => {
-        await db
-            .deleteFrom('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
-            .where('orgBaseImage.id', '=', imageId)
-            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${imageId}`))
+        const updated = await db
+            .updateTable('orgBaseImage')
+            .set({ skeletonCodeUrl: s3UrlForStarterCode(orgId, newBaseImage.id, s3BucketName()) })
+            .where('id', '=', newBaseImage.id)
+            .returningAll()
+            .executeTakeFirstOrThrow()
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
+
+        return updated
     })
 
-const fetchOrgBaseImagesSchema = z.object({
+const fetchStarterCodesSchema = z.object({
     orgSlug: z.string(),
 })
-export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
-    .params(fetchOrgBaseImagesSchema)
+
+export const fetchStarterCodesAction = new Action('fetchStarterCodesAction')
+    .params(fetchStarterCodesSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
     .handler(async ({ orgId, db }) => {
         return await db
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')
-
             .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.skeletonCodeUrl', 'is not', null)
             .execute()
+    })
+
+const deleteStarterCodeSchema = z.object({
+    orgSlug: z.string(),
+    id: z.string(),
+})
+
+export const deleteStarterCodeAction = new Action('deleteStarterCodeAction')
+    .params(deleteStarterCodeSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ orgId, params: { id, orgSlug }, db }) => {
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
+            .executeTakeFirst()
+
+        if (baseImage?.skeletonCodeUrl) {
+            const s3Key = pathForStarterCode(orgId, id)
+
+            try {
+                await getS3Client().send(
+                    new DeleteObjectCommand({
+                        Bucket: s3BucketName(),
+                        Key: s3Key,
+                    }),
+                )
+            } catch (error) {
+                console.error(`Failed to delete S3 file: ${s3Key}`, error)
+            }
+        }
+
+        await db
+            .deleteFrom('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
+            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete starter code with id ${id}`))
+
+        revalidatePath(`/admin/team/${orgSlug}/settings`)
+    })
+
+const downloadStarterCodeSchema = z.object({
+    orgSlug: z.string(),
+    id: z.string(),
+})
+
+export const downloadStarterCodeAction = new Action('downloadStarterCodeAction')
+    .params(downloadStarterCodeSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'Org')
+    .handler(async ({ params: { id }, orgId, db }) => {
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .selectAll('orgBaseImage')
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', id)
+            .executeTakeFirst()
+
+        if (!baseImage?.skeletonCodeUrl) {
+            throw throwNotFound(`Starter code with id ${id} not found`)
+        }
+
+        const s3Key = pathForStarterCode(orgId, id)
+
+        const downloadUrl = await signedUrlForFile(s3Key)
+
+        return { url: downloadUrl, fileName: baseImage.name }
     })
