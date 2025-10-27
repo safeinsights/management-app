@@ -6,7 +6,7 @@ import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
 import { s3BucketName, getS3Client, signedUrlForFile } from '@/server/aws'
-import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
+import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { pathForStarterCode, s3UrlForStarterCode } from '@/lib/paths'
 
 const createStarterCodeSchema = z.object({
@@ -85,7 +85,7 @@ const deleteStarterCodeSchema = z.object({
     id: z.string(),
 })
 
-export const deleteStarterCodeAction = new Action('deleteStarterCodeAction')
+export const deleteStarterCodeAction = new Action('deleteStarterCodeAction', { performsMutations: true })
     .params(deleteStarterCodeSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
@@ -96,21 +96,8 @@ export const deleteStarterCodeAction = new Action('deleteStarterCodeAction')
             .where('orgBaseImage.orgId', '=', orgId)
             .where('orgBaseImage.id', '=', id)
             .executeTakeFirst()
-
-        if (baseImage?.skeletonCodeUrl) {
-            const s3Key = pathForStarterCode(orgId, id)
-
-            // delete from S3
-            try {
-                await getS3Client().send(
-                    new DeleteObjectCommand({
-                        Bucket: s3BucketName(),
-                        Key: s3Key,
-                    }),
-                )
-            } catch (error) {
-                console.error(`Failed to delete S3 file: ${s3Key}`, error)
-            }
+        if (!baseImage?.skeletonCodeUrl) {
+            throw throwNotFound(`Starter code with id ${id} not found`)
         }
 
         await db
