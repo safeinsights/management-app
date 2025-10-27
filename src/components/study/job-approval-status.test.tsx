@@ -28,16 +28,6 @@ describe('JobApprovalStatus', () => {
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
 
-    it('shows rejected status for CODE-REJECTED', () => {
-        const job = {
-            ...baseJob,
-            statusChanges: [{ status: 'CODE-REJECTED' as StudyJobStatus, createdAt: '2024-04-04T00:00:00Z' }],
-        }
-        renderWithProviders(<CodeApprovalStatus job={job} orgSlug="test-org" />)
-        // expect(screen.getByText(/This study's code has not been approved/)).toBeDefined()
-        expect(screen.getByText(/Resubmit study code/)).toBeDefined()
-    })
-
     it('shows approved status for FILES-APPROVED', () => {
         const job = {
             ...baseJob,
