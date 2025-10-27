@@ -1,5 +1,5 @@
 import { db } from '@/database'
-import { faker, insertTestOrg, insertTestUser, mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
+import { actionResult, faker, insertTestOrg, insertTestUser, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { auth as clerkAuth, clerkClient } from '@clerk/nextjs/server'
 import { v7 } from 'uuid'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
@@ -20,9 +20,11 @@ describe('Create Account Actions', () => {
         name: '',
         type: 'enclave',
     }
+    let invitingUser: { user: { id: string } }
 
     beforeEach(async () => {
         org = await insertTestOrg()
+        invitingUser = await insertTestUser({ org })
         const client = clerkClient as unknown as Mock
         const auth = clerkAuth as unknown as Mock
         auth.mockResolvedValue({
@@ -61,6 +63,7 @@ describe('Create Account Actions', () => {
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -92,6 +95,7 @@ describe('Create Account Actions', () => {
                 orgId: org.id,
                 email: user.email!,
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -117,6 +121,7 @@ describe('Create Account Actions', () => {
                 orgId: newOrg.id,
                 email: user.email!,
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -143,6 +148,7 @@ describe('Create Account Actions', () => {
                 orgId: org.id,
                 email: user.email!,
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -162,6 +168,7 @@ describe('Create Account Actions', () => {
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -184,6 +191,7 @@ describe('Create Account Actions', () => {
                 orgId: org.id,
                 email: faker.internet.email({ provider: 'test.com' }),
                 isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
