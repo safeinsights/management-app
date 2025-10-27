@@ -39,17 +39,14 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
     })
 
     const onSubmit = form.onSubmit((values) => {
-        const formData = new FormData()
-        formData.append('name', values.name)
-        formData.append('cmdLine', values.cmdLine)
-        formData.append('language', values.language)
-        formData.append('url', values.url)
-        formData.append('isTesting', values.isTesting.toString())
-        if (values.skeletonCode) {
-            formData.append('skeletonCode', values.skeletonCode)
-        }
-
-        updateBaseImage({ orgSlug, formData })
+        updateBaseImage({
+            orgSlug,
+            name: values.name,
+            cmdLine: values.cmdLine,
+            language: (values.language ?? '').toLowerCase() as 'r' | 'python',
+            url: values.url,
+            isTesting: values.isTesting,
+        })
     })
 
     return (
@@ -62,18 +59,17 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
                     description="Command used to execute scripts.  %f will be subsituted with main code file"
                     {...form.getInputProps('cmdLine')}
                 />
+
                 <Select
                     label="Language"
                     placeholder="Select language"
                     data={[
-                        { value: 'R', label: 'R' },
-                        { value: 'PYTHON', label: 'Python' },
+                        { value: 'r', label: 'R' },
+                        { value: 'python', label: 'Python' },
                     ]}
                     {...form.getInputProps('language')}
                 />
                 <TextInput
-                    label="Location"
-                    description="network path where base image is stored, including tag"
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
