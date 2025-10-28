@@ -55,6 +55,7 @@ export const InviteSearchParams = z.object({
 
 // ============================================================================
 // Route Definitions
+// based on https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 // ============================================================================
 
 export const Routes = {

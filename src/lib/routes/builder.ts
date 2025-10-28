@@ -1,5 +1,6 @@
 import type { Route } from 'next'
 import type { z, ZodSchema } from 'zod'
+// based on https://www.flightcontrol.dev/blog/fix-nextjs-routing-to-have-full-type-safety
 
 /**
  * Type for a callable route builder with attached properties
