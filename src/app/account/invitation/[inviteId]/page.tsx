@@ -5,7 +5,7 @@ import { Button, Flex, Paper, Text, Title } from '@mantine/core'
 import { redirect, RedirectType } from 'next/navigation'
 import { FC } from 'react'
 import { SignOutPanel } from './signout-panel'
-
+import { type Route } from 'next'
 export const dynamic = 'force-dynamic'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
@@ -107,7 +107,7 @@ const InviteAccountPanel: FC<{
                     variant="outline"
                     size="lg"
                     component={Link}
-                    href={`/account/invitation/${inviteId}/signup`}
+                    href={`/account/invitation/${inviteId}/signup` as Route}
                     w="100%"
                 >
                     Create New Account

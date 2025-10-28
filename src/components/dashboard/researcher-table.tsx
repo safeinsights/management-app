@@ -27,6 +27,7 @@ import {
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { useParams } from 'next/navigation'
+import type { Route } from 'next'
 import * as React from 'react'
 import { useStudyStatus } from '@/hooks/use-study-status'
 
@@ -34,7 +35,7 @@ type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
-        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/${orgSlug}/study/request`}>
+        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/${orgSlug}/study/request` as Route}>
             Propose New Study
         </ButtonLink>
     )
@@ -68,7 +69,10 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/view`} aria-label={`View details for study ${study.title}`}>
+                <Link
+                    href={`/${orgSlug}/study/${study.id}/view` as Route}
+                    aria-label={`View details for study ${study.title}`}
+                >
                     View
                 </Link>
             </TableTd>

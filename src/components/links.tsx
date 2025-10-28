@@ -5,23 +5,26 @@ import { Anchor as MantineAnchor, AnchorProps, Button, ButtonProps } from '@mant
 import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import NextLink from 'next/link'
+import type { Route } from 'next'
 
 export type LinkProps = AnchorProps & {
-    href: string
+    href: Route
     target?: string
     children: ReactNode
 }
 
-export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
-    <NextLink href={href} target={target} passHref>
-        <MantineAnchor component="span" {...anchorProps}>
-            {children}
-        </MantineAnchor>
-    </NextLink>
-)
+export function Link({ href, target, children, ...anchorProps }: LinkProps) {
+    return (
+        <NextLink href={href} target={target} passHref>
+            <MantineAnchor component="span" {...anchorProps}>
+                {children}
+            </MantineAnchor>
+        </NextLink>
+    )
+}
 
 export type ButtonLinkProps = ButtonProps & {
-    href: string
+    href: Route<string>
     target?: string
     children: ReactNode
     fullWidth?: boolean

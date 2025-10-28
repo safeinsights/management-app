@@ -8,7 +8,7 @@ import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType, getLabOrg } from '@/lib/types'
-
+import { type Route } from 'next'
 import { fetchStudiesForCurrentResearcherUserAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -49,7 +49,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/view`}>View</Link>
+                <Link href={`/${orgSlug}/study/${study.id}/view` as Route}>View</Link>
             </TableTd>
         </TableTr>
     )
@@ -94,7 +94,7 @@ export const ResearcherUserStudiesTable = () => {
                     <Text>You haven&apos;t started a study yet</Text>
                     <ButtonLink
                         leftSection={<PlusIcon />}
-                        href={`/${labOrg.slug}/study/request`}
+                        href={`/${labOrg.slug}/study/request` as Route}
                         data-testid="new-study"
                     >
                         Propose New Study
@@ -112,7 +112,7 @@ export const ResearcherUserStudiesTable = () => {
                     <ButtonLink
                         leftSection={<PlusIcon />}
                         data-testid="new-study"
-                        href={`/${labOrg.slug}/study/request`}
+                        href={`/${labOrg.slug}/study/request` as Route}
                     >
                         Propose New Study
                     </ButtonLink>

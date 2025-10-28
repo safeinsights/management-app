@@ -32,7 +32,7 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
             rightSection={<DownloadIcon />}
             style={{ cursor: 'pointer' }}
         >
-            {truncatedText}
+            <span>{truncatedText}</span>
         </Badge>
     )
 

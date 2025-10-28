@@ -12,7 +12,7 @@ import { FC, useState } from 'react'
 import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
 import { VerifyCode } from './verify-code'
-
+import { type Route } from 'next'
 import { notifications } from '@mantine/notifications'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 export const dynamic = 'force-dynamic'
@@ -67,7 +67,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     if (result?.redirectToReviewerKey) {
                         router.push('/account/keys')
                     } else {
-                        let redirectUrl = searchParams.get('redirect_url')
+                        let redirectUrl: Route = (searchParams.get('redirect_url') as Route) || '/'
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
@@ -76,7 +76,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     loggedInEmail: signInAttempt?.identifier || undefined,
                                 })
                                 const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                redirectUrl = `/${slug}/dashboard`
+                                redirectUrl = `/${slug}/dashboard` as Route
 
                                 const email = signInAttempt?.identifier || 'your account'
                                 notifications.show({
@@ -97,7 +97,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
                     const redirectUrl = searchParams.get('redirect_url')
-                    router.push(redirectUrl || '/')
+                    router.push((redirectUrl || '/') as Route)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

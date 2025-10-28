@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import type { StudyStatus } from '@/database/types'
+import type { Route } from 'next'
 import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
@@ -37,7 +38,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         onError: reportMutationError('Failed to update study status'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            router.push(backPath)
+            router.push(backPath as Route)
         },
     })
 

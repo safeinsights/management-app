@@ -3,6 +3,7 @@ import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Badge, Flex } from '@mantine/core'
+import type { Route } from 'next'
 import { ButtonLink, type ButtonLinkProps } from '../links'
 import { SiBulbLogo } from './svg/si-bulb-logo'
 
@@ -61,7 +62,6 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             <Square color="white" my="lg" href="/dashboard">
                 <SiBulbLogo width={24} />
             </Square>
-
             {orgs.map((org) => {
                 const isActive = org.slug === focusedOrgSlug
                 const wrapperBg = isActive ? (org.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : 'purple.8'
@@ -77,7 +77,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         <Square
                             color="white"
                             isActive={isActive}
-                            href={`/${org.slug}/dashboard`}
+                            href={`/${org.slug}/dashboard` as Route}
                             eventCount={org.eventCount}
                         >
                             {orgInitials(org.name, org.type)}

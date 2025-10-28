@@ -1,5 +1,6 @@
 import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { FC } from 'react'
 
 export const PageBreadcrumbs: FC<{
@@ -13,7 +14,7 @@ export const PageBreadcrumbs: FC<{
                         <Anchor
                             c="blue.7"
                             component={Link}
-                            href={href}
+                            href={href as Route}
                             key={index}
                             style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
                         >
