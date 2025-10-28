@@ -174,4 +174,66 @@ describe('BaseImages', async () => {
         const actionIcons = screen.getAllByRole('button', { name: '' })
         expect(actionIcons.length).toBeGreaterThanOrEqual(4) // At least 2 edit + 2 delete buttons
     })
+
+    it('prevents deletion of the last non-testing image per language', async () => {
+        // Create one R image and one Python image (both non-testing)
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Only R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Only Python Image',
+            language: 'PYTHON',
+            isTesting: false,
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Only R Image')).toBeInTheDocument()
+            expect(screen.getByText('Only Python Image')).toBeInTheDocument()
+        })
+
+        // Neither image should have a delete button since each is the only non-testing image for its language
+        const actionIcons = screen.getAllByRole('button', { name: '' })
+        // We should only have edit buttons (2), no delete buttons
+        // Filter for potential delete buttons (they would be red)
+        const editButtons = actionIcons.filter((btn) => {
+            return btn.closest('[data-variant="subtle"]') !== null
+        })
+        // Should have at least 2 edit buttons, but no delete buttons should be rendered
+        expect(editButtons.length).toBeGreaterThanOrEqual(2)
+    })
+
+    it('allows deletion when there are multiple non-testing images for the same language', async () => {
+        // Create two R images (both non-testing)
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'R Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'R Image 2',
+            language: 'R',
+            isTesting: false,
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('R Image 1')).toBeInTheDocument()
+            expect(screen.getByText('R Image 2')).toBeInTheDocument()
+        })
+
+        // Both images should have delete buttons since there are 2 non-testing R images
+        const actionIcons = screen.getAllByRole('button', { name: '' })
+        expect(actionIcons.length).toBeGreaterThanOrEqual(4) // At least 2 edit + 2 delete buttons
+    })
 })

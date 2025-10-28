@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, actionResult, insertTestBaseImage } from '@/tests/unit.helpers'
 import {
     createOrgBaseImageAction,
     deleteOrgBaseImageAction,
@@ -7,6 +7,7 @@ import {
     updateOrgBaseImageAction,
 } from './base-images.actions'
 import { db } from '@/database'
+import { isActionError } from '@/lib/errors'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -156,5 +157,91 @@ describe('Base Images Actions', () => {
         expect(result.name).toEqual('Updated Test Image')
         expect(result.starterCodePath).toBeDefined()
         expect(result.starterCodePath).toContain('new-starter.py') // Should have new file path
+    })
+
+    it('deleteOrgBaseImageAction prevents deletion of last non-testing image per language', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        // Create the only non-testing R image
+        const rImage = await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Only R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        // Create another Python image to ensure we have multiple languages
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Python Image',
+            language: 'PYTHON',
+            isTesting: false,
+        })
+
+        // Try to delete the only R image - should fail
+        const result = await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: rImage.id })
+
+        // Check that result has an error
+        expect(isActionError(result)).toBe(true)
+        if (isActionError(result)) {
+            expect(result.error).toContain('Cannot delete the last non-testing R base image')
+        }
+
+        // Verify image was not deleted
+        const stillExists = await db.selectFrom('orgBaseImage').where('id', '=', rImage.id).executeTakeFirst()
+        expect(stillExists).toBeDefined()
+    })
+
+    it('deleteOrgBaseImageAction allows deletion when multiple non-testing images exist for language', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        // Create two non-testing R images
+        const rImage1 = await insertTestBaseImage({
+            orgId: org.id,
+            name: 'R Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'R Image 2',
+            language: 'R',
+            isTesting: false,
+        })
+
+        // Should be able to delete one of them
+        await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: rImage1.id })
+
+        // Verify image was deleted
+        const deleted = await db.selectFrom('orgBaseImage').where('id', '=', rImage1.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
+    })
+
+    it('deleteOrgBaseImageAction allows deletion of testing images regardless of count', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        // Create the only non-testing R image
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Production R Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        // Create a testing R image
+        const testingImage = await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Testing R Image',
+            language: 'R',
+            isTesting: true,
+        })
+
+        // Should be able to delete the testing image even though it's the same language
+        await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: testingImage.id })
+
+        // Verify testing image was deleted
+        const deleted = await db.selectFrom('orgBaseImage').where('id', '=', testingImage.id).executeTakeFirst()
+        expect(deleted).toBeUndefined()
     })
 })

@@ -137,13 +137,13 @@ const deleteOrgBaseImageSchema = z.object({
     imageId: z.string(),
 })
 
-export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
+export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', { performsMutations: true })
     .params(deleteOrgBaseImageSchema)
     .middleware(async ({ params: { orgSlug, imageId }, db }) => {
         const baseImage = await db
             .selectFrom('orgBaseImage')
             .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'orgBaseImage.language', 'orgBaseImage.isTesting', 'orgBaseImage.orgId'])
             .where('org.slug', '=', orgSlug)
             .where('orgBaseImage.id', '=', imageId)
             .executeTakeFirstOrThrow()
@@ -153,6 +153,25 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
 
     .requireAbilityTo('update', 'Org')
     .handler(async ({ baseImage, params: { orgSlug }, db }) => {
+        // If deleting a non-testing image, ensure there's at least one other non-testing image for that language
+        if (!baseImage.isTesting) {
+            const nonTestingImagesForLanguage = await db
+                .selectFrom('orgBaseImage')
+                .select(({ fn }) => [fn.count<number>('id').as('count')])
+                .where('orgId', '=', baseImage.orgId)
+                .where('language', '=', baseImage.language)
+                .where('isTesting', '=', false)
+                .where('id', '!=', baseImage.id) // Exclude the image being deleted
+                .executeTakeFirstOrThrow()
+
+            // Convert count to number for comparison (Kysely may return it as string)
+            if (Number(nonTestingImagesForLanguage.count) === 0) {
+                throw new Error(
+                    `Cannot delete the last non-testing ${baseImage.language} base image. At least one non-testing image must exist for each language.`,
+                )
+            }
+        }
+
         await deleteS3File(baseImage.starterCodePath)
 
         await db

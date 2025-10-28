@@ -148,7 +148,16 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
         )
     }
 
-    const nonTestImageCount = images.filter((img) => !img.isTesting).length
+    // Count non-testing images per language
+    const nonTestImageCountByLanguage = images.reduce(
+        (acc, img) => {
+            if (!img.isTesting) {
+                acc[img.language] = (acc[img.language] || 0) + 1
+            }
+            return acc
+        },
+        {} as Record<string, number>,
+    )
 
     return (
         <Table striped highlightOnHover withTableBorder withColumnBorders>
@@ -167,8 +176,8 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
             <Table.Tbody>
                 {images.map((image, key) => {
                     // Testing images can always be deleted
-                    // Non-testing images can only be deleted if there are multiple non-testing images
-                    const canDelete = image.isTesting || nonTestImageCount > 1
+                    // Non-testing images can only be deleted if there are multiple non-testing images for that language
+                    const canDelete = image.isTesting || (nonTestImageCountByLanguage[image.language] || 0) > 1
                     return <BaseImageRow key={key} image={image} canDelete={canDelete} />
                 })}
             </Table.Tbody>
