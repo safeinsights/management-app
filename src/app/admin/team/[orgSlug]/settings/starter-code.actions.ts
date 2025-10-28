@@ -13,15 +13,15 @@ const createStarterCodeSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
     language: z.enum(['r', 'python']),
-    file: z.instanceof(File),
+    starterCode: z.instanceof(File),
 })
 
-export const createStarterCodeAction = new Action('createStarterCodeAction')
+export const createStarterCodeAction = new Action('createStarterCodeAction', { performsMutations: true })
     .params(createStarterCodeSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { name, language, file, orgSlug } = params
+        const { name, language, starterCode, orgSlug } = params
 
         // create base image record first
         const newBaseImage = await db
@@ -31,7 +31,7 @@ export const createStarterCodeAction = new Action('createStarterCodeAction')
                 name,
                 language: language.toUpperCase() as 'R' | 'PYTHON',
                 cmdLine: '',
-                url: '',
+                baseImageUrl: '',
                 isTesting: false,
             })
             .returningAll()
@@ -40,13 +40,13 @@ export const createStarterCodeAction = new Action('createStarterCodeAction')
         const s3Key = pathForStarterCode(orgId, newBaseImage.id)
 
         // upload to S3
-        const fileBuffer = Buffer.from(await file.arrayBuffer())
+        const fileBuffer = Buffer.from(await starterCode.arrayBuffer())
         await getS3Client().send(
             new PutObjectCommand({
                 Bucket: s3BucketName(),
                 Key: s3Key,
                 Body: fileBuffer,
-                ContentType: file.type,
+                ContentType: starterCode.type,
             }),
         )
 
@@ -68,16 +68,21 @@ const fetchStarterCodesSchema = z.object({
 
 export const fetchStarterCodesAction = new Action('fetchStarterCodesAction')
     .params(fetchStarterCodesSchema)
-    .middleware(orgIdFromSlug)
-    .requireAbilityTo('view', 'Org')
-    .handler(async ({ orgId, db }) => {
-        // Fetch only base images that have skeleton code
-        return await db
+    .middleware(async ({ params, db }) => {
+        const starterCodes = await db
             .selectFrom('orgBaseImage')
+            .innerJoin('org', (join) =>
+                join.onRef('org.id', '=', 'orgBaseImage.orgId').on('org.slug', '=', params.orgSlug),
+            )
             .selectAll('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
             .where('orgBaseImage.skeletonCodeUrl', 'is not', null)
             .execute()
+
+        return { starterCodes }
+    })
+    .requireAbilityTo('view', 'Org')
+    .handler(async ({ starterCodes }) => {
+        return starterCodes
     })
 
 const deleteStarterCodeSchema = z.object({
@@ -116,20 +121,25 @@ const downloadStarterCodeSchema = z.object({
 
 export const downloadStarterCodeAction = new Action('downloadStarterCodeAction')
     .params(downloadStarterCodeSchema)
-    .middleware(orgIdFromSlug)
-    .requireAbilityTo('view', 'Org')
-    .handler(async ({ params: { id }, orgId, db }) => {
+    .middleware(async ({ params, db }) => {
         const baseImage = await db
             .selectFrom('orgBaseImage')
+            .innerJoin('org', (join) =>
+                join.onRef('org.id', '=', 'orgBaseImage.orgId').on('org.slug', '=', params.orgSlug),
+            )
             .selectAll('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
-            .where('orgBaseImage.id', '=', id)
+            .where('orgBaseImage.id', '=', params.id)
+            .where('orgBaseImage.skeletonCodeUrl', 'is not', null)
             .executeTakeFirst()
 
-        if (!baseImage?.skeletonCodeUrl) {
-            throw throwNotFound(`Starter code with id ${id} not found`)
+        if (!baseImage) {
+            throw throwNotFound(`Starter code with id ${params.id} not found`)
         }
 
+        return { baseImage, orgId: baseImage.orgId }
+    })
+    .requireAbilityTo('view', 'Org')
+    .handler(async ({ params: { id }, baseImage, orgId }) => {
         const s3Key = pathForStarterCode(orgId, id)
 
         const downloadUrl = await signedUrlForFile(s3Key)

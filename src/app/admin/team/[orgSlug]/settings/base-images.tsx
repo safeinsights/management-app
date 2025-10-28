@@ -49,7 +49,7 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
         <Table.Tr>
             <Table.Td>{image.name}</Table.Td>
             <Table.Td>{image.language}</Table.Td>
-            <Table.Td>{image.url}</Table.Td>
+            <Table.Td>{image.baseImageUrl}</Table.Td>
             <Table.Td>{image.cmdLine}</Table.Td>
             <Table.Td>
                 {image.skeletonCodeUrl ? (

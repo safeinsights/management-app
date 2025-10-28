@@ -38,7 +38,7 @@ describe('BaseImages', async () => {
                 name: 'R Base Image 1',
                 language: 'R',
                 cmdLine: 'Rscript %f',
-                url: 'http://example.com/r-base-1',
+                baseImageUrl: 'http://example.com/r-base-1',
                 isTesting: false,
                 orgId: org.id,
             })

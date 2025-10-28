@@ -2,7 +2,7 @@
 
 import { Table, Button, Text } from '@mantine/core'
 import { TrashIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMutation, useQueryClient } from '@/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useParams } from 'next/navigation'
 import { deleteStarterCodeAction, downloadStarterCodeAction, fetchStarterCodesAction } from './starter-code.actions'
 import { SuretyGuard } from '@/components/surety-guard'
@@ -27,24 +27,10 @@ const StarterCodeRow: React.FC<{ starterCode: StarterCode }> = ({ starterCode })
         onError: reportMutationError('Failed to delete starter code'),
     })
 
-    const downloadMutation = useMutation({
-        mutationFn: downloadStarterCodeAction,
-        onSuccess: (data) => {
-            // Create a download link
-            const url = data.url
-            const link = document.createElement('a')
-            link.href = url
-            link.download = starterCode.name
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-        },
-        onError: reportMutationError('Failed to download starter code'),
+    const { data: downloadData, isLoading: isLoadingDownload } = useQuery({
+        queryKey: ['downloadUrl', starterCode.id, orgSlug],
+        queryFn: () => downloadStarterCodeAction({ id: starterCode.id, orgSlug }),
     })
-
-    const handleDownload = () => {
-        downloadMutation.mutate({ id: starterCode.id, orgSlug })
-    }
 
     return (
         <Table.Tr>
@@ -52,11 +38,14 @@ const StarterCodeRow: React.FC<{ starterCode: StarterCode }> = ({ starterCode })
             <Table.Td>{starterCode.language}</Table.Td>
             <Table.Td>
                 <Button
+                    component="a"
+                    href={downloadData?.url}
+                    download={starterCode.name}
                     variant="subtle"
                     size="xs"
                     leftSection={<DownloadSimpleIcon />}
-                    onClick={handleDownload}
-                    loading={downloadMutation.isPending}
+                    disabled={!downloadData || isLoadingDownload}
+                    loading={isLoadingDownload}
                 >
                     {starterCode.name}
                 </Button>

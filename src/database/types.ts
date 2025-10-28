@@ -95,6 +95,7 @@ export interface Org {
 }
 
 export interface OrgBaseImage {
+    baseImageUrl: string
     cmdLine: string
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -103,18 +104,6 @@ export interface OrgBaseImage {
     name: string
     orgId: string
     skeletonCodeUrl: string | null
-    url: string
-}
-
-export interface OrgStarterCode {
-    createdAt: Generated<Timestamp>
-    fileName: string
-    id: Generated<string>
-    language: string
-    name: string
-    orgId: string
-    updatedAt: Generated<Timestamp>
-    url: string
 }
 
 export interface OrgUser {
@@ -197,7 +186,6 @@ export interface DB {
     jobStatusChange: JobStatusChange
     org: Org
     orgBaseImage: OrgBaseImage
-    orgStarterCode: OrgStarterCode
     orgUser: OrgUser
     pendingUser: PendingUser
     study: Study

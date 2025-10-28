@@ -16,10 +16,10 @@ const MAX_FILE_SIZE = 1024 * 1024 // 1MB
 const schema = z.object({
     name: z.string().min(1, { message: 'Name is required' }),
     language: z.enum(['r', 'python'], { message: 'Please select a language' }),
-    file: z
+    starterCode: z
         .instanceof(File)
         .refine((file) => file.size <= MAX_FILE_SIZE, {
-            message: 'File size must be less than 10MB',
+            message: 'File size must be less than 1MB',
         })
         .refine(
             (file) => {
@@ -43,7 +43,7 @@ export const AddStarterCodeForm: React.FC<AddStarterCodeFormProps> = ({ onComple
         initialValues: {
             name: '',
             language: 'r' as const,
-            file: undefined as File | undefined,
+            starterCode: undefined as File | undefined,
         },
         validate: zodResolver(schema),
     })
@@ -57,15 +57,17 @@ export const AddStarterCodeForm: React.FC<AddStarterCodeFormProps> = ({ onComple
         onError: reportMutationError('Failed to add starter code'),
     })
 
-    const handleSubmit = (values: typeof form.values) => {
-        if (!values.file) return
-        mutation.mutate({ ...values, orgSlug, file: values.file })
+    const handleSubmit = async (values: typeof form.values) => {
+        if (!values.starterCode) return
+
+        mutation.mutate({ ...values, orgSlug, starterCode: values.starterCode })
     }
 
     return (
         <form onSubmit={form.onSubmit(handleSubmit)}>
             <Stack>
                 <TextInput label="Name" placeholder="Starter code name" {...form.getInputProps('name')} required />
+
                 <Select
                     label="Language"
                     placeholder="Select language"
@@ -76,15 +78,17 @@ export const AddStarterCodeForm: React.FC<AddStarterCodeFormProps> = ({ onComple
                     {...form.getInputProps('language')}
                     required
                 />
+
                 <FileInput
-                    label="File"
+                    label="Starter Code File"
                     placeholder="Select a file"
                     leftSection={<FileCodeIcon size={16} />}
                     accept=".r,.R,.py"
-                    {...form.getInputProps('file')}
+                    {...form.getInputProps('starterCode')}
                     required
-                    description="Maximum file size: 10MB. Accepted formats: .r, .py"
+                    description="Maximum file size: 1MB. Accepted formats: .r, .py"
                 />
+
                 <Button type="submit" loading={mutation.isPending}>
                     Save Code
                 </Button>

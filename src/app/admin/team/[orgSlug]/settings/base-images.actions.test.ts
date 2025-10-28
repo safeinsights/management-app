@@ -19,7 +19,7 @@ describe('Base Images Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect(result.url).toEqual('test-url')
+        expect(result.baseImageUrl).toEqual('test-url')
         expect(result.name).toEqual('Test Image')
         expect(result.skeletonCodeUrl).toBeNull()
     })
@@ -33,7 +33,7 @@ describe('Base Images Actions', () => {
                 name: 'Test Image to Delete',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                baseImageUrl: 'test-url',
                 isTesting: true,
                 skeletonCodeUrl: null,
             })
@@ -55,7 +55,7 @@ describe('Base Images Actions', () => {
                 name: 'Test Image to Fetch',
                 cmdLine: 'test command',
                 language: 'R',
-                url: 'test-url',
+                baseImageUrl: 'test-url',
                 isTesting: true,
                 skeletonCodeUrl: null,
             })
