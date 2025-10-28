@@ -1,11 +1,10 @@
 'use client'
 
-import { useForm, useMutation, useQueryClient, zodResolver } from '@/common'
+import { zodResolver, useMutation, useQueryClient, useForm } from '@/common'
 import { InputError, handleMutationErrorsWithForm } from '@/components/errors'
 import { AppModal } from '@/components/modal'
 import { SuccessPanel } from '@/components/panel'
-import { useSession } from '@/hooks/session'
-import { Button, Flex, Radio, TextInput } from '@mantine/core'
+import { Button, TextInput } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
@@ -28,20 +27,17 @@ const InviteSuccess: FC<{ onContinue: () => void }> = ({ onContinue }) => {
 
 const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, onInvited }) => {
     const queryClient = useQueryClient()
-    const { session, isLoaded } = useSession()
 
     const studyProposalForm = useForm({
         validate: zodResolver(inviteUserSchema),
         validateInputOnBlur: true,
         initialValues: {
             email: '',
-            permission: '',
         },
     })
 
     const { mutate: inviteUser, isPending: isInviting } = useMutation({
-        mutationFn: (invite: InviteUserFormValues) =>
-            orgAdminInviteUserAction({ invite, orgSlug, invitedByUserId: session?.user.id ?? '' }),
+        mutationFn: (invite: InviteUserFormValues) => orgAdminInviteUserAction({ invite, orgSlug }),
         onError: handleMutationErrorsWithForm(studyProposalForm),
         onSuccess(data) {
             studyProposalForm.reset()
@@ -63,7 +59,6 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
             onSubmit={studyProposalForm.onSubmit((values) =>
                 inviteUser({
                     ...values,
-                    permission: values.permission as 'contributor' | 'admin',
                 }),
             )}
         >
@@ -77,29 +72,7 @@ const InviteForm: FC<{ orgSlug: string; onInvited: () => void }> = ({ orgSlug, o
                 error={studyProposalForm.errors.email && <InputError error={studyProposalForm.errors.email} />}
             />
 
-            <Flex mb="sm" fw="semibold">
-                <Radio.Group
-                    label="Assign Permissions"
-                    styles={{ label: { fontWeight: 600, marginBottom: 4 } }}
-                    name="permission"
-                    {...studyProposalForm.getInputProps('permission', { type: 'checkbox' })}
-                >
-                    <Flex gap="md" mt="xs" direction="column">
-                        <Radio
-                            value="contributor"
-                            label="Contributor (full access within their role; no admin privileges)"
-                        />
-                        <Radio value="admin" label="Administrator (manages org-level settings and contributors)" />
-                    </Flex>
-                </Radio.Group>
-            </Flex>
-
-            <Button
-                type="submit"
-                mt="sm"
-                loading={isInviting}
-                disabled={!studyProposalForm.isValid() || !isLoaded || !session}
-            >
+            <Button type="submit" mt="sm" loading={isInviting} disabled={!studyProposalForm.isValid()}>
                 Send invitation
             </Button>
         </form>
