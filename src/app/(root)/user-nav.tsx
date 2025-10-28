@@ -4,6 +4,7 @@ import DashboardSkeleton from '@/components/layout/skeleton/dashboard'
 import { useSession } from '@/hooks/session'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Routes } from '@/lib/routes'
 
 export const UserNav = () => {
     const { isLoaded, session } = useSession()
@@ -14,7 +15,7 @@ export const UserNav = () => {
         if (!session) return
 
         setIsNavigating(true)
-        router.push('/dashboard')
+        router.push(Routes.dashboard)
     }, [session, router])
 
     // Show dashboard skeleton while session is loading or during navigation

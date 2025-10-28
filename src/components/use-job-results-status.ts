@@ -8,13 +8,14 @@ type StatusFlags = {
     isErrored: boolean
 }
 
-type StatusChange = {
+export type StatusChange = {
     status: StudyJobStatus
 }
 
-const StatusMap: Partial<Record<StudyJobStatus, keyof StatusFlags>> = {
+export const StatusMap: Partial<Record<StudyJobStatus, keyof StatusFlags>> = {
     'FILES-APPROVED': 'isApproved',
     'FILES-REJECTED': 'isRejected',
+    'CODE-REJECTED': 'isRejected',
     'RUN-COMPLETE': 'isComplete',
     'JOB-ERRORED': 'isErrored',
 }

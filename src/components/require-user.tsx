@@ -3,6 +3,7 @@
 import { useLayoutEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { Routes } from '@/lib/routes'
 
 export const RequireUser = () => {
     const { isSignedIn } = useUser()
@@ -14,7 +15,7 @@ export const RequireUser = () => {
             return
         }
         if (isSignedIn === false) {
-            router.push('/account/signin')
+            router.push(Routes.accountSignin)
         }
     }, [pathname, router, isSignedIn])
 

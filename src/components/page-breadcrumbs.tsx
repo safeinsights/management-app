@@ -1,6 +1,8 @@
 import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
 import { FC } from 'react'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
@@ -13,7 +15,7 @@ export const PageBreadcrumbs: FC<{
                         <Anchor
                             c="blue.7"
                             component={Link}
-                            href={href}
+                            href={href as Route}
                             key={index}
                             style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
                         >
@@ -39,9 +41,9 @@ export const OrgBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.orgDashboard({ orgSlug })]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
+        crumbs.push([studyTitle, Routes.studyReview({ orgSlug, studyId })])
     }
     if (current) {
         crumbs.push([current])
@@ -57,9 +59,9 @@ export const ResearcherBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.orgDashboard({ orgSlug })]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
+        crumbs.push([studyTitle, Routes.studyReview({ orgSlug, studyId })])
     }
     if (current) {
         crumbs.push([current])

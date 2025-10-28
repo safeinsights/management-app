@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -47,7 +48,7 @@ export const JobReviewButtons = ({
         onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            router.push(`/${orgSlug}/dashboard`)
+            router.push(Routes.orgDashboard({ orgSlug }))
         },
     })
 

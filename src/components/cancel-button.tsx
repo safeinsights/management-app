@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import { AppModal } from '@/components/modal'
+import { Routes } from '@/lib/routes'
 
 export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled: boolean }) {
     const [isOpen, setIsOpen] = useState(false)
@@ -11,12 +12,12 @@ export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled
         if (isDirty) {
             setIsOpen(true)
         } else {
-            router.push('/')
+            router.push(Routes.home)
         }
     }
 
     const confirmCancel = async () => {
-        router.push('/')
+        router.push(Routes.home)
     }
 
     return (

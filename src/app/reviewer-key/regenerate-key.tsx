@@ -3,6 +3,7 @@
 import { AppModal } from '@/components/modal'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { useSession } from '@/hooks/session'
+import { Routes } from '@/lib/routes'
 import { getEnclaveOrg } from '@/lib/types'
 import { Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -17,7 +18,7 @@ export const RegenerateKey: FC = () => {
 
     const handleConfirmAndProceed = () => {
         closeModal()
-        router.push('/account/keys')
+        router.push(Routes.accountKeys)
     }
 
     return (
