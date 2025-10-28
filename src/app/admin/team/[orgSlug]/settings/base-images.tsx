@@ -105,6 +105,7 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                 </Flex>
             </Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
+            <Table.Td>{new Date(image.createdAt).toISOString()}</Table.Td>
             <Table.Td>
                 <Group gap={4} justify="center" wrap="nowrap">
                     <Tooltip label="Edit" withArrow>
@@ -147,7 +148,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
         )
     }
 
-    const canDeleteNonTestImage = images.filter((img) => !img.isTesting).length > 1
+    const nonTestImageCount = images.filter((img) => !img.isTesting).length
 
     return (
         <Table striped highlightOnHover withTableBorder withColumnBorders>
@@ -159,13 +160,17 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
                     <Table.Th>Command Line</Table.Th>
                     <Table.Th>Starter Code</Table.Th>
                     <Table.Th>Is Testing</Table.Th>
+                    <Table.Th>Created At</Table.Th>
                     <Table.Th>Actions</Table.Th>
                 </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-                {images.map((image, key) => (
-                    <BaseImageRow key={key} image={image} canDelete={canDeleteNonTestImage} />
-                ))}
+                {images.map((image, key) => {
+                    // Testing images can always be deleted
+                    // Non-testing images can only be deleted if there are multiple non-testing images
+                    const canDelete = image.isTesting || nonTestImageCount > 1
+                    return <BaseImageRow key={key} image={image} canDelete={canDelete} />
+                })}
             </Table.Tbody>
         </Table>
     )

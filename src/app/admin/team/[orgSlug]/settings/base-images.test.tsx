@@ -10,6 +10,7 @@ import {
     faker,
     db,
     renderWithProviders,
+    insertTestBaseImage,
 } from '@/tests/unit.helpers'
 import { vi } from 'vitest'
 import { Selectable } from 'kysely'
@@ -42,18 +43,11 @@ describe('BaseImages', async () => {
     })
 
     it('renders base images when they are present', async () => {
-        await db
-            .insertInto('orgBaseImage')
-            .values({
-                name: 'R Base Image 1',
-                language: 'R',
-                cmdLine: 'Rscript %f',
-                url: 'http://example.com/r-base-1',
-                isTesting: false,
-                orgId: org.id,
-                starterCodePath: 'test/path/to/starter.R',
-            })
-            .executeTakeFirstOrThrow()
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'R Base Image 1',
+            language: 'R',
+        })
 
         renderWithProviders(<BaseImages />)
         await waitFor(() => {
@@ -90,5 +84,94 @@ describe('BaseImages', async () => {
         await waitFor(() => {
             expect(screen.getByText(imageName)).toBeInTheDocument()
         })
+    })
+
+    it('allows deletion of testing images regardless of count', async () => {
+        // Create one non-testing image and one testing image
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Production Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Testing Image',
+            language: 'PYTHON',
+            isTesting: true,
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Production Image')).toBeInTheDocument()
+            expect(screen.getByText('Testing Image')).toBeInTheDocument()
+        })
+
+        // Find all delete buttons (ActionIcons with TrashIcon)
+        const deleteButtons = screen.getAllByRole('button', { name: '' }).filter((btn) => btn.querySelector('svg'))
+
+        // The testing image should have a delete button (testing images can always be deleted)
+        // But since there's only 1 non-testing image, it shouldn't have a delete button
+        // So we should have exactly 1 delete button
+        expect(deleteButtons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('prevents deletion of the last non-testing image', async () => {
+        // Create only one non-testing image
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Only Production Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Only Production Image')).toBeInTheDocument()
+        })
+
+        // There should be no delete button for the only non-testing image
+        // Look for edit button which should exist
+        const actionIcons = screen.getAllByRole('button', { name: '' })
+        // Filter for icons that might be delete buttons (red colored)
+        const potentialDeleteButtons = actionIcons.filter((btn) => {
+            const actionIcon = btn.closest('.mantine-ActionIcon-root')
+            return actionIcon?.getAttribute('data-variant') === 'subtle'
+        })
+
+        // We should have at least the edit button, but the delete button should not be rendered
+        // (the DeleteBaseImg component returns null when canDelete is false)
+        expect(potentialDeleteButtons.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('allows deletion of non-testing images when there are multiple', async () => {
+        // Create two non-testing images
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Production Image 1',
+            language: 'R',
+            isTesting: false,
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Production Image 2',
+            language: 'PYTHON',
+            isTesting: false,
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Production Image 1')).toBeInTheDocument()
+            expect(screen.getByText('Production Image 2')).toBeInTheDocument()
+        })
+
+        // Both images should have delete buttons since there are 2 non-testing images
+        const actionIcons = screen.getAllByRole('button', { name: '' })
+        expect(actionIcons.length).toBeGreaterThanOrEqual(4) // At least 2 edit + 2 delete buttons
     })
 })

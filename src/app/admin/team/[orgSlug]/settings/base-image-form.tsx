@@ -7,7 +7,6 @@ import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Anchor } f
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction, updateOrgBaseImageAction } from './base-images.actions'
 import { orgBaseImageSchema, orgBaseImageUpdateSchema } from './base-images.schema'
-import { Language } from '@/database/types'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
 
@@ -38,30 +37,13 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     const { mutate: saveBaseImage, isPending } = useMutation({
         mutationFn: async (values: FormValues) => {
             if (isEditMode) {
-                return await updateOrgBaseImageAction({
-                    orgSlug,
-                    imageId: image.id,
-                    name: values.name,
-                    cmdLine: values.cmdLine,
-                    url: values.url,
-                    isTesting: values.isTesting,
-                    starterCode: values.starterCode,
-                    language: values.language as Language,
-                })
+                return await updateOrgBaseImageAction({ orgSlug, imageId: image.id, ...values })
             }
             // In create mode, starterCode is required
             if (!values.starterCode || values.starterCode.size === 0) {
                 throw new Error('Starter code file is required')
             }
-            return await createOrgBaseImageAction({
-                orgSlug,
-                name: values.name,
-                cmdLine: values.cmdLine,
-                url: values.url,
-                isTesting: values.isTesting,
-                starterCode: values.starterCode,
-                language: values.language as Language,
-            })
+            return await createOrgBaseImageAction({ orgSlug, ...values, starterCode: values.starterCode })
         },
         onSuccess: () => {
             reportSuccess(isEditMode ? 'Base image updated successfully' : 'Base image added successfully')
@@ -110,9 +92,7 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                 {isEditMode && image.starterCodePath && (
                     <Text size="sm" c="dimmed">
                         Current file:{' '}
-                        <Anchor href={image.starterCodePath} target="_blank" rel="noopener noreferrer">
-                            {basename(image.starterCodePath)}
-                        </Anchor>
+                        {basename(image.starterCodePath)}
                     </Text>
                 )}
                 <Checkbox
@@ -128,6 +108,3 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
         </form>
     )
 }
-
-// Keep the old export for backward compatibility
-export const AddBaseImageForm = BaseImageForm
