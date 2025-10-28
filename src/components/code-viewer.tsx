@@ -38,9 +38,18 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
                 </Text>
             )}
             <ScrollArea h={500} type="auto">
-                <pre style={{ margin: 0, padding: '1rem', background: '#0d1117', borderRadius: '4px' }}>
+                <pre
+                    style={{
+                        margin: 0,
+                        padding: '1rem',
+                        background: '#0d1117',
+                        borderRadius: '4px',
+                        color: '#c9d1d9', // GitHub dark default text color
+                    }}
+                >
                     <code
                         className={`language-${language.toLowerCase()}`}
+                        style={{ color: 'inherit' }} // Ensure code inherits the text color
                         dangerouslySetInnerHTML={{ __html: highlightedCode }}
                     />
                 </pre>
