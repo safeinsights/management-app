@@ -14,6 +14,7 @@ import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType } from '@/lib/types'
+import { basename } from '@/lib/paths'
 
 type BaseImage = ActionSuccessType<typeof fetchOrgBaseImagesAction>[number]
 
@@ -49,16 +50,12 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
         <Table.Tr>
             <Table.Td>{image.name}</Table.Td>
             <Table.Td>{image.language}</Table.Td>
-            <Table.Td>{image.baseImageUrl}</Table.Td>
+            <Table.Td>{image.url}</Table.Td>
             <Table.Td>{image.cmdLine}</Table.Td>
             <Table.Td>
-                {image.skeletonCodeUrl ? (
-                    <a href={image.skeletonCodeUrl} target="_blank" rel="noopener noreferrer">
-                        Download
-                    </a>
-                ) : (
-                    'N/A'
-                )}
+                <a href={image.starterCodePath} target="_blank" rel="noopener noreferrer">
+                    {basename(image.starterCodePath)}
+                </a>
             </Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>

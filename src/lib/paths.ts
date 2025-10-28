@@ -42,3 +42,8 @@ export function extractOrgSlugFromPath(pathname: string) {
 
     return parts[0]
 }
+
+export function basename(path: string) {
+    const parts = path.split('/')
+    return parts[parts.length - 1]
+}

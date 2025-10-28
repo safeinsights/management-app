@@ -95,7 +95,6 @@ export interface Org {
 }
 
 export interface OrgBaseImage {
-    baseImageUrl: string
     cmdLine: string
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -103,7 +102,8 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
-    skeletonCodeUrl: string | null
+    starterCodePath: string
+    url: string
 }
 
 export interface OrgUser {
@@ -119,6 +119,7 @@ export interface PendingUser {
     createdAt: Generated<Timestamp>
     email: string
     id: Generated<string>
+    invitedByUserId: string | null
     isAdmin: Generated<boolean>
     orgId: string
 }

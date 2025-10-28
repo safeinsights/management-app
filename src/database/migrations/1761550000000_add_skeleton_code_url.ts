@@ -1,9 +1,16 @@
-import { type Kysely } from 'kysely'
+import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    await db.schema.alterTable('org_base_image').addColumn('skeleton_code_url', 'text').execute()
+    await db.schema.alterTable('org_base_image').addColumn('starter_code_path', 'text').execute()
+
+    await sql`update org_base_image set starter_code_path = 'invalid'`.execute(db)
+    await db.schema
+        .alterTable('org_base_image')
+        .alterColumn('starter_code_path', (col) => col.setNotNull())
+        .execute()
+
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-    await db.schema.alterTable('org_base_image').dropColumn('skeleton_code_url').execute()
+    await db.schema.alterTable('org_base_image').dropColumn('starter_code_path').execute()
 }

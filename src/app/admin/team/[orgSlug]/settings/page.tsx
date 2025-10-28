@@ -31,7 +31,6 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
             <OrganizationSettingsManager org={org} />
             <ApiKeySettingsDisplay />
             <BaseImages />
-            <StarterCode />
         </Stack>
     )
 }

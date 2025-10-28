@@ -5,38 +5,41 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { s3BucketName, getS3Client } from '@/server/aws'
+import { s3BucketName, getS3Client, storeS3File, deleteS3File } from '@/server/aws'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { pathForStarterCode } from '@/lib/paths'
 
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
-    language: z.enum(['r', 'python']),
+    language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
-    baseImageUrl: z.string(),
+    url: z.string(),
+    starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
 })
 
-export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
+export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
     .params(createOrgBaseImageSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { name, language, cmdLine, baseImageUrl, isTesting, orgSlug } = params
+
+    const { orgSlug, starterCode, ...fieldValues } = params
+
+    const starterCodePath = pathForStarterCode(orgSlug, starterCode.name)
 
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
-                orgId: orgId,
-                name,
-                language: language.toUpperCase() as 'R' | 'PYTHON',
-                cmdLine,
-                baseImageUrl,
-                isTesting,
-                skeletonCodeUrl: null,
+                orgId,
+                ...fieldValues,
+                starterCodePath,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
+
+        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath )
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
 
@@ -66,36 +69,30 @@ const deleteOrgBaseImageSchema = z.object({
 
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
-    .middleware(orgIdFromSlug)
+    .middleware(async ({ params: { orgSlug, imageId }, db }) => {
+
+    const baseImage = await db
+        .selectFrom('orgBaseImage')
+        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
+        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+        .where('org.slug', '=', orgSlug)
+        .where('orgBaseImage.id', '=', imageId)
+        .executeTakeFirstOrThrow()
+
+    return { baseImage }
+})
+
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ orgId, params: { imageId, orgSlug }, db }) => {
-        const baseImage = await db
-            .selectFrom('orgBaseImage')
-            .selectAll('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
-            .where('orgBaseImage.id', '=', imageId)
-            .executeTakeFirst()
+    .handler(async ({ baseImage, params: { orgSlug }, db }) => {
 
-        if (baseImage && baseImage.skeletonCodeUrl) {
-            const s3Key = baseImage.skeletonCodeUrl.replace(`s3://${s3BucketName()}/`, '')
 
-            try {
-                await getS3Client().send(
-                    new DeleteObjectCommand({
-                        Bucket: s3BucketName(),
-                        Key: s3Key,
-                    }),
-                )
-            } catch (error) {
-                console.error(`Failed to delete S3 file: ${s3Key}`, error)
-            }
-        }
+    await deleteS3File(baseImage.starterCodePath)
 
-        await db
-            .deleteFrom('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
-            .where('orgBaseImage.id', '=', imageId)
-            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${imageId}`))
+
+    await db
+        .deleteFrom('orgBaseImage')
+        .where('orgBaseImage.id', '=', baseImage.id)
+        .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
     })

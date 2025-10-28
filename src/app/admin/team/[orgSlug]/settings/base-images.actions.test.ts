@@ -1,27 +1,40 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
 import { createOrgBaseImageAction, deleteOrgBaseImageAction, fetchOrgBaseImagesAction } from './base-images.actions'
 import { db } from '@/database'
 
+vi.mock('@/server/aws', async () => {
+    const actual = await vi.importActual('@/server/aws')
+    return {
+        ...actual,
+        storeS3File: vi.fn().mockResolvedValue(undefined),
+        deleteS3File: vi.fn().mockResolvedValue(undefined),
+    }
+})
+
 describe('Base Images Actions', () => {
     it('createOrgBaseImageAction creates a base image', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        // Create a mock File for starterCode
+        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
 
         const result = actionResult(
             await createOrgBaseImageAction({
                 orgSlug: org.slug,
                 name: 'Test Image',
                 cmdLine: 'test command',
-                language: 'r',
-                baseImageUrl: 'test-url',
+                language: 'R',
+                url: 'test-url',
+                starterCode: mockFile,
                 isTesting: true,
             }),
         )
 
         expect(result).toBeDefined()
-        expect(result.baseImageUrl).toEqual('test-url')
+        expect(result.url).toEqual('test-url')
         expect(result.name).toEqual('Test Image')
-        expect(result.skeletonCodeUrl).toBeNull()
+        expect(result.starterCodePath).toBeDefined()
     })
 
     it('deleteOrgBaseImageAction deletes a base image', async () => {
@@ -33,9 +46,9 @@ describe('Base Images Actions', () => {
                 name: 'Test Image to Delete',
                 cmdLine: 'test command',
                 language: 'R',
-                baseImageUrl: 'test-url',
+                url: 'test-url',
                 isTesting: true,
-                skeletonCodeUrl: null,
+                starterCodePath: 'test/path/to/starter.py',
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -55,9 +68,9 @@ describe('Base Images Actions', () => {
                 name: 'Test Image to Fetch',
                 cmdLine: 'test command',
                 language: 'R',
-                baseImageUrl: 'test-url',
+                url: 'test-url',
                 isTesting: true,
-                skeletonCodeUrl: null,
+                starterCodePath: 'test/path/to/starter.py',
             })
             .execute()
 
