@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useMemo } from 'react'
 import { ScrollArea, Box, Text } from '@mantine/core'
 import hljs from 'highlight.js/lib/core'
 import python from 'highlight.js/lib/languages/python'
@@ -18,15 +18,15 @@ interface CodeViewerProps {
 }
 
 export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
-    const codeRef = useRef<HTMLElement>(null)
-
-    useEffect(() => {
-        if (codeRef.current) {
-            // Remove existing highlighting
-            delete codeRef.current.dataset.highlighted
-
-            // Apply highlighting
-            hljs.highlightElement(codeRef.current)
+    // Use hljs.highlight() instead of hljs.highlightElement() to avoid DOM manipulation
+    // This properly escapes HTML in the code and returns safe highlighted HTML
+    const highlightedCode = useMemo(() => {
+        try {
+            return hljs.highlight(code, { language: language.toLowerCase() }).value
+        } catch (error) {
+            // Fallback to plain text if highlighting fails
+            console.error('Failed to highlight code:', error)
+            return code
         }
     }, [code, language])
 
@@ -39,9 +39,10 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
             )}
             <ScrollArea h={500} type="auto">
                 <pre style={{ margin: 0, padding: '1rem', background: '#0d1117', borderRadius: '4px' }}>
-                    <code ref={codeRef} className={`language-${language.toLowerCase()}`}>
-                        {code}
-                    </code>
+                    <code
+                        className={`language-${language.toLowerCase()}`}
+                        dangerouslySetInnerHTML={{ __html: highlightedCode }}
+                    />
                 </pre>
             </ScrollArea>
         </Box>
