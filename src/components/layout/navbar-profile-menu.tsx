@@ -2,11 +2,12 @@
 
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
+import { useSession } from '@/hooks/session'
 import { AuthRole } from '@/lib/types'
 import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useClickOutside, useDisclosure } from '@mantine/hooks'
-import { CaretRightIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
 import { useCallback, useRef } from 'react'
 import { Protect } from '../auth'
@@ -17,8 +18,10 @@ export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
     const [opened, { toggle, close }] = useDisclosure()
     const router = useRouter()
+    const { session } = useSession()
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
     const firstMenuItemRef = useRef<HTMLButtonElement>(null)
+    const isSiAdmin = session?.user.isSiAdmin || false
 
     const closeAndCall = (fn: () => void) => (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -65,6 +68,19 @@ export function NavbarProfileMenu() {
                         component="button"
                     />
                 </Protect>
+
+                {isSiAdmin && (
+                    <NavLink
+                        label="SI Admin"
+                        leftSection={<GlobeIcon aria-hidden="true" />}
+                        onClick={closeAndCall(() => router.push(`/admin/safeinsights`))}
+                        c="white"
+                        className={styles.navLinkProfileHover}
+                        aria-label="SI Admin"
+                        role="menuitem"
+                        component="button"
+                    />
+                )}
 
                 <NavLink
                     label="Sign Out"
