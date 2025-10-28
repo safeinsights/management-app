@@ -13,6 +13,8 @@ import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
 import { VerifyCode } from './verify-code'
 
+import { notifications } from '@mantine/notifications'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 export const dynamic = 'force-dynamic'
 
 export type Step = 'select' | 'verify' | 'reset'
@@ -65,7 +67,29 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     if (result?.redirectToReviewerKey) {
                         router.push('/account/keys')
                     } else {
-                        const redirectUrl = searchParams.get('redirect_url')
+                        let redirectUrl = searchParams.get('redirect_url')
+                        const inviteId = searchParams.get('invite_id')
+                        if (inviteId) {
+                            try {
+                                await onJoinTeamAccountAction({
+                                    inviteId,
+                                    loggedInEmail: signInAttempt?.identifier || undefined,
+                                })
+                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                redirectUrl = `/${slug}/dashboard`
+
+                                const email = signInAttempt?.identifier || 'your account'
+                                notifications.show({
+                                    color: 'green',
+                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
+                                })
+                            } catch {
+                                notifications.show({
+                                    color: 'red',
+                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                })
+                            }
+                        }
                         router.push(redirectUrl || '/dashboard')
                     }
                 } catch (error) {

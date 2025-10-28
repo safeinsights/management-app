@@ -32,7 +32,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel('Administrator (manages org-level settings and contributors)').click()
 
         await page.getByRole('button', { name: /send invitation/i }).click()
-        await expect(page.getByText(/invitation sent successfully/i)).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(/invitation sent successfully/i)).toBeVisible()
 
         await page.getByRole('button', { name: /continue to invite people/i }).click()
 
@@ -52,9 +52,11 @@ test.describe('Organization Admin', () => {
         await page.getByRole('button', { name: /signout/i }).click()
         await page.waitForTimeout(1000)
 
-        // Ensure the Create Account button is initially disabled
-        const createAccountBtn = page.getByRole('button', { name: /create account/i })
-        await expect(createAccountBtn).toBeDisabled()
+        // Ensure the Create Account link is initially visible
+        const createAccountBtn = page.getByRole('link', { name: /create new account/i })
+        await expect(createAccountBtn).toBeVisible()
+        await createAccountBtn.click()
+        await page.waitForURL(`/account/invitation/${inviteId}/signup`)
 
         // Fill in the required form fields
         await page.getByLabel(/first name/i).fill(faker.person.firstName())
@@ -65,11 +67,11 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/^enter password$/i).fill(validPassword)
         await page.getByLabel(/confirm password/i).fill(validPassword)
 
+        const submitBtn = page.getByRole('button', { name: /create account/i })
         // Wait for the button to become enabled
-        await expect(createAccountBtn).toBeEnabled()
-
+        await expect(submitBtn).toBeEnabled()
         // Submit the form
-        await createAccountBtn.click()
+        await submitBtn.click()
 
         // verify we landed on the MFA setup screen
         // Check if the code input field is visible

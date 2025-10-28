@@ -49,7 +49,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/review`}>View</Link>
+                <Link href={`/${orgSlug}/study/${study.id}/view`}>View</Link>
             </TableTd>
         </TableTr>
     )

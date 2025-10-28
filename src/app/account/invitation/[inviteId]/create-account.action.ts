@@ -25,7 +25,16 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
         return await db
             .selectFrom('org')
             .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
-            .select(['org.id', 'org.name', 'org.slug', 'pendingUser.email'])
+            .innerJoin('user as invitingUser', 'invitingUser.id', 'pendingUser.invitedByUserId')
+            .select([
+                'org.id',
+                'org.name',
+                'org.slug',
+                'pendingUser.isAdmin',
+                'pendingUser.email',
+                'invitingUser.firstName as invitingUserFirstName',
+                'invitingUser.lastName as invitingUserLastName',
+            ])
             .where('pendingUser.id', '=', inviteId)
             .executeTakeFirstOrThrow()
     })
@@ -44,17 +53,23 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(
         z.object({
             inviteId: z.string(),
+            loggedInEmail: z.string().optional(), // provide if merging team invite to existing user account
         }),
     )
 
-    .handler(async function ({ params: { inviteId }, db }) {
+    .handler(async function ({ params: { inviteId, loggedInEmail }, db }) {
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
             .where('id', '=', inviteId)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        const user = await db.selectFrom('user').select(['id']).where('email', '=', invite.email).executeTakeFirst()
+        const user = await db
+            .selectFrom('user')
+            .select(['id', 'email', 'clerkId'])
+            .where('email', '=', loggedInEmail ? loggedInEmail : invite.email)
+            .executeTakeFirst()
+
         if (!user) {
             throw new ActionFailure({ user: 'does not exist' })
         }
@@ -83,6 +98,19 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
 
             return user
         })
+
+        if (loggedInEmail) {
+            // add the invite email to the existing user's email addresses in clerk
+            const clerk = await clerkClient()
+
+            const emailAddress = await clerk.emailAddresses.createEmailAddress({
+                userId: user.clerkId,
+                emailAddress: invite.email,
+            })
+
+            // auto-verify email (the user has already followed the email invite link)
+            await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
+        }
 
         onUserAcceptInvite(siUser.id)
 
