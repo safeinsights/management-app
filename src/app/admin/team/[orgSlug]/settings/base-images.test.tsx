@@ -79,9 +79,7 @@ describe('BaseImages', async () => {
 
         // Upload a starter code file
         const file = new File(['print("Hello World")'], 'starter.R', { type: 'text/plain' })
-        // Mantine FileInput renders as a button, so we find it and upload to the hidden input
-        const fileButton = screen.getByRole('button', { name: /Starter Code/i })
-
+        // Mantine FileInput renders as a button, but we upload to the hidden input
         // Find the hidden file input element and upload to it
         const fileInputs = document.querySelectorAll('input[type="file"]')
         const fileInput = fileInputs[0] as HTMLInputElement

@@ -8,7 +8,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .alterTable('org_base_image')
         .alterColumn('starter_code_path', (col) => col.setNotNull())
         .execute()
-
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {

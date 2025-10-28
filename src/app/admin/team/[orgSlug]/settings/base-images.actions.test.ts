@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mockSessionWithTestData, actionResult } from '@/tests/unit.helpers'
-import { createOrgBaseImageAction, deleteOrgBaseImageAction, fetchOrgBaseImagesAction, updateOrgBaseImageAction } from './base-images.actions'
+import {
+    createOrgBaseImageAction,
+    deleteOrgBaseImageAction,
+    fetchOrgBaseImagesAction,
+    updateOrgBaseImageAction,
+} from './base-images.actions'
 import { db } from '@/database'
 
 vi.mock('@/server/aws', async () => {

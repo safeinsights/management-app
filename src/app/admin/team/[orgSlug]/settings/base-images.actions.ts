@@ -5,10 +5,30 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { s3BucketName, getS3Client, storeS3File, deleteS3File } from '@/server/aws'
-import { DeleteObjectCommand } from '@aws-sdk/client-s3'
+import { storeS3File, deleteS3File } from '@/server/aws'
 import { pathForStarterCode } from '@/lib/paths'
 import { fetchFileContents } from '@/server/storage'
+import type { DB } from '@/database/types'
+import type { Kysely } from 'kysely'
+
+// Common middleware to fetch base image with org validation
+const baseImageFromOrgAndId = async ({
+    params: { orgSlug, imageId },
+    db,
+}: {
+    params: { orgSlug: string; imageId: string }
+    db: Kysely<DB>
+}) => {
+    const baseImage = await db
+        .selectFrom('orgBaseImage')
+        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
+        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+        .where('org.slug', '=', orgSlug)
+        .where('orgBaseImage.id', '=', imageId)
+        .executeTakeFirstOrThrow()
+
+    return { baseImage }
+}
 
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
@@ -25,10 +45,9 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
+        const { orgSlug, starterCode, ...fieldValues } = params
 
-    const { orgSlug, starterCode, ...fieldValues } = params
-
-    const starterCodePath = pathForStarterCode(orgSlug, starterCode.name)
+        const starterCodePath = pathForStarterCode(orgSlug, starterCode.name)
 
         const newBaseImage = await db
             .insertInto('orgBaseImage')
@@ -40,7 +59,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath )
+        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
 
@@ -60,17 +79,7 @@ const updateOrgBaseImageSchema = z.object({
 
 export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
     .params(updateOrgBaseImageSchema)
-    .middleware(orgIdFromSlug)
-    .middleware(async ({ params: { imageId }, orgId, db }) => {
-        const baseImage = await db
-            .selectFrom('orgBaseImage')
-            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
-            .where('orgBaseImage.orgId', '=', orgId)
-            .where('orgBaseImage.id', '=', imageId)
-            .executeTakeFirstOrThrow()
-
-        return { baseImage }
-    })
+    .middleware(baseImageFromOrgAndId)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, baseImage, db }) => {
         const { orgSlug, imageId, starterCode, ...fieldValues } = params
@@ -131,44 +140,40 @@ const deleteOrgBaseImageSchema = z.object({
 export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
     .params(deleteOrgBaseImageSchema)
     .middleware(async ({ params: { orgSlug, imageId }, db }) => {
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
+            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+            .where('org.slug', '=', orgSlug)
+            .where('orgBaseImage.id', '=', imageId)
+            .executeTakeFirstOrThrow()
 
-    const baseImage = await db
-        .selectFrom('orgBaseImage')
-        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
-        .where('org.slug', '=', orgSlug)
-        .where('orgBaseImage.id', '=', imageId)
-        .executeTakeFirstOrThrow()
-
-    return { baseImage }
-})
+        return { baseImage }
+    })
 
     .requireAbilityTo('update', 'Org')
     .handler(async ({ baseImage, params: { orgSlug }, db }) => {
+        await deleteS3File(baseImage.starterCodePath)
 
-
-    await deleteS3File(baseImage.starterCodePath)
-
-
-    await db
-        .deleteFrom('orgBaseImage')
-        .where('orgBaseImage.id', '=', baseImage.id)
-        .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
+        await db
+            .deleteFrom('orgBaseImage')
+            .where('orgBaseImage.id', '=', baseImage.id)
+            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
     })
 
 const fetchStarterCodeSchema = z.object({
     orgSlug: z.string(),
-    starterCodePath: z.string(),
+    imageId: z.string(),
 })
 
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .params(fetchStarterCodeSchema)
-    .middleware(orgIdFromSlug)
+    .middleware(baseImageFromOrgAndId)
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ params: { starterCodePath } }) => {
-        const blob = await fetchFileContents(starterCodePath)
+    .handler(async ({ baseImage }) => {
+        const blob = await fetchFileContents(baseImage.starterCodePath)
         const content = await blob.text()
-        return { content, path: starterCodePath }
+        return { content, path: baseImage.starterCodePath }
     })

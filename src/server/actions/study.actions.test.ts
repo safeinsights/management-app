@@ -42,9 +42,10 @@ describe('Study Actions', () => {
                 name: 'Python Base',
                 language: 'PYTHON',
                 cmdLine: 'python %f',
-                baseImageUrl: 'test/url',
+                url: 'test/url',
                 isTesting: true,
                 orgId: org.id,
+                starterCodePath: 'test/path/starter.py',
             })
             .execute()
 
@@ -114,9 +115,10 @@ describe('Study Actions', () => {
                     name: 'Test R Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    baseImageUrl: 'test/url',
+                    url: 'test/url',
                     isTesting: true,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -143,9 +145,10 @@ describe('Study Actions', () => {
                     name: 'Non-Test R Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    baseImageUrl: 'test/url',
+                    url: 'test/url',
                     isTesting: false,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -165,9 +168,10 @@ describe('Study Actions', () => {
                     name: 'Other Org Test Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    baseImageUrl: 'test/url',
+                    url: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 

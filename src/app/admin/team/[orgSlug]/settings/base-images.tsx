@@ -1,12 +1,12 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Table, Button, Group, ActionIcon, Tooltip } from '@mantine/core'
+import { Stack, Title, Divider, Paper, Text, Table, Button, Group, ActionIcon, Tooltip, Flex } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
 import { BaseImageForm } from './base-image-form'
-import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlass } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction, fetchStarterCodeAction } from './base-images.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
@@ -50,7 +50,7 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
         try {
             const result = await fetchStarterCodeAction({
                 orgSlug,
-                starterCodePath: image.starterCodePath,
+                imageId: image.id,
             })
             if (isActionError(result)) {
                 reportError(result)
@@ -83,6 +83,14 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
             <Table.Td>
                 <Group gap="xs" wrap="nowrap">
                     <Text>{image.name}</Text>
+                </Group>
+            </Table.Td>
+            <Table.Td>{image.language}</Table.Td>
+            <Table.Td>{image.url}</Table.Td>
+            <Table.Td>{image.cmdLine}</Table.Td>
+            <Table.Td>
+                <Flex align="center" gap="sm">
+                    <span>{basename(image.starterCodePath)}</span>
                     <Tooltip label="View Starter Code" withArrow>
                         <ActionIcon
                             size="sm"
@@ -91,15 +99,11 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                             onClick={handleViewCode}
                             loading={isLoadingCode}
                         >
-                            <FileMagnifyingGlass />
+                            <FileMagnifyingGlassIcon />
                         </ActionIcon>
                     </Tooltip>
-                </Group>
+                </Flex>
             </Table.Td>
-            <Table.Td>{image.language}</Table.Td>
-            <Table.Td>{image.url}</Table.Td>
-            <Table.Td>{image.cmdLine}</Table.Td>
-            <Table.Td>{basename(image.starterCodePath)}</Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
                 <Group gap={4} justify="center" wrap="nowrap">

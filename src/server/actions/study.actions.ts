@@ -170,7 +170,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 .where('orgId', '=', study.orgId)
                 .where('isTesting', '=', useTestImage || false)
                 .orderBy('orgBaseImage.createdAt', 'desc')
-                .select(['baseImageUrl', 'cmdLine'])
+                .select(['url', 'cmdLine'])
                 .executeTakeFirstOrThrow(
                     throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
                 )
@@ -184,7 +184,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 containerLocation: study.containerLocation,
                 codeEntryPointFileName: mainCode.name,
                 cmdLine: image.cmdLine,
-                baseImageURL: image.baseImageUrl,
+                baseImageURL: image.url,
             })
         }
 

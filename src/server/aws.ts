@@ -1,5 +1,11 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
+import {
+    DeleteObjectCommand,
+    DeleteObjectsCommand,
+    GetObjectCommand,
+    ListObjectsV2Command,
+    S3Client,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -85,7 +91,11 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeS3File = async (info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo, body: ReadableStream, Key: string) => {
+export const storeS3File = async (
+    info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo,
+    body: ReadableStream,
+    Key: string,
+) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
