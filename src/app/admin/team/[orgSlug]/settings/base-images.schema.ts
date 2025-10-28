@@ -8,3 +8,12 @@ export const orgBaseImageSchema = z.object({
     isTesting: z.boolean().default(false),
     starterCode: z.instanceof(File),
 })
+
+export const orgBaseImageUpdateSchema = z.object({
+    name: z.string().nonempty(),
+    cmdLine: z.string().nonempty(),
+    language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
+    url: z.string().nonempty(),
+    isTesting: z.boolean().default(false),
+    starterCode: z.instanceof(File).optional(),
+})

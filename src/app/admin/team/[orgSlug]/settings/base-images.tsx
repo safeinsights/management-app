@@ -1,26 +1,33 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Table, Button, Group } from '@mantine/core'
+import { Stack, Title, Divider, Paper, Text, Table, Button, Group, ActionIcon, Tooltip } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
-import { AddBaseImageForm } from './add-base-image-form'
-import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction } from './base-images.actions'
+import { BaseImageForm } from './base-image-form'
+import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlass } from '@phosphor-icons/react/dist/ssr'
+import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction, fetchStarterCodeAction } from './base-images.actions'
 import { SuretyGuard } from '@/components/surety-guard'
-import { reportMutationError } from '@/components/errors'
+import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
+import { CodeViewer } from '@/components/code-viewer'
+import { useState } from 'react'
+import { isActionError } from '@/lib/errors'
 
 type BaseImage = ActionSuccessType<typeof fetchOrgBaseImagesAction>[number]
 
 const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ image, canDelete }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
+    const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
+    const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
+    const [starterCode, setStarterCode] = useState<string | null>(null)
+    const [isLoadingCode, setIsLoadingCode] = useState(false)
 
     const deleteMutation = useMutation({
         mutationFn: deleteOrgBaseImageAction,
@@ -32,6 +39,31 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
         },
         onError: reportMutationError('Failed to delete base image'),
     })
+
+    const handleEditComplete = () => {
+        closeEditModal()
+        queryClient.invalidateQueries({ queryKey: ['orgBaseImages', orgSlug] })
+    }
+
+    const handleViewCode = async () => {
+        setIsLoadingCode(true)
+        try {
+            const result = await fetchStarterCodeAction({
+                orgSlug,
+                starterCodePath: image.starterCodePath,
+            })
+            if (isActionError(result)) {
+                reportError(result)
+            } else {
+                setStarterCode(result.content)
+                openCodeViewer()
+            }
+        } catch (error) {
+            reportError(error)
+        } finally {
+            setIsLoadingCode(false)
+        }
+    }
 
     const DeleteBaseImg = () => {
         if (!canDelete) return null
@@ -48,18 +80,55 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
 
     return (
         <Table.Tr>
-            <Table.Td>{image.name}</Table.Td>
+            <Table.Td>
+                <Group gap="xs" wrap="nowrap">
+                    <Text>{image.name}</Text>
+                    <Tooltip label="View Starter Code" withArrow>
+                        <ActionIcon
+                            size="sm"
+                            variant="subtle"
+                            color="blue"
+                            onClick={handleViewCode}
+                            loading={isLoadingCode}
+                        >
+                            <FileMagnifyingGlass />
+                        </ActionIcon>
+                    </Tooltip>
+                </Group>
+            </Table.Td>
             <Table.Td>{image.language}</Table.Td>
             <Table.Td>{image.url}</Table.Td>
             <Table.Td>{image.cmdLine}</Table.Td>
-            <Table.Td>
-                <a href={image.starterCodePath} target="_blank" rel="noopener noreferrer">
-                    {basename(image.starterCodePath)}
-                </a>
-            </Table.Td>
+            <Table.Td>{basename(image.starterCodePath)}</Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
-                <DeleteBaseImg />
+                <Group gap={4} justify="center" wrap="nowrap">
+                    <Tooltip label="Edit" withArrow>
+                        <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
+                            <PencilIcon />
+                        </ActionIcon>
+                    </Tooltip>
+                    <DeleteBaseImg />
+                </Group>
+                <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Base Image">
+                    <BaseImageForm image={image} onCompleteAction={handleEditComplete} />
+                </AppModal>
+                <AppModal
+                    isOpen={codeViewerOpened}
+                    onClose={closeCodeViewer}
+                    title={`Starter Code: ${basename(image.starterCodePath)}`}
+                    size="xl"
+                >
+                    {starterCode ? (
+                        <CodeViewer
+                            code={starterCode}
+                            language={image.language.toLowerCase() as 'python' | 'r'}
+                            fileName={basename(image.starterCodePath)}
+                        />
+                    ) : (
+                        <LoadingMessage message="Loading starter code..." />
+                    )}
+                </AppModal>
             </Table.Td>
         </Table.Tr>
     )
@@ -149,7 +218,7 @@ export const BaseImages: React.FC = () => {
             </Stack>
 
             <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add New Base Image">
-                <AddBaseImageForm onCompleteAction={handleFormComplete} />
+                <BaseImageForm onCompleteAction={handleFormComplete} />
             </AppModal>
         </Paper>
     )

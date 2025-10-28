@@ -8,6 +8,7 @@ import { throwNotFound } from '@/lib/errors'
 import { s3BucketName, getS3Client, storeS3File, deleteS3File } from '@/server/aws'
 import { DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { pathForStarterCode } from '@/lib/paths'
+import { fetchFileContents } from '@/server/storage'
 
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
@@ -44,6 +45,66 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
         revalidatePath(`/admin/team/${orgSlug}/settings`)
 
         return newBaseImage
+    })
+
+const updateOrgBaseImageSchema = z.object({
+    orgSlug: z.string(),
+    imageId: z.string(),
+    name: z.string(),
+    language: z.enum(['R', 'PYTHON']),
+    cmdLine: z.string(),
+    url: z.string(),
+    starterCode: z.instanceof(File).optional(),
+    isTesting: z.boolean().default(false),
+})
+
+export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
+    .params(updateOrgBaseImageSchema)
+    .middleware(orgIdFromSlug)
+    .middleware(async ({ params: { imageId }, orgId, db }) => {
+        const baseImage = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+            .where('orgBaseImage.orgId', '=', orgId)
+            .where('orgBaseImage.id', '=', imageId)
+            .executeTakeFirstOrThrow()
+
+        return { baseImage }
+    })
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ params, baseImage, db }) => {
+        const { orgSlug, imageId, starterCode, ...fieldValues } = params
+
+        let starterCodePath = baseImage.starterCodePath
+
+        // If a new starter code file is provided, upload it and delete the old one
+        if (starterCode && starterCode.size > 0) {
+            const newStarterCodePath = pathForStarterCode(orgSlug, starterCode.name)
+
+            // Upload new file
+            await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
+
+            // Delete old file if the path is different
+            if (baseImage.starterCodePath !== newStarterCodePath) {
+                await deleteS3File(baseImage.starterCodePath)
+            }
+
+            starterCodePath = newStarterCodePath
+        }
+
+        const updatedBaseImage = await db
+            .updateTable('orgBaseImage')
+            .set({
+                ...fieldValues,
+                starterCodePath,
+            })
+            .where('id', '=', imageId)
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        revalidatePath(`/admin/team/${orgSlug}/settings`)
+
+        return updatedBaseImage
     })
 
 const fetchOrgBaseImagesSchema = z.object({
@@ -95,4 +156,19 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction')
         .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
 
         revalidatePath(`/admin/team/${orgSlug}/settings`)
+    })
+
+const fetchStarterCodeSchema = z.object({
+    orgSlug: z.string(),
+    starterCodePath: z.string(),
+})
+
+export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
+    .params(fetchStarterCodeSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('view', 'Org')
+    .handler(async ({ params: { starterCodePath } }) => {
+        const blob = await fetchFileContents(starterCodePath)
+        const content = await blob.text()
+        return { content, path: starterCodePath }
     })
