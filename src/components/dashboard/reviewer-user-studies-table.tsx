@@ -25,7 +25,7 @@ import {
     Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import { type Route } from 'next'
+import { Routes } from '@/lib/routes'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -114,7 +114,7 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${study.orgSlug}/study/${study.id}/review` as Route} c="blue.7">
+                <Link href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })} c="blue.7">
                     View
                 </Link>
             </TableTd>

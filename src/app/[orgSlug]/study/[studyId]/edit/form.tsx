@@ -5,9 +5,9 @@ import { useForm } from '@mantine/form'
 import { onUpdateStudyAction } from './actions'
 import { type FormValues, schema } from './schema'
 import Link from 'next/link'
-import type { Route } from 'next'
 import { useMutation, zodResolver } from '@/common'
 import { css } from '@/styles'
+import { Routes } from '@/lib/routes'
 
 export const labelStyle = css({
     width: '10rem',
@@ -149,7 +149,7 @@ export const Form: React.FC<{ studyId: string; study: FormValues }> = ({ studyId
             </Stack>
 
             <Group gap="xl" p={2} mt={40} justify="flex-end">
-                <Link href={'/researcher/studies' as Route} passHref>
+                <Link href={Routes.researcherStudies} passHref>
                     <Button disabled={!form.isValid || isPending}>Back to all studies</Button>
                 </Link>
                 <Button disabled={!form.isValid || isPending} type="submit" variant="default">

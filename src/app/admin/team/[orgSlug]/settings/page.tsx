@@ -6,8 +6,8 @@ import { ApiKeySettingsDisplay } from './api-key-settings-display'
 import { BaseImages } from './base-images'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { redirect } from 'next/navigation'
-import type { Route } from 'next'
 import { isActionError } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +17,13 @@ export default async function AdminSettingsPage({ params }: { params: Promise<{ 
     const org = await getOrgFromSlugAction({ orgSlug })
 
     if (isActionError(org)) {
-        redirect('/404' as Route)
+        redirect(Routes.notFound)
     }
 
     return (
         <Stack p="md">
             <RequireOrgAdmin />
-            <PageBreadcrumbs crumbs={[['Dashboard', `/`], ['Admin'], ['Settings']]} />
+            <PageBreadcrumbs crumbs={[['Dashboard', Routes.home], ['Admin'], ['Settings']]} />
             <Title order={1} mb="xl">
                 Settings
             </Title>

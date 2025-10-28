@@ -25,8 +25,8 @@ import {
     Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import type { Route } from 'next'
 import { FC } from 'react'
+import { Routes } from '@/lib/routes'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
@@ -54,7 +54,7 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/review` as Route} c="blue.7">
+                <Link href={Routes.studyReview({ orgSlug, studyId: study.id })} c="blue.7">
                     View
                 </Link>
             </TableTd>

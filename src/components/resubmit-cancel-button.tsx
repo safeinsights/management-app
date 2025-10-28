@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Text, Stack, Group } from '@mantine/core'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { AppModal } from '@/components/modal'
 
 export function ResubmitCancelButton({
@@ -20,12 +21,12 @@ export function ResubmitCancelButton({
         if (isDirty) {
             setIsOpen(true)
         } else {
-            router.push((href || '/') as Route)
+            router.push((href || Routes.home) as Route)
         }
     }
 
     const confirmCancel = () => {
-        router.push((href || '/') as Route)
+        router.push((href || Routes.home) as Route)
     }
 
     return (

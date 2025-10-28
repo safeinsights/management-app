@@ -13,18 +13,16 @@ export type LinkProps = AnchorProps & {
     children: ReactNode
 }
 
-export function Link({ href, target, children, ...anchorProps }: LinkProps) {
-    return (
-        <NextLink href={href} target={target} passHref>
-            <MantineAnchor component="span" {...anchorProps}>
-                {children}
-            </MantineAnchor>
-        </NextLink>
-    )
-}
+export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
+    <NextLink href={href} target={target} passHref>
+        <MantineAnchor component="span" {...anchorProps}>
+            {children}
+        </MantineAnchor>
+    </NextLink>
+)
 
 export type ButtonLinkProps = ButtonProps & {
-    href: Route<string>
+    href: Route
     target?: string
     children: ReactNode
     fullWidth?: boolean

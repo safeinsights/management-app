@@ -3,9 +3,9 @@ import { orgInitials } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Badge, Flex } from '@mantine/core'
-import type { Route } from 'next'
 import { ButtonLink, type ButtonLinkProps } from '../links'
 import { SiBulbLogo } from './svg/si-bulb-logo'
+import { Routes } from '@/lib/routes'
 
 type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
 
@@ -59,7 +59,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
             ml={isMainDashboard ? -WIDTH : 0}
             style={{ transition: 'margin 0.3s ease' }}
         >
-            <Square color="white" my="lg" href="/dashboard">
+            <Square color="white" my="lg" href={Routes.dashboard}>
                 <SiBulbLogo width={24} />
             </Square>
             {orgs.map((org) => {
@@ -77,7 +77,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                         <Square
                             color="white"
                             isActive={isActive}
-                            href={`/${org.slug}/dashboard` as Route}
+                            href={Routes.orgDashboard({ orgSlug: org.slug })}
                             eventCount={org.eventCount}
                         >
                             {orgInitials(org.name, org.type)}

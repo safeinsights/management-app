@@ -3,6 +3,7 @@ import { UsersTable } from './users-table'
 import { InviteButton } from './invitation'
 import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
+import { Routes } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export default async function UsersListingPage(props: { params: Promise<{ orgSlu
 
     return (
         <Stack p="md">
-            <PageBreadcrumbs crumbs={[['Dashboard', `/`], ['Admin'], ['Manage team']]} />
+            <PageBreadcrumbs crumbs={[['Dashboard', Routes.home], ['Admin'], ['Manage team']]} />
             <RequireOrgAdmin />
             <Title my="lg">Manage team</Title>
             <Paper shadow="xs" p="xl">

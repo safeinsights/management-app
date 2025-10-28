@@ -23,6 +23,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import type { Route } from 'next'
 import { FC, useEffect, useState } from 'react'
 import { generateKeyPair } from 'si-encryption/util/keypair'
+import { Routes } from '@/lib/routes'
 
 interface Keys {
     binaryPublicKey: ArrayBuffer
@@ -159,7 +160,7 @@ const ConfirmationModal: FC<{ onClose: () => void; isOpen: boolean; keys: Keys; 
         onError: reportMutationError('Failed to save reviewer key'),
         onSuccess() {
             const redirectUrl = searchParams.get('redirect_url')
-            router.push((redirectUrl || '/') as Route)
+            router.push((redirectUrl || Routes.home) as Route)
         },
     })
 
