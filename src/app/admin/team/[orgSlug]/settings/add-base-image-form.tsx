@@ -44,7 +44,7 @@ export function AddBaseImageForm({ onCompleteAction }: AddBaseImageFormProps) {
             name: values.name,
             cmdLine: values.cmdLine,
             language: (values.language ?? '').toLowerCase() as 'r' | 'python',
-            url: values.url,
+            baseImageUrl: values.url,
             isTesting: values.isTesting,
         })
     })

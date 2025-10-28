@@ -42,7 +42,7 @@ describe('Study Actions', () => {
                 name: 'Python Base',
                 language: 'PYTHON',
                 cmdLine: 'python %f',
-                url: 'test/url',
+                baseImageUrl: 'test/url',
                 isTesting: true,
                 orgId: org.id,
             })
@@ -114,7 +114,7 @@ describe('Study Actions', () => {
                     name: 'Test R Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    url: 'test/url',
+                    baseImageUrl: 'test/url',
                     isTesting: true,
                     orgId: org.id,
                 })
@@ -143,7 +143,7 @@ describe('Study Actions', () => {
                     name: 'Non-Test R Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    url: 'test/url',
+                    baseImageUrl: 'test/url',
                     isTesting: false,
                     orgId: org.id,
                 })
@@ -165,7 +165,7 @@ describe('Study Actions', () => {
                     name: 'Other Org Test Image',
                     language: 'R',
                     cmdLine: 'Rscript %f',
-                    url: 'test/url',
+                    baseImageUrl: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,
                 })

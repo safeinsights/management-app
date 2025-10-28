@@ -13,7 +13,7 @@ describe('Base Images Actions', () => {
                 name: 'Test Image',
                 cmdLine: 'test command',
                 language: 'r',
-                url: 'test-url',
+                baseImageUrl: 'test-url',
                 isTesting: true,
             }),
         )

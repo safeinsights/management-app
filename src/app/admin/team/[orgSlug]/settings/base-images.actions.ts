@@ -13,7 +13,7 @@ const createOrgBaseImageSchema = z.object({
     name: z.string(),
     language: z.enum(['r', 'python']),
     cmdLine: z.string(),
-    url: z.string(),
+    baseImageUrl: z.string(),
     isTesting: z.boolean().default(false),
 })
 
@@ -22,7 +22,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { name, language, cmdLine, url, isTesting, orgSlug } = params
+        const { name, language, cmdLine, baseImageUrl, isTesting, orgSlug } = params
 
         const newBaseImage = await db
             .insertInto('orgBaseImage')
@@ -31,7 +31,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction')
                 name,
                 language: language.toUpperCase() as 'R' | 'PYTHON',
                 cmdLine,
-                url,
+                baseImageUrl,
                 isTesting,
                 skeletonCodeUrl: null,
             })
