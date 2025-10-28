@@ -4,6 +4,7 @@ import { useSignIn } from '@clerk/nextjs'
 import { Container, Loader } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Routes } from '@/lib/routes'
 import { type MFAState } from './logic'
 import { RequestMFA } from './mfa'
 import { SignInForm } from './sign-in-form'
@@ -25,7 +26,7 @@ export function SignIn() {
             setMFAState(false)
             setStep('form')
             // Remove the param from the URL to avoid loops
-            router.replace('/account/signin')
+            router.replace(Routes.accountSignin)
         }
     }, [searchParams, router])
 

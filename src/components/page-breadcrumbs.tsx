@@ -1,7 +1,7 @@
 import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
 import Link from 'next/link'
-import type { Route } from 'next'
 import { FC } from 'react'
+import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 
 export const PageBreadcrumbs: FC<{

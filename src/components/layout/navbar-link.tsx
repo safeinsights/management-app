@@ -1,10 +1,10 @@
 import { FC } from 'react'
 import Link from 'next/link'
-import type { Route } from 'next'
 import { usePathname } from 'next/navigation'
 import styles from './navbar-items.module.css'
 import { RefWrapper } from './nav-ref-wrapper'
 import { NavLink, NavLinkProps } from '@mantine/core'
+import type { Route } from 'next'
 
 type NavbarLinkProps = NavLinkProps & {
     isVisible: boolean

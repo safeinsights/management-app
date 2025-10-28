@@ -7,7 +7,7 @@ import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core
 import { notifications } from '@mantine/notifications'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { type Route } from 'next'
+import type { Route } from 'next'
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()

@@ -26,6 +26,13 @@ export const StudyParams = z.object({
  */
 export const NoParams = z.object({})
 
+/**
+ * Schema for routes that require an invite ID
+ */
+export const InviteParams = z.object({
+    inviteId: z.string().uuid('Invite ID must be a valid UUID'),
+})
+
 // ============================================================================
 // Search Parameter Schemas
 // ============================================================================
@@ -101,15 +108,23 @@ export const Routes = {
 
     accountMfaApp: '/account/mfa/app' as Route,
 
+    accountMfaSms: '/account/mfa/sms' as Route,
+
     accountResetPassword: '/account/reset-password' as Route,
 
     accountSignin: '/account/signin' as Route,
+
+    accountInvitationSignup: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/signup`, InviteParams),
+
+    accountInvitationJoinTeam: makeRoute(({ inviteId }) => `/account/invitation/${inviteId}/join-team`, InviteParams),
 
     // -------------------------------------------------------------------------
     // Researcher Routes (Simple routes - no parameters)
     // -------------------------------------------------------------------------
 
     researcherStudies: '/researcher/studies' as Route,
+
+    reviewerKey: '/reviewer-key' as Route,
 
     // -------------------------------------------------------------------------
     // Admin Routes

@@ -7,6 +7,7 @@ import Script from 'next/script'
 import { FC, PropsWithChildren, createContext, useEffect, useState } from 'react'
 import { AppModal } from '@/components/modal'
 import { Button, Text, Stack, Group } from '@mantine/core'
+import { Routes } from '@/lib/routes'
 
 const ProxyContext = createContext<ProxyInstance>([undefined, () => {}])
 
@@ -93,7 +94,7 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
 
     const confirmNavigation = () => {
         setIsOpen(false)
-        router.push('/')
+        router.push(Routes.home)
     }
 
     const handleBackToForm = () => {

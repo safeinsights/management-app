@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { SuretyGuard } from '@/components/surety-guard'
+import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
 import { deleteOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
@@ -9,6 +10,7 @@ import { useDisclosure } from '@mantine/hooks'
 import { UserListIcon } from '@phosphor-icons/react'
 import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
 import { DataTable, type DataTableSortStatus } from 'mantine-datatable'
+import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, useMemo, useState } from 'react'
 import * as R from 'remeda'
@@ -101,7 +103,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     size="sm"
                     variant="subtle"
                     color="blue"
-                    onClick={() => router.push(`/admin/team/${org.slug}`)}
+                    onClick={() => router.push(`/admin/team/${org.slug}` as Route)}
                 >
                     <UsersIcon />
                 </ActionIcon>
@@ -111,7 +113,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                     size="sm"
                     variant="subtle"
                     color="blue"
-                    onClick={() => router.push(`/${org.slug}/dashboard`)}
+                    onClick={() => router.push(Routes.orgDashboard({ orgSlug: org.slug }))}
                 >
                     <UserListIcon />
                 </ActionIcon>

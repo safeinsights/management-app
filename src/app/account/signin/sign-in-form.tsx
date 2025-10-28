@@ -1,8 +1,8 @@
 import { Button, Flex, Link, useForm, zodResolver } from '@/common'
 import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
-import { Routes } from '@/lib/routes'
 import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -64,7 +64,7 @@ export const SignInForm: FC<{
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
                 const redirectUrl = searchParams.get('redirect_url')
-                router.push((redirectUrl || Routes.home) as Route)
+                router.push((redirectUrl as Route) ?? Routes.home)
             }
             if (attempt.status === 'needs_second_factor') {
                 // Auth method not yet determined, set to false for now
@@ -130,7 +130,9 @@ export const SignInForm: FC<{
                         w="fit-content"
                         size="xs"
                         href={
-                            `/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}` as Route
+                            (searchParams.get('redirect_url')
+                                ? `${Routes.accountResetPassword}?redirect_url=${searchParams.get('redirect_url')}`
+                                : Routes.accountResetPassword) as Route
                         }
                     >
                         Forgot password?

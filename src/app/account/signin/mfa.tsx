@@ -2,9 +2,9 @@
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import type { Route } from 'next'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
@@ -91,14 +91,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 })
                             }
                         }
-                        router.push(redirectUrl as Route)
+                        router.push((redirectUrl as Route) ?? Routes.dashboard)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
                     const redirectUrl = searchParams.get('redirect_url')
-                    router.push((redirectUrl || Routes.home) as Route)
+                    router.push((redirectUrl as Route) ?? Routes.home)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

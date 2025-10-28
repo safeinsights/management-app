@@ -10,6 +10,8 @@ import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -47,7 +49,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 color: 'green',
                 message: `You have successfully joined ${org!.name}!`,
             })
-            router.push(`/${org!.slug}/dashboard`)
+            router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
         },
         onError: () => {
             reportMutationError('Unable to join team')
@@ -57,7 +59,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { mutate: revokeInvite, isPending: isRevoking } = useMutation({
         mutationFn: () => onRevokeInviteAction({ inviteId }),
         onSuccess: () => {
-            router.push(`/dashboard?decline=${org!.name}`)
+            router.push(`${Routes.dashboard}?decline=${org!.name}` as Route)
         },
         onError: () => {
             reportMutationError('Unable to decline invitation')
@@ -82,7 +84,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                         Please sign in with the correct account or contact the person who sent the invitation for a new
                         invite.
                     </Text>
-                    <Button variant="filled" size="lg" onClick={() => router.push('/account/signin')} mt="md">
+                    <Button variant="filled" size="lg" onClick={() => router.push(Routes.accountSignin)} mt="md">
                         Sign in
                     </Button>
                 </Flex>
@@ -129,7 +131,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                     onClick={() => {
                         if (isSkipping) return
                         setIsSkipping(true)
-                        router.push(`/dashboard?skip=${org.name}`)
+                        router.push(`${Routes.dashboard}?skip=${org.name}`)
                     }}
                 >
                     Skip for now

@@ -2,6 +2,7 @@
 import { FlatCompat } from '@eslint/eslintrc'
 
 import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
+import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 
 const compat = new FlatCompat({
     // import.meta.dirname is available after Node.js v20.11.0
@@ -35,11 +36,13 @@ const eslintConfig = [
             custom: {
                 rules: {
                     noSelectAllWithoutArgs,
+                    noBareRouteStrings,
                 },
             },
         },
         rules: {
             'custom/noSelectAllWithoutArgs': 'error',
+            'custom/noBareRouteStrings': 'error',
             'no-restricted-imports': [
                 'error',
                 {

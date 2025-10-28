@@ -21,12 +21,12 @@ export function ResubmitCancelButton({
         if (isDirty) {
             setIsOpen(true)
         } else {
-            router.push((href || Routes.home) as Route)
+            router.push((href as Route) ?? Routes.home)
         }
     }
 
     const confirmCancel = () => {
-        router.push((href || Routes.home) as Route)
+        router.push((href as Route) ?? Routes.home)
     }
 
     return (

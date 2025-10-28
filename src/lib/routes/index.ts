@@ -22,6 +22,7 @@ export {
     OrgParams,
     StudyParams,
     NoParams,
+    InviteParams,
     DashboardSearchParams,
     RedirectSearchParams,
     InviteSearchParams,

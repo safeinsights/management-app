@@ -24,6 +24,7 @@ import { RequireUser } from '../require-user'
 import { ActivityContext } from '../activity-context'
 import { RequireReviewerKey } from '../require-reviewer-key'
 import { AppNav } from './app-nav'
+import { Routes } from '@/lib/routes'
 
 type Props = { children: ReactNode }
 
@@ -58,7 +59,7 @@ export function AppShell({ children }: Props) {
             <AppShellHeader bg="purple.8" w="100%">
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
-                    <Link href="/">
+                    <Link href={Routes.home}>
                         <SafeInsightsLogo />
                     </Link>
                 </Group>

@@ -3,6 +3,7 @@
 import { useRouter, useParams } from 'next/navigation'
 import { useLayoutEffect } from 'react'
 import { useSession } from '../hooks/session'
+import { Routes } from '@/lib/routes'
 
 export const RequireOrgAdmin = () => {
     const { session } = useSession()
@@ -12,7 +13,7 @@ export const RequireOrgAdmin = () => {
     useLayoutEffect(() => {
         if (!session || !orgSlug || session.user.isSiAdmin || session.orgs[orgSlug]?.isAdmin) return
 
-        router.push('/dashboard')
+        router.push(Routes.dashboard)
     }, [session, router, orgSlug])
 
     return null

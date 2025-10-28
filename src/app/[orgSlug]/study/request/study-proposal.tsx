@@ -23,6 +23,7 @@ import {
     studyProposalFormSchema,
     StudyProposalFormValues,
 } from './study-proposal-form-schema'
+import { Routes } from '@/lib/routes'
 
 type StepperButtonsProps = {
     form: { isValid(): boolean }
@@ -151,7 +152,7 @@ export const StudyProposal: React.FC = () => {
                     'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/dashboard`)
+            router.push(Routes.dashboard)
         },
         onError: async (error) => {
             notifications.show({

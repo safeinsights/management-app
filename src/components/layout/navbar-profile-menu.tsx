@@ -3,6 +3,7 @@
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
+import { Routes } from '@/lib/routes'
 import { AuthRole } from '@/lib/types'
 import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
@@ -60,7 +61,7 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<LockIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => router.push('/reviewer-key'))}
+                        onClick={closeAndCall(() => router.push(Routes.reviewerKey))}
                         c="white"
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"
@@ -73,7 +74,7 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="SI Admin"
                         leftSection={<GlobeIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => router.push(`/admin/safeinsights`))}
+                        onClick={closeAndCall(() => router.push(Routes.adminSafeinsights))}
                         c="white"
                         className={styles.navLinkProfileHover}
                         aria-label="SI Admin"
