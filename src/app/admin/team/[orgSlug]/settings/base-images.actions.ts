@@ -143,7 +143,13 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', {
         const baseImage = await db
             .selectFrom('orgBaseImage')
             .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-            .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'orgBaseImage.language', 'orgBaseImage.isTesting', 'orgBaseImage.orgId'])
+            .select([
+                'orgBaseImage.id',
+                'orgBaseImage.starterCodePath',
+                'orgBaseImage.language',
+                'orgBaseImage.isTesting',
+                'orgBaseImage.orgId',
+            ])
             .where('org.slug', '=', orgSlug)
             .where('orgBaseImage.id', '=', imageId)
             .executeTakeFirstOrThrow()

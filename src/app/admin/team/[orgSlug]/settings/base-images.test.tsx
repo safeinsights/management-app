@@ -8,7 +8,6 @@ import {
     waitFor,
     mockSessionWithTestData,
     faker,
-    db,
     renderWithProviders,
     insertTestBaseImage,
 } from '@/tests/unit.helpers'

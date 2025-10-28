@@ -3,7 +3,7 @@
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Anchor } from '@mantine/core'
+import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction, updateOrgBaseImageAction } from './base-images.actions'
 import { orgBaseImageSchema, orgBaseImageUpdateSchema } from './base-images.schema'
@@ -91,8 +91,7 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                 />
                 {isEditMode && image.starterCodePath && (
                     <Text size="sm" c="dimmed">
-                        Current file:{' '}
-                        {basename(image.starterCodePath)}
+                        Current file: {basename(image.starterCodePath)}
                     </Text>
                 )}
                 <Checkbox
