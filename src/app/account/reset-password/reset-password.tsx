@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { PendingReset } from './pending-reset'
 import { ResetForm } from './reset-form'
+import { Routes } from '@/lib/routes'
 
 export function ResetPassword() {
     const { isLoaded } = useSignIn()
@@ -31,7 +32,7 @@ export function ResetPassword() {
     const onClose = () => {
         setPendingReset(null)
         setShowVerification(false)
-        router.push('/account/signin')
+        router.push(Routes.accountSignin)
     }
 
     if (pendingReset && showVerification) {

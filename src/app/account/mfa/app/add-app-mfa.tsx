@@ -26,6 +26,7 @@ import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
+import { Routes } from '@/lib/routes'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -203,7 +204,7 @@ function AddTotpScreenContent({
                         Verify code
                     </Button>
                     <Link
-                        href="/account/mfa"
+                        href={Routes.accountMfa}
                         mt="md"
                         c="purple.5"
                         fw={600}

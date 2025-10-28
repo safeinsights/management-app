@@ -2,10 +2,11 @@ import { Link } from '@/components/links'
 import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
 import { Button, Flex, Paper, Text, Title } from '@mantine/core'
+import type { Route } from 'next'
 import { redirect, RedirectType } from 'next/navigation'
 import { FC } from 'react'
 import { SignOutPanel } from './signout-panel'
-
+import { Routes } from '@/lib/routes'
 export const dynamic = 'force-dynamic'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
@@ -51,7 +52,8 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
 
     if (pendingInvite?.matchingUser) {
         // redirect to the join team page after signing in
-        redirect(`/account/signin?redirect_url=/account/invitation/${inviteId}/join-team`, RedirectType.replace)
+        const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
+        redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
     } else {
         return (
             <InviteAccountPanel
@@ -88,7 +90,7 @@ const InviteAccountPanel: FC<{
                     variant="filled"
                     size="lg"
                     component={Link}
-                    href={`/account/signin?invite_id=${inviteId}`}
+                    href={`/account/signin?invite_id=${inviteId}` as Route}
                     w="100%"
                 >
                     Login with existing account
@@ -107,7 +109,7 @@ const InviteAccountPanel: FC<{
                     variant="outline"
                     size="lg"
                     component={Link}
-                    href={`/account/invitation/${inviteId}/signup`}
+                    href={Routes.accountInvitationSignup({ inviteId })}
                     w="100%"
                 >
                     Create New Account

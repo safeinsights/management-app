@@ -17,6 +17,7 @@ import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import BackupCodes from '../app/backup-codes'
 import styles from './panel.module.css'
+import { Routes } from '@/lib/routes'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
@@ -215,7 +216,7 @@ export function AddSMSMFA() {
                                         </Button>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}
@@ -270,7 +271,7 @@ export function AddSMSMFA() {
                                         </Group>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}

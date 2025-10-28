@@ -13,7 +13,7 @@ vi.mock('@/server/actions/org.actions', () => ({
 
 const mockStudies = [
     {
-        id: 'study-1',
+        id: '11111111-1111-4111-8111-111111111111',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location1',
@@ -34,7 +34,7 @@ const mockStudies = [
         errorStudyJobId: null,
     },
     {
-        id: 'study-2',
+        id: '22222222-2222-4222-8222-222222222222',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location2',
@@ -55,7 +55,7 @@ const mockStudies = [
         errorStudyJobId: null,
     },
     {
-        id: 'study-3',
+        id: '33333333-3333-4333-8333-333333333333',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location3',

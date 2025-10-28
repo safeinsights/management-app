@@ -6,6 +6,7 @@ import { reviewerKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { useRouter } from 'next/navigation'
 import { useLayoutEffect } from 'react'
 import { useSession } from '../hooks/session'
+import { Routes } from '@/lib/routes'
 
 export const RequireReviewerKey = () => {
     const { session } = useSession()
@@ -19,7 +20,7 @@ export const RequireReviewerKey = () => {
             const hasKey = actionResult(await reviewerKeyExistsAction())
 
             if (!hasKey) {
-                router.push('/account/keys')
+                router.push(Routes.accountKeys)
             }
         }
         checkForReviewerKey()

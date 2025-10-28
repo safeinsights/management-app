@@ -7,6 +7,7 @@ import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core
 import { notifications } from '@mantine/notifications'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import type { Route } from 'next'
 
 export default function UserStudiesDashboard() {
     const { session } = useSession()
@@ -38,7 +39,7 @@ export default function UserStudiesDashboard() {
             params.delete('decline')
         }
 
-        router.replace(`${pathname}?${params.toString()}`)
+        router.replace(`${pathname}?${params.toString()}` as Route)
     }, [skippedOrg, declinedOrg, pathname, searchParams, router])
 
     if (!session) return null
