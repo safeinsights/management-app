@@ -1,8 +1,7 @@
 'use client'
 
-import { useSession } from '@/hooks/session'
 import { NavLink } from '@mantine/core'
-import { GearIcon, GlobeIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
@@ -15,7 +14,6 @@ interface OrgAdminDashboardLinkProps {
 
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
     const pathname = usePathname()
-    const { session } = useSession()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const isAdminPage = pathname.startsWith('/admin/')
@@ -42,13 +40,6 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 rightSection={null}
                 aria-haspopup="true"
             >
-                <NavbarLink
-                    isVisible={session?.user.isSiAdmin || false}
-                    url={`/admin/safeinsights`}
-                    label="SI Admin Dashboard"
-                    icon={<GlobeIcon />}
-                    pl="xl"
-                />
                 <NavbarLink
                     isVisible={true}
                     label="Manage Org"
