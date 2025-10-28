@@ -10,7 +10,7 @@ export const RequireOrgAdmin = () => {
     const router = useRouter()
 
     useLayoutEffect(() => {
-        if (!session || !orgSlug || session.orgs[orgSlug]?.isAdmin) return
+        if (!session || !orgSlug || session.user.isSiAdmin || session.orgs[orgSlug]?.isAdmin) return
 
         router.push('/dashboard')
     }, [session, router, orgSlug])
