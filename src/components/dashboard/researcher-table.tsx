@@ -26,15 +26,15 @@ import {
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { useParams } from 'next/navigation'
 import * as React from 'react'
 import { useStudyStatus } from '@/hooks/use-study-status'
+import { Routes, useTypedParams } from '@/lib/routes'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const NewStudyLink: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     return (
-        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={`/${orgSlug}/study/request`}>
+        <ButtonLink data-testid="new-study" leftSection={<PlusIcon />} href={Routes.studyRequest({ orgSlug })}>
             Propose New Study
         </ButtonLink>
     )
@@ -68,7 +68,10 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/view`} aria-label={`View details for study ${study.title}`}>
+                <Link
+                    href={Routes.studyView({ orgSlug, studyId: study.id })}
+                    aria-label={`View details for study ${study.title}`}
+                >
                     View
                 </Link>
             </TableTd>
@@ -77,7 +80,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
 }
 
 export const ResearcherStudiesTable: React.FC = () => {
-    const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { orgSlug } = useTypedParams(Routes.orgDashboard.schema)
     const {
         data: studies = [],
         isLoading,

@@ -1,6 +1,8 @@
 import { Button, Flex, Link, useForm, zodResolver } from '@/common'
 import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
+import type { Route } from 'next'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -62,7 +64,7 @@ export const SignInForm: FC<{
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
                 const redirectUrl = searchParams.get('redirect_url')
-                router.push(redirectUrl || '/')
+                router.push((redirectUrl || Routes.home) as Route)
             }
             if (attempt.status === 'needs_second_factor') {
                 // Auth method not yet determined, set to false for now

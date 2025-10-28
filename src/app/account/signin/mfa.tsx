@@ -2,7 +2,9 @@
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import { Routes } from '@/lib/routes'
 import { onUserSignInAction } from '@/server/actions/user.actions'
+import type { Route } from 'next'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
@@ -63,17 +65,17 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 try {
                     const result = actionResult(await onUserSignInAction())
                     if (result?.redirectToReviewerKey) {
-                        router.push('/account/keys')
+                        router.push(Routes.accountKeys)
                     } else {
                         const redirectUrl = searchParams.get('redirect_url')
-                        router.push(redirectUrl || '/dashboard')
+                        router.push((redirectUrl || Routes.dashboard) as Route)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
                     const redirectUrl = searchParams.get('redirect_url')
-                    router.push(redirectUrl || '/')
+                    router.push((redirectUrl || Routes.home) as Route)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

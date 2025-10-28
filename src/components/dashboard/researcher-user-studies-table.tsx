@@ -27,6 +27,7 @@ import {
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { Routes } from '@/lib/routes'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -49,7 +50,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${orgSlug}/study/${study.id}/view`}>View</Link>
+                <Link href={Routes.studyView({ orgSlug, studyId: study.id })}>View</Link>
             </TableTd>
         </TableTr>
     )
@@ -94,7 +95,7 @@ export const ResearcherUserStudiesTable = () => {
                     <Text>You haven&apos;t started a study yet</Text>
                     <ButtonLink
                         leftSection={<PlusIcon />}
-                        href={`/${labOrg.slug}/study/request`}
+                        href={Routes.studyRequest({ orgSlug: labOrg.slug })}
                         data-testid="new-study"
                     >
                         Propose New Study
@@ -112,7 +113,7 @@ export const ResearcherUserStudiesTable = () => {
                     <ButtonLink
                         leftSection={<PlusIcon />}
                         data-testid="new-study"
-                        href={`/${labOrg.slug}/study/request`}
+                        href={Routes.studyRequest({ orgSlug: labOrg.slug })}
                     >
                         Propose New Study
                     </ButtonLink>
