@@ -19,7 +19,6 @@ export function StudyReviewClient({
     study,
     job,
     email,
-    userId,
     name,
     workspaceAlreadyExists,
 }: {
@@ -32,10 +31,10 @@ export function StudyReviewClient({
         title: string
         piName: string
         createdBy: string
+        researcherId: string
     }
     job: LatestJobForStudy
     email: string
-    userId: string
     name: string
     workspaceAlreadyExists: boolean
 }) {
@@ -49,7 +48,7 @@ export function StudyReviewClient({
             try {
                 const result = await checkWorkspaceExistsAction({
                     email,
-                    userId,
+                    userId: study.researcherId,
                     studyId: study.id,
                 })
                 if (!isActionError(result)) {
@@ -69,7 +68,7 @@ export function StudyReviewClient({
 
         // Cleanup on unmount
         return () => clearInterval(intervalId)
-    }, [email, userId, study.id])
+    }, [email, study.researcherId, study.id])
 
     return (
         <Stack p="xl" gap="xl">
@@ -106,7 +105,7 @@ export function StudyReviewClient({
                             <OpenWorkspaceButton
                                 name={name}
                                 email={email}
-                                userId={userId}
+                                userId={study.researcherId}
                                 studyId={study.id}
                                 alreadyExists={workspaceExists}
                                 isReady={workspaceReady}
