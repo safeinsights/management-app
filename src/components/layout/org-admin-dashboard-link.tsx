@@ -7,6 +7,7 @@ import { FC, useEffect, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 import { NavbarLink } from './navbar-link'
+import { Routes } from '@/lib/routes'
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
@@ -17,7 +18,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const isAdminPage = pathname.startsWith('/admin/')
-    const orgAdminBaseUrl = orgSlug ? `/admin/team/${orgSlug}` : '/admin'
+
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {
@@ -42,16 +43,16 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
             >
                 <NavbarLink
                     isVisible={true}
-                    label="Manage Org"
+                    label="Team"
                     icon={<UsersThreeIcon size={20} />}
-                    url={`${orgAdminBaseUrl}`}
+                    url={Routes.adminTeam({ orgSlug })}
                     pl="xl"
                 />
                 <NavbarLink
                     isVisible={true}
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
-                    url={`${orgAdminBaseUrl}/settings`}
+                    url={Routes.adminSettings({ orgSlug })}
                     pl="xl"
                 />
             </NavLink>

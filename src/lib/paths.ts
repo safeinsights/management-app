@@ -1,4 +1,4 @@
-import type { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import type { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
@@ -19,11 +19,8 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
-// Starter code paths
-export const pathForStarterCode = (orgId: string, baseImageId: string) => `starter-code/${orgId}/${baseImageId}`
-
-export const s3UrlForStarterCode = (orgId: string, baseImageId: string, bucketName: string) =>
-    `s3://${bucketName}/${pathForStarterCode(orgId, baseImageId)}`
+export const pathForStarterCode = ({ orgSlug, fileName }: MinimalOrgInfo & { fileName: string }) =>
+    `starter-code/${orgSlug}/${fileName}`
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`

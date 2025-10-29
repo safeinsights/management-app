@@ -6,12 +6,13 @@ import { reportSuccess } from '@/components/notices'
 import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction, updateOrgBaseImageAction } from './base-images.actions'
-import { orgBaseImageSchema, orgBaseImageUpdateSchema } from './base-images.schema'
+import { orgBaseImageSchema } from './base-images.schema'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
+import { Language } from '@/database/types'
 
 type BaseImage = ActionSuccessType<typeof createOrgBaseImageAction>
-type FormValues = z.infer<typeof orgBaseImageSchema | typeof orgBaseImageUpdateSchema>
+type FormValues = z.infer<typeof orgBaseImageSchema>
 
 interface BaseImageFormProps {
     image?: BaseImage
@@ -26,12 +27,12 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
         initialValues: {
             name: image?.name || '',
             cmdLine: image?.cmdLine || '',
-            language: (image?.language || 'R') as 'R' | 'PYTHON',
+            language: (image?.language || 'R') as Language,
             url: image?.url || '',
-            starterCode: new File([], ''),
             isTesting: image?.isTesting || false,
+            starterCode: new File([], ''),
         },
-        validate: zodResolver(isEditMode ? orgBaseImageUpdateSchema : orgBaseImageSchema),
+        validate: zodResolver(orgBaseImageSchema),
     })
 
     const { mutate: saveBaseImage, isPending } = useMutation({

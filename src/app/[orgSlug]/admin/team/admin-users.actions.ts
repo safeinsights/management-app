@@ -11,13 +11,14 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
         z.object({
             orgSlug: z.string(),
             invite: inviteUserSchema,
+            invitedByUserId: z.string(),
         }),
     )
     .middleware(async ({ params: { orgSlug }, db }) =>
         db.selectFrom('org').select(['id as orgId']).where('slug', '=', orgSlug).executeTakeFirstOrThrow(),
     )
     .requireAbilityTo('invite', 'User')
-    .handler(async ({ params: { invite }, orgId, db }) => {
+    .handler(async ({ params: { invite, invitedByUserId }, orgId, db }) => {
         // Block invitation if user is already a member of this organization
         const existingOrgMember = await db
             .selectFrom('orgUser')
@@ -48,6 +49,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
             .values({
                 orgId,
                 email: invite.email,
+                isAdmin: invite.permission == 'admin',
+                invitedByUserId,
             })
             .returning('id')
             .executeTakeFirstOrThrow()

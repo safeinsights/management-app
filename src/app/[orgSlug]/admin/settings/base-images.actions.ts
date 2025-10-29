@@ -10,6 +10,8 @@ import { pathForStarterCode } from '@/lib/paths'
 import { fetchFileContents } from '@/server/storage'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
+import { randomString } from '@/lib/string'
+import { Routes } from '@/lib/routes'
 
 // Common middleware to fetch base image with org validation
 const baseImageFromOrgAndId = async ({
@@ -46,9 +48,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, starterCode, ...fieldValues } = params
-
-        const starterCodePath = pathForStarterCode(orgSlug, starterCode.name)
-
+        const starterCodePath = pathForStarterCode({ orgSlug, fileName: `${randomString(12)}-${starterCode.name}` })
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
@@ -61,7 +61,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
 
         await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
+        revalidatePath(Routes.adminSettings({ orgSlug }))
 
         return newBaseImage
     })
@@ -88,16 +88,12 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
 
         // If a new starter code file is provided, upload it and delete the old one
         if (starterCode && starterCode.size > 0) {
-            const newStarterCodePath = pathForStarterCode(orgSlug, starterCode.name)
-
-            // Upload new file
+            const newStarterCodePath = pathForStarterCode({
+                orgSlug,
+                fileName: `${randomString(12)}-${starterCode.name}`,
+            })
             await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
-
-            // Delete old file if the path is different
-            if (baseImage.starterCodePath !== newStarterCodePath) {
-                await deleteS3File(baseImage.starterCodePath)
-            }
-
+            await deleteS3File(baseImage.starterCodePath)
             starterCodePath = newStarterCodePath
         }
 
@@ -111,7 +107,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
+        revalidatePath(Routes.adminSettings({ orgSlug }))
 
         return updatedBaseImage
     })
@@ -156,7 +152,6 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', {
 
         return { baseImage }
     })
-
     .requireAbilityTo('update', 'Org')
     .handler(async ({ baseImage, params: { orgSlug }, db }) => {
         // If deleting a non-testing image, ensure there's at least one other non-testing image for that language
@@ -185,7 +180,7 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', {
             .where('orgBaseImage.id', '=', baseImage.id)
             .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
 
-        revalidatePath(`/admin/team/${orgSlug}/settings`)
+        revalidatePath(Routes.adminSettings({ orgSlug }))
     })
 
 const fetchStarterCodeSchema = z.object({
