@@ -10,17 +10,18 @@ import {
     type SelectedStudy,
 } from '@/server/actions/study.actions'
 import { Button, Group, Stack } from '@mantine/core'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
+import { Routes, useTypedParams } from '@/lib/routes'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     const router = useRouter()
-    const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { orgSlug } = useTypedParams(Routes.studyReview.schema)
     const [useTestImage, setUseTestImage] = useState(false)
     const queryClient = useQueryClient()
 
-    const backPath = `/${orgSlug}/dashboard`
+    const backPath = Routes.orgDashboard({ orgSlug })
 
     const {
         mutate: updateStudy,

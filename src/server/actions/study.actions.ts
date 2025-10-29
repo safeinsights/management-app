@@ -30,7 +30,7 @@ function fetchStudyQuery(db: DBExecutor) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .select(['jobStatusChange.status'])
+                    .select(['jobStatusChange.status', 'jobStatusChange.userId'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'latestStudyJob.jobId')
                     .orderBy('studyJobId')
                     .orderBy('createdAt', 'desc'),
@@ -50,6 +50,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.submittedByOrgId',
             'study.outputMimeType',
             'study.piName',
+            'study.reviewerId',
             'study.researcherId',
             'study.status',
             'study.title',
@@ -90,11 +91,10 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
 
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db }) => {
         return fetchStudyQuery(db)
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
-            .where('study.researcherId', '=', session.user.id)
             .execute()
     })
 

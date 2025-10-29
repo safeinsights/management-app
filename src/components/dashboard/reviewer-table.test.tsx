@@ -13,7 +13,7 @@ vi.mock('@/server/actions/org.actions', () => ({
 
 const mockStudies = [
     {
-        id: 'study-1',
+        id: '11111111-1111-4111-8111-111111111111',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location1',
@@ -28,13 +28,13 @@ const mockStudies = [
         status: 'PENDING-REVIEW' as StudyStatus,
         title: 'Study Title 1',
         createdBy: 'Person A',
-        jobStatusChanges: [{ status: 'JOB-PACKAGING' as StudyJobStatus }],
+        jobStatusChanges: [{ status: 'JOB-PACKAGING' as StudyJobStatus, userId: null }],
         latestStudyJobId: 'job-1',
         orgSlug: 'test-org',
         errorStudyJobId: null,
     },
     {
-        id: 'study-2',
+        id: '22222222-2222-4222-8222-222222222222',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location2',
@@ -50,12 +50,12 @@ const mockStudies = [
         createdBy: 'Person B',
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
-        jobStatusChanges: [{ status: 'RUN-COMPLETE' as StudyJobStatus }],
+        jobStatusChanges: [{ status: 'RUN-COMPLETE' as StudyJobStatus, userId: null }],
         orgSlug: 'test-org',
         errorStudyJobId: null,
     },
     {
-        id: 'study-3',
+        id: '33333333-3333-4333-8333-333333333333',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location3',

@@ -10,6 +10,7 @@ const nextConfig: NextConfig = async (phase: string) => {
         productionBrowserSourceMaps: true,
         assetPrefix: isDev ? undefined : '/assets/',
         output: 'standalone',
+        typedRoutes: true,
         transpilePackages: ['si-encryption'],
         experimental: {
             // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations

@@ -45,6 +45,7 @@ describe('Study Actions', () => {
                 url: 'test/url',
                 isTesting: true,
                 orgId: org.id,
+                starterCodePath: 'test/path/starter.py',
             })
             .execute()
 
@@ -117,6 +118,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: true,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -146,6 +148,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: false,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -168,6 +171,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 

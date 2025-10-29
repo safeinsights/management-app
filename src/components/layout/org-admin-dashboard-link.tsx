@@ -1,13 +1,13 @@
 'use client'
 
-import { useSession } from '@/hooks/session'
 import { NavLink } from '@mantine/core'
-import { GearIcon, GlobeIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
+import { GearIcon, SlidersIcon, UsersThreeIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, usePathname } from 'next/navigation'
 import { FC, useEffect, useState } from 'react'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 import { NavbarLink } from './navbar-link'
+import { Routes } from '@/lib/routes'
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
@@ -15,11 +15,10 @@ interface OrgAdminDashboardLinkProps {
 
 export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
     const pathname = usePathname()
-    const { session } = useSession()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const isAdminPage = pathname.startsWith('/admin/')
-    const orgAdminBaseUrl = orgSlug ? `/admin/team/${orgSlug}` : '/admin'
+
     const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(isAdminPage)
 
     useEffect(() => {
@@ -43,24 +42,17 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 aria-haspopup="true"
             >
                 <NavbarLink
-                    isVisible={session?.user.isSiAdmin || false}
-                    url={`/admin/safeinsights`}
-                    label="SI Admin Dashboard"
-                    icon={<GlobeIcon />}
-                    pl="xl"
-                />
-                <NavbarLink
                     isVisible={true}
-                    label="Manage Org"
+                    label="Team"
                     icon={<UsersThreeIcon size={20} />}
-                    url={`${orgAdminBaseUrl}`}
+                    url={Routes.adminTeam({ orgSlug })}
                     pl="xl"
                 />
                 <NavbarLink
                     isVisible={true}
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
-                    url={`${orgAdminBaseUrl}/settings`}
+                    url={Routes.adminSettings({ orgSlug })}
                     pl="xl"
                 />
             </NavLink>

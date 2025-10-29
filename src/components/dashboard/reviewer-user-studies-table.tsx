@@ -25,6 +25,7 @@ import {
     Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
+import { Routes } from '@/lib/routes'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -45,15 +46,21 @@ export const ReviewerUserStudiesTable = () => {
     })
 
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
+    // Filter studies: reviewer assignment or any status change authored by current user
+    const relevantStudies = studies.filter(
+        (study) =>
+            study.reviewerId === userId ||
+            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+    )
 
-    const needsRefreshed = studies.some((study) =>
+    const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
 
     return (
         <Stack>
             <Flex justify={'space-between'} align={'center'}>
-                <Title order={3}>My Studies</Title>
+                <Title order={3}>My studies</Title>
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isFetching} />
             </Flex>
             <Divider c="charcoal.1" />
@@ -74,7 +81,7 @@ export const ReviewerUserStudiesTable = () => {
                     </TableTr>
                 </TableThead>
                 <TableTbody>
-                    {studies.map((study) => (
+                    {relevantStudies.map((study) => (
                         <StudyRow key={study.id} study={study} />
                     ))}
                 </TableTbody>
@@ -107,7 +114,7 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
+                <Link href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })} c="blue.7">
                     View
                 </Link>
             </TableTd>

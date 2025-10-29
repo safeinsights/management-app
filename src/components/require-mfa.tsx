@@ -3,6 +3,7 @@
 import { useLayoutEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { Routes } from '@/lib/routes'
 
 export const RequireMFA = () => {
     const { user } = useUser()
@@ -11,7 +12,7 @@ export const RequireMFA = () => {
 
     useLayoutEffect(() => {
         if (user?.twoFactorEnabled === false && !pathname.startsWith('/account/mfa')) {
-            router.push('/account/mfa')
+            router.push(Routes.accountMfa)
         }
     }, [pathname, router, user?.twoFactorEnabled])
 

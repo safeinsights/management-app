@@ -497,5 +497,34 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
+export type InsertTestBaseImageOptions = {
+    orgId: string
+    name?: string
+    language?: Language
+    cmdLine?: string
+    url?: string
+    isTesting?: boolean
+    starterCodePath?: string
+}
+
+export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
+    const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
+    const fileExtension = language === 'R' ? 'R' : 'py'
+
+    return await db
+        .insertInto('orgBaseImage')
+        .values({
+            orgId: options.orgId,
+            name: options.name || `${language} ${faker.system.semver()} Base Image`,
+            language,
+            cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
+            url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
+            isTesting: options.isTesting ?? false,
+            starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+}
+
 // Re-export actionResult for backwards compatibility in tests
 export { actionResult } from '@/lib/utils'

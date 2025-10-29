@@ -1,13 +1,13 @@
-import { orgInitials } from '@/lib/string'
+import { orgInitials, orgInitialsTitle } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Flex, Stack } from '@mantine/core'
-import { NavbarLink } from './navbar-link'
 import { HouseIcon } from '@phosphor-icons/react'
+import { NavbarLink } from './navbar-link'
 
 type Orgs = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>
 
-const SQUARE_SIZE = 28
+const SQUARE_SIZE = 26
 
 type Props = {
     orgs: Orgs
@@ -22,13 +22,13 @@ export const NavOrgsList: React.FC<Props> = ({ orgs }) => {
                     key={org.slug}
                     isVisible={true}
                     url={`/${org.slug}/dashboard`}
-                    label={org.name}
+                    label={orgInitialsTitle(org.name, org.type)}
                     icon={
                         <Flex
                             bg={'white'}
                             c="dark.9"
                             p="0"
-                            fz={12}
+                            fz={8}
                             style={{ borderRadius: SQUARE_SIZE / 6 }}
                             align="center"
                             justify="center"

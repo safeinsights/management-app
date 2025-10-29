@@ -16,7 +16,7 @@ import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
 import Link from 'next/link'
 import { ReactNode } from 'react'
-import { SafeInsightsLogo } from './si-logo'
+import { SafeInsightsLogo } from './svg/si-logo'
 
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
@@ -24,6 +24,7 @@ import { RequireUser } from '../require-user'
 import { ActivityContext } from '../activity-context'
 import { RequireReviewerKey } from '../require-reviewer-key'
 import { AppNav } from './app-nav'
+import { Routes } from '@/lib/routes'
 
 type Props = { children: ReactNode }
 
@@ -43,7 +44,7 @@ export function AppShell({ children }: Props) {
             header={{ height: 60, collapsed: isDesktop }}
             footer={{ height: 60 }}
             navbar={{
-                width: 250,
+                width: 260,
                 breakpoint: 'sm',
                 collapsed: { mobile: !opened, desktop: false },
             }}
@@ -58,7 +59,7 @@ export function AppShell({ children }: Props) {
             <AppShellHeader bg="purple.8" w="100%">
                 <Group h="100%" px="md">
                     <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="white" />
-                    <Link href="/">
+                    <Link href={Routes.home}>
                         <SafeInsightsLogo />
                     </Link>
                 </Group>
