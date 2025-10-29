@@ -37,7 +37,11 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
     )
 
     if (needsTooltip) {
-        return <Tooltip label={path}>{badge}</Tooltip>
+        return (
+            <Tooltip label={path}>
+                <span>{badge}</span>
+            </Tooltip>
+        )
     }
 
     return badge
