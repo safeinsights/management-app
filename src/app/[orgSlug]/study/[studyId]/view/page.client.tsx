@@ -93,7 +93,7 @@ export function StudyReviewClient({
                             <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                         )}
                     </Group>
-                    <StudyDetails study={study} />
+                    <StudyDetails studyId={studyId} />
                 </Stack>
             </Paper>
 

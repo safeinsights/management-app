@@ -4,23 +4,11 @@ import { isActionError } from '@/lib/errors'
 import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
 import { StudyDocumentType } from '@/lib/types'
+import { getStudyAction } from '@/server/actions/study.actions'
 import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC } from 'react'
+import { FC, use } from 'react'
 
-interface Study {
-    id: string
-    title: string
-    piName: string
-    createdBy: string
-    descriptionDocPath?: string | null
-    irbDocPath?: string | null
-    agreementDocPath?: string | null
-    status: string
-    approvedAt: Date | null
-    rejectedAt: Date | null
-    orgSlug: string
-}
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -56,7 +44,8 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
     return badge
 }
 
-export const StudyDetails: FC<{ study: Study }> = ({ study }) => {
+export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
+    const study = use(getStudyAction({ studyId }))
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
