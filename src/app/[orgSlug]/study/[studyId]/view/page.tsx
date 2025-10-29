@@ -43,7 +43,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             email={email}
             userId={userId}
             name={name}
-            studyId={studyId}
             workspaceAlreadyExists={workspaceAlreadyExists}
         />
     )

@@ -21,7 +21,6 @@ export function StudyReviewClient({
     email,
     userId,
     name,
-    studyId,
     workspaceAlreadyExists,
 }: {
     study: {
@@ -38,7 +37,6 @@ export function StudyReviewClient({
     email: string
     userId: string
     name: string
-    studyId: string
     workspaceAlreadyExists: boolean
 }) {
     // State for workspace existence
@@ -52,7 +50,7 @@ export function StudyReviewClient({
                 const result = await checkWorkspaceExistsAction({
                     email,
                     userId,
-                    studyId,
+                    studyId: study.id,
                 })
                 if (!isActionError(result)) {
                     setWorkspaceExists(result.exists)
@@ -71,13 +69,13 @@ export function StudyReviewClient({
 
         // Cleanup on unmount
         return () => clearInterval(intervalId)
-    }, [email, userId, studyId])
+    }, [email, userId, study.id])
 
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
-                    studyId,
+                    studyId: study.id,
                     orgSlug: study.orgSlug,
                     current: 'Study Details',
                 }}
@@ -93,7 +91,7 @@ export function StudyReviewClient({
                             <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                         )}
                     </Group>
-                    <StudyDetails studyId={studyId} />
+                    <StudyDetails studyId={study.id} />
                 </Stack>
             </Paper>
 
@@ -109,7 +107,7 @@ export function StudyReviewClient({
                                 name={name}
                                 email={email}
                                 userId={userId}
-                                studyId={studyId}
+                                studyId={study.id}
                                 alreadyExists={workspaceExists}
                                 isReady={workspaceReady}
                             />
