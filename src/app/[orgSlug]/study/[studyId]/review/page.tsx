@@ -46,7 +46,7 @@ export default async function StudyReviewPage(props: {
                         </Title>
                         <StudyReviewButtons study={study} />
                     </Group>
-                    {studyId && <StudyDetails studyId={study.id} />}
+                    {studyId && <StudyDetails study={study} />}
                 </Stack>
             </Paper>
 

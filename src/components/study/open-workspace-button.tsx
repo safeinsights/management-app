@@ -1,8 +1,8 @@
 'use client'
 
 import { isActionError } from '@/lib/errors'
-import { createUserAndWorkspace, getStudyWorkspaceUrl } from '@/server/actions/coder.actions'
-import { Button, Group, Alert } from '@mantine/core'
+import { createUserAndWorkspaceAction, getStudyWorkspaceUrlAction } from '@/server/actions/coder.actions'
+import { Alert, Button, Group } from '@mantine/core'
 import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
@@ -21,7 +21,14 @@ const openWorkspaceInNewTab = (url: string) => {
     if (windowRef) windowRef.focus()
 }
 
-export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExists, isReady }: OpenWorkspaceButtonProps) => {
+export const OpenWorkspaceButton = ({
+    name,
+    email,
+    userId,
+    studyId,
+    alreadyExists,
+    isReady,
+}: OpenWorkspaceButtonProps) => {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
@@ -33,7 +40,7 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExist
 
         try {
             if (alreadyExists) {
-                const workspaceUrlResponse = await getStudyWorkspaceUrl({ email, userId, studyId })
+                const workspaceUrlResponse = await getStudyWorkspaceUrlAction({ email, userId, studyId })
                 if (!isActionError(workspaceUrlResponse)) {
                     console.warn(`Workspace ${workspaceUrlResponse.url}`)
                     openWorkspaceInNewTab(workspaceUrlResponse.url)
@@ -47,7 +54,7 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExist
                 }
             } else {
                 // Workspace doesn't exist, create it
-                const result = await createUserAndWorkspace({
+                const result = await createUserAndWorkspaceAction({
                     name,
                     userId,
                     email,
@@ -73,37 +80,23 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId, alreadyExist
     return (
         <Group gap="sm">
             {error && (
-                <Alert 
-                    variant="light" 
-                    color="red" 
-                    title="Error" 
-                    style={{ marginTop: '0.5rem' }}
-                    aria-live="assertive"
-                >
+                <Alert variant="light" color="red" title="Error" style={{ marginTop: '0.5rem' }} aria-live="assertive">
                     {error}
                 </Alert>
             )}
             {success && (
-                <Alert 
-                    variant="light" 
-                    color="green" 
-                    title="Success" 
-                    style={{ marginTop: '0.5rem' }}
-                    aria-live="polite"
-                >
+                <Alert variant="light" color="green" title="Success" style={{ marginTop: '0.5rem' }} aria-live="polite">
                     {success}
                 </Alert>
             )}
-            <Button 
-                onClick={handleOpenWorkspace} 
-                loading={loading} 
+            <Button
+                onClick={handleOpenWorkspace}
+                loading={loading}
                 disabled={loading || (alreadyExists && !isReady)}
                 aria-busy={loading}
                 aria-disabled={loading || (alreadyExists && !isReady)}
             >
-                {
-                    !alreadyExists ? 'Create Workspace' : isReady ? 'Open Workspace' : 'Creating Workspace'
-                }
+                {!alreadyExists ? 'Create Workspace' : isReady ? 'Open Workspace' : 'Creating Workspace'}
             </Button>
         </Group>
     )

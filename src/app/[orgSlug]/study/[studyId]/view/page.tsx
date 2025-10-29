@@ -1,6 +1,6 @@
 import { AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
-import { checkWorkspaceExists } from '@/server/actions/coder.actions'
+import { checkWorkspaceExistsAction } from '@/server/actions/coder.actions'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { currentUser } from '@clerk/nextjs/server'
@@ -28,7 +28,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
         name = study.researcherId
     }
 
-    const workspaceData = await checkWorkspaceExists({
+    const workspaceData = await checkWorkspaceExistsAction({
         email,
         userId,
         studyId,

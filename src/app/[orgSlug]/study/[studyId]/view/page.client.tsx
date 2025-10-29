@@ -7,13 +7,13 @@ import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
-import { isActionError } from '@/lib/errors'
-import { checkWorkspaceExists } from '@/server/actions/coder.actions'
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { JobResultsStatusMessage } from './job-results-status-message'
-import { useEffect, useState } from 'react'
-import { LatestJobForStudy } from '@/server/db/queries'
 import { StudyStatus } from '@/database/types'
+import { isActionError } from '@/lib/errors'
+import { checkWorkspaceExistsAction } from '@/server/actions/coder.actions'
+import { LatestJobForStudy } from '@/server/db/queries'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { useEffect, useState } from 'react'
+import { JobResultsStatusMessage } from './job-results-status-message'
 
 export function StudyReviewClient({
     study,
@@ -23,26 +23,33 @@ export function StudyReviewClient({
     name,
     studyId,
     workspaceAlreadyExists,
-    workspaceIsReady
 }: {
-    study: { status: StudyStatus; approvedAt: Date | null; rejectedAt: Date | null; orgSlug: string }
+    study: {
+        status: StudyStatus
+        approvedAt: Date | null
+        rejectedAt: Date | null
+        orgSlug: string
+        id: string
+        title: string
+        piName: string
+        createdBy: string
+    }
     job: LatestJobForStudy
     email: string
     userId: string
     name: string
     studyId: string
     workspaceAlreadyExists: boolean
-    workspaceIsReady: boolean
 }) {
     // State for workspace existence
     const [workspaceExists, setWorkspaceExists] = useState(workspaceAlreadyExists)
-    const [workspaceReady, setWorkspaceReady] = useState(workspaceIsReady)
+    const [workspaceReady, setWorkspaceReady] = useState(false)
 
     // Periodic checking function
     useEffect(() => {
         const checkWorkspacePeriodically = async () => {
             try {
-                const result = await checkWorkspaceExists({
+                const result = await checkWorkspaceExistsAction({
                     email,
                     userId,
                     studyId,
@@ -58,10 +65,10 @@ export function StudyReviewClient({
 
         // Check immediately
         checkWorkspacePeriodically()
-        
+
         // Set up interval to check every 5 seconds
         const intervalId = setInterval(checkWorkspacePeriodically, 5000)
-        
+
         // Cleanup on unmount
         return () => clearInterval(intervalId)
     }, [email, userId, studyId])

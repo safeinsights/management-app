@@ -30,7 +30,7 @@ function generateWorkspaceName(studyId: string) {
         .substring(0, 10)
 }
 
-export const getStudyWorkspaceUrl = new Action('getStudyWorkspaceUrl', { performsMutations: false })
+export const getStudyWorkspaceUrlAction = new Action('getStudyWorkspaceUrlAction', { performsMutations: false })
     .params(
         z.object({
             userId: z.string().nonempty(),
@@ -53,7 +53,7 @@ export const getStudyWorkspaceUrl = new Action('getStudyWorkspaceUrl', { perform
         }
     })
 
-export const checkWorkspaceExists = new Action('checkWorkspaceExists', { performsMutations: false })
+export const checkWorkspaceExistsAction = new Action('checkWorkspaceExistsAction', { performsMutations: false })
     .params(
         z.object({
             email: z
@@ -102,7 +102,7 @@ export const checkWorkspaceExists = new Action('checkWorkspaceExists', { perform
         }
     })
 
-export const createUserAndWorkspace = new Action('createUserAndWorkspace', { performsMutations: true })
+export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
             name: z.string().nonempty(),
