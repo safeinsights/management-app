@@ -1,4 +1,4 @@
-# SafeInsights Management Application - Test PR
+# SafeInsights Management Application
 
 ## Overview
 
