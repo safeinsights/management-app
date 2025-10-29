@@ -1,5 +1,11 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
-import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3'
+import {
+    DeleteObjectCommand,
+    DeleteObjectsCommand,
+    GetObjectCommand,
+    ListObjectsV2Command,
+    S3Client,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
@@ -9,7 +15,7 @@ import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
-import { MinimalJobInfo, MinimalStudyInfo } from '@/lib/types'
+import { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo } from '@/lib/types'
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post'
 
 export function objectToAWSTags(tags: Record<string, string>) {
@@ -85,7 +91,11 @@ const calculateChecksum = async (body: ReadableStream) => {
     return hash.digest('base64')
 }
 
-export const storeS3File = async (info: MinimalStudyInfo | MinimalJobInfo, body: ReadableStream, Key: string) => {
+export const storeS3File = async (
+    info: MinimalStudyInfo | MinimalJobInfo | MinimalOrgInfo,
+    body: ReadableStream,
+    Key: string,
+) => {
     const [csStream, upStream] = body.tee()
     const hash = await calculateChecksum(csStream)
     const uploader = new Upload({
@@ -114,6 +124,15 @@ export const signedUrlForStudyUpload = async (path: string) => {
         Conditions: [['starts-with', '$key', path]],
         Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
     })
+}
+
+export const deleteS3File = async (Key: string) => {
+    await getS3Client().send(
+        new DeleteObjectCommand({
+            Bucket: s3BucketName(),
+            Key,
+        }),
+    )
 }
 
 export const deleteFolderContents = async (folderPath: string) => {

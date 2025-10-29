@@ -114,15 +114,22 @@ export const ACCEPTED_FILE_TYPES = {
 
 export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'
 
-export const minimalStudyInfoSchema = z.object({
+export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
+})
+
+export type MinimalOrgInfo = z.infer<typeof minimalOrgInfoSchema>
+
+export const minimalStudyInfoSchema = minimalOrgInfoSchema.extend({
     studyId: z.string(),
 })
+
 export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
 
 export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
     studyJobId: z.string(),
 })
+
 export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus

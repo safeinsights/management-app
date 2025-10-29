@@ -102,6 +102,7 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
+    starterCodePath: string
     url: string
 }
 

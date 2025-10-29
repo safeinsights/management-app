@@ -10,7 +10,7 @@ test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const email = faker.internet.email({ provider: 'test.com' })
 
-        await visitClerkProtectedPage({ page, role: 'admin', url: '/admin/team/openstax' })
+        await visitClerkProtectedPage({ page, role: 'admin', url: '/openstax/admin/team' })
 
         // the admin user should also appear in the list, wait for it to load
         await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })

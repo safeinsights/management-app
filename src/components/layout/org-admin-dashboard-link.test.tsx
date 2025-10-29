@@ -22,14 +22,6 @@ describe('OrgAdminDashboardLink', () => {
         // Click the Admin button to ensure the menu is open
         const adminButton = screen.getByRole('button', { name: /Admin/i })
         await userEvent.click(adminButton)
-
-        // Get all the submenu links
-        const manageOrgLink = screen.getByRole('link', { name: 'Manage Org' })
-        const settingsLink = screen.getByRole('link', { name: 'Settings' })
-
-        // Assert that their href attributes start with /admin/
-        expect(manageOrgLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
-        expect(settingsLink).toHaveAttribute('href', expect.stringMatching(/^\/admin\//))
     })
 
     it('renders nothing when isVisible is false', async () => {
@@ -46,7 +38,7 @@ describe('OrgAdminDashboardLink', () => {
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
         const adminButton = screen.getByRole('button', { name: /Admin/i })
         await userEvent.click(adminButton)
-        expect(screen.getByRole('link', { name: 'Manage Org' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Team' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
     })
 
@@ -57,7 +49,7 @@ describe('OrgAdminDashboardLink', () => {
 
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} />)
 
-        expect(screen.getByRole('link', { name: 'Manage Org' })).toBeVisible()
+        expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
         expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible()
     })
 
@@ -70,14 +62,14 @@ describe('OrgAdminDashboardLink', () => {
         const adminButton = screen.getByRole('button', { name: /Admin/i })
 
         // Menu should be closed initially
-        expect(screen.queryByRole('link', { name: 'Manage Org' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
 
         // Click to open
         await userEvent.click(adminButton)
-        expect(screen.getByRole('link', { name: 'Manage Org' })).toBeVisible()
+        expect(screen.getByRole('link', { name: 'Team' })).toBeVisible()
 
         // Click to close
         await userEvent.click(adminButton)
-        expect(screen.queryByRole('link', { name: 'Manage Org' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Team' })).not.toBeInTheDocument()
     })
 })
