@@ -65,12 +65,10 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId }: OpenWorksp
                 events.addEventListener('status', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
                     console.log('status', data)
-                    const codeServerReady =
-                        data.agents[0].apps.find((agent: any) => agent.slug === 'code-server').health === 'healthy'
-                    console.log('Code server ready?', codeServerReady)
                     queryClient.setQueryData(['workspaceStatus', workspaceId], data)
                 })
 
+                // TODO Listen for htis ready event when code-server is ready (from our workspace status endpoint)
                 events.addEventListener('ready', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
                     console.log('complete', data)

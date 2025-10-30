@@ -54,6 +54,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                             const data = JSON.parse(match[1])
                             send('status', data)
 
+                            // TODO Check for code-server ready at: latest_build.resources[].agents[].apps[].slug
                             if (data.status === 'ready') {
                                 send('ready', { url: data.url })
                                 controller.close()
