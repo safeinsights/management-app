@@ -38,7 +38,7 @@ Sentry.init({
     replaysOnErrorSampleRate: 1.0,
 
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
-    debug: true,
+    debug: false,
 
     enabled: true, // process.env.NODE_ENV === 'production',
 
