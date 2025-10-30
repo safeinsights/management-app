@@ -33,6 +33,11 @@ export const PROD_ENV = ENVIRONMENT_ID == 'production'
 
 export const APP_BASE_URL = `http${PROD_BUILD ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
 
+export const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
+export const CODER_TOKEN = process.env.CODER_TOKEN
+export const CODER_TEMPLATE_ID = process.env.CODER_TEMPLATE_ID
+export const CODER_ORGANIZATION = process.env.CODER_ORGANIZATION
+
 async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
     const arn = process.env[envKey]
     if (!arn) {

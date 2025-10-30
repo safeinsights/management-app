@@ -1,6 +1,7 @@
 'use server'
 
 import { Action, z } from './action'
+import { getConfigValue } from '@/server/config'
 
 // Private helper method to generate username from email and userId
 function generateUsername(email: string, userId: string) {
@@ -53,55 +54,6 @@ export const getStudyWorkspaceUrlAction = new Action('getStudyWorkspaceUrlAction
         }
     })
 
-export const checkWorkspaceExistsAction = new Action('checkWorkspaceExistsAction', { performsMutations: false })
-    .params(
-        z.object({
-            email: z
-                .string()
-                .nonempty()
-                .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email address'),
-            userId: z.string().nonempty(),
-            studyId: z.string().nonempty(),
-        }),
-    )
-    .handler(async ({ params: { userId, email, studyId } }) => {
-        // Load environment variables
-        const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
-        const CODER_TOKEN = process.env.CODER_TOKEN
-
-        if (!CODER_API_ENDPOINT) {
-            throw new Error('CODER_API_ENDPOINT environment variable is not set')
-        }
-        if (!CODER_TOKEN) {
-            throw new Error('CODER_TOKEN environment variable is not set')
-        }
-        const workspaceName = generateWorkspaceName(studyId)
-        const username = generateUsername(email, userId)
-
-        console.warn(`Checking workspace ${workspaceName} for user ${username}`)
-        try {
-            // Check if workspace exists using the API endpoint
-            // GET /users/{user}/workspace/{workspacename}
-            const response = await fetch(`${CODER_API_ENDPOINT}/api/v2/users/${username}/workspace/${workspaceName}`, {
-                method: 'GET',
-                headers: {
-                    Accept: 'application/json',
-                    'Coder-Session-Token': CODER_TOKEN,
-                },
-            })
-
-            // Return true if workspace exists (200 OK), false if not found (404)
-            return {
-                exists: response.ok,
-                data: await response.json(),
-            }
-        } catch (error) {
-            console.error('Error checking workspace existence:', error)
-            // If there's an error (other than 404), we'll consider it as workspace not existing
-            return { exists: false, data: undefined }
-        }
-    })
-
 export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', { performsMutations: true })
     .params(
         z.object({
@@ -115,25 +67,11 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
         }),
     )
     .handler(async ({ params: { name, userId, email, studyId } }) => {
-        // Load environment variables
-        const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
-        const CODER_TOKEN = process.env.CODER_TOKEN
-        const CODER_TEMPLATE_ID = process.env.CODER_TEMPLATE_ID
-        const CODER_ORGANIZATION = process.env.CODER_ORGANIZATION
         const username = generateUsername(email, userId)
-
-        if (!CODER_API_ENDPOINT) {
-            throw new Error('CODER_API_ENDPOINT environment variable is not set')
-        }
-        if (!CODER_TOKEN) {
-            throw new Error('CODER_TOKEN environment variable is not set')
-        }
-        if (!CODER_TEMPLATE_ID) {
-            throw new Error('CODER_TEMPLATE_ID environment variable is not set')
-        }
-        if (!CODER_ORGANIZATION) {
-            throw new Error('CODER_ORGANIZATION environment variable is not set')
-        }
+        const CODER_API_ENDPOINT = await getConfigValue('CODER_API_ENDPOINT')
+        const CODER_TOKEN = await getConfigValue('CODER_TOKEN')
+        const CODER_ORGANIZATION = await getConfigValue('CODER_ORGANIZATION')
+        const CODER_TEMPLATE_ID = await getConfigValue('CODER_TEMPLATE_ID')
 
         let userData
 

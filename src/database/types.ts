@@ -5,6 +5,31 @@
 
 import type { ColumnType } from 'kysely'
 
+export type AgentKeyScopeEnum = 'all' | 'no_user_data'
+
+export type ApiKeyScope = 'all' | 'application_connect'
+
+export type AppSharingLevel = 'authenticated' | 'organization' | 'owner' | 'public'
+
+export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>
+
+export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S[], I[], U[]> : T[]
+
+export type AuditAction =
+    | 'close'
+    | 'connect'
+    | 'create'
+    | 'delete'
+    | 'disconnect'
+    | 'login'
+    | 'logout'
+    | 'open'
+    | 'register'
+    | 'request_password_reset'
+    | 'start'
+    | 'stop'
+    | 'write'
+
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
     | 'APPROVED'
@@ -18,6 +43,29 @@ export type AuditEventType =
 
 export type AuditRecordType = 'STUDY' | 'USER'
 
+export type AutomaticUpdates = 'always' | 'never'
+
+export type BuildReason =
+    | 'autodelete'
+    | 'autostart'
+    | 'autostop'
+    | 'cli'
+    | 'dashboard'
+    | 'dormancy'
+    | 'failedstop'
+    | 'initiator'
+    | 'jetbrains_connection'
+    | 'ssh_connection'
+    | 'vscode_connection'
+
+export type ConnectionType = 'jetbrains' | 'port_forwarding' | 'reconnecting_pty' | 'ssh' | 'vscode' | 'workspace_app'
+
+export type CorsBehavior = 'passthru' | 'simple'
+
+export type CryptoKeyFeature = 'oidc_convert' | 'tailnet_resume' | 'workspace_apps_api_key' | 'workspace_apps_token'
+
+export type DisplayApp = 'port_forwarding_helper' | 'ssh_helper' | 'vscode' | 'vscode_insiders' | 'web_terminal'
+
 export type FileType =
     | 'APPROVED-LOG'
     | 'APPROVED-RESULT'
@@ -28,6 +76,10 @@ export type FileType =
 
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
+
+export type GroupSource = 'oidc' | 'user'
+
+export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>
 
 export type Json = JsonValue
 
@@ -43,7 +95,90 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
+export type LoginType = 'github' | 'none' | 'oauth2_provider_app' | 'oidc' | 'password' | 'token'
+
+export type LogLevel = 'debug' | 'error' | 'info' | 'trace' | 'warn'
+
+export type LogSource = 'provisioner' | 'provisioner_daemon'
+
+export type NotificationMessageStatus =
+    | 'inhibited'
+    | 'leased'
+    | 'pending'
+    | 'permanent_failure'
+    | 'sent'
+    | 'temporary_failure'
+    | 'unknown'
+
+export type NotificationMethod = 'inbox' | 'smtp' | 'webhook'
+
+export type NotificationTemplateKind = 'system'
+
+export type Numeric = ColumnType<string, number | string, number | string>
+
 export type OrgType = 'enclave' | 'lab'
+
+export type ParameterDestinationScheme = 'environment_variable' | 'none' | 'provisioner_variable'
+
+export type ParameterFormType =
+    | ''
+    | 'checkbox'
+    | 'dropdown'
+    | 'error'
+    | 'input'
+    | 'multi-select'
+    | 'radio'
+    | 'slider'
+    | 'switch'
+    | 'tag-select'
+    | 'textarea'
+
+export type ParameterScope = 'import_job' | 'template' | 'workspace'
+
+export type ParameterSourceScheme = 'data' | 'none'
+
+export type ParameterTypeSystem = 'hcl' | 'none'
+
+export type PortShareProtocol = 'http' | 'https'
+
+export type PrebuildStatus = 'hard_limited' | 'healthy' | 'validation_failed'
+
+export type ProvisionerJobStatus = 'canceled' | 'canceling' | 'failed' | 'pending' | 'running' | 'succeeded' | 'unknown'
+
+export type ProvisionerJobTimingStage = 'apply' | 'graph' | 'init' | 'plan'
+
+export type ProvisionerJobType = 'template_version_dry_run' | 'template_version_import' | 'workspace_build'
+
+export type ProvisionerStorageMethod = 'file'
+
+export type ProvisionerType = 'echo' | 'terraform'
+
+export type ResourceType =
+    | 'api_key'
+    | 'convert_login'
+    | 'custom_role'
+    | 'git_ssh_key'
+    | 'group'
+    | 'health_settings'
+    | 'idp_sync_settings_group'
+    | 'idp_sync_settings_organization'
+    | 'idp_sync_settings_role'
+    | 'license'
+    | 'notification_template'
+    | 'notifications_settings'
+    | 'oauth2_provider_app'
+    | 'oauth2_provider_app_secret'
+    | 'organization'
+    | 'organization_member'
+    | 'prebuilds_settings'
+    | 'template'
+    | 'template_version'
+    | 'user'
+    | 'workspace'
+    | 'workspace_agent'
+    | 'workspace_app'
+    | 'workspace_build'
+    | 'workspace_proxy'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
@@ -61,7 +196,56 @@ export type StudyJobStatus =
 
 export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
 
+export type TailnetStatus = 'lost' | 'ok'
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
+
+export type UserStatus = 'active' | 'dormant' | 'suspended'
+
+export type WorkspaceAgentLifecycleState =
+    | 'created'
+    | 'off'
+    | 'ready'
+    | 'shutdown_error'
+    | 'shutdown_timeout'
+    | 'shutting_down'
+    | 'start_error'
+    | 'start_timeout'
+    | 'starting'
+
+export type WorkspaceAgentMonitorState = 'NOK' | 'OK'
+
+export type WorkspaceAgentScriptTimingStage = 'cron' | 'start' | 'stop'
+
+export type WorkspaceAgentScriptTimingStatus = 'exit_failure' | 'ok' | 'pipes_left_open' | 'timed_out'
+
+export type WorkspaceAgentSubsystem = 'envbox' | 'envbuilder' | 'exectrace' | 'none'
+
+export type WorkspaceAppHealth = 'disabled' | 'healthy' | 'initializing' | 'unhealthy'
+
+export type WorkspaceAppOpenIn = 'slim-window' | 'tab' | 'window'
+
+export type WorkspaceAppStatusState = 'complete' | 'failure' | 'idle' | 'working'
+
+export type WorkspaceTransition = 'delete' | 'start' | 'stop'
+
+export interface ApiKeys {
+    createdAt: Timestamp
+    expiresAt: Timestamp
+    /**
+     * hashed_secret contains a SHA256 hash of the key secret. This is considered a secret and MUST NOT be returned from the API as it is used for API key encryption in app proxying code.
+     */
+    hashedSecret: Buffer
+    id: string
+    ipAddress: Generated<string>
+    lastUsed: Timestamp
+    lifetimeSeconds: Generated<Int8>
+    loginType: LoginType
+    scope: Generated<ApiKeyScope>
+    tokenName: Generated<string>
+    updatedAt: Timestamp
+    userId: string
+}
 
 export interface Audit {
     createdAt: Generated<Timestamp>
@@ -73,6 +257,223 @@ export interface Audit {
     userId: string
 }
 
+export interface AuditLogs {
+    action: AuditAction
+    additionalFields: Json
+    diff: Json
+    id: string
+    ip: string | null
+    organizationId: string
+    requestId: string
+    resourceIcon: string
+    resourceId: string
+    resourceTarget: string
+    resourceType: ResourceType
+    statusCode: number
+    time: Timestamp
+    userAgent: string | null
+    userId: string
+}
+
+export interface ConnectionLogs {
+    agentName: string
+    /**
+     * Either the HTTP status code of the web request, or the exit code of an SSH connection. For non-web connections, this is Null until we receive a disconnect event for the same connection_id.
+     */
+    code: number | null
+    /**
+     * The SSH connection ID. Used to correlate connections and disconnections. As it originates from the agent, it is not guaranteed to be unique.
+     */
+    connectionId: string | null
+    connectTime: Timestamp
+    /**
+     * The reason the connection was closed. Null for web connections. For other connections, this is null until we receive a disconnect event for the same connection_id.
+     */
+    disconnectReason: string | null
+    /**
+     * The time the connection was closed. Null for web connections. For other connections, this is null until we receive a disconnect event for the same connection_id.
+     */
+    disconnectTime: Timestamp | null
+    id: string
+    ip: string
+    organizationId: string
+    /**
+     * Null for SSH events. For web connections, this is the slug of the app or the port number being forwarded.
+     */
+    slugOrPort: string | null
+    type: ConnectionType
+    /**
+     * Null for SSH events. For web connections, this is the User-Agent header from the request.
+     */
+    userAgent: string | null
+    /**
+     * Null for SSH events. For web connections, this is the ID of the user that made the request.
+     */
+    userId: string | null
+    workspaceId: string
+    workspaceName: string
+    workspaceOwnerId: string
+}
+
+export interface CryptoKeys {
+    deletesAt: Timestamp | null
+    feature: CryptoKeyFeature
+    secret: string | null
+    secretKeyId: string | null
+    sequence: number
+    startsAt: Timestamp
+}
+
+export interface CustomRoles {
+    createdAt: Generated<Timestamp>
+    displayName: string
+    /**
+     * Custom roles ID is used purely for auditing purposes. Name is a better unique identifier.
+     */
+    id: Generated<string>
+    name: string
+    /**
+     * Roles can optionally be scoped to an organization
+     */
+    organizationId: string | null
+    orgPermissions: Generated<Json>
+    sitePermissions: Generated<Json>
+    updatedAt: Generated<Timestamp>
+    userPermissions: Generated<Json>
+}
+
+export interface DbcryptKeys {
+    /**
+     * If the key is active, the digest of the active key.
+     */
+    activeKeyDigest: string | null
+    /**
+     * The time at which the key was created.
+     */
+    createdAt: Generated<Timestamp | null>
+    /**
+     * An integer used to identify the key.
+     */
+    number: number
+    /**
+     * The time at which the key was revoked.
+     */
+    revokedAt: Timestamp | null
+    /**
+     * If the key has been revoked, the digest of the revoked key.
+     */
+    revokedKeyDigest: string | null
+    /**
+     * A column used to test the encryption.
+     */
+    test: string
+}
+
+export interface ExternalAuthLinks {
+    createdAt: Timestamp
+    oauthAccessToken: string
+    /**
+     * The ID of the key used to encrypt the OAuth access token. If this is NULL, the access token is not encrypted
+     */
+    oauthAccessTokenKeyId: string | null
+    oauthExpiry: Timestamp
+    oauthExtra: Json | null
+    /**
+     * This error means the refresh token is invalid. Cached so we can avoid calling the external provider again for the same error.
+     */
+    oauthRefreshFailureReason: Generated<string>
+    oauthRefreshToken: string
+    /**
+     * The ID of the key used to encrypt the OAuth refresh token. If this is NULL, the refresh token is not encrypted
+     */
+    oauthRefreshTokenKeyId: string | null
+    providerId: string
+    updatedAt: Timestamp
+    userId: string
+}
+
+export interface Files {
+    createdAt: Timestamp
+    createdBy: string
+    data: Buffer
+    hash: string
+    id: Generated<string>
+    mimetype: string
+}
+
+export interface Gitsshkeys {
+    createdAt: Timestamp
+    privateKey: string
+    publicKey: string
+    updatedAt: Timestamp
+    userId: string
+}
+
+export interface GroupMembers {
+    groupId: string
+    userId: string
+}
+
+export interface GroupMembersExpanded {
+    groupId: string | null
+    groupName: string | null
+    organizationId: string | null
+    userAvatarUrl: string | null
+    userCreatedAt: Timestamp | null
+    userDeleted: boolean | null
+    userEmail: string | null
+    userGithubComUserId: Int8 | null
+    userHashedPassword: Buffer | null
+    userId: string | null
+    userIsSystem: boolean | null
+    userLastSeenAt: Timestamp | null
+    userLoginType: LoginType | null
+    userName: string | null
+    userQuietHoursSchedule: string | null
+    userRbacRoles: string[] | null
+    userStatus: UserStatus | null
+    userUpdatedAt: Timestamp | null
+    userUsername: string | null
+}
+
+export interface Groups {
+    avatarUrl: Generated<string>
+    /**
+     * Display name is a custom, human-friendly group name that user can set. This is not required to be unique and can be the empty string.
+     */
+    displayName: Generated<string>
+    id: string
+    name: string
+    organizationId: string
+    quotaAllowance: Generated<number>
+    /**
+     * Source indicates how the group was created. It can be created by a user manually, or through some system process like OIDC group sync.
+     */
+    source: Generated<GroupSource>
+}
+
+export interface InboxNotifications {
+    actions: Json
+    content: string
+    createdAt: Generated<Timestamp>
+    icon: string
+    id: string
+    readAt: Timestamp | null
+    targets: string[] | null
+    templateId: string
+    title: string
+    userId: string
+}
+
+export interface JfrogXrayScans {
+    agentId: string
+    critical: Generated<number>
+    high: Generated<number>
+    medium: Generated<number>
+    resultsUrl: Generated<string>
+    workspaceId: string
+}
+
 export interface JobStatusChange {
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -80,6 +481,212 @@ export interface JobStatusChange {
     status: Generated<StudyJobStatus>
     studyJobId: string
     userId: string | null
+}
+
+export interface Licenses {
+    /**
+     * exp tracks the claim of the same name in the JWT, and we include it here so that we can easily query for licenses that have not yet expired.
+     */
+    exp: Timestamp
+    id: Generated<number>
+    jwt: string
+    uploadedAt: Timestamp
+    uuid: string
+}
+
+export interface NotificationMessages {
+    attemptCount: Generated<number | null>
+    createdAt: Generated<Timestamp>
+    createdBy: string
+    /**
+     * Auto-generated by insert/update trigger, used to prevent duplicate notifications from being enqueued on the same day
+     */
+    dedupeHash: string | null
+    id: string
+    leasedUntil: Timestamp | null
+    method: NotificationMethod
+    nextRetryAfter: Timestamp | null
+    notificationTemplateId: string
+    payload: Json
+    queuedSeconds: number | null
+    status: Generated<NotificationMessageStatus>
+    statusReason: string | null
+    targets: string[] | null
+    updatedAt: Timestamp | null
+    userId: string
+}
+
+export interface NotificationPreferences {
+    createdAt: Generated<Timestamp>
+    disabled: Generated<boolean>
+    notificationTemplateId: string
+    updatedAt: Generated<Timestamp>
+    userId: string
+}
+
+export interface NotificationReportGeneratorLogs {
+    lastGeneratedAt: Timestamp
+    notificationTemplateId: string
+}
+
+export interface NotificationTemplates {
+    actions: Json | null
+    bodyTemplate: string
+    enabledByDefault: Generated<boolean>
+    group: string | null
+    id: string
+    kind: Generated<NotificationTemplateKind>
+    /**
+     * NULL defers to the deployment-level method
+     */
+    method: NotificationMethod | null
+    name: string
+    titleTemplate: string
+}
+
+export interface Oauth2ProviderAppCodes {
+    appId: string
+    /**
+     * PKCE code challenge for public clients
+     */
+    codeChallenge: string | null
+    /**
+     * PKCE challenge method (S256)
+     */
+    codeChallengeMethod: string | null
+    createdAt: Timestamp
+    expiresAt: Timestamp
+    hashedSecret: Buffer
+    id: string
+    /**
+     * RFC 8707 resource parameter for audience restriction
+     */
+    resourceUri: string | null
+    secretPrefix: Buffer
+    userId: string
+}
+
+export interface Oauth2ProviderApps {
+    callbackUrl: string
+    /**
+     * RFC 7591: Timestamp when client_id was issued
+     */
+    clientIdIssuedAt: Generated<Timestamp | null>
+    /**
+     * RFC 7591: Timestamp when client_secret expires (null for non-expiring)
+     */
+    clientSecretExpiresAt: Timestamp | null
+    /**
+     * OAuth2 client type: confidential or public
+     */
+    clientType: Generated<string | null>
+    /**
+     * RFC 7591: URL of the client home page
+     */
+    clientUri: string | null
+    /**
+     * RFC 7591: Array of email addresses for responsible parties
+     */
+    contacts: string[] | null
+    createdAt: Timestamp
+    /**
+     * Whether this app was created via dynamic client registration
+     */
+    dynamicallyRegistered: Generated<boolean | null>
+    /**
+     * RFC 7591: Array of grant types the client is allowed to use
+     */
+    grantTypes: Generated<string[] | null>
+    icon: string
+    id: string
+    /**
+     * RFC 7591: JSON Web Key Set document value
+     */
+    jwks: Json | null
+    /**
+     * RFC 7591: URL of the client JSON Web Key Set
+     */
+    jwksUri: string | null
+    /**
+     * RFC 7591: URL of the client logo image
+     */
+    logoUri: string | null
+    name: string
+    /**
+     * RFC 7591: URL of the client privacy policy
+     */
+    policyUri: string | null
+    /**
+     * List of valid redirect URIs for the application
+     */
+    redirectUris: string[] | null
+    /**
+     * RFC 7592: Hashed registration access token for client management
+     */
+    registrationAccessToken: string | null
+    /**
+     * RFC 7592: URI for client configuration endpoint
+     */
+    registrationClientUri: string | null
+    /**
+     * RFC 7591: Array of response types the client supports
+     */
+    responseTypes: Generated<string[] | null>
+    /**
+     * RFC 7591: Space-delimited scope values the client can request
+     */
+    scope: Generated<string | null>
+    /**
+     * RFC 7591: Identifier for the client software
+     */
+    softwareId: string | null
+    /**
+     * RFC 7591: Version of the client software
+     */
+    softwareVersion: string | null
+    /**
+     * RFC 7591: Authentication method for token endpoint
+     */
+    tokenEndpointAuthMethod: Generated<string | null>
+    /**
+     * RFC 7591: URL of the client terms of service
+     */
+    tosUri: string | null
+    updatedAt: Timestamp
+}
+
+export interface Oauth2ProviderAppSecrets {
+    appId: string
+    createdAt: Timestamp
+    /**
+     * The tail end of the original secret so secrets can be differentiated.
+     */
+    displaySecret: string
+    hashedSecret: Buffer
+    id: string
+    lastUsedAt: Timestamp | null
+    secretPrefix: Buffer
+}
+
+export interface Oauth2ProviderAppTokens {
+    apiKeyId: string
+    appSecretId: string
+    /**
+     * Token audience binding from resource parameter
+     */
+    audience: string | null
+    createdAt: Timestamp
+    expiresAt: Timestamp
+    hashPrefix: Buffer
+    id: string
+    /**
+     * Refresh tokens provide a way to refresh an access token (API key). An expired API key can be refreshed if this token is not yet expired, meaning this expiry can outlive an API key.
+     */
+    refreshHash: Buffer
+    /**
+     * Denormalized user ID for performance optimization in authorization checks
+     */
+    userId: string
 }
 
 export interface Org {
@@ -92,6 +699,26 @@ export interface Org {
     slug: string
     type: Generated<OrgType>
     updatedAt: Generated<Timestamp>
+}
+
+export interface OrganizationMembers {
+    createdAt: Timestamp
+    organizationId: string
+    roles: Generated<string[]>
+    updatedAt: Timestamp
+    userId: string
+}
+
+export interface Organizations {
+    createdAt: Timestamp
+    deleted: Generated<boolean>
+    description: string
+    displayName: string
+    icon: Generated<string>
+    id: string
+    isDefault: Generated<boolean>
+    name: string
+    updatedAt: Timestamp
 }
 
 export interface OrgBaseImage {
@@ -114,6 +741,38 @@ export interface OrgUser {
     userId: string
 }
 
+export interface ParameterSchemas {
+    allowOverrideDestination: boolean
+    allowOverrideSource: boolean
+    createdAt: Timestamp
+    defaultDestinationScheme: ParameterDestinationScheme
+    defaultRefresh: string
+    defaultSourceScheme: ParameterSourceScheme
+    defaultSourceValue: string
+    description: Generated<string>
+    id: string
+    index: number
+    jobId: string
+    name: string
+    redisplayValue: boolean
+    validationCondition: string
+    validationError: string
+    validationTypeSystem: ParameterTypeSystem
+    validationValueType: string
+}
+
+export interface ParameterValues {
+    createdAt: Timestamp
+    destinationScheme: ParameterDestinationScheme
+    id: string
+    name: string
+    scope: ParameterScope
+    scopeId: string
+    sourceScheme: ParameterSourceScheme
+    sourceValue: string
+    updatedAt: Timestamp
+}
+
 export interface PendingUser {
     claimedByUserId: string | null
     createdAt: Generated<Timestamp>
@@ -122,6 +781,127 @@ export interface PendingUser {
     invitedByUserId: string | null
     isAdmin: Generated<boolean>
     orgId: string
+}
+
+export interface ProvisionerDaemons {
+    /**
+     * The API version of the provisioner daemon
+     */
+    apiVersion: Generated<string>
+    createdAt: Timestamp
+    id: string
+    keyId: string
+    lastSeenAt: Timestamp | null
+    name: string
+    organizationId: string
+    provisioners: ArrayType<ProvisionerType>
+    replicaId: string | null
+    tags: Generated<Json>
+    version: Generated<string>
+}
+
+export interface ProvisionerJobLogs {
+    createdAt: Timestamp
+    id: Generated<Int8>
+    jobId: string
+    level: LogLevel
+    output: string
+    source: LogSource
+    stage: string
+}
+
+export interface ProvisionerJobs {
+    canceledAt: Timestamp | null
+    completedAt: Timestamp | null
+    createdAt: Timestamp
+    error: string | null
+    errorCode: string | null
+    fileId: string
+    id: string
+    initiatorId: string
+    input: Json
+    /**
+     * Computed column to track the status of the job.
+     */
+    jobStatus: Generated<ProvisionerJobStatus>
+    /**
+     * Total length of provisioner logs
+     */
+    logsLength: Generated<number>
+    /**
+     * Whether the provisioner logs overflowed in length
+     */
+    logsOverflowed: Generated<boolean>
+    organizationId: string
+    provisioner: ProvisionerType
+    startedAt: Timestamp | null
+    storageMethod: ProvisionerStorageMethod
+    tags: Generated<Json>
+    traceMetadata: Json | null
+    type: ProvisionerJobType
+    updatedAt: Timestamp
+    workerId: string | null
+}
+
+export interface ProvisionerJobStats {
+    applySecs: Numeric | null
+    canceledSecs: Numeric | null
+    completionSecs: Numeric | null
+    error: string | null
+    errorCode: string | null
+    graphSecs: Numeric | null
+    initSecs: Numeric | null
+    jobId: string | null
+    jobStatus: ProvisionerJobStatus | null
+    planSecs: Numeric | null
+    queuedSecs: Numeric | null
+    updatedAt: Timestamp | null
+    workerId: string | null
+    workspaceId: string | null
+}
+
+export interface ProvisionerJobTimings {
+    action: string
+    endedAt: Timestamp
+    jobId: string
+    resource: string
+    source: string
+    stage: ProvisionerJobTimingStage
+    startedAt: Timestamp
+}
+
+export interface ProvisionerKeys {
+    createdAt: Timestamp
+    hashedSecret: Buffer
+    id: string
+    name: string
+    organizationId: string
+    tags: Json
+}
+
+export interface Replicas {
+    createdAt: Timestamp
+    databaseLatency: number
+    error: Generated<string>
+    hostname: string
+    id: string
+    primary: Generated<boolean>
+    regionId: number
+    relayAddress: string
+    startedAt: Timestamp
+    stoppedAt: Timestamp | null
+    updatedAt: Timestamp
+    version: string
+}
+
+export interface SchemaMigrations {
+    dirty: boolean
+    version: Int8
+}
+
+export interface SiteConfigs {
+    key: string
+    value: string
 }
 
 export interface Study {
@@ -162,6 +942,444 @@ export interface StudyJobFile {
     studyJobId: string
 }
 
+export interface TailnetAgents {
+    coordinatorId: string
+    id: string
+    node: Json
+    updatedAt: Timestamp
+}
+
+export interface TailnetClients {
+    coordinatorId: string
+    id: string
+    node: Json
+    updatedAt: Timestamp
+}
+
+export interface TailnetClientSubscriptions {
+    agentId: string
+    clientId: string
+    coordinatorId: string
+    updatedAt: Timestamp
+}
+
+export interface TailnetCoordinators {
+    heartbeatAt: Timestamp
+    id: string
+}
+
+export interface TailnetPeers {
+    coordinatorId: string
+    id: string
+    node: Buffer
+    status: Generated<TailnetStatus>
+    updatedAt: Timestamp
+}
+
+export interface TailnetTunnels {
+    coordinatorId: string
+    dstId: string
+    srcId: string
+    updatedAt: Timestamp
+}
+
+export interface TelemetryItems {
+    createdAt: Generated<Timestamp>
+    key: string
+    updatedAt: Generated<Timestamp>
+    value: string
+}
+
+export interface Templates {
+    activeVersionId: string
+    activityBump: Generated<Int8>
+    /**
+     * Allow users to specify an autostart schedule for workspaces (enterprise).
+     */
+    allowUserAutostart: Generated<boolean>
+    /**
+     * Allow users to specify custom autostop values for workspaces (enterprise).
+     */
+    allowUserAutostop: Generated<boolean>
+    /**
+     * Allow users to cancel in-progress workspace jobs.
+     */
+    allowUserCancelWorkspaceJobs: Generated<boolean>
+    /**
+     * A bitmap of days of week that autostart of a workspace is not allowed. Default allows all days. This is intended as a cost savings measure to prevent auto start on weekends (for example).
+     */
+    autostartBlockDaysOfWeek: Generated<number>
+    /**
+     * A bitmap of days of week to restart the workspace on, starting with Monday as the 0th bit, and Sunday as the 6th bit. The 7th bit is unused.
+     */
+    autostopRequirementDaysOfWeek: Generated<number>
+    /**
+     * The number of weeks between restarts. 0 or 1 weeks means "every week", 2 week means "every second week", etc. Weeks are counted from January 2, 2023, which is the first Monday of 2023. This is to ensure workspaces are started consistently for all customers on the same n-week cycles.
+     */
+    autostopRequirementWeeks: Generated<Int8>
+    corsBehavior: Generated<CorsBehavior>
+    createdAt: Timestamp
+    createdBy: string
+    /**
+     * The default duration for autostop for workspaces created from this template.
+     */
+    defaultTtl: Generated<Int8>
+    deleted: Generated<boolean>
+    /**
+     * If set to a non empty string, the template will no longer be able to be used. The message will be displayed to the user.
+     */
+    deprecated: Generated<string>
+    description: Generated<string>
+    /**
+     * Display name is a custom, human-friendly template name that user can set.
+     */
+    displayName: Generated<string>
+    failureTtl: Generated<Int8>
+    groupAcl: Generated<Json>
+    icon: Generated<string>
+    id: string
+    maxPortSharingLevel: Generated<AppSharingLevel>
+    name: string
+    organizationId: string
+    provisioner: ProvisionerType
+    requireActiveVersion: Generated<boolean>
+    timeTilDormant: Generated<Int8>
+    timeTilDormantAutodelete: Generated<Int8>
+    updatedAt: Timestamp
+    /**
+     * Determines whether to default to the dynamic parameter creation flow for this template or continue using the legacy classic parameter creation flow.This is a template wide setting, the template admin can revert to the classic flow if there are any issues. An escape hatch is required, as workspace creation is a core workflow and cannot break. This column will be removed when the dynamic parameter creation flow is stable.
+     */
+    useClassicParameterFlow: Generated<boolean>
+    userAcl: Generated<Json>
+}
+
+export interface TemplateUsageStats {
+    /**
+     * Object with app names as keys and total minutes used as values. Null means no app usage was recorded.
+     */
+    appUsageMins: Json | null
+    /**
+     * End time of the usage period.
+     */
+    endTime: Timestamp
+    /**
+     * Total minutes the user has been using JetBrains.
+     */
+    jetbrainsMins: number
+    /**
+     * Median latency the user is experiencing, in milliseconds. Null means no value was recorded.
+     */
+    medianLatencyMs: number | null
+    /**
+     * Total minutes the user has been using the reconnecting PTY.
+     */
+    reconnectingPtyMins: number
+    /**
+     * Total minutes the user has been using SFTP.
+     */
+    sftpMins: number
+    /**
+     * Total minutes the user has been using SSH.
+     */
+    sshMins: number
+    /**
+     * Start time of the usage period.
+     */
+    startTime: Timestamp
+    /**
+     * ID of the template being used.
+     */
+    templateId: string
+    /**
+     * Total minutes the user has been using the template.
+     */
+    usageMins: number
+    /**
+     * ID of the user using the template.
+     */
+    userId: string
+    /**
+     * Total minutes the user has been using VSCode.
+     */
+    vscodeMins: number
+}
+
+export interface TemplateVersionParameters {
+    /**
+     * Default value
+     */
+    defaultValue: string
+    /**
+     * Parameter description
+     */
+    description: string
+    /**
+     * Display name of the rich parameter
+     */
+    displayName: Generated<string>
+    /**
+     * Specifies the order in which to display parameters in user interfaces.
+     */
+    displayOrder: Generated<number>
+    /**
+     * The value of an ephemeral parameter will not be preserved between consecutive workspace builds.
+     */
+    ephemeral: Generated<boolean>
+    /**
+     * Specify what form_type should be used to render the parameter in the UI. Unsupported values are rejected.
+     */
+    formType: Generated<ParameterFormType>
+    /**
+     * Icon
+     */
+    icon: string
+    /**
+     * Is parameter mutable?
+     */
+    mutable: boolean
+    /**
+     * Parameter name
+     */
+    name: string
+    /**
+     * Additional options
+     */
+    options: Generated<Json>
+    /**
+     * Is parameter required?
+     */
+    required: Generated<boolean>
+    templateVersionId: string
+    /**
+     * Parameter type
+     */
+    type: string
+    /**
+     * Validation: error displayed when the regex does not match.
+     */
+    validationError: Generated<string>
+    /**
+     * Validation: maximum length of value
+     */
+    validationMax: number | null
+    /**
+     * Validation: minimum length of value
+     */
+    validationMin: number | null
+    /**
+     * Validation: consecutive values preserve the monotonic order
+     */
+    validationMonotonic: Generated<string>
+    /**
+     * Validation: regex pattern
+     */
+    validationRegex: string
+}
+
+export interface TemplateVersionPresetParameters {
+    id: Generated<string>
+    name: string
+    templateVersionPresetId: string
+    value: string
+}
+
+export interface TemplateVersionPresetPrebuildSchedules {
+    cronExpression: string
+    desiredInstances: number
+    id: Generated<string>
+    presetId: string
+}
+
+export interface TemplateVersionPresets {
+    createdAt: Generated<Timestamp>
+    /**
+     * Short text describing the preset (max 128 characters).
+     */
+    description: Generated<string>
+    desiredInstances: number | null
+    /**
+     * URL or path to an icon representing the preset (max 256 characters).
+     */
+    icon: Generated<string>
+    id: Generated<string>
+    invalidateAfterSecs: Generated<number | null>
+    isDefault: Generated<boolean>
+    name: string
+    prebuildStatus: Generated<PrebuildStatus>
+    schedulingTimezone: Generated<string>
+    templateVersionId: string
+}
+
+export interface TemplateVersions {
+    archived: Generated<boolean>
+    createdAt: Timestamp
+    createdBy: string
+    /**
+     * IDs of External auth providers for a specific template version
+     */
+    externalAuthProviders: Generated<Json>
+    hasAiTask: boolean | null
+    hasExternalAgent: boolean | null
+    id: string
+    jobId: string
+    /**
+     * Message describing the changes in this version of the template, similar to a Git commit message. Like a commit message, this should be a short, high-level description of the changes in this version of the template. This message is immutable and should not be updated after the fact.
+     */
+    message: Generated<string>
+    name: string
+    organizationId: string
+    readme: string
+    sourceExampleId: string | null
+    templateId: string | null
+    updatedAt: Timestamp
+}
+
+export interface TemplateVersionTerraformValues {
+    cachedModuleFiles: string | null
+    cachedPlan: Json
+    /**
+     * What version of the provisioning engine was used to generate the cached plan and module files.
+     */
+    provisionerdVersion: Generated<string>
+    templateVersionId: string
+    updatedAt: Generated<Timestamp>
+}
+
+export interface TemplateVersionVariables {
+    /**
+     * Variable default value
+     */
+    defaultValue: string
+    /**
+     * Variable description
+     */
+    description: string
+    /**
+     * Variable name
+     */
+    name: string
+    /**
+     * Required variables needs a default value or a value provided by template admin
+     */
+    required: boolean
+    /**
+     * Sensitive variables have their values redacted in logs or site UI
+     */
+    sensitive: boolean
+    templateVersionId: string
+    /**
+     * Variable type
+     */
+    type: string
+    /**
+     * Variable value
+     */
+    value: string
+}
+
+export interface TemplateVersionWithUser {
+    archived: boolean | null
+    createdAt: Timestamp | null
+    createdBy: string | null
+    createdByAvatarUrl: string | null
+    createdByName: string | null
+    createdByUsername: string | null
+    externalAuthProviders: Json | null
+    hasAiTask: boolean | null
+    hasExternalAgent: boolean | null
+    id: string | null
+    jobId: string | null
+    message: string | null
+    name: string | null
+    organizationId: string | null
+    readme: string | null
+    sourceExampleId: string | null
+    templateId: string | null
+    updatedAt: Timestamp | null
+}
+
+export interface TemplateVersionWorkspaceTags {
+    key: string
+    templateVersionId: string
+    value: string
+}
+
+export interface TemplateWithNames {
+    activeVersionId: string | null
+    activityBump: Int8 | null
+    allowUserAutostart: boolean | null
+    allowUserAutostop: boolean | null
+    allowUserCancelWorkspaceJobs: boolean | null
+    autostartBlockDaysOfWeek: number | null
+    autostopRequirementDaysOfWeek: number | null
+    autostopRequirementWeeks: Int8 | null
+    corsBehavior: CorsBehavior | null
+    createdAt: Timestamp | null
+    createdBy: string | null
+    createdByAvatarUrl: string | null
+    createdByName: string | null
+    createdByUsername: string | null
+    defaultTtl: Int8 | null
+    deleted: boolean | null
+    deprecated: string | null
+    description: string | null
+    displayName: string | null
+    failureTtl: Int8 | null
+    groupAcl: Json | null
+    icon: string | null
+    id: string | null
+    maxPortSharingLevel: AppSharingLevel | null
+    name: string | null
+    organizationDisplayName: string | null
+    organizationIcon: string | null
+    organizationId: string | null
+    organizationName: string | null
+    provisioner: ProvisionerType | null
+    requireActiveVersion: boolean | null
+    timeTilDormant: Int8 | null
+    timeTilDormantAutodelete: Int8 | null
+    updatedAt: Timestamp | null
+    useClassicParameterFlow: boolean | null
+    userAcl: Json | null
+}
+
+export interface UsageEvents {
+    createdAt: Timestamp
+    /**
+     * Event payload. Determined by the matching usage struct for this event type.
+     */
+    eventData: Json
+    /**
+     * The usage event type with version. "dc" means "discrete" (e.g. a single event, for counters), "hb" means "heartbeat" (e.g. a recurring event that contains a total count of usage generated from the database, for gauges).
+     */
+    eventType: string
+    /**
+     * Set to an error message when the event is temporarily or permanently unsuccessfully published to the usage collector service.
+     */
+    failureMessage: string | null
+    /**
+     * For "discrete" event types, this is a random UUID. For "heartbeat" event types, this is a combination of the event type and a truncated timestamp.
+     */
+    id: string
+    /**
+     * Set to a timestamp when the event is successfully (or permanently unsuccessfully) published to the usage collector service. If set, the event should never be attempted to be published again.
+     */
+    publishedAt: Timestamp | null
+    /**
+     * Set to a timestamp while the event is being published by a Coder replica to the usage collector service. Used to avoid duplicate publishes by multiple replicas. Timestamps older than 1 hour are considered expired.
+     */
+    publishStartedAt: Timestamp | null
+}
+
+export interface UsageEventsDaily {
+    /**
+     * The date of the summed usage events, always in UTC.
+     */
+    day: Timestamp
+    eventType: string
+    usageData: Json
+}
+
 export interface User {
     clerkId: string
     createdAt: Generated<Timestamp>
@@ -173,6 +1391,39 @@ export interface User {
     updatedAt: Generated<Timestamp>
 }
 
+export interface UserConfigs {
+    key: string
+    userId: string
+    value: string
+}
+
+export interface UserDeleted {
+    deletedAt: Generated<Timestamp>
+    id: Generated<string>
+    userId: string
+}
+
+export interface UserLinks {
+    /**
+     * Claims from the IDP for the linked user. Includes both id_token and userinfo claims.
+     */
+    claims: Generated<Json>
+    linkedId: Generated<string>
+    loginType: LoginType
+    oauthAccessToken: Generated<string>
+    /**
+     * The ID of the key used to encrypt the OAuth access token. If this is NULL, the access token is not encrypted
+     */
+    oauthAccessTokenKeyId: string | null
+    oauthExpiry: Generated<Timestamp>
+    oauthRefreshToken: Generated<string>
+    /**
+     * The ID of the key used to encrypt the OAuth refresh token. If this is NULL, the refresh token is not encrypted
+     */
+    oauthRefreshTokenKeyId: string | null
+    userId: string
+}
+
 export interface UserPublicKey {
     createdAt: Generated<Timestamp>
     fingerprint: string
@@ -182,16 +1433,724 @@ export interface UserPublicKey {
     userId: string
 }
 
+export interface Users {
+    avatarUrl: Generated<string>
+    createdAt: Timestamp
+    deleted: Generated<boolean>
+    email: string
+    /**
+     * The GitHub.com numerical user ID. It is used to check if the user has starred the Coder repository. It is also used for filtering users in the users list CLI command, and may become more widely used in the future.
+     */
+    githubComUserId: Int8 | null
+    /**
+     * A hash of the one-time-passcode given to the user.
+     */
+    hashedOneTimePasscode: Buffer | null
+    hashedPassword: Buffer
+    id: string
+    /**
+     * Determines if a user is a system user, and therefore cannot login or perform normal actions
+     */
+    isSystem: Generated<boolean>
+    lastSeenAt: Generated<Timestamp>
+    loginType: Generated<LoginType>
+    /**
+     * Name of the Coder user
+     */
+    name: Generated<string>
+    /**
+     * The time when the one-time-passcode expires.
+     */
+    oneTimePasscodeExpiresAt: Timestamp | null
+    /**
+     * Daily (!) cron schedule (with optional CRON_TZ) signifying the start of the user's quiet hours. If empty, the default quiet hours on the instance is used instead.
+     */
+    quietHoursSchedule: Generated<string>
+    rbacRoles: Generated<string[]>
+    status: Generated<UserStatus>
+    updatedAt: Timestamp
+    username: Generated<string>
+}
+
+export interface UserSecrets {
+    createdAt: Generated<Timestamp>
+    description: string
+    envName: Generated<string>
+    filePath: Generated<string>
+    id: Generated<string>
+    name: string
+    updatedAt: Generated<Timestamp>
+    userId: string
+    value: string
+}
+
+export interface UserStatusChanges {
+    changedAt: Generated<Timestamp>
+    id: Generated<string>
+    newStatus: UserStatus
+    userId: string
+}
+
+export interface VisibleUsers {
+    avatarUrl: string | null
+    id: string | null
+    name: string | null
+    username: string | null
+}
+
+export interface WebpushSubscriptions {
+    createdAt: Generated<Timestamp>
+    endpoint: string
+    endpointAuthKey: string
+    endpointP256dhKey: string
+    id: Generated<string>
+    userId: string
+}
+
+export interface WorkspaceAgentDevcontainers {
+    /**
+     * Path to devcontainer.json.
+     */
+    configPath: string
+    /**
+     * Creation timestamp
+     */
+    createdAt: Generated<Timestamp>
+    /**
+     * Unique identifier
+     */
+    id: string
+    /**
+     * The name of the Dev Container.
+     */
+    name: string
+    /**
+     * Workspace agent foreign key
+     */
+    workspaceAgentId: string
+    /**
+     * Workspace folder
+     */
+    workspaceFolder: string
+}
+
+export interface WorkspaceAgentLogs {
+    agentId: string
+    createdAt: Timestamp
+    id: Generated<Int8>
+    level: Generated<LogLevel>
+    logSourceId: Generated<string>
+    output: string
+}
+
+export interface WorkspaceAgentLogSources {
+    createdAt: Timestamp
+    displayName: string
+    icon: string
+    id: string
+    workspaceAgentId: string
+}
+
+export interface WorkspaceAgentMemoryResourceMonitors {
+    agentId: string
+    createdAt: Timestamp
+    debouncedUntil: Generated<Timestamp>
+    enabled: boolean
+    state: Generated<WorkspaceAgentMonitorState>
+    threshold: number
+    updatedAt: Generated<Timestamp>
+}
+
+export interface WorkspaceAgentMetadata {
+    collectedAt: Generated<Timestamp>
+    displayName: string
+    /**
+     * Specifies the order in which to display agent metadata in user interfaces.
+     */
+    displayOrder: Generated<number>
+    error: Generated<string>
+    interval: Int8
+    key: string
+    script: string
+    timeout: Int8
+    value: Generated<string>
+    workspaceAgentId: string
+}
+
+export interface WorkspaceAgentPortShare {
+    agentName: string
+    port: number
+    protocol: Generated<PortShareProtocol>
+    shareLevel: AppSharingLevel
+    workspaceId: string
+}
+
+export interface WorkspaceAgents {
+    /**
+     * Defines the scope of the API key associated with the agent. 'all' allows access to everything, 'no_user_data' restricts it to exclude user data.
+     */
+    apiKeyScope: Generated<AgentKeyScopeEnum>
+    apiVersion: Generated<string>
+    architecture: string
+    authInstanceId: string | null
+    authToken: string
+    /**
+     * Connection timeout in seconds, 0 means disabled.
+     */
+    connectionTimeoutSeconds: Generated<number>
+    createdAt: Timestamp
+    /**
+     * Indicates whether or not the agent has been deleted. This is currently only applicable to sub agents.
+     */
+    deleted: Generated<boolean>
+    directory: Generated<string>
+    disconnectedAt: Timestamp | null
+    displayApps: Generated<ArrayType<DisplayApp> | null>
+    /**
+     * Specifies the order in which to display agents in user interfaces.
+     */
+    displayOrder: Generated<number>
+    environmentVariables: Json | null
+    /**
+     * The resolved path of a user-specified directory. e.g. ~/coder -> /home/coder/coder
+     */
+    expandedDirectory: Generated<string>
+    firstConnectedAt: Timestamp | null
+    id: string
+    instanceMetadata: Json | null
+    lastConnectedAt: Timestamp | null
+    lastConnectedReplicaId: string | null
+    /**
+     * The current lifecycle state reported by the workspace agent.
+     */
+    lifecycleState: Generated<WorkspaceAgentLifecycleState>
+    /**
+     * Total length of startup logs
+     */
+    logsLength: Generated<number>
+    /**
+     * Whether the startup logs overflowed in length
+     */
+    logsOverflowed: Generated<boolean>
+    /**
+     * Path to file inside workspace containing the message of the day (MOTD) to show to the user when logging in via SSH.
+     */
+    motdFile: Generated<string>
+    name: string
+    operatingSystem: string
+    parentId: string | null
+    /**
+     * The time the agent entered the ready or start_error lifecycle state
+     */
+    readyAt: Timestamp | null
+    resourceId: string
+    resourceMetadata: Json | null
+    /**
+     * The time the agent entered the starting lifecycle state
+     */
+    startedAt: Timestamp | null
+    subsystems: Generated<ArrayType<WorkspaceAgentSubsystem> | null>
+    /**
+     * URL for troubleshooting the agent.
+     */
+    troubleshootingUrl: Generated<string>
+    updatedAt: Timestamp
+    /**
+     * Version tracks the version of the currently running workspace agent. Workspace agents register their version upon start.
+     */
+    version: Generated<string>
+}
+
+export interface WorkspaceAgentScripts {
+    createdAt: Timestamp
+    cron: string
+    displayName: string
+    id: Generated<string>
+    logPath: string
+    logSourceId: string
+    runOnStart: boolean
+    runOnStop: boolean
+    script: string
+    startBlocksLogin: boolean
+    timeoutSeconds: number
+    workspaceAgentId: string
+}
+
+export interface WorkspaceAgentScriptTimings {
+    endedAt: Timestamp
+    exitCode: number
+    scriptId: string
+    stage: WorkspaceAgentScriptTimingStage
+    startedAt: Timestamp
+    status: WorkspaceAgentScriptTimingStatus
+}
+
+export interface WorkspaceAgentStats {
+    agentId: string
+    connectionCount: Generated<Int8>
+    connectionMedianLatencyMs: Generated<number>
+    connectionsByProto: Generated<Json>
+    createdAt: Timestamp
+    id: string
+    rxBytes: Generated<Int8>
+    rxPackets: Generated<Int8>
+    sessionCountJetbrains: Generated<Int8>
+    sessionCountReconnectingPty: Generated<Int8>
+    sessionCountSsh: Generated<Int8>
+    sessionCountVscode: Generated<Int8>
+    templateId: string
+    txBytes: Generated<Int8>
+    txPackets: Generated<Int8>
+    usage: Generated<boolean>
+    userId: string
+    workspaceId: string
+}
+
+export interface WorkspaceAgentVolumeResourceMonitors {
+    agentId: string
+    createdAt: Timestamp
+    debouncedUntil: Generated<Timestamp>
+    enabled: boolean
+    path: string
+    state: Generated<WorkspaceAgentMonitorState>
+    threshold: number
+    updatedAt: Generated<Timestamp>
+}
+
+export interface WorkspaceAppAuditSessions {
+    /**
+     * The agent that the workspace app or port forward belongs to.
+     */
+    agentId: string
+    /**
+     * The app that is currently in the workspace app. This is may be uuid.Nil because ports are not associated with an app.
+     */
+    appId: string
+    id: string
+    /**
+     * The IP address of the user that is currently using the workspace app.
+     */
+    ip: string
+    /**
+     * The slug or port of the workspace app that the user is currently using.
+     */
+    slugOrPort: string
+    /**
+     * The time the user started the session.
+     */
+    startedAt: Timestamp
+    /**
+     * The HTTP status produced by the token authorization. Defaults to 200 if no status is provided.
+     */
+    statusCode: number
+    /**
+     * The time the session was last updated.
+     */
+    updatedAt: Timestamp
+    /**
+     * The user agent of the user that is currently using the workspace app.
+     */
+    userAgent: string
+    /**
+     * The user that is currently using the workspace app. This is may be uuid.Nil if we cannot determine the user.
+     */
+    userId: string
+}
+
+export interface WorkspaceApps {
+    agentId: string
+    command: string | null
+    createdAt: Timestamp
+    displayGroup: string | null
+    displayName: string
+    /**
+     * Specifies the order in which to display agent app in user interfaces.
+     */
+    displayOrder: Generated<number>
+    external: Generated<boolean>
+    health: Generated<WorkspaceAppHealth>
+    healthcheckInterval: Generated<number>
+    healthcheckThreshold: Generated<number>
+    healthcheckUrl: Generated<string>
+    /**
+     * Determines if the app is not shown in user interfaces.
+     */
+    hidden: Generated<boolean>
+    icon: string
+    id: string
+    openIn: Generated<WorkspaceAppOpenIn>
+    sharingLevel: Generated<AppSharingLevel>
+    slug: string
+    subdomain: Generated<boolean>
+    url: string | null
+}
+
+export interface WorkspaceAppStats {
+    /**
+     * The method used to access the workspace app
+     */
+    accessMethod: string
+    /**
+     * The workspace agent that was used
+     */
+    agentId: string
+    /**
+     * The ID of the record
+     */
+    id: Generated<Int8>
+    /**
+     * The number of requests made during the session, a number larger than 1 indicates that multiple sessions were rolled up into one
+     */
+    requests: number
+    /**
+     * The time the session ended
+     */
+    sessionEndedAt: Timestamp
+    /**
+     * The unique identifier for the session
+     */
+    sessionId: string
+    /**
+     * The time the session started
+     */
+    sessionStartedAt: Timestamp
+    /**
+     * The slug or port used to to identify the app
+     */
+    slugOrPort: string
+    /**
+     * The user who used the workspace app
+     */
+    userId: string
+    /**
+     * The workspace that the workspace app was used in
+     */
+    workspaceId: string
+}
+
+export interface WorkspaceAppStatuses {
+    agentId: string
+    appId: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    message: string
+    state: WorkspaceAppStatusState
+    uri: string | null
+    workspaceId: string
+}
+
+export interface WorkspaceBuildParameters {
+    /**
+     * Parameter name
+     */
+    name: string
+    /**
+     * Parameter value
+     */
+    value: string
+    workspaceBuildId: string
+}
+
+export interface WorkspaceBuilds {
+    aiTaskSidebarAppId: string | null
+    buildNumber: number
+    createdAt: Timestamp
+    dailyCost: Generated<number>
+    deadline: Generated<Timestamp>
+    hasAiTask: boolean | null
+    hasExternalAgent: boolean | null
+    id: string
+    initiatorId: string
+    jobId: string
+    maxDeadline: Generated<Timestamp>
+    provisionerState: Buffer | null
+    reason: Generated<BuildReason>
+    templateVersionId: string
+    templateVersionPresetId: string | null
+    transition: WorkspaceTransition
+    updatedAt: Timestamp
+    workspaceId: string
+}
+
+export interface WorkspaceBuildWithUser {
+    aiTaskSidebarAppId: string | null
+    buildNumber: number | null
+    createdAt: Timestamp | null
+    dailyCost: number | null
+    deadline: Timestamp | null
+    hasAiTask: boolean | null
+    hasExternalAgent: boolean | null
+    id: string | null
+    initiatorByAvatarUrl: string | null
+    initiatorByName: string | null
+    initiatorByUsername: string | null
+    initiatorId: string | null
+    jobId: string | null
+    maxDeadline: Timestamp | null
+    provisionerState: Buffer | null
+    reason: BuildReason | null
+    templateVersionId: string | null
+    templateVersionPresetId: string | null
+    transition: WorkspaceTransition | null
+    updatedAt: Timestamp | null
+    workspaceId: string | null
+}
+
+export interface WorkspaceLatestBuilds {
+    createdAt: Timestamp | null
+    id: string | null
+    jobId: string | null
+    jobStatus: ProvisionerJobStatus | null
+    templateVersionId: string | null
+    templateVersionPresetId: string | null
+    transition: WorkspaceTransition | null
+    workspaceId: string | null
+}
+
+export interface WorkspaceModules {
+    createdAt: Timestamp
+    id: string
+    jobId: string
+    key: string
+    source: string
+    transition: WorkspaceTransition
+    version: string
+}
+
+export interface WorkspacePrebuildBuilds {
+    buildNumber: number | null
+    id: string | null
+    jobId: string | null
+    templateVersionId: string | null
+    templateVersionPresetId: string | null
+    transition: WorkspaceTransition | null
+    workspaceId: string | null
+}
+
+export interface WorkspacePrebuilds {
+    createdAt: Timestamp | null
+    currentPresetId: string | null
+    id: string | null
+    name: string | null
+    ready: boolean | null
+    templateId: string | null
+}
+
+export interface WorkspaceProxies {
+    createdAt: Timestamp
+    /**
+     * Boolean indicator of a deleted workspace proxy. Proxies are soft-deleted.
+     */
+    deleted: boolean
+    derpEnabled: Generated<boolean>
+    /**
+     * Disables app/terminal proxying for this proxy and only acts as a DERP relay.
+     */
+    derpOnly: Generated<boolean>
+    displayName: string
+    /**
+     * Expects an emoji character. (/emojis/1f1fa-1f1f8.png)
+     */
+    icon: string
+    id: string
+    name: string
+    regionId: Generated<number>
+    /**
+     * Hashed secret is used to authenticate the workspace proxy using a session token.
+     */
+    tokenHashedSecret: Buffer
+    updatedAt: Timestamp
+    /**
+     * Full url including scheme of the proxy api url: https://us.example.com
+     */
+    url: string
+    version: Generated<string>
+    /**
+     * Hostname with the wildcard for subdomain based app hosting: *.us.example.com
+     */
+    wildcardHostname: string
+}
+
+export interface WorkspaceResourceMetadata {
+    id: Generated<Int8>
+    key: string
+    sensitive: boolean
+    value: string | null
+    workspaceResourceId: string
+}
+
+export interface WorkspaceResources {
+    createdAt: Timestamp
+    dailyCost: Generated<number>
+    hide: Generated<boolean>
+    icon: Generated<string>
+    id: string
+    instanceType: string | null
+    jobId: string
+    modulePath: string | null
+    name: string
+    transition: WorkspaceTransition
+    type: string
+}
+
+export interface Workspaces {
+    automaticUpdates: Generated<AutomaticUpdates>
+    autostartSchedule: string | null
+    createdAt: Timestamp
+    deleted: Generated<boolean>
+    deletingAt: Timestamp | null
+    dormantAt: Timestamp | null
+    /**
+     * Favorite is true if the workspace owner has favorited the workspace.
+     */
+    favorite: Generated<boolean>
+    groupAcl: Generated<Json>
+    id: string
+    lastUsedAt: Generated<Timestamp>
+    name: string
+    nextStartAt: Timestamp | null
+    organizationId: string
+    ownerId: string
+    templateId: string
+    ttl: Int8 | null
+    updatedAt: Timestamp
+    userAcl: Generated<Json>
+}
+
+export interface WorkspacesExpanded {
+    automaticUpdates: AutomaticUpdates | null
+    autostartSchedule: string | null
+    createdAt: Timestamp | null
+    deleted: boolean | null
+    deletingAt: Timestamp | null
+    dormantAt: Timestamp | null
+    favorite: boolean | null
+    groupAcl: Json | null
+    id: string | null
+    lastUsedAt: Timestamp | null
+    name: string | null
+    nextStartAt: Timestamp | null
+    organizationDescription: string | null
+    organizationDisplayName: string | null
+    organizationIcon: string | null
+    organizationId: string | null
+    organizationName: string | null
+    ownerAvatarUrl: string | null
+    ownerId: string | null
+    ownerName: string | null
+    ownerUsername: string | null
+    templateDescription: string | null
+    templateDisplayName: string | null
+    templateIcon: string | null
+    templateId: string | null
+    templateName: string | null
+    ttl: Int8 | null
+    updatedAt: Timestamp | null
+    userAcl: Json | null
+}
+
 export interface DB {
+    apiKeys: ApiKeys
     audit: Audit
+    auditLogs: AuditLogs
+    connectionLogs: ConnectionLogs
+    cryptoKeys: CryptoKeys
+    customRoles: CustomRoles
+    dbcryptKeys: DbcryptKeys
+    externalAuthLinks: ExternalAuthLinks
+    files: Files
+    gitsshkeys: Gitsshkeys
+    groupMembers: GroupMembers
+    groupMembersExpanded: GroupMembersExpanded
+    groups: Groups
+    inboxNotifications: InboxNotifications
+    jfrogXrayScans: JfrogXrayScans
     jobStatusChange: JobStatusChange
+    licenses: Licenses
+    notificationMessages: NotificationMessages
+    notificationPreferences: NotificationPreferences
+    notificationReportGeneratorLogs: NotificationReportGeneratorLogs
+    notificationTemplates: NotificationTemplates
+    oauth2ProviderAppCodes: Oauth2ProviderAppCodes
+    oauth2ProviderApps: Oauth2ProviderApps
+    oauth2ProviderAppSecrets: Oauth2ProviderAppSecrets
+    oauth2ProviderAppTokens: Oauth2ProviderAppTokens
     org: Org
+    organizationMembers: OrganizationMembers
+    organizations: Organizations
     orgBaseImage: OrgBaseImage
     orgUser: OrgUser
+    parameterSchemas: ParameterSchemas
+    parameterValues: ParameterValues
     pendingUser: PendingUser
+    provisionerDaemons: ProvisionerDaemons
+    provisionerJobLogs: ProvisionerJobLogs
+    provisionerJobs: ProvisionerJobs
+    provisionerJobStats: ProvisionerJobStats
+    provisionerJobTimings: ProvisionerJobTimings
+    provisionerKeys: ProvisionerKeys
+    replicas: Replicas
+    schemaMigrations: SchemaMigrations
+    siteConfigs: SiteConfigs
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile
+    tailnetAgents: TailnetAgents
+    tailnetClients: TailnetClients
+    tailnetClientSubscriptions: TailnetClientSubscriptions
+    tailnetCoordinators: TailnetCoordinators
+    tailnetPeers: TailnetPeers
+    tailnetTunnels: TailnetTunnels
+    telemetryItems: TelemetryItems
+    templates: Templates
+    templateUsageStats: TemplateUsageStats
+    templateVersionParameters: TemplateVersionParameters
+    templateVersionPresetParameters: TemplateVersionPresetParameters
+    templateVersionPresetPrebuildSchedules: TemplateVersionPresetPrebuildSchedules
+    templateVersionPresets: TemplateVersionPresets
+    templateVersions: TemplateVersions
+    templateVersionTerraformValues: TemplateVersionTerraformValues
+    templateVersionVariables: TemplateVersionVariables
+    templateVersionWithUser: TemplateVersionWithUser
+    templateVersionWorkspaceTags: TemplateVersionWorkspaceTags
+    templateWithNames: TemplateWithNames
+    usageEvents: UsageEvents
+    usageEventsDaily: UsageEventsDaily
     user: User
+    userConfigs: UserConfigs
+    userDeleted: UserDeleted
+    userLinks: UserLinks
     userPublicKey: UserPublicKey
+    users: Users
+    userSecrets: UserSecrets
+    userStatusChanges: UserStatusChanges
+    visibleUsers: VisibleUsers
+    webpushSubscriptions: WebpushSubscriptions
+    workspaceAgentDevcontainers: WorkspaceAgentDevcontainers
+    workspaceAgentLogs: WorkspaceAgentLogs
+    workspaceAgentLogSources: WorkspaceAgentLogSources
+    workspaceAgentMemoryResourceMonitors: WorkspaceAgentMemoryResourceMonitors
+    workspaceAgentMetadata: WorkspaceAgentMetadata
+    workspaceAgentPortShare: WorkspaceAgentPortShare
+    workspaceAgents: WorkspaceAgents
+    workspaceAgentScripts: WorkspaceAgentScripts
+    workspaceAgentScriptTimings: WorkspaceAgentScriptTimings
+    workspaceAgentStats: WorkspaceAgentStats
+    workspaceAgentVolumeResourceMonitors: WorkspaceAgentVolumeResourceMonitors
+    workspaceAppAuditSessions: WorkspaceAppAuditSessions
+    workspaceApps: WorkspaceApps
+    workspaceAppStats: WorkspaceAppStats
+    workspaceAppStatuses: WorkspaceAppStatuses
+    workspaceBuildParameters: WorkspaceBuildParameters
+    workspaceBuilds: WorkspaceBuilds
+    workspaceBuildWithUser: WorkspaceBuildWithUser
+    workspaceLatestBuilds: WorkspaceLatestBuilds
+    workspaceModules: WorkspaceModules
+    workspacePrebuildBuilds: WorkspacePrebuildBuilds
+    workspacePrebuilds: WorkspacePrebuilds
+    workspaceProxies: WorkspaceProxies
+    workspaceResourceMetadata: WorkspaceResourceMetadata
+    workspaceResources: WorkspaceResources
+    workspaces: Workspaces
+    workspacesExpanded: WorkspacesExpanded
 }

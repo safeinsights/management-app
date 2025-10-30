@@ -21,96 +21,85 @@ interface OpenWorkspaceButtonProps {
 //     if (windowRef) windowRef.focus()
 // }
 
-export const OpenWorkspaceButton = ({
-    name,
-    email,
-    userId,
-    studyId,
-}: OpenWorkspaceButtonProps) => {
+export const OpenWorkspaceButton = ({ name, email, userId, studyId }: OpenWorkspaceButtonProps) => {
     const queryClient = useQueryClient()
-    const [error, setError] = useState<string | null>(null)
-    const [success, setSuccess] = useState<string | null>(null)
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+    // const [error, setError] = useState<string | null>(null)
+    // const [success, setSuccess] = useState<string | null>(null)
+    const [workspaceId, setWorkspaceId] = useState<string | null>(null)
 
-  // Mutation: create workspace
-  const mutation = useMutation({
-    mutationFn:({name, email, userId, studyId}: {name: string,
-    email: string,
-    userId: string,
-    studyId: string}) => createUserAndWorkspaceAction({
-                    name,
-                    userId,
-                    email,
-                    studyId,
-                }),
-    onSuccess: (data) => {
-        console.warn(data)
-    if (isActionError(data)) {
-        setError(typeof data.error === 'string' ? data.error : 'Failed to create workspace')
-    } else if (data.success) {
-        setWorkspaceId(data.workspace.id)
-        setSuccess(`Workspace creation in progress!: ${data.workspaceName}`)
-        queryClient.invalidateQueries({ queryKey: ["workspaceStatus", data.workspace.status] })
-    } else {
-        setError('Failed to create workspace')
-    }
-    },
-  })
+    // Mutation: create workspace
+    const mutation = useMutation({
+        mutationFn: ({
+            name,
+            email,
+            userId,
+            studyId,
+        }: {
+            name: string
+            email: string
+            userId: string
+            studyId: string
+        }) => createUserAndWorkspaceAction({ name, userId, email, studyId }),
+        onSuccess: (data) => {
+            console.warn(data)
+            if (isActionError(data)) {
+                // setError(typeof data.error === 'string' ? data.error : 'Failed to create workspace')
+            } else if (data.success) {
+                setWorkspaceId(data.workspace.id)
+                // setSuccess(`Workspace creation in progress!: ${data.workspaceName}`)
+                queryClient.invalidateQueries({ queryKey: ['workspaceStatus', data.workspace.status] })
+            } else {
+                // setError('Failed to create workspace')
+            }
+        },
+    })
 
-  const { data: statusData } = useQuery({
-    queryKey: ["workspaceStatus", workspaceId],
-    enabled: !!workspaceId,
-    queryFn: () =>
-      new Promise<{ status: string, url?: string }>((resolve, reject) => {
-        if (!workspaceId) return reject("no workspace id")
+    const { data: statusData, isLoading } = useQuery({
+        queryKey: ['workspaceStatus', workspaceId],
+        enabled: !!workspaceId,
+        queryFn: () =>
+            new Promise<{ status: string; url?: string }>((resolve, reject) => {
+                if (!workspaceId) return reject('no workspace id')
 
-        const events = new EventSource(`/api/workspace-status/${workspaceId}`)
-        let lastStatus = "starting"
+                const events = new EventSource(`/api/workspace-status/${workspaceId}`)
 
-        events.addEventListener("status", (e) => {
-        console.warn("WS status listener")
-          const data = JSON.parse((e as MessageEvent).data)
-          lastStatus = data.status
-          queryClient.setQueryData(["workspaceStatus", workspaceId], data)
-        })
+                events.addEventListener('status', (e) => {
+                    const data = JSON.parse((e as MessageEvent).data)
+                    console.log('status', data)
+                    queryClient.setQueryData(['workspaceStatus', workspaceId], data)
+                })
 
-        events.addEventListener("complete", (e) => {
-          const data = JSON.parse((e as MessageEvent).data)
-          events.close()
-          resolve({ status: "ready", url: data.url })
-        })
+                events.addEventListener('ready', (e) => {
+                    const data = JSON.parse((e as MessageEvent).data)
+                    console.log('complete', data)
+                    events.close()
+                    resolve({ status: 'ready', url: data.url })
+                })
 
-        events.addEventListener("error", () => {
-          events.close()
-          reject("error")
-        })
-        console.warn(`Workspace: ${lastStatus}`)
-      }),
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  })
+                events.addEventListener('error', () => {
+                    console.error('error in ws')
+                    events.close()
+                    reject('error')
+                })
+            }),
+        staleTime: Infinity,
+        refetchOnWindowFocus: true,
+    })
 
     return (
         <Group gap="sm">
-            {error && (
-                <Alert variant="light" color="red" title="Error" style={{ marginTop: '0.5rem' }} aria-live="assertive">
-                    {error}
-                </Alert>
-            )}
-            {success && (
-                <Alert variant="light" color="green" title="Success" style={{ marginTop: '0.5rem' }} aria-live="polite">
-                    {success}
-                </Alert>
-            )}
-            
-      {<p>Status: {JSON.stringify(statusData)}</p>}
+            {
+                <p>
+                    Status: {JSON.stringify(statusData?.status)}, loading: {isLoading}
+                </p>
+            }
             <Button
-                onClick={()=>mutation.mutate({name, email, userId,studyId})}
+                onClick={() => mutation.mutate({ name, email, userId, studyId })}
                 disabled={mutation.isPending || !!workspaceId}
                 loading={mutation.isPending}
                 aria-busy={mutation.isPending}
                 aria-disabled={mutation.isPending}
-            >   
+            >
                 {!mutation.isPending ? 'Start Workspace' : 'Creating Workspace'}
             </Button>
         </Group>
