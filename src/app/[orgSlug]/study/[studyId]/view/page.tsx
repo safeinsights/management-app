@@ -12,12 +12,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const { studyId } = await props.params
 
     // getStudyAction will check permissions
-    const studyResult = await getStudyAction({ studyId })
+    const study = await getStudyAction({ studyId })
     const user = await currentUser()
-    if (!studyResult || isActionError(studyResult)) {
+    if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
-    const study = studyResult
     let workspaceAlreadyExists = false
 
     const job = await latestJobForStudy(studyId)

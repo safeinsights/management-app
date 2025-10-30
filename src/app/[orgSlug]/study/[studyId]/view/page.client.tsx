@@ -9,10 +9,8 @@ import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
 import { StudyStatus } from '@/database/types'
 import { isActionError } from '@/lib/errors'
-import { checkWorkspaceExistsAction } from '@/server/actions/coder.actions'
 import { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { useEffect, useState } from 'react'
 import { JobResultsStatusMessage } from './job-results-status-message'
 
 export function StudyReviewClient({
@@ -20,7 +18,6 @@ export function StudyReviewClient({
     job,
     email,
     name,
-    workspaceAlreadyExists,
 }: {
     study: {
         status: StudyStatus
@@ -38,37 +35,6 @@ export function StudyReviewClient({
     name: string
     workspaceAlreadyExists: boolean
 }) {
-    // State for workspace existence
-    const [workspaceExists, setWorkspaceExists] = useState(workspaceAlreadyExists)
-    const [workspaceReady, setWorkspaceReady] = useState(false)
-
-    // Periodic checking function
-    useEffect(() => {
-        const checkWorkspacePeriodically = async () => {
-            try {
-                const result = await checkWorkspaceExistsAction({
-                    email,
-                    userId: study.researcherId,
-                    studyId: study.id,
-                })
-                if (!isActionError(result)) {
-                    setWorkspaceExists(result.exists)
-                    setWorkspaceReady(result.data?.latest_build?.status === 'running')
-                }
-            } catch (error) {
-                console.error('Error checking workspace:', error)
-            }
-        }
-
-        // Check immediately
-        checkWorkspacePeriodically()
-
-        // Set up interval to check every 5 seconds
-        const intervalId = setInterval(checkWorkspacePeriodically, 5000)
-
-        // Cleanup on unmount
-        return () => clearInterval(intervalId)
-    }, [email, study.researcherId, study.id])
 
     return (
         <Stack p="xl" gap="xl">
@@ -107,8 +73,6 @@ export function StudyReviewClient({
                                 email={email}
                                 userId={study.researcherId}
                                 studyId={study.id}
-                                alreadyExists={workspaceExists}
-                                isReady={workspaceReady}
                             />
                         </Group>
                     </Group>
