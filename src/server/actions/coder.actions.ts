@@ -43,10 +43,7 @@ export const getStudyWorkspaceUrlAction = new Action('getStudyWorkspaceUrlAction
         }),
     )
     .handler(async ({ params: { userId, email, studyId } }) => {
-        const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
-        if (!CODER_API_ENDPOINT) {
-            throw new Error('CODER_API_ENDPOINT environment variable is not set')
-        }
+        const CODER_API_ENDPOINT = await getConfigValue('CODER_API_ENDPOINT')
         const workspaceName = generateWorkspaceName(studyId)
         const userName = generateUsername(email, userId)
         return {
