@@ -27,7 +27,6 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId }: OpenWorksp
     // const [success, setSuccess] = useState<string | null>(null)
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
 
-    // Mutation: create workspace
     const mutation = useMutation({
         mutationFn: ({
             name,
@@ -66,6 +65,9 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId }: OpenWorksp
                 events.addEventListener('status', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
                     console.log('status', data)
+                    const codeServerReady =
+                        data.agents[0].apps.find((agent: any) => agent.slug === 'code-server').health === 'healthy'
+                    console.log('Code server ready?', codeServerReady)
                     queryClient.setQueryData(['workspaceStatus', workspaceId], data)
                 })
 
