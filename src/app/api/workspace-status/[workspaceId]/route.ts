@@ -1,6 +1,7 @@
 export const runtime = 'nodejs' // ensure Node runtime for streaming support
 
 import { getConfigValue } from '@/server/config'
+import { createParser, type EventSourceMessage } from 'eventsource-parser'
 
 export async function GET(req: Request, { params }: { params: Promise<{ workspaceId: string }> }) {
     const workspaceId = (await params).workspaceId
@@ -35,37 +36,41 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
 
             const reader = coderResponse.body?.getReader()
             if (!reader) return
+
             const decoder = new TextDecoder()
 
+            // Create the SSE parser
+            const parser = createParser({
+                onEvent: (event: EventSourceMessage) => {
+                    try {
+                        const data = JSON.parse(event.data)
+                        send('status', data)
+                        console.log('status', data.status, data)
+                        console.log(data.latest_build.resources)
+                        // TODO Check for code-server ready at: latest_build.resources[].agents[].apps[].slug
+                        if (data.status === 'ready') {
+                            send('ready', { url: data.url })
+                            controller.close()
+                        }
+                    } catch (err) {
+                        console.error('Error parsing SSE event data:', err)
+                    }
+                },
+            })
+
             try {
-                let buffer = ''
                 while (true) {
                     const { done, value } = await reader.read()
                     if (done) break
 
-                    buffer += decoder.decode(value, { stream: true })
-                    const parts = buffer.split('\n\n')
-                    buffer = parts.pop() || ''
-
-                    for (const chunk of parts) {
-                        if (!chunk.trim()) continue
-                        const match = chunk.match(/^data:\s*(.*)$/m)
-                        if (match) {
-                            const data = JSON.parse(match[1])
-                            send('status', data)
-
-                            // TODO Check for code-server ready at: latest_build.resources[].agents[].apps[].slug
-                            if (data.status === 'ready') {
-                                send('ready', { url: data.url })
-                                controller.close()
-                                return
-                            }
-                        }
-                    }
+                    // Feed chunks to the parser
+                    const chunk = decoder.decode(value, { stream: true })
+                    parser.feed(chunk)
                 }
             } catch (err) {
                 console.error('Error reading Coder SSE stream:', err)
                 send('error', { message: 'Stream error' })
+            } finally {
                 controller.close()
             }
         },
