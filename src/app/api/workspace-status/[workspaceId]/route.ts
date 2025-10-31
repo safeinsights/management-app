@@ -60,7 +60,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
 
     const url = `${CODER_API_ENDPOINT}/api/v2/workspaces/${workspaceId}/watch`
 
-    // 🔥 Fetch Coder's SSE endpoint (stream of workspace updates)
     const coderResponse = await fetch(url, {
         headers: {
             Accept: 'text/event-stream',
@@ -85,7 +84,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
 
             const decoder = new TextDecoder()
 
-            // Create the SSE parser
             const parser = createParser({
                 onEvent: (event: EventSourceMessage) => {
                     try {

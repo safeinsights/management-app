@@ -68,10 +68,9 @@ export const OpenWorkspaceButton = ({ name, email, userId, studyId }: OpenWorksp
                     queryClient.setQueryData(['workspaceStatus', workspaceId], data)
                 })
 
-                // TODO Listen for htis ready event when code-server is ready (from our workspace status endpoint)
                 events.addEventListener('ready', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
-                    console.log('complete', data)
+                    console.log('Code server is ready!!! woohoo', data)
                     events.close()
                     resolve({ status: 'ready', url: data.url })
                 })
