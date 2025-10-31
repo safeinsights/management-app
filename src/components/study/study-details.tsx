@@ -9,6 +9,7 @@ import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/co
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, use } from 'react'
 
+
 interface BadgeWithDescriptionProps {
     path?: string | null
     type: StudyDocumentType
@@ -45,7 +46,6 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction({ studyId }))
-
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
