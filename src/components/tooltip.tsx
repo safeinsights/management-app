@@ -1,12 +1,13 @@
-import { Tooltip } from '@mantine/core'
-import { InfoIcon } from './icons'
+// lightweight wrapper around the Mantine Tooltip component - ensures children are contained in a single element
+// reference: https://mantine.dev/core/tooltip/#tooltip-children
+import { Tooltip, TooltipProps } from '@mantine/core'
 
-type InfoTooltipProps = {
-    text: React.ReactNode
+type InfoTooltipProps = TooltipProps & {
+    children: React.ReactNode
 }
 
-export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text }) => (
-    <Tooltip multiline withArrow label={text} events={{ hover: true, focus: true, touch: true }}>
-        <InfoIcon size={14} />
+export const InfoTooltip: React.FC<InfoTooltipProps> = ({ children, ...props }) => (
+    <Tooltip {...props}>
+        <span>{children}</span>
     </Tooltip>
 )

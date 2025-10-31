@@ -2,10 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { SuretyGuard } from '@/components/surety-guard'
+import { InfoTooltip } from '@/components/tooltip'
 import { Routes } from '@/lib/routes'
 import { ActionSuccessType } from '@/lib/types'
 import { deleteOrgAction, fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
-import { ActionIcon, Box, Button, Flex, Group, Modal, Title, Tooltip } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Group, Modal, Title } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { UserListIcon } from '@phosphor-icons/react'
 import { PencilIcon, TrashIcon, UsersIcon } from '@phosphor-icons/react/dist/ssr'
@@ -98,7 +99,7 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
             <Modal opened={opened} onClose={close} title={`Edit ${org.name}`} closeOnClickOutside={false}>
                 <EditOrgForm org={org} onCompleteAction={close} />
             </Modal>
-            <Tooltip label="View Users" withArrow>
+            <InfoTooltip label="View Users" withArrow>
                 <ActionIcon
                     size="sm"
                     variant="subtle"
@@ -107,8 +108,8 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                 >
                     <UsersIcon />
                 </ActionIcon>
-            </Tooltip>
-            <Tooltip label="View Studies" withArrow>
+            </InfoTooltip>
+            <InfoTooltip label="View Studies" withArrow>
                 <ActionIcon
                     size="sm"
                     variant="subtle"
@@ -117,12 +118,12 @@ const OrgRow: FC<{ org: Org }> = ({ org }) => {
                 >
                     <UserListIcon />
                 </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Edit" withArrow>
+            </InfoTooltip>
+            <InfoTooltip label="Edit" withArrow>
                 <ActionIcon size="sm" variant="subtle" color="green" onClick={open}>
                     <PencilIcon />
                 </ActionIcon>
-            </Tooltip>
+            </InfoTooltip>
             <SuretyGuard onConfirmed={() => deleteOrg({ orgId: org.id })}>
                 <TrashIcon />
             </SuretyGuard>
