@@ -3,6 +3,52 @@ export const runtime = 'nodejs' // ensure Node runtime for streaming support
 import { getConfigValue } from '@/server/config'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 
+export interface CoderWorkspaceEvent {
+    latest_build?: {
+        resources?: CoderResource[]
+    }
+}
+
+export interface CoderResource {
+    agents?: CoderAgent[]
+}
+
+export interface CoderAgent {
+    lifecycle_state?: string // e.g. "ready", "starting"
+    status?: string // e.g. "connected"
+    apps?: CoderApp[]
+}
+
+export interface CoderApp {
+    slug: string // "code-server"
+    health?: string // "healthy" | "unhealthy"
+}
+
+/**
+ * Returns true if any agent has a healthy "code-server" app
+ * and the agent itself is ready or connected.
+ */
+export function isCodeServerReady(event: CoderWorkspaceEvent): boolean {
+    const resources = event.latest_build?.resources
+    if (!resources) return false
+
+    for (const resource of resources) {
+        for (const agent of resource.agents ?? []) {
+            const agentReady = agent.lifecycle_state === 'ready' || agent.status === 'connected'
+
+            const codeServerApp = (agent.apps ?? []).find(
+                (app) => app.slug === 'code-server' && app.health === 'healthy',
+            )
+
+            if (agentReady && codeServerApp) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ workspaceId: string }> }) {
     const workspaceId = (await params).workspaceId
     if (!workspaceId) return new Response('Missing workspace ID', { status: 400 })
@@ -45,10 +91,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                     try {
                         const data = JSON.parse(event.data)
                         send('status', data)
-                        console.log('status', data.status, data)
-                        console.log(data.latest_build.resources)
-                        // TODO Check for code-server ready at: latest_build.resources[].agents[].apps[].slug
-                        if (data.status === 'ready') {
+                        if (isCodeServerReady(data)) {
+                            // TODO build URL for workspace.
+                            //  rework the `getStudyWorkspaceUrlAction` to be simpler?
                             send('ready', { url: data.url })
                             controller.close()
                         }
