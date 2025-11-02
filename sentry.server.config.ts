@@ -3,14 +3,14 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from '@sentry/nextjs'
-import { captureConsoleIntegration } from '@sentry/nextjs'
+import { consoleLoggingIntegration } from '@sentry/nextjs'
 
 Sentry.init({
     dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
     integrations: [
-        // capture console.warn / console.error on the server
-        captureConsoleIntegration({ levels: ['warn', 'error'] }),
+        // send console.error and console.warn logs to Sentry
+        consoleLoggingIntegration({ levels: ['error', 'warn'] }),
     ],
 
     // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
