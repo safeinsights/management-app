@@ -1,6 +1,6 @@
 'use client'
 
-// import '@/instrumentation-client'
+import '@/instrumentation-client'
 import { theme } from '@/theme'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
