@@ -4,7 +4,6 @@ import { theme } from '@/theme'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { useEffect, type FC, type ReactNode } from 'react'
-import '../../instrumentation-client'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
