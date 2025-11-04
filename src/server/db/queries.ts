@@ -123,7 +123,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'study.orgId', 'org.id')
-        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug'])
+        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug', 'study.submittedByOrgId'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }

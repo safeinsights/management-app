@@ -14,7 +14,15 @@ export const GET = async (
     const study = await studyInfoForStudyId(studyId)
 
     const session = await sessionFromClerk()
-    if (study && !session?.can('view', toRecord('Study', { orgId: study.orgId }))) {
+
+    if (
+        !study ||
+        !session ||
+        !(
+            session.can('view', toRecord('Study', { orgId: study.orgId })) ||
+            session.can('view', toRecord('Study', { submittedByOrgId: study.submittedByOrgId }))
+        )
+    ) {
         return NextResponse.json({ error: 'permission denied' }, { status: 401 })
     }
 
