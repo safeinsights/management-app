@@ -47,14 +47,8 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }>
         return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
     })
 
-    const hasErrored = job.statusChanges.some((statusChange) => statusChange.status === 'JOB-ERRORED')
-
     if (!hasBeenReviewed) {
         return null
-    }
-
-    if (hasBeenReviewed && hasErrored) {
-        return <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
     }
 
     return <JobApprovalStatus statusChange={hasBeenReviewed} />

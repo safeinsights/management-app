@@ -12,6 +12,8 @@ interface ErroredProps {
     isRejected: boolean
     jobId: string
     statusChanges: StatusChange[]
+    studyId: string
+    orgSlug: string
 }
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
@@ -19,7 +21,14 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
 
     if (isErrored) {
         return (
-            <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} statusChanges={job.statusChanges} />
+            <Errored
+                isApproved={isApproved}
+                isRejected={isRejected}
+                jobId={job.id}
+                statusChanges={job.statusChanges}
+                studyId={job.studyId}
+                orgSlug={orgSlug}
+            />
         )
     }
 
@@ -33,7 +42,6 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                     </Text>
                     <Group>
                         <DownloadButton studyId={job.studyId} jobId={job.id} />
-                        <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                     </Group>
                 </Stack>
             )
@@ -44,7 +52,7 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
             return (
                 <Stack>
                     <Text>
-                        This study&apos;s code has not been approved by the data organization. Consider re-submitting an
+                        This study code has not been approved by the data organization. Consider resubmitting an
                         updated study code.
                     </Text>
                     <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
@@ -59,7 +67,6 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         presence of personally identifiable information (PII). Consider re-submitting an updated study
                         code.
                     </Text>
-                    <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                 </Stack>
             )
         }
@@ -68,7 +75,12 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
     return <Text>Study results will become available once the data organization reviews and approves them.</Text>
 }
 
-const Errored: FC<ErroredProps> = ({ jobId, statusChanges }) => {
+const Errored: FC<ErroredProps & { studyId: string; orgSlug: string }> = ({
+    jobId,
+    statusChanges,
+    studyId,
+    orgSlug,
+}) => {
     let message: string | null = null
     const isCodeRejected = statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
     const isFilesRejected = statusChanges.some((sc) => sc.status === 'FILES-REJECTED')
@@ -89,6 +101,7 @@ const Errored: FC<ErroredProps> = ({ jobId, statusChanges }) => {
     return (
         <Stack>
             <Text>{message}</Text>
+            {isCodeRejected && <ResubmitButton studyId={studyId} orgSlug={orgSlug} />}
             <Group justify="flex-start" align="center">
                 <Text size="xs" fw="bold">
                     Job ID:
