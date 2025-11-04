@@ -13,7 +13,7 @@ import { getConfigValue } from './config'
 const CODER_WORKSPACE_NAME_LIMIT = 10
 
 // Private helper method to generate username from email and userId
-function generateUsername(email: string, userId: string) {
+export function generateUsername(email: string, userId: string) {
     // Extract the part before @ in email
     const emailUsername = email.split('@')[0] || ''
 
