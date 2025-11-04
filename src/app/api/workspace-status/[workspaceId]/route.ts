@@ -1,12 +1,16 @@
 export const runtime = 'nodejs' // ensure Node runtime for streaming support
-
+import { generateWorkspaceUrl } from '@/server/coder'
 import { getConfigValue } from '@/server/config'
 import { createParser, type EventSourceMessage } from 'eventsource-parser'
 
 export interface CoderWorkspaceEvent {
     latest_build?: {
         resources?: CoderResource[]
+        workspace_owner_name?: string
+        workspace_id?: string
     }
+    url?: string
+    message?: string
 }
 
 export interface CoderResource {
@@ -75,7 +79,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
         async start(controller) {
-            const send = (event: string, data: unknown) => {
+            let username: string | undefined
+            let workspaceName: string | undefined
+            const send = (event: string, data: CoderWorkspaceEvent) => {
+                if (data && data.latest_build) {
+                    username = data.latest_build.workspace_owner_name
+                    workspaceName = data.latest_build.workspace_id
+                }
                 controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
             }
 
@@ -85,15 +95,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
             const decoder = new TextDecoder()
 
             const parser = createParser({
-                onEvent: (event: EventSourceMessage) => {
+                onEvent: async (event: EventSourceMessage) => {
                     try {
                         const data = JSON.parse(event.data)
                         send('status', data)
                         if (isCodeServerReady(data)) {
-                            // TODO build URL for workspace.
-                            //  rework the `getStudyWorkspaceUrlAction` to be simpler?
-                            send('ready', { url: data.url })
-                            controller.close()
+                            if (username && workspaceName) {
+                                send('ready', { url: await generateWorkspaceUrl(username, workspaceName) })
+                                controller.close()
+                            }
                         }
                     } catch (err) {
                         console.error('Error parsing SSE event data:', err)

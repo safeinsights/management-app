@@ -1,4 +1,4 @@
-import { isActionError, type ActionResponse, errorToString } from '@/lib/errors'
+import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
 import * as Sentry from '@sentry/nextjs'
 import { UserSession } from './types'
 
@@ -58,4 +58,9 @@ export function actionResult<T>(result: ActionResponse<T>): T {
         throw new Error(errorToString(result))
     }
     return result
+}
+
+export function uuidToStr(uuid: string, length?: number) {
+    const result = uuid.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
+    return length ? result.substring(0, length) : result
 }

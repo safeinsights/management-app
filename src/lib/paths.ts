@@ -30,6 +30,16 @@ export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileN
 
 export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
 
+export const coderUserInfoPath = (username: string) => `/api/v2/users/${username}`
+export const coderUsersPath = () => `/api/v2/users`
+export const coderWorkspaceCreatePath = (organization: string, username: string) =>
+    `/api/v2/organizations/${organization}/members/${username}/workspaces`
+export const coderWorkspacePath = (username: string, workspaceName: string) =>
+    `/@${username}/${workspaceName}.main/apps/code-server`
+export const coderWorkspaceDataPath = (username: string, workspaceName: string) =>
+    `/api/v2/users/${username}/workspace/${workspaceName}`
+export const coderWorkspaceBuildPath = (workspaceId: string) => `/api/v2/workspaces/${workspaceId}/builds`
+
 const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard']
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)

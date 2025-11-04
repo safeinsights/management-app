@@ -9,7 +9,6 @@ import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/co
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, use } from 'react'
 
-
 interface BadgeWithDescriptionProps {
     path?: string | null
     type: StudyDocumentType
