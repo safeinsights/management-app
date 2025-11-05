@@ -130,7 +130,7 @@ export const StudyProposal: React.FC = () => {
                 await uploadFiles([
                     [formValues.irbDocument, urls.urlForIrbUpload],
                     [formValues.agreementDocument, urls.urlForAgreementUpload],
-                    [formValues.descriptionDocument, urls.urlForAgreementUpload],
+                    [formValues.descriptionDocument, urls.urlForDescriptionUpload],
                     [formValues.mainCodeFile, urls.urlForCodeUpload],
                     ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForCodeUpload] as FileUpload),
                 ])
