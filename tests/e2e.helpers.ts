@@ -189,9 +189,11 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     const creds = TestingUsers[role]
 
     await setupClerkTestingToken({ page })
-    await goto(page, url)
+    // load a page to initialize Clerk
+    await page.goto('/')
     const currentEmail = await clerkLoaded(page)
     if (currentEmail == creds.identifier) {
+        await goto(page, url)
         return
     }
 
