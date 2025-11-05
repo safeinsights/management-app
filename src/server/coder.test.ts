@@ -1,8 +1,8 @@
 import { uuidToStr } from '@/lib/utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { generateWorkspaceUrl, createUserAndWorkspace } from './coder'
-import { getConfigValue } from './config'
 import { currentUser } from '@clerk/nextjs/server'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createUserAndWorkspace, generateWorkspaceUrl } from './coder'
+import { getConfigValue } from './config'
 
 // Mock the dependencies
 vi.mock('./config', () => ({
@@ -107,7 +107,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: null,
             emailAddresses: [],
-        } as any)
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         await expect(createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')).rejects.toThrow(
             'User does not have an email address!',
@@ -119,7 +119,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: { emailAddress: 'test@example.com' },
             id: 'test-user-id',
-        } as any)
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
@@ -168,7 +168,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: { emailAddress: 'test@example.com' },
             id: 'test-user-id',
-        })
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
@@ -212,7 +212,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: { emailAddress: 'test@example.com' },
             id: 'test-user-id',
-        })
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
@@ -259,7 +259,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: { emailAddress: 'test@example.com' },
             id: 'test-user-id',
-        })
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
@@ -292,7 +292,7 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(currentUser).mockResolvedValue({
             primaryEmailAddress: { emailAddress: 'test@example.com' },
             id: 'test-user-id',
-        })
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
 
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
