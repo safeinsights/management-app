@@ -40,7 +40,7 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.
                     </Text>
                     <Group>
-                        <ResubmitButton studyId={job.studyId} />
+                        <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                     </Group>
                 </Stack>
             )
@@ -54,7 +54,7 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         This study code has not been approved by the data organization. Consider resubmitting an updated
                         study code.
                     </Text>
-                    <ResubmitButton studyId={job.studyId} />
+                    <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                 </Stack>
             )
         }
@@ -66,7 +66,7 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         presence of personally identifiable information (PII). Consider re-submitting an updated study
                         code.
                     </Text>
-                    <ResubmitButton studyId={job.studyId} />
+                    <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                 </Stack>
             )
         }
@@ -75,7 +75,12 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
     return <Text>Study results will become available once the data organization reviews and approvals them.</Text>
 }
 
-const Errored: FC<ErroredProps & { studyId: string }> = ({ jobId, statusChanges, studyId }) => {
+const Errored: FC<ErroredProps & { studyId: string; orgSlug: string }> = ({
+    jobId,
+    statusChanges,
+    studyId,
+    orgSlug,
+}) => {
     let message: string | null = null
     const isCodeRejected = statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
     const isFilesRejected = statusChanges.some((sc) => sc.status === 'FILES-REJECTED')
@@ -102,7 +107,7 @@ const Errored: FC<ErroredProps & { studyId: string }> = ({ jobId, statusChanges,
                 </Text>
                 <CopyingInput value={jobId} tooltipLabel="Copy" />
             </Group>
-            {isCodeRejected && <ResubmitButton studyId={studyId} />}
+            {isCodeRejected && <ResubmitButton studyId={studyId} orgSlug={orgSlug} />}
         </Stack>
     )
 }
