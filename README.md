@@ -70,6 +70,23 @@ For developing locally without docker compose, you will need to:
     - An organization admin is a member of an organization who can invite other users to that organization. Their admin screen is located at: `/admin/team/<org slug>`. From there they can administer the users in their organization.
     - An SI Staff admin is a user who belongs to the `safe-insights` organization (defined as `CLERK_ADMIN_ORG_SLUG` in the codebase). The screen at `/admin/safeinsights` allows administrating Organizations. SI Staff administrators are super-admins and can also visit the organization admin screens noted above.
 
+## Type-Safe Routing 🗺️
+
+The application uses a type-safe routing system located in [src/lib/routes](src/lib/routes) that provides compile-time and runtime validation for routes and parameters using Zod schemas. All routes must be defined in the `Routes` object in [src/lib/routes](src/lib/routes) and accessed using it's type safe methods as shown below:
+
+**Usage example:**
+
+```tsx
+import { Routes, useTypedParams } from '@/lib/routes'
+
+// Build type-safe routes
+const route = Routes.studyView({ orgSlug: 'acme', studyId: '123' })
+
+// Use type-safe params in components
+const params = useTypedParams(Routes.studyView.schema)
+// params.orgSlug and params.studyId are guaranteed to be valid
+```
+
 ### Authentication Configuration 🔐
 
 You can configure test accounts in one of two ways:

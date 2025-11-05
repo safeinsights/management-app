@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import styles from './navbar-items.module.css'
 import { RefWrapper } from './nav-ref-wrapper'
 import { NavLink, NavLinkProps } from '@mantine/core'
+import type { Route } from 'next'
 
 type NavbarLinkProps = NavLinkProps & {
     isVisible: boolean
@@ -27,7 +28,7 @@ export const NavbarLink: FC<NavbarLinkProps> = ({ isVisible, url, label, icon, r
                 leftSection={icon}
                 rightSection={rightIcon}
                 component={isExternal ? undefined : Link}
-                href={url}
+                href={url as Route}
                 active={pathname === url}
                 c="white"
                 color="blue.7"

@@ -102,6 +102,7 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
+    starterCodePath: string
     url: string
 }
 
@@ -118,6 +119,7 @@ export interface PendingUser {
     createdAt: Generated<Timestamp>
     email: string
     id: Generated<string>
+    invitedByUserId: string | null
     isAdmin: Generated<boolean>
     orgId: string
 }

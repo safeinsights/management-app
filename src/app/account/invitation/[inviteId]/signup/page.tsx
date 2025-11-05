@@ -14,6 +14,7 @@ import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { FC, use } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { Routes } from '@/lib/routes'
 
 const formSchema = z
     .object({
@@ -81,7 +82,7 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onPendingUserLoginAction({ inviteId })
-                router.push('/account/mfa')
+                router.push(Routes.accountMfa)
             } else {
                 reportError('unable to sign in')
             }

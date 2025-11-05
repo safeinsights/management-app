@@ -12,6 +12,7 @@ import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { Step } from './mfa'
+import { Routes } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,7 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
         onSuccess: (result) => {
             if (result?.twoFactorEnabled === false) {
                 notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
-                router.push('/account/mfa')
+                router.push(Routes.accountMfa)
             }
         },
         onError: () => {

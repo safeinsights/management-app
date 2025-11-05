@@ -6,8 +6,10 @@ import { Refresher } from '@/components/refresher'
 import { DisplayStudyStatus } from '@/components/study/display-study-status'
 import { StudyJobStatus } from '@/database/types'
 import { useSession } from '@/hooks/session'
+import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType } from '@/lib/types'
-import { getStudyStage } from '@/lib/util'
+
+import { Routes } from '@/lib/routes'
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -21,9 +23,9 @@ import {
     TableTr,
     Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
+import { InfoTooltip } from '../tooltip'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -44,15 +46,21 @@ export const ReviewerUserStudiesTable = () => {
     })
 
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
+    // Filter studies: reviewer assignment or any status change authored by current user
+    const relevantStudies = studies.filter(
+        (study) =>
+            study.reviewerId === userId ||
+            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+    )
 
-    const needsRefreshed = studies.some((study) =>
+    const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
     )
 
     return (
         <Stack>
             <Flex justify={'space-between'} align={'center'}>
-                <Title order={3}>My Studies</Title>
+                <Title order={3}>My studies</Title>
                 <Refresher isEnabled={needsRefreshed} refresh={refetch} isPending={isFetching} />
             </Flex>
             <Divider c="charcoal.1" />
@@ -73,7 +81,7 @@ export const ReviewerUserStudiesTable = () => {
                     </TableTr>
                 </TableThead>
                 <TableTbody>
-                    {studies.map((study) => (
+                    {relevantStudies.map((study) => (
                         <StudyRow key={study.id} study={study} />
                     ))}
                 </TableTbody>
@@ -82,30 +90,34 @@ export const ReviewerUserStudiesTable = () => {
     )
 }
 
-const StudyRow = ({ study }: { study: Studies[number] }) => (
-    <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
-        <TableTd>
-            <Tooltip label={study.title}>
-                <Text lineClamp={2} style={{ cursor: 'pointer' }}>
-                    {study.title}
-                </Text>
-            </Tooltip>
-        </TableTd>
-        <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-        <TableTd>{study.createdBy}</TableTd>
-        <TableTd>{study.orgName}</TableTd>
-        <TableTd>{getStudyStage(study.status, 'reviewer')}</TableTd>
-        <TableTd>
-            <DisplayStudyStatus
-                audience="reviewer"
-                studyStatus={study.status}
-                jobStatusChanges={study.jobStatusChanges || []}
-            />
-        </TableTd>
-        <TableTd>
-            <Link href={`/${study.orgSlug}/study/${study.id}/review`} c="blue.7">
-                View
-            </Link>
-        </TableTd>
-    </TableTr>
-)
+const StudyRow = ({ study }: { study: Studies[number] }) => {
+    const status = useStudyStatus({
+        studyStatus: study.status,
+        audience: 'reviewer',
+        jobStatusChanges: study.jobStatusChanges,
+    })
+
+    return (
+        <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+            <TableTd>
+                <InfoTooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                        {study.title}
+                    </Text>
+                </InfoTooltip>
+            </TableTd>
+            <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
+            <TableTd>{study.createdBy}</TableTd>
+            <TableTd>{study.orgName}</TableTd>
+            <TableTd>{status.stage}</TableTd>
+            <TableTd>
+                <DisplayStudyStatus status={status} />
+            </TableTd>
+            <TableTd>
+                <Link href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })} c="blue.7">
+                    View
+                </Link>
+            </TableTd>
+        </TableTr>
+    )
+}

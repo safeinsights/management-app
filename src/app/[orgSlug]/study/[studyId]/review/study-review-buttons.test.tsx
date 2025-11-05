@@ -15,6 +15,7 @@ import {
     waitFor,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
+import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyReviewButtons } from './study-review-buttons'
 
@@ -50,6 +51,12 @@ describe('StudyReviewButtons', () => {
             studyStatus: 'PENDING-REVIEW',
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+
+        // Mock useParams to return both orgSlug and studyId
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
 
         mockReportMutationError.mockReturnValue(vi.fn())
     })

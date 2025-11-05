@@ -3,10 +3,12 @@
 import { AppShell, AppShellFooter, AppShellHeader, AppShellMain, Group, Text, useMantineTheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/notifications/styles.css'
+import type { Route } from 'next'
 import { usePathname, useRouter } from 'next/navigation'
 import { ReactNode } from 'react'
+import { Routes } from '@/lib/routes'
 import { ActivityContext } from '../activity-context'
-import { SafeInsightsLogo } from './si-logo'
+import { SafeInsightsLogo } from './svg/si-logo'
 
 type Props = {
     children: ReactNode
@@ -28,7 +30,7 @@ export function FocusedLayoutShell({ children }: Props) {
                     h="100%"
                     p="md"
                     style={{ cursor: isSignInFlow ? 'pointer' : '' }}
-                    onClick={() => isSignInFlow && router.push('/account/signin?restart=true')}
+                    onClick={() => isSignInFlow && router.push(`${Routes.accountSignin}?restart=true` as Route)}
                 >
                     <SafeInsightsLogo width={250} height={54} />
                 </Group>

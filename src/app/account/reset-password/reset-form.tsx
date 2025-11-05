@@ -8,6 +8,7 @@ import { useMutation } from '@/common'
 import { Button, Flex, Paper, Stack, TextInput, Title } from '@mantine/core'
 import { isEmail, useForm } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react'
+import { Routes } from '@/lib/routes'
 
 interface ResetFormValues {
     email: string
@@ -85,7 +86,7 @@ export function ResetForm({ onCompleteAction }: ResetFormProps) {
                             Send Verification Code
                         </Button>
                         <Link
-                            href="/account/signin"
+                            href={Routes.accountSignin}
                             mt="md"
                             c="purple.5"
                             fw={600}

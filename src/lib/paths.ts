@@ -1,5 +1,5 @@
-import type { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
-import { sanitizeFileName } from './util'
+import type { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
 
@@ -19,6 +19,9 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
+export const pathForStarterCode = ({ orgSlug, fileName }: MinimalOrgInfo & { fileName: string }) =>
+    `starter-code/${orgSlug}/${fileName}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 
@@ -35,4 +38,9 @@ export function extractOrgSlugFromPath(pathname: string) {
     }
 
     return parts[0]
+}
+
+export function basename(path: string) {
+    const parts = path.split('/')
+    return parts[parts.length - 1]
 }

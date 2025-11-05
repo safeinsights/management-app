@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from '@/common'
 import { InputError, reportError } from '@/components/errors'
 import { Link } from '@/components/links'
+import { InfoTooltip } from '@/components/tooltip'
 import logger from '@/lib/logger'
+import { Routes } from '@/lib/routes'
 import { useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import {
@@ -19,7 +21,6 @@ import {
     Stack,
     Text,
     Title,
-    Tooltip,
     useMantineTheme,
 } from '@mantine/core'
 import { useForm } from '@mantine/form'
@@ -123,7 +124,7 @@ function AddTotpScreenContent({
                                 <Text size="sm">{secret}</Text>
                                 <CopyButton value={secret} timeout={800}>
                                     {({ copied, copy }) => (
-                                        <Tooltip label={copied ? 'Copied' : 'Copy'} offset={10}>
+                                        <InfoTooltip label={copied ? 'Copied' : 'Copy'} offset={10}>
                                             <ActionIcon
                                                 variant="subtle"
                                                 color={copied ? 'green' : undefined}
@@ -136,7 +137,7 @@ function AddTotpScreenContent({
                                                     <CopyIcon size={24} color={theme.colors.gray[8]} />
                                                 )}
                                             </ActionIcon>
-                                        </Tooltip>
+                                        </InfoTooltip>
                                     )}
                                 </CopyButton>
                             </Group>
@@ -203,7 +204,7 @@ function AddTotpScreenContent({
                         Verify code
                     </Button>
                     <Link
-                        href="/account/mfa"
+                        href={Routes.accountMfa}
                         mt="md"
                         c="purple.5"
                         fw={600}

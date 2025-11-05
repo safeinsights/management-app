@@ -4,7 +4,7 @@ import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { sleep } from '@/lib/util'
+import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
 import { Anchor, Button, Container, Group, Paper, PinInput, Stack, Stepper, Text, Title } from '@mantine/core'
@@ -17,6 +17,7 @@ import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import BackupCodes from '../app/backup-codes'
 import styles from './panel.module.css'
+import { Routes } from '@/lib/routes'
 export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
@@ -215,7 +216,7 @@ export function AddSMSMFA() {
                                         </Button>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}
@@ -270,7 +271,7 @@ export function AddSMSMFA() {
                                         </Group>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}

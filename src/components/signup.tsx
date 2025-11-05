@@ -20,6 +20,7 @@ import { isEmail, isNotEmpty, useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
 import { useSignUp } from '@clerk/nextjs'
 import { ClerkAPIError } from '@clerk/types'
+import { Routes } from '@/lib/routes'
 
 interface SignUpFormValues {
     email: string
@@ -54,7 +55,7 @@ const EmailVerificationStep = () => {
             // and redirect the user
             if (completeSignUp.status === 'complete') {
                 await setActive({ session: completeSignUp.createdSessionId })
-                router.push('/')
+                router.push(Routes.home)
             } else {
                 // If the status is not complete, check why. User may need to
                 // complete further steps.
@@ -92,7 +93,7 @@ const EmailVerificationStep = () => {
                     />
                     <Stack align="center" mt={15}>
                         <Button type="submit">Verify</Button>
-                        <Anchor href="/">Already have an account? Sign In</Anchor>
+                        <Anchor href={Routes.home}>Already have an account? Sign In</Anchor>
                     </Stack>
                 </Paper>
             </form>
@@ -129,7 +130,7 @@ export function SignUp() {
     }
 
     if (signUp?.status === 'complete') {
-        router.push('/')
+        router.push(Routes.home)
     }
 
     const onSubmit = async (values: SignUpFormValues) => {
@@ -163,7 +164,7 @@ export function SignUp() {
                 <Paper bg="#d3d3d3" shadow="none" p={10} mt={30} radius="sm">
                     <Group justify="space-between" gap="xl">
                         <Text ta="left">Sign up to SafeInsights</Text>
-                        <CloseButton aria-label="Close form" onClick={() => router.push('/')} />
+                        <CloseButton aria-label="Close form" onClick={() => router.push(Routes.home)} />
                     </Group>
                 </Paper>
                 <Paper bg="#f5f5f5" shadow="none" p={30} radius="sm">
@@ -192,7 +193,7 @@ export function SignUp() {
                     />
                     <Stack align="center" mt={15}>
                         <Button type="submit">Sign Up</Button>
-                        <Anchor href="/">Already have an account? Sign In</Anchor>
+                        <Anchor href={Routes.home}>Already have an account? Sign In</Anchor>
                     </Stack>
                 </Paper>
             </form>

@@ -5,6 +5,7 @@ import { useUser } from '@clerk/nextjs'
 import { Box, Button, CopyButton, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CheckIcon } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
+import { Routes } from '@/lib/routes'
 
 type ConfirmationModalProps = {
     isOpen: boolean
@@ -30,7 +31,7 @@ const BackupCodes = ({ codes }: BackupCodesProps) => {
 
     const goToDashboard = () => {
         if (!isSessionLoaded || !session) return
-        router.push('/dashboard')
+        router.push(Routes.dashboard)
     }
 
     if (!isLoaded) return null

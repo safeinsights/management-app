@@ -2,6 +2,8 @@
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { actionResult } from '@/lib/utils'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
@@ -12,7 +14,8 @@ import { FC, useState } from 'react'
 import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
 import { VerifyCode } from './verify-code'
-
+import { notifications } from '@mantine/notifications'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 export const dynamic = 'force-dynamic'
 
 export type Step = 'select' | 'verify' | 'reset'
@@ -63,17 +66,39 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 try {
                     const result = actionResult(await onUserSignInAction())
                     if (result?.redirectToReviewerKey) {
-                        router.push('/account/keys')
+                        router.push(Routes.accountKeys)
                     } else {
-                        const redirectUrl = searchParams.get('redirect_url')
-                        router.push(redirectUrl || '/dashboard')
+                        let redirectUrl = searchParams.get('redirect_url') || Routes.dashboard
+                        const inviteId = searchParams.get('invite_id')
+                        if (inviteId) {
+                            try {
+                                await onJoinTeamAccountAction({
+                                    inviteId,
+                                    loggedInEmail: signInAttempt?.identifier || undefined,
+                                })
+                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                redirectUrl = Routes.orgDashboard({ orgSlug: slug })
+
+                                const email = signInAttempt?.identifier || 'your account'
+                                notifications.show({
+                                    color: 'green',
+                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
+                                })
+                            } catch {
+                                notifications.show({
+                                    color: 'red',
+                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                })
+                            }
+                        }
+                        router.push((redirectUrl as Route) ?? Routes.dashboard)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
                     const redirectUrl = searchParams.get('redirect_url')
-                    router.push(redirectUrl || '/')
+                    router.push((redirectUrl as Route) ?? Routes.home)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object

@@ -11,13 +11,9 @@ vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
 }))
 
-vi.mock('@/server/actions/study.actions', () => ({
-    fetchStudiesForOrgAction: vi.fn(),
-}))
-
 const mockStudies = [
     {
-        id: 'study-1',
+        id: '11111111-1111-4111-8111-111111111111',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location1',
@@ -32,13 +28,13 @@ const mockStudies = [
         status: 'PENDING-REVIEW' as StudyStatus,
         title: 'Study Title 1',
         createdBy: 'Person A',
-        jobStatusChanges: [{ status: 'JOB-PACKAGING' as StudyJobStatus }],
+        jobStatusChanges: [{ status: 'JOB-PACKAGING' as StudyJobStatus, userId: null }],
         latestStudyJobId: 'job-1',
         orgSlug: 'test-org',
         errorStudyJobId: null,
     },
     {
-        id: 'study-2',
+        id: '22222222-2222-4222-8222-222222222222',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location2',
@@ -54,12 +50,12 @@ const mockStudies = [
         createdBy: 'Person B',
         reviewerName: 'Reviewer A',
         latestStudyJobId: 'job-2',
-        jobStatusChanges: [{ status: 'RUN-COMPLETE' as StudyJobStatus }],
+        jobStatusChanges: [{ status: 'RUN-COMPLETE' as StudyJobStatus, userId: null }],
         orgSlug: 'test-org',
         errorStudyJobId: null,
     },
     {
-        id: 'study-3',
+        id: '33333333-3333-4333-8333-333333333333',
         approvedAt: null,
         rejectedAt: null,
         containerLocation: 'Location3',
@@ -81,6 +77,10 @@ const mockStudies = [
     },
 ]
 
+vi.mock('@/server/actions/study.actions', () => ({
+    fetchStudiesForOrgAction: vi.fn(() => mockStudies),
+}))
+
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
         user: {
@@ -91,13 +91,13 @@ beforeEach(() => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" studies={[]} />)
+        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
 
         expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" studies={mockStudies} />)
+        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
 
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()
