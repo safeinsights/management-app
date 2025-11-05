@@ -145,7 +145,9 @@ export const StudyProposal: React.FC = () => {
             }
         },
         onSuccess() {
+            // Invalidate both org-specific and user-level study queries
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:
