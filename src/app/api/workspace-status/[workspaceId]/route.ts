@@ -87,7 +87,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                     workspaceName = data.latest_build.workspace_name
                     console.warn('Coder SSE event:', data)
                 }
-                controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+                try {
+                    controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+                } catch (error) {
+                    console.error('Controller already closed! Falling back on prior workspace url', error)
+                }
             }
 
             const reader = coderResponse.body?.getReader()
