@@ -33,6 +33,8 @@ export function defineAbilityFor(session: UserSession) {
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
 
+    permit('load', 'IDE')
+
     permit('view', 'OrgStudies', { orgType: 'enclave', orgId: { $in: usersReviewerOrgIds } })
     permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
 
@@ -47,13 +49,15 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersResearcherOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersResearcherOrgIds } })
 
-    // users who belong to any researche orgs can create studies for ANY org
+    // users who belong to any research orgs can create studies for ANY org
     if (usersResearcherOrgIds.length) {
         permit('create', 'Study')
         permit('update', 'Study')
         permit('delete', 'Study')
         permit('create', 'StudyJob')
         permit('delete', 'StudyJob')
+        //Permission to create an IDE for a stydy
+        permit('load', 'IDE')
     }
 
     // can view studies and jobs for all orgs that the user's org has submitted

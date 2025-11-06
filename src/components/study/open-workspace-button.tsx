@@ -8,9 +8,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
-    name: string
-    email: string
-    userId: string
     studyId: string
 }
 
@@ -20,14 +17,13 @@ const openWorkspaceInNewTab = (url: string) => {
     if (windowRef) windowRef.focus()
 }
 
-export const OpenWorkspaceButton = ({ name, studyId }: OpenWorkspaceButtonProps) => {
+export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
     const queryClient = useQueryClient()
     const [_workspaceLoading, setWorkspaceLoading] = useState<boolean>(false)
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
 
     const mutation = useMutation({
-        mutationFn: ({ name, studyId }: { name: string; studyId: string }) =>
-            createUserAndWorkspaceAction({ name, studyId }),
+        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
         onSuccess: (data) => {
             if (isActionError(data)) {
                 console.warn(`ERROR: ${JSON.stringify(data)}`)
@@ -74,7 +70,7 @@ export const OpenWorkspaceButton = ({ name, studyId }: OpenWorkspaceButtonProps)
     return (
         <Group gap="sm">
             <Button
-                onClick={() => mutation.mutate({ name, studyId })}
+                onClick={() => mutation.mutate({ studyId })}
                 loading={isLoading}
                 aria-busy={isLoading}
                 aria-disabled={isLoading}

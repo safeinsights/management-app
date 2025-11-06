@@ -2,7 +2,6 @@ import { AlertNotFound } from '@/components/errors'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
-import { currentUser } from '@clerk/nextjs/server'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
@@ -20,18 +19,11 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     const study = await getStudyAction({ studyId })
 
-    const user = await currentUser()
     if (!study || isActionError(study)) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
     const job = await latestJobForStudy(studyId)
-
-    const email = user?.primaryEmailAddress?.emailAddress ?? ''
-    let name = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`
-    if (name.length === 0) {
-        name = study.researcherId
-    }
 
     return (
         <Stack p="xl" gap="xl">
@@ -66,12 +58,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Group>
                             <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
                             {/* TODO Causing an SSR hydration error vvv */}
-                            <OpenWorkspaceButton
-                                name={name}
-                                email={email}
-                                userId={study.researcherId}
-                                studyId={study.id}
-                            />
+                            <OpenWorkspaceButton studyId={study.id} />
                         </Group>
                     </Group>
                     <Divider c="dimmed" />

@@ -32,6 +32,8 @@ export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code
 
 export const coderUserInfoPath = (username: string) => `/api/v2/users/${username}`
 export const coderUsersPath = () => `/api/v2/users`
+export const coderOrgsPath = () => `/api/v2/organizations`
+export const coderTemplateId = () => `/api/v2/templates`
 export const coderWorkspaceCreatePath = (organization: string, username: string) =>
     `/api/v2/organizations/${organization}/members/${username}/workspaces`
 export const coderWorkspacePath = (username: string, workspaceName: string) =>

@@ -7,7 +7,7 @@ export interface CoderWorkspaceEvent {
     latest_build?: {
         resources?: CoderResource[]
         workspace_owner_name?: string
-        workspace_id?: string
+        workspace_name?: string
     }
     url?: string
     message?: string
@@ -57,17 +57,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
     const workspaceId = (await params).workspaceId
     if (!workspaceId) return new Response('Missing workspace ID', { status: 400 })
 
-    const CODER_API_ENDPOINT = process.env.CODER_API_ENDPOINT
-    if (!CODER_API_ENDPOINT) throw new Error('CODER_API_ENDPOINT environment variable is not set')
+    const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
+    if (!coderApiEndpoint) throw new Error('CODER_API_ENDPOINT environment variable is not set')
 
-    const CODER_TOKEN = await getConfigValue('CODER_TOKEN')
+    const coderToken = await getConfigValue('CODER_TOKEN')
 
-    const url = `${CODER_API_ENDPOINT}/api/v2/workspaces/${workspaceId}/watch`
+    const url = `${coderApiEndpoint}/api/v2/workspaces/${workspaceId}/watch`
 
     const coderResponse = await fetch(url, {
         headers: {
             Accept: 'text/event-stream',
-            'Coder-Session-Token': CODER_TOKEN,
+            'Coder-Session-Token': coderToken,
         },
     })
 
@@ -84,7 +84,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
             const send = (event: string, data: CoderWorkspaceEvent) => {
                 if (data && data.latest_build) {
                     username = data.latest_build.workspace_owner_name
-                    workspaceName = data.latest_build.workspace_id
+                    workspaceName = data.latest_build.workspace_name
+                    console.warn('Coder SSE event:', data)
                 }
                 controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
             }
@@ -101,6 +102,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                         send('status', data)
                         if (isCodeServerReady(data)) {
                             if (username && workspaceName) {
+                                console.warn('USER & WORKSPACE_NAME', username, workspaceName)
                                 send('ready', { url: await generateWorkspaceUrl(username, workspaceName) })
                                 controller.close()
                             }
