@@ -19,8 +19,11 @@ const openWorkspaceInNewTab = (url: string) => {
 
 export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
     const queryClient = useQueryClient()
+    const [workspaceLoading, setWorkspaceLoading] = useState<boolean>(false)
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+    const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null)
 
+    if (workspaceUrl) openWorkspaceInNewTab(workspaceUrl)
     const mutation = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
         onSuccess: (data) => {
@@ -35,7 +38,7 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
         },
     })
 
-    const { isLoading } = useQuery({
+    const { data: _statusData } = useQuery({
         queryKey: ['workspaceStatus', workspaceId],
         enabled: !!workspaceId,
         queryFn: () =>
@@ -45,12 +48,15 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
 
                 events.addEventListener('status', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
+                    setWorkspaceLoading(true)
                     queryClient.setQueryData(['workspaceStatus', workspaceId], data)
                 })
 
                 events.addEventListener('ready', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
+                    setWorkspaceUrl(data.url)
                     openWorkspaceInNewTab(data.url)
+                    setWorkspaceLoading(false)
                     events.close()
                     resolve({ status: 'ready', url: data.url })
                 })
@@ -69,11 +75,11 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
         <Group gap="sm">
             <Button
                 onClick={() => mutation.mutate({ studyId })}
-                loading={isLoading}
-                aria-busy={isLoading}
-                aria-disabled={isLoading}
+                loading={workspaceLoading}
+                aria-busy={workspaceLoading}
+                aria-disabled={workspaceLoading}
             >
-                {isLoading ? 'Workspace Starting' : 'Open Workspace'}
+                {workspaceLoading ? 'Workspace Starting' : 'Open Workspace'}
             </Button>
         </Group>
     )
