@@ -1,5 +1,6 @@
 import { OrgsAdminTable } from './table'
-import { dehydrate, HydrationBoundary, QueryClient } from '@/common'
+// eslint-disable-next-line no-restricted-imports
+import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query'
 import { fetchAdminOrgsWithStatsAction } from '@/server/actions/org.actions'
 
 export const dynamic = 'force-dynamic'
