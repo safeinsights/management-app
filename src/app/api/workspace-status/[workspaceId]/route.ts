@@ -87,11 +87,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                     workspaceName = data.latest_build.workspace_name
                     console.warn('Coder SSE event:', data)
                 }
-                try {
-                    controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
-                } catch (error) {
-                    console.error('Controller already closed! Falling back on prior workspace url', error)
-                }
+                controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
             }
 
             const reader = coderResponse.body?.getReader()
@@ -106,8 +102,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                         send('status', data)
                         if (isCodeServerReady(data)) {
                             if (username && workspaceName) {
-                                console.warn('USER & WORKSPACE_NAME', username, workspaceName)
-                                send('ready', { url: await generateWorkspaceUrl(username, workspaceName) })
+                                const url = await generateWorkspaceUrl(username, workspaceName)
+                                send('ready', { url })
+                                await reader.cancel('Workspace is ready')
                                 controller.close()
                             }
                         }

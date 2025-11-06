@@ -3,8 +3,9 @@
 import { isActionError } from '@/lib/errors'
 import { createUserAndWorkspaceAction } from '@/server/actions/coder.actions'
 import { Button, Group } from '@mantine/core'
-import { useMutation, useQuery, useQueryClient } from '@/common'
-import { useState } from 'react'
+// eslint-disable-next-line no-restricted-imports
+import { useMutation } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
     studyId: string
@@ -18,68 +19,62 @@ const openWorkspaceInNewTab = (url: string) => {
 }
 
 export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
-    const queryClient = useQueryClient()
-    const [workspaceLoading, setWorkspaceLoading] = useState<boolean>(false)
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-    const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false)
+    const eventSourceRef = useRef<EventSource | null>(null)
 
-    if (workspaceUrl) openWorkspaceInNewTab(workspaceUrl)
     const mutation = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
+        onMutate: () => setLoading(true),
         onSuccess: (data) => {
-            if (isActionError(data)) {
-                console.warn(`ERROR: ${JSON.stringify(data)}`)
-            } else if (data.success) {
-                setWorkspaceId(data.workspace.id)
-                queryClient.invalidateQueries({ queryKey: ['workspaceStatus', data.workspace.status] })
-            } else {
-                console.error('Failed to create workspace')
+            if (isActionError(data) || !data.success) {
+                console.error('Failed to create workspace:', data)
+                setLoading(false)
+                return
             }
+            setWorkspaceId(data.workspace.id)
+        },
+        onError: () => {
+            setLoading(false)
         },
     })
 
-    const { data: _statusData } = useQuery({
-        queryKey: ['workspaceStatus', workspaceId],
-        enabled: !!workspaceId,
-        queryFn: () =>
-            new Promise<{ status: string; url?: string }>((resolve, reject) => {
-                if (!workspaceId) return reject('no workspace id')
-                const events = new EventSource(`/api/workspace-status/${workspaceId}`)
+    // 🔄 When workspace ID is created → start SSE listener
+    useEffect(() => {
+        if (!workspaceId) return
 
-                events.addEventListener('status', (e) => {
-                    const data = JSON.parse((e as MessageEvent).data)
-                    setWorkspaceLoading(true)
-                    queryClient.setQueryData(['workspaceStatus', workspaceId], data)
-                })
+        const es = new EventSource(`/api/workspace-status/${workspaceId}`)
+        eventSourceRef.current = es
 
-                events.addEventListener('ready', (e) => {
-                    const data = JSON.parse((e as MessageEvent).data)
-                    setWorkspaceUrl(data.url)
-                    openWorkspaceInNewTab(data.url)
-                    setWorkspaceLoading(false)
-                    events.close()
-                    resolve({ status: 'ready', url: data.url })
-                })
+        es.addEventListener('status', (e) => {
+            const data = JSON.parse((e as MessageEvent).data)
+            console.log('status update', data)
+        })
 
-                events.addEventListener('error', () => {
-                    console.error('error in ws')
-                    events.close()
-                    reject('error')
-                })
-            }),
-        staleTime: Infinity,
-        refetchOnWindowFocus: true,
-    })
+        es.addEventListener('ready', (e) => {
+            const data = JSON.parse((e as MessageEvent).data)
+            console.log('workspace ready', data)
+
+            openWorkspaceInNewTab(data.url)
+            setLoading(false)
+            es.close()
+        })
+
+        es.addEventListener('error', () => {
+            console.error('SSE error')
+            setLoading(false)
+            es.close()
+        })
+
+        return () => {
+            es.close()
+        }
+    }, [workspaceId])
 
     return (
-        <Group gap="sm">
-            <Button
-                onClick={() => mutation.mutate({ studyId })}
-                loading={workspaceLoading}
-                aria-busy={workspaceLoading}
-                aria-disabled={workspaceLoading}
-            >
-                {workspaceLoading ? 'Workspace Starting' : 'Open Workspace'}
+        <Group>
+            <Button onClick={() => mutation.mutate({ studyId })} loading={loading || mutation.isPending}>
+                {loading ? 'Workspace Starting…' : 'Open Workspace'}
             </Button>
         </Group>
     )
