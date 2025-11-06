@@ -3,12 +3,12 @@
 import { isActionError } from '@/lib/errors'
 import { createUserAndWorkspaceAction } from '@/server/actions/coder.actions'
 import { Button, Group } from '@mantine/core'
-// eslint-disable-next-line no-restricted-imports
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@/common'
 import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
     studyId: string
+    orgSlug: string
 }
 
 const openWorkspaceInNewTab = (url: string) => {
@@ -17,13 +17,12 @@ const openWorkspaceInNewTab = (url: string) => {
     if (windowRef) windowRef.focus()
 }
 
-export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
+export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
     const queryClient = useQueryClient()
-    const [_workspaceLoading, setWorkspaceLoading] = useState<boolean>(false)
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
 
     const mutation = useMutation({
-        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
+        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
         onSuccess: (data) => {
             if (isActionError(data)) {
                 console.warn(`ERROR: ${JSON.stringify(data)}`)
@@ -36,7 +35,7 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
         },
     })
 
-    const { data: _statusData, isLoading } = useQuery({
+    const { isLoading } = useQuery({
         queryKey: ['workspaceStatus', workspaceId],
         enabled: !!workspaceId,
         queryFn: () =>
@@ -46,14 +45,12 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
 
                 events.addEventListener('status', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
-                    setWorkspaceLoading(true)
                     queryClient.setQueryData(['workspaceStatus', workspaceId], data)
                 })
 
                 events.addEventListener('ready', (e) => {
                     const data = JSON.parse((e as MessageEvent).data)
                     openWorkspaceInNewTab(data.url)
-                    setWorkspaceLoading(false)
                     events.close()
                     resolve({ status: 'ready', url: data.url })
                 })
@@ -67,6 +64,7 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
         staleTime: Infinity,
         refetchOnWindowFocus: true,
     })
+
     return (
         <Group gap="sm">
             <Button

@@ -124,7 +124,6 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
             .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-org') // CODER_ORGANIZATION
             .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
 
         vi.mocked(uuidToStr).mockReturnValue('testworkspace')
@@ -173,7 +172,6 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
             .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-org') // CODER_ORGANIZATION
             .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
 
         vi.mocked(uuidToStr).mockReturnValue('testworkspace')
@@ -217,7 +215,6 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
             .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-org') // CODER_ORGANIZATION
             .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
 
         vi.mocked(uuidToStr).mockReturnValue('testworkspace')
@@ -264,7 +261,6 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
             .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-org') // CODER_ORGANIZATION
             .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
 
         vi.mocked(uuidToStr).mockReturnValue('testworkspace')
@@ -297,7 +293,6 @@ describe('createUserAndWorkspace', () => {
         vi.mocked(getConfigValue)
             .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
             .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-org') // CODER_ORGANIZATION
             .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
 
         vi.mocked(uuidToStr).mockReturnValue('testworkspace')

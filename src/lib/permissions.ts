@@ -56,7 +56,6 @@ export function defineAbilityFor(session: UserSession) {
         permit('delete', 'Study')
         permit('create', 'StudyJob')
         permit('delete', 'StudyJob')
-        //Permission to create an IDE for a stydy
         permit('load', 'IDE')
     }
 

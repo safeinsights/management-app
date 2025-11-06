@@ -1,4 +1,4 @@
-import { jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -7,7 +7,6 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
-import { type DBExecutor } from '@/database'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -34,7 +33,6 @@ export async function getStudyJobInfo(studyJobId: string) {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
-
         .select((eb) => [
             'studyJob.id as studyJobId',
             'studyJob.studyId',

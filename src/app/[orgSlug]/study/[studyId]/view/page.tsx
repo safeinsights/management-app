@@ -57,8 +57,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         </Title>
                         <Group>
                             <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
-                            {/* TODO Causing an SSR hydration error vvv */}
-                            <OpenWorkspaceButton studyId={study.id} />
+                            <OpenWorkspaceButton studyId={study.id} orgSlug={study.orgSlug} />
                         </Group>
                     </Group>
                     <Divider c="dimmed" />
