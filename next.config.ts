@@ -6,12 +6,6 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 const nextConfig: NextConfig = async (phase: string) => {
     const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
-    // eslint-disable-next-line no-console
-    console.log('Build-time Sentry DSN check:', {
-        SENTRY_DSN: process.env.SENTRY_DSN ? '✓ set' : '✗ not set',
-        NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ? '✓ set' : '✗ not set',
-    })
-
     const nextConfig: NextConfig = {
         productionBrowserSourceMaps: true,
         assetPrefix: isDev ? undefined : '/assets/',
@@ -19,7 +13,8 @@ const nextConfig: NextConfig = async (phase: string) => {
         typedRoutes: true,
         transpilePackages: ['si-encryption'],
         env: {
-            NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
+            // sets the DSN for Sentry in the client bundle at build time
+            NEXT_PUBLIC_SENTRY_DSN: process.env.SENTRY_DSN || '',
         },
         experimental: {
             // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
