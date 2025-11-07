@@ -14,7 +14,7 @@ const nextConfig: NextConfig = async (phase: string) => {
         transpilePackages: ['si-encryption'],
         env: {
             // sets the DSN for Sentry in the client bundle at build time
-            NEXT_PUBLIC_SENTRY_DSN: process.env.SENTRY_DSN || '',
+            NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
         },
         experimental: {
             // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
