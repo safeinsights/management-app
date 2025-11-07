@@ -85,7 +85,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                 if (data && data.latest_build) {
                     username = data.latest_build.workspace_owner_name
                     workspaceName = data.latest_build.workspace_name
-                    console.warn('Coder SSE event:', data)
                 }
                 controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
             }
@@ -99,7 +98,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ workspac
                 onEvent: async (event: EventSourceMessage) => {
                     try {
                         const data = JSON.parse(event.data)
-                        send('status', data)
+                        // TODO We don't really need status... but maybe?
+                        // send('status', data)
                         if (isCodeServerReady(data)) {
                             if (username && workspaceName) {
                                 const url = await generateWorkspaceUrl(username, workspaceName)

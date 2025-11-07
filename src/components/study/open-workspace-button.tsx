@@ -3,8 +3,7 @@
 import { isActionError } from '@/lib/errors'
 import { createUserAndWorkspaceAction } from '@/server/actions/coder.actions'
 import { Button, Group } from '@mantine/core'
-// eslint-disable-next-line no-restricted-imports
-import { useMutation } from '@tanstack/react-query'
+import { useMutation } from '@/common'
 import { useEffect, useRef, useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
@@ -13,48 +12,56 @@ interface OpenWorkspaceButtonProps {
 }
 
 const openWorkspaceInNewTab = (url: string) => {
-    const target = '_blank'
-    const windowRef = window.open(url, target)
-    if (windowRef) windowRef.focus()
+    // TODO Determine if we want to reopen existing tab (child) or open new tab every time (_blank)
+    const windowRef = window.open(url, 'child')
+    windowRef?.focus()
 }
 
 export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+    const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const eventSourceRef = useRef<EventSource | null>(null)
 
     const mutation = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
-        onMutate: () => setLoading(true),
+        onMutate: () => {
+            setLoading(true)
+        },
         onSuccess: (data) => {
             if (isActionError(data) || !data.success) {
-                console.error('Failed to create workspace:', data)
+                console.error('Workspace creation failed:', data)
                 setLoading(false)
                 return
             }
-            setWorkspaceId(data.workspace.id)
+
+            if (workspaceUrl) {
+                setLoading(false)
+                return openWorkspaceInNewTab(workspaceUrl)
+            }
+
+            const { id } = data.workspace
+
+            setWorkspaceId(id) // triggers SSE subscription
         },
-        onError: () => {
-            setLoading(false)
-        },
+        onError: () => setLoading(false),
     })
 
-    // 🔄 When workspace ID is created → start SSE listener
+    // 🔄 SSE listener if workspace isn't ready yet
     useEffect(() => {
         if (!workspaceId) return
 
         const es = new EventSource(`/api/workspace-status/${workspaceId}`)
         eventSourceRef.current = es
 
-        es.addEventListener('status', (e) => {
-            const data = JSON.parse((e as MessageEvent).data)
-            console.log('status update', data)
-        })
+        // TODO We don't really need status... but maybe?
+        // es.addEventListener('status', (e) => {
+        //     const data = JSON.parse((e as MessageEvent).data)
+        // })
 
         es.addEventListener('ready', (e) => {
             const data = JSON.parse((e as MessageEvent).data)
-            console.log('workspace ready', data)
-
+            setWorkspaceUrl(data.url)
             openWorkspaceInNewTab(data.url)
             setLoading(false)
             es.close()
@@ -66,9 +73,7 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
             es.close()
         })
 
-        return () => {
-            es.close()
-        }
+        return () => es.close()
     }, [workspaceId])
 
     return (
