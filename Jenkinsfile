@@ -2,6 +2,10 @@
 pipeline {
     agent { label "jenkins" }
 
+    environment {
+        SENTRY_DSN = credentials('sentry-dsn')
+    }
+
     stages {
         stage("Deploy") {
             when {
