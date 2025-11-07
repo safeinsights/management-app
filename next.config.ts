@@ -6,6 +6,7 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 const nextConfig: NextConfig = async (phase: string) => {
     const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
+    // eslint-disable-next-line no-console
     console.log('Build-time Sentry DSN check:', {
         SENTRY_DSN: process.env.SENTRY_DSN ? '✓ set' : '✗ not set',
         NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ? '✓ set' : '✗ not set',
