@@ -1,21 +1,21 @@
 'use client'
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
-import { actionResult } from '@/lib/utils'
-import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
+import { actionResult } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
 import { VerifyCode } from './verify-code'
-import { notifications } from '@mantine/notifications'
-import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 export const dynamic = 'force-dynamic'
 
 export type Step = 'select' | 'verify' | 'reset'
@@ -28,6 +28,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
+    const auth = useAuth()
 
     // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
@@ -63,6 +64,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
+
                 try {
                     const result = actionResult(await onUserSignInAction())
                     if (result?.redirectToReviewerKey) {
@@ -76,6 +78,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     inviteId,
                                     loggedInEmail: signInAttempt?.identifier || undefined,
                                 })
+
                                 const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
                                 redirectUrl = Routes.orgDashboard({ orgSlug: slug })
 
@@ -84,6 +87,9 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                     color: 'green',
                                     message: `You've successfully linked your SafeInsights accounts under ${email}.`,
                                 })
+
+                                // forces Clerk to regenerate the JWT session token with the latest user metadata
+                                await auth.getToken({ skipCache: true })
                             } catch {
                                 notifications.show({
                                     color: 'red',
