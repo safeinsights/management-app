@@ -148,4 +148,26 @@ describe('StudyReviewButtons', () => {
             )
         })
     })
+
+    it('does not render approve and reject buttons for a lab user', async () => {
+        await mockSessionWithTestData({ orgType: 'lab', orgSlug: 'test-org' })
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+    })
+
+    it('renders approve and reject buttons for an enclave user', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave', orgSlug: 'test-org' })
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
+    })
 })
