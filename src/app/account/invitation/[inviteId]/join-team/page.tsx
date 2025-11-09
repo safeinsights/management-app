@@ -104,7 +104,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 </Text>
                 <Text size="md">
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
-                    your email inbox. Note: This invitation will expire in 7 days.
+                    your email inbox.
                 </Text>
                 <Text size="sm" c="red.8" mb="md">
                     <b>Note:</b> This invitation will expire in 7 days.
