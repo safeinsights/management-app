@@ -4,7 +4,7 @@ import { Button, Group, Stack } from '@mantine/core'
 import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { SelectedStudy } from '@/server/actions/study.actions'
@@ -69,7 +69,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     'Your study has been successfully resubmitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/researcher/study/${study.id}/review` as Route)
+            router.push(Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id }))
         },
         onError: reportMutationError('Failed to resubmit study'),
     })
@@ -83,7 +83,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     <ResubmitCancelButton
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
-                        href={`/researcher/study/${study.id}/review` as Route}
+                        href={Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code
