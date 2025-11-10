@@ -18,6 +18,7 @@ import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyReviewButtons } from './study-review-buttons'
+import * as Session from '@/hooks/session'
 
 // Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
@@ -169,5 +170,25 @@ describe('StudyReviewButtons', () => {
         renderWithProviders(<StudyReviewButtons study={study} />)
         expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
+    })
+
+    it('renders nothing while session is loading', async () => {
+        // Ensure route params are present (component reads orgSlug/studyId)
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+
+        // Force the loading branch of useSession
+        const spy = vi
+            .spyOn(Session, 'useSession')
+            .mockReturnValue({ isLoaded: false, session: null } as unknown as ReturnType<typeof Session.useSession>)
+
+        renderWithProviders(<StudyReviewButtons study={study} />)
+
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+
+        spy.mockRestore()
     })
 })
