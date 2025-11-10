@@ -19,7 +19,7 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
         return await createUserAndWorkspace(studyId)
     })
 
-export const getWorkspaceUrlAction = new Action('getWorkspaceStatus', {})
+export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
     .params(
         z.object({
             studyId: z.string().nonempty(),

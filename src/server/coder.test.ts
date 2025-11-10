@@ -1,322 +1,345 @@
-import { uuidToStr } from '@/lib/utils'
-import { currentUser } from '@clerk/nextjs/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createUserAndWorkspace, generateWorkspaceUrl } from './coder'
+import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
+import {
+    createUserAndWorkspace,
+    generateUsername,
+    getCoderOrganization,
+    getCoderTemplateId,
+    getCoderUser,
+} from './coder'
 import { getConfigValue } from './config'
+import { getStudyAndOrgDisplayInfo, siUser } from './db/queries'
 
-// Mock the dependencies
+// Mock external dependencies
 vi.mock('./config', () => ({
     getConfigValue: vi.fn(),
 }))
 
-vi.mock('@/lib/paths', () => ({
-    coderUserInfoPath: vi.fn().mockReturnValue('/api/users/username'),
-    coderUsersPath: vi.fn().mockReturnValue('/api/users'),
-    coderWorkspaceBuildPath: vi.fn().mockReturnValue('/api/workspace/build'),
-    coderWorkspaceCreatePath: vi.fn().mockReturnValue('/api/workspace/create'),
-    coderWorkspaceDataPath: vi.fn().mockReturnValue('/api/workspace/data'),
-    coderWorkspacePath: vi.fn().mockReturnValue('/api/workspace/path'),
+vi.mock('./db/queries', () => ({
+    getStudyAndOrgDisplayInfo: vi.fn(),
+    siUser: vi.fn(),
 }))
 
-vi.mock('@/lib/utils', () => ({
-    uuidToStr: vi.fn(),
-}))
+// Mock fetch globally
+global.fetch = vi.fn()
 
-vi.mock('@clerk/nextjs/server', () => ({
-    currentUser: vi.fn(),
-}))
+const getConfigValueMock = getConfigValue as unknown as Mock
+const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
+const siUserMock = siUser as unknown as Mock
 
-describe('generateWorkspaceUrl', () => {
+describe('generateUsername', () => {
+    it('should generate username from email', () => {
+        const email = 'john.doe@example.com'
+        const userId = 'user123'
+        const username = generateUsername(email, userId)
+        expect(username).toBe('johndoe')
+    })
+
+    it('should handle email without @ symbol', () => {
+        const email = 'john.doe'
+        const userId = 'user123'
+        const username = generateUsername(email, userId)
+        expect(username).toBe('johndoe')
+    })
+
+    it('should handle email with special characters', () => {
+        const email = 'john.doe+test@domain.com'
+        const userId = 'user123'
+        const username = generateUsername(email, userId)
+        expect(username).toBe('johndoe')
+    })
+
+    it('should use userId when email is empty', () => {
+        const email = ''
+        const userId = 'user123'
+        const username = generateUsername(email, userId)
+        expect(username).toBe('user123')
+    })
+
+    it('should truncate username to 31 characters', () => {
+        const email = 'a'.repeat(50) + '@example.com'
+        const userId = 'user123'
+        const username = generateUsername(email, userId)
+        expect(username).toHaveLength(31)
+    })
+
+    it('should handle empty email and userId', () => {
+        const email = ''
+        const userId = ''
+        const username = generateUsername(email, userId)
+        expect(username).toBe('')
+    })
+})
+
+describe('getCoderUser', () => {
+    const ORIGINAL_ENV = process.env
+
     beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV }
         vi.resetAllMocks()
+        global.fetch = vi.fn()
     })
 
-    it('should generate a correct workspace URL', async () => {
-        // Mock the configuration values
-        vi.mocked(getConfigValue).mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-
-        // Mock uuidToStr to return a predictable value
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
-
-        // Mock coderWorkspacePath to return a predictable path
-        vi.mocked((await import('@/lib/paths')).coderWorkspacePath).mockReturnValue('/api/workspaces/testworkspace')
-
-        const result = await generateWorkspaceUrl('test-study-id', 'testuser')
-
-        expect(result).toBe('https://coder.example.com/api/workspaces/testworkspace')
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
     })
 
-    it('should handle different study IDs and user names', async () => {
-        // Mock the configuration values
-        vi.mocked(getConfigValue).mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
+    it('should get existing user when user exists', async () => {
+        const mockUserResponse = { id: 'user123', name: 'John Doe' }
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue(mockUserResponse),
+        })
 
-        // Mock uuidToStr with different values
-        vi.mocked(uuidToStr).mockReturnValue('differentworkspace')
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
 
-        // Mock coderWorkspacePath with different values
-        vi.mocked((await import('@/lib/paths')).coderWorkspacePath).mockReturnValue(
-            '/api/workspaces/differentworkspace',
-        )
-
-        const result = await generateWorkspaceUrl('different-study-id', 'differentuser')
-
-        expect(result).toBe('https://coder.example.com/api/workspaces/differentworkspace')
+        const result = await getCoderUser('study123')
+        expect(result).toEqual(mockUserResponse)
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users/john', {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+                'Coder-Session-Token': 'https://api.coder.com',
+            },
+        })
     })
 
-    it('should handle API endpoint with trailing slash', async () => {
-        // Mock the configuration values with trailing slash
-        vi.mocked(getConfigValue).mockResolvedValueOnce('https://coder.example.com/') // CODER_API_ENDPOINT
+    it('should create user when user does not exist (400 status)', async () => {
+        const mockUserResponse = { id: 'user123', name: 'John Doe' }
+        const mockFetch = global.fetch as unknown as Mock
+        // Mock the fetch calls in the right order:
+        // 1. First fetch - check if user exists (returns 400)
+        // 2. Second fetch - create user (returns success)
+        // 3. Third fetch - get organizations (this is what getCoderOrganization calls)
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 400,
+                text: vi.fn().mockResolvedValue('User not found'),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValue(mockUserResponse),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValue([
+                    { id: 'org1', name: 'other-org' },
+                    { id: 'org2', name: 'coder' },
+                ]),
+            })
 
-        // Mock uuidToStr
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
+        // Mock all the config values needed
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for user creation)
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for organization fetch)
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
+        siUserMock.mockResolvedValue({
+            id: 'user123',
+            primaryEmailAddress: { emailAddress: 'john@example.com' },
+            fullName: 'John Doe',
+        })
 
-        // Import the actual paths module to test the real path construction
-        const pathsModule = await import('@/lib/paths')
-
-        // Mock coderWorkspacePath to return the actual path structure
-        vi.mocked(pathsModule.coderWorkspacePath).mockReturnValue('@testuser/testworkspace.main/apps/code-server')
-
-        const result = await generateWorkspaceUrl('test-study-id', 'testuser')
-
-        // The function should handle trailing slashes properly - no double slashes
-        expect(result).toBe('https://coder.example.com/@testuser/testworkspace.main/apps/code-server')
+        const result = await getCoderUser('study123')
+        expect(result).toEqual(mockUserResponse)
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                'Coder-Session-Token': 'https://api.coder.com',
+            },
+            body: JSON.stringify({
+                email: 'john@example.com',
+                login_type: 'oidc',
+                name: 'John Doe',
+                username: 'johndoe',
+                user_status: 'active',
+                organization_ids: ['org2'],
+            }),
+        })
     })
 
-    it('should throw error when API endpoint is not configured', async () => {
-        // Mock getConfigValue to throw an error
-        vi.mocked(getConfigValue).mockRejectedValue(new Error('Configuration not found'))
+    it('should throw error for other HTTP errors', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: vi.fn().mockResolvedValue('Internal server error'),
+        })
 
-        await expect(generateWorkspaceUrl('test-study-id', 'testuser')).rejects.toThrow('Configuration not found')
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
+
+        await expect(getCoderUser('study123')).rejects.toThrow('Failed to get user: 500 Internal server error')
     })
 })
 
 describe('createUserAndWorkspace', () => {
+    const ORIGINAL_ENV = process.env
+
     beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV }
         vi.resetAllMocks()
+        global.fetch = vi.fn()
     })
 
-    it('should throw error when user is not authenticated', async () => {
-        vi.mocked(currentUser).mockResolvedValue(null)
-
-        await expect(createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')).rejects.toThrow(
-            'User not authenticated',
-        )
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
     })
 
-    it('should throw error when user does not have email', async () => {
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: null,
-            emailAddresses: [],
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-        await expect(createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')).rejects.toThrow(
-            'User does not have an email address!',
-        )
-    })
-
-    it('should create user and workspace when user does not exist', async () => {
-        // Mock user not found scenario
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: { emailAddress: 'test@example.com' },
-            id: 'test-user-id',
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-        vi.mocked(getConfigValue)
-            .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-            .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
-
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
-
-        // Mock fetch responses for user not found case
-        global.fetch = vi
-            .fn()
+    it('should create user and workspace successfully', async () => {
+        const mockUserResponse = { id: 'user123', name: 'John Doe' }
+        const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch
             .mockResolvedValueOnce({
-                ok: false,
-                status: 400,
-                text: vi.fn().mockResolvedValue('User not found'),
+                ok: true,
+                json: vi.fn().mockResolvedValue(mockUserResponse),
             })
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'test-user-id', name: 'testuser' }),
-                text: vi.fn(),
-            })
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 404,
-                text: vi.fn().mockResolvedValue('Workspace not found'),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'test-workspace-id', name: 'testworkspace' }),
-                text: vi.fn(),
+                json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
             })
 
-        const result = await createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
 
+        const result = await createUserAndWorkspace('study123')
         expect(result).toEqual({
             success: true,
-            user: { id: 'test-user-id', name: 'testuser' },
-            workspace: { id: 'test-workspace-id', name: 'testworkspace' },
-            workspaceName: 'testworkspace',
+            workspace: mockWorkspaceResponse,
         })
     })
 
-    it('should return existing user and workspace when they exist', async () => {
-        // Mock existing user scenario
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: { emailAddress: 'test@example.com' },
-            id: 'test-user-id',
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+    it('should throw error when user creation fails', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: vi.fn().mockResolvedValue('Internal server error'),
+        })
 
-        vi.mocked(getConfigValue)
-            .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-            .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getStudyAndOrgDisplayInfoMock.mockResolvedValue({
+            researcherEmail: 'john@example.com',
+            researcherId: 'user123',
+        })
 
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
+        await expect(createUserAndWorkspace('study123')).rejects.toThrow(
+            'Failed to create user and workspace: Failed to get user: 500 Internal server error',
+        )
+    })
+})
 
-        // Mock fetch responses for existing user and workspace
-        global.fetch = vi
-            .fn()
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'test-user-id', name: 'testuser' }),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({
-                    latest_build: { status: 'running' },
-                    id: 'test-workspace-id',
-                    name: 'testworkspace',
-                }),
-            })
+describe('getCoderOrganization', () => {
+    const ORIGINAL_ENV = process.env
 
-        const result = await createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')
+    beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV }
+        vi.resetAllMocks()
+        global.fetch = vi.fn()
+    })
 
-        expect(result).toEqual({
-            success: true,
-            workspaceName: 'testworkspace',
-            workspace: {
-                latest_build: { status: 'running' },
-                id: 'test-workspace-id',
-                name: 'testworkspace',
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
+    })
+
+    it('should return organization ID when found', async () => {
+        const mockOrgResponse = [
+            { id: 'org1', name: 'other-org' },
+            { id: 'org2', name: 'coder' },
+        ]
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue(mockOrgResponse),
+        })
+
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        const result = await getCoderOrganization()
+        expect(result).toBe('org2')
+    })
+
+    it('should throw error when organization fetch fails', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: vi.fn().mockResolvedValue('Internal server error'),
+        })
+
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+
+        await expect(getCoderOrganization()).rejects.toThrow('Failed to fetch organization data from Coder API')
+    })
+})
+
+describe('getCoderTemplateId', () => {
+    const ORIGINAL_ENV = process.env
+
+    beforeEach(() => {
+        process.env = { ...ORIGINAL_ENV }
+        vi.resetAllMocks()
+        global.fetch = vi.fn()
+    })
+
+    afterEach(() => {
+        process.env = ORIGINAL_ENV
+    })
+
+    it('should return template ID when found', async () => {
+        const mockTemplateResponse = [
+            { id: 'template1', name: 'other-template' },
+            { id: 'template2', name: 'aws-fargate' },
+        ]
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue(mockTemplateResponse),
+        })
+
+        // Mock all three config calls that getCoderTemplateId makes
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN
+        getConfigValueMock.mockResolvedValueOnce('aws-fargate') // CODER_TEMPLATE (from .env)
+
+        const result = await getCoderTemplateId()
+        expect(result).toBe('template2')
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/templates', {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+                'Coder-Session-Token': 'https://api.coder.com',
             },
         })
     })
 
-    it('should start workspace when it is stopped', async () => {
-        // Mock existing user scenario
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: { emailAddress: 'test@example.com' },
-            id: 'test-user-id',
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-        vi.mocked(getConfigValue)
-            .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-            .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
-
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
-
-        // Mock fetch responses for existing user and stopped workspace
-        global.fetch = vi
-            .fn()
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'test-user-id', name: 'testuser' }),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({
-                    latest_build: { status: 'stopped' },
-                    id: 'test-workspace-id',
-                    name: 'testworkspace',
-                }),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                text: vi.fn(),
-            })
-
-        const result = await createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')
-
-        expect(result).toEqual({
-            success: true,
-            workspaceName: 'testworkspace',
-            workspace: {
-                latest_build: { status: 'stopped' },
-                id: 'test-workspace-id',
-                name: 'testworkspace',
-            },
+    it('should throw error when template fetch fails', async () => {
+        const mockFetch = global.fetch as unknown as Mock
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 500,
+            text: vi.fn().mockResolvedValue('Internal server error'),
         })
-    })
 
-    it('should handle user creation error gracefully', async () => {
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: { emailAddress: 'test@example.com' },
-            id: 'test-user-id',
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        getConfigValueMock.mockResolvedValueOnce('my-template')
 
-        vi.mocked(getConfigValue)
-            .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-            .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
-
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
-
-        // Mock fetch responses for user creation error
-        global.fetch = vi
-            .fn()
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 400,
-                text: vi.fn().mockResolvedValue('User not found'),
-            })
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 400,
-                text: vi.fn().mockResolvedValue('Failed to create user'),
-            })
-
-        await expect(createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')).rejects.toThrow(
-            'Failed to create user: 400 Failed to create user',
-        )
-    })
-
-    it('should handle workspace creation error gracefully', async () => {
-        vi.mocked(currentUser).mockResolvedValue({
-            primaryEmailAddress: { emailAddress: 'test@example.com' },
-            id: 'test-user-id',
-        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-
-        vi.mocked(getConfigValue)
-            .mockResolvedValueOnce('https://coder.example.com') // CODER_API_ENDPOINT
-            .mockResolvedValueOnce('test-token') // CODER_TOKEN
-            .mockResolvedValueOnce('test-template') // CODER_TEMPLATE_ID
-
-        vi.mocked(uuidToStr).mockReturnValue('testworkspace')
-
-        // Mock fetch responses for user exists, workspace not found, workspace creation error
-        global.fetch = vi
-            .fn()
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'test-user-id', name: 'testuser' }),
-            })
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 404,
-                text: vi.fn().mockResolvedValue('Workspace not found'),
-            })
-            .mockResolvedValueOnce({
-                ok: false,
-                status: 500,
-                text: vi.fn().mockResolvedValue('Failed to create workspace'),
-            })
-
-        await expect(createUserAndWorkspace('Test User', 'test-study-id', 'test-user-id')).rejects.toThrow(
-            'Failed to create workspace: 500 Failed to create workspace',
-        )
+        await expect(getCoderTemplateId()).rejects.toThrow('Failed to fetch templates data from Coder API')
     })
 })
