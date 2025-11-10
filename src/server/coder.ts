@@ -19,6 +19,31 @@ export type CoderBaseEntity = {
     name: string
 }
 
+export interface CoderWorkspaceEvent {
+    latest_build?: {
+        resources?: CoderResource[]
+        workspace_owner_name?: string
+        workspace_name?: string
+    }
+    url?: string
+    message?: string
+}
+
+export interface CoderResource {
+    agents?: CoderAgent[]
+}
+
+export interface CoderAgent {
+    lifecycle_state?: string // e.g. "ready", "starting"
+    status?: string // e.g. "connected"
+    apps?: CoderApp[]
+}
+
+export interface CoderApp {
+    slug: string // "code-server"
+    health?: string // "healthy" | "unhealthy"
+}
+
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
     // Extract the part before @ in email
@@ -107,6 +132,26 @@ export const getCoderUser = async (studyId: string) => {
         const errorText = await userResponse.text()
         throw new Error(`Failed to get user: ${userResponse.status} ${errorText}`)
     }
+}
+
+export const getCoderWorkspaceStatus = async (workspaceId: string): Promise<CoderWorkspaceEvent> => {
+    const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
+    const coderToken = await getConfigValue('CODER_TOKEN')
+
+    const response = await fetch(`${coderApiEndpoint}/api/v2/workspaces/${workspaceId}`, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json',
+            'Coder-Session-Token': coderToken,
+        },
+    })
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to get workspace status: ${response.status} ${errorText}`)
+    }
+
+    return await response.json()
 }
 
 const getCoderWorkspace = async (studyId: string) => {
@@ -204,6 +249,7 @@ export const createUserAndWorkspace = async (studyId: string) => {
         )
     }
 }
+
 const getCoderOrganization = async () => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')

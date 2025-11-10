@@ -1,10 +1,13 @@
 'use client'
 
 import { isActionError } from '@/lib/errors'
-import { createUserAndWorkspaceAction } from '@/server/actions/coder.actions'
+import { createUserAndWorkspaceAction, getWorkspaceStatusAction } from '@/server/actions/coder.actions'
 import { Button, Group } from '@mantine/core'
 import { useMutation } from '@/common'
-import { useEffect, useRef, useState } from 'react'
+// eslint-disable-next-line no-restricted-imports
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { CoderWorkspaceEvent } from '@/server/coder'
 
 interface OpenWorkspaceButtonProps {
     studyId: string
@@ -17,11 +20,36 @@ const openWorkspaceInNewTab = (url: string) => {
     windowRef?.focus()
 }
 
+export function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
+    const resources = event.latest_build?.resources
+    if (!resources || resources.length === 0) return false
+
+    for (const resource of resources) {
+        for (const agent of resource.agents ?? []) {
+            const lifecycle = (agent.lifecycle_state ?? '').toLowerCase()
+            const status = (agent.status ?? '').toLowerCase()
+
+            // Consider agent ready if lifecycle is 'ready' or status is 'ready'/'connected'
+            const agentReady = lifecycle === 'ready' || status === 'ready' || status === 'connected'
+
+            // Require a healthy code-server app on the same agent
+            const codeServerHealthy = (agent.apps ?? []).some(
+                (app) => app.slug === 'code-server' && (app.health ?? '').toLowerCase() === 'healthy',
+            )
+
+            if (agentReady && codeServerHealthy) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
 export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
-    const eventSourceRef = useRef<EventSource | null>(null)
 
     const mutation = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
@@ -47,34 +75,29 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
         onError: () => setLoading(false),
     })
 
-    // 🔄 SSE listener if workspace isn't ready yet
-    useEffect(() => {
-        if (!workspaceId) return
+    // Start polling only when we have a workspaceId
+    const { data: status, isFetching: isPolling } = useQuery({
+        queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
+        enabled: !!workspaceId,
+        queryFn: async () => {
+            // Important: pass the workspaceId you saved from the mutation
+            return await getWorkspaceStatusAction({
+                studyId,
+                workspaceId: workspaceId as string,
+            })
+        },
+        // Poll while a workspace exists AND it's not ready yet.
+        // Returning false stops polling automatically when ready.
+        refetchInterval: (query) => {
+            if (!workspaceId) return false
+            const current = query.state.data
+            console.log(current)
+            return current && isWorkspaceReady(current) ? false : 2000
+        },
+    })
 
-        const es = new EventSource(`/api/workspace-status/${workspaceId}`)
-        eventSourceRef.current = es
-
-        // TODO We don't really need status... but maybe?
-        // es.addEventListener('status', (e) => {
-        //     const data = JSON.parse((e as MessageEvent).data)
-        // })
-
-        es.addEventListener('ready', (e) => {
-            const data = JSON.parse((e as MessageEvent).data)
-            setWorkspaceUrl(data.url)
-            openWorkspaceInNewTab(data.url)
-            setLoading(false)
-            es.close()
-        })
-
-        es.addEventListener('error', () => {
-            console.error('SSE error')
-            setLoading(false)
-            es.close()
-        })
-
-        return () => es.close()
-    }, [workspaceId])
+    console.log('status', status)
+    console.log('isPolling', isPolling)
 
     return (
         <Group>
