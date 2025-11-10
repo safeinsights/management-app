@@ -15,7 +15,7 @@ import { JobResults } from '@/components/job-results'
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId } = await props.params
+    const { studyId, orgSlug } = await props.params
 
     const study = await getStudyAction({ studyId })
 
@@ -29,8 +29,8 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
-                    studyId: study.id,
-                    orgSlug: study.orgSlug,
+                    studyId,
+                    orgSlug,
                     current: 'Study Details',
                 }}
             />
