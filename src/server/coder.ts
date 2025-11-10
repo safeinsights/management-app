@@ -226,7 +226,6 @@ const getCoderWorkspace = async (studyId: string) => {
         return workspaceData
     } else {
         // If workspace doesn't exist, create it
-        return // If workspace doesn't exist, create it
         return await createCoderWorkspace(studyId)
     }
 }
