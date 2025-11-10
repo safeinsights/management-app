@@ -5,13 +5,14 @@ import { LatestJobForStudy } from '@/server/db/queries'
 import { Group, Stack, Text } from '@mantine/core'
 import { FC } from 'react'
 import { ResubmitButton } from '@/components/study/resubmit-button'
-import { DownloadButton } from '@/components/study/download-button'
 
 interface ErroredProps {
     isApproved: boolean
     isRejected: boolean
     jobId: string
     statusChanges: StatusChange[]
+    studyId: string
+    orgSlug: string
 }
 
 export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
@@ -19,7 +20,14 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
 
     if (isErrored) {
         return (
-            <Errored isApproved={isApproved} isRejected={isRejected} jobId={job.id} statusChanges={job.statusChanges} />
+            <Errored
+                isApproved={isApproved}
+                isRejected={isRejected}
+                jobId={job.id}
+                statusChanges={job.statusChanges}
+                studyId={job.studyId}
+                orgSlug={orgSlug}
+            />
         )
     }
 
@@ -32,7 +40,6 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
                         you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.
                     </Text>
                     <Group>
-                        <DownloadButton studyId={job.studyId} jobId={job.id} />
                         <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                     </Group>
                 </Stack>
@@ -44,8 +51,8 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
             return (
                 <Stack>
                     <Text>
-                        This study&apos;s code has not been approved by the data organization. Consider re-submitting an
-                        updated study code.
+                        This study code has not been approved by the data organization. Consider resubmitting an updated
+                        study code.
                     </Text>
                     <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
                 </Stack>
@@ -65,10 +72,15 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
         }
     }
 
-    return <Text>Study results will become available once the data organization reviews and approves them.</Text>
+    return <Text>Study results will become available once the data organization reviews and approvals them.</Text>
 }
 
-const Errored: FC<ErroredProps> = ({ jobId, statusChanges }) => {
+const Errored: FC<ErroredProps & { studyId: string; orgSlug: string }> = ({
+    jobId,
+    statusChanges,
+    studyId,
+    orgSlug,
+}) => {
     let message: string | null = null
     const isCodeRejected = statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
     const isFilesRejected = statusChanges.some((sc) => sc.status === 'FILES-REJECTED')
@@ -95,6 +107,7 @@ const Errored: FC<ErroredProps> = ({ jobId, statusChanges }) => {
                 </Text>
                 <CopyingInput value={jobId} tooltipLabel="Copy" />
             </Group>
+            {isCodeRejected && <ResubmitButton studyId={studyId} orgSlug={orgSlug} />}
         </Stack>
     )
 }
