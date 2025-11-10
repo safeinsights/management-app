@@ -15,7 +15,7 @@ import { JobResultsStatusMessage } from './job-results-status-message'
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId } = await props.params
+    const { studyId, orgSlug } = await props.params
 
     // getStudyAction will check permissions
     const study = await getStudyAction({ studyId })
@@ -30,7 +30,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             <ResearcherBreadcrumbs
                 crumbs={{
                     studyId,
-                    orgSlug: study.orgSlug,
+                    orgSlug,
                     current: 'Study Details',
                 }}
             />
