@@ -1,10 +1,9 @@
 'use client'
 
-import { isActionError } from '@/lib/errors'
-import { createUserAndWorkspaceAction } from '@/server/actions/coder.actions'
+import { useMutation, useQuery } from '@/common'
+import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
 import { Button, Group } from '@mantine/core'
-import { useMutation } from '@/common'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
     studyId: string
@@ -19,9 +18,7 @@ const openWorkspaceInNewTab = (url: string) => {
 
 export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
-    const [workspaceUrl, setWorkspaceUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
-    const eventSourceRef = useRef<EventSource | null>(null)
 
     const mutation = useMutation({
         mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
@@ -29,52 +26,32 @@ export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonPro
             setLoading(true)
         },
         onSuccess: (data) => {
-            if (isActionError(data) || !data.success) {
-                console.error('Workspace creation failed:', data)
-                setLoading(false)
-                return
-            }
-
-            if (workspaceUrl) {
-                setLoading(false)
-                return openWorkspaceInNewTab(workspaceUrl)
-            }
-
             const { id } = data.workspace
-
-            setWorkspaceId(id) // triggers SSE subscription
+            setWorkspaceId(id)
         },
         onError: () => setLoading(false),
     })
 
-    // 🔄 SSE listener if workspace isn't ready yet
-    useEffect(() => {
-        if (!workspaceId) return
-
-        const es = new EventSource(`/api/workspace-status/${workspaceId}`)
-        eventSourceRef.current = es
-
-        // TODO We don't really need status... but maybe?
-        // es.addEventListener('status', (e) => {
-        //     const data = JSON.parse((e as MessageEvent).data)
-        // })
-
-        es.addEventListener('ready', (e) => {
-            const data = JSON.parse((e as MessageEvent).data)
-            setWorkspaceUrl(data.url)
-            openWorkspaceInNewTab(data.url)
-            setLoading(false)
-            es.close()
-        })
-
-        es.addEventListener('error', () => {
-            console.error('SSE error')
-            setLoading(false)
-            es.close()
-        })
-
-        return () => es.close()
-    }, [workspaceId])
+    const { data: _status } = useQuery({
+        queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
+        enabled: !!workspaceId,
+        queryFn: async () => {
+            return await getWorkspaceUrlAction({
+                studyId,
+                workspaceId: workspaceId as string,
+            })
+        },
+        refetchInterval: (query) => {
+            if (!workspaceId) return false
+            const url = query.state.data
+            if (url) {
+                setLoading(false)
+                openWorkspaceInNewTab(url)
+                return false
+            }
+            return 5000
+        },
+    })
 
     return (
         <Group>

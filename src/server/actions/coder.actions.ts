@@ -1,8 +1,8 @@
 'use server'
 
-import { createUserAndWorkspace } from '../coder'
+import { getInfoForStudyId } from '@/server/db/queries'
+import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
 import { Action, z } from './action'
-import { getOrgIdFromSlug } from '@/server/db/queries'
 
 export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', {})
     .params(
@@ -11,10 +11,26 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
             studyId: z.string().nonempty(),
         }),
     )
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'Study')
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
         return await createUserAndWorkspace(studyId)
+    })
+
+export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
+    .params(
+        z.object({
+            studyId: z.string().nonempty(),
+            workspaceId: z.string(),
+        }),
+    )
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'Study')
+    .requireAbilityTo('load', 'IDE')
+    .handler(async ({ params: { studyId, workspaceId }, session }) => {
+        if (!session) throw new Error('Unauthorized')
+        if (!workspaceId) return
+        return await getCoderWorkspaceUrl(studyId, workspaceId)
     })

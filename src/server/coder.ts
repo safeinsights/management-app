@@ -19,13 +19,41 @@ export type CoderBaseEntity = {
     name: string
 }
 
+export interface CoderWorkspaceEvent {
+    latest_build?: {
+        resources?: CoderResource[]
+        workspace_owner_name?: string
+        workspace_name?: string
+    }
+    url?: string
+    message?: string
+}
+
+export interface CoderResource {
+    agents?: CoderAgent[]
+}
+
+export interface CoderAgent {
+    lifecycle_state?: string // e.g. "ready", "starting"
+    status?: string // e.g. "connected"
+    apps?: CoderApp[]
+}
+
+export interface CoderApp {
+    slug: string // "code-server"
+    health?: string // "healthy" | "unhealthy"
+}
+
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
     // Extract the part before @ in email
     const emailUsername = email.split('@')[0] || ''
 
+    // Handle special case: remove everything after '+' in email (like john.doe+test@domain.com -> john.doe)
+    const usernamePart = emailUsername.split('+')[0]
+
     // Remove all non-alphanumeric characters and convert to lowercase
-    let username = emailUsername.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
+    let username = usernamePart.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
 
     // If username is empty or too short, use userId
     if (username.length === 0) {
@@ -40,9 +68,10 @@ export function generateUsername(email: string, userId: string) {
     return username
 }
 
-export const generateWorkspaceUrl = async (username: string, studyId: string) => {
+export const generateWorkspaceUrl = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const workspaceName = uuidToStr(studyId, CODER_WORKSPACE_NAME_LIMIT)
+    const username = await getUsername(studyId)
     return `${coderApiEndpoint}${coderWorkspacePath(username, workspaceName)}`
 }
 
@@ -109,6 +138,55 @@ export const getCoderUser = async (studyId: string) => {
     }
 }
 
+export const getCoderWorkspaceUrl = async (studyId: string, workspaceId: string): Promise<string | null> => {
+    const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
+    const coderToken = await getConfigValue('CODER_TOKEN')
+
+    const response = await fetch(`${coderApiEndpoint}/api/v2/workspaces/${workspaceId}`, {
+        method: 'GET',
+        headers: {
+            Accept: 'application/json',
+            'Coder-Session-Token': coderToken,
+        },
+    })
+
+    if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to get workspace status: ${response.status} ${errorText}`)
+    }
+    if (isWorkspaceReady(await response.json())) {
+        return await generateWorkspaceUrl(studyId)
+    }
+    return null
+}
+
+export function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
+    if (!event) return false
+    const resources = event.latest_build?.resources
+    if (!resources || resources.length === 0) return false
+
+    for (const resource of resources) {
+        for (const agent of resource.agents ?? []) {
+            const lifecycle = (agent.lifecycle_state ?? '').toLowerCase()
+            const status = (agent.status ?? '').toLowerCase()
+
+            // Consider agent ready if lifecycle is 'ready' or status is 'ready'/'connected'
+            const agentReady = lifecycle === 'ready' || status === 'ready' || status === 'connected'
+
+            // Require a healthy code-server app on the same agent
+            const codeServerHealthy = (agent.apps ?? []).some(
+                (app) => app.slug === 'code-server' && (app.health ?? '').toLowerCase() === 'healthy',
+            )
+
+            if (agentReady && codeServerHealthy) {
+                return true
+            }
+        }
+    }
+
+    return false
+}
+
 const getCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
@@ -126,7 +204,8 @@ const getCoderWorkspace = async (studyId: string) => {
     )
     if (workspaceStatusResponse.ok) {
         const workspaceData = await workspaceStatusResponse.json()
-        if (workspaceData.latest_build.status === 'stopped') {
+        // Check if workspace exists and is stopped
+        if (workspaceData.latest_build && workspaceData.latest_build.status === 'stopped') {
             console.warn(`Workspace was stopped`)
             // Start the workspace
             const buildResponse = await fetch(`${coderApiEndpoint}${coderWorkspaceBuildPath(workspaceData.id)}`, {
@@ -146,11 +225,12 @@ const getCoderWorkspace = async (studyId: string) => {
         }
         return workspaceData
     } else {
-        await createCoderWorkspace(studyId)
+        // If workspace doesn't exist, create it
+        return await createCoderWorkspace(studyId)
     }
 }
 
-const createCoderWorkspace = async (studyId: string) => {
+export const createCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const username = await getUsername(studyId)
@@ -204,7 +284,7 @@ export const createUserAndWorkspace = async (studyId: string) => {
         )
     }
 }
-const getCoderOrganization = async () => {
+export const getCoderOrganization = async () => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const organizationResponse = await fetch(`${coderApiEndpoint}${coderOrgsPath()}`, {
@@ -217,11 +297,48 @@ const getCoderOrganization = async () => {
     if (!organizationResponse.ok) {
         throw new Error('Failed to fetch organization data from Coder API')
     }
-    const organizations = await organizationResponse.json()
-    return organizations.filter((org: CoderBaseEntity) => org.name === 'coder')?.[0].id
+    const responseJson = await organizationResponse.json()
+
+    // Try to get organizations array - most common cases
+    let organizations = responseJson
+
+    // If it's an object with a data property (common API pattern)
+    if (typeof responseJson === 'object' && responseJson !== null && 'data' in responseJson) {
+        organizations = responseJson.data
+    }
+    // If it's an object with organizations property
+    else if (typeof responseJson === 'object' && responseJson !== null && 'organizations' in responseJson) {
+        organizations = responseJson.organizations
+    }
+
+    // Ensure we have an array
+    if (!Array.isArray(organizations)) {
+        // If it's still not an array, try to extract first array value from object
+        if (typeof responseJson === 'object' && responseJson !== null) {
+            const arrayValues = Object.values(responseJson).filter(Array.isArray)
+            if (arrayValues.length > 0) {
+                organizations = arrayValues[0]
+            } else {
+                // Last resort: convert to array if it's a single object
+                if (typeof responseJson === 'object' && responseJson !== null) {
+                    organizations = [responseJson]
+                } else {
+                    throw new Error('Failed to extract organizations array from response')
+                }
+            }
+        } else {
+            throw new Error('Failed to extract organizations array from response')
+        }
+    }
+
+    const foundOrg = organizations.find((org: CoderBaseEntity) => org.name === 'coder')
+    if (!foundOrg) {
+        throw new Error('Coder organization not found')
+    }
+    return foundOrg.id
 }
 
-const getCoderTemplateId = async () => {
+export const getCoderTemplateId = async () => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const coderTemplate = await getConfigValue('CODER_TEMPLATE')
@@ -235,6 +352,12 @@ const getCoderTemplateId = async () => {
     if (!templatesResponse.ok) {
         throw new Error('Failed to fetch templates data from Coder API')
     }
-    const templates = await templatesResponse.json()
-    return templates.filter((template: CoderBaseEntity) => template.name === coderTemplate)?.[0].id
+    const responseJson = await templatesResponse.json()
+    // Handle different response structures - sometimes it's an object with data field, sometimes direct array
+    const templates = Array.isArray(responseJson) ? responseJson : responseJson.data || responseJson
+    const foundTemplate = templates.find((template: CoderBaseEntity) => template.name === coderTemplate)
+    if (!foundTemplate) {
+        throw new Error(`Template with name '${coderTemplate}' not found`)
+    }
+    return foundTemplate.id
 }
