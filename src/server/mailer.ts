@@ -20,7 +20,10 @@ export const sendStudyProposalEmails = async (studyId: string) => {
 
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
+    if (!study.reviewerEmail) throw new Error(`no reviewer is set for studyId: ${studyId}`)
+
     await deliver({
+        to: study.reviewerEmail,
         bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
