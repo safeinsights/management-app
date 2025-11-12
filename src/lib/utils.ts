@@ -1,5 +1,6 @@
 import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
 import * as Sentry from '@sentry/nextjs'
+import { createHash } from 'crypto'
 import { UserSession } from './types'
 
 export type TimeOpts =
@@ -60,7 +61,18 @@ export function actionResult<T>(result: ActionResponse<T>): T {
     return result
 }
 
-export function uuidToStr(uuid: string, length?: number) {
-    const result = uuid.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
+export function uuidToStr(uuid: string, hash: boolean, length?: number) {
+    if (!uuid) return ''
+    let result = uuid.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
+    if (hash) result = md5Hash(result)
     return length ? result.substring(0, length) : result
+}
+
+/**
+ * Generate an MD5 hash for a given string
+ * @param input - The string to hash
+ * @returns The MD5 hash as a hexadecimal string
+ */
+export function md5Hash(input: string): string {
+    return createHash('md5').update(input).digest('hex')
 }

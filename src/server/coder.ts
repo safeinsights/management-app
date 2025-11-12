@@ -8,7 +8,7 @@ import {
     coderWorkspaceDataPath,
     coderWorkspacePath,
 } from '@/lib/paths'
-import { uuidToStr } from '@/lib/utils'
+import { md5Hash, uuidToStr } from '@/lib/utils'
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser } from './db/queries'
 
@@ -46,31 +46,18 @@ export interface CoderApp {
 
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
-    // Extract the part before @ in email
-    const emailUsername = email.split('@')[0] || ''
-
-    // Handle special case: remove everything after '+' in email (like john.doe+test@domain.com -> john.doe)
-    const usernamePart = emailUsername.split('+')[0]
-
-    // Remove all non-alphanumeric characters and convert to lowercase
-    let username = usernamePart.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
-
-    // If username is empty or too short, use userId
-    if (username.length === 0) {
-        username = userId.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
-    }
-
+    if (!email || !userId) return ''
+    let username = md5Hash(`${email}${userId}`)
     // Truncate to less than 32 characters
     if (username.length >= 32) {
         username = username.substring(0, 31)
     }
-
     return username
 }
 
 export const generateWorkspaceUrl = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
-    const workspaceName = uuidToStr(studyId, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
     const username = await getUsername(studyId)
     return `${coderApiEndpoint}${coderWorkspacePath(username, workspaceName)}`
 }
@@ -191,7 +178,7 @@ const getCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const username = await getUsername(studyId)
-    const workspaceName = uuidToStr(studyId, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
     const workspaceStatusResponse = await fetch(
         `${coderApiEndpoint}${coderWorkspaceDataPath(username, workspaceName)}`,
         {
@@ -234,7 +221,7 @@ export const createCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const username = await getUsername(studyId)
-    const workspaceName = uuidToStr(studyId, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
     // Prepare workspace data
     const data = {
         name: workspaceName,
