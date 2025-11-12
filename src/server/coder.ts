@@ -46,7 +46,7 @@ export interface CoderApp {
 
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
-    if (!email || !userId) return ''
+    if (!email && !userId) return ''
     let username = shaHash(`${email}${userId}`)
     // Truncate to less than 32 characters
     if (username.length >= 32) {

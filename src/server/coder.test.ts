@@ -31,28 +31,28 @@ describe('generateUsername', () => {
         const email = 'john.doe@example.com'
         const userId = 'user123'
         const username = generateUsername(email, userId)
-        expect(username).toBe('johndoe')
+        expect(username).toBe('27ce45642e584a38c0ca41855edcdc6')
     })
 
     it('should handle email without @ symbol', () => {
         const email = 'john.doe'
         const userId = 'user123'
         const username = generateUsername(email, userId)
-        expect(username).toBe('johndoe')
+        expect(username).toBe('37abc1f5455c322b913defd3ed56daf')
     })
 
     it('should handle email with special characters', () => {
         const email = 'john.doe+test@domain.com'
         const userId = 'user123'
         const username = generateUsername(email, userId)
-        expect(username).toBe('johndoe')
+        expect(username).toBe('570494453cfceb2d5fc9601dc8d527d')
     })
 
     it('should use userId when email is empty', () => {
         const email = ''
         const userId = 'user123'
         const username = generateUsername(email, userId)
-        expect(username).toBe('user123')
+        expect(username).toBe('e606e38b0d8c19b24cf0ee380818316')
     })
 
     it('should truncate username to 31 characters', () => {
@@ -99,7 +99,7 @@ describe('getCoderUser', () => {
 
         const result = await getCoderUser('study123')
         expect(result).toEqual(mockUserResponse)
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users/john', {
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users/11bb52890e173f1a3d41c823dde7bf5', {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
@@ -123,20 +123,20 @@ describe('getCoderUser', () => {
             })
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue(mockUserResponse),
+                json: vi.fn().mockResolvedValue([
+                    { id: 'org', name: 'coder' },
+                ]),
             })
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue([
-                    { id: 'org1', name: 'other-org' },
-                    { id: 'org2', name: 'coder' },
-                ]),
+                json: vi.fn().mockResolvedValue(mockUserResponse),
             })
 
         // Mock all the config values needed
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for user creation)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for organization fetch)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)        
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
@@ -154,15 +154,15 @@ describe('getCoderUser', () => {
             headers: {
                 'Content-Type': 'application/json',
                 Accept: 'application/json',
-                'Coder-Session-Token': 'https://api.coder.com',
+                'Coder-Session-Token': 'token',
             },
             body: JSON.stringify({
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: 'John Doe',
-                username: 'johndoe',
+                username: '11bb52890e173f1a3d41c823dde7bf5',
                 user_status: 'active',
-                organization_ids: ['org2'],
+                organization_ids: ['org'],
             }),
         })
     })
