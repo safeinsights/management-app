@@ -64,15 +64,10 @@ export function actionResult<T>(result: ActionResponse<T>): T {
 export function uuidToStr(uuid: string, hash: boolean, length?: number) {
     if (!uuid) return ''
     let result = uuid.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
-    if (hash) result = md5Hash(result)
+    if (hash) result = shaHash(result)
     return length ? result.substring(0, length) : result
 }
 
-/**
- * Generate an MD5 hash for a given string
- * @param input - The string to hash
- * @returns The MD5 hash as a hexadecimal string
- */
-export function md5Hash(input: string): string {
-    return createHash('md5').update(input).digest('hex')
+export function shaHash(input: string): string {
+    return createHash('sha256').update(input).digest('hex')
 }

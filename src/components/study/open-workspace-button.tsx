@@ -7,7 +7,6 @@ import { useState } from 'react'
 
 interface OpenWorkspaceButtonProps {
     studyId: string
-    orgSlug: string
 }
 
 const openWorkspaceInNewTab = (url: string) => {
@@ -16,12 +15,12 @@ const openWorkspaceInNewTab = (url: string) => {
     windowRef?.focus()
 }
 
-export const OpenWorkspaceButton = ({ studyId, orgSlug }: OpenWorkspaceButtonProps) => {
+export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
 
     const mutation = useMutation({
-        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId, orgSlug }),
+        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
         onMutate: () => {
             setLoading(true)
         },

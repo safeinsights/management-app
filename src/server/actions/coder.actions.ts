@@ -7,7 +7,6 @@ import { Action, z } from './action'
 export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', {})
     .params(
         z.object({
-            orgSlug: z.string(),
             studyId: z.string().nonempty(),
         }),
     )

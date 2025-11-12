@@ -57,7 +57,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         </Title>
                         <Group>
                             <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
-                            <OpenWorkspaceButton studyId={study.id} orgSlug={study.orgSlug} />
+                            <OpenWorkspaceButton studyId={study.id} />
                         </Group>
                     </Group>
                     <Divider c="dimmed" />

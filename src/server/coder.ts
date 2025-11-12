@@ -8,7 +8,7 @@ import {
     coderWorkspaceDataPath,
     coderWorkspacePath,
 } from '@/lib/paths'
-import { md5Hash, uuidToStr } from '@/lib/utils'
+import { shaHash, uuidToStr } from '@/lib/utils'
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser } from './db/queries'
 
@@ -47,7 +47,7 @@ export interface CoderApp {
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
     if (!email || !userId) return ''
-    let username = md5Hash(`${email}${userId}`)
+    let username = shaHash(`${email}${userId}`)
     // Truncate to less than 32 characters
     if (username.length >= 32) {
         username = username.substring(0, 31)
