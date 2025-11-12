@@ -123,9 +123,7 @@ describe('getCoderUser', () => {
             })
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue([
-                    { id: 'org', name: 'coder' },
-                ]),
+                json: vi.fn().mockResolvedValue([{ id: 'org', name: 'coder' }]),
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -136,7 +134,7 @@ describe('getCoderUser', () => {
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
         getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for organization fetch)
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)        
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',

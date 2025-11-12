@@ -1,6 +1,5 @@
 import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
 import * as Sentry from '@sentry/nextjs'
-import { createHash } from 'crypto'
 import { UserSession } from './types'
 
 export type TimeOpts =
@@ -59,15 +58,4 @@ export function actionResult<T>(result: ActionResponse<T>): T {
         throw new Error(errorToString(result))
     }
     return result
-}
-
-export function uuidToStr(uuid: string, hash: boolean, length?: number) {
-    if (!uuid) return ''
-    let result = uuid.replaceAll(/[^a-z0-9]/gi, '').toLowerCase()
-    if (hash) result = shaHash(result)
-    return length ? result.substring(0, length) : result
-}
-
-export function shaHash(input: string): string {
-    return createHash('sha256').update(input).digest('hex')
 }

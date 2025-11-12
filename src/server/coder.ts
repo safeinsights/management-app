@@ -8,9 +8,9 @@ import {
     coderWorkspaceDataPath,
     coderWorkspacePath,
 } from '@/lib/paths'
-import { shaHash, uuidToStr } from '@/lib/utils'
+import { createHash } from 'crypto'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser } from './db/queries'
+import { getStudyAndOrgDisplayInfo } from './db/queries'
 
 const CODER_WORKSPACE_NAME_LIMIT = 10
 
@@ -46,7 +46,6 @@ export interface CoderApp {
 
 // Private helper method to generate username from email and userId
 export function generateUsername(email: string, userId: string) {
-    if (!email && !userId) return ''
     let username = shaHash(`${email}${userId}`)
     // Truncate to less than 32 characters
     if (username.length >= 32) {
@@ -57,7 +56,7 @@ export function generateUsername(email: string, userId: string) {
 
 export const generateWorkspaceUrl = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
-    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = generateWorkspaceName(studyId)
     const username = await getUsername(studyId)
     return `${coderApiEndpoint}${coderWorkspacePath(username, workspaceName)}`
 }
@@ -65,18 +64,28 @@ export const generateWorkspaceUrl = async (studyId: string) => {
 const getUsername = async (studyId: string) => {
     const info = await getStudyAndOrgDisplayInfo(studyId)
     if (!info.researcherEmail || !info.researcherId) throw new Error('Error retrieving researcher info!')
-    return generateUsername(info.researcherEmail, info.researcherId)
+    const username = generateUsername(info.researcherEmail, info.researcherId)
+    console.log('USERNAME::::::', username)
+    return username
 }
 
-const createCoderUser = async () => {
+const createCoderUser = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
 
-    const user = await siUser()
-    const email = user.primaryEmailAddress?.emailAddress
+    const info = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!email) throw new Error('User does not have an email address!')
-    const username = generateUsername(email, user.id)
+    if (!info.researcherEmail || !info.researcherId) throw new Error('Error retrieving researcher info!')
+    const username = await getUsername(studyId)
+    const body = {
+        email: info.researcherEmail,
+        login_type: 'oidc',
+        name: info.researcherFullName,
+        username: username,
+        user_status: 'active',
+        organization_ids: [await getCoderOrganization()],
+    }
+    console.log('BODY::::::', body)
     const createUserResponse = await fetch(`${coderApiEndpoint}${coderUsersPath()}`, {
         method: 'POST',
         headers: {
@@ -84,14 +93,7 @@ const createCoderUser = async () => {
             Accept: 'application/json',
             'Coder-Session-Token': coderToken,
         },
-        body: JSON.stringify({
-            email: email,
-            login_type: 'oidc',
-            name: user.fullName,
-            username: username,
-            user_status: 'active',
-            organization_ids: [await getCoderOrganization()],
-        }),
+        body: JSON.stringify(body),
     })
     if (!createUserResponse.ok) {
         const errorText = await createUserResponse.text()
@@ -117,7 +119,7 @@ export const getCoderUser = async (studyId: string) => {
         // User exists, get the user data
         return await userResponse.json()
     } else if (userResponse.status === 400) {
-        return await createCoderUser()
+        return await createCoderUser(studyId)
     } else {
         // Some other error occurred
         const errorText = await userResponse.text()
@@ -178,7 +180,7 @@ const getCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const username = await getUsername(studyId)
-    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = generateWorkspaceName(studyId)
     const workspaceStatusResponse = await fetch(
         `${coderApiEndpoint}${coderWorkspaceDataPath(username, workspaceName)}`,
         {
@@ -221,7 +223,7 @@ export const createCoderWorkspace = async (studyId: string) => {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const coderToken = await getConfigValue('CODER_TOKEN')
     const username = await getUsername(studyId)
-    const workspaceName = uuidToStr(studyId, true, CODER_WORKSPACE_NAME_LIMIT)
+    const workspaceName = generateWorkspaceName(studyId)
     // Prepare workspace data
     const data = {
         name: workspaceName,
@@ -347,4 +349,14 @@ export const getCoderTemplateId = async () => {
         throw new Error(`Template with name '${coderTemplate}' not found`)
     }
     return foundTemplate.id
+}
+
+export function shaHash(input: string): string {
+    return createHash('sha256').update(input).digest('hex')
+}
+
+export function generateWorkspaceName(studyId: string) {
+    if (!studyId) return ''
+    const result = shaHash(studyId.replaceAll(/[^a-z0-9]/gi, '').toLowerCase())
+    return result.substring(0, CODER_WORKSPACE_NAME_LIMIT)
 }
