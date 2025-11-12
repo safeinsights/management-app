@@ -2,7 +2,7 @@
 
 import { CopyingInput } from '@/components/copying-input'
 import { JobResults } from '@/components/job-results'
-import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { useJobStatus } from '@/hooks/use-job-results-status'
 import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -53,7 +53,11 @@ export const StudyResults: FC<{
 }
 
 export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const { isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
+    const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
+
+    if (isApproved) {
+        return <Text>The results and logs have been approved and shared with theresearcher.</Text>
+    }
 
     if (isErrored) {
         return (
