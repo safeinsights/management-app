@@ -63,30 +63,39 @@ function initializeSentry() {
 
 // Wait for window.SENTRY_DSN to be set by the layout script
 if (typeof window !== 'undefined') {
-    // Clear any existing polling interval
-    if (pollingInterval) {
-        clearInterval(pollingInterval)
-        pollingInterval = null
-    }
+    const existingClient = Sentry.getClient()
+    if (existingClient) {
+        isInitialized = true
+        console.warn('[Sentry Client] Already initialized, skipping')
+    } else if (!isInitialized) {
+        // Clear any existing polling interval
+        if (pollingInterval) {
+            clearInterval(pollingInterval)
+            pollingInterval = null
+        }
 
-    if (window.SENTRY_DSN) {
-        // Already available, initialize immediately
-        initializeSentry()
-    } else if (!isInitialized && !Sentry.getClient()) {
-        // Wait for the script to set it (with a timeout)
-        let attempts = 0
-        const maxAttempts = 30 // 3 seconds max wait
-        pollingInterval = setInterval(() => {
-            attempts++
-            if (window.SENTRY_DSN || attempts >= maxAttempts) {
-                clearInterval(pollingInterval!)
-                pollingInterval = null
-                if (attempts >= maxAttempts) {
-                    console.warn('Timeout waiting for SENTRY_DSN, initializing without DSN')
+        if (window.SENTRY_DSN) {
+            // Already available, initialize immediately
+            initializeSentry()
+        } else {
+            // Wait for the script to set it (with a timeout)
+            let attempts = 0
+            const maxAttempts = 50 // 5 seconds max wait
+            pollingInterval = setInterval(() => {
+                attempts++
+                if (window.SENTRY_DSN) {
+                    clearInterval(pollingInterval!)
+                    pollingInterval = null
+                    console.warn('[Sentry Client] SENTRY_DSN found after', attempts * 100, 'ms')
+                    initializeSentry()
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(pollingInterval!)
+                    pollingInterval = null
+                    console.warn('[Sentry Client] Timeout waiting for SENTRY_DSN. Initializing without DSN.')
+                    initializeSentry()
                 }
-                initializeSentry()
-            }
-        }, 100)
+            }, 100)
+        }
     }
 }
 

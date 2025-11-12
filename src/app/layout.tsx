@@ -42,7 +42,10 @@ export default async function RootLayout({
                     strategy="beforeInteractive"
                     dangerouslySetInnerHTML={{
                         __html: `
-                            window.SENTRY_DSN = ${JSON.stringify(sentryDsn)};
+                            (function() {
+                                window.SENTRY_DSN = ${JSON.stringify(sentryDsn)};
+                                console.warn('[Sentry Script] Executed. window.SENTRY_DSN set:', window.SENTRY_DSN ? window.SENTRY_DSN.substring(0, 20) + '...' : 'empty');
+                            })();
                         `,
                     }}
                 />
