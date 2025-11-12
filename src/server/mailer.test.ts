@@ -37,7 +37,7 @@ describe('mailgun email functions', () => {
 
         expect(deliver).toHaveBeenCalledWith(
             expect.objectContaining({
-                to: expect.stringContaining(user1.email || ''),
+                to: expect.stringContaining(user1.email || researcher.email || ''),
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
