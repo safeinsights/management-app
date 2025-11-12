@@ -19,7 +19,7 @@ Sentry.init({
     // Setting this option to true will print useful information to the console while you're setting up Sentry.
     debug: false,
 
-    enabled: process.env.NODE_ENV === 'production',
+    enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
     release: process.env.RELEASE_TAG || 'unknown',
     environment: process.env.ENVIRONMENT_ID || 'development',

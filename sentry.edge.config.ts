@@ -18,5 +18,5 @@ Sentry.init({
     enableLogs: true,
 
     // we don't currently use edge but we might in the future. I'm guessing it suports NODE_ENV though?
-    enabled: process.env.NODE_ENV === 'production',
+    enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 })
