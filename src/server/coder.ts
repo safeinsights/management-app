@@ -65,7 +65,6 @@ const getUsername = async (studyId: string) => {
     const info = await getStudyAndOrgDisplayInfo(studyId)
     if (!info.researcherEmail || !info.researcherId) throw new Error('Error retrieving researcher info!')
     const username = generateUsername(info.researcherEmail, info.researcherId)
-    console.log('USERNAME::::::', username)
     return username
 }
 
@@ -85,7 +84,6 @@ const createCoderUser = async (studyId: string) => {
         user_status: 'active',
         organization_ids: [await getCoderOrganization()],
     }
-    console.log('BODY::::::', body)
     const createUserResponse = await fetch(`${coderApiEndpoint}${coderUsersPath()}`, {
         method: 'POST',
         headers: {
