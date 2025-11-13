@@ -11,6 +11,7 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
+
     const body = schema.parse(await req.json())
 
     const job = await db
@@ -20,15 +21,29 @@ export async function POST(req: Request) {
         .select(['studyJob.id as jobId', 'study.researcherId'])
         .executeTakeFirstOrThrow()
 
-    await db
-        .insertInto('jobStatusChange')
-        .values({
-            userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
-            studyJobId: job.jobId,
-            status: body.status,
-            message: body.message,
-        })
-        .execute()
+    // Idempotency: avoid inserting duplicate consecutive statuses with identical message
+    const last = await db
+        .selectFrom('jobStatusChange')
+        .select(['status', 'message', 'createdAt'])
+        .where('studyJobId', '=', job.jobId)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .executeTakeFirst()
+
+    const incomingMessage = body.message ?? null
+    const lastMessage = (last?.message ?? null) as string | null
+
+    if (!last || last.status !== body.status || lastMessage !== incomingMessage) {
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
+                studyJobId: job.jobId,
+                status: body.status,
+                message: incomingMessage,
+            })
+            .execute()
+    }
 
     return new NextResponse('ok', { status: 200 })
 }

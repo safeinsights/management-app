@@ -201,6 +201,7 @@ export async function triggerBuildImageForJob(
                     value: JSON.stringify({
                         jobId: info.studyJobId,
                         status: 'JOB-ERRORED',
+                        message: 'Containerization process failed',
                     }),
                 },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },

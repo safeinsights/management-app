@@ -1,4 +1,3 @@
-import { type StatusChange } from '@/components/use-job-results-status'
 import { CopyingInput } from '@/components/copying-input'
 import { useJobResultsStatus } from '@/components/use-job-results-status'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -10,7 +9,7 @@ interface ErroredProps {
     isApproved: boolean
     isRejected: boolean
     jobId: string
-    statusChanges: StatusChange[]
+    statusChanges: LatestJobForStudy['statusChanges']
     studyId: string
     orgSlug: string
 }
@@ -82,6 +81,10 @@ const Errored: FC<ErroredProps & { studyId: string; orgSlug: string }> = ({
     orgSlug,
 }) => {
     let message: string | null = null
+    // Find the error message from the JOB-ERRORED status change
+    const errorStatusChange = statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
+    const errorMessage = errorStatusChange?.message
+
     const isCodeRejected = statusChanges.some((sc) => sc.status === 'CODE-REJECTED')
     const isFilesRejected = statusChanges.some((sc) => sc.status === 'FILES-REJECTED')
 
@@ -101,6 +104,16 @@ const Errored: FC<ErroredProps & { studyId: string; orgSlug: string }> = ({
     return (
         <Stack>
             <Text>{message}</Text>
+            {errorMessage && (
+                <Stack gap="xs">
+                    <Text size="sm" fw="bold">
+                        Error Details:
+                    </Text>
+                    <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                        {errorMessage}
+                    </Text>
+                </Stack>
+            )}
             <Group justify="flex-start" align="center">
                 <Text size="xs" fw="bold">
                     Job ID:
