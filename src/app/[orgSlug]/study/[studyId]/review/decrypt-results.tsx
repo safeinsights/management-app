@@ -1,6 +1,6 @@
 import { reportMutationError } from '@/components/errors'
 import { ViewFile } from '@/components/job-results'
-import { useJobResultsStatus } from '@/components/use-job-results-status'
+import { useJobStatus } from '@/hooks/use-job-results-status'
 import { FileType } from '@/database/types'
 import { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
@@ -33,7 +33,7 @@ function approvedTypeForFile(fileType: FileType): FileType {
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     const [decryptedFiles, setDecryptedFiles] = useState<JobFileInfo[]>([])
     const { orgSlug } = useParams<{ orgSlug: string }>()
-    const { isApproved, isComplete, isErrored } = useJobResultsStatus(job.statusChanges)
+    const { isApproved, isComplete, isErrored } = useJobStatus(job.statusChanges)
 
     const form = useForm({
         mode: 'uncontrolled',
