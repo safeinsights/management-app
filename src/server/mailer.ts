@@ -21,6 +21,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
     await deliver({
+        to: study.reviewerEmail ?? emails.join(', '), // work around in case no reviewer is set. mailgun requires a to address
         bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
