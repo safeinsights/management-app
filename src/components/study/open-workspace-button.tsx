@@ -10,9 +10,7 @@ interface OpenWorkspaceButtonProps {
 }
 
 const openWorkspaceInNewTab = (url: string) => {
-    // TODO Determine if we want to reopen existing tab (child) or open new tab every time (_blank)
-    const windowRef = window.open(url, 'child')
-    windowRef?.focus()
+    window.open(url, 'child')
 }
 
 export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
@@ -31,7 +29,7 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
         onError: () => setLoading(false),
     })
 
-    const { data: _status } = useQuery({
+    useQuery({
         queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
         enabled: !!workspaceId,
         queryFn: async () => {
@@ -44,8 +42,8 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
             if (!workspaceId) return false
             const url = query.state.data
             if (url) {
-                setLoading(false)
                 openWorkspaceInNewTab(url)
+                setLoading(false)
                 return false
             }
             return 5000
