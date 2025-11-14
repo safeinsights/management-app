@@ -1,14 +1,14 @@
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
-import React from 'react'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
-import { JobResultsStatusMessage } from './job-results-status-message'
+import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { JobResultsStatusMessage } from '@/app/[orgSlug]/study/[studyId]/view/job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 
@@ -51,7 +51,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                             <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                         )}
                     </Group>
-                    <StudyDetails studyId={studyId} />
+                    <StudyDetails studyId={study.id} />
                 </Stack>
             </Paper>
 
@@ -61,7 +61,10 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        {!isStatusFocused && <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />}
+                        <Group>
+                            {!isStatusFocused && <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />}
+                            <OpenWorkspaceButton studyId={study.id} />
+                        </Group>
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
