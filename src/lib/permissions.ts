@@ -33,7 +33,7 @@ export function defineAbilityFor(session: UserSession) {
     // viewing all studies the user has permission for, the action will filter
     permit('view', 'Studies')
 
-    permit('load', 'IDE')
+    permit('load', 'IDE', { researcherId: session.user.id })
 
     permit('view', 'OrgStudies', { orgType: 'enclave', orgId: { $in: usersReviewerOrgIds } })
     permit('view', 'OrgStudies', { orgType: 'lab', orgId: { $in: usersResearcherOrgIds } })
@@ -63,7 +63,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'Study', { submittedByOrgId: { $in: usersOrgIds } })
     permit('view', 'StudyJob', { submittedByOrgId: { $in: usersOrgIds } })
 
-    // user who belong to any enclave orgs can view/create/update thier keys
+    // user who belongs to any enclave orgs can view/create/update their keys
     if (usersReviewerOrgIds.length) {
         permit('view', 'ReviewerKey')
         permit('update', 'ReviewerKey')
@@ -80,7 +80,7 @@ export function defineAbilityFor(session: UserSession) {
     permit('view', 'User', { orgId: { $in: usersAdminOrgIds } })
     permit('update', 'Org', { orgId: { $in: usersAdminOrgIds } })
 
-    // SI admins can do anythig
+    // SI admins can do anything
     if (isSiAdmin) {
         permit('create', 'Org')
         permit('update', 'User')
