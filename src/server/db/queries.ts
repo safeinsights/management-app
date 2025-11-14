@@ -202,7 +202,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
