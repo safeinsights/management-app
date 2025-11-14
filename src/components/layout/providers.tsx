@@ -1,6 +1,5 @@
 'use client'
 
-import '../../../sentry.client.config' // this is needed to make sure the client side config is loaded
 import { theme } from '@/theme'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
