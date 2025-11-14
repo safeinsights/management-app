@@ -1,29 +1,35 @@
 import { AlertNotFound } from '@/components/errors'
-import { isActionError } from '@/lib/errors'
-import { getStudyAction } from '@/server/actions/study.actions'
-import { latestJobForStudy } from '@/server/db/queries'
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { latestJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
+import { getStudyAction } from '@/server/actions/study.actions'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
 import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { JobResultsStatusMessage } from '@/app/[orgSlug]/study/[studyId]/view/job-results-status-message'
-import { JobResults } from '@/components/job-results'
+import { actionResult } from '@/lib/utils'
+import { extractJobStatus } from '@/hooks/use-job-results-status'
 
 export const dynamic = 'force-dynamic'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
 
-    const study = await getStudyAction({ studyId })
+    // getStudyAction will check permissions
+    const study = actionResult(await getStudyAction({ studyId }))
 
-    if (!study || isActionError(study)) {
+    if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
     const job = await latestJobForStudy(studyId)
+
+    const { isApproved, isErrored, isRejected } = extractJobStatus(job.statusChanges)
+
+    const isStatusFocused = (isApproved && isErrored) || isRejected
+    const opacity = isStatusFocused ? 0.6 : 1
 
     return (
         <Stack p="xl" gap="xl">
@@ -35,13 +41,13 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 }}
             />
             <Title order={1}>Study Details</Title>
-            <Paper bg="white" p="xxl">
+            <Paper bg="white" p="xxl" opacity={opacity}>
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        {!isActionError(study) && (
+                        {!isStatusFocused && (
                             <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                         )}
                     </Group>
@@ -49,14 +55,14 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                 </Stack>
             </Paper>
 
-            <Paper bg="white" p="xxl">
+            <Paper bg="white" p="xxl" opacity={opacity}>
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
                         <Group>
-                            <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />
+                            {!isStatusFocused && <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />}
                             <OpenWorkspaceButton studyId={study.id} />
                         </Group>
                     </Group>
@@ -71,11 +77,10 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        <FileApprovalStatus job={job} orgSlug={study.orgSlug} />
+                        {!isErrored && <FileApprovalStatus job={job} orgSlug={study.orgSlug} />}
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} />
-                    <JobResults job={job} />
+                    <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} files={job.files} />
                 </Stack>
             </Paper>
         </Stack>
