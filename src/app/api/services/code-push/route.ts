@@ -11,7 +11,6 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-
     const body = schema.parse(await req.json())
 
     const job = await db

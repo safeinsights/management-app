@@ -4,148 +4,143 @@ import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
 async function getStatusRows(jobId: string) {
-  return await db
-    .selectFrom('jobStatusChange')
-    .select(['status', 'message', 'createdAt'])
-    .where('studyJobId', '=', jobId)
-    .orderBy('createdAt', 'desc')
-    .execute()
+    return await db
+        .selectFrom('jobStatusChange')
+        .select(['status', 'message', 'createdAt'])
+        .where('studyJobId', '=', jobId)
+        .orderBy('createdAt', 'desc')
+        .execute()
 }
 
-function countMatching(
-  rows: { status: string; message: string | null }[],
-  status: string,
-  message?: string | null,
-) {
-  return rows.filter(
-    (r) => r.status === status && (message === undefined ? true : (r.message ?? null) === message),
-  ).length
+function countMatching(rows: { status: string; message: string | null }[], status: string, message?: string | null) {
+    return rows.filter((r) => r.status === status && (message === undefined ? true : (r.message ?? null) === message))
+        .length
 }
 
 test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', async () => {
-  const { org, user } = await mockSessionWithTestData()
-  const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-  const jobId = jobIds[0]
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
 
-  let rows = await getStatusRows(jobId)
-  const baseline = countMatching(rows, 'JOB-PACKAGING')
+    let rows = await getStatusRows(jobId)
+    const baseline = countMatching(rows, 'JOB-PACKAGING')
 
-  const req1 = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
-  })
-  const resp1 = await apiHandler.POST(req1)
-  expect(resp1.ok).toBe(true)
+    const req1 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
+    })
+    const resp1 = await apiHandler.POST(req1)
+    expect(resp1.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  const afterFirst = countMatching(rows, 'JOB-PACKAGING')
-  expect(afterFirst).toBeGreaterThan(baseline)
+    rows = await getStatusRows(jobId)
+    const afterFirst = countMatching(rows, 'JOB-PACKAGING')
+    expect(afterFirst).toBeGreaterThan(baseline)
 
-  const req2 = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
-  })
-  const resp2 = await apiHandler.POST(req2)
-  expect(resp2.ok).toBe(true)
+    const req2 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
+    })
+    const resp2 = await apiHandler.POST(req2)
+    expect(resp2.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  const afterSecond = countMatching(rows, 'JOB-PACKAGING')
-  expect(afterSecond).toBe(afterFirst)
+    rows = await getStatusRows(jobId)
+    const afterSecond = countMatching(rows, 'JOB-PACKAGING')
+    expect(afterSecond).toBe(afterFirst)
 })
 
 test('code-push persists JOB-READY', async () => {
-  const { org, user } = await mockSessionWithTestData()
-  const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-  const jobId = jobIds[0]
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
 
-  let rows = await getStatusRows(jobId)
-  const baseline = countMatching(rows, 'JOB-READY')
+    let rows = await getStatusRows(jobId)
+    const baseline = countMatching(rows, 'JOB-READY')
 
-  const req = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-READY' }),
-  })
-  const resp = await apiHandler.POST(req)
-  expect(resp.ok).toBe(true)
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-READY' }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  expect(countMatching(rows, 'JOB-READY')).toBeGreaterThan(baseline)
+    rows = await getStatusRows(jobId)
+    expect(countMatching(rows, 'JOB-READY')).toBeGreaterThan(baseline)
 })
 
 test('code-push persists JOB-ERRORED message and inserts on message change only', async () => {
-  const { org, user } = await mockSessionWithTestData()
-  const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-  const jobId = jobIds[0]
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
 
-  let rows = await getStatusRows(jobId)
-  const baseline = countMatching(rows, 'JOB-ERRORED')
+    let rows = await getStatusRows(jobId)
+    const baseline = countMatching(rows, 'JOB-ERRORED')
 
-  // first error
-  const msg1 = 'Containerizer failed during build step'
-  const req1 = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
-  })
-  const resp1 = await apiHandler.POST(req1)
-  expect(resp1.ok).toBe(true)
+    // first error
+    const msg1 = 'Containerizer failed during build step'
+    const req1 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
+    })
+    const resp1 = await apiHandler.POST(req1)
+    expect(resp1.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  const afterFirstErr = countMatching(rows, 'JOB-ERRORED')
-  expect(afterFirstErr).toBeGreaterThan(baseline)
-  expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg1)).toBe(true)
+    rows = await getStatusRows(jobId)
+    const afterFirstErr = countMatching(rows, 'JOB-ERRORED')
+    expect(afterFirstErr).toBeGreaterThan(baseline)
+    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg1)).toBe(true)
 
-  // idempotent repeat with same message
-  const req2 = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
-  })
-  const resp2 = await apiHandler.POST(req2)
-  expect(resp2.ok).toBe(true)
+    // idempotent repeat with same message
+    const req2 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
+    })
+    const resp2 = await apiHandler.POST(req2)
+    expect(resp2.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
-  expect(afterSecondErr).toBe(afterFirstErr)
+    rows = await getStatusRows(jobId)
+    const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
+    expect(afterSecondErr).toBe(afterFirstErr)
 
-  // new message should insert
-  const msg2 = 'Containerizer failed in post_build'
-  const req3 = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg2 }),
-  })
-  const resp3 = await apiHandler.POST(req3)
-  expect(resp3.ok).toBe(true)
+    // new message should insert
+    const msg2 = 'Containerizer failed in post_build'
+    const req3 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg2 }),
+    })
+    const resp3 = await apiHandler.POST(req3)
+    expect(resp3.ok).toBe(true)
 
-  rows = await getStatusRows(jobId)
-  expect(countMatching(rows, 'JOB-ERRORED')).toBe(afterFirstErr + 1)
-  expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg2)).toBe(true)
+    rows = await getStatusRows(jobId)
+    expect(countMatching(rows, 'JOB-ERRORED')).toBe(afterFirstErr + 1)
+    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg2)).toBe(true)
 })
 test('rejects messages longer than 3KB', async () => {
-  const { org, user } = await mockSessionWithTestData()
-  const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-  const jobId = jobIds[0]
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
 
-  const longMsg = 'a'.repeat(3073) // 1 char over
-  const req = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: longMsg }),
-  })
+    const longMsg = 'a'.repeat(3073) // 1 char over
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: longMsg }),
+    })
 
-  await expect(apiHandler.POST(req)).rejects.toThrow(/Too big: expected string to have <=3072 characters/)
+    await expect(apiHandler.POST(req)).rejects.toThrow(/Too big: expected string to have <=3072 characters/)
 })
 
 test('accepts messages up to 3KB', async () => {
-  const { org, user } = await mockSessionWithTestData()
-  const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-  const jobId = jobIds[0]
+    const { org, user } = await mockSessionWithTestData()
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
 
-  const maxMsg = 'a'.repeat(3072)
-  const req = new Request('http://localhost/api/services/code-push', {
-    method: 'POST',
-    body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: maxMsg }),
-  })
-  const resp = await apiHandler.POST(req)
-  expect(resp.ok).toBe(true)
+    const maxMsg = 'a'.repeat(3072)
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: maxMsg }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
 
-  const rows = await getStatusRows(jobId)
-  expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === maxMsg)).toBe(true)
+    const rows = await getStatusRows(jobId)
+    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === maxMsg)).toBe(true)
 })
