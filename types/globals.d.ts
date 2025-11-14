@@ -53,6 +53,5 @@ declare global {
 
     interface Window {
         isReactHydrated: undefined | true
-        SENTRY_DSN?: string
     }
 }

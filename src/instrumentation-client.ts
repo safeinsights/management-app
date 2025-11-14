@@ -5,98 +5,37 @@
 import * as Sentry from '@sentry/nextjs'
 import { captureRouterTransitionStart, replayIntegration } from '@sentry/nextjs'
 
-// Guard to prevent multiple initializations (e.g., during HMR)
-let isInitialized = false
-let pollingInterval: NodeJS.Timeout | null = null
+Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-// window.SENTRY_DSN is set at runtime via a <script> tag in layout.tsx with strategy="beforeInteractive"
-// We need to wait for the script to execute before initializing Sentry
-function initializeSentry() {
-    // Prevent multiple initializations
-    if (isInitialized) {
-        return
-    }
+    // Add optional integrations for additional features
+    integrations: [
+        replayIntegration({
+            maskAllText: false,
+            minReplayDuration: 5000,
+        }),
+    ],
 
-    // Check if Sentry is already initialized by checking for an existing client
-    if (Sentry.getClient()) {
-        isInitialized = true
-        return
-    }
+    // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
+    tracesSampleRate: 1,
+    // Enable logs to be sent to Sentry
+    enableLogs: true,
 
-    const sentryDsn = typeof window !== 'undefined' ? window.SENTRY_DSN : undefined
+    // Define how likely Replay events are sampled.
+    // This sets the sample rate to be 10%. You may want this to be 100% while
+    // in development and sample at a lower rate in production
+    replaysSessionSampleRate: 1.0,
 
-    Sentry.init({
-        dsn: sentryDsn,
+    // Define how likely Replay events are sampled when an error occurs.
+    replaysOnErrorSampleRate: 1.0,
 
-        // Add optional integrations for additional features
-        integrations: [
-            replayIntegration({
-                maskAllText: false,
-                minReplayDuration: 5000,
-            }),
-        ],
+    // Setting this option to true will print useful information to the console while you're setting up Sentry.
+    debug: false,
 
-        // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-        tracesSampleRate: 1,
-        // Enable logs to be sent to Sentry
-        enableLogs: true,
+    enabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
 
-        // Define how likely Replay events are sampled.
-        // This sets the sample rate to be 10%. You may want this to be 100% while
-        // in development and sample at a lower rate in production
-        replaysSessionSampleRate: 1.0,
-
-        // Define how likely Replay events are sampled when an error occurs.
-        replaysOnErrorSampleRate: 1.0,
-
-        // Setting this option to true will print useful information to the console while you're setting up Sentry.
-        debug: false,
-
-        enabled: Boolean(sentryDsn),
-
-        release: process.env.RELEASE_TAG || 'unknown',
-        environment: process.env.ENVIRONMENT_ID || 'development',
-    })
-
-    isInitialized = true
-}
-
-// Wait for window.SENTRY_DSN to be set by the layout script
-if (typeof window !== 'undefined') {
-    const existingClient = Sentry.getClient()
-    if (existingClient) {
-        isInitialized = true
-        console.warn('[Sentry Client] Already initialized, skipping')
-    } else if (!isInitialized) {
-        // Clear any existing polling interval
-        if (pollingInterval) {
-            clearInterval(pollingInterval)
-            pollingInterval = null
-        }
-
-        if (window.SENTRY_DSN) {
-            // Already available, initialize immediately
-            initializeSentry()
-        } else {
-            // Wait for the script to set it (with a timeout)
-            let attempts = 0
-            const maxAttempts = 50 // 5 seconds max wait
-            pollingInterval = setInterval(() => {
-                attempts++
-                if (window.SENTRY_DSN) {
-                    clearInterval(pollingInterval!)
-                    pollingInterval = null
-                    console.warn('[Sentry Client] SENTRY_DSN found after', attempts * 100, 'ms')
-                    initializeSentry()
-                } else if (attempts >= maxAttempts) {
-                    clearInterval(pollingInterval!)
-                    pollingInterval = null
-                    console.warn('[Sentry Client] Timeout waiting for SENTRY_DSN. Initializing without DSN.')
-                    initializeSentry()
-                }
-            }, 100)
-        }
-    }
-}
+    release: process.env.RELEASE_TAG || 'unknown',
+    environment: process.env.ENVIRONMENT_ID || 'development',
+})
 
 export const onRouterTransitionStart = captureRouterTransitionStart
