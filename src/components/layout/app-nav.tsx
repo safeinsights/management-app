@@ -11,12 +11,15 @@ import { NavOrgLinks } from './nav-org-links'
 import { NavOrgsList } from './nav-orgs-list'
 import { NavbarOrgSquares } from './navbar-org-squares'
 import { NavbarProfileMenu } from './navbar-profile-menu'
+import { useUser } from '@clerk/nextjs'
 
 export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop }) => {
     const path = usePathname()
+    const { user } = useUser()
     const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsWithStatsAction(),
-        queryKey: ['orgs-with-stats'],
+        queryKey: ['orgs-with-stats', user?.id],
+        enabled: !!user,
     })
 
     const sortedOrgs = useMemo(() => {
