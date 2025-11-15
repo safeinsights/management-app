@@ -5,6 +5,7 @@ import { reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modal'
 import { Routes } from '@/lib/routes'
+import { actionResult } from '@/lib/utils'
 import { useAuth, useUser } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -43,7 +44,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const emailMismatch = user && org && user.primaryEmailAddress?.emailAddress !== org.email
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
-        mutationFn: () => onJoinTeamAccountAction({ inviteId }),
+        mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),
         onSuccess: async () => {
             setIsDisabled(true) // disable button after successful join
 
@@ -60,8 +61,17 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
             router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
         },
-        onError: () => {
-            reportMutationError('Unable to join team')
+        onError: (error) => {
+            if (error.message.includes('already a member')) {
+                notifications.show({
+                    color: 'blue',
+                    title: 'Already a member',
+                    message: `You're already a member of ${org!.name}.`,
+                })
+                router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
+            } else {
+                reportMutationError('Unable to join team')
+            }
         },
     })
 
