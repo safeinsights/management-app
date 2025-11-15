@@ -29,7 +29,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
         <Stack p="xxl" gap="xxl">
             <PageBreadcrumbs
                 crumbs={[
-                    ['Dashboard', '/dashboard'],
+                    ['My Dashboard', '/dashboard'],
                     [orgInitialsOnly + (isEnclave ? ' Data Organization' : ' Research Lab')],
                 ]}
             />

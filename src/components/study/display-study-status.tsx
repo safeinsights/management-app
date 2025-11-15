@@ -12,7 +12,7 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
     const statusStyle: Record<'Approved' | 'Errored' | 'Rejected' | 'Under Review', { color?: string }> = {
         Approved: { color: 'green.9' },
         Errored: { color: 'red.9' },
-        Rejected: { color: 'red.9' },
+        Rejected: { color: 'charcoal.9' },
         'Under Review': { color: 'grey.6' },
     }
 

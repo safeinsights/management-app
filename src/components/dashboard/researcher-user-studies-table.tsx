@@ -27,6 +27,7 @@ import {
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
+import { InfoTooltip } from '../tooltip'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -41,7 +42,13 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
 
     return (
         <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
-            <TableTd>{study.title}</TableTd>
+            <TableTd>
+                <InfoTooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm">
+                        {study.title}
+                    </Text>
+                </InfoTooltip>
+            </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.orgName}</TableTd>
             <TableTd>{status.stage}</TableTd>

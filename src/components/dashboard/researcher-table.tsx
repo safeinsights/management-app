@@ -29,6 +29,7 @@ import dayjs from 'dayjs'
 import * as React from 'react'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import { Routes, useTypedParams } from '@/lib/routes'
+import { InfoTooltip } from '../tooltip'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
@@ -60,7 +61,13 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
 
     return (
         <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
-            <TableTd>{study.title}</TableTd>
+            <TableTd>
+                <InfoTooltip label={study.title}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm">
+                        {study.title}
+                    </Text>
+                </InfoTooltip>
+            </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.reviewingEnclaveName}</TableTd>
             <TableTd>{status.stage}</TableTd>

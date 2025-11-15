@@ -41,13 +41,13 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
         <TableTr fz={14} key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
                 <InfoTooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm">
                         {study.title}
                     </Text>
                 </InfoTooltip>
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
-            <TableTd>{study.createdBy}</TableTd>
+            <TableTd>{study.submittingLabName}</TableTd>
             <TableTd>{orgSlug}</TableTd>
             <TableTd>{status.stage}</TableTd>
             <TableTd>
