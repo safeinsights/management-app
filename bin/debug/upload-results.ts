@@ -63,7 +63,7 @@ class FileSender extends DebugRequest {
             body: form,
         })
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText} ${await response.text()}`)
         }
         return {}
     }
