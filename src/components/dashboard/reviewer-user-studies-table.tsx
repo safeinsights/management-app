@@ -26,6 +26,7 @@ import {
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '../tooltip'
+import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -37,7 +38,7 @@ export const ReviewerUserStudiesTable = () => {
     const userId = session?.user.id
 
     const {
-        data: studies,
+        data: studies = [],
         refetch,
         isFetching,
     } = useQuery({
@@ -45,7 +46,12 @@ export const ReviewerUserStudiesTable = () => {
         queryFn: () => fetchStudiesForCurrentReviewerAction(),
     })
 
+    if (isFetching && studies?.length === 0) {
+        return <TableSkeleton showActionButton={false} paperWrapper={false} />
+    }
+
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
+
     // Filter studies: reviewer assignment or any status change authored by current user
     const relevantStudies = studies.filter(
         (study) =>

@@ -27,6 +27,7 @@ import {
 import dayjs from 'dayjs'
 import { FC } from 'react'
 import { InfoTooltip } from '../tooltip'
+import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
@@ -69,11 +70,16 @@ export const ReviewerStudiesTable: FC<{ orgSlug: string }> = ({ orgSlug }) => {
         data: studies,
         refetch,
         isRefetching,
+        isFetching,
     } = useQuery({
         placeholderData: [],
         queryKey: ['org-studies', orgSlug],
         queryFn: async () => await fetchStudiesForOrgAction({ orgSlug }),
     })
+
+    if (isFetching && studies?.length === 0) {
+        return <TableSkeleton showActionButton={false} />
+    }
 
     // Handle case where studies might be undefined or an error
     if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>

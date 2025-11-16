@@ -30,6 +30,7 @@ import * as React from 'react'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import { Routes, useTypedParams } from '@/lib/routes'
 import { InfoTooltip } from '../tooltip'
+import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
@@ -90,17 +91,22 @@ export const ResearcherStudiesTable: React.FC = () => {
     const { orgSlug } = useTypedParams(Routes.orgDashboard.schema)
     const {
         data: studies = [],
-        isLoading,
         isError,
+        isFetching,
     } = useQuery({
         queryKey: ['researcher-studies', orgSlug],
         placeholderData: [],
         queryFn: () => fetchStudiesForOrgAction({ orgSlug }),
     })
     const { session } = useSession()
+
+    if (isFetching && studies?.length === 0) {
+        return <TableSkeleton />
+    }
+
     const labOrg = session ? session.orgs[orgSlug] || getLabOrg(session) : null
 
-    if (!session || !labOrg || isLoading) return null
+    if (!session || !labOrg) return null
 
     if (isError) {
         return <ErrorAlert error={`Failed to load studies: ${errorToString(studies)}`} />

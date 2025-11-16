@@ -14,7 +14,6 @@ import {
     Divider,
     Flex,
     Group,
-    Paper,
     Stack,
     Table,
     TableTbody,
@@ -28,6 +27,7 @@ import {
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '../tooltip'
+import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -67,20 +67,19 @@ export const ResearcherUserStudiesTable = () => {
     const userId = session?.user.id
 
     const {
-        data: studies,
+        data: studies = [],
         refetch,
         isFetching,
     } = useQuery({
         queryKey: ['user-researcher-studies'],
         queryFn: () => fetchStudiesForCurrentResearcherUserAction(),
     })
-
     // check if user can create a study
     const labOrg = session ? getLabOrg(session) : null
+    if (!labOrg) return null
 
-    // temp message
-    if (!labOrg) {
-        return <Title order={5}>You are not a member of any lab organizations.</Title>
+    if (isFetching && studies?.length === 0) {
+        return <TableSkeleton paperWrapper={false} />
     }
 
     // Show studies created by the current researcher OR those they have updated via status changes
@@ -96,18 +95,16 @@ export const ResearcherUserStudiesTable = () => {
 
     if (!relevantStudies || relevantStudies.length === 0) {
         return (
-            <Paper shadow="xs" p="xxl">
-                <Stack align="center" gap="md">
-                    <Text>You haven&apos;t started a study yet</Text>
-                    <ButtonLink
-                        leftSection={<PlusIcon />}
-                        href={Routes.studyRequest({ orgSlug: labOrg.slug })}
-                        data-testid="new-study"
-                    >
-                        Propose New Study
-                    </ButtonLink>
-                </Stack>
-            </Paper>
+            <Stack align="center" gap="md">
+                <Text>You haven&apos;t started a study yet</Text>
+                <ButtonLink
+                    leftSection={<PlusIcon />}
+                    href={Routes.studyRequest({ orgSlug: labOrg.slug })}
+                    data-testid="new-study"
+                >
+                    Propose New Study
+                </ButtonLink>
+            </Stack>
         )
     }
 
