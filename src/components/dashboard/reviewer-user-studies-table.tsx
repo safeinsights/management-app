@@ -30,6 +30,14 @@ import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
+// Status changes that represent reviewer approval/rejection actions
+const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [
+    'CODE-APPROVED',
+    'CODE-REJECTED',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+]
+
 type Studies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
 export const ReviewerUserStudiesTable = () => {
@@ -50,14 +58,17 @@ export const ReviewerUserStudiesTable = () => {
         return <TableSkeleton showActionButton={false} paperWrapper={false} />
     }
 
-    if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
-
-    // Filter studies: reviewer assignment or any status change authored by current user
+    // Show studies where user is assigned as reviewer OR has taken reviewer approval/rejection actions
     const relevantStudies = studies.filter(
         (study) =>
             study.reviewerId === userId ||
-            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+            study.jobStatusChanges.some(
+                (change: { userId?: string | null; status: StudyJobStatus }) =>
+                    change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
+            ),
     )
+
+    if (!relevantStudies?.length) return <Title order={5}>You have no studies to review.</Title>
 
     const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),

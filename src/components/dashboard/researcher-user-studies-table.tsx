@@ -82,12 +82,8 @@ export const ResearcherUserStudiesTable = () => {
         return <TableSkeleton paperWrapper={false} />
     }
 
-    // Show studies created by the current researcher OR those they have updated via status changes
-    const relevantStudies = studies?.filter(
-        (study) =>
-            study.researcherId === userId ||
-            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
-    )
+    // Show only studies where the current user is the person who submitted the study
+    const relevantStudies = studies?.filter((study) => study.researcherId === userId)
 
     const needsRefreshed = relevantStudies?.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
