@@ -52,3 +52,15 @@ export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }>
 
     return <JobApprovalStatus statusChange={hasBeenReviewed} />
 }
+
+export const CodeRejectionStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+    const codeRejection = job.statusChanges.find((statusChange) => {
+        return statusChange.status === 'CODE-REJECTED'
+    })
+
+    if (!codeRejection) {
+        return null
+    }
+
+    return <JobApprovalStatus statusChange={codeRejection} />
+}

@@ -19,14 +19,15 @@ import { actionResult } from '@/lib/utils'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
+import { Routes } from '@/lib/routes'
 
 const resubmitStudySchema = z.object({
     mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
     additionalCodeFiles: z.array(z.instanceof(File)).default([]),
 })
 
-export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
-    const { study } = props
+export function ResubmitStudyCodeForm(props: { study: SelectedStudy; orgSlug: string }) {
+    const { study, orgSlug } = props
     const router = useRouter()
     const queryClient = useQueryClient()
     const studyProposalForm = useForm<ResubmitProposalFormValues>({
@@ -83,7 +84,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     <ResubmitCancelButton
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
-                        href={`/researcher/study/${study.id}/review` as Route}
+                        href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code

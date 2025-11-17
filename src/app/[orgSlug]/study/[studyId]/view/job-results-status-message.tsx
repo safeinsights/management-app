@@ -34,15 +34,10 @@ export const JobResultsStatusMessage: FC<{ job: LatestJobForStudy; orgSlug: stri
     if (isComplete) {
         if (isApproved) {
             return (
-                <Stack>
-                    <Text>
-                        The results of your study have been approved by the data organization and are now available to
-                        you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.
-                    </Text>
-                    <Group>
-                        <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
-                    </Group>
-                </Stack>
+                <Text>
+                    The results of your study have been approved by the data organization and are now available to you.
+                    If you are not satisfied with them, you can resubmit your code to generate a new outcome.
+                </Text>
             )
         }
 
