@@ -7,15 +7,6 @@ import { ResubmitButton } from '@/components/study/resubmit-button'
 import { JobResults } from '@/components/job-results'
 import { type FileType } from '@/database/types'
 
-interface ErroredProps {
-    isApproved: boolean
-    isRejected: boolean
-    jobId: string
-    statusChanges: LatestJobForStudy['statusChanges']
-    studyId: string
-    orgSlug: string
-}
-
 export type JobResultsStatusMessageProps = {
     job: LatestJobForStudy
     orgSlug: string
@@ -24,6 +15,9 @@ export type JobResultsStatusMessageProps = {
 
 export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, orgSlug, files }) => {
     const { isApproved, isRejected, isFilesRejected, isErrored } = useJobStatus(job.statusChanges)
+
+    const errorStatusChange = job.statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
+    const errorMessage = errorStatusChange?.message
 
     let message: string
     let additionalContent: ReactNode = null
@@ -67,6 +61,20 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
     return (
         <Stack>
             <Text>{message}</Text>
+            {errorMessage && (
+                <Stack gap="xs">
+                    <Text size="sm" fw="bold">
+                        Error Details:
+                    </Text>
+                    <Text
+                        size="sm"
+                        c="dimmed"
+                        style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}
+                    >
+                        {errorMessage}
+                    </Text>
+                </Stack>
+            )}
             {additionalContent}
             {!hideResults && <JobResults job={job} />}
             <Group>
