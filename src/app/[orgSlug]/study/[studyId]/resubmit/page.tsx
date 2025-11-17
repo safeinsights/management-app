@@ -22,7 +22,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
                 }}
             />
             <Title order={1}>Resubmit study code</Title>
-            <ResubmitStudyCodeForm study={study} orgSlug={_orgSlug} />
+            <ResubmitStudyCodeForm study={study} />
         </Stack>
     )
 }

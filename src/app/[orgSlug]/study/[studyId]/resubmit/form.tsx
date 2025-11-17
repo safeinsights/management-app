@@ -25,8 +25,8 @@ const resubmitStudySchema = z.object({
     additionalCodeFiles: z.array(z.instanceof(File)).default([]),
 })
 
-export function ResubmitStudyCodeForm(props: { study: SelectedStudy; orgSlug: string }) {
-    const { study, orgSlug } = props
+export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
+    const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
     const studyProposalForm = useForm<ResubmitProposalFormValues>({
@@ -83,7 +83,6 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy; orgSlug: st
                     <ResubmitCancelButton
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug, studyId: study.id })}
                         href={Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>

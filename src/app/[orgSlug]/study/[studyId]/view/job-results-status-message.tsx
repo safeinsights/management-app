@@ -52,7 +52,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
         }
         hideResults = true
     } else {
-        return <Text>Study results will become available once the data organization reviews and approvals them.</Text>
+        return <Text>Study results will become available once the data organization reviews and approves them.</Text>
     }
 
     return (
