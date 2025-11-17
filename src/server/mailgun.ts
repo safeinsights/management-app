@@ -36,7 +36,7 @@ export async function deliver({
     template,
     vars,
 }: {
-    to: string
+    to?: string
     bcc?: string
     from?: string
     subject: string
