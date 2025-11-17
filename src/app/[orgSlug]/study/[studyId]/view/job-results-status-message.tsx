@@ -66,11 +66,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
                     <Text size="sm" fw="bold">
                         Error Details:
                     </Text>
-                    <Text
-                        size="sm"
-                        c="dimmed"
-                        style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}
-                    >
+                    <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
                         {errorMessage}
                     </Text>
                 </Stack>
