@@ -4,14 +4,14 @@ import { useMutation, useQuery } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modal'
-import { useUser } from '@clerk/nextjs'
+import { Routes } from '@/lib/routes'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { Button, Flex, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
+import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction, onRevokeInviteAction } from '../create-account.action'
-import type { Route } from 'next'
-import { Routes } from '@/lib/routes'
 
 type InviteProps = {
     params: Promise<{ inviteId: string }>
@@ -29,6 +29,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
     const { inviteId } = use(params)
     const router = useRouter()
     const { user } = useUser()
+    const auth = useAuth()
     const [isDisabled, setIsDisabled] = useState<boolean>(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [isSkipping, setIsSkipping] = useState(false)
@@ -43,12 +44,20 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: () => onJoinTeamAccountAction({ inviteId }),
-        onSuccess: () => {
+        onSuccess: async () => {
             setIsDisabled(true) // disable button after successful join
+
+            // forces Clerk to regenerate the JWT session token with the latest user metadata
+            await auth.getToken({ skipCache: true })
+
             notifications.show({
                 color: 'green',
                 message: `You have successfully joined ${org!.name}!`,
             })
+
+            // short delay to ensure the token is propagated before navigation
+            await new Promise((resolve) => setTimeout(resolve, 500))
+
             router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
         },
         onError: () => {
@@ -104,7 +113,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 </Text>
                 <Text size="md">
                     Join the team to access its dashboard and studies. If opting to skip, you can find the invitation in
-                    your email inbox. Note: This invitation will expire in 7 days.
+                    your email inbox.
                 </Text>
                 <Text size="sm" c="red.8" mb="md">
                     <b>Note:</b> This invitation will expire in 7 days.

@@ -4,7 +4,7 @@ import { Button, Group, Stack } from '@mantine/core'
 import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
 import React from 'react'
 import { useForm } from '@mantine/form'
-import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { SelectedStudy } from '@/server/actions/study.actions'
@@ -19,7 +19,6 @@ import { actionResult } from '@/lib/utils'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
-import { Routes } from '@/lib/routes'
 
 const resubmitStudySchema = z.object({
     mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
@@ -70,7 +69,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy; orgSlug: st
                     'Your study has been successfully resubmitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(`/researcher/study/${study.id}/review` as Route)
+            router.push(Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id }))
         },
         onError: reportMutationError('Failed to resubmit study'),
     })
@@ -85,6 +84,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy; orgSlug: st
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
                         href={Routes.studyView({ orgSlug, studyId: study.id })}
+                        href={Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code

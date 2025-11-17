@@ -130,7 +130,7 @@ export const StudyProposal: React.FC = () => {
                 await uploadFiles([
                     [formValues.irbDocument, urls.urlForIrbUpload],
                     [formValues.agreementDocument, urls.urlForAgreementUpload],
-                    [formValues.descriptionDocument, urls.urlForAgreementUpload],
+                    [formValues.descriptionDocument, urls.urlForDescriptionUpload],
                     [formValues.mainCodeFile, urls.urlForCodeUpload],
                     ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForCodeUpload] as FileUpload),
                 ])
@@ -145,7 +145,9 @@ export const StudyProposal: React.FC = () => {
             }
         },
         onSuccess() {
+            // Invalidate both org-specific and user-level study queries
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             notifications.show({
                 title: 'Study Proposal Submitted',
                 message:

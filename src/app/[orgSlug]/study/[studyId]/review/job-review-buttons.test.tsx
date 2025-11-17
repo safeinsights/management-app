@@ -23,8 +23,8 @@ describe('Study Results Approve/Reject buttons', async () => {
         },
     ]
 
-    const insertAndRender = async (studyStatus: StudyStatus) => {
-        const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
+    const insertAndRender = async (studyStatus: StudyStatus, orgType: 'enclave' | 'lab' = 'enclave') => {
+        const { org } = await mockSessionWithTestData({ orgType })
         const { latestJobWithStatus: job } = await insertTestStudyJobData({ org, studyStatus })
         return await act(async () => {
             const helpers = renderWithProviders(<JobReviewButtons job={job} decryptedResults={testResults} />)
@@ -68,5 +68,17 @@ describe('Study Results Approve/Reject buttons', async () => {
 
     it('can reject results', async () => {
         await clickNTest('Reject', actions.rejectStudyJobFilesAction as Mock, 'FILES-REJECTED')
+    })
+
+    it('does not render approve and reject buttons for a lab user', async () => {
+        await insertAndRender('PENDING-REVIEW', 'lab')
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+    })
+
+    it('renders approve and reject buttons for an enclave user', async () => {
+        await insertAndRender('PENDING-REVIEW', 'enclave')
+        expect(screen.queryByRole('button', { name: 'Approve' })).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).toBeInTheDocument()
     })
 })

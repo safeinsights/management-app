@@ -1,5 +1,5 @@
-import type { Kysely, Selectable } from 'kysely'
 import type { DB, OrgUser, User } from '@/database/types'
+import type { Kysely, Selectable } from 'kysely'
 
 // implement directly because this file is compiled and shouldn't import
 const titleize = (str: string) => str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
@@ -35,7 +35,7 @@ const ACCOUNTS: Record<string, AccountInfo[]> = {
     openstax: [
         adminUser,
         {
-            clerkId: 'user_2nGGaoA3H84uqeBOHCz8Ou9iAvZ',
+            clerkId: 'user_2xxpiScCXELkKuYlrnxqLnQh0c2', // Use the same clerkId as configure-test-env.ts
             firstName: 'Researchy',
             lastName: 'McPerson',
             email: 'si-research-tester-dbfyq3@mailinator.com',
