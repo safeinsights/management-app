@@ -33,8 +33,7 @@ const configWithSentry = withSentryConfig(nextConfig, {
     org: 'openstax',
     project: 'management-app',
 
-    // Only print logs for uploading source maps in CI
-    silent: !process.env.CI,
+    silent: true,
 
     // For all available options, see:
     // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/

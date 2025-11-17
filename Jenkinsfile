@@ -3,7 +3,7 @@ pipeline {
     agent { label "jenkins" }
 
     environment {
-        SENTRY_DSN = credentials('sentry-dsn')
+        SENTRY_DSN = "${env.SENTRY_DSN}"
     }
 
     stages {
@@ -17,6 +17,11 @@ pipeline {
             }
             steps {
                 script {
+                    echo "SENTRY_DSN is set: ${env.SENTRY_DSN ? 'Yes' : 'No'}"
+                    if (env.SENTRY_DSN) {
+                        echo "SENTRY_DSN value: ${env.SENTRY_DSN}"
+                    }
+
                     def commitMsg = sh(
                         script: "git log -1 --format=%B ${env.GIT_COMMIT}",
                         returnStdout: true
