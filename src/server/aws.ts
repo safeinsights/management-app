@@ -204,6 +204,7 @@ export async function triggerBuildImageForJob(
                         message: 'Containerization process failed',
                     }),
                 },
+                { name: 'STUDY_JOB_ID', value: info.studyJobId },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
                 { name: 'DOCKER_CMD_LINE', value: cmd },
                 { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.baseImageURL },
