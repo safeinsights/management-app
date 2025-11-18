@@ -1,3 +1,4 @@
+import { useSession } from '@/hooks/session'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
@@ -17,6 +18,7 @@ export const JobReviewButtons = ({
     job: NonNullable<LatestJobForStudy>
     decryptedResults?: JobFileInfo[]
 }) => {
+    const { session } = useSession()
     const theme = useMantineTheme()
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -78,7 +80,9 @@ export const JobReviewButtons = ({
         )
     }
 
-    if (!decryptedResults) return null
+    if (!decryptedResults || !session?.belongsToEnclave) {
+        return null
+    }
 
     return (
         <Group>

@@ -9,6 +9,7 @@ import { useSession } from '@/hooks/session'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType } from '@/lib/types'
 
+import { Routes } from '@/lib/routes'
 import { fetchStudiesForCurrentReviewerAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -22,10 +23,9 @@ import {
     TableTr,
     Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
-import { Routes } from '@/lib/routes'
+import { InfoTooltip } from '../tooltip'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -100,11 +100,11 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
     return (
         <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
-                <Tooltip label={study.title}>
+                <InfoTooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
                         {study.title}
                     </Text>
-                </Tooltip>
+                </InfoTooltip>
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>

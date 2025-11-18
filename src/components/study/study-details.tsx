@@ -5,9 +5,10 @@ import { studyDocumentURL } from '@/lib/paths'
 import { truncate } from '@/lib/string'
 import { StudyDocumentType } from '@/lib/types'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { Badge, Divider, Grid, GridCol, Stack, Text, Tooltip } from '@mantine/core'
+import { Badge, Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
 import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, use } from 'react'
+import { InfoTooltip } from '../tooltip'
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -37,7 +38,7 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
     )
 
     if (needsTooltip) {
-        return <Tooltip label={path}>{badge}</Tooltip>
+        return <InfoTooltip label={path}>{badge}</InfoTooltip>
     }
 
     return badge
@@ -45,7 +46,6 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction({ studyId }))
-
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }

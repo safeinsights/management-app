@@ -4,7 +4,6 @@ import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { ResubmitButton } from './resubmit-button'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -42,19 +41,13 @@ export const CodeApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }>
     return <JobApprovalStatus statusChange={codeStatusChange} />
 }
 
-export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
+export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job }) => {
     const hasBeenReviewed = job.statusChanges.find((statusChange) => {
         return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
     })
 
-    const hasErrored = job.statusChanges.some((statusChange) => statusChange.status === 'JOB-ERRORED')
-
     if (!hasBeenReviewed) {
         return null
-    }
-
-    if (hasBeenReviewed && hasErrored) {
-        return <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
     }
 
     return <JobApprovalStatus statusChange={hasBeenReviewed} />

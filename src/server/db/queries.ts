@@ -1,4 +1,4 @@
-import { jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -7,7 +7,6 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
-import { type DBExecutor } from '@/database'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -34,7 +33,6 @@ export async function getStudyJobInfo(studyJobId: string) {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
-
         .select((eb) => [
             'studyJob.id as studyJobId',
             'studyJob.studyId',
@@ -114,7 +112,13 @@ export const jobInfoForJobId = async (jobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['studyId', 'studyJob.id as studyJobId', 'org.slug as orgSlug', 'org.id as orgId'])
+        .select([
+            'studyId',
+            'studyJob.id as studyJobId',
+            'org.slug as orgSlug',
+            'org.id as orgId',
+            'study.submittedByOrgId',
+        ])
         .where('studyJob.id', '=', jobId)
         .executeTakeFirstOrThrow()
 }
@@ -123,7 +127,7 @@ export const studyInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'study.orgId', 'org.id')
-        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug'])
+        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug', 'study.submittedByOrgId'])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
@@ -189,7 +193,7 @@ export const getInfoForStudyJobId = async (studyJobId: string) => {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId'])
+        .select(['org.id as orgId', 'org.slug as orgSlug', 'study.id as studyId', 'study.submittedByOrgId'])
         .where('studyJob.id', '=', studyJobId)
         .executeTakeFirstOrThrow()
 }
@@ -198,7 +202,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
@@ -230,7 +234,9 @@ export async function getStudyJobFileOfType(
 ): Promise<Selectable<JobDetails> | undefined> {
     const file = await Action.db
         .selectFrom('studyJobFile')
-        .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path'])
+        .innerJoin('studyJob', 'studyJob.id', 'studyJobFile.studyJobId')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .select(['studyJobFile.id', 'studyJobFile.name', 'studyJobFile.path', 'study.orgId', 'study.submittedByOrgId'])
         .where('studyJobId', '=', studyJobId)
         .where('fileType', '=', fileType)
         .executeTakeFirst()

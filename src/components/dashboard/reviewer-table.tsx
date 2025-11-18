@@ -8,6 +8,7 @@ import { StudyJobStatus } from '@/database/types'
 import { useStudyStatus } from '@/hooks/use-study-status'
 import { ActionSuccessType } from '@/lib/types'
 
+import { Routes } from '@/lib/routes'
 import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 import {
     Divider,
@@ -22,11 +23,10 @@ import {
     TableTr,
     Text,
     Title,
-    Tooltip,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { FC } from 'react'
-import { Routes } from '@/lib/routes'
+import { InfoTooltip } from '../tooltip'
 
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
@@ -40,11 +40,11 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
     return (
         <TableTr fz={14} key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
             <TableTd>
-                <Tooltip label={study.title}>
+                <InfoTooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }}>
                         {study.title}
                     </Text>
-                </Tooltip>
+                </InfoTooltip>
             </TableTd>
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
             <TableTd>{study.createdBy}</TableTd>
