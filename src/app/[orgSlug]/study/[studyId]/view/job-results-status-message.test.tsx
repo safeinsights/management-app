@@ -91,7 +91,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'The results of your study have been approved by the data organization and are now available to you. If you are not satisfied with them, you can submit new code to generate new outcome.',
+                    'The results of your study have been approved by the data organization and are now available to you. If you are not satisfied with them, you can resubmit your code to generate a new outcome.',
                 ),
             ).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
@@ -150,7 +150,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
+                    'Study results will become available once the data organization reviews and approvals them.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -165,7 +165,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
+                    'Study results will become available once the data organization reviews and approvals them.',
                 ),
             ).toBeDefined()
         })
@@ -180,7 +180,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
+                    'Study results will become available once the data organization reviews and approvals them.',
                 ),
             ).toBeDefined()
         })
