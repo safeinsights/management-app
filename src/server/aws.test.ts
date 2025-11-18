@@ -74,6 +74,7 @@ describe('triggerBuildImageForJob', () => {
                     message: 'Containerization process failed',
                 }),
             },
+            { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-123/code' },
             { name: 'DOCKER_BASE_IMAGE_LOCATION', value: mockJobInfo.baseImageURL },
             { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' }, // %f replaced
