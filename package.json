@@ -66,6 +66,7 @@
         "debug": "^4.4.1",
         "eventsource-parser": "^3.0.6",
         "highlight.js": "^11.11.1",
+        "js-yaml": "^4.1.1",
         "jsonwebtoken": "^9.0.2",
         "kysely": "^0.28.5",
         "kysely-ctl": "^0.18.0",
