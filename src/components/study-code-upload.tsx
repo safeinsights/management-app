@@ -36,6 +36,7 @@ interface StudyCodeUploadProps {
     title?: string
 }
 
+// eslint-disable-next-line max-lines-per-function -- auto-added while upgrading
 export const StudyCodeUpload = ({
     studyProposalForm,
     showStepIndicator = false,
@@ -96,7 +97,7 @@ export const StudyCodeUpload = ({
                                 studyProposalForm.setFieldValue('mainCodeFile', file)
                                 studyProposalForm.validateField('totalFileSize')
                             }}
-                            autoFocus
+                            autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- intentional for upload step UX
                         />
                         <Text size="xs" c="dimmed">
                             Accepted formats: .r, .rmd, .py, .ipynb.

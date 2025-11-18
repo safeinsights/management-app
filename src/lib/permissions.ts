@@ -10,6 +10,7 @@ import {
 
 export { subject, type AppAbility, type PermissionsActionSubjectMap, type PermissionsSubjectToObjectMap, toRecord }
 
+// eslint-disable-next-line max-statements -- permission rules require multiple ability definitions
 export function defineAbilityFor(session: UserSession) {
     const { isSiAdmin } = session.user
     const orgs = Object.values(session.orgs)

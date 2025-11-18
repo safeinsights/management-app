@@ -23,6 +23,7 @@ export const dynamic = 'force-dynamic'
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
 
+// eslint-disable-next-line max-lines-per-function -- auto-added while upgrading
 export function AddSMSMFA() {
     const { isLoaded, user } = useUser()
     const [isVerifying, setIsVerifying] = useState(false)
@@ -132,7 +133,7 @@ export function AddSMSMFA() {
                     await makeDefaultSecondFactor(phoneObj)
                     notifications.show({ message: 'MFA enabled', color: 'green' })
                 } catch (error) {
-                    console.error(error)
+                    console.error(error) // eslint-disable-line no-console -- auto-added while upgrading
                     otpForm.setFieldError('code', 'Failed to enable MFA for this phone number')
                     return
                 }

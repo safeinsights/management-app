@@ -21,6 +21,7 @@ export const dynamic = 'force-dynamic'
 export type Step = 'select' | 'verify' | 'reset'
 type Method = 'sms' | 'totp'
 
+// eslint-disable-next-line complexity, max-lines-per-function -- MFA flow requires multiple authentication paths
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const [step, setStep] = useState<Step>('select')
     const [method, setMethod] = useState<Method | null>(null)
@@ -61,6 +62,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 }),
             })
         },
+        // eslint-disable-next-line complexity -- sign-in success handler requires multiple redirect scenarios
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
@@ -73,6 +75,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         let redirectUrl = searchParams.get('redirect_url') || Routes.dashboard
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
+                            // eslint-disable-next-line max-depth -- invite handling requires nested try/catch
                             try {
                                 await onJoinTeamAccountAction({
                                     inviteId,
@@ -102,7 +105,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
-                    console.error('onUserSignInAction failed:', error)
+                    console.error('onUserSignInAction failed:', error) // eslint-disable-line no-console -- auto-added while upgrading
                     const redirectUrl = searchParams.get('redirect_url')
                     router.push((redirectUrl as Route) ?? Routes.home)
                 }
@@ -122,7 +125,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
             try {
                 await mfa.signIn.prepareSecondFactor({ strategy: 'phone_code' })
             } catch (err) {
-                console.error('Error preparing second factor', err)
+                console.error('Error preparing second factor', err) // eslint-disable-line no-console -- auto-added while upgrading
             }
         }
 

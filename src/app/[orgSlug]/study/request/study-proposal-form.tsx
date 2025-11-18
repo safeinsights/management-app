@@ -13,6 +13,7 @@ import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
+    // eslint-disable-next-line max-lines-per-function -- auto-added while upgrading
 }> = ({ studyProposalForm }) => {
     const { user } = useUser()
     const theme = useMantineTheme()
@@ -59,7 +60,7 @@ export const StudyProposalForm: FC<{
                                 aria-label="Study Title"
                                 placeholder="Enter a title (max. 50 characters)"
                                 {...studyProposalForm.getInputProps('title')}
-                                autoFocus
+                                autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- intentional for form UX
                             />
                         </Grid.Col>
                     </Grid>

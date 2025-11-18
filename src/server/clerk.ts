@@ -79,6 +79,7 @@ export const updateClerkUserMetadata = async (userId: string) => {
     return metadata
 }
 
+// eslint-disable-next-line complexity, max-statements -- user sync requires multiple conditional branches for metadata migration
 export const syncCurrentClerkUser = async () => {
     const clerkUser = await currentUser()
 
@@ -126,6 +127,7 @@ export const syncCurrentClerkUser = async () => {
                 // TODO: remove v1Metadata migration after 2026-02-15
                 const isV1Metadata = !envData.format || envData.format !== 'v2'
 
+                /* eslint-disable max-depth -- metadata migration requires deep nesting for v1/v2 format handling */
                 for (const slug of Object.keys(orgs)) {
                     try {
                         if (isV1Metadata) {
@@ -161,6 +163,7 @@ export const syncCurrentClerkUser = async () => {
                         }
                     }
                 }
+                /* eslint-enable max-depth */
             }
         }
     }

@@ -194,7 +194,8 @@ describe('Action Builder', () => {
 
         it('catches handler exceptions and returns them as error objects', async () => {
             const mockHandler = vi.fn(async () => {
-                if (1) throw new Error('hi')
+                // eslint-disable-next-line no-constant-condition -- test intentionally throws
+                if (true) throw new Error('hi')
                 return { foo: 'bar' }
             })
 

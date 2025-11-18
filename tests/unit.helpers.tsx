@@ -11,7 +11,7 @@ import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from 
 import { faker } from '@faker-js/faker'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-// eslint-disable-next-line no-restricted-imports
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render } from '@testing-library/react'
 import fs from 'fs'

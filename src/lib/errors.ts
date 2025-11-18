@@ -65,7 +65,9 @@ export function extractActionFailure(error: unknown): string | Record<string, st
         try {
             const encoded = JSON.parse(error.message)
             return extractActionFailure(encoded)
-        } catch {}
+        } catch {
+            // JSON parse failed, return null below
+        }
         return null
     }
 

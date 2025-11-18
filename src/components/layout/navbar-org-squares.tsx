@@ -19,7 +19,7 @@ type SquareProps = ButtonLinkProps & {
     children: React.ReactNode
 }
 
-const Square: React.FC<SquareProps> = ({ color, children, isActive, eventCount, ...props }) => {
+const Square: React.FC<SquareProps> = ({ color, children, eventCount, ...props }) => {
     return (
         <ButtonLink
             {...props}

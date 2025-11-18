@@ -65,7 +65,7 @@ async function setupUsers() {
             slug: 'openstax-lab',
             isAdmin: true,
         })
-        console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
+        console.log(`setup admin user ${userId} ${clerkId}`)
     }
 
     for (const clerkId of CLERK_RESEARCHER_TEST_IDS) {
@@ -75,7 +75,7 @@ async function setupUsers() {
         })
         // Researchers go to lab org
         await findOrCreateOrgMembership({ userId, slug: 'openstax-lab', isAdmin: false })
-        console.log(`setup researcher user ${userId} ${clerkId}`) // eslint-disable-line no-console
+        console.log(`setup researcher user ${userId} ${clerkId}`)
     }
 
     for (const clerkId of CLERK_REVIEWER_TEST_IDS) {
@@ -85,7 +85,7 @@ async function setupUsers() {
 
         // Reviewers go to enclave org
         await findOrCreateOrgMembership({ userId, slug: 'openstax', isAdmin: false })
-        console.log(`setup reviewer user ${userId} ${clerkId}`) // eslint-disable-line no-console
+        console.log(`setup reviewer user ${userId} ${clerkId}`)
     }
 }
 

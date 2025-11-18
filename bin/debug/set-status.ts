@@ -11,6 +11,5 @@ req.method = 'PUT'
 req.body = { status }
 
 req.perform().then((json) => {
-    // eslint-disable-next-line no-console
     console.dir(json)
 })

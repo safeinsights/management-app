@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { useQuery, useMutation } from './query-wrappers'
 import { type ActionResponse } from '@/lib/types'
 import { renderHook, waitFor } from '@testing-library/react'
-// eslint-disable-next-line no-restricted-imports
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 

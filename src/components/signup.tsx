@@ -59,7 +59,7 @@ const EmailVerificationStep = () => {
             } else {
                 // If the status is not complete, check why. User may need to
                 // complete further steps.
-                console.error(JSON.stringify(completeSignUp, null, 2))
+                console.error(JSON.stringify(completeSignUp, null, 2)) // eslint-disable-line no-console -- auto-added while upgrading
             }
         } catch (err: unknown) {
             reportError(err, 'failed to verify email address')

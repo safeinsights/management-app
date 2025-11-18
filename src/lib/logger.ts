@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- auto-added while upgrading, this is a logger utility */
 import debug from 'debug'
 import * as Sentry from '@sentry/nextjs'
 import type { SeverityLevel } from '@sentry/nextjs'

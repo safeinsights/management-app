@@ -103,7 +103,7 @@ export function OrganizationSettingsEdit({ org, onSaveSuccess, onCancel }: Organ
                                 aria-label="Name"
                                 required
                                 aria-required="true"
-                                autoFocus
+                                autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- intentional for edit modal UX
                                 key={form.key('name')}
                                 {...form.getInputProps('name')}
                                 error={

@@ -32,6 +32,7 @@ export const SignInForm: FC<{
 
     useEffect(() => {
         if (searchParams.get('invite_not_found')) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- error state from URL params is intentional
             setClerkError({
                 title: 'Invite not found',
                 message: 'The invitation link you followed is invalid or has already been used.',

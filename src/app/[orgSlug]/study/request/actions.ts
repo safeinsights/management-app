@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { studyProposalApiSchema } from './study-proposal-form-schema'
 
+// eslint-disable-next-line max-params -- auto-added while upgrading
 async function addStudyJob(
     db: Kysely<DB>,
     userId: string,

@@ -144,7 +144,7 @@ export const deleteFolderContents = async (folderPath: string) => {
     const listedObjects = await getS3Client().send(listCommand)
 
     if (!listedObjects.Contents) {
-        console.error('No objects found in the folder.')
+        console.error('No objects found in the folder.') // eslint-disable-line no-console -- auto-added while upgrading
         return
     }
 

@@ -145,11 +145,13 @@ export class Action<
                         if (error instanceof ZodError) {
                             const fieldErrors = error.flatten().fieldErrors as Record<string, string[] | undefined>
                             const sanitizedErrors: Record<string, string> = {}
+                            /* eslint-disable max-depth -- validation error processing requires nested structure */
                             for (const key in fieldErrors) {
                                 if (fieldErrors[key] && fieldErrors[key] !== undefined) {
                                     sanitizedErrors[key] = (fieldErrors[key] as string[]).join(', ')
                                 }
                             }
+                            /* eslint-enable max-depth */
                             return { error: `Validation error: ${JSON.stringify(sanitizedErrors)}` }
                         }
                         return { error: error instanceof Error ? error.message : 'Unknown validation error' }

@@ -193,7 +193,7 @@ const getCoderWorkspace = async (studyId: string) => {
         const workspaceData = await workspaceStatusResponse.json()
         // Check if workspace exists and is stopped
         if (workspaceData.latest_build && workspaceData.latest_build.status === 'stopped') {
-            console.warn(`Workspace was stopped`)
+            console.warn(`Workspace was stopped`) // eslint-disable-line no-console -- auto-added while upgrading
             // Start the workspace
             const buildResponse = await fetch(`${coderApiEndpoint}${coderWorkspaceBuildPath(workspaceData.id)}`, {
                 method: 'POST',
@@ -207,7 +207,7 @@ const getCoderWorkspace = async (studyId: string) => {
             })
             if (!buildResponse.ok) {
                 const errorText = await buildResponse.text()
-                console.warn(`Issue initiating Build for workspace ${workspaceData.id}. Cause: ${errorText}`)
+                console.warn(`Issue initiating Build for workspace ${workspaceData.id}. Cause: ${errorText}`) // eslint-disable-line no-console -- auto-added while upgrading
             }
         }
         return workspaceData
@@ -258,14 +258,14 @@ export const createCoderWorkspace = async (studyId: string) => {
 
 export const createUserAndWorkspace = async (studyId: string) => {
     try {
-        const _user = await getCoderUser(studyId)
+        await getCoderUser(studyId)
         const workspace = await getCoderWorkspace(studyId)
         return {
             success: true,
             workspace: workspace,
         }
     } catch (error) {
-        console.error('Error in createUserAndWorkspace:', error)
+        console.error('Error in createUserAndWorkspace:', error) // eslint-disable-line no-console -- auto-added while upgrading
         throw new Error(
             `Failed to create user and workspace: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )

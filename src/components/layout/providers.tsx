@@ -9,7 +9,7 @@ import { useEffect, type FC, type ReactNode } from 'react'
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
 import { ErrorBoundary } from '@/components/error-boundary'
-// eslint-disable-next-line no-restricted-imports
+
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 function makeQueryClient() {

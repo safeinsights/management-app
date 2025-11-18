@@ -5,7 +5,7 @@ import { ResubmitStudyCodeForm } from './form'
 import { notFound } from 'next/navigation'
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId, orgSlug: _orgSlug } = await props.params
+    const { studyId } = await props.params
     const study = await getStudyAction({ studyId })
 
     if ('error' in study) {

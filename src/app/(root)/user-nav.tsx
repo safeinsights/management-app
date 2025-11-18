@@ -14,7 +14,7 @@ export const UserNav = () => {
     useEffect(() => {
         if (!session) return
 
-        setIsNavigating(true)
+        setIsNavigating(true) // eslint-disable-line react-hooks/set-state-in-effect -- intentional navigation state update
         router.push(Routes.dashboard)
     }, [session, router])
 

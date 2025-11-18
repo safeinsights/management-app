@@ -19,6 +19,7 @@ interface BaseImageFormProps {
     onCompleteAction: () => void
 }
 
+// eslint-disable-next-line complexity -- form with multiple validation branches
 export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const isEditMode = !!image

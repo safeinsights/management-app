@@ -40,7 +40,7 @@ export function sanitizeFileName(fileName: string) {
         .substring(0, 512) // max path + filename length
         .replace(/^\/+/, '') // leading slashes
         .replace(/\.\./g, '') // no directory traversal with ..
-        .replace(/[^\x00-\x7F]/g, '') // non-ascii
+        .replace(/[^\x00-\x7F]/g, '') // eslint-disable-line no-control-regex -- intentionally allowing only ASCII chars
 }
 
 export const labOrgIds = (session: UserSession) =>

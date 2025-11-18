@@ -117,7 +117,7 @@ export const StudyProposal: React.FC = () => {
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            const { studyId, studyJobId, ...urls } = actionResult(
+            const { studyId, ...urls } = actionResult(
                 await onCreateStudyAction({
                     orgSlug: formValues.orgSlug,
                     studyInfo: formValuesToStudyInfo(formValues),

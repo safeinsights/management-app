@@ -25,6 +25,7 @@ export async function urlForStudyDocumentFile(info: MinimalStudyInfo, fileType: 
     return urlForFile(pathForStudyDocumentFile(info, fileType, fileName))
 }
 
+// eslint-disable-next-line max-params -- auto-added while upgrading
 async function storeJobFile(info: MinimalJobInfo, path: string, file: File, fileType: FileType, sourceId?: string) {
     await storeS3File(info, file.stream(), path)
 

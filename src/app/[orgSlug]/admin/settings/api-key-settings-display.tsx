@@ -3,8 +3,9 @@
 import { Stack, Title, Divider, Paper, Text } from '@mantine/core'
 
 export function ApiKeySettingsDisplay() {
-    return null // This component is currently under design, so we return null to avoid rendering anything.
+    return null
 
+    // eslint-disable-next-line no-unreachable -- component under design, keeping JSX for reference
     return (
         <Paper bg="white" p="xxl">
             <Stack>

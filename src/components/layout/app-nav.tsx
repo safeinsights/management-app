@@ -12,7 +12,7 @@ import { NavOrgsList } from './nav-orgs-list'
 import { NavbarOrgSquares } from './navbar-org-squares'
 import { NavbarProfileMenu } from './navbar-profile-menu'
 
-export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop }) => {
+export const AppNav: React.FC<{ isDesktop: boolean }> = () => {
     const path = usePathname()
     const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsWithStatsAction(),

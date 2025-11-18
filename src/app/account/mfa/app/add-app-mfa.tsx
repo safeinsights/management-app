@@ -34,6 +34,7 @@ type DisplayFormat = 'qr' | 'uri'
 
 export const dynamic = 'force-dynamic'
 
+// eslint-disable-next-line max-lines-per-function -- auto-added while upgrading
 function AddTotpScreenContent({
     setStep,
     setBackupCodes,

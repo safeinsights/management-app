@@ -44,6 +44,7 @@ interface PendingResetProps {
     onResetUpdate?: (updated: SignInResource) => void
 }
 
+// eslint-disable-next-line max-lines-per-function -- auto-added while upgrading
 export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps) {
     const { isLoaded, setActive, signIn } = useSignIn()
     const [needsMFA, setNeedsMFA] = useState<MFAState>(false)
@@ -138,7 +139,7 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             })
         },
         onError: (error: unknown) => {
-            console.error('Failed to resend code:', error)
+            console.error('Failed to resend code:', error) // eslint-disable-line no-console -- auto-added while upgrading
         },
         onSuccess: (newSignIn) => {
             // use the latest sign-in instance

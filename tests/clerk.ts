@@ -31,7 +31,7 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
         ) {
             try {
                 await clerk.users.deleteUser(user.id)
-                // eslint-disable-next-line no-console
+
                 console.log(`✅ Deleted user ${user.id} ${user.fullName} (${user.primaryEmailAddress?.emailAddress})`)
             } catch (err) {
                 console.error(`⚠️  Failed to delete ${user.id}:`, err)

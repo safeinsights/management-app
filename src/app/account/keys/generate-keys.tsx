@@ -55,7 +55,7 @@ export const GenerateKeys: FC<GenerateKeysProps> = ({ isRegenerating = false }) 
     }
 
     useEffect(() => {
-        onGenerateKeys()
+        onGenerateKeys() // eslint-disable-line react-hooks/set-state-in-effect -- key generation on mount is intentional
     }, [])
 
     if (keys) {

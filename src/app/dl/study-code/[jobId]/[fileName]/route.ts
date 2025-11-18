@@ -13,7 +13,7 @@ export const GET = async (_: Request, { params }: { params: Promise<{ jobId: str
     const job = await jobInfoForJobId(jobId)
 
     if (!job) {
-        console.error(`Job not found for jobId: ${jobId}`)
+        console.error(`Job not found for jobId: ${jobId}`) // eslint-disable-line no-console -- auto-added while upgrading
         return NextResponse.json({ error: 'Job not found' }, { status: 404 })
     }
 

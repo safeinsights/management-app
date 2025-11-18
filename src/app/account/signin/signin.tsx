@@ -23,6 +23,7 @@ export function SignIn() {
     useEffect(() => {
         const restart = searchParams.get('restart')
         if (restart) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional flow reset from URL param
             setMFAState(false)
             setStep('form')
             // Remove the param from the URL to avoid loops

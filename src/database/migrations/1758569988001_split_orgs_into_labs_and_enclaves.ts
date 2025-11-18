@@ -89,6 +89,6 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.alterTable('orgUser').dropColumn('is_reviewer').execute()
 }
 
-export async function down(_: Kysely<unknown>): Promise<void> {
+export async function down(): Promise<void> {
     throw new Error('irreverisible migration, change is too complex to attempt')
 }

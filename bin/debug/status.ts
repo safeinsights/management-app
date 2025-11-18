@@ -4,12 +4,11 @@ const req = new DebugRequest()
 req.program.requiredOption('-j, --jobId <jobId>', 'jobId to get status for')
 req.parse()
 
-const { _, jobId } = req.program.opts()
+const { jobId } = req.program.opts()
 
 req.path = `job/${jobId}/status`
 req.method = 'GET'
 
 req.perform().then((json) => {
-    // eslint-disable-next-line no-console
     console.dir(json)
 })

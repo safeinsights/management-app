@@ -22,7 +22,7 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
 
     const url = [pathname, searchParams].filter((i) => i).join('?')
     useEffect(() => {
-        setTips(undefined)
+        setTips(undefined) // eslint-disable-line react-hooks/set-state-in-effect -- clear tips on URL change is intentional
     }, [url, setTips])
 
     useEffect(() => {

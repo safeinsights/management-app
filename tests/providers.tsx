@@ -1,7 +1,7 @@
 import { MantineProvider } from '@mantine/core'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
-// eslint-disable-next-line no-restricted-imports
+
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FC, ReactNode } from 'react'
 import { ClerkProvider } from '@clerk/nextjs'

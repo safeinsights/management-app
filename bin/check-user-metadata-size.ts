@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import 'dotenv/config'
 import { createClerkClient } from '@clerk/backend'
 
@@ -9,6 +8,7 @@ interface UserMetadataReport {
     publicMetadataKeys?: string[]
 }
 
+// eslint-disable-next-line max-statements -- CLI script requires sequential operations
 async function checkUserMetadataSize() {
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 

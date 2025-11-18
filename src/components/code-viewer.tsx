@@ -25,7 +25,7 @@ export function CodeViewer({ code, language, fileName }: CodeViewerProps) {
             return hljs.highlight(code, { language: language.toLowerCase() }).value
         } catch (error) {
             // Fallback to plain text if highlighting fails
-            console.error('Failed to highlight code:', error)
+            console.error('Failed to highlight code:', error) // eslint-disable-line no-console -- auto-added while upgrading
             return code
         }
     }, [code, language])

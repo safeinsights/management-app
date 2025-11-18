@@ -27,7 +27,7 @@ export const useSession = ():
                 prefs: user.unsafeMetadata || {},
                 clerkUserId: user.id,
             })
-            setSession(sessFromMD)
+            setSession(sessFromMD) // eslint-disable-line react-hooks/set-state-in-effect -- session sync on user change is intentional
         } catch {
             syncUserMetadataAction().then((metadata) => {
                 const updatedSession = sessionFromMetadata({

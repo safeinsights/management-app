@@ -1,5 +1,6 @@
 import { SVGProps } from 'react'
 
+// eslint-disable-next-line max-lines-per-function -- auto-added while upgrading, SVG component
 export const NotFoundImage = (props: SVGProps<SVGSVGElement>) => (
     <svg width="361" height="240" viewBox="0 0 361 240" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
         <path
