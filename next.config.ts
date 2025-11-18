@@ -3,24 +3,22 @@ import type { NextConfig } from 'next'
 
 import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
 
-const nextConfig: NextConfig = async (phase: string) => {
-    const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
+const phase = process.env.NEXT_PHASE
+const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
 
-    const nextConfig: NextConfig = {
-        productionBrowserSourceMaps: true,
-        assetPrefix: isDev ? undefined : '/assets/',
-        output: 'standalone',
-        typedRoutes: true,
-        transpilePackages: ['si-encryption'],
-        experimental: {
-            // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
-            optimizePackageImports: ['@phosphor-icons/react'],
-            serverActions: {
-                bodySizeLimit: '6mb',
-            },
+const nextConfig: NextConfig = {
+    productionBrowserSourceMaps: true,
+    assetPrefix: isDev ? undefined : '/assets/',
+    output: 'standalone',
+    typedRoutes: true,
+    transpilePackages: ['si-encryption'],
+    experimental: {
+        // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
+        optimizePackageImports: ['@phosphor-icons/react'],
+        serverActions: {
+            bodySizeLimit: '6mb',
         },
-    }
-    return nextConfig
+    },
 }
 
 const configWithSentry = withSentryConfig(nextConfig, {
