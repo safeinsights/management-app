@@ -1,7 +1,20 @@
-import { expect, test } from 'vitest'
+import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+
+vi.mock('@/lib/logger', () => {
+    const error = vi.fn()
+    return {
+        __esModule: true,
+        default: {
+            debug: vi.fn(),
+            info: vi.fn(),
+            warn: vi.fn(),
+            error,
+        },
+    }
+})
 
 async function getStatusRows(jobId: string) {
     return await db
@@ -143,4 +156,27 @@ test('accepts messages up to 3KB', async () => {
 
     const rows = await getStatusRows(jobId)
     expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === maxMsg)).toBe(true)
+})
+
+test('logs error with context and rethrows on invalid payload', async () => {
+    const badReq = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId: 'job-invalid', status: 'INVALID_STATUS' }),
+    })
+
+    await expect(apiHandler.POST(badReq)).rejects.toThrow()
+
+    const { default: logger } = await import('@/lib/logger')
+    const errorMock = logger.error as unknown as Mock
+    const calls = errorMock.mock.calls
+    expect(calls.length).toBeGreaterThan(0)
+
+    const [message, err, context] = calls[calls.length - 1]
+
+    expect(message).toBe('Error handling /api/services/code-push POST')
+    expect(err).toBeInstanceOf(Error)
+    expect(context).toMatchObject({
+        route: '/api/services/code-push',
+        body: { jobId: 'job-invalid', status: 'INVALID_STATUS' },
+    })
 })
