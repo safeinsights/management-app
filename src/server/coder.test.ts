@@ -3,9 +3,9 @@ import {
     createUserAndWorkspace,
     generateUsername,
     generateWorkspaceName,
-    getCoderOrganization,
+    getCoderOrganizationId,
     getCoderTemplateId,
-    getCoderUser,
+    getOrCreateCoderUser,
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
@@ -92,7 +92,7 @@ describe('getCoderUser', () => {
             researcherId: 'user123',
         })
 
-        const result = await getCoderUser('study123')
+        const result = await getOrCreateCoderUser('study123')
         expect(result).toEqual(mockUserResponse)
         expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users/11bb52890e173f1a3d41c823dde7bf5', {
             method: 'GET',
@@ -108,8 +108,8 @@ describe('getCoderUser', () => {
         const mockFetch = global.fetch as unknown as Mock
         // Mock the fetch calls in the right order:
         // 1. First fetch - check if user exists (returns 400)
-        // 2. Second fetch - create user (returns success)
-        // 3. Third fetch - get organizations (this is what getCoderOrganization calls)
+        // 2. Second fetch - get organizations (for createCoderUser)
+        // 3. Third fetch - create user (returns success)
         mockFetch
             .mockResolvedValueOnce({
                 ok: false,
@@ -125,11 +125,13 @@ describe('getCoderUser', () => {
                 json: vi.fn().mockResolvedValue(mockUserResponse),
             })
 
-        // Mock all the config values needed
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN (for organization fetch)
-        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for user creation)
+        // Mock all the config values needed in order of calls
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for getCoderUser)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for getCoderUser)
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for getCoderOrganization)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for getCoderOrganization)
+        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT (for createCoderUser)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN (for createCoderUser)
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
@@ -140,9 +142,10 @@ describe('getCoderUser', () => {
             fullName: 'John Doe',
         })
 
-        const result = await getCoderUser('study123')
+        const result = await getOrCreateCoderUser('study123')
         expect(result).toEqual(mockUserResponse)
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users', {
+        // Verify the POST call to create user was made
+        expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -152,6 +155,7 @@ describe('getCoderUser', () => {
             body: JSON.stringify({
                 email: 'john@example.com',
                 login_type: 'oidc',
+                name: undefined,
                 username: '11bb52890e173f1a3d41c823dde7bf5',
                 user_status: 'active',
                 organization_ids: ['org'],
@@ -173,7 +177,7 @@ describe('getCoderUser', () => {
             researcherId: 'user123',
         })
 
-        await expect(getCoderUser('study123')).rejects.toThrow('Failed to get user: 500 Internal server error')
+        await expect(getOrCreateCoderUser('study123')).rejects.toThrow('Failed to get user: 500 Internal server error')
     })
 })
 
@@ -263,7 +267,7 @@ describe('getCoderOrganization', () => {
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
 
-        const result = await getCoderOrganization()
+        const result = await getCoderOrganizationId()
         expect(result).toBe('org2')
     })
 
@@ -277,7 +281,7 @@ describe('getCoderOrganization', () => {
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
 
-        await expect(getCoderOrganization()).rejects.toThrow('Failed to fetch organization data from Coder API')
+        await expect(getCoderOrganizationId()).rejects.toThrow('Failed to fetch organization data from Coder API')
     })
 })
 
@@ -305,10 +309,10 @@ describe('getCoderTemplateId', () => {
             json: vi.fn().mockResolvedValue(mockTemplateResponse),
         })
 
-        // Mock all three config calls that getCoderTemplateId makes
+        // Mock config calls in order: CODER_TEMPLATE first, then CODER_API_ENDPOINT and CODER_TOKEN from coderFetch
+        getConfigValueMock.mockResolvedValueOnce('aws-fargate') // CODER_TEMPLATE
         getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_API_ENDPOINT
-        getConfigValueMock.mockResolvedValueOnce('https://api.coder.com') // CODER_TOKEN
-        getConfigValueMock.mockResolvedValueOnce('aws-fargate') // CODER_TEMPLATE (from .env)
+        getConfigValueMock.mockResolvedValueOnce('token') // CODER_TOKEN
 
         const result = await getCoderTemplateId()
         expect(result).toBe('template2')
@@ -316,7 +320,7 @@ describe('getCoderTemplateId', () => {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
-                'Coder-Session-Token': 'https://api.coder.com',
+                'Coder-Session-Token': 'token',
             },
         })
     })
