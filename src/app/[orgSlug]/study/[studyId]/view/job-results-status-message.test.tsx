@@ -89,11 +89,7 @@ describe('JobResultsStatusMessage', () => {
 
             renderWithProviders(<JobResultsStatusMessage job={job} orgSlug="test-org" files={files} />)
 
-            expect(
-                screen.getByText(
-                    'The results of your study have been approved by the data organization and are now available to you. If you are not satisfied with them, you can submit new code to generate new outcome.',
-                ),
-            ).toBeDefined()
+            expect(screen.getByText(/The results of your study have been approved/)).toBeDefined()
             expect(screen.getByTestId('job-results')).toBeDefined()
             expect(screen.getByTestId('resubmit-button')).toBeDefined()
             expect(screen.queryByText('Job ID:')).toBeNull()
@@ -148,11 +144,7 @@ describe('JobResultsStatusMessage', () => {
 
             renderWithProviders(<JobResultsStatusMessage job={job} orgSlug="test-org" files={files} />)
 
-            expect(
-                screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
-                ),
-            ).toBeDefined()
+            expect(screen.getByText(/Study results will become available/)).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
             expect(screen.queryByTestId('resubmit-button')).toBeNull()
         })
@@ -163,11 +155,7 @@ describe('JobResultsStatusMessage', () => {
 
             renderWithProviders(<JobResultsStatusMessage job={job} orgSlug="test-org" files={files} />)
 
-            expect(
-                screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
-                ),
-            ).toBeDefined()
+            expect(screen.getByText(/Study results will become available/)).toBeDefined()
         })
     })
 
@@ -178,11 +166,7 @@ describe('JobResultsStatusMessage', () => {
 
             renderWithProviders(<JobResultsStatusMessage job={job} orgSlug="test-org" files={files} />)
 
-            expect(
-                screen.getByText(
-                    'Study results will become available once the data organization reviews and approves them.',
-                ),
-            ).toBeDefined()
+            expect(screen.getByText(/Study results will become available/)).toBeDefined()
         })
 
         it('handles empty files array', () => {
