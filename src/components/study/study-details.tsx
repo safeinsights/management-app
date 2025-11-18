@@ -46,7 +46,6 @@ const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, study
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction({ studyId }))
-
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
