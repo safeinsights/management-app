@@ -80,7 +80,7 @@ test('code-push persists JOB-READY', async () => {
     expect(countMatching(rows, 'JOB-READY')).toBeGreaterThan(baseline)
 })
 
-test('code-push persists JOB-ERRORED message and inserts on message change only', async () => {
+test('code-push persists JOB-ERRORED once and is idempotent for same status (ignoring message)', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -88,7 +88,7 @@ test('code-push persists JOB-ERRORED message and inserts on message change only'
     let rows = await getStatusRows(jobId)
     const baseline = countMatching(rows, 'JOB-ERRORED')
 
-    // first error
+    // first error (with message in payload, which should be ignored for persistence)
     const msg1 = 'Containerizer failed during build step'
     const req1 = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
@@ -100,9 +100,8 @@ test('code-push persists JOB-ERRORED message and inserts on message change only'
     rows = await getStatusRows(jobId)
     const afterFirstErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterFirstErr).toBeGreaterThan(baseline)
-    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg1)).toBe(true)
 
-    // idempotent repeat with same message
+    // idempotent repeat with same status and message
     const req2 = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
         body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
@@ -114,7 +113,7 @@ test('code-push persists JOB-ERRORED message and inserts on message change only'
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
 
-    // new message should insert
+    // even with a different message, status-only idempotency should prevent new rows
     const msg2 = 'Containerizer failed in post_build'
     const req3 = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
@@ -124,8 +123,8 @@ test('code-push persists JOB-ERRORED message and inserts on message change only'
     expect(resp3.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
-    expect(countMatching(rows, 'JOB-ERRORED')).toBe(afterFirstErr + 1)
-    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg2)).toBe(true)
+    const afterThirdErr = countMatching(rows, 'JOB-ERRORED')
+    expect(afterThirdErr).toBe(afterFirstErr)
 })
 test('rejects messages longer than 4KB with 400 invalid-payload', async () => {
     const { org, user } = await mockSessionWithTestData()
@@ -165,7 +164,7 @@ test('accepts messages up to 4KB', async () => {
     expect(resp.ok).toBe(true)
 
     const rows = await getStatusRows(jobId)
-    expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === maxMsg)).toBe(true)
+    expect(countMatching(rows, 'JOB-ERRORED')).toBeGreaterThan(0)
 })
 
 test('logs error with context on invalid payload', async () => {

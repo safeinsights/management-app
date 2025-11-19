@@ -26,7 +26,8 @@ export async function POST(req: Request) {
             .select(['studyJob.id as jobId', 'study.researcherId'])
             .executeTakeFirstOrThrow(throwNotFound('job'))
 
-        // Idempotency: avoid inserting duplicate consecutive statuses with identical message
+        // Idempotency: avoid inserting duplicate consecutive statuses.
+        // For JOB-ERRORED we intentionally ignore any provided message and only track status.
         const last = await db
             .selectFrom('jobStatusChange')
             .select(['status', 'message', 'createdAt'])
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
             .limit(1)
             .executeTakeFirst()
 
-        const incomingMessage = body.message ?? null
+        const incomingMessage = body.status === 'JOB-ERRORED' ? null : (body.message ?? null)
         const lastMessage = (last?.message ?? null) as string | null
 
         if (!last || last.status !== body.status || lastMessage !== incomingMessage) {

@@ -71,7 +71,6 @@ describe('triggerBuildImageForJob', () => {
                 value: JSON.stringify({
                     jobId: mockJobInfo.studyJobId,
                     status: 'JOB-ERRORED',
-                    message: 'Containerization process failed',
                 }),
             },
             { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
