@@ -12,7 +12,7 @@ import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 
-export async function generateWorkspaceUrl(studyId: string): Promise<string> {
+async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const workspaceName = generateWorkspaceName(studyId)
     const user = await getCoderUser(studyId)
@@ -22,7 +22,7 @@ export async function generateWorkspaceUrl(studyId: string): Promise<string> {
     return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
-export function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
+function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
     if (!event) return false
     const resources = event.latest_build?.resources
     if (!resources || resources.length === 0) return false
