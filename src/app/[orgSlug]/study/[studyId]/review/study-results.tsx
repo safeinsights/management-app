@@ -56,7 +56,7 @@ export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
-        return <Text>The results and logs have been approved and shared with theresearcher.</Text>
+        return <Text>The results and logs have been approved and shared with the researcher.</Text>
     }
 
     if (isErrored) {
