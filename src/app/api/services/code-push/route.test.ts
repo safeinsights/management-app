@@ -127,26 +127,36 @@ test('code-push persists JOB-ERRORED message and inserts on message change only'
     expect(countMatching(rows, 'JOB-ERRORED')).toBe(afterFirstErr + 1)
     expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === msg2)).toBe(true)
 })
-test('rejects messages longer than 3KB', async () => {
+test('rejects messages longer than 4KB with 400 invalid-payload', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    const longMsg = 'a'.repeat(3073) // 1 char over
+    const longMsg = 'a'.repeat(4097) // 1 char over 4KB limit
     const req = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
         body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: longMsg }),
     })
 
-    await expect(apiHandler.POST(req)).rejects.toThrow(/Too big: expected string to have <=3072 characters/)
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(false)
+    expect(resp.status).toBe(400)
+
+    const body = await resp.json()
+    expect(body.error).toBe('invalid-payload')
+
+    type ZodIssueLike = { path?: (string | number)[] }
+
+    const messageIssue = (body.issues as ZodIssueLike[]).find((issue) => issue.path?.[0] === 'message')
+    expect(messageIssue).toBeDefined()
 })
 
-test('accepts messages up to 3KB', async () => {
+test('accepts messages up to 4KB', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    const maxMsg = 'a'.repeat(3072)
+    const maxMsg = 'a'.repeat(4096)
     const req = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
         body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: maxMsg }),
@@ -158,13 +168,15 @@ test('accepts messages up to 3KB', async () => {
     expect(rows.some((r) => r.status === 'JOB-ERRORED' && r.message === maxMsg)).toBe(true)
 })
 
-test('logs error with context and rethrows on invalid payload', async () => {
+test('logs error with context on invalid payload', async () => {
     const badReq = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
         body: JSON.stringify({ jobId: 'job-invalid', status: 'INVALID_STATUS' }),
     })
 
-    await expect(apiHandler.POST(badReq)).rejects.toThrow()
+    const resp = await apiHandler.POST(badReq)
+    expect(resp.ok).toBe(false)
+    expect(resp.status).toBe(400)
 
     const { default: logger } = await import('@/lib/logger')
     const errorMock = logger.error as unknown as Mock
@@ -179,4 +191,19 @@ test('logs error with context and rethrows on invalid payload', async () => {
         route: '/api/services/code-push',
         body: { jobId: 'job-invalid', status: 'INVALID_STATUS' },
     })
+})
+
+test('returns 404 job-not-found for unknown jobId', async () => {
+    const badJobId = '00000000-0000-0000-0000-000000000000'
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId: badJobId, status: 'JOB-PACKAGING' }),
+    })
+
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(false)
+    expect(resp.status).toBe(404)
+
+    const body = await resp.json()
+    expect(body).toEqual({ error: 'job-not-found' })
 })

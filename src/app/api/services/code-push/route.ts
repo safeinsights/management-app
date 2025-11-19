@@ -2,13 +2,14 @@ export const dynamic = 'force-dynamic' // defaults to auto
 
 import { db } from '@/database'
 import logger from '@/lib/logger'
-import { z } from 'zod'
+import { NotFoundError, throwNotFound } from '@/lib/errors'
+import { z, ZodError } from 'zod'
 import { NextResponse } from 'next/server'
 
 const schema = z.object({
     jobId: z.string(),
     status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
-    message: z.string().max(3072).optional(),
+    message: z.string().max(4096).optional(),
 })
 
 export async function POST(req: Request) {
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
             .innerJoin('study', 'study.id', 'studyJob.studyId')
             .where('studyJob.id', '=', body.jobId)
             .select(['studyJob.id as jobId', 'study.researcherId'])
-            .executeTakeFirstOrThrow()
+            .executeTakeFirstOrThrow(throwNotFound('job'))
 
         // Idempotency: avoid inserting duplicate consecutive statuses with identical message
         const last = await db
@@ -52,11 +53,35 @@ export async function POST(req: Request) {
 
         return new NextResponse('ok', { status: 200 })
     } catch (error) {
+        if (error instanceof ZodError) {
+            logger.error('Error handling /api/services/code-push POST', error, {
+                route: '/api/services/code-push',
+                body: rawBody ?? null,
+            })
+
+            return NextResponse.json(
+                {
+                    error: 'invalid-payload',
+                    issues: error.issues,
+                },
+                { status: 400 },
+            )
+        }
+
+        if (error instanceof NotFoundError) {
+            logger.error('Error handling /api/services/code-push POST', error, {
+                route: '/api/services/code-push',
+                body: rawBody ?? null,
+            })
+
+            return NextResponse.json({ error: 'job-not-found' }, { status: 404 })
+        }
+
         logger.error('Error handling /api/services/code-push POST', error, {
             route: '/api/services/code-push',
             body: rawBody ?? null,
         })
-        // Re-throw so Next.js still returns a 500 and existing tests/behavior are preserved
-        throw error
+
+        return NextResponse.json({ error: 'internal-error' }, { status: 500 })
     }
 }
