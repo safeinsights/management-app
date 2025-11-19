@@ -1,12 +1,12 @@
 'use client'
 
 import React, { FC } from 'react'
-import { Badge, Stack, Text, Group } from '@mantine/core'
+import { Stack, Text, Group } from '@mantine/core'
 import { loadStudyJobAction } from '@/server/actions/study-job.actions'
 import { StudyJob } from '@/schema/study'
 import { useQuery } from '@/common'
-import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
 import { studyCodeURL } from '@/lib/paths'
+import { FileChip } from '@/components/file-chip'
 
 export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
     const { data, isLoading } = useQuery({
@@ -31,33 +31,11 @@ export const StudyCodeDetails: FC<{ job: StudyJob }> = ({ job }) => {
     const supplementalCodeFiles = data.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
 
     const mainCodeFileChip = mainCodeFile ? (
-        <Badge
-            color="#D4D1F3"
-            c="black"
-            component="a"
-            href={studyCodeURL(job.id, mainCodeFile.name)}
-            target="_blank"
-            rightSection={<DownloadIcon />}
-            style={{ cursor: 'pointer' }}
-            key={mainCodeFile.name}
-        >
-            {mainCodeFile.name}
-        </Badge>
+        <FileChip href={studyCodeURL(job.id, mainCodeFile.name)} filename={mainCodeFile.name} key={mainCodeFile.name} />
     ) : null
 
     const supplementalCodeFileChips = supplementalCodeFiles.map((file) => (
-        <Badge
-            color="#D4D1F3"
-            c="black"
-            component="a"
-            href={studyCodeURL(job.id, file.name)}
-            target="_blank"
-            rightSection={<DownloadIcon />}
-            style={{ cursor: 'pointer' }}
-            key={file.name}
-        >
-            {file.name}
-        </Badge>
+        <FileChip href={studyCodeURL(job.id, file.name)} filename={file.name} key={file.name} />
     ))
 
     return (

@@ -2,13 +2,11 @@ import { AlertNotFound } from '@/components/errors'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { isActionError } from '@/lib/errors'
 import { studyDocumentURL } from '@/lib/paths'
-import { truncate } from '@/lib/string'
 import { StudyDocumentType } from '@/lib/types'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { Badge, Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
-import { DownloadIcon } from '@phosphor-icons/react/dist/ssr'
+import { Divider, Grid, GridCol, Stack, Text } from '@mantine/core'
 import { FC, use } from 'react'
-import { InfoTooltip } from '../tooltip'
+import { FileChip } from '@/components/file-chip'
 
 interface BadgeWithDescriptionProps {
     path?: string | null
@@ -19,34 +17,11 @@ interface BadgeWithDescriptionProps {
 const BadgeWithDescription: FC<BadgeWithDescriptionProps> = ({ path, type, studyId }) => {
     if (!path) return null
 
-    const truncatedText = truncate(path)
-    const needsTooltip = path.length > 20
-
-    const badge = (
-        <Badge
-            key={path}
-            color="#D4D1F3"
-            c="black"
-            component="a"
-            href={studyDocumentURL(studyId, type, path)}
-            target="_blank"
-            rightSection={<DownloadIcon />}
-            style={{ cursor: 'pointer' }}
-        >
-            <span>{truncatedText}</span>
-        </Badge>
-    )
-
-    if (needsTooltip) {
-        return <InfoTooltip label={path}>{badge}</InfoTooltip>
-    }
-
-    return badge
+    return <FileChip href={studyDocumentURL(studyId, type, path)} filename={path} key={path} />
 }
 
 export const StudyDetails: FC<{ studyId: string }> = ({ studyId }) => {
     const study = use(getStudyAction({ studyId }))
-
     if (isActionError(study) || !study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
