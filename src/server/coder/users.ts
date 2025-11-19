@@ -5,15 +5,6 @@ import { getCoderOrganizationId } from './organizations'
 import { CoderUser, CoderUserQueryResponse } from './types'
 import { shaHash } from '@/server/coder/utils'
 
-export async function getUsername(studyId: string): Promise<string> {
-    const info = await getStudyAndOrgDisplayInfo(studyId)
-    if (!info.researcherEmail) {
-        throw new Error('Error retrieving researcher email!')
-    }
-    // Coder usernames are limited to 32 characters
-    return shaHash(info.researcherEmail).slice(0, 32)
-}
-
 export async function getUserEmail(studyId: string): Promise<string> {
     const info = await getStudyAndOrgDisplayInfo(studyId)
     if (!info.researcherEmail) {

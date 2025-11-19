@@ -73,9 +73,9 @@ describe('getOrCreateCoderUser', () => {
         // 3. Third fetch - create user (returns success)
         mockFetch
             .mockResolvedValueOnce({
-                ok: false,
-                status: 400,
-                text: vi.fn().mockResolvedValue('User not found'),
+                ok: true,
+                status: 200,
+                json: vi.fn().mockResolvedValue([]),
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -117,7 +117,7 @@ describe('getOrCreateCoderUser', () => {
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: undefined,
-                username: '11bb52890e173f1a3d41c823dde7bf5',
+                username: '855f96e983f1f8e8be944692b6f719fd',
                 user_status: 'active',
                 organization_ids: ['org'],
             }),

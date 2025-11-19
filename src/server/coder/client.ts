@@ -38,8 +38,6 @@ export async function coderFetch<T>(path: string, options: CoderFetchOptions = {
         body: body ? JSON.stringify(body) : undefined,
     })
 
-    console.log('RESPONSE: ', response)
-    console.log('PATH: ', path)
     if (!response.ok) {
         const errorText = await response.text()
         throw new CoderApiError(`${errorMessage}: ${response.status} ${errorText}`, response.status, errorText)

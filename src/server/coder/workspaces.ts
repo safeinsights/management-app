@@ -9,13 +9,13 @@ import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
-import { getCoderUser, getOrCreateCoderUser, getUsername } from './users'
+import { getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 
 export async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const workspaceName = generateWorkspaceName(studyId)
-    const user = await getCoderUser(studyId)
+    const user = await getOrCreateCoderUser(studyId)
     return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
@@ -84,14 +84,13 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
-            return await createCoderWorkspace(studyId)
+            return await createCoderWorkspace(studyId, user.username)
         }
         throw error
     }
 }
 
-export async function createCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
-    const username = await getUsername(studyId)
+async function createCoderWorkspace(studyId: string, username: string): Promise<CoderWorkspace> {
     const workspaceName = generateWorkspaceName(studyId)
 
     const data = {
