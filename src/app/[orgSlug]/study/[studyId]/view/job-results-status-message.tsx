@@ -16,9 +16,6 @@ export type JobResultsStatusMessageProps = {
 export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, orgSlug, files }) => {
     const { isApproved, isRejected, isFilesRejected, isErrored } = useJobStatus(job.statusChanges)
 
-    const errorStatusChange = job.statusChanges.find((sc) => sc.status === 'JOB-ERRORED')
-    const errorMessage = errorStatusChange?.message
-
     let message: string
     let additionalContent: ReactNode = null
     let hideResults = false
@@ -61,16 +58,6 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
     return (
         <Stack>
             <Text>{message}</Text>
-            {errorMessage && (
-                <Stack gap="xs">
-                    <Text size="sm" fw="bold">
-                        Error Details:
-                    </Text>
-                    <Text size="sm" c="dimmed" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-                        {errorMessage}
-                    </Text>
-                </Stack>
-            )}
             {additionalContent}
             {!hideResults && <JobResults job={job} />}
             <Group>
