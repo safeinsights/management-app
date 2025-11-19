@@ -12,16 +12,7 @@ pipeline {
                 }
             }
             steps {
-                script {                    
-                    echo "SENTRY_DSN is set: ${env.SENTRY_DSN ? 'Yes' : 'No'}"
-                    if (env.SENTRY_DSN) {
-                        echo "SENTRY_DSN value: ${env.SENTRY_DSN.take(10)}..."
-                    }
-                    echo "NEXT_PUBLIC_SENTRY_DSN is set: ${env.NEXT_PUBLIC_SENTRY_DSN ? 'Yes' : 'No'}"
-                    if (env.NEXT_PUBLIC_SENTRY_DSN) {
-                        echo "NEXT_PUBLIC_SENTRY_DSN value: ${env.NEXT_PUBLIC_SENTRY_DSN.take(10)}..."
-                    }
-
+                script {
                     def commitMsg = sh(
                         script: "git log -1 --format=%B ${env.GIT_COMMIT}",
                         returnStdout: true
