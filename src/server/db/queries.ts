@@ -44,7 +44,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')
-                    .select(['status', 'createdAt', 'message'])
+                    .select(['status', 'createdAt'])
                     .whereRef('jobStatusChange.studyJobId', '=', 'studyJob.id')
                     .orderBy('createdAt', 'desc'),
             ).as('statusChanges'),
