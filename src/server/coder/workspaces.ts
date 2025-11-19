@@ -3,6 +3,7 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
+    pathForStudyJobCodeFile,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { getConfigValue } from '../config'
@@ -11,6 +12,10 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
+import { jobInfoForJobId, latestJobForStudy } from '../db/queries'
+import { fetchFileContents } from '../storage'
+import * as fs from 'node:fs/promises'
+import * as path from 'node:path'
 
 async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
@@ -96,6 +101,9 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 async function createCoderWorkspace(studyId: string, username: string): Promise<CoderWorkspace> {
     const workspaceName = generateWorkspaceName(studyId)
 
+    // Populate code files prior to launching workspace
+    await initializeWorkspaceCodeFiles(studyId)
+
     const data = {
         name: workspaceName,
         template_id: await getCoderTemplateId(),
@@ -129,5 +137,28 @@ export async function createUserAndWorkspace(
         throw new Error(
             `Failed to create user and workspace: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
+    }
+}
+
+const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
+    const coderBaseFilePath = await getConfigValue('CODER_FILES')
+    const latestJob = await latestJobForStudy(studyId)
+    const latestJobInfo = await jobInfoForJobId(latestJob.id)
+
+    const mainCodeFile = latestJob.files.filter((file) => file.fileType === 'MAIN-CODE')
+    const supplementalCodeFiles = latestJob.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
+
+    for (const codeFile of mainCodeFile.concat(supplementalCodeFiles)) {
+        const fileData = await fetchFileContents(
+            pathForStudyJobCodeFile(
+                { orgSlug: latestJobInfo.orgSlug, studyId: latestJob.studyId, studyJobId: latestJob.id },
+                codeFile.name,
+            ),
+        )
+        const targetFilePath = path.join(coderBaseFilePath, studyId, codeFile.name)
+
+        // Create parent directory if needed and then write file
+        await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+        await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
     }
 }
