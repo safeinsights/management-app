@@ -5,29 +5,19 @@ import { getCoderOrganizationId } from './organizations'
 import { CoderUser, CoderUserQueryResponse } from './types'
 import { shaHash } from '@/server/coder/utils'
 
-export async function getUserEmail(studyId: string): Promise<string> {
-    const info = await getStudyAndOrgDisplayInfo(studyId)
-    if (!info.researcherEmail) {
-        throw new Error('Error retrieving researcher email!')
-    }
-    return info.researcherEmail
-}
-
 async function createCoderUser(studyId: string): Promise<CoderUser> {
-    const info = await getStudyAndOrgDisplayInfo(studyId)
+    const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!info.researcherEmail) {
-        throw new Error('Error retrieving researcher info!')
+    if (!studyInfo.researcherEmail) {
+        throw new Error('Researcher email is missing!')
     }
-
-    const userEmail = await getUserEmail(studyId)
 
     // Coder usernames are limited to 32 characters
-    const generatedUsername = shaHash(userEmail).slice(0, 32)
+    const generatedUsername = shaHash(studyInfo.researcherEmail).slice(0, 32)
     const body = {
-        email: info.researcherEmail,
+        email: studyInfo.researcherEmail,
         login_type: 'oidc',
-        name: info.researcherFullName,
+        name: studyInfo.researcherFullName,
         username: generatedUsername,
         user_status: 'active',
         organization_ids: [await getCoderOrganizationId()],
@@ -41,8 +31,13 @@ async function createCoderUser(studyId: string): Promise<CoderUser> {
 }
 
 export async function getCoderUser(studyId: string): Promise<CoderUser | null> {
-    const email = await getUserEmail(studyId)
-    const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${email}`, {
+    const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
+
+    if (!studyInfo.researcherEmail) {
+        throw new Error('Error retrieving researcher info!')
+    }
+
+    const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${studyInfo.researcherEmail}`, {
         errorMessage: 'Failed to query users',
     })
 
