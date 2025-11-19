@@ -142,8 +142,8 @@ export const getUsersForOrgId = async (orgId: string) => {
         .execute()
 }
 
-// this is called primarlily by the mail functions to get study infoormation
-// some of these functions are called by API which lacks a user, do not use siUser inside this
+// this is called primarily by the mail functions to get study information
+// some of these functions are called by API, which lacks a user, do not use siUser inside this
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await Action.db
         .selectFrom('study')
