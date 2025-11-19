@@ -2,10 +2,6 @@
 pipeline {
     agent { label "jenkins" }
 
-    environment {
-        SENTRY_DSN = "${process.env.NEXT_PUBLIC_SENTRY_DSN} || process.env.SENTRY_DSN"
-    }
-
     stages {
         stage("Deploy") {
             when {
@@ -16,10 +12,14 @@ pipeline {
                 }
             }
             steps {
-                script {
+                script {                    
                     echo "SENTRY_DSN is set: ${env.SENTRY_DSN ? 'Yes' : 'No'}"
                     if (env.SENTRY_DSN) {
                         echo "SENTRY_DSN value: ${env.SENTRY_DSN.take(10)}..."
+                    }
+                    echo "NEXT_PUBLIC_SENTRY_DSN is set: ${env.NEXT_PUBLIC_SENTRY_DSN ? 'Yes' : 'No'}"
+                    if (env.NEXT_PUBLIC_SENTRY_DSN) {
+                        echo "NEXT_PUBLIC_SENTRY_DSN value: ${env.NEXT_PUBLIC_SENTRY_DSN.take(10)}..."
                     }
 
                     def commitMsg = sh(
