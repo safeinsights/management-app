@@ -3,14 +3,15 @@ import { getStudyAndOrgDisplayInfo } from '../db/queries'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId } from './organizations'
 import { CoderUser } from './types'
-import { generateUsername } from './utils'
+import { shaHash } from '@/server/coder/utils'
 
 export async function getUsername(studyId: string): Promise<string> {
     const info = await getStudyAndOrgDisplayInfo(studyId)
-    if (!info.researcherEmail || !info.researcherId) {
-        throw new Error('Error retrieving researcher info!')
+    if (!info.researcherEmail) {
+        throw new Error('Error retrieving researcher email!')
     }
-    return generateUsername(info.researcherEmail, info.researcherId)
+    // Coder usernames are limited to 32 characters
+    return shaHash(info.researcherEmail).slice(0, 32)
 }
 
 async function createCoderUser(studyId: string): Promise<CoderUser> {

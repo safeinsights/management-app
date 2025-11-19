@@ -23,7 +23,7 @@ export async function getCoderOrganizationId(): Promise<string> {
             if (arrayValues.length > 0) {
                 organizations = arrayValues[0]
             } else {
-                if (typeof responseJson === 'object' && responseJson !== null) {
+                if (typeof responseJson === 'object') {
                     organizations = [responseJson]
                 } else {
                     throw new Error('Failed to extract organizations array from response')

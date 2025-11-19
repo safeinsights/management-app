@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, Mock, vi } from 'vitest'
 import {
     createUserAndWorkspace,
-    generateUsername,
     generateWorkspaceName,
     getCoderOrganizationId,
     getCoderTemplateId,
@@ -27,43 +26,6 @@ global.fetch = vi.fn()
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
-
-describe('generateUsername', () => {
-    it('should generate username from email', () => {
-        const email = 'john.doe@example.com'
-        const userId = 'user123'
-        const username = generateUsername(email, userId)
-        expect(username).toBe('27ce45642e584a38c0ca41855edcdc6')
-    })
-
-    it('should handle email without @ symbol', () => {
-        const email = 'john.doe'
-        const userId = 'user123'
-        const username = generateUsername(email, userId)
-        expect(username).toBe('37abc1f5455c322b913defd3ed56daf')
-    })
-
-    it('should handle email with special characters', () => {
-        const email = 'john.doe+test@domain.com'
-        const userId = 'user123'
-        const username = generateUsername(email, userId)
-        expect(username).toBe('570494453cfceb2d5fc9601dc8d527d')
-    })
-
-    it('should use userId when email is empty', () => {
-        const email = ''
-        const userId = 'user123'
-        const username = generateUsername(email, userId)
-        expect(username).toBe('e606e38b0d8c19b24cf0ee380818316')
-    })
-
-    it('should truncate username to 31 characters', () => {
-        const email = 'a'.repeat(50) + '@example.com'
-        const userId = 'user123'
-        const username = generateUsername(email, userId)
-        expect(username).toHaveLength(31)
-    })
-})
 
 describe('getCoderUser', () => {
     const ORIGINAL_ENV = process.env
