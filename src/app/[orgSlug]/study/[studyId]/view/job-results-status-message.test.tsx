@@ -150,7 +150,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approvals them.',
+                    'Study results will become available once the data organization reviews and approves them.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -165,7 +165,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approvals them.',
+                    'Study results will become available once the data organization reviews and approves them.',
                 ),
             ).toBeDefined()
         })
@@ -180,7 +180,7 @@ describe('JobResultsStatusMessage', () => {
 
             expect(
                 screen.getByText(
-                    'Study results will become available once the data organization reviews and approvals them.',
+                    'Study results will become available once the data organization reviews and approves them.',
                 ),
             ).toBeDefined()
         })
