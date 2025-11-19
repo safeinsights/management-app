@@ -29,7 +29,7 @@ const siUserMock = siUser as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
-describe('getCoderUser', () => {
+describe('getOrCreateCoderUser', () => {
     const ORIGINAL_ENV = process.env
 
     beforeEach(() => {
