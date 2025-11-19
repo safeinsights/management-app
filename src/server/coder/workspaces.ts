@@ -15,8 +15,8 @@ import { generateWorkspaceName } from './utils'
 export async function generateWorkspaceUrl(studyId: string): Promise<string> {
     const coderApiEndpoint = await getConfigValue('CODER_API_ENDPOINT')
     const workspaceName = generateWorkspaceName(studyId)
-    const username = await getUsername(studyId)
-    return `${coderApiEndpoint}${coderWorkspacePath(username, workspaceName)}`
+    const user = await getOrCreateCoderUser(studyId)
+    return `${coderApiEndpoint}${coderWorkspacePath(user.username, workspaceName)}`
 }
 
 export function isWorkspaceReady(event: CoderWorkspaceEvent): boolean {
@@ -51,6 +51,7 @@ export async function getCoderWorkspaceUrl(studyId: string, workspaceId: string)
     if (isWorkspaceReady(workspace)) {
         return await generateWorkspaceUrl(studyId)
     }
+
     return null
 }
 
@@ -67,11 +68,11 @@ async function startWorkspace(workspaceId: string): Promise<void> {
 }
 
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
-    const username = await getUsername(studyId)
+    const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
     try {
-        const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(username, workspaceName), {
+        const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
             errorMessage: 'Failed to get workspace',
         })
 
@@ -116,7 +117,6 @@ export async function createUserAndWorkspace(
     studyId: string,
 ): Promise<{ success: boolean; workspace: CoderWorkspace }> {
     try {
-        await getOrCreateCoderUser(studyId)
         const workspace = await getOrCreateCoderWorkspace(studyId)
         return {
             success: true,

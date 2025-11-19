@@ -1,8 +1,8 @@
-import { coderUserInfoPath, coderUsersPath } from '@/lib/paths'
+import { coderUsersPath } from '@/lib/paths'
 import { getStudyAndOrgDisplayInfo } from '../db/queries'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId } from './organizations'
-import { CoderUser } from './types'
+import { CoderUser, CoderUserQueryResponse } from './types'
 import { shaHash } from '@/server/coder/utils'
 
 export async function getUsername(studyId: string): Promise<string> {
@@ -17,16 +17,15 @@ export async function getUsername(studyId: string): Promise<string> {
 async function createCoderUser(studyId: string): Promise<CoderUser> {
     const info = await getStudyAndOrgDisplayInfo(studyId)
 
-    if (!info.researcherEmail || !info.researcherId) {
+    if (!info.researcherEmail) {
         throw new Error('Error retrieving researcher info!')
     }
-
-    const username = await getUsername(studyId)
+    const user = await getOrCreateCoderUser(studyId)
     const body = {
         email: info.researcherEmail,
         login_type: 'oidc',
         name: info.researcherFullName,
-        username: username,
+        username: user.username,
         user_status: 'active',
         organization_ids: [await getCoderOrganizationId()],
     }
@@ -39,12 +38,17 @@ async function createCoderUser(studyId: string): Promise<CoderUser> {
 }
 
 export async function getOrCreateCoderUser(studyId: string): Promise<CoderUser> {
-    const username = await getUsername(studyId)
-
+    const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
     try {
-        return await coderFetch<CoderUser>(coderUserInfoPath(username), {
-            errorMessage: 'Failed to get user',
+        const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${studyInfo.researcherEmail}`, {
+            errorMessage: 'Failed to query users',
         })
+
+        if (data.users?.length) {
+            // User exists, return the user data
+            return data.users[0]
+        }
+        return await createCoderUser(studyId)
     } catch (error) {
         if (error instanceof CoderApiError && error.status === 400) {
             return await createCoderUser(studyId)

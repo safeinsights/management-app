@@ -27,6 +27,8 @@ const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
 
+const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
+
 describe('getCoderUser', () => {
     const ORIGINAL_ENV = process.env
 
@@ -41,22 +43,20 @@ describe('getCoderUser', () => {
     })
 
     it('should get existing user when user exists', async () => {
-        const mockUserResponse = { id: 'user123', name: 'John Doe' }
         const mockFetch = global.fetch as unknown as Mock
         mockFetch.mockResolvedValue({
             ok: true,
-            json: vi.fn().mockResolvedValue(mockUserResponse),
+            json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
         })
 
         getConfigValueMock.mockResolvedValue('https://api.coder.com')
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
-            researcherId: 'user123',
         })
 
         const result = await getOrCreateCoderUser('study123')
-        expect(result).toEqual(mockUserResponse)
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users/11bb52890e173f1a3d41c823dde7bf5', {
+        expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john@example.com', {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
@@ -66,7 +66,6 @@ describe('getCoderUser', () => {
     })
 
     it('should create user when user does not exist (400 status)', async () => {
-        const mockUserResponse = { id: 'user123', name: 'John Doe' }
         const mockFetch = global.fetch as unknown as Mock
         // Mock the fetch calls in the right order:
         // 1. First fetch - check if user exists (returns 400)
@@ -84,7 +83,7 @@ describe('getCoderUser', () => {
             })
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue(mockUserResponse),
+                json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
             })
 
         // Mock all the config values needed in order of calls
@@ -105,8 +104,8 @@ describe('getCoderUser', () => {
         })
 
         const result = await getOrCreateCoderUser('study123')
-        expect(result).toEqual(mockUserResponse)
-        // Verify the POST call to create user was made
+        expect(result).toEqual(mockUsersEmailQueryResponse)
+        // Verify the POST call to create a user was made
         expect(mockFetch).toHaveBeenNthCalledWith(3, 'https://api.coder.com/api/v2/users', {
             method: 'POST',
             headers: {
@@ -139,7 +138,9 @@ describe('getCoderUser', () => {
             researcherId: 'user123',
         })
 
-        await expect(getOrCreateCoderUser('study123')).rejects.toThrow('Failed to get user: 500 Internal server error')
+        await expect(getOrCreateCoderUser('study123')).rejects.toThrow(
+            'Failed to query users: 500 Internal server error',
+        )
     })
 })
 
@@ -157,13 +158,12 @@ describe('createUserAndWorkspace', () => {
     })
 
     it('should create user and workspace successfully', async () => {
-        const mockUserResponse = { id: 'user123', name: 'John Doe' }
         const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
         const mockFetch = global.fetch as unknown as Mock
         mockFetch
             .mockResolvedValueOnce({
                 ok: true,
-                json: vi.fn().mockResolvedValue(mockUserResponse),
+                json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
             })
             .mockResolvedValueOnce({
                 ok: true,
@@ -198,7 +198,7 @@ describe('createUserAndWorkspace', () => {
         })
 
         await expect(createUserAndWorkspace('study123')).rejects.toThrow(
-            'Failed to create user and workspace: Failed to get user: 500 Internal server error',
+            'Failed to create user and workspace: Failed to query users: 500 Internal server error',
         )
     })
 })
@@ -306,7 +306,7 @@ describe('uuidToStr', () => {
     it('should handle md5hash case with UUID', () => {
         const uuid = '550e8400-e29b-41d4-a716-446655440000'
         const result = generateWorkspaceName(uuid)
-        expect(result).toBe('140f39b05a')
+        expect(result).toBe('a3a9e1ed97')
     })
 
     it('should handle md5hash case with UUID without hyphens', () => {
@@ -318,7 +318,7 @@ describe('uuidToStr', () => {
     it('should handle md5hash case with UUID with mixed case', () => {
         const uuid = '550E8400-E29B-41D4-A716-446655440000'
         const result = generateWorkspaceName(uuid)
-        expect(result).toBe('140f39b05a')
+        expect(result).toBe('a3a9e1ed97')
     })
 })
 

@@ -30,6 +30,10 @@ export interface CoderApp {
     health?: string // "healthy" | "unhealthy"
 }
 
+export interface CoderUserQueryResponse {
+    users: CoderUser[]
+}
+
 export interface CoderUser {
     id: string
     username: string
