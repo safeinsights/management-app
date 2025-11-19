@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery } from '@/common'
-import { reportMutationError } from '@/components/errors'
+import { reportError, reportMutationError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { AppModal } from '@/components/modal'
 import { Routes } from '@/lib/routes'
@@ -70,7 +70,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
                 })
                 router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
             } else {
-                reportMutationError('Unable to join team')
+                reportError(error, 'Unable to join team')
             }
         },
     })
@@ -80,9 +80,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         onSuccess: () => {
             router.push(`${Routes.dashboard}?decline=${org!.name}` as Route)
         },
-        onError: () => {
-            reportMutationError('Unable to decline invitation')
-        },
+        onError: reportMutationError('Unable to decline invitation'),
     })
 
     if (isLoading || !org || !user) {
