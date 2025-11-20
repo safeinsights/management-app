@@ -1,4 +1,4 @@
-import { jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -7,7 +7,6 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
-import { type DBExecutor } from '@/database'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -34,7 +33,6 @@ export async function getStudyJobInfo(studyJobId: string) {
         .selectFrom('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .innerJoin('org', 'study.orgId', 'org.id')
-
         .select((eb) => [
             'studyJob.id as studyJobId',
             'studyJob.studyId',
@@ -144,8 +142,8 @@ export const getUsersForOrgId = async (orgId: string) => {
         .execute()
 }
 
-// this is called primarlily by the mail functions to get study infoormation
-// some of these functions are called by API which lacks a user, do not use siUser inside this
+// this is called primarily by the mail functions to get study information
+// some of these functions are called by API, which lacks a user, do not use siUser inside this
 export const getStudyAndOrgDisplayInfo = async (studyId: string) => {
     const res = await Action.db
         .selectFrom('study')
@@ -204,7 +202,7 @@ export const getInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'org.id', 'study.orgId')
-        .select(['orgId', 'org.slug as orgSlug'])
+        .select(['orgId', 'org.slug as orgSlug', 'study.researcherId'])
         .where('study.id', '=', studyId)
         .executeTakeFirstOrThrow()
 }
