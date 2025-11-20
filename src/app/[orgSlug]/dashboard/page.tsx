@@ -4,7 +4,7 @@ import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
 import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
-import { orgInitials, orgInitialsTitle } from '@/lib/string'
+import { orgInitials, displayOrgName } from '@/lib/string'
 import { isEnclaveOrg } from '@/lib/types'
 import { getOrgFromSlugAction } from '@/server/actions/org.actions'
 import { Stack, Text, Title } from '@mantine/core'
@@ -19,11 +19,11 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
 
     const isEnclave = isEnclaveOrg(org)
     const orgInitialsOnly = orgInitials(org.name, org.type, true)
-    const orgInitialsTitleText = orgInitialsTitle(org.name, org.type)
+    const orgName = displayOrgName(org.name)
 
     const description = isEnclave
-        ? `Welcome to the ${orgInitialsOnly} Data Organization dashboard. Here you can review submitted study proposals, check study statuses and know when tasks are due.`
-        : `Welcome to the ${orgInitialsOnly} Research Lab dashboard. Here you can submit new proposals, view study statuses, and access the details of each study.`
+        ? `Welcome to the ${orgName} Data Organization dashboard. Here you can review submitted study proposals, check study statuses and know when tasks are due.`
+        : `Welcome to the ${orgName} Research Lab dashboard. Here you can submit new proposals, view study statuses, and access the details of each study.`
 
     return (
         <Stack p="xxl" gap="xxl">
@@ -33,7 +33,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                     [orgInitialsOnly + (isEnclave ? ' Data Organization' : ' Research Lab')],
                 ]}
             />
-            <Title order={1}>{orgInitialsTitleText} dashboard</Title>
+            <Title order={1}>{orgName + (isEnclave ? ' Data Organization' : ' Research Lab')} dashboard</Title>
             <Text>{description}</Text>
             {isEnclave ? <ReviewerStudiesTable orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
         </Stack>

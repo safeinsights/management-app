@@ -21,12 +21,13 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
             <Flex align="center">
                 <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
                     <Text
-                        bd="1px solid purple.8"
+                        size="sm"
+                        bd="1px solid purple.7"
                         bdrs={2}
                         p="2px 6px"
                         ta={'center'}
                         fw={600}
-                        c={'purple.8'}
+                        c={'purple.7'}
                         style={{ cursor: 'pointer' }}
                     >
                         {label.toLocaleUpperCase()}

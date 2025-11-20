@@ -23,6 +23,7 @@ import {
     TableTr,
     Text,
     Title,
+    useMantineTheme,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { FC } from 'react'
@@ -32,6 +33,7 @@ import { TableSkeleton } from '../layout/skeleton/dashboard'
 type Studies = ActionSuccessType<typeof fetchStudiesForOrgAction>
 
 const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+    const theme = useMantineTheme()
     const status = useStudyStatus({
         studyStatus: study.status,
         audience: 'reviewer',
@@ -39,10 +41,23 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
     })
 
     return (
-        <TableTr fz={14} key={study.id} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+        <TableTr
+            fz={14}
+            key={study.id}
+            style={
+                study.status === 'PENDING-REVIEW'
+                    ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
+                    : undefined
+            }
+        >
             <TableTd>
                 <InfoTooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm">
+                    <Text
+                        lineClamp={2}
+                        style={{ cursor: 'pointer' }}
+                        size="sm"
+                        fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                    >
                         {study.title}
                     </Text>
                 </InfoTooltip>
@@ -55,7 +70,11 @@ const Row: FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={Routes.studyReview({ orgSlug, studyId: study.id })} c="blue.7">
+                <Link
+                    href={Routes.studyReview({ orgSlug, studyId: study.id })}
+                    c="blue.7"
+                    fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                >
                     View
                 </Link>
             </TableTd>
@@ -100,7 +119,7 @@ export const ReviewerStudiesTable: FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     Review all the studies submitted to your organization. Studies that need your attention will be
                     labeled ‘Needs review’.
                 </Text>
-                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
                     <TableThead>
                         <TableTr>
                             <TableTh fw={600}>Study Name</TableTh>

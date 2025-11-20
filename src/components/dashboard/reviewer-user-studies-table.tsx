@@ -23,6 +23,7 @@ import {
     TableTr,
     Text,
     Title,
+    useMantineTheme,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '../tooltip'
@@ -85,7 +86,7 @@ export const ReviewerUserStudiesTable = () => {
                 Review all the studies submitted to your organizations. Studies that need your attention will be labeled
                 ‘Needs review’.
             </Text>
-            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+            <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
                 <TableThead>
                     <TableTr>
                         <TableTh fw={600}>Study Name</TableTh>
@@ -108,6 +109,7 @@ export const ReviewerUserStudiesTable = () => {
 }
 
 const StudyRow = ({ study }: { study: Studies[number] }) => {
+    const theme = useMantineTheme()
     const status = useStudyStatus({
         studyStatus: study.status,
         audience: 'reviewer',
@@ -115,10 +117,21 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
     })
 
     return (
-        <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+        <TableTr
+            fz={14}
+            style={
+                study.status === 'PENDING-REVIEW'
+                    ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
+                    : undefined
+            }
+        >
             <TableTd>
                 <InfoTooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                    <Text
+                        lineClamp={2}
+                        style={{ cursor: 'pointer' }}
+                        fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                    >
                         {study.title}
                     </Text>
                 </InfoTooltip>
@@ -131,7 +144,11 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })} c="blue.7">
+                <Link
+                    href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })}
+                    c="blue.7"
+                    fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                >
                     View
                 </Link>
             </TableTd>

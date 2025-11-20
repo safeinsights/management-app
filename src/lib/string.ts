@@ -90,3 +90,12 @@ export function orgInitialsTitle(orgName: string, type: string) {
     const firstThree = orgFirstThree(orgName)
     return firstThree + ORG_SUFFIX_LONG[type]
 }
+
+// Removes 'Lab' from an organization name
+export function displayOrgName(orgName: string): string {
+    if (!orgName) return ''
+    return orgName
+        .replace(/\bLab\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+}

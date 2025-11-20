@@ -60,11 +60,13 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
         jobStatusChanges: study.jobStatusChanges,
     })
 
+    const hasFilesApproved = study.jobStatusChanges.some((change) => change.status === 'FILES-APPROVED')
+
     return (
-        <TableTr fz={14} key={study.id} bg={study.status === 'APPROVED' ? '#EAD4FC80' : undefined}>
+        <TableTr fz={14} key={study.id} style={hasFilesApproved ? { fontWeight: 600 } : undefined}>
             <TableTd>
                 <InfoTooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm">
+                    <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm" fw={hasFilesApproved ? 600 : undefined}>
                         {study.title}
                     </Text>
                 </InfoTooltip>
@@ -79,6 +81,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <Link
                     href={Routes.studyView({ orgSlug, studyId: study.id })}
                     aria-label={`View details for study ${study.title}`}
+                    fw={hasFilesApproved ? 600 : undefined}
                 >
                     View
                 </Link>
@@ -124,7 +127,7 @@ export const ResearcherStudiesTable: React.FC = () => {
                     </Flex>
                 </Group>
                 <Divider c="charcoal.1" />
-                <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+                <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
                     <TableThead>
                         <TableTr>
                             <TableTh fw={600}>Study Name</TableTh>
