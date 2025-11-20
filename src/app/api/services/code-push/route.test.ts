@@ -19,15 +19,14 @@ vi.mock('@/lib/logger', () => {
 async function getStatusRows(jobId: string) {
     return await db
         .selectFrom('jobStatusChange')
-        .select(['status', 'message', 'createdAt'])
+        .select(['status', 'createdAt'])
         .where('studyJobId', '=', jobId)
         .orderBy('createdAt', 'desc')
         .execute()
 }
 
-function countMatching(rows: { status: string; message: string | null }[], status: string, message?: string | null) {
-    return rows.filter((r) => r.status === status && (message === undefined ? true : (r.message ?? null) === message))
-        .length
+function countMatching(rows: { status: string }[], status: string) {
+    return rows.filter((r) => r.status === status).length
 }
 
 test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', async () => {
@@ -80,7 +79,7 @@ test('code-push persists JOB-READY', async () => {
     expect(countMatching(rows, 'JOB-READY')).toBeGreaterThan(baseline)
 })
 
-test('code-push persists JOB-ERRORED once and is idempotent for same status (ignoring message)', async () => {
+test('code-push persists JOB-ERRORED once and is idempotent for same status', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -88,11 +87,9 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status (ign
     let rows = await getStatusRows(jobId)
     const baseline = countMatching(rows, 'JOB-ERRORED')
 
-    // first error (with message in payload, which should be ignored for persistence)
-    const msg1 = 'Containerizer failed during build step'
     const req1 = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
     })
     const resp1 = await apiHandler.POST(req1)
     expect(resp1.ok).toBe(true)
@@ -101,10 +98,9 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status (ign
     const afterFirstErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterFirstErr).toBeGreaterThan(baseline)
 
-    // idempotent repeat with same status and message
     const req2 = new Request('http://localhost/api/services/code-push', {
         method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg1 }),
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
     })
     const resp2 = await apiHandler.POST(req2)
     expect(resp2.ok).toBe(true)
@@ -112,59 +108,6 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status (ign
     rows = await getStatusRows(jobId)
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
-
-    // even with a different message, status-only idempotency should prevent new rows
-    const msg2 = 'Containerizer failed in post_build'
-    const req3 = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: msg2 }),
-    })
-    const resp3 = await apiHandler.POST(req3)
-    expect(resp3.ok).toBe(true)
-
-    rows = await getStatusRows(jobId)
-    const afterThirdErr = countMatching(rows, 'JOB-ERRORED')
-    expect(afterThirdErr).toBe(afterFirstErr)
-})
-test('rejects messages longer than 4KB with 400 invalid-payload', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-
-    const longMsg = 'a'.repeat(4097) // 1 char over 4KB limit
-    const req = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: longMsg }),
-    })
-
-    const resp = await apiHandler.POST(req)
-    expect(resp.ok).toBe(false)
-    expect(resp.status).toBe(400)
-
-    const body = await resp.json()
-    expect(body.error).toBe('invalid-payload')
-
-    type ZodIssueLike = { path?: (string | number)[] }
-
-    const messageIssue = (body.issues as ZodIssueLike[]).find((issue) => issue.path?.[0] === 'message')
-    expect(messageIssue).toBeDefined()
-})
-
-test('accepts messages up to 4KB', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-
-    const maxMsg = 'a'.repeat(4096)
-    const req = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED', message: maxMsg }),
-    })
-    const resp = await apiHandler.POST(req)
-    expect(resp.ok).toBe(true)
-
-    const rows = await getStatusRows(jobId)
-    expect(countMatching(rows, 'JOB-ERRORED')).toBeGreaterThan(0)
 })
 
 test('logs error with context on invalid payload', async () => {

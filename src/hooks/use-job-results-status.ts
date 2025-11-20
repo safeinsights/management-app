@@ -12,7 +12,6 @@ type StatusFlags = {
 
 export type StatusChange = {
     status: StudyJobStatus
-    message?: string | null
 }
 
 export const StatusMap: Partial<Record<StudyJobStatus, keyof StatusFlags>> = {
