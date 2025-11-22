@@ -112,7 +112,7 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
         }
 
-        onUserAcceptInvite(siUser.id)
+        await onUserAcceptInvite(siUser.id)
 
         // mark invite as claimed by this user so it no longer shows in pending lists
         await db
@@ -211,7 +211,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             return user
         })
 
-        onUserAcceptInvite(siUser.id)
+        await onUserAcceptInvite(siUser.id)
 
         return { userId: siUser.id }
     })
