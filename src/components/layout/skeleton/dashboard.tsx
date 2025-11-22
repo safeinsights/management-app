@@ -31,47 +31,61 @@ export function DashboardHeaderSkeleton() {
     )
 }
 
-export const TableSkeleton = () => {
+export const TableSkeleton = ({
+    showActionButton = true,
+    paperWrapper = true,
+}: {
+    showActionButton?: boolean
+    paperWrapper?: boolean
+}) => {
     const rows = 6
     const columns = 5
 
-    return (
-        <Paper shadow="xs" p="xl" data-testid="table-skeleton">
-            <Stack gap="sm">
-                {/* Table header with action button */}
-                <Flex justify="space-between" align="center">
-                    <Skeleton height={24} width="160px" />
-                    <Skeleton height={36} width="160px" /> {/* Action button */}
-                </Flex>
+    const content = (
+        <Stack gap="sm">
+            {/* Table header with action button */}
+            <Flex justify="space-between" align="center">
+                <Skeleton height={24} width="160px" />
+                {showActionButton && <Skeleton height={36} width="160px" />} {/* Action button */}
+            </Flex>
 
-                <Divider />
+            <Divider />
 
-                {/* Table */}
-                <Table layout="fixed" verticalSpacing="md" striped="even">
-                    <TableThead>
-                        <TableTr>
-                            {Array.from({ length: columns }).map((_, i) => (
-                                <TableTh key={i}>
-                                    <Skeleton height={14} width={i === 0 ? '80%' : '60%'} />
-                                </TableTh>
+            {/* Table */}
+            <Table layout="fixed" verticalSpacing="md" striped="even">
+                <TableThead>
+                    <TableTr>
+                        {Array.from({ length: columns }).map((_, i) => (
+                            <TableTh key={i}>
+                                <Skeleton height={14} width={i === 0 ? '80%' : '60%'} />
+                            </TableTh>
+                        ))}
+                    </TableTr>
+                </TableThead>
+                <TableTbody>
+                    {Array.from({ length: rows }).map((_, i) => (
+                        <TableTr key={i}>
+                            {Array.from({ length: columns }).map((_, j) => (
+                                <TableTd key={j}>
+                                    <Skeleton height={16} width="70%" />
+                                </TableTd>
                             ))}
                         </TableTr>
-                    </TableThead>
-                    <TableTbody>
-                        {Array.from({ length: rows }).map((_, i) => (
-                            <TableTr key={i}>
-                                {Array.from({ length: columns }).map((_, j) => (
-                                    <TableTd key={j}>
-                                        <Skeleton height={16} width="70%" />
-                                    </TableTd>
-                                ))}
-                            </TableTr>
-                        ))}
-                    </TableTbody>
-                </Table>
-            </Stack>
-        </Paper>
+                    ))}
+                </TableTbody>
+            </Table>
+        </Stack>
     )
+
+    if (paperWrapper) {
+        return (
+            <Paper shadow="xs" p="xl" data-testid="table-skeleton">
+                {content}
+            </Paper>
+        )
+    }
+
+    return <div data-testid="table-skeleton">{content}</div>
 }
 
 export default function DashboardSkeleton() {

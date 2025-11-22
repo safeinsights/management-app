@@ -32,19 +32,74 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
 export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db, session }) => {
+        // Latest job per study
+        const latestStudyJob = db
+            .selectFrom('studyJob')
+            .select(['studyJob.studyId as studyId', 'studyJob.id as jobId'])
+            .distinctOn('studyId')
+            .orderBy('studyId')
+            .orderBy('createdAt', 'desc')
+            .as('latestStudyJob')
+
+        // Latest status per latest job
+        const latestStatusPerStudy = db
+            .selectFrom(latestStudyJob)
+            .innerJoin(
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select(['jobStatusChange.studyJobId', 'jobStatusChange.status'])
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestStatus'),
+                (join) => join.onRef('latestStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
+            .select(['latestStudyJob.studyId as studyId', 'latestStatus.status as status'])
+            .as('latestStatusPerStudy')
+
+        // Counts for Lab orgs
+        const labCounts = db
+            .selectFrom('study as s')
+            .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
+            .select((eb) => ['s.submittedByOrgId as orgId', eb.fn.count('s.id').distinct().as('count')])
+            .where((eb) =>
+                eb.or([
+                    eb('s.status', 'in', ['APPROVED', 'REJECTED']),
+                    eb('latestStatusPerStudy.status', 'in', ['JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']),
+                ]),
+            )
+            .groupBy('s.submittedByOrgId')
+            .as('labCounts')
+
+        // Counts for Enclave orgs (Data Orgs)
+        const enclaveCounts = db
+            .selectFrom('study as s')
+            .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
+            .select((eb) => ['s.orgId as orgId', eb.fn.count('s.id').distinct().as('count')])
+            .where((eb) =>
+                eb.or([
+                    eb('s.status', '=', 'PENDING-REVIEW'),
+                    eb('latestStatusPerStudy.status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE']),
+                ]),
+            )
+            .groupBy('s.orgId')
+            .as('enclaveCounts')
+
         return await db
             .selectFrom('orgUser')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .leftJoin('study', 'study.orgId', 'org.id')
-            .select([
+            .leftJoin(labCounts, (join) => join.onRef('labCounts.orgId', '=', 'org.id').on('org.type', '=', 'lab'))
+            .leftJoin(enclaveCounts, (join) =>
+                join.onRef('enclaveCounts.orgId', '=', 'org.id').on('org.type', '=', 'enclave'),
+            )
+            .select((eb) => [
                 'org.id',
                 'org.name',
                 'org.slug',
                 'org.type',
-                // TODO: replace this with whatever stats we need
-                (eb) => eb.fn.count('study.id').as('eventCount'),
+                eb.fn.coalesce('labCounts.count', eb.fn.coalesce('enclaveCounts.count', eb.val(0))).as('eventCount'),
             ])
-            .groupBy(['org.id'])
             .where('orgUser.userId', '=', session.user.id)
             .execute()
     })
