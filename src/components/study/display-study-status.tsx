@@ -37,6 +37,27 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
         )
     }
 
+    if (label === 'Approved' && status.stage === 'Results') {
+        return (
+            <Flex align="center">
+                <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+                    <Text
+                        size="sm"
+                        bd="1px solid green.10"
+                        bdrs={2}
+                        p="2px 6px"
+                        ta={'center'}
+                        fw={600}
+                        c={'green.10'}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {label.toLocaleUpperCase()}
+                    </Text>
+                </InfoTooltip>
+            </Flex>
+        )
+    }
+
     return (
         <Flex align="center" gap="xs">
             <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>

@@ -23,6 +23,7 @@ import {
     TableTr,
     Text,
     Title,
+    useMantineTheme,
 } from '@mantine/core'
 import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
@@ -54,6 +55,7 @@ const NoStudiesRow: React.FC<{ slug: string }> = ({ slug }) => (
 )
 
 const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study, orgSlug }) => {
+    const theme = useMantineTheme()
     const status = useStudyStatus({
         studyStatus: study.status,
         audience: 'researcher',
@@ -63,7 +65,11 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
     const hasFilesApproved = study.jobStatusChanges.some((change) => change.status === 'FILES-APPROVED')
 
     return (
-        <TableTr fz={14} key={study.id} style={hasFilesApproved ? { fontWeight: 600 } : undefined}>
+        <TableTr
+            fz={14}
+            key={study.id}
+            style={hasFilesApproved ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 } : undefined}
+        >
             <TableTd>
                 <InfoTooltip label={study.title}>
                     <Text lineClamp={2} style={{ cursor: 'pointer' }} size="sm" fw={hasFilesApproved ? 600 : undefined}>
