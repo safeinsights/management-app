@@ -58,7 +58,7 @@ export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStats
             .select(['latestStudyJob.studyId as studyId', 'latestStatus.status as status'])
             .as('latestStatusPerStudy')
 
-        // Counts for Lab orgs
+        // Counts for Lab orgs (Research Labs)
         const labCounts = db
             .selectFrom('study as s')
             .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))

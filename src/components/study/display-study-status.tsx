@@ -5,7 +5,10 @@ import { Flex, Text } from '@mantine/core'
 import { FC } from 'react'
 import { InfoTooltip } from '../tooltip'
 
-export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
+export const DisplayStudyStatus: FC<{ status: StatusLabel; isResearchLabDashboard?: boolean }> = ({
+    status,
+    isResearchLabDashboard,
+}) => {
     const { label, tooltip } = status
     const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
 
@@ -37,7 +40,7 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
         )
     }
 
-    if (label === 'Approved' && status.stage === 'Results') {
+    if (label === 'Approved' && status.stage === 'Results' && isResearchLabDashboard) {
         return (
             <Flex align="center">
                 <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
@@ -62,6 +65,7 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
         <Flex align="center" gap="xs">
             <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
                 <Text
+                    size="sm"
                     c={statusStyle[label as keyof typeof statusStyle]?.color || color}
                     fw={600}
                     style={{ cursor: 'pointer', ...(statusStyle[label as keyof typeof statusStyle] || {}) }}
