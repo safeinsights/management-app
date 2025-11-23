@@ -63,6 +63,7 @@ export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStats
             .selectFrom('study as s')
             .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
             .select((eb) => ['s.submittedByOrgId as orgId', eb.fn.count('s.id').distinct().as('count')])
+            .where('s.researcherId', '=', session.user.id)
             .where((eb) =>
                 eb.or([
                     eb('s.status', 'in', ['APPROVED', 'REJECTED']),
