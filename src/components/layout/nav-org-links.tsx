@@ -5,7 +5,7 @@ import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
 import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
 import { NavbarLink } from './navbar-link'
-import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link-conditional'
 
 type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
 
@@ -67,7 +67,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
             </Title>
             <Divider />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}
-            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} />
+            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} org={org} />
         </Stack>
     )
 }
