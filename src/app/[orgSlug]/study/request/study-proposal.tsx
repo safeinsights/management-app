@@ -87,10 +87,7 @@ export const StudyProposal: React.FC = () => {
     const [stepIndex, setStepIndex] = useState(0)
 
     const router = useRouter()
-    const studyProposalForm = useForm<
-        StudyProposalFormValues,
-        (values: StudyProposalFormValues) => StudyProposalFormValues
-    >({
+    const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {

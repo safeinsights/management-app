@@ -12,10 +12,7 @@ import React, { FC } from 'react'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
 export const StudyProposalForm: FC<{
-    studyProposalForm: UseFormReturnType<
-        StudyProposalFormValues,
-        (values: StudyProposalFormValues) => StudyProposalFormValues
-    >
+    studyProposalForm: UseFormReturnType<StudyProposalFormValues>
 }> = ({ studyProposalForm }) => {
     const { user } = useUser()
     const theme = useMantineTheme()
