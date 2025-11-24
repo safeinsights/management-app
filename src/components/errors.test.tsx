@@ -111,7 +111,7 @@ describe('reportError', () => {
         expect(notificationsShowSpy).toHaveBeenCalledWith({
             color: 'red',
             title: 'An error occurred',
-            message: errorMsg,
+            message: expect.stringMatching(new RegExp(`${errorMsg}\\nReference: [a-f0-9]{32}`)),
         })
     })
 
@@ -119,10 +119,11 @@ describe('reportError', () => {
         const errorInstance = new Error('Custom error')
         const customTitle = 'Custom Title'
         reportError(errorInstance, customTitle)
+        const errorString = errorInstance.toString()
         expect(notificationsShowSpy).toHaveBeenCalledWith({
             color: 'red',
             title: customTitle,
-            message: errorInstance.toString(),
+            message: expect.stringMatching(new RegExp(`${errorString}\\nReference: [a-f0-9]{32}`)),
         })
     })
 })
