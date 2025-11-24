@@ -72,7 +72,9 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
             'mainCodeFile',
             'additionalCodeFiles',
             'orgSlug',
+            'language',
         ]),
+        language: formValues.language as 'R' | 'PYTHON',
         descriptionDocPath: formValues.descriptionDocument!.name,
         agreementDocPath: formValues.agreementDocument!.name,
         irbDocPath: formValues.irbDocument!.name,
@@ -85,7 +87,10 @@ export const StudyProposal: React.FC = () => {
     const [stepIndex, setStepIndex] = useState(0)
 
     const router = useRouter()
-    const studyProposalForm = useForm<StudyProposalFormValues>({
+    const studyProposalForm = useForm<
+        StudyProposalFormValues,
+        (values: StudyProposalFormValues) => StudyProposalFormValues
+    >({
         mode: 'uncontrolled',
         validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
@@ -97,6 +102,7 @@ export const StudyProposal: React.FC = () => {
             mainCodeFile: null,
             additionalCodeFiles: [],
             orgSlug: '',
+            language: null,
         },
         validateInputOnChange: [
             'title',
@@ -167,7 +173,7 @@ export const StudyProposal: React.FC = () => {
 
     return (
         <ProxyProvider isDirty={studyProposalForm.isDirty()}>
-            <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
+            <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
                 <Stepper
                     unstyled
                     active={stepIndex}

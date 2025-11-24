@@ -114,6 +114,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
                     id: studyId,
                     title: studyInfo.title,
                     piName: studyInfo.piName,
+                    language: studyInfo.language,
                     descriptionDocPath: studyInfo.descriptionDocPath,
                     irbDocPath: studyInfo.irbDocPath,
                     agreementDocPath: studyInfo.agreementDocPath,
