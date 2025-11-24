@@ -104,6 +104,7 @@ export const StudyProposal: React.FC = () => {
         validateInputOnChange: [
             'title',
             'orgSlug',
+            'language',
             'piName',
             'descriptionDocument',
             'irbDocument',
