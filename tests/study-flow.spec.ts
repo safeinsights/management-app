@@ -104,7 +104,7 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await page.getByTestId('new-study').first().click()
 
         // wait for Step 1 panel to render and select openstax as the org for following steps
-        await expect(page.getByText('Step 1 of 3')).toBeVisible()
+        await expect(page.getByText('Step 1 of 4')).toBeVisible()
         const orgSelect = page.getByTestId('org-select')
         await orgSelect.waitFor({ state: 'visible' })
 
