@@ -167,7 +167,7 @@ export const StudyProposal: React.FC = () => {
 
     return (
         <ProxyProvider isDirty={studyProposalForm.isDirty()}>
-            <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+            <form onSubmit={studyProposalForm.onSubmit((values) => createStudy(values))}>
                 <Stepper
                     unstyled
                     active={stepIndex}

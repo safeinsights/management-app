@@ -134,6 +134,7 @@ export interface Study {
     id: Generated<string>
     irbDocPath: string | null
     irbProtocols: string | null
+    language: Generated<Language>
     orgId: string
     outputMimeType: string | null
     piName: string

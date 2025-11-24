@@ -25,6 +25,7 @@ describe('Request Study Actions', () => {
         const studyInfo = {
             title: 'Test Study',
             piName: 'Test PI',
+            language: 'R' as const,
             descriptionDocPath: 'test-desc.pdf',
             irbDocPath: 'test-irb.pdf',
             agreementDocPath: 'test-agreement.pdf',

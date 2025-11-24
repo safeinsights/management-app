@@ -104,7 +104,7 @@ export const studyProposalApiSchema = z.object({
         .min(5, { message: 'Title must be at least 5 characters long' })
         .max(50, { message: 'Title must be less than 50 characters long' }),
     piName: z.string().max(100).trim(),
-    language: z.enum(['R', 'PYTHON']),
+    language: z.enum(['R', 'PYTHON']).optional().default('R'),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),
