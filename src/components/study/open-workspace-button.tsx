@@ -32,6 +32,7 @@ export const OpenWorkspaceButton = ({ studyId }: OpenWorkspaceButtonProps) => {
     useQuery({
         queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
         enabled: !!workspaceId,
+        refetchOnWindowFocus: false,
         queryFn: async () => {
             return await getWorkspaceUrlAction({
                 studyId,
