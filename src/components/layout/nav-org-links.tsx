@@ -5,7 +5,7 @@ import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
 import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
 import { NavbarLink } from './navbar-link'
-import { OrgAdminDashboardLink } from './org-admin-dashboard-link-conditional'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
 type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
 
