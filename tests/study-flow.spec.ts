@@ -125,6 +125,9 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
 
+        // Select programming language (R)
+        await page.getByRole('radio', { name: 'R', exact: true }).click()
+
         await page.getByRole('button', { name: 'Next Step' }).click()
 
         await expect(page.getByText('Upload File')).toBeVisible()
