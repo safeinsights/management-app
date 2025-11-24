@@ -53,7 +53,7 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                     pl="xl"
                 />
                 <NavbarLink
-                    isVisible={org.type !== 'lab'}
+                    isVisible={org?.type !== 'lab'}
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
                     url={Routes.adminSettings({ orgSlug })}
