@@ -149,7 +149,6 @@ export interface Study {
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    language: Language
     studyId: string
 }
 

@@ -3,7 +3,6 @@ import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
-import { latestJobForStudy } from '@/server/db/queries'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -93,11 +92,6 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.language).toEqual('PYTHON')
-
-        // Verify the study job also has the correct language
-        const job = await latestJobForStudy(result.studyId)
-        expect(job).toBeDefined()
-        expect(job?.language).toEqual('PYTHON')
     })
 
     it('onDeleteStudyAction deletes a study', async () => {
