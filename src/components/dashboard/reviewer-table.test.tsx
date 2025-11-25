@@ -6,6 +6,7 @@ import { ReviewerStudiesTable } from './reviewer-table'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
+import { fetchStudiesForOrgAction } from '@/server/actions/study.actions'
 
 vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
@@ -91,9 +92,10 @@ beforeEach(() => {
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
+        vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
         renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
 
-        expect(screen.getByText(/You have no studies to review/i)).toBeDefined()
+        expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {

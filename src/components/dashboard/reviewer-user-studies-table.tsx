@@ -23,11 +23,21 @@ import {
     TableTr,
     Text,
     Title,
+    useMantineTheme,
 } from '@mantine/core'
 import dayjs from 'dayjs'
 import { InfoTooltip } from '../tooltip'
+import { TableSkeleton } from '../layout/skeleton/dashboard'
 
 const FINAL_STATUS: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
+
+// Status changes that represent reviewer approval/rejection actions
+const REVIEWER_ACTION_STATUSES: StudyJobStatus[] = [
+    'CODE-APPROVED',
+    'CODE-REJECTED',
+    'FILES-APPROVED',
+    'FILES-REJECTED',
+]
 
 type Studies = ActionSuccessType<typeof fetchStudiesForCurrentReviewerAction>
 
@@ -37,7 +47,7 @@ export const ReviewerUserStudiesTable = () => {
     const userId = session?.user.id
 
     const {
-        data: studies,
+        data: studies = [],
         refetch,
         isFetching,
     } = useQuery({
@@ -45,13 +55,21 @@ export const ReviewerUserStudiesTable = () => {
         queryFn: () => fetchStudiesForCurrentReviewerAction(),
     })
 
-    if (!studies?.length) return <Title order={5}>You have no studies to review.</Title>
-    // Filter studies: reviewer assignment or any status change authored by current user
+    if (isFetching && studies?.length === 0) {
+        return <TableSkeleton showActionButton={false} paperWrapper={false} />
+    }
+
+    // Show studies where user is assigned as reviewer OR has taken reviewer approval/rejection actions
     const relevantStudies = studies.filter(
         (study) =>
             study.reviewerId === userId ||
-            study.jobStatusChanges.some((change: { userId?: string | null }) => change.userId === userId),
+            study.jobStatusChanges.some(
+                (change: { userId?: string | null; status: StudyJobStatus }) =>
+                    change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
+            ),
     )
+
+    if (!relevantStudies?.length) return <Title order={5}>You have no studies to review.</Title>
 
     const needsRefreshed = relevantStudies.some((study) =>
         study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)),
@@ -68,7 +86,7 @@ export const ReviewerUserStudiesTable = () => {
                 Review all the studies submitted to your organizations. Studies that need your attention will be labeled
                 ‘Needs review’.
             </Text>
-            <Table layout="fixed" verticalSpacing="md" striped="even" highlightOnHover stickyHeader>
+            <Table layout="fixed" verticalSpacing="md" highlightOnHover stickyHeader>
                 <TableThead>
                     <TableTr>
                         <TableTh fw={600}>Study Name</TableTh>
@@ -91,6 +109,7 @@ export const ReviewerUserStudiesTable = () => {
 }
 
 const StudyRow = ({ study }: { study: Studies[number] }) => {
+    const theme = useMantineTheme()
     const status = useStudyStatus({
         studyStatus: study.status,
         audience: 'reviewer',
@@ -98,10 +117,21 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
     })
 
     return (
-        <TableTr fz={14} bg={study.status === 'PENDING-REVIEW' ? '#EAD4FC80' : undefined}>
+        <TableTr
+            fz={14}
+            style={
+                study.status === 'PENDING-REVIEW'
+                    ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
+                    : undefined
+            }
+        >
             <TableTd>
                 <InfoTooltip label={study.title}>
-                    <Text lineClamp={2} style={{ cursor: 'pointer' }}>
+                    <Text
+                        lineClamp={2}
+                        style={{ cursor: 'pointer' }}
+                        fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                    >
                         {study.title}
                     </Text>
                 </InfoTooltip>
@@ -114,7 +144,11 @@ const StudyRow = ({ study }: { study: Studies[number] }) => {
                 <DisplayStudyStatus status={status} />
             </TableTd>
             <TableTd>
-                <Link href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })} c="blue.7">
+                <Link
+                    href={Routes.studyReview({ orgSlug: study.orgSlug, studyId: study.id })}
+                    c="blue.7"
+                    fw={study.status === 'PENDING-REVIEW' ? 600 : undefined}
+                >
                     View
                 </Link>
             </TableTd>
