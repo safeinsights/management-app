@@ -125,10 +125,17 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
         await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
 
+        // Verify "Next Step" button is disabled when no programming language is selected
+        const nextStepButton = page.getByRole('button', { name: 'Next Step' })
+        await expect(nextStepButton).toBeDisabled()
+
         // Select programming language (R)
         await page.getByRole('radio', { name: 'R', exact: true }).click()
 
-        await page.getByRole('button', { name: 'Next Step' }).click()
+        // Verify "Next Step" button is now enabled after language selection
+        await expect(nextStepButton).toBeEnabled()
+
+        await nextStepButton.click()
 
         await expect(page.getByText('Upload File')).toBeVisible()
 
