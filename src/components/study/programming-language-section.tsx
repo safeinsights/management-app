@@ -2,9 +2,7 @@
 
 import React, { useEffect, useMemo } from 'react'
 import { useQuery } from '@/common'
-import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
-import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { fetchOrgBaseImagesAction } from '@/app/[orgSlug]/admin/settings/base-images.actions'
 import { listAllOrgsAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
@@ -16,8 +14,6 @@ type Props = {
 }
 
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
-    const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
-
     const selectedOrgSlug = form.values.orgSlug
 
     const { data: orgs } = useQuery({
@@ -109,7 +105,9 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
                 Step 3 of 4
             </Text>
-            <Title order={4}>Programming language</Title>
+            <Title id="programming-language-title" order={4}>
+                Programming language
+            </Title>
             <Divider my="md" />
 
             <Stack gap="lg">
@@ -149,12 +147,10 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                 )}
 
                 <Grid align="flex-start">
-                    <Grid.Col span={titleSpan}>
-                        <FormFieldLabel label="Programming language" inputId="programming-language" />
-                    </Grid.Col>
-                    <Grid.Col span={inputSpan}>
+                    <Grid.Col span={12}>
                         <Radio.Group
                             id="programming-language"
+                            aria-labelledby="programming-language-title"
                             value={form.values.language ?? ''}
                             onChange={(value) => form.setFieldValue('language', value as 'R' | 'PYTHON')}
                         >
