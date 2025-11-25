@@ -80,14 +80,16 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     useEffect(() => {
         // Reset language whenever org changes
         form.setFieldValue('language', null)
-    }, [selectedOrgSlug, form])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedOrgSlug])
 
     useEffect(() => {
         // Auto-select language in the single-language case
         if (isSingleLanguage && !form.values.language && options.length === 1) {
             form.setFieldValue('language', options[0])
         }
-    }, [isSingleLanguage, options, form, form.values.language])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSingleLanguage, options])
 
     if (!selectedOrgSlug) {
         return (

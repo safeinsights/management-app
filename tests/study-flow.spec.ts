@@ -129,8 +129,12 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         const nextStepButton = page.getByRole('button', { name: 'Next Step' })
         await expect(nextStepButton).toBeDisabled()
 
+        // Wait for the programming language radio button to be visible (after base images load)
+        const rRadioButton = page.getByRole('radio', { name: 'R', exact: true })
+        await rRadioButton.waitFor({ state: 'visible', timeout: 10000 })
+
         // Select programming language (R)
-        await page.getByRole('radio', { name: 'R', exact: true }).click()
+        await rRadioButton.click()
 
         // Verify "Next Step" button is now enabled after language selection
         await expect(nextStepButton).toBeEnabled()
