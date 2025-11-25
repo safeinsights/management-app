@@ -3,6 +3,7 @@ import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import { latestJobForStudy } from '@/server/db/queries'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -53,6 +54,50 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
+        expect(study?.language).toEqual('R')
+    })
+
+    it('onCreateStudyAction stores Python language correctly', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const studyInfo = {
+            title: 'Python Study',
+            piName: 'Test PI',
+            language: 'PYTHON' as const,
+            descriptionDocPath: 'test-desc.pdf',
+            irbDocPath: 'test-irb.pdf',
+            agreementDocPath: 'test-agreement.pdf',
+            mainCodeFilePath: 'main.py',
+            additionalCodeFilePaths: ['helpers.py'],
+        }
+
+        const result = actionResult(
+            await onCreateStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo,
+                mainCodeFileName: 'main.py',
+                codeFileNames: ['helpers.py'],
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        expect(result.studyId).toBeDefined()
+        expect(result.studyJobId).toBeDefined()
+
+        const study = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', result.studyId)
+            .executeTakeFirst()
+        expect(study).toBeDefined()
+        expect(study?.language).toEqual('PYTHON')
+
+        // Verify the study job also has the correct language
+        const job = await latestJobForStudy(result.studyId)
+        expect(job).toBeDefined()
+        expect(job?.language).toEqual('PYTHON')
     })
 
     it('onDeleteStudyAction deletes a study', async () => {
