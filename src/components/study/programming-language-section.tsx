@@ -2,11 +2,13 @@
 
 import React, { useEffect, useMemo } from 'react'
 import { useQuery } from '@/common'
+import { useSession } from '@/hooks/session'
 import { InputError } from '@/components/errors'
 import { listAllOrgsAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 import { Divider, Grid, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
+import { getOrgBySlug, isOrgAdmin } from '@/lib/types'
 
 type Props = {
     form: UseFormReturnType<StudyProposalFormValues>
@@ -14,6 +16,10 @@ type Props = {
 
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const selectedOrgSlug = form.values.orgSlug
+
+    const { session } = useSession()
+    const currentOrg = session && selectedOrgSlug ? getOrgBySlug(session, selectedOrgSlug) : null
+    const isAdmin = currentOrg ? isOrgAdmin(currentOrg) : false
 
     const { data: orgs, isLoading: isLoadingOrgs } = useQuery({
         queryKey: ['all-orgs'],
@@ -26,13 +32,30 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         const langs = org?.supportedLanguages ?? []
         const noBaseImages = !selectedOrgSlug || langs.length === 0
 
+        // Default behavior (non-admin users): options are derived from non-testing base images only.
+        let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = noBaseImages
+            ? (['R', 'PYTHON'] as const)
+            : (langs as ('R' | 'PYTHON')[])
+        let effectiveHasNoBaseImages = noBaseImages
+        let effectiveIsSingleLanguage = langs.length === 1
+
+        if (isAdmin && selectedOrgSlug) {
+            // Admin reviewers (org admins) can always see both R and Python, so they can
+            // exercise test-only base images even when only testing images exist for a language.
+            // We still use langs.length to drive the "no base images" helper text, but we
+            // deliberately expose the full language set here.
+            effectiveOptions = ['R', 'PYTHON']
+            effectiveHasNoBaseImages = langs.length === 0
+            effectiveIsSingleLanguage = false // never auto-select for admins; they must choose explicitly
+        }
+
         return {
             orgName: org?.name || (selectedOrgSlug ? 'this data organization' : ''),
-            hasNoBaseImages: noBaseImages,
-            isSingleLanguage: langs.length === 1,
-            options: noBaseImages ? (['R', 'PYTHON'] as const) : langs,
+            hasNoBaseImages: effectiveHasNoBaseImages,
+            isSingleLanguage: effectiveIsSingleLanguage,
+            options: effectiveOptions,
         }
-    }, [orgs, selectedOrgSlug])
+    }, [orgs, selectedOrgSlug, isAdmin])
 
     useEffect(() => {
         // Reset language whenever org changes

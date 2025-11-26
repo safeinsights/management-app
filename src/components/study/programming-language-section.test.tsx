@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
 import { renderWithProviders, screen, faker, userEvent } from '@/tests/unit.helpers'
 import { useQuery } from '@/common'
+import { useSession } from '@/hooks/session'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 import { ProgrammingLanguageSection } from './programming-language-section'
@@ -12,6 +13,12 @@ vi.mock('@/common', async () => {
         useQuery: vi.fn(),
     }
 })
+
+vi.mock('@/hooks/session', () => ({
+    // By default tests will configure this to return a non-admin session. Individual tests
+    // can override the return value to simulate admin reviewers for the selected org.
+    useSession: vi.fn(),
+}))
 
 // Helper to create a mock org with supported languages
 const createMockOrg = (
@@ -60,9 +67,20 @@ const createMockForm = (
 
 describe('ProgrammingLanguageSection', () => {
     const mockUseQuery = useQuery as Mock
+    const mockUseSession = useSession as Mock
 
     beforeEach(() => {
         vi.clearAllMocks()
+
+        // Default session for tests: loaded, but with no orgs, so getOrgBySlug() returns null
+        // and isOrgAdmin() is false. This keeps the non-admin behavior as the baseline.
+        mockUseSession.mockReturnValue({
+            isLoaded: true,
+            session: {
+                user: { id: 'user-1', isSiAdmin: false, clerkUserId: 'clerk-user-1' },
+                orgs: {},
+            },
+        })
     })
 
     it('shows placeholder when no org is selected', () => {
@@ -267,5 +285,44 @@ describe('ProgrammingLanguageSection', () => {
 
         // language should have been auto-selected to PYTHON
         expect(form.setFieldValue).toHaveBeenCalledWith('language', 'PYTHON')
+    })
+
+    it('allows admin reviewers to see both R and Python even if only one non-testing language is configured', () => {
+        const orgSlug = faker.string.alpha(10)
+        const orgId = faker.string.uuid()
+
+        // Only R is configured as a non-testing language at the org level
+        const mockOrgs = [createMockOrg({ slug: orgSlug, name: 'Admin Test Org', supportedLanguages: ['R'] })]
+
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
+
+        // Simulate being an admin for this org so ProgrammingLanguageSection uses the
+        // special-case behavior and always exposes both R and Python options.
+        mockUseSession.mockReturnValue({
+            isLoaded: true,
+            session: {
+                user: { id: 'admin-user-1', isSiAdmin: false, clerkUserId: 'clerk-admin-1' },
+                orgs: {
+                    [orgId]: {
+                        id: orgId,
+                        slug: orgSlug,
+                        type: 'enclave',
+                        isAdmin: true,
+                    },
+                },
+            },
+        })
+
+        const form = createMockForm({ orgSlug })
+
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        // Even though only R has a non-testing base image, admin reviewers should be able
+        // to choose either R or Python so they can exercise test-only Python images.
+        expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
+        expect(screen.getByRole('radio', { name: 'Python' })).toBeDefined()
     })
 })
