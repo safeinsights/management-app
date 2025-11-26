@@ -307,5 +307,34 @@ describe('Org Actions', () => {
             expect(createdOrg).toBeDefined()
             expect(createdOrg!.supportedLanguages).toEqual([])
         })
+
+        it('deduplicates languages when multiple base images share the same language', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `dedupe-lang-${faker.string.uuid()}`,
+                name: 'Dedupe Language Org',
+                type: 'enclave',
+            })
+
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image 1',
+                language: 'R',
+                isTesting: false,
+            })
+
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image 2',
+                language: 'R',
+                isTesting: false,
+            })
+
+            const result = actionResult(await listAllOrgsAction())
+
+            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+            expect(createdOrg!.supportedLanguages).toContain('R')
+            expect(createdOrg!.supportedLanguages).toHaveLength(1)
+        })
     })
 })
