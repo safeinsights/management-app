@@ -94,10 +94,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Divider my="md" />
 
             <Stack gap="lg">
-                {isLoadingBaseImages && <Text>Loading available programming languages…</Text>}
+                {isLoadingBaseImages && (
+                    <Text id="programming-language-status" role="status" aria-live="polite">
+                        Loading available programming languages…
+                    </Text>
+                )}
 
                 {isBaseImagesError && !baseImages && (
-                    <Text c="red">
+                    <Text id="programming-language-status" role="status" aria-live="polite" c="red">
                         We were unable to determine which programming languages are supported for this data
                         organization. You can still select a language below.
                     </Text>
@@ -106,7 +110,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                 {!isLoadingBaseImages && !isBaseImagesError && (
                     <>
                         {hasNoBaseImages && (
-                            <Text>
+                            <Text id="programming-language-helper">
                                 No base images are currently configured for {orgName || 'this data organization'}. You
                                 can still select the language you intend to use; an administrator will need to configure
                                 a matching base image before your code can run.
@@ -114,14 +118,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         )}
 
                         {!hasNoBaseImages && isSingleLanguage && options.length === 1 && (
-                            <Text>
+                            <Text id="programming-language-helper">
                                 At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code files
                                 submitted in other languages will not be able to run.
                             </Text>
                         )}
 
                         {!hasNoBaseImages && !isSingleLanguage && (
-                            <Text>
+                            <Text id="programming-language-helper">
                                 Indicate the programming language that you will use in your data analysis. {orgName}{' '}
                                 will use this to setup the right environment for you.
                             </Text>
@@ -134,6 +138,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         <Radio.Group
                             id="programming-language"
                             aria-labelledby="programming-language-title"
+                            aria-describedby="programming-language-helper programming-language-status"
                             value={form.values.language ?? ''}
                             onChange={(value) => form.setFieldValue('language', value as 'R' | 'PYTHON')}
                         >
