@@ -20,20 +20,19 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         queryFn: () => listAllOrgsAction(),
     })
 
-    const selectedOrg = useMemo(() => orgs?.find((org) => org.slug === selectedOrgSlug), [orgs, selectedOrgSlug])
+    // Consolidate org-related derived state into a single useMemo
+    const { orgName, hasNoBaseImages, isSingleLanguage, options } = useMemo(() => {
+        const org = orgs?.find((o) => o.slug === selectedOrgSlug)
+        const langs = org?.supportedLanguages ?? []
+        const noBaseImages = !selectedOrgSlug || langs.length === 0
 
-    const orgName = selectedOrg?.name || (selectedOrgSlug ? 'this data organization' : '')
-
-    // Get supported languages directly from the org data (includes only non-testing base images)
-    const supportedLanguages = useMemo(() => selectedOrg?.supportedLanguages ?? [], [selectedOrg])
-
-    const hasNoBaseImages = !selectedOrgSlug || supportedLanguages.length === 0
-    const isSingleLanguage = supportedLanguages.length === 1
-
-    const options: Array<'R' | 'PYTHON'> = useMemo(
-        () => (hasNoBaseImages ? (['R', 'PYTHON'] as Array<'R' | 'PYTHON'>) : supportedLanguages),
-        [hasNoBaseImages, supportedLanguages],
-    )
+        return {
+            orgName: org?.name || (selectedOrgSlug ? 'this data organization' : ''),
+            hasNoBaseImages: noBaseImages,
+            isSingleLanguage: langs.length === 1,
+            options: noBaseImages ? (['R', 'PYTHON'] as const) : langs,
+        }
+    }, [orgs, selectedOrgSlug])
 
     useEffect(() => {
         // Reset language whenever org changes
@@ -89,7 +88,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             </Text>
                         )}
 
-                        {!hasNoBaseImages && isSingleLanguage && options.length === 1 && (
+                        {!hasNoBaseImages && isSingleLanguage && (
                             <Text id="programming-language-helper">
                                 At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code files
                                 submitted in other languages will not be able to run.
