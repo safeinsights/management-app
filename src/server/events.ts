@@ -86,10 +86,9 @@ export const onUserInvited = deferred(
     },
 )
 
-export const onUserAcceptInvite = async (userId: string) => {
-    await updateClerkUserMetadata(userId)
+export const onUserAcceptInvite = deferred(async (userId: string) => {
     await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId })
-}
+})
 
 export const onUserRoleUpdate = deferred(
     async ({ userId, before, after }: { userId: string; before: UserOrgRoles; after: UserOrgRoles }) => {

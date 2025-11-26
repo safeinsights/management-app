@@ -1,6 +1,7 @@
 'use server'
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { updateClerkUserMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -112,7 +113,8 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
         }
 
-        await onUserAcceptInvite(siUser.id)
+        await updateClerkUserMetadata(siUser.id)
+        onUserAcceptInvite(siUser.id)
 
         // mark invite as claimed by this user so it no longer shows in pending lists
         await db
@@ -211,7 +213,8 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             return user
         })
 
-        await onUserAcceptInvite(siUser.id)
+        await updateClerkUserMetadata(siUser.id)
+        onUserAcceptInvite(siUser.id)
 
         return { userId: siUser.id }
     })
