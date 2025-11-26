@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
-import { renderWithProviders, screen, faker } from '@/tests/unit.helpers'
+import { renderWithProviders, screen, faker, userEvent } from '@/tests/unit.helpers'
 import { useQuery } from '@/common'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
@@ -373,5 +373,106 @@ describe('ProgrammingLanguageSection', () => {
                 'At the present this data organization only supports R. Code files submitted in other languages will not be able to run.',
             ),
         ).toBeDefined()
+    })
+
+    it('calls setFieldValue when a radio button is clicked', async () => {
+        const orgSlug = faker.string.alpha(10)
+        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
+        const mockBaseImages = [
+            { id: '1', language: 'R', isTesting: false, name: 'R Base Image' },
+            { id: '2', language: 'PYTHON', isTesting: false, name: 'Python Base Image' },
+        ]
+
+        mockUseQuery
+            .mockReturnValueOnce({
+                data: mockOrgs,
+                isLoading: false,
+                isError: false,
+            })
+            .mockReturnValueOnce({
+                data: mockBaseImages,
+                isLoading: false,
+                isError: false,
+            })
+
+        const form = createMockForm({ orgSlug })
+
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        const pythonRadio = screen.getByRole('radio', { name: 'Python' })
+        await userEvent.click(pythonRadio)
+
+        expect(form.setFieldValue).toHaveBeenCalledWith('language', 'PYTHON')
+    })
+
+    it('resets language to null when the selected org changes', () => {
+        const orgSlug1 = faker.string.alpha(10)
+        const orgSlug2 = faker.string.alpha(10)
+        const mockOrgs = [
+            { slug: orgSlug1, name: 'Test Org 1', type: 'enclave' },
+            { slug: orgSlug2, name: 'Test Org 2', type: 'enclave' },
+        ]
+
+        // First call for orgs, subsequent calls (including base images) can return empty data
+        mockUseQuery
+            .mockReturnValueOnce({
+                data: mockOrgs,
+                isLoading: false,
+                isError: false,
+            })
+            .mockReturnValue({
+                data: undefined,
+                isLoading: false,
+                isError: false,
+            })
+
+        const form = createMockForm({ orgSlug: orgSlug1, language: 'R' })
+
+        // Override setFieldValue so it actually mutates form.values, while still being spy-able.
+        // We don't rely on Mantine's internal implementation here, just on updating the values bag.
+        const setFieldValueSpy = vi.fn((field: keyof StudyProposalFormValues, value: unknown) => {
+            ;(form.values as StudyProposalFormValues)[field] = value as never
+        })
+        ;(form as unknown as { setFieldValue: typeof setFieldValueSpy }).setFieldValue = setFieldValueSpy
+
+        // Initial render with the first org selected
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        // Simulate user selecting a language first
+        form.setFieldValue('language', 'PYTHON')
+        expect(form.values.language).toBe('PYTHON')
+
+        // Change org and render again so the effect runs with the new org slug
+        form.values.orgSlug = orgSlug2
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        // After org change, language should be reset to null
+        expect(form.values.language).toBeNull()
+        expect(setFieldValueSpy).toHaveBeenCalledWith('language', null)
+    })
+
+    it('auto-selects the language when only a single non-testing language is available', () => {
+        const orgSlug = faker.string.alpha(10)
+        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
+        const mockBaseImages = [{ id: '1', language: 'PYTHON', isTesting: false, name: 'Python Base Image' }]
+
+        mockUseQuery
+            .mockReturnValueOnce({
+                data: mockOrgs,
+                isLoading: false,
+                isError: false,
+            })
+            .mockReturnValueOnce({
+                data: mockBaseImages,
+                isLoading: false,
+                isError: false,
+            })
+
+        const form = createMockForm({ orgSlug, language: null })
+
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        // language should have been auto-selected to PYTHON
+        expect(form.setFieldValue).toHaveBeenCalledWith('language', 'PYTHON')
     })
 })

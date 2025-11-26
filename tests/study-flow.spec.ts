@@ -77,6 +77,10 @@ async function verifyStudyFileDownloads(page: Page, expectedPdfPath: string) {
                 const originalContent = await fs.promises.readFile('tests/assets/main.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
                 expect(downloadedContent).toBe(originalContent)
+            } else if (filename === 'main.py') {
+                const originalContent = await fs.promises.readFile('tests/assets/main.py', 'utf8')
+                const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
+                expect(downloadedContent).toBe(originalContent)
             } else if (filename === 'code.r') {
                 const originalContent = await fs.promises.readFile('tests/assets/code.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
@@ -207,5 +211,76 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await viewDetails(page, studyFeatures.studyTitle)
 
         await expect(page.getByText('Approved on')).toBeVisible()
+    })
+})
+
+test('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
+    await test.step('researcher creates a Python study', async () => {
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+        // propose new study button
+        await page.getByTestId('new-study').first().click()
+
+        // wait for Step 1 panel to render and select openstax as the org for following steps
+        await expect(page.getByText('Step 1 of 4')).toBeVisible()
+        const orgSelect = page.getByTestId('org-select')
+        await orgSelect.waitFor({ state: 'visible' })
+
+        await page.waitForTimeout(1000)
+        await expect(orgSelect).toBeEnabled()
+        await orgSelect.click()
+        await page.getByRole('option', { name: /openstax/i }).click()
+
+        const pythonStudyTitle = `${studyFeatures.studyTitle} - Python`
+        await page.getByLabel(/title/i).fill(pythonStudyTitle)
+        await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
+
+        await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+        await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
+        await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+
+        const nextStepButton = page.getByRole('button', { name: 'Next Step' })
+        await expect(nextStepButton).toBeDisabled()
+
+        // Wait for the Python programming language radio button to be visible (after base images load)
+        const pythonRadioButton = page.getByRole('radio', { name: 'Python', exact: true })
+        await pythonRadioButton.waitFor({ state: 'visible', timeout: 10000 })
+
+        // Select programming language (Python)
+        await pythonRadioButton.click()
+
+        // Verify "Next Step" button is now enabled after language selection
+        await expect(nextStepButton).toBeEnabled()
+
+        await nextStepButton.click()
+
+        await expect(page.getByText('Upload File')).toBeVisible()
+
+        // Upload Python main file
+        const mainPy = 'tests/assets/main.py'
+        await page.setInputFiles('input[type="file"][name="mainCodeFile"]', mainPy)
+
+        const otherCodeR = 'tests/assets/code.r'
+        await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', otherCodeR)
+
+        // Click submit and wait for navigation
+        await page.getByRole('button', { name: 'Submit', exact: true }).click()
+
+        // Wait until redirected to user dashboard
+        await page.waitForURL('**/dashboard', { timeout: 15000 })
+
+        // Wait for the page to fully load
+        await page.waitForLoadState('networkidle')
+
+        // Navigate back to the org-specific dashboard where we started
+        await page.goto('/openstax-lab/dashboard')
+        await page.waitForLoadState('networkidle')
+
+        // Wait for the table to render - use the "Proposed Studies" title as indicator
+        await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
+
+        await viewDetails(page, pythonStudyTitle)
+
+        await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
     })
 })
