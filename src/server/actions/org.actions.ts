@@ -131,8 +131,40 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
+export type ListAllOrgsResult = ActionSuccessType<typeof listAllOrgsAction>
+
 export const listAllOrgsAction = new Action('listAllOrgsAction').handler(async ({ db }) => {
-    return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
+    const rows = await db
+        .selectFrom('org')
+        .leftJoin('orgBaseImage', (join) =>
+            join.onRef('orgBaseImage.orgId', '=', 'org.id').on('orgBaseImage.isTesting', '=', false),
+        )
+        .select(['org.slug', 'org.name', 'org.type', 'orgBaseImage.language'])
+        .orderBy('org.name', 'asc')
+        .execute()
+
+    const bySlug = new Map<
+        string,
+        { slug: string; name: string; type: (typeof rows)[number]['type']; languages: Set<'R' | 'PYTHON'> }
+    >()
+
+    for (const row of rows) {
+        let entry = bySlug.get(row.slug)
+        if (!entry) {
+            entry = { slug: row.slug, name: row.name, type: row.type, languages: new Set() }
+            bySlug.set(row.slug, entry)
+        }
+        if (row.language === 'R' || row.language === 'PYTHON') {
+            entry.languages.add(row.language)
+        }
+    }
+
+    return Array.from(bySlug.values()).map((entry) => ({
+        slug: entry.slug,
+        name: entry.name,
+        type: entry.type,
+        supportedLanguages: Array.from(entry.languages),
+    }))
 })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')

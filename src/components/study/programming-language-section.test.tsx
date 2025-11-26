@@ -13,6 +13,21 @@ vi.mock('@/common', async () => {
     }
 })
 
+// Helper to create a mock org with supported languages
+const createMockOrg = (
+    overrides: Partial<{
+        slug: string
+        name: string
+        type: string
+        supportedLanguages: Array<'R' | 'PYTHON'>
+    }> = {},
+) => ({
+    slug: overrides.slug ?? faker.string.alpha(10),
+    name: overrides.name ?? 'Test Org',
+    type: overrides.type ?? 'enclave',
+    supportedLanguages: overrides.supportedLanguages ?? [],
+})
+
 // Helper to create a mock form
 const createMockForm = (
     overrides: Partial<{
@@ -54,7 +69,6 @@ describe('ProgrammingLanguageSection', () => {
         mockUseQuery.mockReturnValue({
             data: undefined,
             isLoading: false,
-            isError: false,
         })
 
         const form = createMockForm({ orgSlug: '' })
@@ -67,52 +81,18 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
-    it('shows loading state when fetching base images', () => {
+    it('shows loading state when fetching orgs', () => {
         const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: undefined,
-                isLoading: true,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: undefined,
+            isLoading: true,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
 
         expect(screen.getByText('Loading available programming languages…')).toBeDefined()
-    })
-
-    it('shows error state when base images fetch fails', () => {
-        const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
-
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: undefined,
-                isLoading: false,
-                isError: true,
-            })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(
-            screen.getByText(
-                'We were unable to determine which programming languages are supported for this data organization. You can still select a language below.',
-            ),
-        ).toBeDefined()
     })
 
     it.each([
@@ -121,20 +101,12 @@ describe('ProgrammingLanguageSection', () => {
     ])('shows single language message when org supports only $displayName', ({ language, displayName }) => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language, isTesting: false, name: `${displayName} Base Image` }]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: [language] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
@@ -146,57 +118,15 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
-    it('does not show error message when base images exist but query is in error state', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language: 'R', isTesting: false, name: 'R Base Image' }]
-
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: true,
-            })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(
-            screen.queryByText(
-                'We were unable to determine which programming languages are supported for this data organization. You can still select a language below.',
-            ),
-        ).toBeNull()
-
-        // We still render the language options from cached data even if the latest query errored
-        expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
-    })
-
     it('shows multi-language message when org supports both R and Python', () => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [
-            { id: '1', language: 'R', isTesting: false, name: 'R Base Image' },
-            { id: '2', language: 'PYTHON', isTesting: false, name: 'Python Base Image' },
-        ]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: ['R', 'PYTHON'] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
@@ -208,31 +138,15 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
-    it.each([
-        {
-            description: 'no non-testing base images',
-            baseImages: [{ id: '1', language: 'R', isTesting: true, name: 'Testing R Image' }],
-        },
-        {
-            description: 'an empty base images array',
-            baseImages: [] as Array<{ id: string; language: string; isTesting: boolean; name: string }>,
-        },
-    ])('shows no base images message when org has $description', ({ baseImages }) => {
+    it('shows no base images message when org has no supported languages', () => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: [] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: baseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
@@ -246,23 +160,12 @@ describe('ProgrammingLanguageSection', () => {
 
     it('renders radio buttons for available languages', () => {
         const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
-        const mockBaseImages = [
-            { id: '1', language: 'R', isTesting: false, name: 'R Base Image' },
-            { id: '2', language: 'PYTHON', isTesting: false, name: 'Python Base Image' },
-        ]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['R', 'PYTHON'] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
@@ -271,85 +174,35 @@ describe('ProgrammingLanguageSection', () => {
         expect(screen.getByRole('radio', { name: 'Python' })).toBeDefined()
     })
 
-    it('filters out testing base images when determining supported languages', () => {
+    it('uses fallback org name when org is not found in list', () => {
         const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [
-            { id: '1', language: 'R', isTesting: false, name: 'R Base Image' },
-            { id: '2', language: 'PYTHON', isTesting: true, name: 'Python Testing Image' },
-        ]
+        // Org list doesn't contain the selected org
+        const mockOrgs: ReturnType<typeof createMockOrg>[] = []
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
 
-        // Since only R is non-testing, should show single language message
+        // Should use 'this data organization' as fallback and show no base images message
         expect(
             screen.getByText(
-                `At the present ${orgName} only supports R. Code files submitted in other languages will not be able to run.`,
-            ),
-        ).toBeDefined()
-    })
-
-    it('uses fallback org name when org name is not found', () => {
-        const orgSlug = faker.string.alpha(10)
-        const mockOrgs: Array<{ slug: string; name: string; type: string }> = []
-        const mockBaseImages = [{ id: '1', language: 'R', isTesting: false, name: 'R Base Image' }]
-
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // Should use 'this data organization' as fallback
-        expect(
-            screen.getByText(
-                'At the present this data organization only supports R. Code files submitted in other languages will not be able to run.',
+                'No base images are currently configured for this data organization. You can still select the language you intend to use; an administrator will need to configure a matching base image before your code can run.',
             ),
         ).toBeDefined()
     })
 
     it('calls setFieldValue when a radio button is clicked', async () => {
         const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
-        const mockBaseImages = [
-            { id: '1', language: 'R', isTesting: false, name: 'R Base Image' },
-            { id: '2', language: 'PYTHON', isTesting: false, name: 'Python Base Image' },
-        ]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['R', 'PYTHON'] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug })
 
@@ -365,64 +218,48 @@ describe('ProgrammingLanguageSection', () => {
         const orgSlug1 = faker.string.alpha(10)
         const orgSlug2 = faker.string.alpha(10)
         const mockOrgs = [
-            { slug: orgSlug1, name: 'Test Org 1', type: 'enclave' },
-            { slug: orgSlug2, name: 'Test Org 2', type: 'enclave' },
+            createMockOrg({ slug: orgSlug1, name: 'Test Org 1', supportedLanguages: ['R'] }),
+            createMockOrg({ slug: orgSlug2, name: 'Test Org 2', supportedLanguages: ['PYTHON'] }),
         ]
 
-        // First call for orgs, subsequent calls (including base images) can return empty data
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValue({
-                data: undefined,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug: orgSlug1, language: 'R' })
 
         // Override setFieldValue so it actually mutates form.values, while still being spy-able.
-        // We don't rely on Mantine's internal implementation here, just on updating the values bag.
         const setFieldValueSpy = vi.fn((field: keyof StudyProposalFormValues, value: unknown) => {
             ;(form.values as StudyProposalFormValues)[field] = value as never
         })
         ;(form as unknown as { setFieldValue: typeof setFieldValueSpy }).setFieldValue = setFieldValueSpy
 
-        // Initial render with the first org selected
+        // Initial render with the first org selected (effect will run once here)
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
 
-        // Simulate user selecting a language first
-        form.setFieldValue('language', 'PYTHON')
-        expect(form.values.language).toBe('PYTHON')
+        // Clear the spy to only track calls after initial render
+        setFieldValueSpy.mockClear()
 
-        // Change org and render again so the effect runs with the new org slug
+        // Simulate user selecting a language
+        form.values.language = 'PYTHON'
+
+        // Change org and render a new instance with the updated slug
         form.values.orgSlug = orgSlug2
         renderWithProviders(<ProgrammingLanguageSection form={form} />)
 
-        // After org change, language should be reset to null
-        expect(form.values.language).toBeNull()
+        // After org change, the effect should have requested a reset of the language field
         expect(setFieldValueSpy).toHaveBeenCalledWith('language', null)
     })
 
-    it('auto-selects the language when only a single non-testing language is available', () => {
+    it('auto-selects the language when only a single language is available', () => {
         const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [{ slug: orgSlug, name: 'Test Org', type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language: 'PYTHON', isTesting: false, name: 'Python Base Image' }]
+        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['PYTHON'] })]
 
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
+        mockUseQuery.mockReturnValue({
+            data: mockOrgs,
+            isLoading: false,
+        })
 
         const form = createMockForm({ orgSlug, language: null })
 

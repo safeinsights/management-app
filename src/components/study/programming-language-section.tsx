@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo } from 'react'
 import { useQuery } from '@/common'
 import { InputError } from '@/components/errors'
-import { fetchOrgBaseImagesAction } from '@/app/[orgSlug]/admin/settings/base-images.actions'
 import { listAllOrgsAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 import { Divider, Grid, Paper, Radio, Stack, Text, Title } from '@mantine/core'
@@ -16,7 +15,7 @@ type Props = {
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const selectedOrgSlug = form.values.orgSlug
 
-    const { data: orgs } = useQuery({
+    const { data: orgs, isLoading: isLoadingOrgs } = useQuery({
         queryKey: ['all-orgs'],
         queryFn: () => listAllOrgsAction(),
     })
@@ -25,34 +24,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
 
     const orgName = selectedOrg?.name || (selectedOrgSlug ? 'this data organization' : '')
 
-    const {
-        data: baseImages,
-        isLoading: isLoadingBaseImages,
-        isError: isBaseImagesError,
-    } = useQuery({
-        queryKey: ['orgBaseImages', selectedOrgSlug],
-        queryFn: () =>
-            fetchOrgBaseImagesAction({
-                orgSlug: selectedOrgSlug!,
-            }),
-        enabled: !!selectedOrgSlug,
-    })
+    // Get supported languages directly from the org data (includes only non-testing base images)
+    const supportedLanguages = useMemo(() => selectedOrg?.supportedLanguages ?? [], [selectedOrg])
 
-    const nonTestingImages = useMemo(() => (baseImages ?? []).filter((img) => !img.isTesting), [baseImages])
-
-    const supportedLanguages = useMemo(
-        () => Array.from(new Set(nonTestingImages.map((img) => img.language as 'R' | 'PYTHON'))),
-        [nonTestingImages],
-    )
-
-    const hasNoBaseImages = !selectedOrgSlug || nonTestingImages.length === 0
+    const hasNoBaseImages = !selectedOrgSlug || supportedLanguages.length === 0
     const isSingleLanguage = supportedLanguages.length === 1
 
     const options: Array<'R' | 'PYTHON'> = useMemo(
-        () =>
-            hasNoBaseImages || supportedLanguages.length === 0
-                ? (['R', 'PYTHON'] as Array<'R' | 'PYTHON'>)
-                : supportedLanguages,
+        () => (hasNoBaseImages ? (['R', 'PYTHON'] as Array<'R' | 'PYTHON'>) : supportedLanguages),
         [hasNoBaseImages, supportedLanguages],
     )
 
@@ -94,20 +73,13 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Divider my="md" />
 
             <Stack gap="lg">
-                {isLoadingBaseImages && (
+                {isLoadingOrgs && (
                     <Text id="programming-language-status" role="status" aria-live="polite">
                         Loading available programming languages…
                     </Text>
                 )}
 
-                {isBaseImagesError && !baseImages && (
-                    <Text id="programming-language-status" role="status" aria-live="polite" c="red">
-                        We were unable to determine which programming languages are supported for this data
-                        organization. You can still select a language below.
-                    </Text>
-                )}
-
-                {!isLoadingBaseImages && !isBaseImagesError && (
+                {!isLoadingOrgs && (
                     <>
                         {hasNoBaseImages && (
                             <Text id="programming-language-helper">

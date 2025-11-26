@@ -1,7 +1,14 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker, actionResult } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    insertTestOrg,
+    insertTestUser,
+    insertTestBaseImage,
+    faker,
+    actionResult,
+} from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
@@ -10,6 +17,7 @@ import {
     fetchUsersOrgsWithStatsAction,
     insertOrgAction,
     updateOrgSettingsAction,
+    listAllOrgsAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
@@ -220,6 +228,84 @@ describe('Org Actions', () => {
                 sort: { columnAccessor: 'fullName', direction: 'asc' },
             })
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('listAllOrgsAction', () => {
+        it('returns orgs with supportedLanguages from non-testing base images', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `lang-test-${faker.string.uuid()}`,
+                name: 'Language Test Org',
+                type: 'enclave',
+            })
+
+            // Add a non-testing R base image
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image',
+                language: 'R',
+                isTesting: false,
+            })
+
+            // Add a testing Python base image (should not appear in supportedLanguages)
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'Python Testing Image',
+                language: 'PYTHON',
+                isTesting: true,
+            })
+
+            const result = actionResult(await listAllOrgsAction())
+
+            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+            expect(createdOrg!.supportedLanguages).toContain('R')
+            expect(createdOrg!.supportedLanguages).not.toContain('PYTHON')
+        })
+
+        it('returns orgs with multiple supportedLanguages when both have non-testing images', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `multi-lang-${faker.string.uuid()}`,
+                name: 'Multi Language Org',
+                type: 'enclave',
+            })
+
+            // Add non-testing images for both languages
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image',
+                language: 'R',
+                isTesting: false,
+            })
+
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'Python Production Image',
+                language: 'PYTHON',
+                isTesting: false,
+            })
+
+            const result = actionResult(await listAllOrgsAction())
+
+            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+            expect(createdOrg!.supportedLanguages).toContain('R')
+            expect(createdOrg!.supportedLanguages).toContain('PYTHON')
+            expect(createdOrg!.supportedLanguages).toHaveLength(2)
+        })
+
+        it('returns empty supportedLanguages for orgs without base images', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `no-images-${faker.string.uuid()}`,
+                name: 'No Images Org',
+                type: 'enclave',
+            })
+
+            const result = actionResult(await listAllOrgsAction())
+
+            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+            expect(createdOrg!.supportedLanguages).toEqual([])
         })
     })
 })
