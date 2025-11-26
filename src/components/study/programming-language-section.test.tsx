@@ -169,7 +169,7 @@ describe('ProgrammingLanguageSection', () => {
                 'We were unable to determine which programming languages are supported for this data organization. You can still select a language below.',
             ),
         ).toBeNull()
- 
+
         // We still render the language options from cached data even if the latest query errored
         expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
     })
