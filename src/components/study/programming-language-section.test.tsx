@@ -115,11 +115,14 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
-    it('shows single language message when org supports only R', () => {
+    it.each([
+        { language: 'R' as const, displayName: 'R' },
+        { language: 'PYTHON' as const, displayName: 'Python' },
+    ])('shows single language message when org supports only $displayName', ({ language, displayName }) => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
         const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language: 'R', isTesting: false, name: 'R Base Image' }]
+        const mockBaseImages = [{ id: '1', language, isTesting: false, name: `${displayName} Base Image` }]
 
         mockUseQuery
             .mockReturnValueOnce({
@@ -138,7 +141,7 @@ describe('ProgrammingLanguageSection', () => {
 
         expect(
             screen.getByText(
-                `At the present ${orgName} only supports R. Code files submitted in other languages will not be able to run.`,
+                `At the present ${orgName} only supports ${displayName}. Code files submitted in other languages will not be able to run.`,
             ),
         ).toBeDefined()
     })
@@ -174,34 +177,6 @@ describe('ProgrammingLanguageSection', () => {
         expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
     })
 
-    it('shows single language message when org supports only Python', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language: 'PYTHON', isTesting: false, name: 'Python Base Image' }]
-
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(
-            screen.getByText(
-                `At the present ${orgName} only supports Python. Code files submitted in other languages will not be able to run.`,
-            ),
-        ).toBeDefined()
-    })
-
     it('shows multi-language message when org supports both R and Python', () => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
@@ -233,35 +208,16 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
-    it('shows no base images message when org has no non-testing base images', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
-        const mockBaseImages = [{ id: '1', language: 'R', isTesting: true, name: 'Testing R Image' }]
-
-        mockUseQuery
-            .mockReturnValueOnce({
-                data: mockOrgs,
-                isLoading: false,
-                isError: false,
-            })
-            .mockReturnValueOnce({
-                data: mockBaseImages,
-                isLoading: false,
-                isError: false,
-            })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(
-            screen.getByText(
-                `No base images are currently configured for ${orgName}. You can still select the language you intend to use; an administrator will need to configure a matching base image before your code can run.`,
-            ),
-        ).toBeDefined()
-    })
-
-    it('shows no base images message when org has empty base images array', () => {
+    it.each([
+        {
+            description: 'no non-testing base images',
+            baseImages: [{ id: '1', language: 'R', isTesting: true, name: 'Testing R Image' }],
+        },
+        {
+            description: 'an empty base images array',
+            baseImages: [] as Array<{ id: string; language: string; isTesting: boolean; name: string }>,
+        },
+    ])('shows no base images message when org has $description', ({ baseImages }) => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
         const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
@@ -273,7 +229,7 @@ describe('ProgrammingLanguageSection', () => {
                 isError: false,
             })
             .mockReturnValueOnce({
-                data: [],
+                data: baseImages,
                 isLoading: false,
                 isError: false,
             })

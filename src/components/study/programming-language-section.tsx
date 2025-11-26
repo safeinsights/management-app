@@ -38,32 +38,15 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         enabled: !!selectedOrgSlug,
     })
 
-    const { hasNoBaseImages, supportedLanguages, isSingleLanguage } = useMemo(() => {
-        if (!selectedOrgSlug || !baseImages || baseImages.length === 0) {
-            return {
-                hasNoBaseImages: true,
-                supportedLanguages: [] as Array<'R' | 'PYTHON'>,
-                isSingleLanguage: false,
-            }
-        }
+    const nonTestingImages = useMemo(() => (baseImages ?? []).filter((img) => !img.isTesting), [baseImages])
 
-        const nonTesting = baseImages.filter((img) => !img.isTesting)
-        if (nonTesting.length === 0) {
-            return {
-                hasNoBaseImages: true,
-                supportedLanguages: [] as Array<'R' | 'PYTHON'>,
-                isSingleLanguage: false,
-            }
-        }
+    const supportedLanguages = useMemo(
+        () => Array.from(new Set(nonTestingImages.map((img) => img.language as 'R' | 'PYTHON'))),
+        [nonTestingImages],
+    )
 
-        const langs = Array.from(new Set(nonTesting.map((img) => img.language as 'R' | 'PYTHON')))
-
-        return {
-            hasNoBaseImages: false,
-            supportedLanguages: langs,
-            isSingleLanguage: langs.length === 1,
-        }
-    }, [baseImages, selectedOrgSlug])
+    const hasNoBaseImages = !selectedOrgSlug || nonTestingImages.length === 0
+    const isSingleLanguage = supportedLanguages.length === 1
 
     const options: Array<'R' | 'PYTHON'> = useMemo(
         () =>
