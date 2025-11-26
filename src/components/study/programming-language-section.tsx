@@ -113,7 +113,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Stack gap="lg">
                 {isLoadingBaseImages && <Text>Loading available programming languages…</Text>}
 
-                {isBaseImagesError && (
+                {isBaseImagesError && !baseImages && (
                     <Text c="red">
                         We were unable to determine which programming languages are supported for this data
                         organization. You can still select a language below.

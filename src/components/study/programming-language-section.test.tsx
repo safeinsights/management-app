@@ -143,6 +143,37 @@ describe('ProgrammingLanguageSection', () => {
         ).toBeDefined()
     })
 
+    it('does not show error message when base images exist but query is in error state', () => {
+        const orgSlug = faker.string.alpha(10)
+        const orgName = 'Test Organization'
+        const mockOrgs = [{ slug: orgSlug, name: orgName, type: 'enclave' }]
+        const mockBaseImages = [{ id: '1', language: 'R', isTesting: false, name: 'R Base Image' }]
+
+        mockUseQuery
+            .mockReturnValueOnce({
+                data: mockOrgs,
+                isLoading: false,
+                isError: false,
+            })
+            .mockReturnValueOnce({
+                data: mockBaseImages,
+                isLoading: false,
+                isError: true,
+            })
+
+        const form = createMockForm({ orgSlug })
+        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+
+        expect(
+            screen.queryByText(
+                'We were unable to determine which programming languages are supported for this data organization. You can still select a language below.',
+            ),
+        ).toBeNull()
+ 
+        // We still render the language options from cached data even if the latest query errored
+        expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
+    })
+
     it('shows single language message when org supports only Python', () => {
         const orgSlug = faker.string.alpha(10)
         const orgName = 'Test Organization'
