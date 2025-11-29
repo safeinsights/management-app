@@ -2,13 +2,44 @@
 
 import { useState } from 'react'
 import { DataTable } from 'mantine-datatable'
-import { useQuery } from '@/common'
+import { useMutation, useQuery } from '@/common'
 import { getUsersForOrgAction, type OrgUserReturn } from '@/server/actions/org.actions'
 import dayjs from 'dayjs'
-import { Flex, Text } from '@mantine/core'
+import { Flex, Select, Text } from '@mantine/core'
 import { UserAvatar } from '@/components/user-avatar'
+import { InfoTooltip } from '@/components/tooltip'
+import { reportMutationError } from '@/components/errors'
+import { permissionLabelForUser, PERMISSION_LABELS } from '@/lib/role'
+import { updateUserRoleAction } from '@/server/actions/user.actions'
 
 type User = OrgUserReturn
+
+const PermissionSelector: React.FC<{ orgSlug: string; user: User; onSuccess: () => void }> = ({
+    orgSlug,
+    user,
+    onSuccess,
+}) => {
+    const { mutate, isPending, variables } = useMutation({
+        mutationFn: ({ user, label }: { user: User; label: string }) =>
+            updateUserRoleAction({
+                orgSlug,
+                userId: user.id,
+                isAdmin: label == 'Administrator',
+            }),
+        onSuccess,
+        onError: reportMutationError('Failed to update user permission'),
+    })
+
+    return (
+        <Select
+            disabled={isPending}
+            onChange={(label) => label && mutate({ user, label })}
+            placeholder="Pick value"
+            value={isPending ? variables.label : permissionLabelForUser(user)}
+            data={PERMISSION_LABELS}
+        />
+    )
+}
 
 export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
     const [sort, setSortStatus] = useState<{ columnAccessor: string; direction: 'asc' | 'desc' }>({
@@ -16,7 +47,11 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
         direction: 'asc',
     })
 
-    const { data: users, isLoading } = useQuery({
+    const {
+        data: users,
+        isLoading,
+        refetch,
+    } = useQuery({
         queryKey: ['users-listing', orgSlug, sort],
         queryFn: () =>
             getUsersForOrgAction({ orgSlug, sort: { columnAccessor: 'fullName', direction: sort.direction } }),
@@ -44,6 +79,30 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                             </Flex>
                         </Flex>
                     ),
+                },
+                {
+                    title: (
+                        <Flex align="center">
+                            <span>Permission</span>
+                            <InfoTooltip label="Shows someone’s permissions within the organization:">
+                                {' '}
+                                text=
+                                {
+                                    <Flex direction="column">
+                                        <Text>Shows someone’s permissions within the organization:</Text>
+                                        <Text>
+                                            <b>Contributor</b> – full access within their role; no admin privileges
+                                        </Text>
+                                        <Text>
+                                            <b>Administrator</b> – manages team-level settings and contributors
+                                        </Text>
+                                    </Flex>
+                                }
+                            </InfoTooltip>
+                        </Flex>
+                    ),
+                    accessor: 'permission',
+                    render: (user: User) => <PermissionSelector user={user} onSuccess={refetch} orgSlug={orgSlug} />,
                 },
                 {
                     accessor: 'latestActivityAt',
