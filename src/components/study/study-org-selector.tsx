@@ -28,7 +28,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     return (
         <Paper p="xl" mb="xxl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 1 of 3
+                Step 1 of 4
             </Text>
             <Title order={4}>Select data organization</Title>
             <Divider my="md" />

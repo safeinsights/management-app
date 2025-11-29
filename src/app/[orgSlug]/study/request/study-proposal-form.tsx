@@ -4,6 +4,7 @@ import { InputError } from '@/components/errors'
 import { FormFieldLabel } from '@/components/form-field-label' // adjust path if needed
 import { StudyOrgSelector } from '@/components/study/study-org-selector'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
+import { ProgrammingLanguageSection } from '@/components/study/programming-language-section'
 import { useUser } from '@clerk/nextjs'
 import { Divider, FileInput, Grid, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
@@ -40,7 +41,7 @@ export const StudyProposalForm: FC<{
             <StudyOrgSelector form={studyProposalForm} />
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 3
+                    Step 2 of 4
                 </Text>
                 <Title order={4}>Study Proposal</Title>
                 <Divider my="md" />
@@ -178,6 +179,7 @@ export const StudyProposalForm: FC<{
                     </Grid>
                 </Stack>
             </Paper>
+            <ProgrammingLanguageSection form={studyProposalForm} />
         </>
     )
 }

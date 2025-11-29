@@ -87,6 +87,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
             status: 'APPROVED',
             dataSources: ['all'],
             outputMimeType: 'text/csv',
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -95,7 +96,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -108,7 +108,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -121,7 +120,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -210,6 +208,7 @@ export const insertTestStudyJobData = async ({
             status: studyStatus,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
+            language: language || 'R',
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -219,7 +218,6 @@ export const insertTestStudyJobData = async ({
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: language || 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()

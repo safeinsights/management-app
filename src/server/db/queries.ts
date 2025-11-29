@@ -85,7 +85,7 @@ export const latestJobForStudy = async (studyId: string) => {
         .selectFrom('studyJob')
         .selectAll('studyJob')
         .innerJoin('study', 'study.id', 'studyJob.studyId')
-        .select(['study.orgId'])
+        .select(['study.orgId', 'study.language'])
         .select((eb) => [
             jsonArrayFrom(
                 eb
