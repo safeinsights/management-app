@@ -5,14 +5,17 @@ import { Flex, Text } from '@mantine/core'
 import { FC } from 'react'
 import { InfoTooltip } from '../tooltip'
 
-export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
+export const DisplayStudyStatus: FC<{ status: StatusLabel; isResearchLabDashboard?: boolean }> = ({
+    status,
+    isResearchLabDashboard,
+}) => {
     const { label, tooltip } = status
     const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
 
     const statusStyle: Record<'Approved' | 'Errored' | 'Rejected' | 'Under Review', { color?: string }> = {
         Approved: { color: 'green.9' },
         Errored: { color: 'red.9' },
-        Rejected: { color: 'red.9' },
+        Rejected: { color: 'charcoal.9' },
         'Under Review': { color: 'grey.6' },
     }
 
@@ -21,12 +24,34 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
             <Flex align="center">
                 <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
                     <Text
-                        bd="1px solid purple.8"
+                        size="sm"
+                        bd="1px solid purple.7"
                         bdrs={2}
                         p="2px 6px"
                         ta={'center'}
                         fw={600}
-                        c={'purple.8'}
+                        c={'purple.7'}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        {label.toLocaleUpperCase()}
+                    </Text>
+                </InfoTooltip>
+            </Flex>
+        )
+    }
+
+    if (label === 'Approved' && status.stage === 'Results' && isResearchLabDashboard) {
+        return (
+            <Flex align="center">
+                <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+                    <Text
+                        size="sm"
+                        bd="1px solid green.10"
+                        bdrs={2}
+                        p="2px 6px"
+                        ta={'center'}
+                        fw={600}
+                        c={'green.10'}
                         style={{ cursor: 'pointer' }}
                     >
                         {label.toLocaleUpperCase()}
@@ -40,6 +65,7 @@ export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
         <Flex align="center" gap="xs">
             <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
                 <Text
+                    size="sm"
                     c={statusStyle[label as keyof typeof statusStyle]?.color || color}
                     fw={600}
                     style={{ cursor: 'pointer', ...(statusStyle[label as keyof typeof statusStyle] || {}) }}

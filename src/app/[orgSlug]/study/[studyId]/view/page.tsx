@@ -1,11 +1,9 @@
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { latestJobForStudy } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
-import React from 'react'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { ApprovalStatus } from '@/components/study/job-approval-status'
 import { JobResultsStatusMessage } from './job-results-status-message'
@@ -51,7 +49,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                             <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                         )}
                     </Group>
-                    <StudyDetails studyId={studyId} />
+                    <StudyDetails studyId={study.id} />
                 </Stack>
             </Paper>
 
