@@ -1,27 +1,15 @@
 import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-    // Copy language from study_job to study before dropping the column
-    // First, add the language column to study
+    // Add the language column to study with default 'R'
+    // We do not derive language from study_job; all studies use 'R'
     await db.schema
         .alterTable('study')
         .addColumn('language', sql`language`, (col) => col.defaultTo('R'))
         .execute()
 
-    // Copy the language from the latest study_job for each study
-    await sql`
-        UPDATE study
-        SET language = (
-            SELECT study_job.language
-            FROM study_job
-            WHERE study_job.study_id = study.id
-            ORDER BY study_job.created_at DESC
-            LIMIT 1
-        )
-        WHERE EXISTS (
-            SELECT 1 FROM study_job WHERE study_job.study_id = study.id
-        )
-    `.execute(db)
+    // Initialize all existing studies to language 'R'
+    await sql`UPDATE study SET language = 'R'`.execute(db)
 
     // Make study.language NOT NULL after copying data
     await db.schema
