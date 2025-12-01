@@ -38,6 +38,7 @@ export const deriveProgrammingLanguageUiState = ({
     if (isAdmin) {
         // Admin reviewers can always see both R and Python. We deliberately do not auto-select
         // a language for admins; they must choose explicitly.
+        // TODO: In a later stage the general admin handling of test base images and supported languages should be refactored.
         return {
             orgName: org.name,
             isSingleLanguage: false,
@@ -67,8 +68,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         queryFn: () => getOrgsWithLanguagesAction(),
     })
 
-    const selectedOrg =
-        orgs && selectedOrgSlug ? orgs.find((o) => o.slug === selectedOrgSlug) ?? null : null
+    const selectedOrg = orgs && selectedOrgSlug ? (orgs.find((o) => o.slug === selectedOrgSlug) ?? null) : null
 
     const { orgName, isSingleLanguage, options } = deriveProgrammingLanguageUiState({
         org: selectedOrg,
@@ -78,16 +78,12 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     useEffect(() => {
         // Reset language whenever org changes
         form.setFieldValue('language', null)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedOrgSlug])
 
-    useEffect(() => {
         // Auto-select language in the single-language case for non-admin users
-        if (isSingleLanguage && !form.values.language && options.length === 1) {
+        if (isSingleLanguage && options.length === 1) {
             form.setFieldValue('language', options[0])
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isSingleLanguage, options])
+    }, [selectedOrgSlug, isSingleLanguage, options, form])
 
     const shouldShowContent = !!selectedOrgSlug
 
@@ -112,13 +108,13 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                     <>
                         {isSingleLanguage ? (
                             <Text id="programming-language-helper">
-                                At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code
-                                files submitted in other languages will not be able to run.
+                                At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code files
+                                submitted in other languages will not be able to run.
                             </Text>
                         ) : (
                             <Text id="programming-language-helper">
-                                Indicate the programming language that you will use in your data analysis. {orgName} will
-                                use this to setup the right environment for you.
+                                Indicate the programming language that you will use in your data analysis. {orgName}{' '}
+                                will use this to setup the right environment for you.
                             </Text>
                         )}
                     </>
