@@ -39,7 +39,7 @@ describe('OrgAdminDashboardLink', () => {
             slug: orgSlug,
             eventCount: 0,
         }
-        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        await mockSessionWithTestData()
         renderWithProviders(<OrgAdminDashboardLink isVisible={false} org={org} />)
         expect(screen.queryByRole('button', { name: /Admin/i })).not.toBeInTheDocument()
     })
@@ -55,7 +55,7 @@ describe('OrgAdminDashboardLink', () => {
         }
 
         // Test with regular Org Admin
-        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        await mockSessionWithTestData()
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
         const adminButton = screen.getByRole('button', { name: /Admin/i })
         await userEvent.click(adminButton)
@@ -72,7 +72,7 @@ describe('OrgAdminDashboardLink', () => {
             slug: orgSlug,
             eventCount: 0,
         }
-        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        await mockSessionWithTestData()
         mockPathname(`/admin/team/${orgSlug}`)
 
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
@@ -89,7 +89,7 @@ describe('OrgAdminDashboardLink', () => {
             slug: orgSlug,
             eventCount: 0,
         }
-        await mockSessionWithTestData({ orgSlug, isAdmin: true })
+        await mockSessionWithTestData()
         mockPathname('/')
 
         renderWithProviders(<OrgAdminDashboardLink isVisible={true} org={org} />)
