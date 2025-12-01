@@ -9,6 +9,8 @@ import { ApprovalStatus } from '@/components/study/job-approval-status'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +28,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     const { isApproved, isErrored, isRejected } = extractJobStatus(job.statusChanges)
 
-    const isStatusFocused = (isApproved && isErrored) || isRejected
+    const isStatusFocused = (isApproved && isErrored) || isRejected || isApproved
     const opacity = isStatusFocused ? 0.6 : 1
 
     return (
@@ -59,7 +61,12 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        {!isStatusFocused && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />}
+                        {!isStatusFocused && (
+                            <Group>
+                                <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />
+                                <OpenWorkspaceButton studyId={study.id} />
+                            </Group>
+                        )}
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />

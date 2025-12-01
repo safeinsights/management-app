@@ -83,7 +83,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     <ResubmitCancelButton
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id })}
+                        href={Routes.studyView({ orgSlug: study.orgSlug + '-lab', studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code

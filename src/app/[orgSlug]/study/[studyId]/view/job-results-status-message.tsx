@@ -47,7 +47,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
     } else if (isRejected) {
         if (isFilesRejected) {
             message =
-                'The results of your study have not been released by the data organization, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.'
+                'The code errored. While logs are not available at this time, consider re-submitting an updated study code'
         } else {
             message =
                 'This study code has not been approved by the data organization. Consider resubmitting an updated study code.'
