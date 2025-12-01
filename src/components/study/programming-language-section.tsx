@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect } from 'react'
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { InputError } from '@/components/errors'
@@ -16,59 +16,42 @@ type Props = {
 
 export type ProgrammingLanguageUiState = {
     orgName: string
-    hasNoBaseImages: boolean
     isSingleLanguage: boolean
     options: ReadonlyArray<'R' | 'PYTHON'>
 }
 
 export const deriveProgrammingLanguageUiState = ({
-    orgs,
-    selectedOrgSlug,
+    org,
     isAdmin,
 }: {
-    orgs: OrgWithLanguages[] | undefined
-    selectedOrgSlug: string | undefined
+    org: OrgWithLanguages | null
     isAdmin: boolean
 }): ProgrammingLanguageUiState => {
-    const org = orgs?.find((o) => o.slug === selectedOrgSlug)
-
-    // If we have no matching org, fall back to the same behavior as before:
-    // treat this as "no base images" and expose both languages as options.
     if (!org) {
         return {
-            orgName: selectedOrgSlug ? 'this data organization' : '',
-            hasNoBaseImages: true,
+            orgName: '',
             isSingleLanguage: false,
-            options: ['R', 'PYTHON'] as const,
+            options: [],
         }
     }
 
-    const { supportedLanguages, hasNoBaseImages, isSingleLanguage } = org
-
-    // OrgWithLanguages is expected to have hasNoBaseImages and isSingleLanguage
-    // precomputed by getOrgsWithLanguagesAction; we rely on those flags directly here.
-    let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = hasNoBaseImages
-        ? (['R', 'PYTHON'] as const)
-        : (supportedLanguages as ReadonlyArray<'R' | 'PYTHON'>)
-
-    let effectiveHasNoBaseImages = hasNoBaseImages
-    let effectiveIsSingleLanguage = isSingleLanguage
-
-    if (isAdmin && selectedOrgSlug) {
-        // Admin reviewers (org admins) can always see both R and Python, so they can
-        // exercise test-only base images even when only testing images exist for a language.
-        // We still use hasNoBaseImages to drive the "no base images" helper text, but we
-        // deliberately expose the full language set here.
-        effectiveOptions = ['R', 'PYTHON']
-        effectiveHasNoBaseImages = org.hasNoBaseImages
-        effectiveIsSingleLanguage = false // never auto-select for admins; they must choose explicitly
+    if (isAdmin) {
+        // Admin reviewers can always see both R and Python. We deliberately do not auto-select
+        // a language for admins; they must choose explicitly.
+        return {
+            orgName: org.name,
+            isSingleLanguage: false,
+            options: ['R', 'PYTHON'],
+        }
     }
+
+    const supported = org.supportedLanguages as ReadonlyArray<'R' | 'PYTHON'>
+    const isSingleLanguage = supported.length === 1
 
     return {
         orgName: org.name,
-        hasNoBaseImages: effectiveHasNoBaseImages,
-        isSingleLanguage: effectiveIsSingleLanguage,
-        options: effectiveOptions,
+        isSingleLanguage,
+        options: supported,
     }
 }
 
@@ -84,11 +67,13 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         queryFn: () => getOrgsWithLanguagesAction(),
     })
 
-    // Consolidate org-related derived state into a single useMemo
-    const { orgName, hasNoBaseImages, isSingleLanguage, options } = useMemo(
-        () => deriveProgrammingLanguageUiState({ orgs, selectedOrgSlug, isAdmin }),
-        [orgs, selectedOrgSlug, isAdmin],
-    )
+    const selectedOrg =
+        orgs && selectedOrgSlug ? orgs.find((o) => o.slug === selectedOrgSlug) ?? null : null
+
+    const { orgName, isSingleLanguage, options } = deriveProgrammingLanguageUiState({
+        org: selectedOrg,
+        isAdmin,
+    })
 
     useEffect(() => {
         // Reset language whenever org changes
@@ -97,25 +82,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     }, [selectedOrgSlug])
 
     useEffect(() => {
-        // Auto-select language in the single-language case
+        // Auto-select language in the single-language case for non-admin users
         if (isSingleLanguage && !form.values.language && options.length === 1) {
             form.setFieldValue('language', options[0])
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSingleLanguage, options])
 
-    if (!selectedOrgSlug) {
-        return (
-            <Paper p="xl" mt="xxl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 3 of 4
-                </Text>
-                <Title order={4}>Programming language</Title>
-                <Divider my="md" />
-                <Text>Select a data organization above to see which programming languages are available.</Text>
-            </Paper>
-        )
-    }
+    const shouldShowContent = !!selectedOrgSlug
 
     return (
         <Paper p="xl" mt="xxl">
@@ -128,56 +102,48 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
             <Divider my="md" />
 
             <Stack gap="lg">
-                {isLoadingOrgs && (
+                {shouldShowContent && isLoadingOrgs && (
                     <Text id="programming-language-status" role="status" aria-live="polite">
                         Loading available programming languages…
                     </Text>
                 )}
 
-                {!isLoadingOrgs && (
+                {shouldShowContent && !isLoadingOrgs && options.length > 0 && (
                     <>
-                        {hasNoBaseImages && (
+                        {isSingleLanguage ? (
                             <Text id="programming-language-helper">
-                                No base images are currently configured for {orgName || 'this data organization'}. You
-                                can still select the language you intend to use; an administrator will need to configure
-                                a matching base image before your code can run.
+                                At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code
+                                files submitted in other languages will not be able to run.
                             </Text>
-                        )}
-
-                        {!hasNoBaseImages && isSingleLanguage && (
+                        ) : (
                             <Text id="programming-language-helper">
-                                At the present {orgName} only supports {options[0] === 'R' ? 'R' : 'Python'}. Code files
-                                submitted in other languages will not be able to run.
-                            </Text>
-                        )}
-
-                        {!hasNoBaseImages && !isSingleLanguage && (
-                            <Text id="programming-language-helper">
-                                Indicate the programming language that you will use in your data analysis. {orgName}{' '}
-                                will use this to setup the right environment for you.
+                                Indicate the programming language that you will use in your data analysis. {orgName} will
+                                use this to setup the right environment for you.
                             </Text>
                         )}
                     </>
                 )}
 
-                <Grid align="flex-start">
-                    <Grid.Col span={12}>
-                        <Radio.Group
-                            id="programming-language"
-                            aria-labelledby="programming-language-title"
-                            aria-describedby="programming-language-helper programming-language-status"
-                            value={form.values.language ?? ''}
-                            onChange={(value) => form.setFieldValue('language', value as 'R' | 'PYTHON')}
-                        >
-                            <Stack gap="xs">
-                                {options.map((lang) => (
-                                    <Radio key={lang} value={lang} label={lang === 'R' ? 'R' : 'Python'} />
-                                ))}
-                            </Stack>
-                        </Radio.Group>
-                        {form.errors.language && <InputError error={form.errors.language} />}
-                    </Grid.Col>
-                </Grid>
+                {shouldShowContent && options.length > 0 && (
+                    <Grid align="flex-start">
+                        <Grid.Col span={12}>
+                            <Radio.Group
+                                id="programming-language"
+                                aria-labelledby="programming-language-title"
+                                aria-describedby="programming-language-helper programming-language-status"
+                                value={form.values.language ?? ''}
+                                onChange={(value) => form.setFieldValue('language', value as 'R' | 'PYTHON')}
+                            >
+                                <Stack gap="xs">
+                                    {options.map((lang) => (
+                                        <Radio key={lang} value={lang} label={lang === 'R' ? 'R' : 'Python'} />
+                                    ))}
+                                </Stack>
+                            </Radio.Group>
+                            {form.errors.language && <InputError error={form.errors.language} />}
+                        </Grid.Col>
+                    </Grid>
+                )}
             </Stack>
         </Paper>
     )

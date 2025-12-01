@@ -14,17 +14,15 @@ const createOrg = (overrides: Partial<OrgWithLanguages> = {}): OrgWithLanguages 
     }) as OrgWithLanguages
 
 describe('deriveProgrammingLanguageUiState', () => {
-    it('returns fallback state when no matching org is found', () => {
+    it('returns empty state when no org is provided', () => {
         const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [],
-            selectedOrgSlug: 'missing-slug',
+            org: null,
             isAdmin: false,
         })
 
-        expect(state.orgName).toBe('this data organization')
-        expect(state.hasNoBaseImages).toBe(true)
+        expect(state.orgName).toBe('')
         expect(state.isSingleLanguage).toBe(false)
-        expect(state.options).toEqual(['R', 'PYTHON'])
+        expect(state.options).toEqual([])
     })
 
     it('derives single-language state for a non-admin org with one supported language', () => {
@@ -37,13 +35,11 @@ describe('deriveProgrammingLanguageUiState', () => {
         })
 
         const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [org],
-            selectedOrgSlug: 'org-1',
+            org,
             isAdmin: false,
         })
 
         expect(state.orgName).toBe('Single Language Org')
-        expect(state.hasNoBaseImages).toBe(false)
         expect(state.isSingleLanguage).toBe(true)
         expect(state.options).toEqual(['PYTHON'])
     })
@@ -58,34 +54,11 @@ describe('deriveProgrammingLanguageUiState', () => {
         })
 
         const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [org],
-            selectedOrgSlug: 'org-2',
+            org,
             isAdmin: false,
         })
 
         expect(state.orgName).toBe('Multi Language Org')
-        expect(state.hasNoBaseImages).toBe(false)
-        expect(state.isSingleLanguage).toBe(false)
-        expect(state.options).toEqual(['R', 'PYTHON'])
-    })
-
-    it('derives no-base-images state when an org has no supported languages', () => {
-        const org = createOrg({
-            slug: 'org-3',
-            name: 'No Images Org',
-            supportedLanguages: [],
-            hasNoBaseImages: true,
-            isSingleLanguage: false,
-        })
-
-        const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [org],
-            selectedOrgSlug: 'org-3',
-            isAdmin: false,
-        })
-
-        expect(state.orgName).toBe('No Images Org')
-        expect(state.hasNoBaseImages).toBe(true)
         expect(state.isSingleLanguage).toBe(false)
         expect(state.options).toEqual(['R', 'PYTHON'])
     })
@@ -100,23 +73,20 @@ describe('deriveProgrammingLanguageUiState', () => {
         })
 
         const nonAdminState: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [baseOrg],
-            selectedOrgSlug: 'org-5',
+            org: baseOrg,
             isAdmin: false,
         })
 
         expect(nonAdminState.options).toEqual(['R'])
         expect(nonAdminState.isSingleLanguage).toBe(true)
-        expect(nonAdminState.hasNoBaseImages).toBe(false)
 
         const adminState: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
-            orgs: [baseOrg],
-            selectedOrgSlug: 'org-5',
+            org: baseOrg,
             isAdmin: true,
         })
 
         expect(adminState.options).toEqual(['R', 'PYTHON'])
         expect(adminState.isSingleLanguage).toBe(false)
-        expect(adminState.hasNoBaseImages).toBe(false)
+        expect(adminState.orgName).toBe('Admin Org')
     })
 })
