@@ -46,6 +46,34 @@ async function setupUsers() {
                 .where('id', '=', org.id)
                 .execute()
         }
+
+        const existingImages = await db.selectFrom('orgBaseImage').where('orgId', '=', org.id).execute()
+        if (existingImages.length === 0) {
+            await db
+                .insertInto('orgBaseImage')
+                .values([
+                    {
+                        orgId: org.id,
+                        name: 'R Base Image',
+                        language: 'R',
+                        url: 'public.ecr.aws/docker/library/r-base:latest',
+                        cmdLine: 'Rscript main.r',
+                        starterCodePath: 'main.r',
+                        isTesting: false,
+                    },
+                    {
+                        orgId: org.id,
+                        name: 'Python Base Image',
+                        language: 'PYTHON',
+                        url: 'public.ecr.aws/docker/library/python:latest',
+                        cmdLine: 'python main.py',
+                        starterCodePath: 'main.py',
+                        isTesting: false,
+                    },
+                ])
+                .execute()
+            console.log(`Created base images for org ${org.id}`) // eslint-disable-line no-console
+        }
     }
 
     for (const clerkId of CLERK_ADMIN_TEST_IDS) {
