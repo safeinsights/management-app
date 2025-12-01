@@ -27,13 +27,23 @@ const createMockOrg = (
         name: string
         type: string
         supportedLanguages: Array<'R' | 'PYTHON'>
+        hasNoBaseImages: boolean
+        isSingleLanguage: boolean
     }> = {},
-) => ({
-    slug: overrides.slug ?? faker.string.alpha(10),
-    name: overrides.name ?? 'Test Org',
-    type: overrides.type ?? 'enclave',
-    supportedLanguages: overrides.supportedLanguages ?? [],
-})
+) => {
+    const supportedLanguages = overrides.supportedLanguages ?? []
+    const defaultHasNoBaseImages = supportedLanguages.length === 0
+    const defaultIsSingleLanguage = supportedLanguages.length === 1
+
+    return {
+        slug: overrides.slug ?? faker.string.alpha(10),
+        name: overrides.name ?? 'Test Org',
+        type: overrides.type ?? 'enclave',
+        supportedLanguages,
+        hasNoBaseImages: overrides.hasNoBaseImages ?? defaultHasNoBaseImages,
+        isSingleLanguage: overrides.isSingleLanguage ?? defaultIsSingleLanguage,
+    }
+}
 
 // Helper to create a mock form
 const createMockForm = (

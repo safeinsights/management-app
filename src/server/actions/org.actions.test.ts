@@ -18,6 +18,7 @@ import {
     insertOrgAction,
     updateOrgSettingsAction,
     listAllOrgsAction,
+    getOrgsWithLanguagesAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
@@ -232,6 +233,26 @@ describe('Org Actions', () => {
     })
 
     describe('listAllOrgsAction', () => {
+        it('returns basic org info (slug, name, type)', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `basic-org-${faker.string.uuid()}`,
+                name: 'Basic Org',
+                type: 'enclave',
+            })
+
+            const result = actionResult(await listAllOrgsAction())
+            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+
+            expect(createdOrg).toBeDefined()
+            expect(createdOrg).toMatchObject({
+                slug: testOrg.slug,
+                name: testOrg.name,
+                type: testOrg.type,
+            })
+        })
+    })
+
+    describe('getOrgsWithLanguages', () => {
         it('returns orgs with supportedLanguages from non-testing base images', async () => {
             const testOrg = await insertTestOrg({
                 slug: `lang-test-${faker.string.uuid()}`,
@@ -255,9 +276,9 @@ describe('Org Actions', () => {
                 isTesting: true,
             })
 
-            const result = actionResult(await listAllOrgsAction())
+            const result = actionResult(await getOrgsWithLanguagesAction())
 
-            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
             expect(createdOrg).toBeDefined()
             expect(createdOrg!.supportedLanguages).toContain('R')
             expect(createdOrg!.supportedLanguages).not.toContain('PYTHON')
@@ -285,9 +306,9 @@ describe('Org Actions', () => {
                 isTesting: false,
             })
 
-            const result = actionResult(await listAllOrgsAction())
+            const result = actionResult(await getOrgsWithLanguagesAction())
 
-            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
             expect(createdOrg).toBeDefined()
             expect(createdOrg!.supportedLanguages).toContain('R')
             expect(createdOrg!.supportedLanguages).toContain('PYTHON')
@@ -301,11 +322,12 @@ describe('Org Actions', () => {
                 type: 'enclave',
             })
 
-            const result = actionResult(await listAllOrgsAction())
+            const result = actionResult(await getOrgsWithLanguagesAction())
 
-            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
             expect(createdOrg).toBeDefined()
             expect(createdOrg!.supportedLanguages).toEqual([])
+            expect(createdOrg!.hasNoBaseImages).toBe(true)
         })
 
         it('deduplicates languages when multiple base images share the same language', async () => {
@@ -329,9 +351,9 @@ describe('Org Actions', () => {
                 isTesting: false,
             })
 
-            const result = actionResult(await listAllOrgsAction())
+            const result = actionResult(await getOrgsWithLanguagesAction())
 
-            const createdOrg = result.find((o) => o.slug === testOrg.slug)
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
             expect(createdOrg).toBeDefined()
             expect(createdOrg!.supportedLanguages).toContain('R')
             expect(createdOrg!.supportedLanguages).toHaveLength(1)

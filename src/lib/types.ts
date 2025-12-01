@@ -67,6 +67,15 @@ export type Org = UserOrgRoles & {
     slug: string
 }
 
+export type OrgWithLanguages = {
+    slug: string
+    name: string
+    type: OrgType
+    supportedLanguages: Array<'R' | 'PYTHON'>
+    hasNoBaseImages: boolean
+    isSingleLanguage: boolean
+}
+
 export type UserSession = {
     user: SessionUser
     orgs: Record<string, Org>

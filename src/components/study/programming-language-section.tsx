@@ -4,11 +4,11 @@ import React, { useEffect, useMemo } from 'react'
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { InputError } from '@/components/errors'
-import { listAllOrgsAction } from '@/server/actions/org.actions'
+import { getOrgsWithLanguagesAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 import { Divider, Grid, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { getOrgBySlug, isOrgAdmin } from '@/lib/types'
+import { getOrgBySlug, isOrgAdmin, OrgWithLanguages } from '@/lib/types'
 
 type Props = {
     form: UseFormReturnType<StudyProposalFormValues>
@@ -21,38 +21,57 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const currentOrg = session && selectedOrgSlug ? getOrgBySlug(session, selectedOrgSlug) : null
     const isAdmin = currentOrg ? isOrgAdmin(currentOrg) : false
 
-    const { data: orgs, isLoading: isLoadingOrgs } = useQuery({
-        queryKey: ['all-orgs'],
-        queryFn: () => listAllOrgsAction(),
+    const { data: orgs, isLoading: isLoadingOrgs } = useQuery<OrgWithLanguages[]>({
+        queryKey: ['orgs-with-languages'],
+        queryFn: () => getOrgsWithLanguagesAction(),
     })
 
     // Consolidate org-related derived state into a single useMemo
     const { orgName, hasNoBaseImages, isSingleLanguage, options } = useMemo(() => {
         const org = orgs?.find((o) => o.slug === selectedOrgSlug)
-        const langs = org?.supportedLanguages ?? []
-        const noBaseImages = !selectedOrgSlug || langs.length === 0
 
-        // Default behavior (non-admin users): options are derived from non-testing base images only.
-        let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = noBaseImages
+        // If we have no matching org, fall back to the same behavior as before:
+        // treat this as "no base images" and expose both languages as options.
+        if (!org) {
+            return {
+                orgName: selectedOrgSlug ? 'this data organization' : '',
+                hasNoBaseImages: true,
+                isSingleLanguage: false,
+                options: ['R', 'PYTHON'] as const,
+            }
+        }
+
+        const { supportedLanguages } = org
+
+        // Base state normally comes from getOrgsWithLanguagesAction, but for older callers/tests
+        // that only provide supportedLanguages, derive the flags from that array.
+        let hasNoBaseImages = org.hasNoBaseImages
+        let isSingleLanguage = org.isSingleLanguage
+
+        if (hasNoBaseImages === undefined || isSingleLanguage === undefined) {
+            const count = supportedLanguages.length
+            hasNoBaseImages = count === 0
+            isSingleLanguage = count === 1
+        }
+
+        let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = hasNoBaseImages
             ? (['R', 'PYTHON'] as const)
-            : (langs as ('R' | 'PYTHON')[])
-        let effectiveHasNoBaseImages = noBaseImages
-        let effectiveIsSingleLanguage = langs.length === 1
+            : (supportedLanguages as ReadonlyArray<'R' | 'PYTHON'>)
 
         if (isAdmin && selectedOrgSlug) {
             // Admin reviewers (org admins) can always see both R and Python, so they can
             // exercise test-only base images even when only testing images exist for a language.
-            // We still use langs.length to drive the "no base images" helper text, but we
+            // We still use hasNoBaseImages to drive the "no base images" helper text, but we
             // deliberately expose the full language set here.
             effectiveOptions = ['R', 'PYTHON']
-            effectiveHasNoBaseImages = langs.length === 0
-            effectiveIsSingleLanguage = false // never auto-select for admins; they must choose explicitly
+            hasNoBaseImages = org.hasNoBaseImages ?? hasNoBaseImages
+            isSingleLanguage = false // never auto-select for admins; they must choose explicitly
         }
 
         return {
-            orgName: org?.name || (selectedOrgSlug ? 'this data organization' : ''),
-            hasNoBaseImages: effectiveHasNoBaseImages,
-            isSingleLanguage: effectiveIsSingleLanguage,
+            orgName: org.name,
+            hasNoBaseImages: !!hasNoBaseImages,
+            isSingleLanguage: !!isSingleLanguage,
             options: effectiveOptions,
         }
     }, [orgs, selectedOrgSlug, isAdmin])

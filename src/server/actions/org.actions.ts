@@ -4,6 +4,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
+import { jsonArrayFrom } from '@/database'
 import { Action, z } from './action'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
@@ -136,37 +137,58 @@ export type ListAllOrgsResult = ActionSuccessType<typeof listAllOrgsAction>
 export const listAllOrgsAction = new Action('listAllOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
-        const rows = await db
-            .selectFrom('org')
-            .leftJoin('orgBaseImage', (join) =>
-                join.onRef('orgBaseImage.orgId', '=', 'org.id').on('orgBaseImage.isTesting', '=', false),
-            )
-            .select(['org.slug', 'org.name', 'org.type', 'orgBaseImage.language'])
-            .orderBy('org.name', 'asc')
-            .execute()
+        return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
+    })
 
-        const bySlug = new Map<
-            string,
-            { slug: string; name: string; type: (typeof rows)[number]['type']; languages: Set<'R' | 'PYTHON'> }
-        >()
-
-        for (const row of rows) {
-            let entry = bySlug.get(row.slug)
-            if (!entry) {
-                entry = { slug: row.slug, name: row.name, type: row.type, languages: new Set() }
-                bySlug.set(row.slug, entry)
-            }
-            if (row.language === 'R' || row.language === 'PYTHON') {
-                entry.languages.add(row.language)
-            }
+export const getOrgsWithLanguagesAction = new Action('getOrgsWithLanguagesAction')
+    .requireAbilityTo('view', 'Orgs')
+    .handler(async ({ db }) => {
+        type OrgWithLanguagesRow = {
+            slug: string
+            name: string
+            type: 'enclave' | 'lab'
+            languages: { language: string | null }[] | null
         }
 
-        return Array.from(bySlug.values()).map((entry) => ({
-            slug: entry.slug,
-            name: entry.name,
-            type: entry.type,
-            supportedLanguages: Array.from(entry.languages),
-        }))
+        const rows = (await db
+            .selectFrom('org')
+            .select((eb) => [
+                'org.slug',
+                'org.name',
+                'org.type',
+                jsonArrayFrom(
+                    eb
+                        .selectFrom('orgBaseImage')
+                        .select('orgBaseImage.language')
+                        .whereRef('orgBaseImage.orgId', '=', 'org.id')
+                        .where('orgBaseImage.isTesting', '=', false)
+                        .distinct(),
+                ).as('languages'),
+            ])
+            .orderBy('org.name', 'asc')
+            .execute()) as OrgWithLanguagesRow[]
+
+        return rows.map((row) => {
+            const rawLanguages = row.languages ?? []
+
+            const supportedLanguages = Array.from(
+                new Set(
+                    rawLanguages.map((l) => l.language).filter((l): l is 'R' | 'PYTHON' => l === 'R' || l === 'PYTHON'),
+                ),
+            )
+
+            const hasNoBaseImages = supportedLanguages.length === 0
+            const isSingleLanguage = supportedLanguages.length === 1
+
+            return {
+                slug: row.slug,
+                name: row.name,
+                type: row.type,
+                supportedLanguages,
+                hasNoBaseImages,
+                isSingleLanguage,
+            }
+        })
     })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
