@@ -2,25 +2,28 @@ import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-pro
 import { useMemo, useQuery } from '@/common'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
-import { listAllOrgsAction } from '@/server/actions/org.actions'
+import type { OrgWithLanguages } from '@/lib/types'
+import { getOrgsWithLanguagesAction } from '@/server/actions/org.actions'
 import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
+export const filterOrgsForStudySelector = (orgs: OrgWithLanguages[] | undefined): OrgWithLanguages[] => {
+    if (!orgs) return []
+    return orgs.filter((org) => org.type === 'enclave' && !org.hasNoBaseImages)
+}
+
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
 
-    const { data: orgs, isLoading } = useQuery({
-        queryKey: ['all-orgs'],
-        queryFn: () => listAllOrgsAction(),
+    const { data: orgs, isLoading } = useQuery<OrgWithLanguages[]>({
+        queryKey: ['orgs-with-languages'],
+        queryFn: () => getOrgsWithLanguagesAction(),
     })
 
-    const enclaveOrgs = useMemo(() => {
-        if (!orgs) return []
-        return Object.values(orgs).filter((org) => org.type === 'enclave')
-    }, [orgs])
+    const enclaveOrgs = useMemo(() => filterOrgsForStudySelector(orgs), [orgs])
 
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
