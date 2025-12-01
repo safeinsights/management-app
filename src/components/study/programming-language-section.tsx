@@ -14,6 +14,64 @@ type Props = {
     form: UseFormReturnType<StudyProposalFormValues>
 }
 
+export type ProgrammingLanguageUiState = {
+    orgName: string
+    hasNoBaseImages: boolean
+    isSingleLanguage: boolean
+    options: ReadonlyArray<'R' | 'PYTHON'>
+}
+
+export const deriveProgrammingLanguageUiState = ({
+    orgs,
+    selectedOrgSlug,
+    isAdmin,
+}: {
+    orgs: OrgWithLanguages[] | undefined
+    selectedOrgSlug: string | undefined
+    isAdmin: boolean
+}): ProgrammingLanguageUiState => {
+    const org = orgs?.find((o) => o.slug === selectedOrgSlug)
+
+    // If we have no matching org, fall back to the same behavior as before:
+    // treat this as "no base images" and expose both languages as options.
+    if (!org) {
+        return {
+            orgName: selectedOrgSlug ? 'this data organization' : '',
+            hasNoBaseImages: true,
+            isSingleLanguage: false,
+            options: ['R', 'PYTHON'] as const,
+        }
+    }
+
+    const { supportedLanguages, hasNoBaseImages, isSingleLanguage } = org
+
+    // OrgWithLanguages is expected to have hasNoBaseImages and isSingleLanguage
+    // precomputed by getOrgsWithLanguagesAction; we rely on those flags directly here.
+    let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = hasNoBaseImages
+        ? (['R', 'PYTHON'] as const)
+        : (supportedLanguages as ReadonlyArray<'R' | 'PYTHON'>)
+
+    let effectiveHasNoBaseImages = hasNoBaseImages
+    let effectiveIsSingleLanguage = isSingleLanguage
+
+    if (isAdmin && selectedOrgSlug) {
+        // Admin reviewers (org admins) can always see both R and Python, so they can
+        // exercise test-only base images even when only testing images exist for a language.
+        // We still use hasNoBaseImages to drive the "no base images" helper text, but we
+        // deliberately expose the full language set here.
+        effectiveOptions = ['R', 'PYTHON']
+        effectiveHasNoBaseImages = org.hasNoBaseImages
+        effectiveIsSingleLanguage = false // never auto-select for admins; they must choose explicitly
+    }
+
+    return {
+        orgName: org.name,
+        hasNoBaseImages: effectiveHasNoBaseImages,
+        isSingleLanguage: effectiveIsSingleLanguage,
+        options: effectiveOptions,
+    }
+}
+
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const selectedOrgSlug = form.values.orgSlug
 
@@ -27,54 +85,10 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     })
 
     // Consolidate org-related derived state into a single useMemo
-    const { orgName, hasNoBaseImages, isSingleLanguage, options } = useMemo(() => {
-        const org = orgs?.find((o) => o.slug === selectedOrgSlug)
-
-        // If we have no matching org, fall back to the same behavior as before:
-        // treat this as "no base images" and expose both languages as options.
-        if (!org) {
-            return {
-                orgName: selectedOrgSlug ? 'this data organization' : '',
-                hasNoBaseImages: true,
-                isSingleLanguage: false,
-                options: ['R', 'PYTHON'] as const,
-            }
-        }
-
-        const { supportedLanguages } = org
-
-        // Base state normally comes from getOrgsWithLanguagesAction, but for older callers/tests
-        // that only provide supportedLanguages, derive the flags from that array.
-        let hasNoBaseImages = org.hasNoBaseImages
-        let isSingleLanguage = org.isSingleLanguage
-
-        if (hasNoBaseImages === undefined || isSingleLanguage === undefined) {
-            const count = supportedLanguages.length
-            hasNoBaseImages = count === 0
-            isSingleLanguage = count === 1
-        }
-
-        let effectiveOptions: ReadonlyArray<'R' | 'PYTHON'> = hasNoBaseImages
-            ? (['R', 'PYTHON'] as const)
-            : (supportedLanguages as ReadonlyArray<'R' | 'PYTHON'>)
-
-        if (isAdmin && selectedOrgSlug) {
-            // Admin reviewers (org admins) can always see both R and Python, so they can
-            // exercise test-only base images even when only testing images exist for a language.
-            // We still use hasNoBaseImages to drive the "no base images" helper text, but we
-            // deliberately expose the full language set here.
-            effectiveOptions = ['R', 'PYTHON']
-            hasNoBaseImages = org.hasNoBaseImages ?? hasNoBaseImages
-            isSingleLanguage = false // never auto-select for admins; they must choose explicitly
-        }
-
-        return {
-            orgName: org.name,
-            hasNoBaseImages: !!hasNoBaseImages,
-            isSingleLanguage: !!isSingleLanguage,
-            options: effectiveOptions,
-        }
-    }, [orgs, selectedOrgSlug, isAdmin])
+    const { orgName, hasNoBaseImages, isSingleLanguage, options } = useMemo(
+        () => deriveProgrammingLanguageUiState({ orgs, selectedOrgSlug, isAdmin }),
+        [orgs, selectedOrgSlug, isAdmin],
+    )
 
     useEffect(() => {
         // Reset language whenever org changes

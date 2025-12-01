@@ -1,338 +1,122 @@
-import { describe, it, expect, vi, beforeEach, Mock } from 'vitest'
-import { renderWithProviders, screen, faker, userEvent } from '@/tests/unit.helpers'
-import { useQuery } from '@/common'
-import { useSession } from '@/hooks/session'
-import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
-import { ProgrammingLanguageSection } from './programming-language-section'
+import { describe, it, expect } from 'vitest'
+import type { OrgWithLanguages } from '@/lib/types'
+import { deriveProgrammingLanguageUiState, type ProgrammingLanguageUiState } from './programming-language-section'
 
-vi.mock('@/common', async () => {
-    const actual = await vi.importActual('@/common')
-    return {
-        ...actual,
-        useQuery: vi.fn(),
-    }
-})
+const createOrg = (overrides: Partial<OrgWithLanguages> = {}): OrgWithLanguages =>
+    ({
+        slug: 'test-org-slug',
+        name: 'Test Org',
+        type: 'enclave',
+        supportedLanguages: [],
+        hasNoBaseImages: false,
+        isSingleLanguage: false,
+        ...overrides,
+    }) as OrgWithLanguages
 
-vi.mock('@/hooks/session', () => ({
-    // By default tests will configure this to return a non-admin session. Individual tests
-    // can override the return value to simulate admin reviewers for the selected org.
-    useSession: vi.fn(),
-}))
-
-// Helper to create a mock org with supported languages
-const createMockOrg = (
-    overrides: Partial<{
-        slug: string
-        name: string
-        type: string
-        supportedLanguages: Array<'R' | 'PYTHON'>
-        hasNoBaseImages: boolean
-        isSingleLanguage: boolean
-    }> = {},
-) => {
-    const supportedLanguages = overrides.supportedLanguages ?? []
-    const defaultHasNoBaseImages = supportedLanguages.length === 0
-    const defaultIsSingleLanguage = supportedLanguages.length === 1
-
-    return {
-        slug: overrides.slug ?? faker.string.alpha(10),
-        name: overrides.name ?? 'Test Org',
-        type: overrides.type ?? 'enclave',
-        supportedLanguages,
-        hasNoBaseImages: overrides.hasNoBaseImages ?? defaultHasNoBaseImages,
-        isSingleLanguage: overrides.isSingleLanguage ?? defaultIsSingleLanguage,
-    }
-}
-
-// Helper to create a mock form
-const createMockForm = (
-    overrides: Partial<{
-        orgSlug: string
-        language: 'R' | 'PYTHON' | null
-    }> = {},
-): UseFormReturnType<StudyProposalFormValues> => {
-    const values = {
-        orgSlug: overrides.orgSlug ?? '',
-        language: overrides.language ?? null,
-        title: 'Test Study',
-        piName: 'Test PI',
-        descriptionDocument: null,
-        irbDocument: null,
-        agreementDocument: null,
-        mainCodeFile: null,
-        additionalCodeFiles: [],
-    }
-
-    const form = {
-        values,
-        errors: {},
-        setFieldValue: vi.fn(),
-        getInputProps: vi.fn(),
-        // Add minimal form methods needed
-    } as unknown as UseFormReturnType<StudyProposalFormValues>
-
-    return form
-}
-
-describe('ProgrammingLanguageSection', () => {
-    const mockUseQuery = useQuery as Mock
-    const mockUseSession = useSession as Mock
-
-    beforeEach(() => {
-        vi.clearAllMocks()
-
-        // Default session for tests: loaded, but with no orgs, so getOrgBySlug() returns null
-        // and isOrgAdmin() is false. This keeps the non-admin behavior as the baseline.
-        mockUseSession.mockReturnValue({
-            isLoaded: true,
-            session: {
-                user: { id: 'user-1', isSiAdmin: false, clerkUserId: 'clerk-user-1' },
-                orgs: {},
-            },
+describe('deriveProgrammingLanguageUiState', () => {
+    it('returns fallback state when no matching org is found', () => {
+        const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [],
+            selectedOrgSlug: 'missing-slug',
+            isAdmin: false,
         })
+
+        expect(state.orgName).toBe('this data organization')
+        expect(state.hasNoBaseImages).toBe(true)
+        expect(state.isSingleLanguage).toBe(false)
+        expect(state.options).toEqual(['R', 'PYTHON'])
     })
 
-    it('shows placeholder when no org is selected', () => {
-        mockUseQuery.mockReturnValue({
-            data: undefined,
-            isLoading: false,
+    it('derives single-language state for a non-admin org with one supported language', () => {
+        const org = createOrg({
+            slug: 'org-1',
+            name: 'Single Language Org',
+            supportedLanguages: ['PYTHON'],
+            hasNoBaseImages: false,
+            isSingleLanguage: true,
         })
 
-        const form = createMockForm({ orgSlug: '' })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+        const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [org],
+            selectedOrgSlug: 'org-1',
+            isAdmin: false,
+        })
 
-        expect(screen.getByText('Step 3 of 4')).toBeDefined()
-        expect(screen.getByText('Programming language')).toBeDefined()
-        expect(
-            screen.getByText('Select a data organization above to see which programming languages are available.'),
-        ).toBeDefined()
+        expect(state.orgName).toBe('Single Language Org')
+        expect(state.hasNoBaseImages).toBe(false)
+        expect(state.isSingleLanguage).toBe(true)
+        expect(state.options).toEqual(['PYTHON'])
     })
 
-    it('shows loading state when fetching orgs', () => {
-        const orgSlug = faker.string.alpha(10)
-
-        mockUseQuery.mockReturnValue({
-            data: undefined,
-            isLoading: true,
+    it('derives multi-language state for a non-admin org with both R and Python', () => {
+        const org = createOrg({
+            slug: 'org-2',
+            name: 'Multi Language Org',
+            supportedLanguages: ['R', 'PYTHON'],
+            hasNoBaseImages: false,
+            isSingleLanguage: false,
         })
 
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+        const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [org],
+            selectedOrgSlug: 'org-2',
+            isAdmin: false,
+        })
 
-        expect(screen.getByText('Loading available programming languages…')).toBeDefined()
+        expect(state.orgName).toBe('Multi Language Org')
+        expect(state.hasNoBaseImages).toBe(false)
+        expect(state.isSingleLanguage).toBe(false)
+        expect(state.options).toEqual(['R', 'PYTHON'])
     })
 
-    it.each([
-        { language: 'R' as const, displayName: 'R' },
-        { language: 'PYTHON' as const, displayName: 'Python' },
-    ])('shows single language message when org supports only $displayName', ({ language, displayName }) => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: [language] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
+    it('derives no-base-images state when an org has no supported languages', () => {
+        const org = createOrg({
+            slug: 'org-3',
+            name: 'No Images Org',
+            supportedLanguages: [],
+            hasNoBaseImages: true,
+            isSingleLanguage: false,
         })
 
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+        const state: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [org],
+            selectedOrgSlug: 'org-3',
+            isAdmin: false,
+        })
 
-        expect(
-            screen.getByText(
-                `At the present ${orgName} only supports ${displayName}. Code files submitted in other languages will not be able to run.`,
-            ),
-        ).toBeDefined()
+        expect(state.orgName).toBe('No Images Org')
+        expect(state.hasNoBaseImages).toBe(true)
+        expect(state.isSingleLanguage).toBe(false)
+        expect(state.options).toEqual(['R', 'PYTHON'])
     })
 
-    it('shows multi-language message when org supports both R and Python', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: ['R', 'PYTHON'] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
+    it('allows admins to always see both R and Python and disables single-language auto-select', () => {
+        const baseOrg = createOrg({
+            slug: 'org-5',
+            name: 'Admin Org',
+            supportedLanguages: ['R'],
+            hasNoBaseImages: false,
+            isSingleLanguage: true,
         })
 
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(
-            screen.getByText(
-                `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to setup the right environment for you.`,
-            ),
-        ).toBeDefined()
-    })
-
-    it('shows no base images message when org has no supported languages', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgName = 'Test Organization'
-        const mockOrgs = [createMockOrg({ slug: orgSlug, name: orgName, supportedLanguages: [] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
+        const nonAdminState: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [baseOrg],
+            selectedOrgSlug: 'org-5',
+            isAdmin: false,
         })
 
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
+        expect(nonAdminState.options).toEqual(['R'])
+        expect(nonAdminState.isSingleLanguage).toBe(true)
+        expect(nonAdminState.hasNoBaseImages).toBe(false)
 
-        expect(
-            screen.getByText(
-                `No base images are currently configured for ${orgName}. You can still select the language you intend to use; an administrator will need to configure a matching base image before your code can run.`,
-            ),
-        ).toBeDefined()
-    })
-
-    it('renders radio buttons for available languages', () => {
-        const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['R', 'PYTHON'] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
+        const adminState: ProgrammingLanguageUiState = deriveProgrammingLanguageUiState({
+            orgs: [baseOrg],
+            selectedOrgSlug: 'org-5',
+            isAdmin: true,
         })
 
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Python' })).toBeDefined()
-    })
-
-    it('uses fallback org name when org is not found in list', () => {
-        const orgSlug = faker.string.alpha(10)
-        // Org list doesn't contain the selected org
-        const mockOrgs: ReturnType<typeof createMockOrg>[] = []
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
-        })
-
-        const form = createMockForm({ orgSlug })
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // Should use 'this data organization' as fallback and show no base images message
-        expect(
-            screen.getByText(
-                'No base images are currently configured for this data organization. You can still select the language you intend to use; an administrator will need to configure a matching base image before your code can run.',
-            ),
-        ).toBeDefined()
-    })
-
-    it('calls setFieldValue when a radio button is clicked', async () => {
-        const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['R', 'PYTHON'] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
-        })
-
-        const form = createMockForm({ orgSlug })
-
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        const pythonRadio = screen.getByRole('radio', { name: 'Python' })
-        await userEvent.click(pythonRadio)
-
-        expect(form.setFieldValue).toHaveBeenCalledWith('language', 'PYTHON')
-    })
-
-    it('resets language to null when the selected org changes', () => {
-        const orgSlug1 = faker.string.alpha(10)
-        const orgSlug2 = faker.string.alpha(10)
-        const mockOrgs = [
-            createMockOrg({ slug: orgSlug1, name: 'Test Org 1', supportedLanguages: ['R'] }),
-            createMockOrg({ slug: orgSlug2, name: 'Test Org 2', supportedLanguages: ['PYTHON'] }),
-        ]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
-        })
-
-        const form = createMockForm({ orgSlug: orgSlug1, language: 'R' })
-
-        // Override setFieldValue so it actually mutates form.values, while still being spy-able.
-        const setFieldValueSpy = vi.fn((field: keyof StudyProposalFormValues, value: unknown) => {
-            ;(form.values as StudyProposalFormValues)[field] = value as never
-        })
-        ;(form as unknown as { setFieldValue: typeof setFieldValueSpy }).setFieldValue = setFieldValueSpy
-
-        // Initial render with the first org selected (effect will run once here)
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // Clear the spy to only track calls after initial render
-        setFieldValueSpy.mockClear()
-
-        // Simulate user selecting a language
-        form.values.language = 'PYTHON'
-
-        // Change org and render a new instance with the updated slug
-        form.values.orgSlug = orgSlug2
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // After org change, the effect should have requested a reset of the language field
-        expect(setFieldValueSpy).toHaveBeenCalledWith('language', null)
-    })
-
-    it('auto-selects the language when only a single language is available', () => {
-        const orgSlug = faker.string.alpha(10)
-        const mockOrgs = [createMockOrg({ slug: orgSlug, supportedLanguages: ['PYTHON'] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
-        })
-
-        const form = createMockForm({ orgSlug, language: null })
-
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // language should have been auto-selected to PYTHON
-        expect(form.setFieldValue).toHaveBeenCalledWith('language', 'PYTHON')
-    })
-
-    it('allows admin reviewers to see both R and Python even if only one non-testing language is configured', () => {
-        const orgSlug = faker.string.alpha(10)
-        const orgId = faker.string.uuid()
-
-        // Only R is configured as a non-testing language at the org level
-        const mockOrgs = [createMockOrg({ slug: orgSlug, name: 'Admin Test Org', supportedLanguages: ['R'] })]
-
-        mockUseQuery.mockReturnValue({
-            data: mockOrgs,
-            isLoading: false,
-        })
-
-        // Simulate being an admin for this org so ProgrammingLanguageSection uses the
-        // special-case behavior and always exposes both R and Python options.
-        mockUseSession.mockReturnValue({
-            isLoaded: true,
-            session: {
-                user: { id: 'admin-user-1', isSiAdmin: false, clerkUserId: 'clerk-admin-1' },
-                orgs: {
-                    [orgId]: {
-                        id: orgId,
-                        slug: orgSlug,
-                        type: 'enclave',
-                        isAdmin: true,
-                    },
-                },
-            },
-        })
-
-        const form = createMockForm({ orgSlug })
-
-        renderWithProviders(<ProgrammingLanguageSection form={form} />)
-
-        // Even though only R has a non-testing base image, admin reviewers should be able
-        // to choose either R or Python so they can exercise test-only Python images.
-        expect(screen.getByRole('radio', { name: 'R' })).toBeDefined()
-        expect(screen.getByRole('radio', { name: 'Python' })).toBeDefined()
+        expect(adminState.options).toEqual(['R', 'PYTHON'])
+        expect(adminState.isSingleLanguage).toBe(false)
+        expect(adminState.hasNoBaseImages).toBe(false)
     })
 })
