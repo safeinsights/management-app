@@ -7,7 +7,7 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import React from 'react'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
+import { ApprovalStatus } from '@/components/study/job-approval-status'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
@@ -61,7 +61,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        {!isStatusFocused && <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />}
+                        {!isStatusFocused && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />}
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
@@ -74,7 +74,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        {!isErrored && <FileApprovalStatus job={job} orgSlug={study.orgSlug} />}
+                        {!isErrored && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="files" />}
                     </Group>
                     <Divider c="dimmed" />
                     <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} files={job.files} />

@@ -19,6 +19,8 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
     let message: string
     let additionalContent: ReactNode = null
     let hideResults = false
+
+    console.warn('JobResultsStatusMessage render:', { isApproved, isRejected, isFilesRejected, isErrored })
     if (isApproved) {
         if (isErrored) {
             const hasLogs = files.some((file) => file.fileType.endsWith('-LOG'))
