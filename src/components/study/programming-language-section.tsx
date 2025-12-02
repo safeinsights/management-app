@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo } from 'react'
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { InputError } from '@/components/errors'
@@ -68,12 +68,19 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         queryFn: () => getOrgsWithLanguagesAction(),
     })
 
-    const selectedOrg = orgs && selectedOrgSlug ? (orgs.find((o) => o.slug === selectedOrgSlug) ?? null) : null
+    const selectedOrg = useMemo(
+        () => (orgs && selectedOrgSlug ? (orgs.find((o) => o.slug === selectedOrgSlug) ?? null) : null),
+        [orgs, selectedOrgSlug],
+    )
 
-    const { orgName, isSingleLanguage, options } = deriveProgrammingLanguageUiState({
-        org: selectedOrg,
-        isAdmin,
-    })
+    const { orgName, isSingleLanguage, options } = useMemo(
+        () =>
+            deriveProgrammingLanguageUiState({
+                org: selectedOrg,
+                isAdmin,
+            }),
+        [selectedOrg, isAdmin],
+    )
 
     useEffect(() => {
         // Reset language whenever org changes
