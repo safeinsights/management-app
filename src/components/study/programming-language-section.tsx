@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useRef } from 'react'
 import { useQuery } from '@/common'
 import { useSession } from '@/hooks/session'
 import { InputError } from '@/components/errors'
@@ -82,14 +82,34 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         [selectedOrg, isAdmin],
     )
 
+    const prevOrgSlugRef = useRef<string | null>(null)
+
     useEffect(() => {
-        // Reset language whenever org changes
+        // Only reset language when the selected org actually changes.
+        // We deliberately do NOT reset on options/language list changes alone,
+        // to avoid wiping out a user-selected language when orgs are refetched.
+        if (!selectedOrgSlug) {
+            prevOrgSlugRef.current = null
+            form.setFieldValue('language', null)
+            return
+        }
+
+        const prevOrgSlug = prevOrgSlugRef.current
+        const orgChanged = prevOrgSlug !== selectedOrgSlug
+
+        if (!orgChanged) {
+            return
+        }
+
+        // Org changed: clear previous language selection
         form.setFieldValue('language', null)
 
         // Auto-select language in the single-language case for non-admin users
         if (isSingleLanguage && options.length === 1) {
             form.setFieldValue('language', options[0])
         }
+
+        prevOrgSlugRef.current = selectedOrgSlug
     }, [selectedOrgSlug, isSingleLanguage, options, form])
 
     const shouldShowContent = !!selectedOrgSlug
