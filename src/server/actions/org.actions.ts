@@ -7,7 +7,6 @@ import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
 import { Language } from '@/database/types'
 
-
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
     .middleware(async ({ params: { id } }) => ({ orgId: id })) // translate params for requireAbility below
@@ -161,7 +160,7 @@ export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEncla
             .execute()
     })
 
-type LanguageOption = { value: Language, label: string }
+type LanguageOption = { value: Language; label: string }
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
@@ -169,7 +168,11 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .handler(async ({ db, params: { orgSlug } }) => {
         const { languageLabels } = await import('@/lib/languages')
 
-    const org = await db.selectFrom('org').select(['name', 'id']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+        const org = await db
+            .selectFrom('org')
+            .select(['name', 'id'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
 
         const rows = await db
             .selectFrom('orgBaseImage')
@@ -181,7 +184,7 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
 
         return {
             orgName: org.name,
-            languages: rows.map(l => ({ value: l.language, label: languageLabels[l.language] } as LanguageOption)),
+            languages: rows.map((l) => ({ value: l.language, label: languageLabels[l.language] }) as LanguageOption),
         }
     })
 

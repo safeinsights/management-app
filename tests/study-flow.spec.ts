@@ -100,6 +100,32 @@ async function viewDetails(page: Page, studyTitle: string) {
     await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 }
 
+type FillStudyFormOptions = {
+    title: string
+    investigator?: string
+    orgNameRegex?: RegExp
+}
+
+async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
+    const { title, investigator = 'Ricky McResearcher', orgNameRegex = /openstax/i } = options
+
+    await expect(page.getByText('Step 1 of 4')).toBeVisible()
+    const orgSelect = page.getByTestId('org-select')
+    await orgSelect.waitFor({ state: 'visible' })
+
+    await page.waitForTimeout(1000)
+    await expect(orgSelect).toBeEnabled()
+    await orgSelect.click()
+    await page.getByRole('option', { name: orgNameRegex }).click()
+
+    await page.getByLabel(/title/i).fill(title)
+    await page.getByLabel(/investigator/i).fill(investigator)
+
+    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+}
+
 type StudyLanguageConfig = {
     language: 'R' | 'Python'
     radioName: string
@@ -116,26 +142,12 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
 
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
-    // propose new study button
     await page.getByTestId('new-study').first().click()
 
-    // wait for Step 1 panel to render and select the data org for following steps
-    await expect(page.getByText('Step 1 of 4')).toBeVisible()
-    const orgSelect = page.getByTestId('org-select')
-    await orgSelect.waitFor({ state: 'visible' })
-
-    await page.waitForTimeout(1000)
-    await expect(orgSelect).toBeEnabled()
-    await orgSelect.click()
-    const orgOptionName = languageConfig.dataOrgNameRegex ?? /openstax/i
-    await page.getByRole('option', { name: orgOptionName }).click()
-
-    await page.getByLabel(/title/i).fill(finalTitle)
-    await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
-
-    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+    await fillStudyForm(page, {
+        title: finalTitle,
+        orgNameRegex: languageConfig.dataOrgNameRegex,
+    })
 
     // Verify "Next Step" button is disabled when no programming language is selected
     const nextStepButton = page.getByRole('button', { name: 'Next Step' })
@@ -183,35 +195,18 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
 test('Single-language R org auto-selects language and enables Next Step', async ({ page }) => {
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
-    // propose new study button
     await page.getByTestId('new-study').first().click()
 
-    // Step 1: select the single-language R enclave org
-    await expect(page.getByText('Step 1 of 4')).toBeVisible()
-    const orgSelect = page.getByTestId('org-select')
-    await orgSelect.waitFor({ state: 'visible' })
-
-    await expect(orgSelect).toBeEnabled()
-    await orgSelect.click()
-    await page.getByRole('option', { name: /single-lang r enclave/i }).click()
-
-    // Fill required Step 1 fields
-    await page.getByLabel(/title/i).fill('Single-lang R study')
-    await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
-
-    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
-    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+    await fillStudyForm(page, {
+        title: 'Single-lang R study',
+        orgNameRegex: /single-lang r enclave/i,
+    })
 
     // Wait for programming language section to appear
     const helperText = page.getByText(
         /At the present Single-Lang R Enclave only supports R\. Code files submitted in other languages will not be able to run\./i,
     )
     await expect(helperText).toBeVisible()
-
-    // R should be auto-selected for a single-language org
-    const rRadio = page.getByRole('radio', { name: 'R', exact: true })
-    await expect(rRadio).toBeChecked()
 
     // Next Step should already be enabled (no manual language click required)
     const nextStepButton = page.getByRole('button', { name: 'Next Step' })

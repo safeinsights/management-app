@@ -19,7 +19,6 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
         queryFn: () => getLanguagesForOrgAction({ orgSlug: selectedOrgSlug }),
-
     })
 
     const orgName = data?.orgName ?? ''
@@ -28,9 +27,9 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
 
     useEffect(() => {
         if (isSingleLanguage) {
-            form.setFieldValue('language', languages[0].value)
+            form.setFieldValue('language', data.languages[0].value)
         }
-    }, [selectedOrgSlug, form, isSingleLanguage])
+    }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
     let body: React.ReactNode = null
 
@@ -45,8 +44,8 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     } else if (isSingleLanguage) {
         body = (
             <Text id="programming-language-helper">
-                                                       At the present {orgName} only supports {languages[0].label}. Code files submitted in other
-                                                                                                                      languages will not be able to run.
+                At the present {orgName} only supports {languages[0].label}. Code files submitted in other languages
+                will not be able to run.
             </Text>
         )
     } else if (!data) {
@@ -58,6 +57,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                     Indicate the programming language that you will use in your data analysis. {orgName} will use this
                     to setup the right environment for you.
                 </Text>
+
                 <Grid align="flex-start">
                     <Grid.Col span={12}>
                         <Radio.Group

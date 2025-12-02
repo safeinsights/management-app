@@ -67,7 +67,6 @@ export type Org = UserOrgRoles & {
     slug: string
 }
 
-
 export type UserSession = {
     user: SessionUser
     orgs: Record<string, Org>

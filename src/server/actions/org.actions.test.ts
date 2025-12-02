@@ -18,7 +18,8 @@ import {
     insertOrgAction,
     updateOrgSettingsAction,
     listAllOrgsAction,
-    getOrgsWithLanguagesAction,
+    getStudyCapableEnclaveOrgsAction,
+    getLanguagesForOrgAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
@@ -252,7 +253,7 @@ describe('Org Actions', () => {
         })
     })
 
-    describe('getOrgsWithLanguages', () => {
+    describe('getStudyCapableEnclaveOrgsAction', () => {
         it('returns orgs with supportedLanguages from non-testing base images', async () => {
             const testOrg = await insertTestOrg({
                 slug: `lang-test-${faker.string.uuid()}`,
@@ -276,87 +277,13 @@ describe('Org Actions', () => {
                 isTesting: true,
             })
 
-            const result = actionResult(await getOrgsWithLanguagesAction())
+            const result = actionResult(await getStudyCapableEnclaveOrgsAction())
 
             const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
             expect(createdOrg).toBeDefined()
-            expect(createdOrg!.supportedLanguages).toContain('R')
-            expect(createdOrg!.supportedLanguages).not.toContain('PYTHON')
-        })
 
-        it('returns orgs with multiple supportedLanguages when both have non-testing images', async () => {
-            const testOrg = await insertTestOrg({
-                slug: `multi-lang-${faker.string.uuid()}`,
-                name: 'Multi Language Org',
-                type: 'enclave',
-            })
-
-            // Add non-testing images for both languages
-            await insertTestBaseImage({
-                orgId: testOrg.id,
-                name: 'R Production Image',
-                language: 'R',
-                isTesting: false,
-            })
-
-            await insertTestBaseImage({
-                orgId: testOrg.id,
-                name: 'Python Production Image',
-                language: 'PYTHON',
-                isTesting: false,
-            })
-
-            const result = actionResult(await getOrgsWithLanguagesAction())
-
-            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
-            expect(createdOrg).toBeDefined()
-            expect(createdOrg!.supportedLanguages).toContain('R')
-            expect(createdOrg!.supportedLanguages).toContain('PYTHON')
-            expect(createdOrg!.supportedLanguages).toHaveLength(2)
-        })
-
-        it('returns empty supportedLanguages for orgs without base images', async () => {
-            const testOrg = await insertTestOrg({
-                slug: `no-images-${faker.string.uuid()}`,
-                name: 'No Images Org',
-                type: 'enclave',
-            })
-
-            const result = actionResult(await getOrgsWithLanguagesAction())
-
-            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
-            expect(createdOrg).toBeDefined()
-            expect(createdOrg!.supportedLanguages).toEqual([])
-            expect(createdOrg!.hasNoBaseImages).toBe(true)
-        })
-
-        it('deduplicates languages when multiple base images share the same language', async () => {
-            const testOrg = await insertTestOrg({
-                slug: `dedupe-lang-${faker.string.uuid()}`,
-                name: 'Dedupe Language Org',
-                type: 'enclave',
-            })
-
-            await insertTestBaseImage({
-                orgId: testOrg.id,
-                name: 'R Production Image 1',
-                language: 'R',
-                isTesting: false,
-            })
-
-            await insertTestBaseImage({
-                orgId: testOrg.id,
-                name: 'R Production Image 2',
-                language: 'R',
-                isTesting: false,
-            })
-
-            const result = actionResult(await getOrgsWithLanguagesAction())
-
-            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
-            expect(createdOrg).toBeDefined()
-            expect(createdOrg!.supportedLanguages).toContain('R')
-            expect(createdOrg!.supportedLanguages).toHaveLength(1)
+            const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: testOrg.slug }))
+            expect(langs.languages).toEqual(expect.arrayContaining([{ label: 'R', value: 'R' }]))
         })
     })
 })

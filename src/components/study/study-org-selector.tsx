@@ -9,7 +9,6 @@ import { UseFormReturnType } from '@mantine/form'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
-
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
 
