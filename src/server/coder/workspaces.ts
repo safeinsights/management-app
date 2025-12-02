@@ -14,6 +14,7 @@ import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 import { jobInfoForJobId, latestJobForStudy } from '../db/queries'
 import { Action } from '../actions/action'
+import { sql } from 'kysely'
 import type { Language } from '@/database/types'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
@@ -80,18 +81,18 @@ async function startWorkspace(workspaceId: string): Promise<void> {
 async function fetchBaseImageForStudy(
     orgId: string,
     language: Language,
-): Promise<{ envVars: Record<string, string> } | null> {
-    const result = await Action.db
+) {
+    return await Action.db
         .selectFrom('orgBaseImage')
         .where('language', '=', language)
         .where('orgId', '=', orgId)
         .where('isTesting', '=', false)
         .orderBy('createdAt', 'desc')
-        .select(['envVars'])
-        .executeTakeFirst()
-
-    if (!result) return null
-    return { envVars: result.envVars as Record<string, string> }
+        .select((eb) => ([
+            'url',
+            eb.ref('envVars').$castTo<Record<string, string>>().as('env')
+        ]))
+        .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
 }
 
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
@@ -101,6 +102,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     // Fetch base image envVars for the study
     const latestJob = await latestJobForStudy(studyId)
     const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
+
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -118,8 +120,8 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
-                language: latestJob.language,
-                envVars: baseImage?.envVars,
+                containerImage: baseImage.url,
+                envVars: baseImage.env,
             })
         }
         throw error
@@ -129,7 +131,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 interface CreateCoderWorkspaceOptions {
     studyId: string
     username: string
-    language: Language // unused but will be needed to specify container_image
+    containerImage: string,
     envVars?: Record<string, string>
 }
 
@@ -143,12 +145,17 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
     const richParameterValues: Array<{ name: string; value: string }> = [
         {
             name: 'study_id',
-            value: studyId,
+            value: options.studyId,
+        },
+        {
+            name: 'container_image',
+            value: options.containerImage,
         },
         {
             name: 'env_vars',
             value: JSON.stringify(Object.entries(envVars).map(([key, val]) => `${key}=${val}`)),
         },
+
     ]
 
     const data = {
