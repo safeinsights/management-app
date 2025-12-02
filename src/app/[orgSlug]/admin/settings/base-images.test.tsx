@@ -235,4 +235,35 @@ describe('BaseImages', async () => {
         const actionIcons = screen.getAllByRole('button', { name: '' })
         expect(actionIcons.length).toBeGreaterThanOrEqual(4) // At least 2 edit + 2 delete buttons
     })
+
+    it('displays env vars as KEY=VALUE in table', async () => {
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Image with Env Vars',
+            language: 'R',
+            envVars: { VAR1: 'value1' },
+        })
+
+        await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Image without Env Vars',
+            language: 'PYTHON',
+            envVars: {},
+        })
+
+        renderWithProviders(<BaseImages />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Image with Env Vars')).toBeInTheDocument()
+            expect(screen.getByText('Image without Env Vars')).toBeInTheDocument()
+        })
+
+        // Check that the env vars column header exists
+        expect(screen.getByText('Env Vars')).toBeInTheDocument()
+
+        // Check that env vars are displayed as KEY=VALUE
+        expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
+        // Check that empty env vars show dash
+        expect(screen.getByText('-')).toBeInTheDocument()
+    })
 })

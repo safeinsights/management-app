@@ -40,6 +40,7 @@ const createOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
+    envVars: z.record(z.string(), z.string()).optional().default({}),
 })
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
@@ -75,6 +76,7 @@ const updateOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
+    envVars: z.record(z.string(), z.string()).optional().default({}),
 })
 
 export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
