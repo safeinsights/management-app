@@ -79,8 +79,8 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
                     for (const extractedFile of extractedFiles) {
                         decryptedFiles.push({
                             ...extractedFile,
-                            sourceId: encryptedBlob.sourceId,
-                            fileType: approvedTypeForFile(encryptedBlob.fileType),
+                            sourceId: encryptedBlob.sourceId, // fileType type was lost due to json agregation in query
+                            fileType: approvedTypeForFile(encryptedBlob.fileType as unknown as FileType),
                         })
                     }
                 }

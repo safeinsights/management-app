@@ -1,4 +1,4 @@
-import { type DBExecutor, jsonArrayFrom } from '@/database'
+import { type DBExecutor, jsonArrayFrom, sql } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -51,7 +51,8 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'fileType', 'path'])
+                    .select(['id', 'name', 'path'])
+                    .select(sql<string>`file_type`.as('fileType'))
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
