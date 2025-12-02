@@ -49,6 +49,9 @@ async function setupUsers() {
 
         const existingImages = await db.selectFrom('orgBaseImage').where('orgId', '=', org.id).execute()
         if (existingImages.length === 0) {
+            // NOTE: these public ECR base images are not pulled during CI runs:
+            // GitHub Actions sets SIMULATE_IMAGE_BUILD='t', so approveStudyProposalAction
+            // skips triggerBuildImageForJob and orgBaseImage.url is only used outside CI.
             await db
                 .insertInto('orgBaseImage')
                 .values([
