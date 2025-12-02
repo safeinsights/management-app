@@ -4,8 +4,8 @@ import { ActionSuccessType } from '@/lib/types'
 import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
-import { jsonArrayFrom } from '@/database'
 import { Action, z } from './action'
+import { Language } from '@/database/types'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
@@ -140,55 +140,52 @@ export const listAllOrgsAction = new Action('listAllOrgsAction')
         return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
     })
 
-export const getOrgsWithLanguagesAction = new Action('getOrgsWithLanguagesAction')
+export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {
-        type OrgWithLanguagesRow = {
-            slug: string
-            name: string
-            type: 'enclave' | 'lab'
-            languages: { language: string | null }[] | null
-        }
-
-        const rows = (await db
+        return await db
             .selectFrom('org')
-            .select((eb) => [
-                'org.slug',
-                'org.name',
-                'org.type',
-                jsonArrayFrom(
+            .select(['org.slug', 'org.name', 'org.type'])
+            .where((eb) =>
+                eb.exists(
                     eb
                         .selectFrom('orgBaseImage')
-                        .select('orgBaseImage.language')
+                        .select('orgBaseImage.id')
                         .whereRef('orgBaseImage.orgId', '=', 'org.id')
-                        .where('orgBaseImage.isTesting', '=', false)
-                        .distinct(),
-                ).as('languages'),
-            ])
-            .orderBy('org.name', 'asc')
-            .execute()) as OrgWithLanguagesRow[]
-
-        return rows.map((row) => {
-            const rawLanguages = row.languages ?? []
-
-            const supportedLanguages = Array.from(
-                new Set(
-                    rawLanguages.map((l) => l.language).filter((l): l is 'R' | 'PYTHON' => l === 'R' || l === 'PYTHON'),
+                        .where('orgBaseImage.isTesting', '=', false),
                 ),
             )
+            .where('org.type', '=', 'enclave')
+            .orderBy('org.name', 'asc')
+            .execute()
+    })
 
-            const hasNoBaseImages = supportedLanguages.length === 0
-            const isSingleLanguage = supportedLanguages.length === 1
+type LanguageOption = { value: Language; label: string }
 
-            return {
-                slug: row.slug,
-                name: row.name,
-                type: row.type,
-                supportedLanguages,
-                hasNoBaseImages,
-                isSingleLanguage,
-            }
-        })
+export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
+    .requireAbilityTo('view', 'Orgs')
+    .params(z.object({ orgSlug: z.string() }))
+    .handler(async ({ db, params: { orgSlug } }) => {
+        const { languageLabels } = await import('@/lib/languages')
+
+        const org = await db
+            .selectFrom('org')
+            .select(['name', 'id'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
+
+        const rows = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.language'])
+            .where('orgBaseImage.orgId', '=', org.id)
+            .where('orgBaseImage.isTesting', '=', false)
+            .distinct()
+            .execute()
+
+        return {
+            orgName: org.name,
+            languages: rows.map((l) => ({ value: l.language, label: languageLabels[l.language] }) as LanguageOption),
+        }
     })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
