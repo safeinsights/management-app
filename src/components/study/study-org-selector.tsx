@@ -1,29 +1,22 @@
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
-import { useMemo, useQuery } from '@/common'
+import { useQuery } from '@/common'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
-import type { OrgWithLanguages } from '@/lib/types'
-import { getOrgsWithLanguagesAction } from '@/server/actions/org.actions'
+import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
 import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
-export const filterOrgsForStudySelector = (orgs: OrgWithLanguages[] | undefined): OrgWithLanguages[] => {
-    if (!orgs) return []
-    return orgs.filter((org) => org.type === 'enclave' && !org.hasNoBaseImages)
-}
 
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
 
-    const { data: orgs, isLoading } = useQuery<OrgWithLanguages[]>({
+    const { data: orgs = [], isLoading } = useQuery({
         queryKey: ['orgs-with-languages'],
-        queryFn: () => getOrgsWithLanguagesAction(),
+        queryFn: () => getStudyCapableEnclaveOrgsAction(),
     })
-
-    const enclaveOrgs = useMemo(() => filterOrgsForStudySelector(orgs), [orgs])
 
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
@@ -50,7 +43,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                         <Select
                             id="studyOrg"
                             data-testid="org-select"
-                            data={enclaveOrgs.map((o) => ({ value: o.slug, label: o.name }))}
+                            data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             value={form.values.orgSlug}
                             placeholder="Select a data organization"
                             disabled={isLoading}
