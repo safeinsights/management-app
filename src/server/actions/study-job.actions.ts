@@ -128,7 +128,7 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
             jobFiles.push({
                 contents,
                 path: jobFile.name,
-                fileType: jobFile.fileType as unknown as FileType, // fileType type was lost due to json agregation in query
+                fileType: jobFile.fileType,
             })
         }
 

@@ -52,7 +52,7 @@ export async function getStudyJobInfo(studyJobId: string) {
                 eb
                     .selectFrom('studyJobFile')
                     .select(['id', 'name', 'path'])
-                    .select(sql<string>`file_type`.as('fileType'))
+                    .select(sql<FileType>`file_type`.as(sql`"fileType"`))
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
