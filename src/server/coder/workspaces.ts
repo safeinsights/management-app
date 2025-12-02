@@ -83,7 +83,6 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const latestJob = await latestJobForStudy(studyId)
     const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
 
-
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
             errorMessage: 'Failed to get workspace',
@@ -111,7 +110,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 interface CreateCoderWorkspaceOptions {
     studyId: string
     username: string
-    containerImage: string,
+    containerImage: string
     envVars?: Record<string, string>
 }
 
@@ -133,9 +132,8 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         },
         {
             name: 'environment',
-            value: JSON.stringify(Object.entries(envVars).map(([ name, value ]) => ({ name, value }))),
+            value: JSON.stringify(Object.entries(envVars).map(([name, value]) => ({ name, value }))),
         },
-
     ]
 
     const data = {

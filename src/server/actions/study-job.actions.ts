@@ -8,7 +8,6 @@ import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { revalidatePath } from 'next/cache'
 import { Action, z } from './action'
-import { FileType } from '@/database/types'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
     .params(

@@ -8,7 +8,13 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, latestJobForStudy, jobInfoForJobId, fetchBaseImageForStudy } from './db/queries'
+import {
+    getStudyAndOrgDisplayInfo,
+    siUser,
+    latestJobForStudy,
+    jobInfoForJobId,
+    fetchBaseImageForStudy,
+} from './db/queries'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -250,7 +256,7 @@ describe('createUserAndWorkspace', () => {
 
         // Verify the workspace creation call has correct rich_parameter_values
         const createWorkspaceCall = mockFetch.mock.calls.find(
-            (call) => call[1]?.method === 'POST' && call[0].includes('/members/')
+            (call) => call[1]?.method === 'POST' && call[0].includes('/members/'),
         )
         expect(createWorkspaceCall).toBeDefined()
         const requestBody = JSON.parse(createWorkspaceCall![1].body)
