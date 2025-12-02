@@ -6,14 +6,6 @@ const MAX_FILE_SIZE_STR = '10KB'
 // Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
 
-// Exported schemas for individual env var key/value validation
-export const envVarKeySchema = z
-    .string()
-    .nonempty('Key is required')
-    .regex(envVarKeyRegex, 'Must start with letter or underscore, alphanumeric only')
-
-export const envVarValueSchema = z.string().nonempty('Value is required')
-
 // Base schema with common fields
 const baseImageFieldsSchema = z.object({
     name: z.string().nonempty(),
@@ -27,6 +19,13 @@ const baseImageFieldsSchema = z.object({
             z.string().nonempty('Value is required'),
         )
         .default({}),
+})
+
+// Schema for new env var input fields (used only in UI form, not for submission)
+// These are validated on-demand when adding, not on every keystroke
+const newEnvVarFieldsSchema = z.object({
+    newEnvKey: z.string().default(''),
+    newEnvValue: z.string().default(''),
 })
 
 // Schema for creating a new base image (starterCode required)
@@ -49,6 +48,10 @@ export const editOrgBaseImageSchema = baseImageFieldsSchema.extend({
         .optional()
         .or(z.undefined()),
 })
+
+// Form schemas with UI-only fields for new env var input
+export const createOrgBaseImageFormSchema = createOrgBaseImageSchema.merge(newEnvVarFieldsSchema)
+export const editOrgBaseImageFormSchema = editOrgBaseImageSchema.merge(newEnvVarFieldsSchema)
 
 // Legacy export for backwards compatibility
 export const orgBaseImageSchema = createOrgBaseImageSchema
