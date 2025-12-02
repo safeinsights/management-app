@@ -105,6 +105,9 @@ type StudyLanguageConfig = {
     radioName: string
     mainCodeFile: string
     titleSuffix?: string
+    // Optional: override which data organization to select in Step 1
+    // Defaults to /openstax/i to keep existing tests unchanged.
+    dataOrgNameRegex?: RegExp
 }
 
 // Helper to create a study with the given language configuration
@@ -116,7 +119,7 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
     // propose new study button
     await page.getByTestId('new-study').first().click()
 
-    // wait for Step 1 panel to render and select openstax as the org for following steps
+    // wait for Step 1 panel to render and select the data org for following steps
     await expect(page.getByText('Step 1 of 4')).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
@@ -124,7 +127,8 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
     await page.waitForTimeout(1000)
     await expect(orgSelect).toBeEnabled()
     await orgSelect.click()
-    await page.getByRole('option', { name: /openstax/i }).click()
+    const orgOptionName = languageConfig.dataOrgNameRegex ?? /openstax/i
+    await page.getByRole('option', { name: orgOptionName }).click()
 
     await page.getByLabel(/title/i).fill(finalTitle)
     await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
@@ -175,6 +179,48 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
 
     return finalTitle
 }
+
+test('Single-language R org auto-selects language and enables Next Step', async ({ page }) => {
+    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+    // propose new study button
+    await page.getByTestId('new-study').first().click()
+
+    // Step 1: select the single-language R enclave org
+    await expect(page.getByText('Step 1 of 4')).toBeVisible()
+    const orgSelect = page.getByTestId('org-select')
+    await orgSelect.waitFor({ state: 'visible' })
+
+    await expect(orgSelect).toBeEnabled()
+    await orgSelect.click()
+    await page.getByRole('option', { name: /single-lang r enclave/i }).click()
+
+    // Fill required Step 1 fields
+    await page.getByLabel(/title/i).fill('Single-lang R study')
+    await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
+
+    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+
+    // Wait for programming language section to appear
+    const helperText = page.getByText(
+        /At the present Single-Lang R Enclave only supports R\. Code files submitted in other languages will not be able to run\./i,
+    )
+    await expect(helperText).toBeVisible()
+
+    // R should be auto-selected for a single-language org
+    const rRadio = page.getByRole('radio', { name: 'R', exact: true })
+    await expect(rRadio).toBeChecked()
+
+    // Next Step should already be enabled (no manual language click required)
+    const nextStepButton = page.getByRole('button', { name: 'Next Step' })
+    await expect(nextStepButton).toBeEnabled()
+
+    // And clicking it should take us to the upload step
+    await nextStepButton.click()
+    await expect(page.getByText('Upload File')).toBeVisible()
+})
 
 test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a study', async () => {

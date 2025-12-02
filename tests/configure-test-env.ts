@@ -77,6 +77,49 @@ async function setupUsers() {
                 .execute()
             console.log(`Created base images for org ${org.id}`) // eslint-disable-line no-console
         }
+
+        // Ensure a dedicated single-language R-only enclave exists for e2e tests
+        let singleLangOrg = await db
+            .selectFrom('org')
+            .selectAll('org')
+            .where('slug', '=', 'single-lang-r-enclave')
+            .executeTakeFirst()
+
+        if (!singleLangOrg) {
+            singleLangOrg = await db
+                .insertInto('org')
+                .values({
+                    slug: 'single-lang-r-enclave',
+                    name: 'Single-Lang R Enclave',
+                    type: 'enclave',
+                    email: 'single-lang-r-enclave@example.com',
+                    description: 'Test-only enclave with R as the single supported language',
+                    settings: { publicKey: pubKeyStr },
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+        }
+
+        const existingSingleLangImages = await db
+            .selectFrom('orgBaseImage')
+            .where('orgId', '=', singleLangOrg.id)
+            .execute()
+
+        if (existingSingleLangImages.length === 0) {
+            await db
+                .insertInto('orgBaseImage')
+                .values({
+                    orgId: singleLangOrg.id,
+                    name: 'R Base Image (Single-Lang)',
+                    language: 'R',
+                    url: 'public.ecr.aws/docker/library/r-base:latest',
+                    cmdLine: 'Rscript main.r',
+                    starterCodePath: 'main.r',
+                    isTesting: false,
+                })
+                .execute()
+            console.log(`Created single-language R base image for org ${singleLangOrg.id}`) // eslint-disable-line no-console
+        }
     }
 
     for (const clerkId of CLERK_ADMIN_TEST_IDS) {
