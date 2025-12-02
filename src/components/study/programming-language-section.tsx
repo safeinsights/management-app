@@ -65,7 +65,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
                         >
-                            <Stack gap="xs">
+                            <Stack gap={languages.length > 1 ? 'sm' : 0}>
                                 {languages.map((opt) => (
                                     <Radio key={opt.value} {...opt} />
                                 ))}
