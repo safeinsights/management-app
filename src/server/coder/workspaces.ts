@@ -13,6 +13,8 @@ import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
 import { jobInfoForJobId, latestJobForStudy } from '../db/queries'
+import { Action } from '../actions/action'
+import type { Language } from '@/database/types'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -75,9 +77,30 @@ async function startWorkspace(workspaceId: string): Promise<void> {
     }
 }
 
+async function fetchBaseImageForStudy(
+    orgId: string,
+    language: Language,
+): Promise<{ envVars: Record<string, string> } | null> {
+    const result = await Action.db
+        .selectFrom('orgBaseImage')
+        .where('language', '=', language)
+        .where('orgId', '=', orgId)
+        .where('isTesting', '=', false)
+        .orderBy('createdAt', 'desc')
+        .select(['envVars'])
+        .executeTakeFirst()
+
+    if (!result) return null
+    return { envVars: result.envVars as Record<string, string> }
+}
+
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
+
+    // Fetch base image envVars for the study
+    const latestJob = await latestJobForStudy(studyId)
+    const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -92,28 +115,51 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
-            return await createCoderWorkspace(studyId, user.username)
+            return await createCoderWorkspace({
+                studyId,
+                username: user.username,
+                language: latestJob.language,
+                envVars: baseImage?.envVars,
+            })
         }
         throw error
     }
 }
 
-async function createCoderWorkspace(studyId: string, username: string): Promise<CoderWorkspace> {
+interface CreateCoderWorkspaceOptions {
+    studyId: string
+    username: string
+    language: Language
+    envVars?: Record<string, string>
+}
+
+async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
+    const { studyId, username, language, envVars = {} } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
     await initializeWorkspaceCodeFiles(studyId)
 
+    const richParameterValues: Array<{ name: string; value: string }> = [
+        {
+            name: 'study_id',
+            value: studyId,
+        },
+        {
+            name: 'language',
+            value: language,
+        },
+        {
+            name: 'env_vars',
+            value: JSON.stringify(Object.entries(envVars).map(([key, val]) => `${key}=${val}`)),
+        },
+    ]
+
     const data = {
         name: workspaceName,
         template_id: await getCoderTemplateId(),
         automatic_updates: 'always',
-        rich_parameter_values: [
-            {
-                name: 'Study ID',
-                value: studyId,
-            },
-        ],
+        rich_parameter_values: richParameterValues,
     }
 
     return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {

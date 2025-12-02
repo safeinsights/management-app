@@ -8,7 +8,7 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser } from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, latestJobForStudy } from './db/queries'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -18,6 +18,20 @@ vi.mock('./config', () => ({
 vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
+    latestJobForStudy: vi.fn(),
+}))
+
+vi.mock('./actions/action', () => ({
+    Action: {
+        db: {
+            selectFrom: vi.fn(() => ({
+                where: vi.fn().mockReturnThis(),
+                orderBy: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                executeTakeFirst: vi.fn().mockResolvedValue({ envVars: {} }),
+            })),
+        },
+    },
 }))
 
 // Mock fetch globally
@@ -26,6 +40,7 @@ global.fetch = vi.fn()
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
+const latestJobForStudyMock = latestJobForStudy as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -175,6 +190,10 @@ describe('createUserAndWorkspace', () => {
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
+        latestJobForStudyMock.mockResolvedValue({
+            orgId: 'org123',
+            language: 'R',
+        })
 
         const result = await createUserAndWorkspace('study123')
         expect(result).toEqual({
@@ -195,6 +214,10 @@ describe('createUserAndWorkspace', () => {
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
+        })
+        latestJobForStudyMock.mockResolvedValue({
+            orgId: 'org123',
+            language: 'R',
         })
 
         await expect(createUserAndWorkspace('study123')).rejects.toThrow(
