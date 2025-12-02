@@ -105,7 +105,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
         form.setFieldValue('language', null)
 
         // Auto-select language in the single-language case for non-admin users
-        if (isSingleLanguage && options.length === 1) {
+        if (isSingleLanguage) {
             form.setFieldValue('language', options[0])
         }
 
