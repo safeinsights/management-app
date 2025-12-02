@@ -5,6 +5,7 @@ import { orgSchema, updateOrgSchema } from '@/schema/org'
 import { revalidatePath } from 'next/cache'
 import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
 import { Action, z } from './action'
+import { Language } from '@/database/types'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
@@ -131,9 +132,53 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
-export const listAllOrgsAction = new Action('listAllOrgsAction').handler(async ({ db }) => {
-    return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
-})
+export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
+    .requireAbilityTo('view', 'Orgs')
+    .handler(async ({ db }) => {
+        return await db
+            .selectFrom('org')
+            .select(['org.slug', 'org.name', 'org.type'])
+            .where((eb) =>
+                eb.exists(
+                    eb
+                        .selectFrom('orgBaseImage')
+                        .select('orgBaseImage.id')
+                        .whereRef('orgBaseImage.orgId', '=', 'org.id')
+                        .where('orgBaseImage.isTesting', '=', false),
+                ),
+            )
+            .where('org.type', '=', 'enclave')
+            .orderBy('org.name', 'asc')
+            .execute()
+    })
+
+type LanguageOption = { value: Language; label: string }
+
+export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
+    .requireAbilityTo('view', 'Orgs')
+    .params(z.object({ orgSlug: z.string() }))
+    .handler(async ({ db, params: { orgSlug } }) => {
+        const { languageLabels } = await import('@/lib/languages')
+
+        const org = await db
+            .selectFrom('org')
+            .select(['name', 'id'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
+
+        const rows = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.language'])
+            .where('orgBaseImage.orgId', '=', org.id)
+            .where('orgBaseImage.isTesting', '=', false)
+            .distinct()
+            .execute()
+
+        return {
+            orgName: org.name,
+            languages: rows.map((l) => ({ value: l.language, label: languageLabels[l.language] }) as LanguageOption),
+        }
+    })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
