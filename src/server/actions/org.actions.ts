@@ -132,14 +132,6 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
 
-export type ListAllOrgsResult = ActionSuccessType<typeof listAllOrgsAction>
-
-export const listAllOrgsAction = new Action('listAllOrgsAction')
-    .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db }) => {
-        return await db.selectFrom('org').select(['slug', 'name', 'type']).orderBy('name', 'asc').execute()
-    })
-
 export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db }) => {

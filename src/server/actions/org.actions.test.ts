@@ -17,7 +17,6 @@ import {
     fetchUsersOrgsWithStatsAction,
     insertOrgAction,
     updateOrgSettingsAction,
-    listAllOrgsAction,
     getStudyCapableEnclaveOrgsAction,
     getLanguagesForOrgAction,
 } from './org.actions'
@@ -230,26 +229,6 @@ describe('Org Actions', () => {
                 sort: { columnAccessor: 'fullName', direction: 'asc' },
             })
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
-        })
-    })
-
-    describe('listAllOrgsAction', () => {
-        it('returns basic org info (slug, name, type)', async () => {
-            const testOrg = await insertTestOrg({
-                slug: `basic-org-${faker.string.uuid()}`,
-                name: 'Basic Org',
-                type: 'enclave',
-            })
-
-            const result = actionResult(await listAllOrgsAction())
-            const createdOrg = result.find((o) => o.slug === testOrg.slug)
-
-            expect(createdOrg).toBeDefined()
-            expect(createdOrg).toMatchObject({
-                slug: testOrg.slug,
-                name: testOrg.name,
-                type: testOrg.type,
-            })
         })
     })
 
