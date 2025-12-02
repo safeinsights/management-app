@@ -49,6 +49,9 @@ async function setupUsers() {
 
         const existingImages = await db.selectFrom('orgBaseImage').where('orgId', '=', org.id).execute()
         if (existingImages.length === 0) {
+            // NOTE: these public ECR base images are not pulled during CI runs:
+            // GitHub Actions sets SIMULATE_IMAGE_BUILD='t', so approveStudyProposalAction
+            // skips triggerBuildImageForJob and orgBaseImage.url is only used outside CI.
             await db
                 .insertInto('orgBaseImage')
                 .values([
@@ -73,6 +76,49 @@ async function setupUsers() {
                 ])
                 .execute()
             console.log(`Created base images for org ${org.id}`) // eslint-disable-line no-console
+        }
+
+        // Ensure a dedicated single-language R-only enclave exists for e2e tests
+        let singleLangOrg = await db
+            .selectFrom('org')
+            .selectAll('org')
+            .where('slug', '=', 'single-lang-r-enclave')
+            .executeTakeFirst()
+
+        if (!singleLangOrg) {
+            singleLangOrg = await db
+                .insertInto('org')
+                .values({
+                    slug: 'single-lang-r-enclave',
+                    name: 'Single-Lang R Enclave',
+                    type: 'enclave',
+                    email: 'single-lang-r-enclave@example.com',
+                    description: 'Test-only enclave with R as the single supported language',
+                    settings: { publicKey: pubKeyStr },
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+        }
+
+        const existingSingleLangImages = await db
+            .selectFrom('orgBaseImage')
+            .where('orgId', '=', singleLangOrg.id)
+            .execute()
+
+        if (existingSingleLangImages.length === 0) {
+            await db
+                .insertInto('orgBaseImage')
+                .values({
+                    orgId: singleLangOrg.id,
+                    name: 'R Base Image (Single-Lang)',
+                    language: 'R',
+                    url: 'public.ecr.aws/docker/library/r-base:latest',
+                    cmdLine: 'Rscript main.r',
+                    starterCodePath: 'main.r',
+                    isTesting: false,
+                })
+                .execute()
+            console.log(`Created single-language R base image for org ${singleLangOrg.id}`) // eslint-disable-line no-console
         }
     }
 
