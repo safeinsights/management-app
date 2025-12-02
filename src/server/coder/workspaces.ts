@@ -129,12 +129,12 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
 interface CreateCoderWorkspaceOptions {
     studyId: string
     username: string
-    language: Language
+    language: Language // unused but will be needed to specify container_image
     envVars?: Record<string, string>
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username, language, envVars = {} } = options
+    const { studyId, username, envVars = {} } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
@@ -144,10 +144,6 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         {
             name: 'study_id',
             value: studyId,
-        },
-        {
-            name: 'language',
-            value: language,
         },
         {
             name: 'env_vars',
