@@ -12,10 +12,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { jobInfoForJobId, latestJobForStudy } from '../db/queries'
-import { Action } from '../actions/action'
-import { sql } from 'kysely'
-import type { Language } from '@/database/types'
+import { fetchBaseImageForStudy, jobInfoForJobId, latestJobForStudy } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -78,23 +75,6 @@ async function startWorkspace(workspaceId: string): Promise<void> {
     }
 }
 
-async function fetchBaseImageForStudy(
-    orgId: string,
-    language: Language,
-) {
-    return await Action.db
-        .selectFrom('orgBaseImage')
-        .where('language', '=', language)
-        .where('orgId', '=', orgId)
-        .where('isTesting', '=', false)
-        .orderBy('createdAt', 'desc')
-        .select((eb) => ([
-            'url',
-            eb.ref('envVars').$castTo<Record<string, string>>().as('env')
-        ]))
-        .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
-}
-
 async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspace> {
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
@@ -152,8 +132,8 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
             value: options.containerImage,
         },
         {
-            name: 'env_vars',
-            value: JSON.stringify(Object.entries(envVars).map(([key, val]) => `${key}=${val}`)),
+            name: 'environment',
+            value: JSON.stringify(Object.entries(envVars).map(([ name, value ]) => ({ name, value }))),
         },
 
     ]

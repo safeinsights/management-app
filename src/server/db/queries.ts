@@ -247,3 +247,20 @@ export async function getStudyJobFileOfType(
     }
     return file
 }
+
+export async function fetchBaseImageForStudy(
+    orgId: string,
+    language: 'R' | 'PYTHON',
+) {
+    return await Action.db
+        .selectFrom('orgBaseImage')
+        .where('language', '=', language)
+        .where('orgId', '=', orgId)
+        .where('isTesting', '=', false)
+        .orderBy('createdAt', 'desc')
+        .select((eb) => ([
+            'url',
+            eb.ref('envVars').$castTo<Record<string, string>>().as('env')
+        ]))
+        .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
+}

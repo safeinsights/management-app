@@ -8,7 +8,7 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, latestJobForStudy } from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, latestJobForStudy, jobInfoForJobId, fetchBaseImageForStudy } from './db/queries'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -19,19 +19,19 @@ vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
     latestJobForStudy: vi.fn(),
+    jobInfoForJobId: vi.fn(),
+    fetchBaseImageForStudy: vi.fn(),
 }))
 
-vi.mock('./actions/action', () => ({
-    Action: {
-        db: {
-            selectFrom: vi.fn(() => ({
-                where: vi.fn().mockReturnThis(),
-                orderBy: vi.fn().mockReturnThis(),
-                select: vi.fn().mockReturnThis(),
-                executeTakeFirst: vi.fn().mockResolvedValue({ envVars: {} }),
-            })),
-        },
-    },
+vi.mock('./storage', () => ({
+    fetchFileContents: vi.fn().mockResolvedValue({
+        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
+    }),
+}))
+
+vi.mock('node:fs/promises', () => ({
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    writeFile: vi.fn().mockResolvedValue(undefined),
 }))
 
 // Mock fetch globally
@@ -41,6 +41,8 @@ const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
 const latestJobForStudyMock = latestJobForStudy as unknown as Mock
+const jobInfoForJobIdMock = jobInfoForJobId as unknown as Mock
+const fetchBaseImageForStudyMock = fetchBaseImageForStudy as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -172,27 +174,72 @@ describe('createUserAndWorkspace', () => {
         process.env = ORIGINAL_ENV
     })
 
-    it('should create user and workspace successfully', async () => {
+    it('should create user and workspace successfully with correct rich_parameter_values', async () => {
         const mockWorkspaceResponse = { id: 'workspace123', name: 'test-workspace' }
         const mockFetch = global.fetch as unknown as Mock
-        mockFetch
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
+        mockFetch.mockImplementation((url: string) => {
+            if (url.includes('/users?')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockUsersEmailQueryResponse),
+                })
+            }
+            if (url.includes('/workspaces/') || url.includes('@')) {
+                return Promise.resolve({
+                    ok: false,
+                    status: 404,
+                    text: vi.fn().mockResolvedValue('Not found'),
+                })
+            }
+            if (url.includes('/templates')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'template1', name: 'aws-fargate' }]),
+                })
+            }
+            // Check /members/ before /organizations since workspace create URL contains both
+            if (url.includes('/members/')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
+                })
+            }
+            if (url.includes('/organizations')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue([{ id: 'org1', name: 'coder' }]),
+                })
+            }
+            return Promise.resolve({
+                ok: false,
+                status: 404,
+                text: vi.fn().mockResolvedValue('Not found'),
             })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue(mockWorkspaceResponse),
-            })
+        })
 
-        getConfigValueMock.mockResolvedValue('https://api.coder.com')
+        // Mock config values - use mockImplementation to return based on key
+        getConfigValueMock.mockImplementation((key: string) => {
+            if (key === 'CODER_TEMPLATE') return Promise.resolve('aws-fargate')
+            if (key === 'CODER_FILES') return Promise.resolve('/tmp/coder-files')
+            return Promise.resolve('https://api.coder.com')
+        })
         getStudyAndOrgDisplayInfoMock.mockResolvedValue({
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
         latestJobForStudyMock.mockResolvedValue({
+            id: 'job123',
             orgId: 'org123',
+            studyId: 'study123',
             language: 'R',
+            files: [],
+        })
+        jobInfoForJobIdMock.mockResolvedValue({
+            orgSlug: 'test-org',
+        })
+        fetchBaseImageForStudyMock.mockResolvedValue({
+            url: 'test-image:latest',
+            env: { VAR1: 'value1' },
         })
 
         const result = await createUserAndWorkspace('study123')
@@ -200,6 +247,18 @@ describe('createUserAndWorkspace', () => {
             success: true,
             workspace: mockWorkspaceResponse,
         })
+
+        // Verify the workspace creation call has correct rich_parameter_values
+        const createWorkspaceCall = mockFetch.mock.calls.find(
+            (call) => call[1]?.method === 'POST' && call[0].includes('/members/')
+        )
+        expect(createWorkspaceCall).toBeDefined()
+        const requestBody = JSON.parse(createWorkspaceCall![1].body)
+        expect(requestBody.rich_parameter_values).toEqual([
+            { name: 'study_id', value: 'study123' },
+            { name: 'container_image', value: 'test-image:latest' },
+            { name: 'environment', value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]) },
+        ])
     })
 
     it('should throw error when user creation fails', async () => {
