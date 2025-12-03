@@ -77,6 +77,10 @@ async function verifyStudyFileDownloads(page: Page, expectedPdfPath: string) {
                 const originalContent = await fs.promises.readFile('tests/assets/main.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
                 expect(downloadedContent).toBe(originalContent)
+            } else if (filename === 'main.py') {
+                const originalContent = await fs.promises.readFile('tests/assets/main.py', 'utf8')
+                const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
+                expect(downloadedContent).toBe(originalContent)
             } else if (filename === 'code.r') {
                 const originalContent = await fs.promises.readFile('tests/assets/code.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
@@ -96,82 +100,135 @@ async function viewDetails(page: Page, studyTitle: string) {
     await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
 }
 
+type FillStudyFormOptions = {
+    title: string
+    investigator?: string
+    orgNameRegex?: RegExp
+}
+
+async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
+    const { title, investigator = 'Ricky McResearcher', orgNameRegex = /openstax/i } = options
+
+    await expect(page.getByText('Step 1 of 4')).toBeVisible()
+    const orgSelect = page.getByTestId('org-select')
+    await orgSelect.waitFor({ state: 'visible' })
+
+    await page.waitForTimeout(1000)
+    await expect(orgSelect).toBeEnabled()
+    await orgSelect.click()
+    await page.getByRole('option', { name: orgNameRegex }).click()
+
+    await page.getByLabel(/title/i).fill(title)
+    await page.getByLabel(/investigator/i).fill(investigator)
+
+    await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
+    await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
+}
+
+type StudyLanguageConfig = {
+    language: 'R' | 'Python'
+    radioName: string
+    mainCodeFile: string
+    titleSuffix?: string
+    // Optional: override which data organization to select in Step 1
+    // Defaults to /openstax/i to keep existing tests unchanged.
+    dataOrgNameRegex?: RegExp
+}
+
+// Helper to create a study with the given language configuration
+async function createStudy(page: Page, studyTitle: string, languageConfig: StudyLanguageConfig): Promise<string> {
+    const finalTitle = languageConfig.titleSuffix ? `${studyTitle} - ${languageConfig.titleSuffix}` : studyTitle
+
+    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+    await page.getByTestId('new-study').first().click()
+
+    await fillStudyForm(page, {
+        title: finalTitle,
+        orgNameRegex: languageConfig.dataOrgNameRegex,
+    })
+
+    // Verify "Next Step" button is disabled when no programming language is selected
+    const nextStepButton = page.getByRole('button', { name: 'Next Step' })
+    await expect(nextStepButton).toBeDisabled()
+
+    // Wait for the programming language radio button to be visible (after base images load)
+    const radioButton = page.getByRole('radio', { name: languageConfig.radioName, exact: true })
+    await radioButton.waitFor({ state: 'visible', timeout: 10000 })
+
+    // Select programming language
+    await radioButton.click()
+
+    // Verify "Next Step" button is now enabled after language selection
+    await expect(nextStepButton).toBeEnabled()
+
+    await nextStepButton.click()
+
+    await expect(page.getByText('Upload File')).toBeVisible()
+
+    // Upload main code file
+    await page.setInputFiles('input[type="file"][name="mainCodeFile"]', languageConfig.mainCodeFile)
+
+    // Upload additional code file
+    await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', 'tests/assets/code.r')
+
+    // Click submit and wait for navigation
+    await page.getByRole('button', { name: 'Submit', exact: true }).click()
+
+    // Wait until redirected to user dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
+
+    // Wait for the page to fully load
+    await page.waitForLoadState('networkidle')
+
+    // Navigate back to the org-specific dashboard where we started
+    await page.goto('/openstax-lab/dashboard')
+    await page.waitForLoadState('networkidle')
+
+    // Wait for the table to render - use the "Proposed Studies" title as indicator
+    await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
+
+    return finalTitle
+}
+
+test('Single-language R org auto-selects language and enables Next Step', async ({ page }) => {
+    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+    await page.getByTestId('new-study').first().click()
+
+    await fillStudyForm(page, {
+        title: 'Single-lang R study',
+        orgNameRegex: /single-lang r enclave/i,
+    })
+
+    // Wait for programming language section to appear
+    const helperText = page.getByText(
+        /At the present Single-Lang R Enclave only supports R\. Code files submitted in other languages will not be able to run\./i,
+    )
+    await expect(helperText).toBeVisible()
+
+    // Next Step should already be enabled (no manual language click required)
+    const nextStepButton = page.getByRole('button', { name: 'Next Step' })
+    await expect(nextStepButton).toBeEnabled()
+
+    // And clicking it should take us to the upload step
+    await nextStepButton.click()
+    await expect(page.getByText('Upload File')).toBeVisible()
+})
+
 test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a study', async () => {
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
+            language: 'R',
+            radioName: 'R',
+            mainCodeFile: 'tests/assets/main.r',
+        })
 
-        // propose new study button
-        await page.getByTestId('new-study').first().click()
-
-        // wait for Step 1 panel to render and select openstax as the org for following steps
-        await expect(page.getByText('Step 1 of 3')).toBeVisible()
-        const orgSelect = page.getByTestId('org-select')
-        await orgSelect.waitFor({ state: 'visible' })
-
-        await page.waitForTimeout(1000)
-        await expect(orgSelect).toBeEnabled()
-        await orgSelect.click()
-        await page.getByRole('option', { name: /openstax/i }).click()
-
-        await page.getByLabel(/title/i).fill(studyFeatures.studyTitle)
-        await page.getByLabel(/investigator/i).fill('Ricky McResearcher')
-
-        // Invalid file testing
-        // const invalidFileType = 'tests/assets/invalid.txt'
-        // await page.setInputFiles('input[type="file"][name="codeFiles"]', invalidFileType)
-        // await expect(page.getByText('File type must be one of .r, .rmd, .R')).toBeVisible()
-
-        await page.setInputFiles('input[type="file"][name="irbDocument"]', 'tests/assets/empty.pdf')
-        await page.setInputFiles('input[type="file"][name="descriptionDocument"]', 'tests/assets/empty.pdf')
-        await page.setInputFiles('input[type="file"][name="agreementDocument"]', 'tests/assets/empty.pdf')
-
-        await page.getByRole('button', { name: 'Next Step' }).click()
-
-        await expect(page.getByText('Upload File')).toBeVisible()
-
-        //TODO: Test that will validate the upload without a main.r file
-        //Test upload without main.r file
-        // const missingMainFile = 'tests/assets/study-no-main.zip'
-        // await page.setInputFiles('input[type="file"]', missingMainFile)
-        // await expect(page.getByText('A file named "main.r" is required')).toBeVisible()
-        // Test valid file upload with main.r
-        const mainR = 'tests/assets/main.r'
-        await page.setInputFiles('input[type="file"][name="mainCodeFile"]', mainR)
-
-        const otherCodeR = 'tests/assets/code.r'
-        await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', otherCodeR)
-
-        // // Verify main.r was detected
-        // await expect(page.getByText('main.r detected')).toBeVisible()
-
-        // Test file size limit (Commenting out for now, we will likely test this on the fly as to not bog down the repo)
-        // const largeFile = 'tests/assets/large-file.zip'
-        // await page.setInputFiles('input[type="file"]', largeFile)
-        // await expect(page.getByText('File size cannot exceed')).toBeVisible()
-
-        // Click submit and wait for navigation
-        await page.getByRole('button', { name: 'Submit', exact: true }).click()
-
-        // Wait until redirected to user dashboard
-        await page.waitForURL('**/dashboard', { timeout: 15000 })
-
-        // Wait for the page to fully load
-        await page.waitForLoadState('networkidle')
-
-        // Navigate back to the org-specific dashboard where we started
-        // This ensures we're checking the same place where the study was created
-        await page.goto('/openstax-lab/dashboard')
-        await page.waitForLoadState('networkidle')
-
-        // Wait for the table to render - use the "Proposed Studies" title as indicator
-        await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
-
-        await viewDetails(page, studyFeatures.studyTitle)
-
+        await viewDetails(page, studyTitle)
         await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
     })
 
-    //  disabled until we get the org selector working
     await test.step('reviewer reviews and approves the study', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
@@ -193,5 +250,19 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await viewDetails(page, studyFeatures.studyTitle)
 
         await expect(page.getByText('Approved on')).toBeVisible()
+    })
+})
+
+test('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
+    await test.step('researcher creates a Python study', async () => {
+        const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
+            language: 'Python',
+            radioName: 'Python',
+            mainCodeFile: 'tests/assets/main.py',
+            titleSuffix: 'Python',
+        })
+
+        await viewDetails(page, studyTitle)
+        await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
     })
 })

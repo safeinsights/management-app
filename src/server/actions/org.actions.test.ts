@@ -1,7 +1,14 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker, actionResult } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    insertTestOrg,
+    insertTestUser,
+    insertTestBaseImage,
+    faker,
+    actionResult,
+} from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
@@ -10,6 +17,8 @@ import {
     fetchUsersOrgsWithStatsAction,
     insertOrgAction,
     updateOrgSettingsAction,
+    getStudyCapableEnclaveOrgsAction,
+    getLanguagesForOrgAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
@@ -220,6 +229,40 @@ describe('Org Actions', () => {
                 sort: { columnAccessor: 'fullName', direction: 'asc' },
             })
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('getStudyCapableEnclaveOrgsAction', () => {
+        it('returns orgs with supportedLanguages from non-testing base images', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `lang-test-${faker.string.uuid()}`,
+                name: 'Language Test Org',
+                type: 'enclave',
+            })
+
+            // Add a non-testing R base image
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image',
+                language: 'R',
+                isTesting: false,
+            })
+
+            // Add a testing Python base image (should not appear in supportedLanguages)
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'Python Testing Image',
+                language: 'PYTHON',
+                isTesting: true,
+            })
+
+            const result = actionResult(await getStudyCapableEnclaveOrgsAction())
+
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+
+            const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: testOrg.slug }))
+            expect(langs.languages).toEqual(expect.arrayContaining([{ label: 'R', value: 'R' }]))
         })
     })
 })

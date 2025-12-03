@@ -25,6 +25,7 @@ describe('Request Study Actions', () => {
         const studyInfo = {
             title: 'Test Study',
             piName: 'Test PI',
+            language: 'R' as const,
             descriptionDocPath: 'test-desc.pdf',
             irbDocPath: 'test-irb.pdf',
             agreementDocPath: 'test-agreement.pdf',
@@ -52,6 +53,45 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
+        expect(study?.language).toEqual('R')
+    })
+
+    it('onCreateStudyAction stores Python language correctly', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        const studyInfo = {
+            title: 'Python Study',
+            piName: 'Test PI',
+            language: 'PYTHON' as const,
+            descriptionDocPath: 'test-desc.pdf',
+            irbDocPath: 'test-irb.pdf',
+            agreementDocPath: 'test-agreement.pdf',
+            mainCodeFilePath: 'main.py',
+            additionalCodeFilePaths: ['helpers.py'],
+        }
+
+        const result = actionResult(
+            await onCreateStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo,
+                mainCodeFileName: 'main.py',
+                codeFileNames: ['helpers.py'],
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        expect(result.studyId).toBeDefined()
+        expect(result.studyJobId).toBeDefined()
+
+        const study = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', result.studyId)
+            .executeTakeFirst()
+        expect(study).toBeDefined()
+        expect(study?.language).toEqual('PYTHON')
     })
 
     it('onDeleteStudyAction deletes a study', async () => {

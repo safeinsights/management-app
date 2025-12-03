@@ -67,7 +67,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
             </Title>
             <Divider />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}
-            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} />
+            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} org={org} />
         </Stack>
     )
 }

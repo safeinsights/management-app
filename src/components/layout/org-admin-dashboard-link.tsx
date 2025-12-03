@@ -8,12 +8,16 @@ import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 import { NavbarLink } from './navbar-link'
 import { Routes } from '@/lib/routes'
+import { ActionSuccessType } from '@/lib/types'
+import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
+type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
 
 interface OrgAdminDashboardLinkProps {
     isVisible: boolean
+    org: Org
 }
 
-export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible }) => {
+export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisible, org }) => {
     const pathname = usePathname()
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
@@ -42,14 +46,14 @@ export const OrgAdminDashboardLink: FC<OrgAdminDashboardLinkProps> = ({ isVisibl
                 aria-haspopup="true"
             >
                 <NavbarLink
-                    isVisible={true}
+                    isVisible
                     label="Team"
                     icon={<UsersThreeIcon size={20} />}
                     url={Routes.adminTeam({ orgSlug })}
                     pl="xl"
                 />
                 <NavbarLink
-                    isVisible={true}
+                    isVisible={org?.type !== 'lab'}
                     label="Settings"
                     icon={<SlidersIcon size={20} />}
                     url={Routes.adminSettings({ orgSlug })}
