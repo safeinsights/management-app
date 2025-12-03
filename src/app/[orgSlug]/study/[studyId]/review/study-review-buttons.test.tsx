@@ -27,7 +27,7 @@ vi.mock('@/server/actions/study.actions', async (importOriginal) => {
         ...original,
         approveStudyProposalAction: vi.fn(),
         rejectStudyProposalAction: vi.fn(),
-        doesTestImageExistForStudyAction: vi.fn().mockResolvedValue(true), // Mock to return true
+        doesTestImageExistForStudyAction: () => Promise.resolve(true),
     }
 })
 
@@ -146,6 +146,7 @@ describe('StudyReviewButtons', () => {
                 expect.objectContaining({ error: 'Rejection failed due to network error' }),
                 'REJECTED',
                 undefined,
+                expect.anything()
             )
         })
     })
