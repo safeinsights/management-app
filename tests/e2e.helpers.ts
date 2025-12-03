@@ -100,7 +100,7 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
         { auto: true },
     ],
     studyFeatures: [
-        async ({}, use, workerInfo) => {
+        async (_, use, workerInfo) => {
             const feat = StudyFeatures.getFeature(workerInfo.workerIndex)
             await use(feat)
         },
