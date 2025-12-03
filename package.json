@@ -84,7 +84,7 @@
         "react-phone-number-input": "^3.4.12",
         "remeda": "^2.30.0",
         "server-only": "^0.0.1",
-        "si-encryption": "github:safeinsights/encryption#75ea533d9d0fb7743b41ae22c8fce64492bfefec",
+        "si-encryption": "github:safeinsights/encryption#0dc20c2949199185182c16569313660657dcb636",
         "uuid": "^11.1.0",
         "zod": "^4.1.5"
     },
