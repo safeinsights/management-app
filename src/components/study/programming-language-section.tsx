@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
@@ -32,12 +32,6 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     } else {
         helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to setup the right environment for you.`
     }
-
-    useEffect(() => {
-        if (isSingleLanguage) {
-            form.setFieldValue('language', data.languages[0].value)
-        }
-    }, [selectedOrgSlug, form, isSingleLanguage, data?.languages])
 
     let body: React.ReactNode = null
 
