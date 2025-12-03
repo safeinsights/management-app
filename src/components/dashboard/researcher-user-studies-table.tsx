@@ -64,9 +64,13 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 <DisplayStudyStatus status={status} isResearchLabDashboard />
             </TableTd>
             <TableTd>
-                <Link href={Routes.studyView({ orgSlug, studyId: study.id })} fw={hasFilesApproved ? 600 : undefined}>
-                    View
-                </Link>
+                {study.status === 'DRAFT' ? (
+                    <Link href={Routes.studyDraftEdit({ orgSlug, studyId: study.id })}>Edit</Link>
+                ) : (
+                    <Link href={Routes.studyView({ orgSlug, studyId: study.id })} fw={hasFilesApproved ? 600 : undefined}>
+                        View
+                    </Link>
+                )}
             </TableTd>
         </TableTr>
     )

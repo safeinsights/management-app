@@ -106,3 +106,14 @@ export const studyProposalApiSchema = z.object({
     mainCodeFilePath: z.string(),
     additionalCodeFilePaths: z.array(z.string()),
 })
+
+// Partial schema for draft saves - all fields optional
+export const draftStudyApiSchema = z.object({
+    title: z.string().max(50).optional(),
+    piName: z.string().max(100).trim().optional(),
+    descriptionDocPath: z.string().optional(),
+    irbDocPath: z.string().optional(),
+    agreementDocPath: z.string().optional(),
+    mainCodeFilePath: z.string().optional(),
+    additionalCodeFilePaths: z.array(z.string()).optional(),
+})
