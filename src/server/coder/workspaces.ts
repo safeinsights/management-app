@@ -175,6 +175,8 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const mainCodeFile = latestJob.files.filter((file) => file.fileType === 'MAIN-CODE')
     const supplementalCodeFiles = latestJob.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
 
+    logger.info(`Initializing workspace with code files for study ${studyId} ...`)
+
     for (const codeFile of mainCodeFile.concat(supplementalCodeFiles)) {
         const fileData = await fetchFileContents(
             pathForStudyJobCodeFile(
@@ -183,6 +185,8 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
             ),
         )
         const targetFilePath = path.join(coderBaseFilePath, studyId, codeFile.name)
+
+        logger.info(`Writing ${codeFile.name} to ${targetFilePath} for study ${studyId}`)
 
         // Create parent directory if needed and then write file
         await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
