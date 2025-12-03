@@ -9,11 +9,10 @@ import { type FileType } from '@/database/types'
 
 export type JobResultsStatusMessageProps = {
     job: LatestJobForStudy
-    orgSlug: string
     files: { fileType: FileType }[]
 }
 
-export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, orgSlug, files }) => {
+export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, files }) => {
     const { isApproved, isRejected, isFilesRejected, isErrored } = useJobStatus(job.statusChanges)
 
     let message: string
@@ -26,7 +25,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
             const hasLogs = files.some((file) => file.fileType.endsWith('-LOG'))
 
             if (hasLogs) {
-                message = 'The code errored. Review error logs and consider resubmitting an updated study code.'
+                message = 'The code errored. Review error logs and consider re-submitting an updated study code.'
             } else {
                 message =
                     'The code errored. While logs are not available at this time, consider re-submitting an updated study code.'
@@ -47,7 +46,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
     } else if (isRejected) {
         if (isFilesRejected) {
             message =
-                'The code errored. While logs are not available at this time, consider re-submitting an updated study code'
+                'The code errored. While logs are not available at this time, consider re-submitting an updated study code.'
         } else {
             message =
                 'This study code has not been approved by the data organization. Consider resubmitting an updated study code.'
@@ -63,7 +62,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
             {additionalContent}
             {!hideResults && <JobResults job={job} />}
             <Group>
-                <ResubmitButton studyId={job.studyId} orgSlug={orgSlug} />
+                <ResubmitButton studyId={job.studyId} />
             </Group>
         </Stack>
     )

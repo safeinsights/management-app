@@ -82,7 +82,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         {!isErrored && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="files" />}
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} files={job.files} />
+                    <JobResultsStatusMessage job={job} files={job.files} />
                 </Stack>
             </Paper>
         </Stack>

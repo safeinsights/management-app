@@ -37,6 +37,8 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
         },
     })
 
+    const orgSlug = study.submittedByOrgSlug || study.orgSlug
+
     const { isPending, mutate: resubmitStudy } = useMutation({
         mutationFn: async (formValues: ResubmitProposalFormValues) => {
             const { urlForCodeUpload, studyJobId } = actionResult(
@@ -69,7 +71,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     'Your study has been successfully resubmitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id }))
+            router.push(Routes.studyView({ orgSlug, studyId: study.id }))
         },
         onError: reportMutationError('Failed to resubmit study'),
     })
@@ -83,7 +85,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     <ResubmitCancelButton
                         isDirty={studyProposalForm.isDirty()}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug: study.orgSlug + '-lab', studyId: study.id })}
+                        href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code
