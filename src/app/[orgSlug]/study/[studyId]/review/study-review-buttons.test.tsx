@@ -146,7 +146,7 @@ describe('StudyReviewButtons', () => {
                 expect.objectContaining({ error: 'Rejection failed due to network error' }),
                 'REJECTED',
                 undefined,
-                expect.anything()
+                expect.anything(),
             )
         })
     })
