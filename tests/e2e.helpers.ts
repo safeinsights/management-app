@@ -100,7 +100,9 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
         { auto: true },
     ],
     studyFeatures: [
-        async (_, use, workerInfo) => {
+        // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
+        // eslint-disable-next-line no-empty-pattern
+        async ({}, use, workerInfo) => {
             const feat = StudyFeatures.getFeature(workerInfo.workerIndex)
             await use(feat)
         },
