@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker'
-import { expect, goto, test, TestingUsers, visitClerkProtectedPage } from './e2e.helpers'
+import { expect, goto, test, TestingUsers, visitClerkProtectedPage, path } from './e2e.helpers'
+import { fileURLToPath } from 'url'
 
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
@@ -80,5 +81,73 @@ test.describe('Organization Admin', () => {
         await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
 
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
+    })
+
+    test('admin can create and edit base image starter code', async ({ page }) => {
+        // Navigate as org admin to the settings page for the primary admin org
+        await visitClerkProtectedPage({
+            page,
+            role: 'admin',
+            url: '/openstax/admin/settings',
+        })
+
+        // Ensure we are on the Settings page and the Base Images section is visible
+        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /base research container images/i })).toBeVisible()
+
+        const baseImageName = `E2E Base Image ${faker.string.alpha(6)}`
+
+        // Open the "Add New Base Image" modal
+        const addImageButton = page.getByRole('button', { name: /add image/i })
+        await addImageButton.click()
+        await expect(page.getByRole('heading', { name: /add new base image/i })).toBeVisible()
+
+        // Fill in base image details
+        await page.getByLabel(/name/i).fill(baseImageName)
+        await page.getByLabel(/command line/i).fill('Rscript %f')
+        await page.getByLabel(/url to base image/i).fill('example.com/e2e-base-image:latest')
+
+        // Choose language (R)
+        await page.getByLabel(/language/i).click()
+        await page.getByRole('option', { name: /^R$/ }).click()
+
+        // Upload starter code file from tests/assets
+        const __filename = fileURLToPath(import.meta.url)
+        const __dirname = path.dirname(__filename)
+        const starterPath = path.join(__dirname, 'assets', 'starter-code.r')
+
+        const fileInput = page.locator('input[type="file"]').first()
+        await fileInput.setInputFiles(starterPath)
+
+        // Save the new base image
+        await page.getByRole('button', { name: /save image/i }).click()
+
+        // Wait for the new row to appear in the table
+        const row = page.getByRole('row', { name: new RegExp(baseImageName) })
+        await expect(row).toBeVisible()
+        await expect(row.getByText('starter-code.r')).toBeVisible()
+
+        // Click the Edit action for this row (first button: view starter code, second: edit)
+        const actionButtons = row.locator('button')
+        await expect(actionButtons).toHaveCount(2)
+        await actionButtons.nth(1).click()
+
+        // Edit modal should open
+        await expect(page.getByText(/edit base image/i)).toBeVisible()
+
+        // Upload an updated starter code file (reuse the same file path for simplicity)
+        const editFileInput = page.locator('input[type="file"]').first()
+        await editFileInput.setInputFiles(starterPath)
+
+        // Submit the update
+        await page.getByRole('button', { name: /update image/i }).click()
+
+        // Ensure the row is still present and the starter code filename is rendered
+        await expect(row).toBeVisible()
+        await expect(row.getByText('starter-code.r')).toBeVisible()
+
+        // Optional: open the "View Starter Code" modal to ensure code viewer integrates
+        await actionButtons.nth(0).click()
+        await expect(page.getByText(/starter code:/i)).toBeVisible()
     })
 })

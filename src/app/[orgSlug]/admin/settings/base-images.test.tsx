@@ -85,56 +85,6 @@ describe('BaseImages', async () => {
         })
     })
 
-    it('allows an org admin to edit a base image and replace starter code via the dialog', async () => {
-        // Seed a base image as the only non-testing R image (so no delete button)
-        await insertTestBaseImage({
-            orgId: org.id,
-            name: 'Editable Base Image',
-            language: 'R',
-            isTesting: false,
-            starterCodePath: 'test/path/to/old-starter.R',
-        })
-
-        renderWithProviders(<BaseImages />)
-
-        // Wait for the row to appear
-        await waitFor(() => {
-            expect(screen.getByText('Editable Base Image')).toBeInTheDocument()
-        })
-
-        // Old starter code filename should be visible in the "Starter Code" column
-        expect(screen.getByText('old-starter.R')).toBeInTheDocument()
-
-        // Open the edit dialog for this row:
-        // row has two ActionIcon buttons: [0] = View Starter Code, [1] = Edit
-        const row = screen.getByText('Editable Base Image').closest('tr') as HTMLElement
-        expect(row).toBeTruthy()
-        const buttons = row.querySelectorAll('button')
-        expect(buttons.length).toBeGreaterThanOrEqual(2)
-        await userEvent.click(buttons[1] as HTMLButtonElement)
-
-        // Verify the edit modal opens
-        await waitFor(() => {
-            expect(screen.getByText(/edit base image/i)).toBeInTheDocument()
-        })
-
-        // Upload a new starter code file via the hidden file input behind Mantine's FileInput
-        const newFile = new File(['sample starter code'], 'starter-code.r', { type: 'text/plain' })
-        const fileInputs = document.querySelectorAll('input[type="file"]')
-        expect(fileInputs.length).toBeGreaterThan(0)
-        const fileInput = fileInputs[0] as HTMLInputElement
-        await userEvent.upload(fileInput, newFile)
-
-        // Submit the dialog via the "Update Image" button
-        await userEvent.click(screen.getByRole('button', { name: /update image/i }))
-
-        // After saving, the table should show the new starter code filename
-        await waitFor(() => {
-            expect(screen.getByText('Editable Base Image')).toBeInTheDocument()
-            expect(screen.getByText('starter-code.r')).toBeInTheDocument()
-        })
-    })
-
     it('allows deletion of testing images regardless of count', async () => {
         // Create one non-testing image and one testing image
         await insertTestBaseImage({
