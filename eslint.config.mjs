@@ -1,27 +1,89 @@
 // eslint.config.mjs
-import { FlatCompat } from '@eslint/eslintrc'
+import js from '@eslint/js'
+import nextPlugin from '@next/eslint-plugin-next'
+import reactPlugin from 'eslint-plugin-react'
+import reactHooksPlugin from 'eslint-plugin-react-hooks'
+import importPlugin from 'eslint-plugin-import'
+import typescriptEslint from 'typescript-eslint'
 
 import noSelectAllWithoutArgs from './tests/no-select-all.mjs'
 import noBareRouteStrings from './tests/no-bare-route-strings.mjs'
 
-const compat = new FlatCompat({
-    // import.meta.dirname is available after Node.js v20.11.0
-    baseDirectory: import.meta.dirname,
-})
-
 /** @type {import('eslint').Linter.Config[]} */
 const eslintConfig = [
+    // Global ignores
     {
-        ignores: ['node_modules/**', '.next/**', 'out/**', 'build/**', 'next-env.d.ts'],
+        ignores: [
+            'node_modules/**',
+            '.next/**',
+            'out/**',
+            'build/**',
+            'next-env.d.ts',
+            '.*',
+            'CHANGELOG.md',
+            'src/styles/generated/',
+            'test-results/**',
+            'tests/coverage/**',
+        ],
     },
+    // Base JavaScript recommended rules
+    js.configs.recommended,
+    // TypeScript recommended rules
+    ...typescriptEslint.configs.recommended,
+    // React plugin configuration
     {
-        ignores: ['.*', 'CHANGELOG.md', 'src/styles/generated/', 'test-results/**', 'tests/coverage/**'],
+        files: ['**/*.{js,jsx,ts,tsx}'],
+        plugins: {
+            react: reactPlugin,
+            'react-hooks': reactHooksPlugin,
+        },
+        rules: {
+            ...reactPlugin.configs.recommended.rules,
+            ...reactPlugin.configs['jsx-runtime'].rules,
+            ...reactHooksPlugin.configs.recommended.rules,
+            // Disable prop-types for TypeScript projects
+            'react/prop-types': 'off',
+        },
+        settings: {
+            react: {
+                version: 'detect',
+            },
+        },
     },
-    ...compat.extends('next/core-web-vitals'),
-    ...compat.extends('next/typescript'),
-    ...compat.extends('plugin:import/recommended'),
-    ...compat.extends('plugin:import/typescript'),
+    // CommonJS files configuration
     {
+        files: ['**/*.cjs'],
+        languageOptions: {
+            sourceType: 'commonjs',
+            globals: {
+                module: 'readonly',
+                require: 'readonly',
+                __dirname: 'readonly',
+                __filename: 'readonly',
+                exports: 'writable',
+                process: 'readonly',
+            },
+        },
+    },
+    // Next.js plugin configuration
+    {
+        plugins: {
+            '@next/next': nextPlugin,
+        },
+        rules: {
+            ...nextPlugin.configs.recommended.rules,
+            ...nextPlugin.configs['core-web-vitals'].rules,
+        },
+    },
+    // Import plugin configuration
+    {
+        plugins: {
+            import: importPlugin,
+        },
+        rules: {
+            ...importPlugin.configs.recommended.rules,
+            ...importPlugin.configs.typescript.rules,
+        },
         settings: {
             'import/resolver': {
                 typescript: {
@@ -32,6 +94,9 @@ const eslintConfig = [
                 },
             },
         },
+    },
+    // Custom rules and project-specific configuration
+    {
         plugins: {
             custom: {
                 rules: {
