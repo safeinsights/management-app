@@ -138,6 +138,7 @@ export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')
             .where('orgBaseImage.orgId', '=', orgId)
+            .orderBy('createdAt', 'desc')
             .execute()
     })
 
