@@ -35,9 +35,10 @@ const baseImageFieldsSchema = z.object({
 
 // Schema for new env var input fields (used only in UI form, not for submission)
 // These are validated on-demand when adding, not on every keystroke
+// Automatically trims whitespace from input
 const newEnvVarFieldsSchema = z.object({
-    newEnvKey: z.string().default(''),
-    newEnvValue: z.string().default(''),
+    newEnvKey: z.string().default('').transform((val) => val.trim()),
+    newEnvValue: z.string().default('').transform((val) => val.trim()),
 })
 
 // Schema for creating a new base image (starterCode required)
@@ -62,8 +63,39 @@ export const editOrgBaseImageSchema = baseImageFieldsSchema.extend({
 })
 
 // Form schemas with UI-only fields for new env var input
-export const createOrgBaseImageFormSchema = createOrgBaseImageSchema.merge(newEnvVarFieldsSchema)
-export const editOrgBaseImageFormSchema = editOrgBaseImageSchema.merge(newEnvVarFieldsSchema)
+// Includes validation to prevent duplicate environment variable names when adding new ones
+// Note: newEnvKey and newEnvValue are already trimmed by the schema transform
+export const createOrgBaseImageFormSchema = createOrgBaseImageSchema
+    .merge(newEnvVarFieldsSchema)
+    .superRefine((data, ctx) => {
+        // Check if pending env var would create a duplicate (values are already trimmed)
+        if (data.newEnvKey && data.newEnvValue) {
+            const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
+            if (isDuplicate) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Variable name already exists',
+                    path: ['newEnvKey'],
+                })
+            }
+        }
+    })
+
+export const editOrgBaseImageFormSchema = editOrgBaseImageSchema
+    .merge(newEnvVarFieldsSchema)
+    .superRefine((data, ctx) => {
+        // Check if pending env var would create a duplicate (values are already trimmed)
+        if (data.newEnvKey && data.newEnvValue) {
+            const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
+            if (isDuplicate) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Variable name already exists',
+                    path: ['newEnvKey'],
+                })
+            }
+        }
+    })
 
 // Legacy export for backwards compatibility
 export const orgBaseImageSchema = createOrgBaseImageSchema

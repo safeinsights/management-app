@@ -26,16 +26,14 @@ interface EnvVarLineProps {
     onNameChange: (name: string) => void
     onValueChange: (value: string) => void
     onRemove: () => void
-    isDisabled?: boolean
 }
 
-function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove, isDisabled = true }: EnvVarLineProps) {
+function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
     return (
         <Group gap="xs" align="flex-start">
             <TextInput
                 value={envVar.name}
                 onChange={(e) => onNameChange(e.target.value)}
-                disabled={isDisabled}
                 style={{ flex: 1 }}
                 placeholder="Variable name"
             />
@@ -86,23 +84,16 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     })
 
     const addEnvVar = () => {
-        const newKey = form.values.newEnvKey.trim()
-        const newValue = form.values.newEnvValue.trim()
-
-        if (!newKey || !newValue) return
-
-        // Check for duplicate names
-        const isDuplicate = form.values.settings.environment.some((v) => v.name === newKey)
-        if (isDuplicate) {
-            form.setFieldError('newEnvKey', 'Variable name already exists')
-            return
-        }
+        if (!form.values.newEnvKey || !form.values.newEnvValue) return
 
         form.setValues({
             ...form.values,
             settings: {
                 ...form.values.settings,
-                environment: [...form.values.settings.environment, { name: newKey, value: newValue }],
+                environment: [
+                    ...form.values.settings.environment,
+                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
+                ],
             },
             newEnvKey: '',
             newEnvValue: '',
@@ -143,17 +134,10 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
 
     const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
         // Include pending env var if user typed one but didn't click add
-        if (newEnvKey.trim() && newEnvValue.trim()) {
-            // Check for duplicate before adding
-            const isDuplicate = values.settings.environment.some((v) => v.name === newEnvKey.trim())
-            if (!isDuplicate) {
-                values.settings = {
-                    ...values.settings,
-                    environment: [
-                        ...values.settings.environment,
-                        { name: newEnvKey.trim(), value: newEnvValue.trim() },
-                    ],
-                }
+        if (newEnvKey && newEnvValue) {
+            values.settings = {
+                ...values.settings,
+                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
             }
         }
         saveBaseImage(values as CreateFormValues | EditFormValues)
