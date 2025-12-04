@@ -8,12 +8,8 @@ import { isActionError } from '@/lib/errors'
 export const ResubmitButton = ({ studyId }: { studyId: string }) => {
     const study = use(getStudyAction({ studyId }))
 
-    if (isActionError(study)) {
-        return null
-    }
-
-    if (!study.submittedByOrgSlug) {
-        return null
+    if (isActionError(study) || !study?.submittedByOrgSlug) {
+        throw new Error('Failed to load study with the submitting organization')
     }
 
     return (

@@ -37,7 +37,10 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
         },
     })
 
-    const orgSlug = study.submittedByOrgSlug || study.orgSlug
+    const orgSlug = study.submittedByOrgSlug
+    if (!orgSlug) {
+        throw new Error('Submitting organization not found for study')
+    }
 
     const { isPending, mutate: resubmitStudy } = useMutation({
         mutationFn: async (formValues: ResubmitProposalFormValues) => {
