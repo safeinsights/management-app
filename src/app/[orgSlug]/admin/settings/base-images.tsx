@@ -105,6 +105,21 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                 </Flex>
             </Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
+            <Table.Td>
+                <Text
+                    size="sm"
+                    style={{
+                        maxWidth: 100,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    {Object.entries((image.envVars as Record<string, string>) || {})
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join(', ') || '-'}
+                </Text>
+            </Table.Td>
             <Table.Td>{new Date(image.createdAt).toISOString()}</Table.Td>
             <Table.Td>
                 <Group gap={4} justify="center" wrap="nowrap">
@@ -169,6 +184,7 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
                     <Table.Th>Command Line</Table.Th>
                     <Table.Th>Starter Code</Table.Th>
                     <Table.Th>Is Testing</Table.Th>
+                    <Table.Th>Env Vars</Table.Th>
                     <Table.Th>Created At</Table.Th>
                     <Table.Th>Actions</Table.Th>
                 </Table.Tr>

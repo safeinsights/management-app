@@ -76,9 +76,7 @@ const logger = {
     error: (...args: unknown[]) => logAndReport('error', ...args),
 }
 
-// Enable debug output in development
-if (process.env.NODE_ENV === 'development') {
-    debug.enable('app:*')
-}
+// Enable debug output
+debug.enable('app:*')
 
 export default logger

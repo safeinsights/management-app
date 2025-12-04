@@ -8,7 +8,11 @@ export default defineConfig({
         migrationFolder: 'src/database/migrations',
         allowUnorderedMigrations: true, // needed to allow dev to merge branches https://github.com/kysely-org/kysely/issues/697#issuecomment-2103078857
     },
-    plugins: [new CamelCasePlugin()],
+    plugins: [
+        new CamelCasePlugin({
+            maintainNestedObjectKeys: true,
+        }),
+    ],
     seeds: {
         seedFolder: 'src/database/seeds',
     },
