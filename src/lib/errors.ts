@@ -21,10 +21,10 @@ export type ClerkAPIErrorResponse = {
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
     return Boolean(
         error != null &&
-            typeof error === 'object' &&
-            'errors' in error &&
-            Array.isArray(error.errors) &&
-            error.errors?.[0].code,
+        typeof error === 'object' &&
+        'errors' in error &&
+        Array.isArray(error.errors) &&
+        error.errors?.[0].code,
     )
 }
 
@@ -65,7 +65,9 @@ export function extractActionFailure(error: unknown): string | Record<string, st
         try {
             const encoded = JSON.parse(error.message)
             return extractActionFailure(encoded)
-        } catch {}
+        } catch {
+            // Ignore JSON parse errors
+        }
         return null
     }
 
