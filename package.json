@@ -67,6 +67,7 @@
         "eventsource-parser": "^3.0.6",
         "highlight.js": "^11.11.1",
         "jsonwebtoken": "^9.0.2",
+        "jws": "^4.0.1",
         "kysely": "^0.28.5",
         "kysely-ctl": "^0.18.0",
         "libphonenumber-js": "^1.12.15",
