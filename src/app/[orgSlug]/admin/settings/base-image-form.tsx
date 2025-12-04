@@ -14,7 +14,7 @@ import {
 } from './base-images.schema'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
-import { Language } from '@/database/types'
+import { Language, EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
 type BaseImage = ActionSuccessType<typeof createOrgBaseImageAction>
@@ -22,22 +22,27 @@ type CreateFormValues = z.infer<typeof createOrgBaseImageSchema>
 type EditFormValues = z.infer<typeof editOrgBaseImageSchema>
 
 interface EnvVarLineProps {
-    envKey: string
-    value: string
+    envVar: EnvVar
+    onNameChange: (name: string) => void
     onValueChange: (value: string) => void
     onRemove: () => void
 }
 
-function EnvVarLine({ envKey, value, onValueChange, onRemove }: EnvVarLineProps) {
+function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
     return (
         <Group gap="xs" align="flex-start">
-            <TextInput value={envKey} disabled style={{ flex: 1 }} placeholder="Variable name" />
             <TextInput
-                value={value}
+                value={envVar.name}
+                onChange={(e) => onNameChange(e.target.value)}
+                style={{ flex: 1 }}
+                placeholder="Variable name"
+            />
+            <TextInput
+                value={envVar.value}
                 onChange={(e) => onValueChange(e.target.value)}
                 style={{ flex: 1 }}
                 placeholder="Value"
-                error={!value.trim() ? 'Value is required' : null}
+                error={!envVar.value.trim() ? 'Value is required' : null}
             />
             <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
                 <TrashIcon size={16} />
@@ -69,7 +74,9 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
             url: image?.url || '',
             isTesting: image?.isTesting || false,
             starterCode: undefined,
-            envVars: (image?.envVars as Record<string, string>) || {},
+            settings: {
+                environment: image?.settings?.environment || [],
+            },
             newEnvKey: '',
             newEnvValue: '',
         },
@@ -77,21 +84,39 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     })
 
     const addEnvVar = () => {
+        if (!form.values.newEnvKey || !form.values.newEnvValue) return
+
         form.setValues({
             ...form.values,
-            envVars: { ...form.values.envVars, [form.values.newEnvKey.trim()]: form.values.newEnvValue.trim() },
+            settings: {
+                ...form.values.settings,
+                environment: [
+                    ...form.values.settings.environment,
+                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
+                ],
+            },
             newEnvKey: '',
             newEnvValue: '',
         })
     }
 
-    const updateEnvVarValue = (key: string, value: string) => {
-        form.setFieldValue('envVars', { ...form.values.envVars, [key]: value })
+    const updateEnvVarName = (index: number, name: string) => {
+        const updated = [...form.values.settings.environment]
+        updated[index] = { ...updated[index], name }
+        form.setFieldValue('settings.environment', updated)
     }
 
-    const removeEnvVar = (key: string) => {
-        const { [key]: _, ...rest } = form.values.envVars
-        form.setFieldValue('envVars', rest)
+    const updateEnvVarValue = (index: number, value: string) => {
+        const updated = [...form.values.settings.environment]
+        updated[index] = { ...updated[index], value }
+        form.setFieldValue('settings.environment', updated)
+    }
+
+    const removeEnvVar = (index: number) => {
+        form.setFieldValue(
+            'settings.environment',
+            form.values.settings.environment.filter((_, i) => i !== index),
+        )
     }
 
     const { mutate: saveBaseImage, isPending } = useMutation({
@@ -112,8 +137,11 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
 
     const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
         // Include pending env var if user typed one but didn't click add
-        if (newEnvKey.trim() && newEnvValue.trim()) {
-            values.envVars = { ...values.envVars, [newEnvKey.trim()]: newEnvValue.trim() }
+        if (newEnvKey && newEnvValue) {
+            values.settings = {
+                ...values.settings,
+                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+            }
         }
         saveBaseImage(values as CreateFormValues | EditFormValues)
     })
@@ -174,13 +202,13 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                     </Text>
 
                     <Stack gap="xs">
-                        {Object.entries(form.values.envVars).map(([key, value]) => (
+                        {form.values.settings.environment.map((envVar, index) => (
                             <EnvVarLine
-                                key={key}
-                                envKey={key}
-                                value={value}
-                                onValueChange={(v) => updateEnvVarValue(key, v)}
-                                onRemove={() => removeEnvVar(key)}
+                                key={index}
+                                envVar={envVar}
+                                onNameChange={(name) => updateEnvVarName(index, name)}
+                                onValueChange={(value) => updateEnvVarValue(index, value)}
+                                onRemove={() => removeEnvVar(index)}
                             />
                         ))}
 

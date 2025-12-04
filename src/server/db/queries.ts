@@ -1,4 +1,4 @@
-import { type DBExecutor, jsonArrayFrom, sql } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'
@@ -51,8 +51,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'path'])
-                    .select(sql<FileType>`file_type`.as(sql`"fileType"`))
+                    .select(['id', 'name', 'path', 'fileType'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -255,6 +254,6 @@ export async function fetchBaseImageForStudy(orgId: string, language: 'R' | 'PYT
         .where('orgId', '=', orgId)
         .where('isTesting', '=', false)
         .orderBy('createdAt', 'desc')
-        .select((eb) => ['url', eb.ref('envVars').$castTo<Record<string, string>>().as('env')])
+        .select(['url', 'settings'])
         .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
 }

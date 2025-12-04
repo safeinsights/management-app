@@ -241,14 +241,14 @@ describe('BaseImages', async () => {
             orgId: org.id,
             name: 'Image with Env Vars',
             language: 'R',
-            envVars: { VAR1: 'value1' },
+            environment: [{ name: 'VAR1', value: 'value1' }],
         })
 
         await insertTestBaseImage({
             orgId: org.id,
             name: 'Image without Env Vars',
             language: 'PYTHON',
-            envVars: {},
+            environment: [],
         })
 
         renderWithProviders(<BaseImages />)
