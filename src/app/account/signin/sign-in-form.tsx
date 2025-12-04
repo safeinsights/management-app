@@ -32,6 +32,8 @@ export const SignInForm: FC<{
 
     useEffect(() => {
         if (searchParams.get('invite_not_found')) {
+            // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setClerkError({
                 title: 'Invite not found',
                 message: 'The invitation link you followed is invalid or has already been used.',
