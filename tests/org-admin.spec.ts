@@ -108,7 +108,7 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/url to base image/i).fill('example.com/e2e-base-image:latest')
 
         // Choose language (R)
-        await page.getByLabel(/language/i).click()
+        await page.getByRole('textbox', { name: /language/i }).click()
         await page.getByRole('option', { name: /^R$/ }).click()
 
         // Upload starter code file from tests/assets
