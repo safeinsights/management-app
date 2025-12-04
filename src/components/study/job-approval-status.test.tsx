@@ -4,9 +4,9 @@ import { screen } from '@testing-library/react'
 import dayjs from 'dayjs'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { StudyJobStatus } from '@/database/types'
-import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
+import { ApprovalStatus } from '@/components/study/job-approval-status'
 
-describe('JobApprovalStatus', () => {
+describe('ApprovalStatus', () => {
     const baseJob: LatestJobForStudy = {
         id: 'test-id',
         studyId: 'study-1',
@@ -22,7 +22,7 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'CODE-APPROVED' as StudyJobStatus, createdAt: '2024-03-03T00:00:00Z' }],
         }
-        renderWithProviders(<CodeApprovalStatus job={job} orgSlug="test-org" />)
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="code" />)
 
         expect(screen.getByText(/Approved/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
@@ -33,9 +33,19 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'FILES-APPROVED' as StudyJobStatus, createdAt: '2024-03-03T00:00:00Z' }],
         }
-        renderWithProviders(<FileApprovalStatus job={job} orgSlug="test-org" />)
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="files" />)
 
         expect(screen.getByText(/Approved/)).toBeDefined()
+        expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
+    })
+
+    it('shows rejected status for CODE-REJECTED', () => {
+        const job = {
+            ...baseJob,
+            statusChanges: [{ status: 'CODE-REJECTED' as StudyJobStatus, createdAt: '2024-04-04T00:00:00Z' }],
+        }
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="code" />)
+        expect(screen.getByText(/Rejected/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
 
@@ -44,32 +54,49 @@ describe('JobApprovalStatus', () => {
             ...baseJob,
             statusChanges: [{ status: 'FILES-REJECTED' as StudyJobStatus, createdAt: '2024-04-04T00:00:00Z' }],
         }
-        renderWithProviders(<FileApprovalStatus job={job} orgSlug="test-org" />)
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="files" />)
         expect(screen.getByText(/Rejected/)).toBeDefined()
         expect(screen.getByText(new RegExp(dayjs(job.statusChanges[0].createdAt).format('MMM DD, YYYY')))).toBeDefined()
     })
 
-    it('renders nothing for disallowed status or missing date', () => {
+    it('renders nothing for code type when only files status exists', () => {
+        const job = {
+            ...baseJob,
+            statusChanges: [{ status: 'FILES-APPROVED' as StudyJobStatus, createdAt: '2024-03-03T00:00:00Z' }],
+        }
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="code" />)
+        expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
+    })
+
+    it('renders nothing for files type when only code status exists', () => {
+        const job = {
+            ...baseJob,
+            statusChanges: [{ status: 'CODE-APPROVED' as StudyJobStatus, createdAt: '2024-03-03T00:00:00Z' }],
+        }
+        renderWithProviders(<ApprovalStatus job={job} orgSlug="test-org" type="files" />)
+        expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
+    })
+
+    it('renders nothing for disallowed status or missing status changes', () => {
         const runningJob = {
             ...baseJob,
             statusChanges: [{ status: 'JOB-RUNNING' as StudyJobStatus, createdAt: new Date().toISOString() }],
         }
-        renderWithProviders(<FileApprovalStatus job={runningJob} orgSlug="test-org" />)
+        renderWithProviders(<ApprovalStatus job={runningJob} orgSlug="test-org" type="files" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         const initiatedJob = {
             ...baseJob,
             statusChanges: [{ status: 'INITIATED' as StudyJobStatus, createdAt: new Date().toISOString() }],
         }
-        renderWithProviders(<FileApprovalStatus job={initiatedJob} orgSlug="test-org" />)
-
+        renderWithProviders(<ApprovalStatus job={initiatedJob} orgSlug="test-org" type="code" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         const noStatusJob = {
             ...baseJob,
             statusChanges: [],
         }
-        renderWithProviders(<FileApprovalStatus job={noStatusJob} orgSlug="test-org" />)
+        renderWithProviders(<ApprovalStatus job={noStatusJob} orgSlug="test-org" type="files" />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
     })
 })

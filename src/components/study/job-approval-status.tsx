@@ -29,26 +29,28 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     )
 }
 
-export const CodeApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job }) => {
-    const codeStatusChange = job.statusChanges.find((statusChange) => {
-        return statusChange.status === 'CODE-APPROVED' || statusChange.status === 'CODE-REJECTED'
+export const ApprovalStatus: FC<{
+    job: LatestJobForStudy
+    orgSlug: string
+    type: 'code' | 'files'
+}> = ({ job, type }) => {
+    const statusPair =
+        type === 'code'
+            ? (['CODE-APPROVED', 'CODE-REJECTED'] as const)
+            : (['FILES-APPROVED', 'FILES-REJECTED'] as const)
+
+    const statusChange = job.statusChanges.find((statusChange) => {
+        return statusChange.status === statusPair[0] || statusChange.status === statusPair[1]
     })
 
-    if (!codeStatusChange) {
+    //  check if any status change is CODE-REJECTED (since find returns first match)
+    const codeRejectedStatusChange = job.statusChanges.find((statusChange) => statusChange.status === 'CODE-REJECTED')
+
+    const finalStatusChange = statusChange ?? codeRejectedStatusChange
+
+    if (!finalStatusChange) {
         return null
     }
 
-    return <JobApprovalStatus statusChange={codeStatusChange} />
-}
-
-export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job }) => {
-    const hasBeenReviewed = job.statusChanges.find((statusChange) => {
-        return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
-    })
-
-    if (!hasBeenReviewed) {
-        return null
-    }
-
-    return <JobApprovalStatus statusChange={hasBeenReviewed} />
+    return <JobApprovalStatus statusChange={finalStatusChange} />
 }
