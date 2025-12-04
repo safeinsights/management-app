@@ -4,6 +4,7 @@
  */
 
 import type { ColumnType } from 'kysely'
+import type { OrgBaseImageSettings } from './types-manual'
 
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
@@ -42,15 +43,6 @@ export type JsonPrimitive = boolean | number | string | null
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
-
-export type EnvVar = {
-    name: string
-    value: string
-}
-
-export type OrgBaseImageSettings = {
-    environment: EnvVar[]
-}
 
 export type OrgType = 'enclave' | 'lab'
 
@@ -111,7 +103,7 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
-    settings: Generated<Json>
+    settings: Generated<OrgBaseImageSettings>
     starterCodePath: string
     url: string
 }
@@ -205,3 +197,6 @@ export interface DB {
     user: User
     userPublicKey: UserPublicKey
 }
+
+// Re-export manual types for convenience
+export type { EnvVar, OrgBaseImageSettings } from './types-manual'

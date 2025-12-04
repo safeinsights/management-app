@@ -1,4 +1,4 @@
-import { type DBExecutor, jsonArrayFrom, sql } from '@/database'
+import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { currentUser as currentClerkUser, type User as ClerkUser } from '@clerk/nextjs/server'
 import { ActionSuccessType } from '@/lib/types'
 import { AccessDeniedError, throwNotFound } from '@/lib/errors'

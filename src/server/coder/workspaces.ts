@@ -100,7 +100,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
                 studyId,
                 username: user.username,
                 containerImage: baseImage.url,
-                environment: (baseImage.settings as any)?.environment || [],
+                environment: baseImage.settings?.environment || [],
             })
         }
         throw error

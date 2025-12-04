@@ -520,7 +520,7 @@ export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) =
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
             isTesting: options.isTesting ?? false,
             starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
-            settings: JSON.stringify({ environment: options.environment ?? [] }) as any,
+            settings: { environment: options.environment ?? [] },
         })
         .returningAll()
         .executeTakeFirstOrThrow()

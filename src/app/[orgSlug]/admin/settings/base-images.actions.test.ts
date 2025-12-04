@@ -8,6 +8,7 @@ import {
 } from './base-images.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+import { OrgBaseImageSettings } from '@/database/types'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -271,7 +272,7 @@ describe('Base Images Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect((result.settings as any).environment).toEqual(environment)
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual(environment)
     })
 
     it('createOrgBaseImageAction defaults settings.environment to empty array', async () => {
@@ -294,7 +295,7 @@ describe('Base Images Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect((result.settings as any).environment).toEqual([])
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual([])
     })
 
     it('updateOrgBaseImageAction updates environment variables', async () => {
@@ -309,7 +310,7 @@ describe('Base Images Actions', () => {
                 url: 'test-url',
                 isTesting: false,
                 starterCodePath: 'test/path/to/starter.py',
-                settings: JSON.stringify({ environment: [{ name: 'OLDVAR', value: 'old_value' }] }) as any,
+                settings: { environment: [{ name: 'OLDVAR', value: 'old_value' }] },
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -332,7 +333,7 @@ describe('Base Images Actions', () => {
             }),
         )
         expect(result).toBeDefined()
-        expect((result.settings as any).environment).toEqual(newEnvironment)
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual(newEnvironment)
     })
 
     it('fetchOrgBaseImagesAction returns environment variables', async () => {
@@ -349,12 +350,12 @@ describe('Base Images Actions', () => {
                 url: 'test-url',
                 isTesting: true,
                 starterCodePath: 'test/path/to/starter.py',
-                settings: JSON.stringify({ environment }) as any,
+                settings: { environment },
             })
             .execute()
 
         const result = actionResult(await fetchOrgBaseImagesAction({ orgSlug: org.slug }))
         expect(result).toHaveLength(1)
-        expect((result[0].settings as any).environment).toEqual(environment)
+        expect((result[0].settings as OrgBaseImageSettings).environment).toEqual(environment)
     })
 })

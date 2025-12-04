@@ -75,7 +75,7 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
             isTesting: image?.isTesting || false,
             starterCode: undefined,
             settings: {
-                environment: ((image?.settings as any)?.environment as EnvVar[]) || [],
+                environment: image?.settings?.environment || [],
             },
             newEnvKey: '',
             newEnvValue: '',
@@ -113,7 +113,10 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     }
 
     const removeEnvVar = (index: number) => {
-        form.setFieldValue('settings.environment', form.values.settings.environment.filter((_, i) => i !== index))
+        form.setFieldValue(
+            'settings.environment',
+            form.values.settings.environment.filter((_, i) => i !== index),
+        )
     }
 
     const { mutate: saveBaseImage, isPending } = useMutation({

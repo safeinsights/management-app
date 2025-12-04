@@ -64,7 +64,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             .values({
                 orgId,
                 ...fieldValues,
-                settings: JSON.stringify(fieldValues.settings) as any,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .returningAll()
@@ -113,7 +113,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             .updateTable('orgBaseImage')
             .set({
                 ...fieldValues,
-                settings: JSON.stringify(fieldValues.settings) as any,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .where('id', '=', imageId)

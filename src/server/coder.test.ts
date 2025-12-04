@@ -245,7 +245,7 @@ describe('createUserAndWorkspace', () => {
         })
         fetchBaseImageForStudyMock.mockResolvedValue({
             url: 'test-image:latest',
-            env: { VAR1: 'value1' },
+            settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
         })
 
         const result = await createUserAndWorkspace('study123')

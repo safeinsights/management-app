@@ -13,9 +13,7 @@ const kyselyOpts: KyselyConfig = {
 
 export const db = new Kysely<DB>({
     ...kyselyOpts,
-    plugins: [
-        new CamelCasePlugin(),
-    ],
+    plugins: [new CamelCasePlugin()],
 })
 
 export type Transaction = TransactionType<DB>

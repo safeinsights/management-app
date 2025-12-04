@@ -37,8 +37,14 @@ const baseImageFieldsSchema = z.object({
 // These are validated on-demand when adding, not on every keystroke
 // Automatically trims whitespace from input
 const newEnvVarFieldsSchema = z.object({
-    newEnvKey: z.string().default('').transform((val) => val.trim()),
-    newEnvValue: z.string().default('').transform((val) => val.trim()),
+    newEnvKey: z
+        .string()
+        .default('')
+        .transform((val) => val.trim()),
+    newEnvValue: z
+        .string()
+        .default('')
+        .transform((val) => val.trim()),
 })
 
 // Schema for creating a new base image (starterCode required)
