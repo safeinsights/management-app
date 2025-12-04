@@ -24,12 +24,12 @@ const baseImageFromOrgAndId = async ({
     const baseImage = await db
         .selectFrom('orgBaseImage')
         .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'orgBaseImage.orgId'])
         .where('org.slug', '=', orgSlug)
         .where('orgBaseImage.id', '=', imageId)
         .executeTakeFirstOrThrow()
 
-    return { baseImage }
+    return { baseImage, orgId: baseImage.orgId }
 }
 
 const createOrgBaseImageSchema = z.object({
