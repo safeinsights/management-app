@@ -11,7 +11,6 @@ import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
-import { NonProduction } from '@/components/non-production'
 
 export const dynamic = 'force-dynamic'
 
