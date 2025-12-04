@@ -6,6 +6,23 @@ const MAX_FILE_SIZE_STR = '10KB'
 // Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
 
+// Schema for individual environment variable
+const envVarSchema = z.object({
+    name: z.string().regex(envVarKeyRegex, 'Invalid variable name: must start with letter or underscore'),
+    value: z.string().nonempty('Value is required'),
+})
+
+// Schema for base image settings
+const baseImageSettingsSchema = z.object({
+    environment: z
+        .array(envVarSchema)
+        .default([])
+        .refine((vars) => {
+            const names = vars.map((v) => v.name)
+            return names.length === new Set(names).size
+        }, 'Environment variable names must be unique'),
+})
+
 // Base schema with common fields
 const baseImageFieldsSchema = z.object({
     name: z.string().nonempty(),
@@ -13,12 +30,7 @@ const baseImageFieldsSchema = z.object({
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
     isTesting: z.boolean().default(false),
-    envVars: z
-        .record(
-            z.string().regex(envVarKeyRegex, 'Invalid variable name: must start with letter or underscore'),
-            z.string().nonempty('Value is required'),
-        )
-        .default({}),
+    settings: baseImageSettingsSchema.default({ environment: [] }),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)

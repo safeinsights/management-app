@@ -43,6 +43,15 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
 export type Language = 'PYTHON' | 'R'
 
+export type EnvVar = {
+    name: string
+    value: string
+}
+
+export type OrgBaseImageSettings = {
+    environment: EnvVar[]
+}
+
 export type OrgType = 'enclave' | 'lab'
 
 export type StudyJobStatus =
@@ -97,12 +106,12 @@ export interface Org {
 export interface OrgBaseImage {
     cmdLine: string
     createdAt: Generated<Timestamp>
-    envVars: Generated<Json>
     id: Generated<string>
     isTesting: Generated<boolean>
     language: Language
     name: string
     orgId: string
+    settings: Generated<Json>
     starterCodePath: string
     url: string
 }

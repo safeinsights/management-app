@@ -14,9 +14,7 @@ const kyselyOpts: KyselyConfig = {
 export const db = new Kysely<DB>({
     ...kyselyOpts,
     plugins: [
-        new CamelCasePlugin({
-            maintainNestedObjectKeys: true,
-        }),
+        new CamelCasePlugin(),
     ],
 })
 

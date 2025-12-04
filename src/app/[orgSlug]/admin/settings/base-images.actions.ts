@@ -32,6 +32,15 @@ const baseImageFromOrgAndId = async ({
     return { baseImage }
 }
 
+const envVarSchema = z.object({
+    name: z.string(),
+    value: z.string(),
+})
+
+const baseImageSettingsSchema = z.object({
+    environment: z.array(envVarSchema).optional().default([]),
+})
+
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
@@ -40,7 +49,7 @@ const createOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
-    envVars: z.record(z.string(), z.string()).optional().default({}),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
@@ -55,6 +64,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             .values({
                 orgId,
                 ...fieldValues,
+                settings: JSON.stringify(fieldValues.settings) as any,
                 starterCodePath,
             })
             .returningAll()
@@ -76,7 +86,7 @@ const updateOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
-    envVars: z.record(z.string(), z.string()).optional().default({}),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
@@ -103,6 +113,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             .updateTable('orgBaseImage')
             .set({
                 ...fieldValues,
+                settings: JSON.stringify(fieldValues.settings) as any,
                 starterCodePath,
             })
             .where('id', '=', imageId)

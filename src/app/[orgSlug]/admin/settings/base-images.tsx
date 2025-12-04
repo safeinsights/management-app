@@ -18,6 +18,7 @@ import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
+import { OrgBaseImageSettings } from '@/database/types'
 
 type BaseImage = ActionSuccessType<typeof fetchOrgBaseImagesAction>[number]
 
@@ -115,8 +116,8 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                         whiteSpace: 'nowrap',
                     }}
                 >
-                    {Object.entries((image.envVars as Record<string, string>) || {})
-                        .map(([k, v]) => `${k}=${v}`)
+                    {((image.settings as OrgBaseImageSettings)?.environment || [])
+                        .map((v) => `${v.name}=${v.value}`)
                         .join(', ') || '-'}
                 </Text>
             </Table.Td>

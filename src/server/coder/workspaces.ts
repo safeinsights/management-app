@@ -79,7 +79,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
-    // Fetch base image envVars for the study
+    // Fetch base image settings for the study
     const latestJob = await latestJobForStudy(studyId)
     const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
 
@@ -100,7 +100,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
                 studyId,
                 username: user.username,
                 containerImage: baseImage.url,
-                envVars: baseImage.env,
+                environment: (baseImage.settings as any)?.environment || [],
             })
         }
         throw error
@@ -111,11 +111,11 @@ interface CreateCoderWorkspaceOptions {
     studyId: string
     username: string
     containerImage: string
-    envVars?: Record<string, string>
+    environment?: Array<{ name: string; value: string }>
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username, envVars = {} } = options
+    const { studyId, username, environment = [] } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
@@ -132,7 +132,7 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         },
         {
             name: 'environment',
-            value: JSON.stringify(Object.entries(envVars).map(([name, value]) => ({ name, value }))),
+            value: JSON.stringify(environment),
         },
     ]
 
