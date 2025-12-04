@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
-import { actionResponseIsError } from '@/hooks/query-wrappers'
 import { Action, ActionFailure } from './action'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 
@@ -194,17 +193,10 @@ describe('Action Builder', () => {
 
         it('catches handler exceptions and returns them as error objects', async () => {
             const mockHandler = vi.fn(async () => {
-                if (1) throw new Error('hi')
-                return { foo: 'bar' }
+                throw new Error('hi')
             })
-
             const action = new Action('middleware-error-test').handler(mockHandler)
-
             const result = await action()
-            if (!actionResponseIsError(result)) {
-                expect(result.foo).toBe('bar')
-            }
-
             expect(result).toEqual({ error: 'hi' })
         })
     })
