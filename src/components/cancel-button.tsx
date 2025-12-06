@@ -40,7 +40,7 @@ export function CancelButton({ isDirty, disabled }: { isDirty: boolean; disabled
                 </Stack>
             </AppModal>
 
-            <Button type="button" variant="outline" c="purple.5" disabled={disabled} onClick={handleCancel}>
+            <Button type="button" variant="outline" c="purple.5" size="md" disabled={disabled} onClick={handleCancel}>
                 Cancel
             </Button>
         </>

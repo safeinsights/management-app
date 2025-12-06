@@ -126,6 +126,7 @@ export const getStudyAction = new Action('getStudyAction')
                 'study.descriptionDocPath',
                 'study.irbDocPath',
                 'study.agreementDocPath',
+                'study.language',
             ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
