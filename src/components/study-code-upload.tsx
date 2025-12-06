@@ -1,13 +1,27 @@
 import { Language } from '@/database/types'
 import { getAcceptedFormatsForLanguage, languageLabels } from '@/lib/languages'
-import { Box, Button, Divider, Group, MantineTheme, Paper, Stack, Text, Title, UnstyledButton } from '@mantine/core'
+import {
+    Alert,
+    Box,
+    Button,
+    Divider,
+    Group,
+    MantineTheme,
+    Paper,
+    useMantineTheme,
+    Stack,
+    Text,
+    Title,
+    UnstyledButton,
+} from '@mantine/core'
 import { ArrowSquareOutIcon, FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from './modal'
 import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
+import { LightbulbIcon } from '@phosphor-icons/react'
 
 interface StudyCodeUploadProps {
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
@@ -83,7 +97,8 @@ export const StudyCodeUpload = ({
     orgSlug,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
-    // const theme = useMantineTheme()
+    const [isAlertVisible, setIsAlertVisible] = useState(true)
+    const theme = useMantineTheme()
     // const color = theme.colors.blue[7]
 
     // const removeAdditionalFiles = (fileToRemove: File) => {
@@ -119,7 +134,35 @@ export const StudyCodeUpload = ({
             )}
             <Title order={4}>{title}</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="xl">Include the code files you wish to run on the Data Organization&apos;s dataset.</Text>
+            <Text mb="xl">
+                Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
+                {isOpenstaxOrg && (
+                    <>
+                        You can either upload your own files or write them in our{' '}
+                        <Text component="span" fw={600}>
+                            Integrated Development Environment (IDE).
+                        </Text>
+                        {isAlertVisible && (
+                            <Alert
+                                icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                                title="Helpful tip"
+                                color="green"
+                                withCloseButton
+                                onClose={() => setIsAlertVisible(false)}
+                                mt="md"
+                                mb="xxl"
+                                styles={{
+                                    body: { gap: 8 },
+                                    title: { color: theme.colors.green[9] },
+                                    closeButton: { color: theme.colors.green[9] },
+                                }}
+                            >
+                                IDE is pre-configured to help you write your code and test it against sample data.
+                            </Alert>
+                        )}
+                    </>
+                )}
+            </Text>
 
             <Group align="center">
                 <UploadFilesButton onClick={openModal} language={language} />
