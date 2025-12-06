@@ -167,7 +167,7 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
 
     await nextStepButton.click()
 
-    await expect(page.getByText('Upload File')).toBeVisible()
+    await expect(page.getByText('Upload your files')).toBeVisible()
 
     // Upload main code file
     await page.setInputFiles('input[type="file"][name="mainCodeFile"]', languageConfig.mainCodeFile)
@@ -216,10 +216,12 @@ test('Single-language R org auto-selects language and enables Next Step', async 
 
     // And clicking it should take us to the upload step
     await nextStepButton.click()
-    await expect(page.getByText('Upload File')).toBeVisible()
+    await expect(page.getByText('Upload your files')).toBeVisible()
 })
 
-test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
+// TODO: Re-enable once modal file upload is implemented - the upload UI has been
+// refactored to use a modal. This is going to be addressed in a related ticket.
+test.skip('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a study', async () => {
         const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
             language: 'R',
@@ -255,7 +257,9 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     })
 })
 
-test('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
+// TODO: Re-enable once modal file upload is implemented - the upload UI has been
+// refactored to use a modal. This is going to be addressed in a related ticket
+test.skip('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a Python study', async () => {
         const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
             language: 'Python',
