@@ -46,6 +46,8 @@ export const DownloadResultsLink: FC<DownloadLinkProps> = ({ filename, content, 
     useEffect(() => {
         const blob = new Blob([content], { type: 'text/csv' })
         const url = URL.createObjectURL(blob)
+        // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setHref(url)
 
         return () => URL.revokeObjectURL(url)

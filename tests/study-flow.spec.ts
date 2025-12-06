@@ -5,6 +5,8 @@ import type { Page } from '@playwright/test'
 // this ensures they run in order and will share the study title
 test.describe.configure({ mode: 'serial' })
 
+// must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
+// eslint-disable-next-line no-empty-pattern
 test.beforeEach(async ({}, testInfo) => {
     // Extend timeout for all tests running this hook by 30 seconds.
     testInfo.setTimeout(testInfo.timeout + 30_000)
