@@ -28,6 +28,10 @@ const validateDocumentFile = (label: string) => {
 export const studyProposalFormSchema = z
     .object({
         orgSlug: z.string().min(1, { message: 'Data organization is required' }),
+        language: z
+            .enum(['R', 'PYTHON'])
+            .nullable()
+            .refine((val) => val !== null, { message: 'Programming language is required' }),
         title: z
             .string()
             .min(5, { message: 'Title must be at least 5 characters long' })
@@ -100,6 +104,7 @@ export const studyProposalApiSchema = z.object({
         .min(5, { message: 'Title must be at least 5 characters long' })
         .max(50, { message: 'Title must be less than 50 characters long' }),
     piName: z.string().max(100).trim(),
+    language: z.enum(['R', 'PYTHON']),
     descriptionDocPath: z.string(),
     irbDocPath: z.string(),
     agreementDocPath: z.string(),

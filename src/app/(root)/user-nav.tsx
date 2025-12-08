@@ -13,7 +13,8 @@ export const UserNav = () => {
 
     useEffect(() => {
         if (!session) return
-
+        // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsNavigating(true)
         router.push(Routes.dashboard)
     }, [session, router])

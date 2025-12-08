@@ -1,8 +1,8 @@
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
-import { useMemo, useQuery } from '@/common'
+import { useQuery } from '@/common'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
-import { listAllOrgsAction } from '@/server/actions/org.actions'
+import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
 import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
@@ -12,15 +12,10 @@ type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
 
-    const { data: orgs, isLoading } = useQuery({
-        queryKey: ['all-orgs'],
-        queryFn: () => listAllOrgsAction(),
+    const { data: orgs = [], isLoading } = useQuery({
+        queryKey: ['orgs-with-languages'],
+        queryFn: () => getStudyCapableEnclaveOrgsAction(),
     })
-
-    const enclaveOrgs = useMemo(() => {
-        if (!orgs) return []
-        return Object.values(orgs).filter((org) => org.type === 'enclave')
-    }, [orgs])
 
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
@@ -28,7 +23,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     return (
         <Paper p="xl" mb="xxl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 1 of 3
+                Step 1 of 4
             </Text>
             <Title order={4}>Select data organization</Title>
             <Divider my="md" />
@@ -47,7 +42,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                         <Select
                             id="studyOrg"
                             data-testid="org-select"
-                            data={enclaveOrgs.map((o) => ({ value: o.slug, label: o.name }))}
+                            data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             value={form.values.orgSlug}
                             placeholder="Select a data organization"
                             disabled={isLoading}

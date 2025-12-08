@@ -119,7 +119,14 @@ export const getStudyAction = new Action('getStudyAction')
         const study = await fetchStudyQuery(db)
             .where('study.id', '=', studyId)
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.slug as orgSlug', 'study.descriptionDocPath', 'study.irbDocPath', 'study.agreementDocPath'])
+            .leftJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+            .select([
+                'org.slug as orgSlug',
+                'submittingOrg.slug as submittedByOrgSlug',
+                'study.descriptionDocPath',
+                'study.irbDocPath',
+                'study.agreementDocPath',
+            ])
             .executeTakeFirstOrThrow(throwNotFound('Study'))
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })

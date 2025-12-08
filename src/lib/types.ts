@@ -181,11 +181,3 @@ Object.freeze(BLANK_SESSION)
 export type { ActionResponse } from '@/lib/errors'
 
 export type StudyStage = 'Proposal' | 'Code' | 'Results'
-
-// for v0.5 we support just r and python
-export function getLanguageForFileName(fileName: string) {
-    const lower = fileName.toLowerCase()
-    if (lower.endsWith('.py') || lower.endsWith('.ipynb')) return 'PYTHON'
-
-    return 'R'
-}

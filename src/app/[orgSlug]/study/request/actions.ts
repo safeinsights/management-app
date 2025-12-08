@@ -1,7 +1,7 @@
 'use server'
-import { DB, Language } from '@/database/types'
+import { DB } from '@/database/types'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
-import { getLanguageForFileName, StudyDocumentType } from '@/lib/types'
+import { StudyDocumentType } from '@/lib/types'
 import { Action, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
@@ -22,7 +22,6 @@ async function addStudyJob(
     const studyJob = await db
         .insertInto('studyJob')
         .values({
-            language: getLanguageForFileName(mainCodeFileName) as Language,
             studyId: studyId,
         })
         .returning('id')
@@ -114,6 +113,7 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
                     id: studyId,
                     title: studyInfo.title,
                     piName: studyInfo.piName,
+                    language: studyInfo.language,
                     descriptionDocPath: studyInfo.descriptionDocPath,
                     irbDocPath: studyInfo.irbDocPath,
                     agreementDocPath: studyInfo.agreementDocPath,

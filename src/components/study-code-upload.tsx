@@ -61,7 +61,7 @@ export const StudyCodeUpload = ({
         <Paper p="xl">
             {showStepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 3 of 3
+                    Step 4 of 4
                 </Text>
             )}
             <Title order={4}>{title}</Title>
@@ -141,7 +141,9 @@ export const StudyCodeUpload = ({
                                     message: rejections
                                         .map(
                                             (rej) =>
-                                                `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`,
+                                                `${rej.file.name} ${rej.errors
+                                                    .map((err) => `${err.code}: ${err.message}`)
+                                                    .join(', ')}`,
                                         )
                                         .join('\n'),
                                 })

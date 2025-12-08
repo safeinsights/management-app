@@ -5,12 +5,12 @@ import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
-import { CodeApprovalStatus, FileApprovalStatus } from '@/components/study/job-approval-status'
-import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
-import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { JobResultsStatusMessage } from '@/app/[orgSlug]/study/[studyId]/view/job-results-status-message'
+import { ApprovalStatus } from '@/components/study/job-approval-status'
+import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
+import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +28,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
 
     const { isApproved, isErrored, isRejected } = extractJobStatus(job.statusChanges)
 
-    const isStatusFocused = (isApproved && isErrored) || isRejected
+    const isStatusFocused = (isApproved && isErrored) || isRejected || isApproved
     const opacity = isStatusFocused ? 0.6 : 1
 
     return (
@@ -61,10 +61,12 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <Group>
-                            {!isStatusFocused && <CodeApprovalStatus job={job} orgSlug={study.orgSlug} />}
-                            <OpenWorkspaceButton studyId={study.id} />
-                        </Group>
+                        {!isStatusFocused && (
+                            <Group>
+                                <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />
+                                <OpenWorkspaceButton studyId={study.id} />
+                            </Group>
+                        )}
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
@@ -77,10 +79,10 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         <Title order={4} size="xl">
                             Study Status
                         </Title>
-                        {!isErrored && <FileApprovalStatus job={job} orgSlug={study.orgSlug} />}
+                        {!isErrored && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="files" />}
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} orgSlug={study.orgSlug} files={job.files} />
+                    <JobResultsStatusMessage job={job} files={job.files} />
                 </Stack>
             </Paper>
         </Stack>
