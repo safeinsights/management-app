@@ -71,7 +71,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                                 </NonProduction>
                             </Group>
                         )}
-
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
