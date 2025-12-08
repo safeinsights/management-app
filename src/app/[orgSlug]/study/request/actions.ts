@@ -1,9 +1,13 @@
 'use server'
+import * as path from 'node:path'
+import { createReadStream } from 'node:fs'
+import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { Action, z } from '@/server/actions/action'
-import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
+import { DEV_ENV, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
@@ -348,6 +352,75 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsM
         await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     })
 
+const onCreateStudyWithoutCodeActionArgsSchema = z.object({
+    orgSlug: z.string(),
+    studyInfo: studyProposalApiSchema,
+    submittingOrgSlug: z.string(),
+})
+
+export const onCreateStudyWithoutCodeAction = new Action('onCreateStudyWithoutCodeAction', { performsMutations: true })
+    .params(onCreateStudyWithoutCodeActionArgsSchema)
+    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    .requireAbilityTo('create', 'Study')
+    .handler(
+        async ({
+            db,
+            params: { orgSlug, studyInfo, submittingOrgSlug },
+            session,
+            orgId,
+        }) => {
+            const userId = session.user.id
+            const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
+
+            const studyId = uuidv7()
+
+            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
+
+            await db
+                .insertInto('study')
+                .values({
+                    id: studyId,
+                    title: studyInfo.title,
+                    piName: studyInfo.piName,
+                    language: studyInfo.language,
+                    descriptionDocPath: studyInfo.descriptionDocPath,
+                    irbDocPath: studyInfo.irbDocPath,
+                    agreementDocPath: studyInfo.agreementDocPath,
+                    orgId,
+                    researcherId: userId,
+                    submittedByOrgId: submittingLab.orgId,
+                    containerLocation,
+                    status: 'DRAFT',
+                })
+                .returning('id')
+                .executeTakeFirstOrThrow()
+
+            onStudyCreated({ userId, studyId })
+
+            const urlForAgreementUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            )
+
+            const urlForIrbUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            )
+
+            const urlForDescriptionUpload = await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            )
+
+            revalidatePath(`/${orgSlug}/dashboard`)
+
+            return {
+                studyId,
+                orgSlug,
+                urlForAgreementUpload,
+                urlForIrbUpload,
+                urlForDescriptionUpload,
+            }
+        },
+    )
+
 const addJobToStudyActionArgsSchema = z.object({
     studyId: z.string(),
     mainCodeFileName: z.string(),
@@ -376,4 +449,43 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         return { studyJobId, urlForCodeUpload }
+    })
+
+export const createStudyFromIDEAction = new Action('createStudyFromIDEAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'StudyJob')
+    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db }) => {
+        if (fileNames.length === 0) {
+            throw new Error('No files provided')
+        }
+
+        if (!fileNames.includes(mainFileName)) {
+            throw new Error('Main file not in file list')
+        }
+
+        const userId = session.user.id
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName)
+
+        const { studyJobId } = await addStudyJob(db, userId, studyId, orgSlug, mainFileName, additionalFileNames)
+
+        let coderFilesPath = await getConfigValue('CODER_FILES')
+        if (!DEV_ENV) {
+            coderFilesPath += `/${studyId}`
+        }
+
+        for (const fileName of fileNames) {
+            const filePath = path.join(coderFilesPath, fileName)
+            const fileStream = createReadStream(filePath)
+            const webStream = Readable.toWeb(fileStream) as ReadableStream
+            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName)
+            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+        }
+
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        return { studyJobId }
     })

@@ -111,7 +111,7 @@ type FillStudyFormOptions = {
 async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
     const { title, investigator = 'Ricky McResearcher', orgNameRegex = /openstax/i } = options
 
-    await expect(page.getByText('Step 1 of 4')).toBeVisible()
+    await expect(page.getByText('Step 1 of 5')).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
 

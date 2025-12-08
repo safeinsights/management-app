@@ -3,20 +3,24 @@
 import { useMutation, useQuery, useQueryClient, zodResolver } from '@/common'
 import ProxyProvider from '@/components/proxy-provider'
 import { StudyCodeUpload } from '@/components/study-code-upload'
+import { StudyCodeFromIDE } from '@/components/study/study-code-from-ide'
 import { Language } from '@/database/types'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { getLabSlug } from '@/lib/org'
+import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { Button, Group, Stepper } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { omit } from 'remeda'
 import {
+    createStudyFromIDEAction,
     getDraftStudyAction,
     onCreateStudyAction,
     onDeleteStudyAction,
@@ -24,13 +28,7 @@ import {
     onUpdateDraftStudyAction,
 } from './actions'
 import { StudyProposalForm } from './study-proposal-form'
-import {
-    codeFilesSchema,
-    StudyJobCodeFilesValues,
-    studyProposalFormSchema,
-    StudyProposalFormValues,
-} from './study-proposal-form-schema'
-import { Routes } from '@/lib/routes'
+import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 
 type ExistingDraftFiles = {
     descriptionDocPath?: string | null
@@ -46,9 +44,17 @@ type StepperButtonsProps = {
     isPending: boolean
     setStepIndex: (i: number) => void
     existingFiles?: ExistingDraftFiles
+    onSubmitFromIDE: () => void
 }
 
-const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex, existingFiles }) => {
+const StepperButtons: React.FC<StepperButtonsProps> = ({
+    form,
+    stepIndex,
+    isPending,
+    setStepIndex,
+    existingFiles,
+    onSubmitFromIDE,
+}) => {
     const formValues = form.getValues()
 
     // Step 0 validity: simple existence checks (accepts either new files OR existing files from draft)
@@ -80,7 +86,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
                 disabled={!isValid || isPending}
                 onClick={(e) => {
                     e.preventDefault()
-                    setStepIndex(stepIndex + 1)
+                    setStepIndex(1)
                 }}
             >
                 Save and proceed to step 4
@@ -95,11 +101,23 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
             </Button>
         )
     }
+
+    if (stepIndex == 2) {
+        return (
+            <Button
+                type="button"
+                variant="primary"
+                disabled={isPending || !formValues.ideMainFile}
+                onClick={onSubmitFromIDE}
+                loading={isPending}
+            >
+                Submit Study
+            </Button>
+        )
+    }
     return null
 }
 
-// we do not want to  send any actual files, only their paths to the server action,
-// they will be uploaded after study is created
 function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
     return {
         ...omit(formValues, [
@@ -155,7 +173,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
+        validate: zodResolver(studyProposalFormSchema),
         initialValues: {
             title: '',
             piName: '',
@@ -166,6 +184,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
             additionalCodeFiles: [],
             orgSlug: '',
             language: null,
+            stepIndex: 0,
+            createdStudyId: null,
+            ideMainFile: '',
+            ideFiles: [],
         },
         validateInputOnChange: [
             'title',
@@ -204,24 +226,24 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
 
-    const { isPending, mutate: createStudy } = useMutation({
+    const { isPending: isCreatingStudy, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            const { studyId, studyJobId, ...urls } = actionResult(
+            const { studyId, urlForCodeUpload, ...urls } = actionResult(
                 await onCreateStudyAction({
                     orgSlug: formValues.orgSlug,
                     studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
-                    codeFileNames: formValues.additionalCodeFiles.map((file) => file.name),
+                    codeFileNames: formValues.additionalCodeFiles.map((f) => f.name),
                     submittingOrgSlug: getLabSlug(submittingOrgSlug),
                 }),
             )
             try {
                 await uploadFiles([
+                    [formValues.mainCodeFile, urlForCodeUpload],
+                    ...formValues.additionalCodeFiles.map((f): FileUpload => [f, urlForCodeUpload]),
                     [formValues.irbDocument, urls.urlForIrbUpload],
                     [formValues.agreementDocument, urls.urlForAgreementUpload],
                     [formValues.descriptionDocument, urls.urlForDescriptionUpload],
-                    [formValues.mainCodeFile, urls.urlForCodeUpload],
-                    ...formValues.additionalCodeFiles.map((f) => [f, urls.urlForCodeUpload] as FileUpload),
                 ])
             } catch (err: unknown) {
                 const result = await onDeleteStudyAction({ studyId })
@@ -232,9 +254,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 }
                 throw err
             }
+            return { studyId }
         },
         onSuccess() {
-            // Invalidate both org-specific and user-level study queries
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             notifications.show({
@@ -249,6 +271,43 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
             notifications.show({
                 color: 'red',
                 title: 'Failed to create study',
+                message: `${errorToString(error)}\nPlease contact support.`,
+            })
+        },
+    })
+
+    const { isPending: isImportingFromIDE, mutate: createStudyFromIDE } = useMutation({
+        mutationFn: async () => {
+            const studyId = draftStudyId
+            const { ideMainFile, ideFiles } = studyProposalForm.values
+            if (!studyId || !ideMainFile || ideFiles.length === 0) {
+                throw new Error('Study ID, main file, or files not set')
+            }
+            const result = await createStudyFromIDEAction({
+                studyId,
+                mainFileName: ideMainFile,
+                fileNames: ideFiles,
+            })
+            if ('error' in result) {
+                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
+            }
+            return result
+        },
+        onSuccess() {
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
+            notifications.show({
+                title: 'Study Proposal Submitted',
+                message:
+                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                color: 'green',
+            })
+            router.push(Routes.dashboard)
+        },
+        onError: async (error) => {
+            notifications.show({
+                color: 'red',
+                title: 'Failed to import files from IDE',
                 message: `${errorToString(error)}\nPlease contact support.`,
             })
         },
@@ -323,6 +382,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
+    const isPending = isCreatingStudy || isSavingDraft || isImportingFromIDE
+
     return (
         <ProxyProvider
             isDirty={studyProposalForm.isDirty()}
@@ -369,6 +430,16 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                             language={studyProposalForm.values.language as Language}
                         />
                     </Stepper.Step>
+
+                    <Stepper.Step>
+                        {draftStudyId && (
+                            <StudyCodeFromIDE
+                                studyId={draftStudyId}
+                                onMainFileChange={(file) => studyProposalForm.setFieldValue('ideMainFile', file)}
+                                onFilesChange={(files) => studyProposalForm.setFieldValue('ideFiles', files)}
+                            />
+                        )}
+                    </Stepper.Step>
                 </Stepper>
 
                 <Group mt="xxl" style={{ width: '100%' }}>
@@ -385,7 +456,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                                 Save as draft
                             </Button>
                         )}
-                        {stepIndex === 1 && (
+                        {(stepIndex === 1 || stepIndex === 2) && (
                             <Button
                                 type="button"
                                 size="md"
@@ -413,6 +484,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                                       }
                                     : undefined
                             }
+                            onSubmitFromIDE={() => createStudyFromIDE()}
                         />
                     </Group>
                 </Group>

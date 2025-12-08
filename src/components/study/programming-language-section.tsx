@@ -9,9 +9,7 @@ import { Divider, Grid, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { Language } from '@/database/types'
 
-type Props = {
-    form: UseFormReturnType<StudyProposalFormValues>
-}
+type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const selectedOrgSlug = form.values.orgSlug

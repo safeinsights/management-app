@@ -42,6 +42,7 @@ export const coderWorkspaceDataPath = (username: string, workspaceName: string) 
     `/api/v2/users/${username}/workspace/${workspaceName}`
 export const coderWorkspaceBuildPath = (workspaceId: string) => `/api/v2/workspaces/${workspaceId}/builds`
 
+
 const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard']
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)

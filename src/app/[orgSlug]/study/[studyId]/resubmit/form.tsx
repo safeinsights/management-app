@@ -13,27 +13,34 @@ import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { reportMutationError } from '@/components/errors'
-import { ResubmitProposalFormValues } from '@/schema/study-proposal'
-import { z } from 'zod'
+import { StudyProposalFormValues, codeFilesSchema } from '../../request/study-proposal-form-schema'
 import { actionResult } from '@/lib/utils'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
-
-const resubmitStudySchema = z.object({
-    mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
-    additionalCodeFiles: z.array(z.instanceof(File)).default([]),
-})
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
+import { UseFormReturnType } from '@mantine/form'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
-    const studyUploadForm = useForm<ResubmitProposalFormValues>({
-        validate: zodResolver(resubmitStudySchema),
+    const form = useForm<StudyProposalFormValues>({
+        validate: zodResolver(codeFilesSchema),
         initialValues: {
             mainCodeFile: null,
             additionalCodeFiles: [],
+            title: '',
+            piName: '',
+            orgSlug: '',
+            language: null,
+            descriptionDocument: null,
+            irbDocument: null,
+            agreementDocument: null,
+            stepIndex: 0,
+            createdStudyId: null,
+            ideMainFile: '',
+            ideFiles: [],
         },
     })
 
@@ -43,7 +50,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     }
 
     const { isPending, mutate: resubmitStudy } = useMutation({
-        mutationFn: async (formValues: ResubmitProposalFormValues) => {
+        mutationFn: async (formValues: StudyProposalFormValues) => {
             const { urlForCodeUpload, studyJobId } = actionResult(
                 await addJobToStudyAction({
                     studyId: study.id,
@@ -79,14 +86,21 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
         onError: reportMutationError('Failed to resubmit study'),
     })
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = form as any
+
     return (
-        <form onSubmit={studyUploadForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
+        <form onSubmit={form.onSubmit((values: StudyProposalFormValues) => resubmitStudy(values))}>
             <Stack>
-                <StudyCodeUpload studyUploadForm={studyUploadForm} language={study.language} orgSlug={study.orgSlug} />
+                <StudyCodeUpload
+                    studyUploadForm={studyUploadForm}
+                    orgSlug={study.orgSlug}
+                    language={study.language}
+                />
 
                 <Group justify="flex-end" mt="md">
                     <ResubmitCancelButton
-                        isDirty={studyUploadForm.isDirty()}
+                        isDirty={form.isDirty()}
                         disabled={isPending}
                         href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />

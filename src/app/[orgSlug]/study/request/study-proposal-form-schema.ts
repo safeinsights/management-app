@@ -89,13 +89,23 @@ export const codeFilesSchema = z
         }
     })
 
-export const StudyProposalActionSchema = z.intersection(studyProposalFormSchema, codeFilesSchema)
+export const ideFilesSchema = z.object({
+    stepIndex: z.number(),
+    createdStudyId: z.string().nullable(),
+    ideMainFile: z.string(),
+    ideFiles: z.array(z.string()),
+})
+
+export const StudyProposalActionSchema = z.intersection(
+    z.intersection(studyProposalFormSchema, codeFilesSchema),
+    ideFilesSchema,
+)
 
 export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,
-    'title' | 'descriptionDocument' | 'irbDocument' | 'agreementDocument' | 'piName' | 'orgSlug'
+    'title' | 'descriptionDocument' | 'irbDocument' | 'agreementDocument' | 'piName' | 'orgSlug' | 'stepIndex' | 'createdStudyId' | 'ideMainFile' | 'ideFiles'
 >
 
 export const studyProposalApiSchema = z.object({
