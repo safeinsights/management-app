@@ -1,20 +1,5 @@
 import { Language } from '@/database/types'
-import { getAcceptedFormatsForLanguage, languageLabels } from '@/lib/languages'
-import {
-    Alert,
-    Box,
-    Button,
-    Divider,
-    Group,
-    MantineTheme,
-    Paper,
-    useMantineTheme,
-    Stack,
-    Text,
-    Title,
-    UnstyledButton,
-} from '@mantine/core'
-import { ArrowSquareOutIcon, FileArrowUpIcon } from '@phosphor-icons/react/dist/ssr'
+import { Alert, Button, Divider, Group, Paper, useMantineTheme, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from './modal'
@@ -22,6 +7,7 @@ import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
+import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 
 interface StudyCodeUploadProps {
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
@@ -30,64 +16,6 @@ interface StudyCodeUploadProps {
     language: Language
     orgSlug: string
 }
-
-// Shared button box styles
-const buttonBoxStyles = (theme: MantineTheme) => ({
-    border: `1px solid ${theme.colors.charcoal[1]}`,
-    borderRadius: theme.radius.sm,
-    padding: theme.spacing.xxl,
-    boxShadow: theme.shadows.md,
-    cursor: 'pointer',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-})
-
-// Upload Files Button Component
-const UploadFilesButton: FC<{ onClick: () => void; language: Language }> = ({ onClick, language }) => (
-    <UnstyledButton onClick={onClick} style={{ width: 320, height: 200 }}>
-        <Box style={(theme) => buttonBoxStyles(theme)}>
-            <Stack align="center" justify="center" gap={4}>
-                <FileArrowUpIcon size={20} />
-                <Text fw={600} fz="sm">
-                    Upload your files
-                </Text>
-                <Text fz="xs" c="gray.6">
-                    {getAcceptedFormatsForLanguage(language)}
-                </Text>
-            </Stack>
-        </Box>
-    </UnstyledButton>
-)
-
-// Launch IDE Button Component
-const LaunchIDEButton: FC<{ onClick: () => void; language: Language }> = ({ onClick, language }) => (
-    <UnstyledButton onClick={onClick} style={{ width: 320, height: 200 }}>
-        <Box style={(theme) => buttonBoxStyles(theme)}>
-            <Stack align="center" justify="center" gap={4}>
-                <ArrowSquareOutIcon size={20} />
-                <Text fw={600} fz="sm">
-                    Launch IDE
-                </Text>
-                <Text fz="xs" c="gray.6">
-                    Supported programming language: {languageLabels[language]}
-                </Text>
-            </Stack>
-        </Box>
-    </UnstyledButton>
-)
-
-// OR Divider Component
-const OrDivider: FC = () => (
-    <Group gap="xs" px="md">
-        <Divider style={{ width: 20 }} c="charcoal.1" />
-        <Text fz="sm" fw={700}>
-            OR
-        </Text>
-        <Divider style={{ width: 20 }} c="charcoal.1" />
-    </Group>
-)
 
 export const StudyCodeUpload = ({
     // studyUploadForm,
@@ -109,8 +37,6 @@ export const StudyCodeUpload = ({
     //     studyProposalForm.validateField('totalFileSize')
     // }
     // const { getFileUploadIcon } = useFileUploadIcons()
-
-    // const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
     // const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
 
@@ -134,7 +60,7 @@ export const StudyCodeUpload = ({
             )}
             <Title order={4}>{title}</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="xl">
+            <Text mb={isOpenstaxOrg && isAlertVisible ? '' : 'xl'}>
                 Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
                 {isOpenstaxOrg && (
                     <>
@@ -142,27 +68,27 @@ export const StudyCodeUpload = ({
                         <Text component="span" fw={600}>
                             Integrated Development Environment (IDE).
                         </Text>
-                        {isAlertVisible && (
-                            <Alert
-                                icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
-                                title="Helpful tip"
-                                color="green"
-                                withCloseButton
-                                onClose={() => setIsAlertVisible(false)}
-                                mt="md"
-                                mb="xxl"
-                                styles={{
-                                    body: { gap: 8 },
-                                    title: { color: theme.colors.green[9] },
-                                    closeButton: { color: theme.colors.green[9] },
-                                }}
-                            >
-                                IDE is pre-configured to help you write your code and test it against sample data.
-                            </Alert>
-                        )}
                     </>
                 )}
             </Text>
+            {isOpenstaxOrg && isAlertVisible && (
+                <Alert
+                    icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                    title="Helpful tip"
+                    color="green"
+                    withCloseButton
+                    onClose={() => setIsAlertVisible(false)}
+                    mt="md"
+                    mb="xl"
+                    styles={{
+                        body: { gap: 8 },
+                        title: { color: theme.colors.green[9] },
+                        closeButton: { color: theme.colors.green[9] },
+                    }}
+                >
+                    IDE is pre-configured to help you write your code and test it against sample data.
+                </Alert>
+            )}
 
             <Group align="center">
                 <UploadFilesButton onClick={openModal} language={language} />
