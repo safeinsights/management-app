@@ -7,9 +7,11 @@ import { StudyDetails } from '@/components/study/study-details'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
-import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Button, Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
-import { StudyReviewButtons } from './study-review-buttons'
+import Link from 'next/link'
+import { ResearcherReviewButtons } from './researcher-review-buttons'
+import { Routes } from '@/lib/routes'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -33,18 +35,24 @@ export default async function StudyReviewPage(props: {
             <OrgBreadcrumbs
                 crumbs={{
                     orgSlug: orgSlug,
-                    current: 'Study Details',
+                    current: 'Review your submission',
                 }}
             />
 
-            <Title order={1}>Study details</Title>
+            <Title order={2} size="h4" fw={500}>
+                Review your submission
+            </Title>
+            <Divider />
+
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        <StudyReviewButtons study={study} />
+                        <Button component={Link} href={Routes.studyEdit({ orgSlug, studyId })} variant="outline">
+                            Edit
+                        </Button>
                     </Group>
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
@@ -53,14 +61,31 @@ export default async function StudyReviewPage(props: {
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Title order={4} size="xl">
-                        Study Code
+                        Programming Language
                     </Title>
+                    <Divider c="dimmed" />
+                    <p>Programming Language: {study.dataSources}</p>
+                </Stack>
+            </Paper>
+
+            <Paper bg="white" p="xxl">
+                <Stack>
+                    <Group justify="space-between" align="center">
+                        <Title order={4} size="xl">
+                            Study Code
+                        </Title>
+                        <Button component={Link} href={Routes.studyResubmit({ orgSlug, studyId })} variant="outline">
+                            Edit
+                        </Button>
+                    </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
 
             <StudyResults job={job} />
+
+            <ResearcherReviewButtons study={study} />
         </Stack>
     )
 }
