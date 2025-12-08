@@ -75,8 +75,11 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await submitBtn.click()
 
+        // Wait for navigation to the MFA setup page
+        await page.waitForURL('**/account/mfa**', { timeout: 15000 })
+
         // verify we landed on the MFA setup screen
-        // Check if the code input field is visible
+        // The heading text includes line break: "Secure your account with <br /> Multi-Factor Authentication"
         await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
 
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
