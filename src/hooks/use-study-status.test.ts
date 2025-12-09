@@ -135,7 +135,7 @@ describe('useStudyStatus', () => {
     describe('edge cases', () => {
         it('returns undefined when no matching status is found', () => {
             // Create a scenario where no status matches the status keys
-            const params = createTestParams('DRAFT' as StudyStatus, 'researcher', [])
+            const params = createTestParams('UNKNOWN' as unknown as StudyStatus, 'researcher', [])
             const result = useStudyStatus(params)
 
             expect(result).toBeUndefined()
