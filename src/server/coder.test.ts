@@ -140,7 +140,7 @@ describe('getOrCreateCoderUser', () => {
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: undefined,
-                username: '855f96e983f1f8e8be944692b6f719fd',
+                username: '855f96e983f1f8e8be944692b6f719',
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
