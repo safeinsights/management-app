@@ -9,6 +9,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     await db.schema.alterTable('org_base_image').renameColumn('env_vars', 'settings').execute()
 
+    await sql`
+        UPDATE org_base_image
+        SET settings = '{"environment": []}'::jsonb
+    `.execute(db)
+
     await db.schema
         .alterTable('org_base_image')
         .alterColumn('settings', (col) => col.setDefault(sql`'{"environment": []}'::jsonb`))
