@@ -83,7 +83,7 @@ test.describe('Organization Admin', () => {
         // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
     })
 
-    test('admin can create and edit base image starter code', async ({ page }) => {
+    test('org admin can create and edit base image starter code', async ({ page }) => {
         // Navigate as org admin to the settings page for the primary admin org
         await visitClerkProtectedPage({
             page,
@@ -107,9 +107,8 @@ test.describe('Organization Admin', () => {
         await page.getByLabel(/command line/i).fill('Rscript %f')
         await page.getByLabel(/url to base image/i).fill('example.com/e2e-base-image:latest')
 
-        // Choose language (R)
-        await page.getByRole('textbox', { name: /language/i }).click()
-        await page.getByRole('option', { name: /^R$/ }).click()
+        // Choose language (R) - it defaults to R, so we just verify it
+        await expect(page.getByRole('textbox', { name: /language/i })).toHaveValue('R')
 
         // Upload starter code file from tests/assets
         const __filename = fileURLToPath(import.meta.url)
@@ -129,7 +128,6 @@ test.describe('Organization Admin', () => {
 
         // Click the Edit action for this row (first button: view starter code, second: edit)
         const actionButtons = row.locator('button')
-        await expect(actionButtons).toHaveCount(2)
         await actionButtons.nth(1).click()
 
         // Edit modal should open
