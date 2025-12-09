@@ -23,8 +23,8 @@ const baseImageFromOrgAndId = async ({
 }) => {
     const baseImage = await db
         .selectFrom('orgBaseImage')
-        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath'])
+        .innerJoin('org', 'org.id', 'orgBaseImage.orgId') // orgId is needed for permissions check
+        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'org.id as orgId'])
         .where('org.slug', '=', orgSlug)
         .where('orgBaseImage.id', '=', imageId)
         .executeTakeFirstOrThrow()
