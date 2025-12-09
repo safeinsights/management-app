@@ -115,7 +115,7 @@ interface CreateCoderWorkspaceOptions {
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username = [] } = options
+    const { studyId, username } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
