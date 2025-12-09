@@ -1,61 +1,55 @@
-import { InputError } from '@/components/errors'
-import { FormFieldLabel } from '@/components/form-field-label'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
-import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
-import { ACCEPTED_FILE_FORMATS_TEXT, ACCEPTED_FILE_TYPES } from '@/lib/types'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
-import {
-    ActionIcon,
-    Divider,
-    FileInput,
-    Grid,
-    GridCol,
-    Group,
-    Paper,
-    Stack,
-    Text,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
-import { Dropzone } from '@mantine/dropzone'
+import { Language } from '@/database/types'
+import { Alert, Button, Divider, Group, Paper, useMantineTheme, Stack, Text, Title } from '@mantine/core'
+import { FC, useState } from 'react'
+import { useDisclosure } from '@mantine/hooks'
+import { AppModal } from './modal'
+import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { UseFormReturnType } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
-import {
-    AsteriskIcon,
-    CheckCircleIcon,
-    UploadIcon,
-    UploadSimpleIcon,
-    XCircleIcon,
-    XIcon,
-} from '@phosphor-icons/react/dist/ssr'
-import { uniqueBy } from 'remeda'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
+import { LightbulbIcon } from '@phosphor-icons/react'
+import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 
 interface StudyCodeUploadProps {
-    studyProposalForm: UseFormReturnType<StudyJobCodeFilesValues>
+    studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
     showStepIndicator?: boolean
     title?: string
+    language: Language
+    orgSlug: string
 }
 
 export const StudyCodeUpload = ({
-    studyProposalForm,
+    // studyUploadForm,
     showStepIndicator = false,
-    title = 'Study Code',
+    title = 'Study code',
+    language,
+    orgSlug,
 }: StudyCodeUploadProps) => {
+    const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
+    const [isAlertVisible, setIsAlertVisible] = useState(true)
     const theme = useMantineTheme()
-    const color = theme.colors.blue[7]
+    // const color = theme.colors.blue[7]
 
-    const removeAdditionalFiles = (fileToRemove: File) => {
-        const updatedAdditionalFiles = studyProposalForm
-            .getValues()
-            .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
-        studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
-        studyProposalForm.validateField('totalFileSize')
+    // const removeAdditionalFiles = (fileToRemove: File) => {
+    //     const updatedAdditionalFiles = studyProposalForm
+    //         .getValues()
+    //         .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
+    //     studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
+    //     studyProposalForm.validateField('totalFileSize')
+    // }
+    // const { getFileUploadIcon } = useFileUploadIcons()
+
+    // const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
+
+    const handleConfirmAndProceed = () => {
+        // TODO: Implement logic to proceed with the study code upload
+        closeModal()
     }
-    const { getFileUploadIcon } = useFileUploadIcons()
 
-    const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
+    const handleLaunchIDE = () => {
+        // TODO: Implement logic to launch the IDE
+    }
 
-    const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
+    const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
 
     return (
         <Paper p="xl">
@@ -66,8 +60,56 @@ export const StudyCodeUpload = ({
             )}
             <Title order={4}>{title}</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb="xl">Upload the code you intend to run on the data organization&apos;s dataset. </Text>
-            <Group grow justify="center" align="center">
+            <Text mb={isOpenstaxOrg && isAlertVisible ? '' : 'xl'}>
+                Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
+                {isOpenstaxOrg && (
+                    <>
+                        You can either upload your own files or write them in our{' '}
+                        <Text component="span" fw={600}>
+                            Integrated Development Environment (IDE).
+                        </Text>
+                    </>
+                )}
+            </Text>
+            {isOpenstaxOrg && isAlertVisible && (
+                <Alert
+                    icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                    title="Helpful tip"
+                    color="green"
+                    withCloseButton
+                    onClose={() => setIsAlertVisible(false)}
+                    mt="md"
+                    mb="xl"
+                    styles={{
+                        body: { gap: 8 },
+                        title: { color: theme.colors.green[9] },
+                        closeButton: { color: theme.colors.green[9] },
+                    }}
+                >
+                    IDE is pre-configured to help you write your code and test it against sample data.
+                </Alert>
+            )}
+
+            <Group align="center">
+                <UploadFilesButton onClick={openModal} language={language} />
+
+                {isOpenstaxOrg && (
+                    <>
+                        <OrDivider />
+                        <LaunchIDEButton onClick={handleLaunchIDE} language={language} />
+                    </>
+                )}
+            </Group>
+
+            <StudyCodeUploadModal
+                onClose={closeModal}
+                isOpen={isModalOpen}
+                onConfirmAndClose={handleConfirmAndProceed}
+            />
+
+            {/* TODO: Refactor below uploader for usage in the modal */}
+
+            {/* <Group grow justify="center" align="center">
                 <Grid>
                     <Grid.Col span={titleSpan}>
                         <Group gap="xs">
@@ -203,7 +245,28 @@ export const StudyCodeUpload = ({
                         </GridCol>
                     )}
                 </Grid>
-            </Group>
+            </Group> */}
         </Paper>
+    )
+}
+
+const StudyCodeUploadModal: FC<{
+    onClose: () => void
+    isOpen: boolean
+    onConfirmAndClose: () => void
+}> = ({ onClose, isOpen, onConfirmAndClose }) => {
+    return (
+        <AppModal isOpen={isOpen} onClose={onClose} title="Upload your code files">
+            <Stack>
+                <Text size="md">Todo: Add dropzone uploader logic here</Text>
+
+                <Group>
+                    <Button variant="outline" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button onClick={onConfirmAndClose}>Done</Button>
+                </Group>
+            </Stack>
+        </AppModal>
     )
 }

@@ -25,6 +25,14 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     const languages = data?.languages || []
     const isSingleLanguage = data?.languages?.length === 1
 
+    let helperText: string
+
+    if (isSingleLanguage) {
+        helperText = `At the present ${orgName} only supports ${languages[0].label}. Code files submitted in other languages will not be able to run.`
+    } else {
+        helperText = `Indicate the programming language that you will use in your data analysis. ${orgName} will use this to setup the right environment for you.`
+    }
+
     useEffect(() => {
         if (isSingleLanguage) {
             form.setFieldValue('language', data.languages[0].value)
@@ -41,22 +49,12 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                 Loading available programming languages…
             </Text>
         )
-    } else if (isSingleLanguage) {
-        body = (
-            <Text id="programming-language-helper">
-                At the present {orgName} only supports {languages[0].label}. Code files submitted in other languages
-                will not be able to run.
-            </Text>
-        )
     } else if (!data) {
         body = <ErrorAlert error="Failed to load programming languages" />
     } else if (languages.length > 0) {
         body = (
             <>
-                <Text id="programming-language-helper">
-                    Indicate the programming language that you will use in your data analysis. {orgName} will use this
-                    to setup the right environment for you.
-                </Text>
+                <Text id="programming-language-helper">{helperText}</Text>
 
                 <Grid align="flex-start">
                     <Grid.Col span={12}>
@@ -64,10 +62,10 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             id="programming-language"
                             aria-labelledby="programming-language-title"
                             aria-describedby="programming-language-helper programming-language-status"
-                            value={form.values.language ?? ''}
+                            value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
                         >
-                            <Stack gap="xs">
+                            <Stack gap={isSingleLanguage ? 'sm' : 0}>
                                 {languages.map((opt) => (
                                     <Radio key={opt.value} {...opt} />
                                 ))}

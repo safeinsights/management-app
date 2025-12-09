@@ -29,13 +29,18 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
-    const studyProposalForm = useForm<ResubmitProposalFormValues>({
+    const studyUploadForm = useForm<ResubmitProposalFormValues>({
         validate: zodResolver(resubmitStudySchema),
         initialValues: {
             mainCodeFile: null,
             additionalCodeFiles: [],
         },
     })
+
+    const orgSlug = study.submittedByOrgSlug
+    if (!orgSlug) {
+        throw new Error('Submitting organization not found for study')
+    }
 
     const { isPending, mutate: resubmitStudy } = useMutation({
         mutationFn: async (formValues: ResubmitProposalFormValues) => {
@@ -69,21 +74,21 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     'Your study has been successfully resubmitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
-            router.push(Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id }))
+            router.push(Routes.studyView({ orgSlug, studyId: study.id }))
         },
         onError: reportMutationError('Failed to resubmit study'),
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
+        <form onSubmit={studyUploadForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
             <Stack>
-                <StudyCodeUpload studyProposalForm={studyProposalForm} />
+                <StudyCodeUpload studyUploadForm={studyUploadForm} language={study.language} orgSlug={study.orgSlug} />
 
                 <Group justify="flex-end" mt="md">
                     <ResubmitCancelButton
-                        isDirty={studyProposalForm.isDirty()}
+                        isDirty={studyUploadForm.isDirty()}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug: study.orgSlug, studyId: study.id })}
+                        href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />
                     <Button variant="filled" type="submit" loading={isPending}>
                         Resubmit study code
