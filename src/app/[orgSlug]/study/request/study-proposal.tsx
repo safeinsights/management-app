@@ -94,6 +94,7 @@ function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
     return {
         title: formValues.title || undefined,
         piName: formValues.piName || undefined,
+        language: formValues.language || undefined,
         descriptionDocPath: formValues.descriptionDocument?.name,
         agreementDocPath: formValues.agreementDocument?.name,
         irbDocPath: formValues.irbDocument?.name,
@@ -172,11 +173,13 @@ export const StudyProposal: React.FC = () => {
             console.warn('[Draft Debug] Setting form values:', {
                 title: draftData.title,
                 piName: draftData.piName,
+                language: draftData.language,
                 orgSlug: draftData.orgSlug,
             })
             studyProposalForm.setValues({
                 title: draftData.title || '',
                 piName: draftData.piName || '',
+                language: draftData.language || null,
                 orgSlug: draftData.orgSlug || '',
                 // Note: Files cannot be restored from paths - user will need to re-upload
                 irbDocument: null,
@@ -300,6 +303,8 @@ export const StudyProposal: React.FC = () => {
         },
         onSuccess(studyId) {
             setSessionStudyId(studyId)
+            // Invalidate the draft query cache so fresh data is fetched
+            queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
             // Update URL with studyId so it persists on page refresh
             if (!urlStudyId) {
                 const url = new URL(window.location.href)

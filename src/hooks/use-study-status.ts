@@ -55,7 +55,7 @@ export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseS
     })
 
     if (!displayedStatus) {
-        return labels['INITIATED']!
+        return labels['DRAFT']!
     }
 
     const statusLabel = labels[displayedStatus as AllStatus]!

@@ -56,6 +56,7 @@ export const StudyProposalForm: FC<{
                         </Grid.Col>
                         <Grid.Col span={inputSpan}>
                             <TextInput
+                                key={studyProposalForm.key('title')}
                                 id={studyProposalForm.key('title')}
                                 aria-label="Study Title"
                                 placeholder="Enter a title (max. 50 characters)"
@@ -92,6 +93,7 @@ export const StudyProposalForm: FC<{
                         </Grid.Col>
                         <Grid.Col span={inputSpan}>
                             <TextInput
+                                key={studyProposalForm.key('piName')}
                                 id={studyProposalForm.key('piName')}
                                 aria-label="Principal Investigator"
                                 placeholder="Full Name (max. 100 characters)"

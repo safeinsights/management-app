@@ -193,6 +193,7 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
                     id: studyId,
                     title: studyInfo.title || 'Untitled Draft',
                     piName: studyInfo.piName || '',
+                    language: studyInfo.language,
                     descriptionDocPath: studyInfo.descriptionDocPath || null,
                     irbDocPath: studyInfo.irbDocPath || null,
                     agreementDocPath: studyInfo.agreementDocPath || null,
@@ -243,10 +244,11 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .handler(async ({ db, params: { studyId, studyInfo, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
         const userId = session.user.id
 
-        // Update study fields (only non-undefined values)
+        // Update study fields (only defined values)
         const updateValues: Record<string, unknown> = {}
         if (studyInfo.title !== undefined) updateValues.title = studyInfo.title
         if (studyInfo.piName !== undefined) updateValues.piName = studyInfo.piName
+        if (studyInfo.language !== undefined) updateValues.language = studyInfo.language
         if (studyInfo.descriptionDocPath !== undefined) updateValues.descriptionDocPath = studyInfo.descriptionDocPath
         if (studyInfo.irbDocPath !== undefined) updateValues.irbDocPath = studyInfo.irbDocPath
         if (studyInfo.agreementDocPath !== undefined) updateValues.agreementDocPath = studyInfo.agreementDocPath
@@ -304,6 +306,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.id',
                 'study.title',
                 'study.piName',
+                'study.language',
                 'study.descriptionDocPath',
                 'study.irbDocPath',
                 'study.agreementDocPath',

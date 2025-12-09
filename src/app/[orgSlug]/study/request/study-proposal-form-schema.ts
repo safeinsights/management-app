@@ -116,6 +116,7 @@ export const studyProposalApiSchema = z.object({
 export const draftStudyApiSchema = z.object({
     title: z.string().max(50).optional(),
     piName: z.string().max(100).trim().optional(),
+    language: z.enum(['R', 'PYTHON']).optional(),
     descriptionDocPath: z.string().optional(),
     irbDocPath: z.string().optional(),
     agreementDocPath: z.string().optional(),
