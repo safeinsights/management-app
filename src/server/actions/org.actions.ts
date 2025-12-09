@@ -227,6 +227,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             }),
         }),
     )
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'User')
     .handler(async ({ db, params: { orgSlug, sort } }) => {
         return await db

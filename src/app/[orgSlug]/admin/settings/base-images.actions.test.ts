@@ -336,6 +336,40 @@ describe('Base Images Actions', () => {
         expect((result.settings as OrgBaseImageSettings).environment).toEqual(newEnvironment)
     })
 
+    it('updateOrgBaseImageAction allows org admin to update a base image', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const baseImage = await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Original Name',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const result = actionResult(
+            await updateOrgBaseImageAction({
+                orgSlug: org.slug,
+                imageId: baseImage.id,
+                name: 'Admin Updated Name',
+                cmdLine: 'admin updated command',
+                language: 'PYTHON',
+                url: 'admin-updated-url',
+                isTesting: true,
+                settings: { environment: [{ name: 'ADMIN_VAR', value: 'admin_value' }] },
+            }),
+        )
+
+        expect(result).toBeDefined()
+        expect(result.name).toEqual('Admin Updated Name')
+        expect(result.cmdLine).toEqual('admin updated command')
+        expect(result.language).toEqual('PYTHON')
+        expect(result.url).toEqual('admin-updated-url')
+        expect(result.isTesting).toEqual(true)
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual([
+            { name: 'ADMIN_VAR', value: 'admin_value' },
+        ])
+    })
+
     it('fetchOrgBaseImagesAction returns environment variables', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const environment = [{ name: 'TESTVAR', value: 'test_value' }]

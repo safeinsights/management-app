@@ -5,6 +5,7 @@ import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
+import { findOrCreateOrgMembership } from '@/server/mutations'
 import { theme } from '@/theme'
 import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
 import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
@@ -457,7 +458,7 @@ type MockSessionWithTestDataOptions = {
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
-    if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
+    if (!options.orgSlug) options.orgSlug = options.isSiAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
 
     const org = await insertTestOrg({ slug: options.orgSlug, type: options.orgType })
     const { user, orgUser } = await insertTestUser({
@@ -466,15 +467,8 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     })
 
     if (options.isSiAdmin) {
-        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
-        await db
-            .insertInto('orgUser')
-            .values({
-                orgId: siOrg.id,
-                userId: user.id,
-                isAdmin: true,
-            })
-            .execute()
+        await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
+        await findOrCreateOrgMembership({ userId: user.id, slug: CLERK_ADMIN_ORG_SLUG, isAdmin: true })
     }
 
     const mocks = mockClerkSession({
