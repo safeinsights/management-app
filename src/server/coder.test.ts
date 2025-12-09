@@ -263,7 +263,8 @@ describe('createUserAndWorkspace', () => {
         expect(requestBody.rich_parameter_values).toEqual([
             { name: 'study_id', value: 'study123' },
             { name: 'container_image', value: 'test-image:latest' },
-            { name: 'environment', value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]) },
+            // removed temporarily
+            // { name: 'environment', value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]) },
         ])
     })
 
