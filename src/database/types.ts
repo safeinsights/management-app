@@ -4,6 +4,7 @@
  */
 
 import type { ColumnType } from 'kysely'
+import type { OrgBaseImageSettings } from './types-manual'
 
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
@@ -102,6 +103,7 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
+    settings: Generated<OrgBaseImageSettings>
     starterCodePath: string
     url: string
 }
@@ -195,3 +197,6 @@ export interface DB {
     user: User
     userPublicKey: UserPublicKey
 }
+
+// Re-export manual types for convenience
+export type { EnvVar, OrgBaseImageSettings } from './types-manual'
