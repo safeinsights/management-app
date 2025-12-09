@@ -3,25 +3,68 @@
 import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
-import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text } from '@mantine/core'
+import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Group, ActionIcon, Box } from '@mantine/core'
 import { useParams } from 'next/navigation'
 import { createOrgBaseImageAction, updateOrgBaseImageAction } from './base-images.actions'
-import { orgBaseImageSchema } from './base-images.schema'
+import {
+    createOrgBaseImageSchema,
+    editOrgBaseImageSchema,
+    createOrgBaseImageFormSchema,
+    editOrgBaseImageFormSchema,
+} from './base-images.schema'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
-import { Language } from '@/database/types'
+import { Language, EnvVar } from '@/database/types'
+import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
 type BaseImage = ActionSuccessType<typeof createOrgBaseImageAction>
-type FormValues = z.infer<typeof orgBaseImageSchema>
+type CreateFormValues = z.infer<typeof createOrgBaseImageSchema>
+type EditFormValues = z.infer<typeof editOrgBaseImageSchema>
+
+interface EnvVarLineProps {
+    envVar: EnvVar
+    onNameChange: (name: string) => void
+    onValueChange: (value: string) => void
+    onRemove: () => void
+}
+
+function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLineProps) {
+    return (
+        <Group gap="xs" align="flex-start">
+            <TextInput
+                value={envVar.name}
+                onChange={(e) => onNameChange(e.target.value)}
+                style={{ flex: 1 }}
+                placeholder="Variable name"
+            />
+            <TextInput
+                value={envVar.value}
+                onChange={(e) => onValueChange(e.target.value)}
+                style={{ flex: 1 }}
+                placeholder="Value"
+                error={!envVar.value.trim() ? 'Value is required' : null}
+            />
+            <ActionIcon color="red" variant="subtle" onClick={onRemove} mt={4}>
+                <TrashIcon size={16} />
+            </ActionIcon>
+        </Group>
+    )
+}
 
 interface BaseImageFormProps {
     image?: BaseImage
     onCompleteAction: () => void
 }
 
+type CreateFormSchema = z.infer<typeof createOrgBaseImageFormSchema>
+type EditFormSchema = z.infer<typeof editOrgBaseImageFormSchema>
+type FormValues = CreateFormSchema | EditFormSchema
+
 export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const isEditMode = !!image
+
+    const formSchema = isEditMode ? editOrgBaseImageFormSchema : createOrgBaseImageFormSchema
 
     const form = useForm<FormValues>({
         initialValues: {
@@ -30,21 +73,60 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
             language: (image?.language || 'R') as Language,
             url: image?.url || '',
             isTesting: image?.isTesting || false,
-            starterCode: new File([], ''),
+            starterCode: undefined,
+            settings: {
+                environment: image?.settings?.environment || [],
+            },
+            newEnvKey: '',
+            newEnvValue: '',
         },
-        validate: zodResolver(orgBaseImageSchema),
+        validate: zodResolver(formSchema),
     })
 
+    const addEnvVar = () => {
+        if (!form.values.newEnvKey || !form.values.newEnvValue) return
+
+        form.setValues({
+            ...form.values,
+            settings: {
+                ...form.values.settings,
+                environment: [
+                    ...form.values.settings.environment,
+                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
+                ],
+            },
+            newEnvKey: '',
+            newEnvValue: '',
+        })
+    }
+
+    const updateEnvVarName = (index: number, name: string) => {
+        const updated = [...form.values.settings.environment]
+        updated[index] = { ...updated[index], name }
+        form.setFieldValue('settings.environment', updated)
+    }
+
+    const updateEnvVarValue = (index: number, value: string) => {
+        const updated = [...form.values.settings.environment]
+        updated[index] = { ...updated[index], value }
+        form.setFieldValue('settings.environment', updated)
+    }
+
+    const removeEnvVar = (index: number) => {
+        form.setFieldValue(
+            'settings.environment',
+            form.values.settings.environment.filter((_, i) => i !== index),
+        )
+    }
+
     const { mutate: saveBaseImage, isPending } = useMutation({
-        mutationFn: async (values: FormValues) => {
+        mutationFn: async (values: CreateFormValues | EditFormValues) => {
             if (isEditMode) {
                 return await updateOrgBaseImageAction({ orgSlug, imageId: image.id, ...values })
             }
-            // In create mode, starterCode is required
-            if (!values.starterCode || values.starterCode.size === 0) {
-                throw new Error('Starter code file is required')
-            }
-            return await createOrgBaseImageAction({ orgSlug, ...values, starterCode: values.starterCode })
+            // In create mode, starterCode is required (validated by schema)
+            const createValues = values as CreateFormValues
+            return await createOrgBaseImageAction({ orgSlug, ...createValues })
         },
         onSuccess: () => {
             reportSuccess(isEditMode ? 'Base image updated successfully' : 'Base image added successfully')
@@ -53,7 +135,16 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
         onError: reportMutationError(isEditMode ? 'Failed to update base image' : 'Failed to add base image'),
     })
 
-    const onSubmit = form.onSubmit((values) => saveBaseImage(values))
+    const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
+        // Include pending env var if user typed one but didn't click add
+        if (newEnvKey && newEnvValue) {
+            values.settings = {
+                ...values.settings,
+                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
+            }
+        }
+        saveBaseImage(values as CreateFormValues | EditFormValues)
+    })
 
     return (
         <form onSubmit={onSubmit}>
@@ -101,6 +192,40 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                     {...form.getInputProps('isTesting', { type: 'checkbox' })}
                     mt="sm"
                 />
+
+                <Box mt="md">
+                    <Text fw={500} size="sm" mb={4}>
+                        Environment Variables
+                    </Text>
+                    <Text size="xs" c="dimmed" mb="sm">
+                        Define environment variables available to the container
+                    </Text>
+
+                    <Stack gap="xs">
+                        {form.values.settings.environment.map((envVar, index) => (
+                            <EnvVarLine
+                                key={index}
+                                envVar={envVar}
+                                onNameChange={(name) => updateEnvVarName(index, name)}
+                                onValueChange={(value) => updateEnvVarValue(index, value)}
+                                onRemove={() => removeEnvVar(index)}
+                            />
+                        ))}
+
+                        <Group gap="xs" align="flex-start">
+                            <TextInput
+                                {...form.getInputProps('newEnvKey')}
+                                placeholder="Variable name"
+                                style={{ flex: 1 }}
+                            />
+                            <TextInput {...form.getInputProps('newEnvValue')} placeholder="Value" style={{ flex: 1 }} />
+                            <ActionIcon color="blue" variant="subtle" onClick={addEnvVar} mt={4}>
+                                <PlusCircleIcon size={16} />
+                            </ActionIcon>
+                        </Group>
+                    </Stack>
+                </Box>
+
                 <Button type="submit" loading={isPending} mt="md">
                     {isEditMode ? 'Update Image' : 'Save Image'}
                 </Button>

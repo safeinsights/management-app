@@ -24,6 +24,7 @@ import logger from '@/lib/logger'
 
 describe('Org Actions', () => {
     let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
+
     beforeEach(async () => {
         newOrg = {
             slug: `test-org-${faker.string.uuid()}`,
@@ -32,7 +33,7 @@ describe('Org Actions', () => {
             type: 'enclave',
             settings: { publicKey: 'no-such-key' },
         }
-        await mockSessionWithTestData({ isAdmin: true })
+        await mockSessionWithTestData({ isSiAdmin: true })
         try {
             await insertOrgAction(newOrg)
         } catch (e) {

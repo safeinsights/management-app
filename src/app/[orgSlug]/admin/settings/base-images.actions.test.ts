@@ -8,6 +8,7 @@ import {
 } from './base-images.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
+import { OrgBaseImageSettings } from '@/database/types'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -34,6 +35,7 @@ describe('Base Images Actions', () => {
                 url: 'test-url',
                 starterCode: mockFile,
                 isTesting: true,
+                settings: { environment: [] },
             }),
         )
 
@@ -110,6 +112,7 @@ describe('Base Images Actions', () => {
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
+                settings: { environment: [] },
             }),
         )
 
@@ -150,6 +153,7 @@ describe('Base Images Actions', () => {
                 url: 'updated-url',
                 isTesting: true,
                 starterCode: mockNewFile,
+                settings: { environment: [] },
             }),
         )
 
@@ -184,6 +188,7 @@ describe('Base Images Actions', () => {
             language: 'PYTHON',
             url: 'updated-url',
             isTesting: true,
+            settings: { environment: [] },
         })
 
         expect(isActionError(result)).toBe(true)
@@ -215,6 +220,7 @@ describe('Base Images Actions', () => {
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
+                settings: { environment: [] },
             }),
         )
 
@@ -310,5 +316,149 @@ describe('Base Images Actions', () => {
         // Verify testing image was deleted
         const deleted = await db.selectFrom('orgBaseImage').where('id', '=', testingImage.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
+    })
+
+    it('createOrgBaseImageAction creates a base image with environment variables', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
+        const environment = [
+            { name: 'MY_VAR', value: 'my_value' },
+            { name: 'APIKEY', value: 'secret123' },
+        ]
+
+        const result = actionResult(
+            await createOrgBaseImageAction({
+                orgSlug: org.slug,
+                name: 'Test Image with Env',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                starterCode: mockFile,
+                isTesting: true,
+                settings: { environment },
+            }),
+        )
+
+        expect(result).toBeDefined()
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual(environment)
+    })
+
+    it('createOrgBaseImageAction defaults settings.environment to empty array', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
+
+        // Intentionally omitting settings to test default behavior
+        const result = actionResult(
+            await createOrgBaseImageAction({
+                orgSlug: org.slug,
+                name: 'Test Image without Env',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                starterCode: mockFile,
+                isTesting: true,
+                settings: { environment: [] },
+            }),
+        )
+
+        expect(result).toBeDefined()
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual([])
+    })
+
+    it('updateOrgBaseImageAction updates environment variables', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const baseImage = await db
+            .insertInto('orgBaseImage')
+            .values({
+                orgId: org.id,
+                name: 'Test Image',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodePath: 'test/path/to/starter.py',
+                settings: { environment: [{ name: 'OLDVAR', value: 'old_value' }] },
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const newEnvironment = [
+            { name: 'NEW_VAR', value: 'new_value' },
+            { name: 'ANOTHER', value: 'another_value' },
+        ]
+
+        const result = actionResult(
+            await updateOrgBaseImageAction({
+                orgSlug: org.slug,
+                imageId: baseImage.id,
+                name: 'Test Image',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                settings: { environment: newEnvironment },
+            }),
+        )
+        expect(result).toBeDefined()
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual(newEnvironment)
+    })
+
+    it('updateOrgBaseImageAction allows org admin to update a base image', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+
+        const baseImage = await insertTestBaseImage({
+            orgId: org.id,
+            name: 'Original Name',
+            language: 'R',
+            isTesting: false,
+        })
+
+        const result = actionResult(
+            await updateOrgBaseImageAction({
+                orgSlug: org.slug,
+                imageId: baseImage.id,
+                name: 'Admin Updated Name',
+                cmdLine: 'admin updated command',
+                language: 'PYTHON',
+                url: 'admin-updated-url',
+                isTesting: true,
+                settings: { environment: [{ name: 'ADMIN_VAR', value: 'admin_value' }] },
+            }),
+        )
+
+        expect(result).toBeDefined()
+        expect(result.name).toEqual('Admin Updated Name')
+        expect(result.cmdLine).toEqual('admin updated command')
+        expect(result.language).toEqual('PYTHON')
+        expect(result.url).toEqual('admin-updated-url')
+        expect(result.isTesting).toEqual(true)
+        expect((result.settings as OrgBaseImageSettings).environment).toEqual([
+            { name: 'ADMIN_VAR', value: 'admin_value' },
+        ])
+    })
+
+    it('fetchOrgBaseImagesAction returns environment variables', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: true })
+        const environment = [{ name: 'TESTVAR', value: 'test_value' }]
+
+        await db
+            .insertInto('orgBaseImage')
+            .values({
+                orgId: org.id,
+                name: 'Test Image with Env',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                isTesting: true,
+                starterCodePath: 'test/path/to/starter.py',
+                settings: { environment },
+            })
+            .execute()
+
+        const result = actionResult(await fetchOrgBaseImagesAction({ orgSlug: org.slug }))
+        expect(result).toHaveLength(1)
+        expect((result[0].settings as OrgBaseImageSettings).environment).toEqual(environment)
     })
 })

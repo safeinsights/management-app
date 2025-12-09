@@ -1,7 +1,7 @@
 import type { ActionResponse } from '@/lib/errors'
 import { FileEntry } from 'si-encryption/job-results/types'
 import { z } from 'zod'
-import type { FileType, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
+import type { FileType, Language, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -101,15 +101,24 @@ export enum StudyDocumentType {
     'DESCRIPTION' = 'DESCRIPTION',
     'AGREEMENT' = 'AGREEMENT',
 }
+export const ACCEPTED_LANGUAGE_FILE_TYPES: Record<Language, Record<string, string[]>> = {
+    R: {
+        'application/x-r': ['.r', '.R'],
+        'text/x-r': ['.r', '.R'],
+        'text/markdown': ['.rmd'],
+    },
+    PYTHON: {
+        'application/x-python': ['.py'],
+        'application/x-ipynb': ['.ipynb'],
+    },
+}
+
 export const ACCEPTED_FILE_TYPES = {
-    'application/x-r': ['.r', '.R'],
-    'text/x-r': ['.r', '.R'],
-    'text/markdown': ['.rmd'],
+    ...ACCEPTED_LANGUAGE_FILE_TYPES['R'],
+    ...ACCEPTED_LANGUAGE_FILE_TYPES['PYTHON'],
     'application/json': ['.json'],
     'text/csv': ['.csv'],
     'text/plain': ['.txt'],
-    'application/x-python': ['.py'],
-    'application/x-ipynb': ['.ipynb'],
 }
 
 export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'

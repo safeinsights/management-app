@@ -24,13 +24,22 @@ const baseImageFromOrgAndId = async ({
     const baseImage = await db
         .selectFrom('orgBaseImage')
         .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'orgBaseImage.orgId'])
+        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'org.id as orgId']) // orgId is needed for permissions check
         .where('org.slug', '=', orgSlug)
         .where('orgBaseImage.id', '=', imageId)
         .executeTakeFirstOrThrow()
 
     return { baseImage, orgId: baseImage.orgId }
 }
+
+const envVarSchema = z.object({
+    name: z.string(),
+    value: z.string(),
+})
+
+const baseImageSettingsSchema = z.object({
+    environment: z.array(envVarSchema).optional().default([]),
+})
 
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
@@ -40,6 +49,7 @@ const createOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
@@ -54,6 +64,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             .values({
                 orgId,
                 ...fieldValues,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .returningAll()
@@ -75,16 +86,15 @@ const updateOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
     .params(updateOrgBaseImageSchema)
-    .middleware(baseImageFromOrgAndId)
+    .middleware(async (args) => ({ ...(await baseImageFromOrgAndId(args)).baseImage }))
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params, baseImage, db }) => {
+    .handler(async ({ params, starterCodePath, db }) => {
         const { orgSlug, imageId, starterCode, ...fieldValues } = params
-
-        let starterCodePath = baseImage.starterCodePath
 
         // If a new starter code file is provided, upload it and delete the old one
         if (starterCode && starterCode.size > 0) {
@@ -93,7 +103,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
                 fileName: `${randomString(12)}-${starterCode.name}`,
             })
             await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
-            await deleteS3File(baseImage.starterCodePath)
+            await deleteS3File(starterCodePath)
             starterCodePath = newStarterCodePath
         }
 
@@ -101,6 +111,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             .updateTable('orgBaseImage')
             .set({
                 ...fieldValues,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .where('id', '=', imageId)
@@ -125,6 +136,7 @@ export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')
             .where('orgBaseImage.orgId', '=', orgId)
+            .orderBy('createdAt', 'desc')
             .execute()
     })
 
@@ -150,10 +162,10 @@ export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', {
             .where('orgBaseImage.id', '=', imageId)
             .executeTakeFirstOrThrow()
 
-        return { baseImage }
+        return baseImage
     })
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ baseImage, params: { orgSlug }, db }) => {
+    .handler(async ({ params: { orgSlug }, db, ...baseImage }) => {
         // If deleting a non-testing image, ensure there's at least one other non-testing image for that language
         if (!baseImage.isTesting) {
             const nonTestingImagesForLanguage = await db

@@ -51,7 +51,7 @@ export async function getStudyJobInfo(studyJobId: string) {
             jsonArrayFrom(
                 eb
                     .selectFrom('studyJobFile')
-                    .select(['id', 'name', 'fileType', 'path'])
+                    .select(['id', 'name', 'path', 'fileType'])
                     .whereRef('studyJobFile.studyJobId', '=', 'studyJob.id'),
             ).as('files'),
         ])
@@ -245,4 +245,15 @@ export async function getStudyJobFileOfType(
         throw new Error(`File of type ${fileType} not found for study job ${studyJobId}`)
     }
     return file
+}
+
+export async function fetchBaseImageForStudy(orgId: string, language: 'R' | 'PYTHON') {
+    return await Action.db
+        .selectFrom('orgBaseImage')
+        .where('language', '=', language)
+        .where('orgId', '=', orgId)
+        .where('isTesting', '=', false)
+        .orderBy('createdAt', 'desc')
+        .select(['url', 'settings'])
+        .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
 }
