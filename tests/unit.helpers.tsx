@@ -503,6 +503,7 @@ export type InsertTestBaseImageOptions = {
     url?: string
     isTesting?: boolean
     starterCodePath?: string
+    environment?: Array<{ name: string; value: string }>
 }
 
 export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
@@ -519,6 +520,7 @@ export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) =
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
             isTesting: options.isTesting ?? false,
             starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
+            settings: { environment: options.environment ?? [] },
         })
         .returningAll()
         .executeTakeFirstOrThrow()

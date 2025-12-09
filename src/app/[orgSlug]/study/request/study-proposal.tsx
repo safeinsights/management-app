@@ -3,12 +3,14 @@
 import { useMutation, useQuery, useQueryClient, zodResolver } from '@/common'
 import ProxyProvider from '@/components/proxy-provider'
 import { StudyCodeUpload } from '@/components/study-code-upload'
+import { Language } from '@/database/types'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { getLabSlug } from '@/lib/org'
 import { actionResult } from '@/lib/utils'
 import { Button, Group, Stepper } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
@@ -45,6 +47,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
         return (
             <Button
                 type="button"
+                size="md"
                 variant="primary"
                 disabled={!isValid || isPending}
                 onClick={(e) => {
@@ -52,15 +55,15 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
                     setStepIndex(stepIndex + 1)
                 }}
             >
-                Next Step
+                Save and proceed to step 4
             </Button>
         )
     }
 
     if (stepIndex == 1) {
         return (
-            <Button disabled={!isValid || isPending} type="submit" variant="primary">
-                Submit
+            <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
+                Save and proceed to review
             </Button>
         )
     }
@@ -344,32 +347,41 @@ export const StudyProposal: React.FC = () => {
                     </Stepper.Step>
 
                     <Stepper.Step>
-                        <StudyCodeUpload studyProposalForm={studyUploadForm} showStepIndicator={true} />
+                        <StudyCodeUpload
+                            studyUploadForm={studyUploadForm}
+                            showStepIndicator={true}
+                            orgSlug={studyProposalForm.values.orgSlug}
+                            language={studyProposalForm.values.language as Language}
+                        />
                     </Stepper.Step>
                 </Stepper>
 
                 <Group mt="xxl" style={{ width: '100%' }}>
-                    {stepIndex === 1 && (
-                        <Button
-                            type="button"
-                            disabled={isPending}
-                            variant="outline"
-                            onClick={() => setStepIndex(stepIndex - 1)}
-                        >
-                            Back
-                        </Button>
-                    )}
-
                     <Group style={{ marginLeft: 'auto' }}>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            disabled={!studyProposalForm.isDirty() || isPending || isSavingDraft}
-                            loading={isSavingDraft}
-                            onClick={() => saveDraft(studyProposalForm.getValues())}
-                        >
-                            Save as draft
-                        </Button>
+                        {stepIndex === 0 && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="md"
+                                disabled={!studyProposalForm.isDirty() || isPending || isSavingDraft}
+                                loading={isSavingDraft}
+                                onClick={() => saveDraft(studyProposalForm.getValues())}
+                            >
+                                Save as draft
+                            </Button>
+                        )}
+                        {stepIndex === 1 && (
+                            <Button
+                                type="button"
+                                size="md"
+                                disabled={isPending}
+                                variant="subtle"
+                                onClick={() => setStepIndex(stepIndex - 1)}
+                                leftSection={<CaretLeftIcon />}
+                            >
+                                Previous
+                            </Button>
+                        )}
                         <StepperButtons
                             form={studyProposalForm}
                             stepIndex={stepIndex}

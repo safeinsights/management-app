@@ -29,7 +29,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
-    const studyProposalForm = useForm<ResubmitProposalFormValues>({
+    const studyUploadForm = useForm<ResubmitProposalFormValues>({
         validate: zodResolver(resubmitStudySchema),
         initialValues: {
             mainCodeFile: null,
@@ -80,13 +80,13 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     })
 
     return (
-        <form onSubmit={studyProposalForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
+        <form onSubmit={studyUploadForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
             <Stack>
-                <StudyCodeUpload studyProposalForm={studyProposalForm} />
+                <StudyCodeUpload studyUploadForm={studyUploadForm} language={study.language} orgSlug={study.orgSlug} />
 
                 <Group justify="flex-end" mt="md">
                     <ResubmitCancelButton
-                        isDirty={studyProposalForm.isDirty()}
+                        isDirty={studyUploadForm.isDirty()}
                         disabled={isPending}
                         href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />

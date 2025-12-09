@@ -12,7 +12,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { jobInfoForJobId, latestJobForStudy } from '../db/queries'
+import { fetchBaseImageForStudy, jobInfoForJobId, latestJobForStudy } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -79,6 +79,10 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
+    // Fetch base image settings for the study
+    const latestJob = await latestJobForStudy(studyId)
+    const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
+
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
             errorMessage: 'Failed to get workspace',
@@ -92,28 +96,47 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
-            return await createCoderWorkspace(studyId, user.username)
+            return await createCoderWorkspace({
+                studyId,
+                username: user.username,
+                containerImage: baseImage.url,
+                environment: baseImage.settings?.environment || [],
+            })
         }
         throw error
     }
 }
 
-async function createCoderWorkspace(studyId: string, username: string): Promise<CoderWorkspace> {
+interface CreateCoderWorkspaceOptions {
+    studyId: string
+    username: string
+    containerImage: string
+    environment?: Array<{ name: string; value: string }>
+}
+
+async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
+    const { studyId, username } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
     await initializeWorkspaceCodeFiles(studyId)
 
+    const richParameterValues: Array<{ name: string; value: string }> = [
+        {
+            name: 'study_id',
+            value: options.studyId,
+        },
+        {
+            name: 'container_image',
+            value: options.containerImage,
+        },
+    ]
+
     const data = {
         name: workspaceName,
         template_id: await getCoderTemplateId(),
         automatic_updates: 'always',
-        rich_parameter_values: [
-            {
-                name: 'Study ID',
-                value: studyId,
-            },
-        ],
+        rich_parameter_values: richParameterValues,
     }
 
     return coderFetch<CoderWorkspace>(coderWorkspaceCreatePath(await getCoderOrganizationId(), username), {
@@ -148,6 +171,8 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const mainCodeFile = latestJob.files.filter((file) => file.fileType === 'MAIN-CODE')
     const supplementalCodeFiles = latestJob.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
 
+    logger.info(`Initializing workspace with code files for study ${studyId} ...`)
+
     for (const codeFile of mainCodeFile.concat(supplementalCodeFiles)) {
         const fileData = await fetchFileContents(
             pathForStudyJobCodeFile(
@@ -156,6 +181,8 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
             ),
         )
         const targetFilePath = path.join(coderBaseFilePath, studyId, codeFile.name)
+
+        logger.info(`Writing ${codeFile.name} to ${targetFilePath} for study ${studyId}`)
 
         // Create parent directory if needed and then write file
         await fs.mkdir(path.dirname(targetFilePath), { recursive: true })

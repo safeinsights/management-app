@@ -32,6 +32,15 @@ const baseImageFromOrgAndId = async ({
     return { baseImage }
 }
 
+const envVarSchema = z.object({
+    name: z.string(),
+    value: z.string(),
+})
+
+const baseImageSettingsSchema = z.object({
+    environment: z.array(envVarSchema).optional().default([]),
+})
+
 const createOrgBaseImageSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
@@ -40,6 +49,7 @@ const createOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
@@ -54,6 +64,7 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             .values({
                 orgId,
                 ...fieldValues,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .returningAll()
@@ -75,6 +86,7 @@ const updateOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
+    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
 })
 
 export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
@@ -101,6 +113,7 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             .updateTable('orgBaseImage')
             .set({
                 ...fieldValues,
+                settings: fieldValues.settings,
                 starterCodePath,
             })
             .where('id', '=', imageId)
@@ -125,6 +138,7 @@ export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
             .selectFrom('orgBaseImage')
             .selectAll('orgBaseImage')
             .where('orgBaseImage.orgId', '=', orgId)
+            .orderBy('createdAt', 'desc')
             .execute()
     })
 
