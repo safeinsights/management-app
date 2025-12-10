@@ -6,15 +6,38 @@ import { StudyOrgSelector } from '@/components/study/study-org-selector'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { ProgrammingLanguageSection } from '@/components/study/programming-language-section'
 import { useUser } from '@clerk/nextjs'
-import { Divider, FileInput, Grid, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
+import { Divider, FileInput, Grid, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import React, { FC } from 'react'
 import { StudyProposalFormValues } from './study-proposal-form-schema'
 
+export type ExistingFilePaths = {
+    descriptionDocPath?: string | null
+    irbDocPath?: string | null
+    agreementDocPath?: string | null
+}
+
+const ExistingFileIndicator: FC<{ path: string | null | undefined; newFile: File | null | undefined }> = ({
+    path,
+    newFile,
+}) => {
+    if (!path || newFile) return null
+    const fileName = path.split('/').pop() || path
+    return (
+        <Group gap="xs" mt="xs" wrap="nowrap">
+            <FileDocIcon size={14} style={{ flexShrink: 0 }} />
+            <Text fz="xs" c="dimmed">
+                Current: {fileName}
+            </Text>
+        </Group>
+    )
+}
+
 export const StudyProposalForm: FC<{
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
-}> = ({ studyProposalForm }) => {
+    existingFiles?: ExistingFilePaths
+}> = ({ studyProposalForm, existingFiles }) => {
     const { user } = useUser()
     const theme = useMantineTheme()
     const color = theme.colors.blue[7]
@@ -124,6 +147,10 @@ export const StudyProposalForm: FC<{
                                     studyProposalForm.validateField('totalFileSize')
                                 }}
                             />
+                            <ExistingFileIndicator
+                                path={existingFiles?.descriptionDocPath}
+                                newFile={studyProposalForm.values.descriptionDocument}
+                            />
                         </Grid.Col>
                     </Grid>
 
@@ -145,6 +172,10 @@ export const StudyProposalForm: FC<{
                                     studyProposalForm.setFieldValue('irbDocument', file)
                                     studyProposalForm.validateField('totalFileSize')
                                 }}
+                            />
+                            <ExistingFileIndicator
+                                path={existingFiles?.irbDocPath}
+                                newFile={studyProposalForm.values.irbDocument}
                             />
                         </Grid.Col>
                     </Grid>
@@ -170,6 +201,10 @@ export const StudyProposalForm: FC<{
                                     studyProposalForm.setFieldValue('agreementDocument', file)
                                     studyProposalForm.validateField('totalFileSize')
                                 }}
+                            />
+                            <ExistingFileIndicator
+                                path={existingFiles?.agreementDocPath}
+                                newFile={studyProposalForm.values.agreementDocument}
                             />
                         </Grid.Col>
 

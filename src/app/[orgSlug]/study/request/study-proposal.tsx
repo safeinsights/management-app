@@ -33,15 +33,50 @@ import {
 } from './study-proposal-form-schema'
 import { Routes } from '@/lib/routes'
 
+type ExistingDraftFiles = {
+    descriptionDocPath?: string | null
+    irbDocPath?: string | null
+    agreementDocPath?: string | null
+    mainCodeFileName?: string | null
+    additionalCodeFileNames?: string[]
+}
+
 type StepperButtonsProps = {
-    form: { isValid(): boolean }
+    form: UseFormReturnType<StudyProposalFormValues>
     stepIndex: number
     isPending: boolean
     setStepIndex: (i: number) => void
+    existingFiles?: ExistingDraftFiles
 }
 
-const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
-    const isValid = form.isValid()
+const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex, existingFiles }) => {
+    const formValues = form.getValues()
+
+    // Step 0 validity: simple existence checks (accepts either new files OR existing files from draft)
+    // drafts may have files in S3 but no File objects
+    const isStep0Valid = () => {
+        const hasDescription = !!formValues.descriptionDocument || !!existingFiles?.descriptionDocPath
+        const hasIrb = !!formValues.irbDocument || !!existingFiles?.irbDocPath
+        const hasAgreement = !!formValues.agreementDocument || !!existingFiles?.agreementDocPath
+
+        return (
+            !!formValues.orgSlug &&
+            !!formValues.language &&
+            !!formValues.title &&
+            formValues.title.length >= 5 &&
+            hasDescription &&
+            hasIrb &&
+            hasAgreement
+        )
+    }
+
+    // Step 1 validity: check for code files (new File objects OR existing files from draft)
+    const isStep1Valid = () => {
+        const hasMainCodeFile = !!formValues.mainCodeFile || !!existingFiles?.mainCodeFileName
+        return hasMainCodeFile
+    }
+
+    const isValid = stepIndex === 0 ? isStep0Valid() : isStep1Valid()
 
     if (stepIndex == 0) {
         return (
@@ -116,29 +151,12 @@ export const StudyProposal: React.FC = () => {
     const [sessionStudyId, setSessionStudyId] = useState<string | null>(null)
     const draftStudyId = urlStudyId || sessionStudyId
 
-    console.warn('[Draft Debug] urlStudyId:', urlStudyId)
-    console.warn('[Draft Debug] sessionStudyId:', sessionStudyId)
-    console.warn('[Draft Debug] draftStudyId:', draftStudyId)
-
     // Fetch draft data if studyId is in URL
-    const {
-        data: draftData,
-        isLoading,
-        error,
-    } = useQuery({
+    const { data: draftData } = useQuery({
         queryKey: ['draft-study', urlStudyId],
-        queryFn: async () => {
-            console.warn('[Draft Debug] Fetching draft data for studyId:', urlStudyId)
-            const result = await getDraftStudyAction({ studyId: urlStudyId! })
-            console.warn('[Draft Debug] getDraftStudyAction result:', result)
-            return result
-        },
+        queryFn: () => getDraftStudyAction({ studyId: urlStudyId! }),
         enabled: !!urlStudyId,
     })
-
-    console.warn('[Draft Debug] draftData:', draftData)
-    console.warn('[Draft Debug] isLoading:', isLoading)
-    console.warn('[Draft Debug] error:', error)
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
@@ -169,22 +187,13 @@ export const StudyProposal: React.FC = () => {
 
     // Populate form with draft data when loaded
     useEffect(() => {
-        console.warn('[Draft Debug] useEffect triggered, draftData:', draftData)
-        console.warn('[Draft Debug] draftData has title?', draftData && 'title' in draftData)
-
         if (draftData && 'title' in draftData) {
-            console.warn('[Draft Debug] Setting form values:', {
-                title: draftData.title,
-                piName: draftData.piName,
-                language: draftData.language,
-                orgSlug: draftData.orgSlug,
-            })
             studyProposalForm.setValues({
                 title: draftData.title || '',
                 piName: draftData.piName || '',
                 language: draftData.language || null,
                 orgSlug: draftData.orgSlug || '',
-                // Note: Files cannot be restored from paths - user will need to re-upload
+                // File inputs start empty - existing files are tracked via existingFiles prop
                 irbDocument: null,
                 descriptionDocument: null,
                 agreementDocument: null,
@@ -192,7 +201,6 @@ export const StudyProposal: React.FC = () => {
                 additionalCodeFiles: [],
             })
             studyProposalForm.resetDirty()
-            console.warn('[Draft Debug] Form values after setValues:', studyProposalForm.getValues())
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draftData])
@@ -306,8 +314,11 @@ export const StudyProposal: React.FC = () => {
         },
         onSuccess(studyId) {
             setSessionStudyId(studyId)
-            // Invalidate the draft query cache so fresh data is fetched
+            // Invalidate all related query caches so fresh data is fetched
             queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
+            // Also invalidate dashboard queries so the list reflects the updated draft
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             // Update URL with studyId so it persists on page refresh
             if (!urlStudyId) {
                 const url = new URL(window.location.href)
@@ -331,7 +342,18 @@ export const StudyProposal: React.FC = () => {
     })
 
     return (
-        <ProxyProvider isDirty={studyProposalForm.isDirty()}>
+        <ProxyProvider
+            isDirty={studyProposalForm.isDirty()}
+            onSaveDraft={async () => {
+                await new Promise<void>((resolve, reject) => {
+                    saveDraft(studyProposalForm.getValues(), {
+                        onSuccess: () => resolve(),
+                        onError: (error) => reject(error),
+                    })
+                })
+            }}
+            isSavingDraft={isSavingDraft}
+        >
             <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
                 <Stepper
                     unstyled
@@ -343,7 +365,18 @@ export const StudyProposal: React.FC = () => {
                     }}
                 >
                     <Stepper.Step>
-                        <StudyProposalForm studyProposalForm={studyProposalForm} />
+                        <StudyProposalForm
+                            studyProposalForm={studyProposalForm}
+                            existingFiles={
+                                draftData && 'descriptionDocPath' in draftData
+                                    ? {
+                                          descriptionDocPath: draftData.descriptionDocPath,
+                                          irbDocPath: draftData.irbDocPath,
+                                          agreementDocPath: draftData.agreementDocPath,
+                                      }
+                                    : undefined
+                            }
+                        />
                     </Stepper.Step>
 
                     <Stepper.Step>
@@ -387,6 +420,17 @@ export const StudyProposal: React.FC = () => {
                             stepIndex={stepIndex}
                             isPending={isPending}
                             setStepIndex={setStepIndex}
+                            existingFiles={
+                                draftData && 'descriptionDocPath' in draftData
+                                    ? {
+                                          descriptionDocPath: draftData.descriptionDocPath,
+                                          irbDocPath: draftData.irbDocPath,
+                                          agreementDocPath: draftData.agreementDocPath,
+                                          mainCodeFileName: draftData.mainCodeFileName,
+                                          additionalCodeFileNames: draftData.additionalCodeFileNames,
+                                      }
+                                    : undefined
+                            }
                         />
                     </Group>
                 </Group>
