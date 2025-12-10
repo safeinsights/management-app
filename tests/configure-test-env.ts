@@ -120,6 +120,30 @@ async function setupUsers() {
                 .execute()
             console.log(`Created single-language R base image for org ${singleLangOrg.id}`) // eslint-disable-line no-console
         }
+
+        // Ensure a dedicated org where we have a real org admin WITHOUT SI admin rights
+        // We use the reviewer user as org admin in this case
+        // We need this org for e2e org admin specific tests
+        let reviewerAdminOrg = await db
+            .selectFrom('org')
+            .selectAll('org')
+            .where('slug', '=', 'reviewer-is-org-admin')
+            .executeTakeFirst()
+
+        if (!reviewerAdminOrg) {
+            reviewerAdminOrg = await db
+                .insertInto('org')
+                .values({
+                    slug: 'reviewer-is-org-admin',
+                    name: 'Reviewer Admin Enclave',
+                    type: 'enclave',
+                    email: 'reviewer-admin-enclave@example.com',
+                    description: 'Enclave where the reviewer is an admin',
+                    settings: { publicKey: pubKeyStr },
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+        }
     }
 
     for (const clerkId of CLERK_ADMIN_TEST_IDS) {
@@ -139,6 +163,7 @@ async function setupUsers() {
             slug: 'openstax-lab',
             isAdmin: true,
         })
+
         console.log(`setup admin user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 
@@ -159,6 +184,10 @@ async function setupUsers() {
 
         // Reviewers go to enclave org
         await findOrCreateOrgMembership({ userId, slug: 'openstax', isAdmin: false })
+
+        // Reviewer is Admin of the special org
+        await findOrCreateOrgMembership({ userId, slug: 'reviewer-is-org-admin', isAdmin: true })
+
         console.log(`setup reviewer user ${userId} ${clerkId}`) // eslint-disable-line no-console
     }
 }

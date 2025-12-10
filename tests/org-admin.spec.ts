@@ -13,10 +13,10 @@ test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
         const email = faker.internet.email({ provider: 'test.com' })
 
-        await visitClerkProtectedPage({ page, role: 'admin', url: '/openstax/admin/team' })
+        await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer-is-org-admin/admin/team' })
 
         // the admin user should also appear in the list, wait for it to load
-        await page.waitForSelector(`text=${TestingUsers.admin.identifier}`, { state: 'visible' })
+        await page.waitForSelector(`text=${TestingUsers.reviewer.identifier}`, { state: 'visible' })
 
         // create an invite
         const inviteBtn = page.getByRole('button', { name: /invite people/i })
@@ -87,8 +87,8 @@ test.describe('Organization Admin', () => {
         // Navigate as org admin to the settings page for the primary admin org
         await visitClerkProtectedPage({
             page,
-            role: 'admin',
-            url: '/openstax/admin/settings',
+            role: 'reviewer',
+            url: '/reviewer-is-org-admin/admin/settings',
         })
 
         // Ensure we are on the Settings page and the Base Images section is visible
