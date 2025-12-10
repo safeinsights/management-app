@@ -289,11 +289,15 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     })
 
 // Fetch draft study data for editing
+// Note: We don't use requireAbilityTo here because drafts should be accessible
+// to the researcher who created them regardless of current org context.
 export const getDraftStudyAction = new Action('getDraftStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('view', 'Study')
     .handler(async ({ db, params: { studyId }, session }) => {
+        if (!session) {
+            throw new Error('Authentication required')
+        }
+
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
