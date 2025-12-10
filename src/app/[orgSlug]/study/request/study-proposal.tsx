@@ -69,13 +69,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
         )
     }
 
-    // Step 1 validity: check for code files (new File objects OR existing files from draft)
-    const isStep1Valid = () => {
-        const hasMainCodeFile = !!formValues.mainCodeFile || !!existingFiles?.mainCodeFileName
-        return hasMainCodeFile
-    }
-
-    const isValid = stepIndex === 0 ? isStep0Valid() : isStep1Valid()
+    const isValid = stepIndex === 0 ? isStep0Valid() : form.isValid()
 
     if (stepIndex == 0) {
         return (

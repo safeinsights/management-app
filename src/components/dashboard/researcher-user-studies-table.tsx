@@ -67,7 +67,10 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
                 {study.status === 'DRAFT' ? (
                     <Link href={Routes.studyEdit({ orgSlug, studyId: study.id })}>Edit</Link>
                 ) : (
-                    <Link href={Routes.studyView({ orgSlug, studyId: study.id })} fw={hasFilesApproved ? 600 : undefined}>
+                    <Link
+                        href={Routes.studyView({ orgSlug, studyId: study.id })}
+                        fw={hasFilesApproved ? 600 : undefined}
+                    >
                         View
                     </Link>
                 )}
