@@ -127,6 +127,7 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
 }
 
 // Convert partial form values to draft study info (handles missing fields)
+// Note: code files are handled separately in step 4, not during draft save
 function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
     return {
         title: formValues.title || undefined,
@@ -135,8 +136,6 @@ function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
         descriptionDocPath: formValues.descriptionDocument?.name,
         agreementDocPath: formValues.agreementDocument?.name,
         irbDocPath: formValues.irbDocument?.name,
-        mainCodeFilePath: formValues.mainCodeFile?.name,
-        additionalCodeFilePaths: formValues.additionalCodeFiles?.map((file) => file.name),
     }
 }
 
@@ -273,8 +272,6 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                     await onUpdateDraftStudyAction({
                         studyId: draftStudyId,
                         studyInfo: draftInfo,
-                        mainCodeFileName: formValues.mainCodeFile?.name,
-                        codeFileNames: formValues.additionalCodeFiles?.map((f) => f.name),
                     }),
                 )
             } else {
@@ -284,13 +281,11 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                         orgSlug: formValues.orgSlug || '',
                         studyInfo: draftInfo,
                         submittingOrgSlug: getLabSlug(submittingOrgSlug),
-                        mainCodeFileName: formValues.mainCodeFile?.name,
-                        codeFileNames: formValues.additionalCodeFiles?.map((f) => f.name),
                     }),
                 )
             }
 
-            // Upload files that exist
+            // Upload document files (code files are handled in step 4)
             if (formValues.irbDocument && result.urlForIrbUpload) {
                 filesToUpload.push([formValues.irbDocument, result.urlForIrbUpload])
             }
@@ -299,12 +294,6 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
             }
             if (formValues.descriptionDocument && result.urlForDescriptionUpload) {
                 filesToUpload.push([formValues.descriptionDocument, result.urlForDescriptionUpload])
-            }
-            if (formValues.mainCodeFile && result.urlForCodeUpload) {
-                filesToUpload.push([formValues.mainCodeFile, result.urlForCodeUpload])
-                formValues.additionalCodeFiles?.forEach((f) => {
-                    filesToUpload.push([f, result.urlForCodeUpload!])
-                })
             }
 
             if (filesToUpload.length > 0) {

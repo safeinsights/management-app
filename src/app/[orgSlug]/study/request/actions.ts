@@ -173,59 +173,44 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     .params(onSaveDraftStudyActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
     .requireAbilityTo('create', 'Study')
-    .handler(
-        async ({
-            db,
-            params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames, submittingOrgSlug },
-            session,
-            orgId,
-        }) => {
-            const userId = session.user.id
-            const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
-            const studyId = uuidv7()
-            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
+    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+        const userId = session.user.id
+        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
+        const studyId = uuidv7()
+        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
-            await db
-                .insertInto('study')
-                .values({
-                    id: studyId,
-                    title: studyInfo.title || 'Untitled Draft',
-                    piName: studyInfo.piName || '',
-                    language: studyInfo.language,
-                    descriptionDocPath: studyInfo.descriptionDocPath || null,
-                    irbDocPath: studyInfo.irbDocPath || null,
-                    agreementDocPath: studyInfo.agreementDocPath || null,
-                    orgId,
-                    researcherId: userId,
-                    submittedByOrgId: submittingLab.orgId,
-                    containerLocation,
-                    status: 'DRAFT',
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
+        await db
+            .insertInto('study')
+            .values({
+                id: studyId,
+                title: studyInfo.title || 'Untitled Draft',
+                piName: studyInfo.piName || '',
+                language: studyInfo.language,
+                descriptionDocPath: studyInfo.descriptionDocPath || null,
+                irbDocPath: studyInfo.irbDocPath || null,
+                agreementDocPath: studyInfo.agreementDocPath || null,
+                orgId,
+                researcherId: userId,
+                submittedByOrgId: submittingLab.orgId,
+                containerLocation,
+                status: 'DRAFT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-            // Only create study job if code files are provided
-            let jobResult: Awaited<ReturnType<typeof addStudyJob>> | undefined
-            if (mainCodeFileName) {
-                jobResult = await addStudyJob(db, userId, studyId, orgSlug, mainCodeFileName, codeFileNames || [])
-            }
-
-            return {
-                studyId,
-                studyJobId: jobResult?.studyJobId,
-                urlForCodeUpload: jobResult?.urlForCodeUpload,
-                urlForAgreementUpload: await signedUrlForStudyUpload(
-                    pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-                ),
-                urlForIrbUpload: await signedUrlForStudyUpload(
-                    pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-                ),
-                urlForDescriptionUpload: await signedUrlForStudyUpload(
-                    pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-                ),
-            }
-        },
-    )
+        return {
+            studyId,
+            urlForAgreementUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            ),
+            urlForIrbUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            ),
+            urlForDescriptionUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            ),
+        }
+    })
 
 // Schema for updating an existing draft
 const onUpdateDraftStudyActionArgsSchema = onSaveDraftStudyActionArgsSchema
@@ -236,7 +221,7 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
     .params(onUpdateDraftStudyActionArgsSchema)
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('update', 'Study')
-    .handler(async ({ db, params: { studyId, studyInfo, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
         const userId = session.user.id
 
         // Update study fields (only defined values)
@@ -258,24 +243,8 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
                 .execute()
         }
 
-        // Handle code files update if provided
-        let jobResult: Awaited<ReturnType<typeof addStudyJob>> | undefined
-        if (mainCodeFileName) {
-            // Delete existing jobs and create new one
-            const existingJobs = await db.selectFrom('studyJob').select('id').where('studyId', '=', studyId).execute()
-            if (existingJobs.length > 0) {
-                const jobIds = existingJobs.map((j) => j.id)
-                await db.deleteFrom('jobStatusChange').where('studyJobId', 'in', jobIds).execute()
-                await db.deleteFrom('studyJobFile').where('studyJobId', 'in', jobIds).execute()
-                await db.deleteFrom('studyJob').where('id', 'in', jobIds).execute()
-            }
-            jobResult = await addStudyJob(db, userId, studyId, orgSlug, mainCodeFileName, codeFileNames || [])
-        }
-
         return {
             studyId,
-            studyJobId: jobResult?.studyJobId,
-            urlForCodeUpload: jobResult?.urlForCodeUpload,
             urlForAgreementUpload: await signedUrlForStudyUpload(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
             ),
