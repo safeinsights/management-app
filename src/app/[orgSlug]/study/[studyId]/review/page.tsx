@@ -9,7 +9,9 @@ import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
-import { StudyReviewButtons } from './study-review-buttons'
+import Link from 'next/link'
+import { ResearcherReviewButtons } from './researcher-review-buttons'
+import { Routes } from '@/lib/routes'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -33,34 +35,38 @@ export default async function StudyReviewPage(props: {
             <OrgBreadcrumbs
                 crumbs={{
                     orgSlug: orgSlug,
-                    current: 'Study Details',
+                    current: 'Review your submission',
                 }}
             />
-
-            <Title order={1}>Study details</Title>
+            <Title order={2} size="h4" fw={500}>
+                Review your submission
+            </Title>
+            <Divider />
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        <StudyReviewButtons study={study} />
+                        <Link href={Routes.studyEdit({ orgSlug, studyId })}>Edit</Link>
                     </Group>
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
             </Paper>
-
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4} size="xl">
-                        Study Code
-                    </Title>
+                    <Group justify="space-between" align="center">
+                        <Title order={4} size="xl">
+                            Study Code
+                        </Title>
+                        <Link href={Routes.studyResubmit({ orgSlug, studyId })}>Edit</Link>
+                    </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
-
             <StudyResults job={job} />
+            <ResearcherReviewButtons study={study} />
         </Stack>
     )
 }
