@@ -57,23 +57,11 @@ export default async function StudyReviewPage(props: {
             </Paper>
             <Paper bg="white" p="xxl">
                 <Stack>
-                    <Title order={4} size="xl">
-                        Programming Language
-                    </Title>
-                    <Divider c="dimmed" />
-                    <p>Programming Language: {study.language}</p>
-                </Stack>
-            </Paper>
-            9
-            <Paper bg="white" p="xxl">
-                <Stack>
                     <Group justify="space-between" align="center">
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
-                        <Button component={Link} href={Routes.studyResubmit({ orgSlug, studyId })} variant="outline">
-                            Edit
-                        </Button>
+                        <Link href={Routes.studyResubmit({ orgSlug, studyId })}>Edit</Link>
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
