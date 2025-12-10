@@ -163,12 +163,10 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
     )
 
 // Schema for creating a new draft (partial data allowed)
-const onSaveDraftStudyActionArgsSchema = z.object({
+const onSaveDraftStudyActionArgsSchema = onCreateStudyActionArgsSchema.partial().extend({
     orgSlug: z.string(),
-    studyInfo: draftStudyApiSchema,
     submittingOrgSlug: z.string(),
-    mainCodeFileName: z.string().optional(),
-    codeFileNames: z.array(z.string()).optional(),
+    studyInfo: draftStudyApiSchema,
 })
 
 export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
@@ -230,12 +228,9 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
     )
 
 // Schema for updating an existing draft
-const onUpdateDraftStudyActionArgsSchema = z.object({
-    studyId: z.string(),
-    studyInfo: draftStudyApiSchema,
-    mainCodeFileName: z.string().optional(),
-    codeFileNames: z.array(z.string()).optional(),
-})
+const onUpdateDraftStudyActionArgsSchema = onSaveDraftStudyActionArgsSchema
+    .omit({ orgSlug: true, submittingOrgSlug: true })
+    .extend({ studyId: z.string() })
 
 export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', { performsMutations: true })
     .params(onUpdateDraftStudyActionArgsSchema)
