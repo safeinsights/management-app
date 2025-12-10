@@ -38,12 +38,10 @@ export default async function StudyReviewPage(props: {
                     current: 'Review your submission',
                 }}
             />
-
             <Title order={2} size="h4" fw={500}>
                 Review your submission
             </Title>
             <Divider />
-
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
@@ -57,17 +55,16 @@ export default async function StudyReviewPage(props: {
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
             </Paper>
-
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Title order={4} size="xl">
                         Programming Language
                     </Title>
                     <Divider c="dimmed" />
-                    <p>Programming Language: {study.dataSources}</p>
+                    <p>Programming Language: {study.language}</p>
                 </Stack>
             </Paper>
-
+            9
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
@@ -82,9 +79,7 @@ export default async function StudyReviewPage(props: {
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
-
             <StudyResults job={job} />
-
             <ResearcherReviewButtons study={study} />
         </Stack>
     )

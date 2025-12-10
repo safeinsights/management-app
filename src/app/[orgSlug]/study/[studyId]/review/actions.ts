@@ -40,7 +40,7 @@ export const saveStudyAsDraftAction = new Action('saveStudyAsDraftAction')
         if (!session) throw new Error('Unauthorized')
         await db
             .updateTable('study')
-            .set({ status: 'PROPOSAL-DRAFT' })
+            .set({ status: 'DRAFT' })
             .where('id', '=', studyId)
             .where('researcherId', '=', session.user.id)
             .execute()
