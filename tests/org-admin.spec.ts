@@ -144,7 +144,7 @@ test.describe('Organization Admin', () => {
         await expect(row).toBeVisible()
         await expect(row.getByText('starter-code.r')).toBeVisible()
 
-        // Optional: open the "View Starter Code" modal to ensure code viewer integrates
+        // Open the "View Starter Code" modal to ensure code viewer integrates
         await actionButtons.nth(0).click()
         await expect(page.getByText(/starter code:/i)).toBeVisible()
     })
