@@ -30,7 +30,8 @@ describe('Study Job Actions', () => {
             jobStatus: 'FILES-APPROVED',
         })
 
-        db.insertInto('studyJobFile')
+        await db
+            .insertInto('studyJobFile')
             .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
             .executeTakeFirstOrThrow()
 
@@ -43,7 +44,8 @@ describe('Study Job Actions', () => {
     test('fetchEncryptedJobFilesAction', async () => {
         const { org } = await mockSessionWithTestData()
         const { job } = await insertTestStudyJobData({ org })
-        db.insertInto('studyJobFile')
+        await db
+            .insertInto('studyJobFile')
             .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-LOG' })
             .executeTakeFirstOrThrow()
 
