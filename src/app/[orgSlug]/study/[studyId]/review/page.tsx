@@ -7,7 +7,7 @@ import { StudyDetails } from '@/components/study/study-details'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { latestJobForStudy } from '@/server/db/queries'
-import { Button, Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
 import Link from 'next/link'
 import { ResearcherReviewButtons } from './researcher-review-buttons'
@@ -48,9 +48,7 @@ export default async function StudyReviewPage(props: {
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
-                        <Button component={Link} href={Routes.studyEdit({ orgSlug, studyId })} variant="outline">
-                            Edit
-                        </Button>
+                        <Link href={Routes.studyEdit({ orgSlug, studyId })}>Edit</Link>
                     </Group>
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
