@@ -86,7 +86,7 @@ const StudyRow: React.FC<{ study: Studies[number]; orgSlug: string }> = ({ study
             <TableTd>
                 {study.status === 'DRAFT' ? (
                     <Link
-                        href={Routes.studyDraftEdit({ orgSlug, studyId: study.id })}
+                        href={Routes.studyEdit({ orgSlug, studyId: study.id })}
                         aria-label={`Edit draft study ${study.title}`}
                     >
                         Edit

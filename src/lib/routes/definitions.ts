@@ -90,8 +90,6 @@ export const Routes = {
 
     studyRequest: makeRoute(({ orgSlug }) => `/${orgSlug}/study/request`, OrgParams),
 
-    studyDraftEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/request?studyId=${studyId}`, StudyParams),
-
     studyView: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/view`, StudyParams),
 
     studyEdit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/edit`, StudyParams),

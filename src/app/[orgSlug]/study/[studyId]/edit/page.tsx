@@ -2,6 +2,7 @@ import { db } from '@/database'
 import { Form } from './form'
 import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
+import { StudyProposal } from '../../request/study-proposal'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,11 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
 
     if (!study) {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
+    }
+
+    // Draft studies use the full proposal form
+    if (study.status === 'DRAFT') {
+        return <StudyProposal studyId={studyId} />
     }
 
     return (

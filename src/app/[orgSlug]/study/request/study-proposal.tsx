@@ -13,8 +13,7 @@ import { Button, Group, Stepper } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import type { Route } from 'next'
+import { useParams, useRouter } from 'next/navigation'
 import React, { useState, useEffect } from 'react'
 import { omit } from 'remeda'
 import {
@@ -141,21 +140,24 @@ function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
     }
 }
 
-export const StudyProposal: React.FC = () => {
+type StudyProposalProps = {
+    studyId?: string // Optional studyId for editing existing drafts
+}
+
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
     const [stepIndex, setStepIndex] = useState(0)
-    const searchParams = useSearchParams()
     const router = useRouter()
+    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
-    // Read studyId from URL (for reopening drafts) or use state (for same-session updates)
-    const urlStudyId = searchParams.get('studyId')
+    // Use prop studyId (from edit page) or state (for same-session updates after first save)
     const [sessionStudyId, setSessionStudyId] = useState<string | null>(null)
-    const draftStudyId = urlStudyId || sessionStudyId
+    const draftStudyId = propStudyId || sessionStudyId
 
-    // Fetch draft data if studyId is in URL
+    // Fetch draft data if studyId exists
     const { data: draftData } = useQuery({
-        queryKey: ['draft-study', urlStudyId],
-        queryFn: () => getDraftStudyAction({ studyId: urlStudyId! }),
-        enabled: !!urlStudyId,
+        queryKey: ['draft-study', draftStudyId],
+        queryFn: () => getDraftStudyAction({ studyId: draftStudyId! }),
+        enabled: !!draftStudyId,
     })
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
@@ -208,7 +210,6 @@ export const StudyProposal: React.FC = () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
-    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -319,11 +320,9 @@ export const StudyProposal: React.FC = () => {
             // Also invalidate dashboard queries so the list reflects the updated draft
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            // Update URL with studyId so it persists on page refresh
-            if (!urlStudyId) {
-                const url = new URL(window.location.href)
-                url.searchParams.set('studyId', studyId)
-                router.replace((url.pathname + url.search) as Route)
+            // Navigate to edit route if this was a new draft (not already on edit page)
+            if (!propStudyId) {
+                router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
             }
             studyProposalForm.resetDirty()
             notifications.show({
