@@ -225,13 +225,17 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
         const userId = session.user.id
 
         // Update study fields (only defined values)
-        const updateValues: Record<string, unknown> = {}
-        if (studyInfo.title !== undefined) updateValues.title = studyInfo.title
-        if (studyInfo.piName !== undefined) updateValues.piName = studyInfo.piName
-        if (studyInfo.language !== undefined) updateValues.language = studyInfo.language
-        if (studyInfo.descriptionDocPath !== undefined) updateValues.descriptionDocPath = studyInfo.descriptionDocPath
-        if (studyInfo.irbDocPath !== undefined) updateValues.irbDocPath = studyInfo.irbDocPath
-        if (studyInfo.agreementDocPath !== undefined) updateValues.agreementDocPath = studyInfo.agreementDocPath
+        const updatable = [
+            'title',
+            'piName',
+            'language',
+            'descriptionDocPath',
+            'irbDocPath',
+            'agreementDocPath',
+        ] as const
+        const updateValues = Object.fromEntries(
+            updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
 
         if (Object.keys(updateValues).length > 0) {
             await db
