@@ -1,7 +1,6 @@
 'use client'
 
-import { useMutation, useQueryClient, zodResolver } from '@/common'
-import { CancelButton } from '@/components/cancel-button'
+import { useMutation, useQuery, useQueryClient, zodResolver } from '@/common'
 import ProxyProvider from '@/components/proxy-provider'
 import { StudyCodeUpload } from '@/components/study-code-upload'
 import { Language } from '@/database/types'
@@ -15,9 +14,15 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { omit } from 'remeda'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import {
+    getDraftStudyAction,
+    onCreateStudyAction,
+    onDeleteStudyAction,
+    onSaveDraftStudyAction,
+    onUpdateDraftStudyAction,
+} from './actions'
 import { StudyProposalForm } from './study-proposal-form'
 import {
     codeFilesSchema,
@@ -27,15 +32,44 @@ import {
 } from './study-proposal-form-schema'
 import { Routes } from '@/lib/routes'
 
+type ExistingDraftFiles = {
+    descriptionDocPath?: string | null
+    irbDocPath?: string | null
+    agreementDocPath?: string | null
+    mainCodeFileName?: string | null
+    additionalCodeFileNames?: string[]
+}
+
 type StepperButtonsProps = {
-    form: { isValid(): boolean }
+    form: UseFormReturnType<StudyProposalFormValues>
     stepIndex: number
     isPending: boolean
     setStepIndex: (i: number) => void
+    existingFiles?: ExistingDraftFiles
 }
 
-const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
-    const isValid = form.isValid()
+const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex, existingFiles }) => {
+    const formValues = form.getValues()
+
+    // Step 0 validity: simple existence checks (accepts either new files OR existing files from draft)
+    // drafts may have files in S3 but no File objects
+    const isStep0Valid = () => {
+        const hasDescription = !!formValues.descriptionDocument || !!existingFiles?.descriptionDocPath
+        const hasIrb = !!formValues.irbDocument || !!existingFiles?.irbDocPath
+        const hasAgreement = !!formValues.agreementDocument || !!existingFiles?.agreementDocPath
+
+        return (
+            !!formValues.orgSlug &&
+            !!formValues.language &&
+            !!formValues.title &&
+            formValues.title.length >= 5 &&
+            hasDescription &&
+            hasIrb &&
+            hasAgreement
+        )
+    }
+
+    const isValid = stepIndex === 0 ? isStep0Valid() : form.isValid()
 
     if (stepIndex == 0) {
         return (
@@ -86,10 +120,39 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
     }
 }
 
-export const StudyProposal: React.FC = () => {
-    const [stepIndex, setStepIndex] = useState(0)
+// Convert partial form values to draft study info (handles missing fields)
+// Note: code files are handled separately in step 4, not during draft save
+function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
+    return {
+        title: formValues.title || undefined,
+        piName: formValues.piName || undefined,
+        language: formValues.language || undefined,
+        descriptionDocPath: formValues.descriptionDocument?.name,
+        agreementDocPath: formValues.agreementDocument?.name,
+        irbDocPath: formValues.irbDocument?.name,
+    }
+}
 
+type StudyProposalProps = {
+    studyId?: string // Optional studyId for editing existing drafts
+}
+
+export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
+    const [stepIndex, setStepIndex] = useState(0)
     const router = useRouter()
+    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
+
+    // Use prop studyId (from edit page) or state (for same-session updates after first save)
+    const [sessionStudyId, setSessionStudyId] = useState<string | null>(null)
+    const draftStudyId = propStudyId || sessionStudyId
+
+    // Fetch draft data if studyId exists
+    const { data: draftData } = useQuery({
+        queryKey: ['draft-study', draftStudyId],
+        queryFn: () => getDraftStudyAction({ studyId: draftStudyId! }),
+        enabled: !!draftStudyId,
+    })
+
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
         validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
@@ -117,10 +180,29 @@ export const StudyProposal: React.FC = () => {
         ],
     })
 
+    // Populate form with draft data when loaded
+    useEffect(() => {
+        if (draftData && 'title' in draftData) {
+            studyProposalForm.setValues({
+                title: draftData.title || '',
+                piName: draftData.piName || '',
+                language: draftData.language || null,
+                orgSlug: draftData.orgSlug || '',
+                // File inputs start empty - existing files are tracked via existingFiles prop
+                irbDocument: null,
+                descriptionDocument: null,
+                agreementDocument: null,
+                mainCodeFile: null,
+                additionalCodeFiles: [],
+            })
+            studyProposalForm.resetDirty()
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draftData])
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
-    const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
     const { isPending, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -172,8 +254,88 @@ export const StudyProposal: React.FC = () => {
         },
     })
 
+    const { isPending: isSavingDraft, mutate: saveDraft } = useMutation({
+        mutationFn: async (formValues: Partial<StudyProposalFormValues>) => {
+            const draftInfo = formValuesToDraftInfo(formValues)
+            const filesToUpload: FileUpload[] = []
+
+            let result
+            if (draftStudyId) {
+                // Update existing draft
+                result = actionResult(
+                    await onUpdateDraftStudyAction({
+                        studyId: draftStudyId,
+                        studyInfo: draftInfo,
+                    }),
+                )
+            } else {
+                // Create new draft
+                result = actionResult(
+                    await onSaveDraftStudyAction({
+                        orgSlug: formValues.orgSlug || '',
+                        studyInfo: draftInfo,
+                        submittingOrgSlug: getLabSlug(submittingOrgSlug),
+                    }),
+                )
+            }
+
+            // Upload document files (code files are handled in step 4)
+            if (formValues.irbDocument && result.urlForIrbUpload) {
+                filesToUpload.push([formValues.irbDocument, result.urlForIrbUpload])
+            }
+            if (formValues.agreementDocument && result.urlForAgreementUpload) {
+                filesToUpload.push([formValues.agreementDocument, result.urlForAgreementUpload])
+            }
+            if (formValues.descriptionDocument && result.urlForDescriptionUpload) {
+                filesToUpload.push([formValues.descriptionDocument, result.urlForDescriptionUpload])
+            }
+
+            if (filesToUpload.length > 0) {
+                await uploadFiles(filesToUpload)
+            }
+
+            return result.studyId
+        },
+        onSuccess(studyId) {
+            setSessionStudyId(studyId)
+            // Invalidate all related query caches so fresh data is fetched
+            queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
+            // Also invalidate dashboard queries so the list reflects the updated draft
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
+            // Navigate to edit route if this was a new draft (not already on edit page)
+            if (!propStudyId) {
+                router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+            }
+            studyProposalForm.resetDirty()
+            notifications.show({
+                title: 'Draft Saved',
+                message: 'Your study proposal has been saved as a draft.',
+                color: 'green',
+            })
+        },
+        onError: async (error) => {
+            notifications.show({
+                color: 'red',
+                title: 'Failed to save draft',
+                message: `${errorToString(error)}\nPlease contact support.`,
+            })
+        },
+    })
+
     return (
-        <ProxyProvider isDirty={studyProposalForm.isDirty()}>
+        <ProxyProvider
+            isDirty={studyProposalForm.isDirty()}
+            onSaveDraft={async () => {
+                await new Promise<void>((resolve, reject) => {
+                    saveDraft(studyProposalForm.getValues(), {
+                        onSuccess: () => resolve(),
+                        onError: (error) => reject(error),
+                    })
+                })
+            }}
+            isSavingDraft={isSavingDraft}
+        >
             <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
                 <Stepper
                     unstyled
@@ -185,7 +347,18 @@ export const StudyProposal: React.FC = () => {
                     }}
                 >
                     <Stepper.Step>
-                        <StudyProposalForm studyProposalForm={studyProposalForm} />
+                        <StudyProposalForm
+                            studyProposalForm={studyProposalForm}
+                            existingFiles={
+                                draftData && 'descriptionDocPath' in draftData
+                                    ? {
+                                          descriptionDocPath: draftData.descriptionDocPath,
+                                          irbDocPath: draftData.irbDocPath,
+                                          agreementDocPath: draftData.agreementDocPath,
+                                      }
+                                    : undefined
+                            }
+                        />
                     </Stepper.Step>
 
                     <Stepper.Step>
@@ -200,7 +373,18 @@ export const StudyProposal: React.FC = () => {
 
                 <Group mt="xxl" style={{ width: '100%' }}>
                     <Group style={{ marginLeft: 'auto' }}>
-                        {stepIndex === 0 && <CancelButton disabled={isPending} isDirty={studyProposalForm.isDirty()} />}
+                        {stepIndex === 0 && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="md"
+                                disabled={!studyProposalForm.isDirty() || isPending || isSavingDraft}
+                                loading={isSavingDraft}
+                                onClick={() => saveDraft(studyProposalForm.getValues())}
+                            >
+                                Save as draft
+                            </Button>
+                        )}
                         {stepIndex === 1 && (
                             <Button
                                 type="button"
@@ -218,6 +402,17 @@ export const StudyProposal: React.FC = () => {
                             stepIndex={stepIndex}
                             isPending={isPending}
                             setStepIndex={setStepIndex}
+                            existingFiles={
+                                draftData && 'descriptionDocPath' in draftData
+                                    ? {
+                                          descriptionDocPath: draftData.descriptionDocPath,
+                                          irbDocPath: draftData.irbDocPath,
+                                          agreementDocPath: draftData.agreementDocPath,
+                                          mainCodeFileName: draftData.mainCodeFileName,
+                                          additionalCodeFileNames: draftData.additionalCodeFileNames,
+                                      }
+                                    : undefined
+                            }
                         />
                     </Group>
                 </Group>

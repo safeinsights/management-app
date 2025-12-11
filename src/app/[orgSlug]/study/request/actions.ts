@@ -9,7 +9,7 @@ import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { studyProposalApiSchema } from './study-proposal-form-schema'
+import { draftStudyApiSchema, studyProposalApiSchema } from './study-proposal-form-schema'
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -161,6 +161,163 @@ export const onCreateStudyAction = new Action('onCreateStudyAction', { performsM
             }
         },
     )
+
+// Schema for creating a new draft (partial data allowed)
+const onSaveDraftStudyActionArgsSchema = onCreateStudyActionArgsSchema.partial().extend({
+    orgSlug: z.string(),
+    submittingOrgSlug: z.string(),
+    studyInfo: draftStudyApiSchema,
+})
+
+export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { performsMutations: true })
+    .params(onSaveDraftStudyActionArgsSchema)
+    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
+    .requireAbilityTo('create', 'Study')
+    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+        const userId = session.user.id
+        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
+        const studyId = uuidv7()
+        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
+
+        await db
+            .insertInto('study')
+            .values({
+                id: studyId,
+                title: studyInfo.title || 'Untitled Draft',
+                piName: studyInfo.piName || '',
+                language: studyInfo.language,
+                descriptionDocPath: studyInfo.descriptionDocPath || null,
+                irbDocPath: studyInfo.irbDocPath || null,
+                agreementDocPath: studyInfo.agreementDocPath || null,
+                orgId,
+                researcherId: userId,
+                submittedByOrgId: submittingLab.orgId,
+                containerLocation,
+                status: 'DRAFT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
+
+        return {
+            studyId,
+            urlForAgreementUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            ),
+            urlForIrbUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            ),
+            urlForDescriptionUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            ),
+        }
+    })
+
+// Schema for updating an existing draft
+const onUpdateDraftStudyActionArgsSchema = onSaveDraftStudyActionArgsSchema
+    .omit({ orgSlug: true, submittingOrgSlug: true })
+    .extend({ studyId: z.string() })
+
+export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', { performsMutations: true })
+    .params(onUpdateDraftStudyActionArgsSchema)
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, studyInfo }, session, orgSlug }) => {
+        const userId = session.user.id
+
+        // Update study fields (only defined values)
+        const updatable = [
+            'title',
+            'piName',
+            'language',
+            'descriptionDocPath',
+            'irbDocPath',
+            'agreementDocPath',
+        ] as const
+        const updateValues = Object.fromEntries(
+            updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
+        )
+
+        if (Object.keys(updateValues).length > 0) {
+            await db
+                .updateTable('study')
+                .set(updateValues)
+                .where('id', '=', studyId)
+                .where('status', '=', 'DRAFT')
+                .where('researcherId', '=', userId)
+                .execute()
+        }
+
+        return {
+            studyId,
+            urlForAgreementUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+            ),
+            urlForIrbUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+            ),
+            urlForDescriptionUpload: await signedUrlForStudyUpload(
+                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+            ),
+        }
+    })
+
+// Fetch draft study data for editing
+// Note: We don't use requireAbilityTo here because drafts should be accessible
+// to the researcher who created them regardless of current org context.
+export const getDraftStudyAction = new Action('getDraftStudyAction')
+    .params(z.object({ studyId: z.string() }))
+    .handler(async ({ db, params: { studyId }, session }) => {
+        if (!session) {
+            throw new Error('Authentication required')
+        }
+
+        const study = await db
+            .selectFrom('study')
+            .innerJoin('org', 'org.id', 'study.orgId')
+            .select([
+                'study.id',
+                'study.title',
+                'study.piName',
+                'study.language',
+                'study.descriptionDocPath',
+                'study.irbDocPath',
+                'study.agreementDocPath',
+                'study.status',
+                'study.researcherId',
+                'org.slug as orgSlug',
+            ])
+            .where('study.id', '=', studyId)
+            .where('study.status', '=', 'DRAFT')
+            .where('study.researcherId', '=', session.user.id)
+            .executeTakeFirst()
+
+        if (!study) {
+            throw new Error('Draft study not found or access denied')
+        }
+
+        // Get code files if they exist
+        const studyJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
+
+        let codeFiles: { name: string; fileType: string }[] = []
+        if (studyJob) {
+            codeFiles = await db
+                .selectFrom('studyJobFile')
+                .select(['name', 'fileType'])
+                .where('studyJobId', '=', studyJob.id)
+                .execute()
+        }
+
+        return {
+            ...study,
+            mainCodeFileName: codeFiles.find((f) => f.fileType === 'MAIN-CODE')?.name,
+            additionalCodeFileNames: codeFiles.filter((f) => f.fileType === 'SUPPLEMENTAL-CODE').map((f) => f.name),
+        }
+    })
 
 export const onDeleteStudyJobAction = new Action('onDeleteStudyJobAction', { performsMutations: true })
     .params(z.object({ studyJobId: z.string() }))
