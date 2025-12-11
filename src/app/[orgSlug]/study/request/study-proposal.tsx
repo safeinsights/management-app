@@ -71,7 +71,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
 
     const isValid = stepIndex === 0 ? isStep0Valid() : form.isValid()
 
-    if (stepIndex == 0) {
+    if (stepIndex === 0) {
         return (
             <Button
                 type="button"
@@ -88,7 +88,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
         )
     }
 
-    if (stepIndex == 1) {
+    if (stepIndex === 1) {
         return (
             <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
                 Save and proceed to review
@@ -139,6 +139,7 @@ type StudyProposalProps = {
 
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
     const [stepIndex, setStepIndex] = useState(0)
+    const [codeUploadViewMode, setCodeUploadViewMode] = useState<'upload' | 'review'>('upload')
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
@@ -155,7 +156,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
 
     const studyProposalForm = useForm<StudyProposalFormValues>({
         mode: 'uncontrolled',
-        validate: zodResolver(stepIndex == 0 ? studyProposalFormSchema : codeFilesSchema),
+        validate: zodResolver(stepIndex === 0 ? studyProposalFormSchema : codeFilesSchema),
         initialValues: {
             title: '',
             piName: '',
@@ -367,6 +368,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                             showStepIndicator={true}
                             orgSlug={studyProposalForm.values.orgSlug}
                             language={studyProposalForm.values.language as Language}
+                            studyId={draftStudyId || undefined}
+                            viewMode={codeUploadViewMode}
+                            onViewModeChange={setCodeUploadViewMode}
                         />
                     </Stepper.Step>
                 </Stepper>
