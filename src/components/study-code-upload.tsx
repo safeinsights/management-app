@@ -148,14 +148,7 @@ const StudyCodeUploadModal: FC<{
         <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
             <Stack>
                 <Group gap={0}>
-                    <Text size="sm">
-                        Upload your code file(s). Important: Make sure that your main file includes the &nbsp;
-                    </Text>
-                    <Text size="sm" c="blue.7" fw="bold">
-                        Starter Code
-                    </Text>
-                    <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
-                    <Text size="sm">provided by the data organization.</Text>
+                    <Text size="sm">Upload your code file(s).</Text>
                 </Group>
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
