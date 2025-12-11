@@ -27,6 +27,7 @@ vi.mock('./db/queries', () => ({
     latestJobForStudy: vi.fn(),
     jobInfoForJobId: vi.fn(),
     fetchBaseImageForStudy: vi.fn(),
+    studyInfoForStudyId: vi.fn(() => ({ language: 'R', orgId: 'some-org' })),
 }))
 
 vi.mock('./storage', () => ({
