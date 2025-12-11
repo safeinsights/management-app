@@ -61,9 +61,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                             Study Code
                         </Title>
 
-                        {!isStatusFocused && (
-                            <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />
-                        )}
+                        {!isStatusFocused && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />}
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />

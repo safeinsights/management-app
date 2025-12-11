@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@/common'
 import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
+import { notifications } from '@mantine/notifications'
 import { useState, useCallback } from 'react'
 
 const openWorkspaceInNewTab = (url: string) => {
@@ -23,8 +24,22 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
 
+    const showErrorNotification = useCallback((message: string) => {
+        notifications.show({
+            title: 'Failed to launch IDE',
+            message,
+            color: 'red',
+        })
+    }, [])
+
     const mutation = useMutation({
-        mutationFn: ({ studyId }: { studyId: string }) => createUserAndWorkspaceAction({ studyId }),
+        mutationFn: async ({ studyId }: { studyId: string }) => {
+            const result = await createUserAndWorkspaceAction({ studyId })
+            if ('error' in result) {
+                throw new Error(typeof result.error === 'string' ? result.error : 'Failed to launch IDE')
+            }
+            return result
+        },
         onMutate: () => {
             setLoading(true)
             setError(null)
@@ -35,7 +50,9 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
         },
         onError: (err) => {
             setLoading(false)
-            setError(err instanceof Error ? err : new Error('Failed to launch IDE'))
+            const errorMessage = err instanceof Error ? err.message : 'Failed to launch IDE'
+            setError(new Error(errorMessage))
+            showErrorNotification(errorMessage)
         },
     })
 
@@ -44,18 +61,23 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
         enabled: !!workspaceId,
         refetchOnWindowFocus: false,
         queryFn: async () => {
-            return await getWorkspaceUrlAction({
+            const result = await getWorkspaceUrlAction({
                 studyId,
                 workspaceId: workspaceId as string,
             })
+            if (result && typeof result === 'object' && 'error' in result) {
+                throw new Error(typeof result.error === 'string' ? result.error : 'Failed to get workspace URL')
+            }
+            return result
         },
         refetchInterval: (query) => {
             if (!workspaceId) return false
             if (query.state.error) {
                 setLoading(false)
-                setError(
-                    query.state.error instanceof Error ? query.state.error : new Error('Failed to get workspace URL'),
-                )
+                const errorMessage =
+                    query.state.error instanceof Error ? query.state.error.message : 'Failed to get workspace URL'
+                setError(new Error(errorMessage))
+                showErrorNotification(errorMessage)
                 return false
             }
             const url = query.state.data
