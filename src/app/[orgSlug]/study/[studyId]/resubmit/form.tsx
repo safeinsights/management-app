@@ -82,7 +82,12 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     return (
         <form onSubmit={studyUploadForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
             <Stack>
-                <StudyCodeUpload studyUploadForm={studyUploadForm} language={study.language} orgSlug={study.orgSlug} />
+                <StudyCodeUpload
+                    studyUploadForm={studyUploadForm}
+                    language={study.language}
+                    orgSlug={study.orgSlug}
+                    studyId={study.id}
+                />
 
                 <Group justify="flex-end" mt="md">
                     <ResubmitCancelButton
