@@ -73,13 +73,18 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
                 .executeTakeFirst(),
     )
     .requireAbilityTo('view', 'OrgStudies')
-    .handler(async ({ db, orgId, orgType }) => {
+    .handler(async ({ db, orgId, orgType, session }) => {
+        const userId = session.user.id
         let query = fetchStudyQuery(db)
         if (orgType === 'enclave') {
-            query = query.where('study.orgId', '=', orgId)
+            // Reviewer dashboards should not see draft studies
+            query = query.where('study.orgId', '=', orgId).where('study.status', '!=', 'DRAFT')
         }
         if (orgType === 'lab') {
-            query = query.where('study.submittedByOrgId', '=', orgId)
+            // Lab dashboards: show non-drafts OR user's own drafts
+            query = query
+                .where('study.submittedByOrgId', '=', orgId)
+                .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)]))
         }
         return query
             .innerJoin('org as reviewerOrg', 'reviewerOrg.id', 'study.orgId')
@@ -91,8 +96,10 @@ export const fetchStudiesForOrgAction = new Action('fetchStudiesForOrgAction')
 
 export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudiesForCurrentResearcherUserAction')
     .requireAbilityTo('view', 'Studies')
-    .handler(async ({ db }) => {
+    .handler(async ({ db, session }) => {
+        const userId = session.user.id
         return fetchStudyQuery(db)
+            .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)])) // Only show: non-draft studies OR drafts where user is the researcher
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()
@@ -108,6 +115,7 @@ export const fetchStudiesForCurrentReviewerAction = new Action('fetchStudiesForC
         }
         return fetchStudyQuery(db)
             .where('study.orgId', 'in', reviewerOrgIds)
+            .where('study.status', '!=', 'DRAFT') // Reviewers should not see draft studies
             .innerJoin('org', 'org.id', 'study.orgId')
             .select(['org.name as orgName', 'org.slug as orgSlug'])
             .execute()

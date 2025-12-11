@@ -91,6 +91,11 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
 // Proposal -> Results
 export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     // Proposal
+    DRAFT: {
+        stage: 'Proposal',
+        label: 'Draft',
+        tooltip: 'This proposal is still a draft and has not yet been submitted for review.',
+    },
     'PENDING-REVIEW': {
         stage: 'Proposal',
         label: 'Under Review',

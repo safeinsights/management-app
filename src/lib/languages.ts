@@ -1,34 +1,26 @@
 import { Language } from '@/database/types'
-import { ACCEPTED_FILE_TYPES } from './types'
+import { ACCEPTED_FILE_TYPES, ACCEPTED_LANGUAGE_FILE_TYPES } from './types'
+import { toSentence } from './string'
 
 export const languageLabels: Record<Language, string> = {
     R: 'R',
     PYTHON: 'Python',
 }
 
+const ACCEPTED_FILE_TYPE_LABELS: Record<Language, string[]> = {
+    R: ['.r', '.rmd'],
+    PYTHON: ['.py', '.ipynb'],
+}
+
 export const getAcceptedFormatsForLanguage = (language: Language): string => {
-    if (language === 'R') {
-        return 'Accepted formats: .r and .rmd'
+    const extensions = ACCEPTED_FILE_TYPE_LABELS[language]
+    if (extensions) {
+        return `Accepted formats: ${toSentence(extensions)}`
     }
-    if (language === 'PYTHON') {
-        return 'Accepted formats: .py and .ipynb'
-    }
-    return 'Accepted formats: .r, .rmd, .py and .ipynb' // current default
+    const allExtensions = Object.values(ACCEPTED_FILE_TYPE_LABELS).flat()
+    return `Accepted formats: ${toSentence(allExtensions)}`
 }
 
 export const getAcceptedFileTypesForLanguage = (language: Language): Record<string, string[]> => {
-    if (language === 'R') {
-        return {
-            'application/x-r': ['.r', '.R'],
-            'text/x-r': ['.r', '.R'],
-            'text/markdown': ['.rmd'],
-        }
-    }
-    if (language === 'PYTHON') {
-        return {
-            'application/x-python': ['.py'],
-            'application/x-ipynb': ['.ipynb'],
-        }
-    }
-    return ACCEPTED_FILE_TYPES // all supported file types
+    return ACCEPTED_LANGUAGE_FILE_TYPES[language] ?? ACCEPTED_FILE_TYPES
 }
