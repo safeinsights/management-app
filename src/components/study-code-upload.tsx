@@ -1,5 +1,5 @@
 import { Language } from '@/database/types'
-import { getAcceptedFormatsForLanguage, languageLabels } from '@/lib/languages'
+import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { InputError } from '@/components/errors'
 import { handleDuplicateUpload } from '@/hooks/file-upload'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
