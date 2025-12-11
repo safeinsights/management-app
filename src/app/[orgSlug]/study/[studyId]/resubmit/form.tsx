@@ -3,7 +3,7 @@
 import { Button, Group, Stack } from '@mantine/core'
 import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
 import React from 'react'
-import { useForm } from '@mantine/form'
+import { useForm, UseFormReturnType } from '@mantine/form'
 import { Routes } from '@/lib/routes'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
@@ -19,7 +19,6 @@ import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
-import { UseFormReturnType } from '@mantine/form'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
@@ -96,6 +95,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
                     studyUploadForm={studyUploadForm}
                     orgSlug={study.orgSlug}
                     language={study.language}
+                    studyId={study.id}
                 />
 
                 <Group justify="flex-end" mt="md">

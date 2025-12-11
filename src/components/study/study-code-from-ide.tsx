@@ -1,23 +1,15 @@
 'use client'
 
 import { useQuery } from '@/common'
-import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
+import { useLoadingMessages } from '@/hooks/use-loading-messages'
+import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
-import {
-    ActionIcon,
-    Button,
-    Divider,
-    Group,
-    Paper,
-    Radio,
-    Table,
-    Text,
-    Title,
-} from '@mantine/core'
+import { ActionIcon, Box, Button, Divider, Group, Paper, Radio, Stack, Table, Text, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { DownloadSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import { useEffect } from 'react'
+import { ArrowSquareOutIcon, DownloadSimpleIcon, TrashIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { useEffect, useState } from 'react'
+import { CompactStatusButton } from './compact-status-button'
 
 interface StudyCodeFromIDEProps {
     studyId: string
@@ -31,6 +23,14 @@ interface FormValues {
 }
 
 export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: StudyCodeFromIDEProps) => {
+    const [hasImported, setHasImported] = useState(false)
+    const {
+        launchWorkspace,
+        isLoading: isLaunchingWorkspace,
+        isPending: isWorkspacePending,
+        error: launchError,
+    } = useWorkspaceLauncher({ studyId })
+
     const form = useForm<FormValues>({
         initialValues: {
             mainFile: '',
@@ -47,6 +47,7 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
             }
             return result
         },
+        enabled: hasImported, // Only fetch when user explicitly imports
     })
 
     useEffect(() => {
@@ -56,7 +57,7 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
             onMainFileChange?.(mainFile)
             onFilesChange?.(data.files)
         }
-    }, [data, form])
+    }, [data, form, onMainFileChange, onFilesChange])
 
     const handleMainFileChange = (fileName: string) => {
         form.setFieldValue('mainFile', fileName)
@@ -76,28 +77,55 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
     }
 
     const handleImportFromIDE = () => {
+        setHasImported(true)
         refetch()
         notifications.show({
-            title: 'Files refreshed',
+            title: 'Files imported',
             message: 'File list has been updated from the IDE.',
             color: 'blue',
         })
     }
 
+    const isIDELoading = isLaunchingWorkspace || isWorkspacePending
+    const showEmptyState = !hasImported || (hasImported && form.values.files.length === 0 && !isLoading)
+    const { messageWithEllipsis } = useLoadingMessages(isIDELoading)
+
+    const renderLaunchButton = () => {
+        if (launchError) {
+            return (
+                <CompactStatusButton
+                    icon={<WarningCircleIcon size={14} weight="fill" />}
+                    primaryText="Launch failed"
+                    secondaryText="Please try again later"
+                    color="red"
+                    onClick={launchWorkspace}
+                />
+            )
+        }
+
+        if (isIDELoading) {
+            return <CompactStatusButton primaryText="Launching IDE" secondaryText={messageWithEllipsis} loading />
+        }
+
+        return (
+            <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={launchWorkspace}>
+                Launch IDE
+            </Button>
+        )
+    }
+
     return (
         <Paper p="xl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 5 of 5
+                STEP 4 OF 4
             </Text>
             <Title order={4}>Study code</Title>
             <Divider my="sm" mt="sm" mb="md" />
 
-            <Group justify="space-between" align="flex-start" mb="md">
-                <div>
-                    <Text fw={600} mb="xs">Review files from IDE</Text>
-                </div>
+            <Group justify="space-between" align="center" mb="md">
+                <Text fw={600}>Review files from IDE</Text>
                 <Group>
-                    <OpenWorkspaceButton studyId={studyId} />
+                    {renderLaunchButton()}
                     <Button
                         variant="filled"
                         leftSection={<DownloadSimpleIcon size={16} />}
@@ -109,48 +137,70 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                 </Group>
             </Group>
 
-            <Radio.Group value={form.values.mainFile} onChange={handleMainFileChange}>
-                <Table layout="fixed" verticalSpacing="md" highlightOnHover withTableBorder>
-                    <Table.Thead>
-                        <Table.Tr>
-                            <Table.Th w={100}>Main file</Table.Th>
-                            <Table.Th>File name</Table.Th>
-                            <Table.Th w={80}>Remove</Table.Th>
-                        </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {form.values.files.length === 0 ? (
-                            <Table.Tr>
-                                <Table.Td colSpan={3}>
-                                    <Text c="dimmed" ta="center" py="lg">
-                                        {isLoading ? 'Loading files...' : 'No files found. Launch the IDE to add code files.'}
-                                    </Text>
-                                </Table.Td>
-                            </Table.Tr>
-                        ) : (
-                            form.values.files.map((file) => (
-                                <Table.Tr key={file}>
-                                    <Table.Td>
-                                        <Radio value={file} />
-                                    </Table.Td>
-                                    <Table.Td>
-                                        {file}
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="red"
-                                            onClick={() => handleRemoveFile(file)}
-                                        >
-                                            <TrashIcon />
-                                        </ActionIcon>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ))
+            {showEmptyState ? (
+                <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
+                    <Stack align="center" gap="md">
+                        <Text c="dimmed">
+                            {isLoading ? 'Loading files...' : 'You have not imported any files yet.'}
+                        </Text>
+                        {!isLoading && (
+                            <Button
+                                variant="transparent"
+                                leftSection={<DownloadSimpleIcon size={16} />}
+                                onClick={handleImportFromIDE}
+                                loading={isFetching}
+                            >
+                                Import files from IDE
+                            </Button>
                         )}
-                    </Table.Tbody>
-                </Table>
-            </Radio.Group>
+                    </Stack>
+                </Box>
+            ) : (
+                <>
+                    {data?.lastModified && (
+                        <Text fz="sm" c="dimmed" mb="sm">
+                            Last updated on{' '}
+                            {new Date(data.lastModified).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                            })}
+                        </Text>
+                    )}
+                    <Radio.Group value={form.values.mainFile} onChange={handleMainFileChange}>
+                        <Table layout="fixed" verticalSpacing="md" highlightOnHover withTableBorder>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th w={100}>Main file</Table.Th>
+                                    <Table.Th>File name</Table.Th>
+                                    <Table.Th w={80}>Remove</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {form.values.files.map((file) => (
+                                    <Table.Tr key={file}>
+                                        <Table.Td>
+                                            <Radio value={file} />
+                                        </Table.Td>
+                                        <Table.Td>{file}</Table.Td>
+                                        <Table.Td>
+                                            <ActionIcon
+                                                variant="subtle"
+                                                color="red"
+                                                onClick={() => handleRemoveFile(file)}
+                                            >
+                                                <TrashIcon />
+                                            </ActionIcon>
+                                        </Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Radio.Group>
+                </>
+            )}
         </Paper>
     )
 }

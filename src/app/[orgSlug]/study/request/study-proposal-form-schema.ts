@@ -105,7 +105,16 @@ export type StudyJobCodeFilesValues = z.infer<typeof codeFilesSchema>
 export type StudyProposalFormValues = z.infer<typeof StudyProposalActionSchema>
 export type ResubmitProposalFormValues = Omit<
     StudyProposalFormValues,
-    'title' | 'descriptionDocument' | 'irbDocument' | 'agreementDocument' | 'piName' | 'orgSlug' | 'stepIndex' | 'createdStudyId' | 'ideMainFile' | 'ideFiles'
+    | 'title'
+    | 'descriptionDocument'
+    | 'irbDocument'
+    | 'agreementDocument'
+    | 'piName'
+    | 'orgSlug'
+    | 'stepIndex'
+    | 'createdStudyId'
+    | 'ideMainFile'
+    | 'ideFiles'
 >
 
 export const studyProposalApiSchema = z.object({

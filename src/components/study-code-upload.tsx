@@ -1,4 +1,5 @@
 import { Language } from '@/database/types'
+import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { Alert, Button, Divider, Group, Paper, useMantineTheme, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
@@ -15,6 +16,9 @@ interface StudyCodeUploadProps {
     title?: string
     language: Language
     orgSlug: string
+    studyId?: string | null
+    onBeforeLaunchIDE?: () => Promise<string | null> // Returns studyId after saving draft, or null if failed
+    onIDELaunched?: () => void // Called when IDE is successfully launched
 }
 
 export const StudyCodeUpload = ({
@@ -23,33 +27,48 @@ export const StudyCodeUpload = ({
     title = 'Study code',
     language,
     orgSlug,
+    studyId,
+    onBeforeLaunchIDE,
+    onIDELaunched,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
+    const [effectiveStudyId, setEffectiveStudyId] = useState<string | null>(studyId ?? null)
     const theme = useMantineTheme()
-    // const color = theme.colors.blue[7]
 
-    // const removeAdditionalFiles = (fileToRemove: File) => {
-    //     const updatedAdditionalFiles = studyProposalForm
-    //         .getValues()
-    //         .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
-    //     studyProposalForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
-    //     studyProposalForm.validateField('totalFileSize')
-    // }
-    // const { getFileUploadIcon } = useFileUploadIcons()
-
-    // const mainFileUpload = getFileUploadIcon(color, studyProposalForm.values.mainCodeFile?.name ?? '')
+    const {
+        launchWorkspace,
+        isLoading: isLaunchingWorkspace,
+        isPending: isWorkspacePending,
+        error: launchError,
+    } = useWorkspaceLauncher({
+        studyId: effectiveStudyId ?? '',
+    })
 
     const handleConfirmAndProceed = () => {
         // TODO: Implement logic to proceed with the study code upload
         closeModal()
     }
 
-    const handleLaunchIDE = () => {
-        // TODO: Implement logic to launch the IDE
+    const handleLaunchIDE = async () => {
+        let idToUse = effectiveStudyId ?? studyId
+
+        // If no studyId yet, call onBeforeLaunchIDE to save draft first
+        if (!idToUse && onBeforeLaunchIDE) {
+            idToUse = await onBeforeLaunchIDE()
+            if (idToUse) {
+                setEffectiveStudyId(idToUse)
+            }
+        }
+
+        if (idToUse) {
+            launchWorkspace()
+            onIDELaunched?.()
+        }
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+    const isIDELoading = isLaunchingWorkspace || isWorkspacePending
 
     return (
         <Paper p="xl">
@@ -96,7 +115,12 @@ export const StudyCodeUpload = ({
                 {isOpenstaxOrg && (
                     <>
                         <OrDivider />
-                        <LaunchIDEButton onClick={handleLaunchIDE} language={language} />
+                        <LaunchIDEButton
+                            onClick={handleLaunchIDE}
+                            language={language}
+                            loading={isIDELoading}
+                            error={!!launchError}
+                        />
                     </>
                 )}
             </Group>

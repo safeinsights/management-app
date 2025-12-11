@@ -13,7 +13,7 @@ export type StatusLabel = {
 // Proposal -> Code -> Results
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     // Proposal
-    'INITIATED': {
+    INITIATED: {
         stage: 'Proposal',
         label: 'Needs Review',
         tooltip: 'This proposal is now ready for review. Open the study for more details.',

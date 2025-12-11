@@ -362,64 +362,57 @@ export const onCreateStudyWithoutCodeAction = new Action('onCreateStudyWithoutCo
     .params(onCreateStudyWithoutCodeActionArgsSchema)
     .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
     .requireAbilityTo('create', 'Study')
-    .handler(
-        async ({
-            db,
-            params: { orgSlug, studyInfo, submittingOrgSlug },
-            session,
-            orgId,
-        }) => {
-            const userId = session.user.id
-            const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
+    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
+        const userId = session.user.id
+        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
 
-            const studyId = uuidv7()
+        const studyId = uuidv7()
 
-            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
+        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
 
-            await db
-                .insertInto('study')
-                .values({
-                    id: studyId,
-                    title: studyInfo.title,
-                    piName: studyInfo.piName,
-                    language: studyInfo.language,
-                    descriptionDocPath: studyInfo.descriptionDocPath,
-                    irbDocPath: studyInfo.irbDocPath,
-                    agreementDocPath: studyInfo.agreementDocPath,
-                    orgId,
-                    researcherId: userId,
-                    submittedByOrgId: submittingLab.orgId,
-                    containerLocation,
-                    status: 'DRAFT',
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
+        await db
+            .insertInto('study')
+            .values({
+                id: studyId,
+                title: studyInfo.title,
+                piName: studyInfo.piName,
+                language: studyInfo.language,
+                descriptionDocPath: studyInfo.descriptionDocPath,
+                irbDocPath: studyInfo.irbDocPath,
+                agreementDocPath: studyInfo.agreementDocPath,
+                orgId,
+                researcherId: userId,
+                submittedByOrgId: submittingLab.orgId,
+                containerLocation,
+                status: 'DRAFT',
+            })
+            .returning('id')
+            .executeTakeFirstOrThrow()
 
-            onStudyCreated({ userId, studyId })
+        onStudyCreated({ userId, studyId })
 
-            const urlForAgreementUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            )
+        const urlForAgreementUpload = await signedUrlForStudyUpload(
+            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
+        )
 
-            const urlForIrbUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            )
+        const urlForIrbUpload = await signedUrlForStudyUpload(
+            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
+        )
 
-            const urlForDescriptionUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            )
+        const urlForDescriptionUpload = await signedUrlForStudyUpload(
+            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
+        )
 
-            revalidatePath(`/${orgSlug}/dashboard`)
+        revalidatePath(`/${orgSlug}/dashboard`)
 
-            return {
-                studyId,
-                orgSlug,
-                urlForAgreementUpload,
-                urlForIrbUpload,
-                urlForDescriptionUpload,
-            }
-        },
-    )
+        return {
+            studyId,
+            orgSlug,
+            urlForAgreementUpload,
+            urlForIrbUpload,
+            urlForDescriptionUpload,
+        }
+    })
 
 const addJobToStudyActionArgsSchema = z.object({
     studyId: z.string(),
@@ -451,7 +444,7 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         return { studyJobId, urlForCodeUpload }
     })
 
-export const createStudyFromIDEAction = new Action('createStudyFromIDEAction', { performsMutations: true })
+export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', { performsMutations: true })
     .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
     .requireAbilityTo('create', 'StudyJob')

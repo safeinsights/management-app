@@ -20,7 +20,7 @@ import { useParams, useRouter } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import { omit } from 'remeda'
 import {
-    createStudyFromIDEAction,
+    submitStudyFromIDEAction,
     getDraftStudyAction,
     onCreateStudyAction,
     onDeleteStudyAction,
@@ -45,6 +45,7 @@ type StepperButtonsProps = {
     setStepIndex: (i: number) => void
     existingFiles?: ExistingDraftFiles
     onSubmitFromIDE: () => void
+    ideLaunched: boolean
 }
 
 const StepperButtons: React.FC<StepperButtonsProps> = ({
@@ -54,6 +55,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({
     setStepIndex,
     existingFiles,
     onSubmitFromIDE,
+    ideLaunched,
 }) => {
     const formValues = form.getValues()
 
@@ -95,6 +97,24 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({
     }
 
     if (stepIndex == 1) {
+        // If IDE was launched, go to step 2 (file selection) instead of submitting
+        if (ideLaunched) {
+            return (
+                <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    disabled={isPending}
+                    onClick={(e) => {
+                        e.preventDefault()
+                        setStepIndex(2)
+                    }}
+                >
+                    Proceed to select files
+                </Button>
+            )
+        }
+        // Otherwise, submit the form with uploaded files
         return (
             <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
                 Save and proceed to review
@@ -157,6 +177,7 @@ type StudyProposalProps = {
 
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
     const [stepIndex, setStepIndex] = useState(0)
+    const [ideLaunched, setIdeLaunched] = useState(false)
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
@@ -276,14 +297,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
-    const { isPending: isImportingFromIDE, mutate: createStudyFromIDE } = useMutation({
+    const { isPending: isSubmittingFromIDE, mutate: submitStudyFromIDE } = useMutation({
         mutationFn: async () => {
             const studyId = draftStudyId
             const { ideMainFile, ideFiles } = studyProposalForm.values
             if (!studyId || !ideMainFile || ideFiles.length === 0) {
                 throw new Error('Study ID, main file, or files not set')
             }
-            const result = await createStudyFromIDEAction({
+            const result = await submitStudyFromIDEAction({
                 studyId,
                 mainFileName: ideMainFile,
                 fileNames: ideFiles,
@@ -382,7 +403,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
-    const isPending = isCreatingStudy || isSavingDraft || isImportingFromIDE
+    const isPending = isCreatingStudy || isSavingDraft || isSubmittingFromIDE
 
     return (
         <ProxyProvider
@@ -428,6 +449,18 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                             showStepIndicator={true}
                             orgSlug={studyProposalForm.values.orgSlug}
                             language={studyProposalForm.values.language as Language}
+                            studyId={draftStudyId}
+                            onBeforeLaunchIDE={async () => {
+                                // Save draft first if needed, then return the studyId
+                                if (draftStudyId) return draftStudyId
+                                return new Promise<string | null>((resolve) => {
+                                    saveDraft(studyProposalForm.getValues(), {
+                                        onSuccess: (studyId) => resolve(studyId),
+                                        onError: () => resolve(null),
+                                    })
+                                })
+                            }}
+                            onIDELaunched={() => setIdeLaunched(true)}
                         />
                     </Stepper.Step>
 
@@ -484,7 +517,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                                       }
                                     : undefined
                             }
-                            onSubmitFromIDE={() => createStudyFromIDE()}
+                            onSubmitFromIDE={() => submitStudyFromIDE()}
+                            ideLaunched={ideLaunched}
                         />
                     </Group>
                 </Group>

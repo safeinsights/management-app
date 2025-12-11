@@ -21,5 +21,20 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
             coderFilesPath += `/${studyId}`
         }
         const files = await fs.readdir(coderFilesPath)
-        return { files, suggestedMain: files.find(isMainFile) }
+
+        // Get the most recent modification time from all files
+        let lastModified: Date | null = null
+        for (const file of files) {
+            const filePath = path.join(coderFilesPath, file)
+            const stats = await fs.stat(filePath)
+            if (!lastModified || stats.mtime > lastModified) {
+                lastModified = stats.mtime
+            }
+        }
+
+        return {
+            files,
+            suggestedMain: files.find(isMainFile),
+            lastModified: lastModified?.toISOString() ?? null,
+        }
     })
