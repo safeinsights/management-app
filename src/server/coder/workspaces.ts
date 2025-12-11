@@ -12,7 +12,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchBaseImageForStudy, jobInfoForJobId, latestJobForStudy } from '../db/queries'
+import { fetchBaseImageForStudy, jobInfoForJobId, latestJobForStudy, studyInfoForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -79,9 +79,9 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
-    // Fetch base image settings for the study
-    const latestJob = await latestJobForStudy(studyId)
-    const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
+    const info = await studyInfoForStudyId(studyId)
+    if (!info) throw new Error(`no study found for studyId: ${studyId}`)
+    const baseImage = await fetchBaseImageForStudy(info.orgId, info.language)
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
