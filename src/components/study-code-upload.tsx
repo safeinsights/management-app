@@ -6,19 +6,16 @@ import { ACCEPTED_FILE_TYPES } from '@/lib/types'
 import {
     ActionIcon,
     Alert,
-    Box,
     Button,
     Divider,
     Grid,
     GridCol,
     Group,
-    MantineTheme,
     Paper,
     useMantineTheme,
     Stack,
     Text,
     Title,
-    UnstyledButton,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import {
@@ -33,12 +30,11 @@ import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { AppModal } from './modal'
-import { OPENSTAX_ORG_SLUG, PROPOSAL_GRID_SPAN } from '@/lib/constants'
+import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
-//import { fetchStarterCodeAction } from '@/app/[orgSlug]/admin/settings/base-images.actions'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 
 interface StudyCodeUploadProps {
