@@ -18,14 +18,7 @@ import {
     Title,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import {
-    ArrowSquareOutIcon,
-    FileArrowUpIcon,
-    UploadIcon,
-    XCircleIcon,
-    XIcon,
-    CheckCircleIcon,
-} from '@phosphor-icons/react/dist/ssr'
+import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon, CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
