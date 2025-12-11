@@ -3,7 +3,7 @@
 import { Button, Group, Stack } from '@mantine/core'
 import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
 import React from 'react'
-import { useForm, UseFormReturnType } from '@mantine/form'
+import { useForm } from '@mantine/form'
 import { Routes } from '@/lib/routes'
 import { useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
@@ -13,33 +13,21 @@ import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { reportMutationError } from '@/components/errors'
-import { StudyProposalFormValues, codeFilesSchema } from '../../request/study-proposal-form-schema'
+import { codeFilesSchema, StudyJobCodeFilesValues } from '../../request/study-proposal-form-schema'
 import { actionResult } from '@/lib/utils'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
-    const form = useForm<StudyProposalFormValues>({
+    const studyUploadForm = useForm<StudyJobCodeFilesValues>({
         validate: zodResolver(codeFilesSchema),
         initialValues: {
             mainCodeFile: null,
             additionalCodeFiles: [],
-            title: '',
-            piName: '',
-            orgSlug: '',
-            language: null,
-            descriptionDocument: null,
-            irbDocument: null,
-            agreementDocument: null,
-            stepIndex: 0,
-            createdStudyId: null,
-            ideMainFile: '',
-            ideFiles: [],
         },
     })
 
@@ -49,7 +37,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     }
 
     const { isPending, mutate: resubmitStudy } = useMutation({
-        mutationFn: async (formValues: StudyProposalFormValues) => {
+        mutationFn: async (formValues: StudyJobCodeFilesValues) => {
             const { urlForCodeUpload, studyJobId } = actionResult(
                 await addJobToStudyAction({
                     studyId: study.id,
@@ -85,11 +73,8 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
         onError: reportMutationError('Failed to resubmit study'),
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = form as any
-
     return (
-        <form onSubmit={form.onSubmit((values: StudyProposalFormValues) => resubmitStudy(values))}>
+        <form onSubmit={studyUploadForm.onSubmit((values) => resubmitStudy(values))}>
             <Stack>
                 <StudyCodeUpload
                     studyUploadForm={studyUploadForm}
@@ -100,7 +85,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
 
                 <Group justify="flex-end" mt="md">
                     <ResubmitCancelButton
-                        isDirty={form.isDirty()}
+                        isDirty={studyUploadForm.isDirty()}
                         disabled={isPending}
                         href={Routes.studyView({ orgSlug, studyId: study.id })}
                     />

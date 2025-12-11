@@ -352,68 +352,6 @@ export const onDeleteStudyAction = new Action('onDeleteStudyAction', { performsM
         await deleteFolderContents(pathForStudy({ orgSlug, studyId }))
     })
 
-const onCreateStudyWithoutCodeActionArgsSchema = z.object({
-    orgSlug: z.string(),
-    studyInfo: studyProposalApiSchema,
-    submittingOrgSlug: z.string(),
-})
-
-export const onCreateStudyWithoutCodeAction = new Action('onCreateStudyWithoutCodeAction', { performsMutations: true })
-    .params(onCreateStudyWithoutCodeActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
-    .requireAbilityTo('create', 'Study')
-    .handler(async ({ db, params: { orgSlug, studyInfo, submittingOrgSlug }, session, orgId }) => {
-        const userId = session.user.id
-        const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
-
-        const studyId = uuidv7()
-
-        const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
-
-        await db
-            .insertInto('study')
-            .values({
-                id: studyId,
-                title: studyInfo.title,
-                piName: studyInfo.piName,
-                language: studyInfo.language,
-                descriptionDocPath: studyInfo.descriptionDocPath,
-                irbDocPath: studyInfo.irbDocPath,
-                agreementDocPath: studyInfo.agreementDocPath,
-                orgId,
-                researcherId: userId,
-                submittedByOrgId: submittingLab.orgId,
-                containerLocation,
-                status: 'DRAFT',
-            })
-            .returning('id')
-            .executeTakeFirstOrThrow()
-
-        onStudyCreated({ userId, studyId })
-
-        const urlForAgreementUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-        )
-
-        const urlForIrbUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-        )
-
-        const urlForDescriptionUpload = await signedUrlForStudyUpload(
-            pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-        )
-
-        revalidatePath(`/${orgSlug}/dashboard`)
-
-        return {
-            studyId,
-            orgSlug,
-            urlForAgreementUpload,
-            urlForIrbUpload,
-            urlForDescriptionUpload,
-        }
-    })
-
 const addJobToStudyActionArgsSchema = z.object({
     studyId: z.string(),
     mainCodeFileName: z.string(),
