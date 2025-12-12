@@ -28,7 +28,7 @@ const baseImageFromOrgAndId = async ({
         .where('orgBaseImage.id', '=', imageId)
         .executeTakeFirstOrThrow()
 
-    return { baseImage }
+    return { baseImage, orgId: baseImage.orgId }
 }
 
 const envVarSchema = z.object({

@@ -163,6 +163,75 @@ describe('Base Images Actions', () => {
         expect(result.starterCodePath).toContain('new-starter.py') // Should have new file path
     })
 
+    it('updateOrgBaseImageAction denies update for non-admin org member', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false })
+
+        const baseImage = await db
+            .insertInto('orgBaseImage')
+            .values({
+                orgId: org.id,
+                name: 'Non-admin cannot update',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodePath: 'test/path/to/starter.R',
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = await updateOrgBaseImageAction({
+            orgSlug: org.slug,
+            imageId: baseImage.id,
+            name: 'Attempted Update',
+            cmdLine: 'updated command',
+            language: 'PYTHON',
+            url: 'updated-url',
+            isTesting: true,
+            settings: { environment: [] },
+        })
+
+        expect(isActionError(result)).toBe(true)
+    })
+
+    it('updateOrgBaseImageAction allows SI admin to update even if not org admin', async () => {
+        const { org } = await mockSessionWithTestData({ isAdmin: false, isSiAdmin: true })
+
+        const baseImage = await db
+            .insertInto('orgBaseImage')
+            .values({
+                orgId: org.id,
+                name: 'SI admin can update',
+                cmdLine: 'test command',
+                language: 'R',
+                url: 'test-url',
+                isTesting: false,
+                starterCodePath: 'test/path/to/starter.R',
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(
+            await updateOrgBaseImageAction({
+                orgSlug: org.slug,
+                imageId: baseImage.id,
+                name: 'Updated by SI admin',
+                cmdLine: 'updated command',
+                language: 'PYTHON',
+                url: 'updated-url',
+                isTesting: true,
+                settings: { environment: [] },
+            }),
+        )
+
+        expect(result).toBeDefined()
+        expect(result.name).toEqual('Updated by SI admin')
+        expect(result.cmdLine).toEqual('updated command')
+        expect(result.language).toEqual('PYTHON')
+        expect(result.url).toEqual('updated-url')
+        expect(result.isTesting).toEqual(true)
+    })
+
     it('deleteOrgBaseImageAction prevents deletion of last non-testing image per language', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
