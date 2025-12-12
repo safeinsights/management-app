@@ -1,6 +1,7 @@
 'use server'
 
 import { z } from 'zod'
+import { v7 as uuidv7 } from 'uuid'
 import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
@@ -58,31 +59,27 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, starterCode, ...fieldValues } = params
 
-        // Insert first to get the ID
-        const insertedImage = await db
-            .insertInto('orgBaseImage')
-            .values({
-                orgId,
-                ...fieldValues,
-                settings: fieldValues.settings,
-                starterCodePath: '', // Placeholder, will be updated below
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
+        // Generate UUID before insert
+        const id = uuidv7()
 
-        // Now create the path with the ID and upload
+        // Create the path with the ID and upload
         const starterCodePath = pathForStarterCode({
             orgSlug,
-            baseImageId: insertedImage.id,
+            baseImageId: id,
             fileName: starterCode.name,
         })
         await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
-        // Update the record with the actual path
+        // Insert with the pre-generated ID and path
         const newBaseImage = await db
-            .updateTable('orgBaseImage')
-            .set({ starterCodePath })
-            .where('id', '=', insertedImage.id)
+            .insertInto('orgBaseImage')
+            .values({
+                id,
+                orgId,
+                ...fieldValues,
+                settings: fieldValues.settings,
+                starterCodePath,
+            })
             .returningAll()
             .executeTakeFirstOrThrow()
 
