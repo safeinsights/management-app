@@ -74,14 +74,7 @@ export const StudyCodeUpload = ({
 
     // IDE mode view
     if (mode === 'ide') {
-        return (
-            <StudyCodeIDE
-                showStepIndicator={showStepIndicator}
-                title={title}
-                onBack={() => setMode('initial')}
-                hasExistingFiles={hasCodeFiles}
-            />
-        )
+        return <StudyCodeIDE showStepIndicator={showStepIndicator} title={title} hasExistingFiles={hasCodeFiles} />
     }
 
     return (

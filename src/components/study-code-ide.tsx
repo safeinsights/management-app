@@ -1,18 +1,16 @@
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title, UnstyledButton, useMantineTheme } from '@mantine/core'
-import { ArrowSquareOutIcon, CaretLeftIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC, useState } from 'react'
 
 interface StudyCodeIDEProps {
     showStepIndicator?: boolean
     title?: string
-    onBack?: () => void
     hasExistingFiles?: boolean
 }
 
 export const StudyCodeIDE: FC<StudyCodeIDEProps> = ({
     showStepIndicator = false,
     title = 'Study code',
-    onBack,
     hasExistingFiles = false,
 }) => {
     const [importedFiles, setImportedFiles] = useState<string[]>([])
@@ -56,12 +54,6 @@ export const StudyCodeIDE: FC<StudyCodeIDEProps> = ({
 
             {!hasExistingFiles && (
                 <IDEFilesEmptyState importedFiles={importedFiles} onImportClick={handleImportFromIDE} />
-            )}
-
-            {onBack && (
-                <Button variant="subtle" mt="md" onClick={onBack} leftSection={<CaretLeftIcon size={16} />}>
-                    Back to upload options
-                </Button>
             )}
         </Paper>
     )
