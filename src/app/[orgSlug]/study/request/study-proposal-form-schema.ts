@@ -111,3 +111,6 @@ export const studyProposalApiSchema = z.object({
     mainCodeFilePath: z.string(),
     additionalCodeFilePaths: z.array(z.string()),
 })
+
+// Partial schema for draft saves
+export const draftStudyApiSchema = studyProposalApiSchema.partial()
