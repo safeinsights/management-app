@@ -17,7 +17,7 @@ import { useForm, UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { omit } from 'remeda'
 import {
     submitStudyFromIDEAction,
@@ -238,7 +238,13 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 mainCodeFile: null,
                 additionalCodeFiles: [],
             })
-            studyProposalForm.resetDirty()
+            // Reset dirty state but preserve ideMainFile/ideFiles as dirty if they have values
+            // by setting their baseline to empty (so current non-empty values are still "dirty")
+            studyProposalForm.resetDirty({
+                ...studyProposalForm.getValues(),
+                ideMainFile: '',
+                ideFiles: [],
+            })
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draftData])
@@ -246,6 +252,16 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
+
+    // Memoize callback to prevent unnecessary effect triggers in useIDEFiles hook
+    const handleIDEFilesChange = useCallback(
+        ({ mainFile, files }: { mainFile: string; files: string[] }) => {
+            studyProposalForm.setFieldValue('ideMainFile', mainFile)
+            studyProposalForm.setFieldValue('ideFiles', files)
+        },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    )
 
     const { isPending: isCreatingStudy, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -387,7 +403,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
             if (!propStudyId) {
                 router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
             }
-            studyProposalForm.resetDirty()
+            // Reset dirty state but preserve ideMainFile/ideFiles as dirty if they have values
+            studyProposalForm.resetDirty({
+                ...studyProposalForm.getValues(),
+                ideMainFile: '',
+                ideFiles: [],
+            })
             notifications.show({
                 title: 'Draft Saved',
                 message: 'Your study proposal has been saved as a draft.',
@@ -466,13 +487,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
 
                     <Stepper.Step>
                         {draftStudyId && (
-                            <StudyCodeFromIDE
-                                studyId={draftStudyId}
-                                onChange={({ mainFile, files }) => {
-                                    studyProposalForm.setFieldValue('ideMainFile', mainFile)
-                                    studyProposalForm.setFieldValue('ideFiles', files)
-                                }}
-                            />
+                            <StudyCodeFromIDE studyId={draftStudyId} onChange={handleIDEFilesChange} />
                         )}
                     </Stepper.Step>
                 </Stepper>
