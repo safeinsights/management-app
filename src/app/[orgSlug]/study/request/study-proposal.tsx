@@ -97,7 +97,7 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({
                     onSaveAndProceed()
                 }}
             >
-                Save and proceed
+                Save and proceed to step 4
             </Button>
         )
     }
