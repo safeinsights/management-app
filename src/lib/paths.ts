@@ -23,8 +23,7 @@ export const pathForStarterCode = ({
     orgSlug,
     baseImageId,
     fileName,
-}: MinimalOrgInfo & { baseImageId: string; fileName: string }) =>
-    `starter-code/${orgSlug}/${baseImageId}/${fileName}`
+}: MinimalOrgInfo & { baseImageId: string; fileName: string }) => `starter-code/${orgSlug}/${baseImageId}/${fileName}`
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`

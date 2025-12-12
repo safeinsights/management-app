@@ -486,9 +486,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                     </Stepper.Step>
 
                     <Stepper.Step>
-                        {draftStudyId && (
-                            <StudyCodeFromIDE studyId={draftStudyId} onChange={handleIDEFilesChange} />
-                        )}
+                        {draftStudyId && <StudyCodeFromIDE studyId={draftStudyId} onChange={handleIDEFilesChange} />}
                     </Stepper.Step>
                 </Stepper>
 

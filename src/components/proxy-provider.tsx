@@ -53,7 +53,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
         // Handle browser back/forward buttons
         // Note: event.preventDefault() doesn't work for popstate - it fires AFTER history changes
         // Instead, we push state back to stay on the current URL and show the dialog
-        const handlePopState = (event: PopStateEvent) => {
+        const handlePopState = (_: PopStateEvent) => {
             if (isDirty) {
                 // Push the current URL back onto the history stack to "undo" the back/forward
                 window.history.pushState(null, '', window.location.href)
