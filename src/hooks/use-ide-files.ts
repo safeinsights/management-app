@@ -1,34 +1,22 @@
-import { useQuery } from '@/common'
+import { useMutation, useQuery, useQueryClient } from '@/common'
+import { errorToString } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
+import { submitStudyFromIDEAction } from '@/lib/study-actions'
 import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
 import { notifications } from '@mantine/notifications'
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState, useCallback, useMemo } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 
 interface UseIDEFilesOptions {
     studyId: string
-    onChange?: (state: { files: string[]; mainFile: string }) => void
+    orgSlug: string
 }
 
-interface UseIDEFilesReturn {
-    // IDE Launch
-    launchWorkspace: () => void
-    isLaunching: boolean
-    launchError: Error | null
+export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
+    const router = useRouter()
+    const queryClient = useQueryClient()
 
-    // File Import
-    importFiles: () => void
-    isFetching: boolean
-    hasImported: boolean
-    lastModified: string | null
-
-    // File State
-    files: string[]
-    mainFile: string
-    setMainFile: (file: string) => void
-    removeFile: (file: string) => void
-}
-
-export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFilesReturn {
     const [hasImported, setHasImported] = useState(false)
     const [removedFiles, setRemovedFiles] = useState<Set<string>>(new Set())
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
@@ -52,30 +40,14 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
         enabled: hasImported,
     })
 
-    // Derive actual values from query data + local modifications (memoized to prevent infinite loops)
-    const files = useMemo(
-        () => (data?.files ?? []).filter((f) => !removedFiles.has(f)),
-        [data?.files, removedFiles],
-    )
+    const files = useMemo(() => (data?.files ?? []).filter((f) => !removedFiles.has(f)), [data?.files, removedFiles])
     const mainFile = mainFileOverride ?? data?.suggestedMain ?? files[0] ?? ''
+    const lastModified = data?.lastModified ?? null
 
-    // Track previous values to avoid unnecessary onChange calls
-    const prevStateRef = useRef<{ files: string[]; mainFile: string } | null>(null)
-
-    // Notify parent when derived values change
-    useEffect(() => {
-        if (files.length > 0) {
-            const prevState = prevStateRef.current
-            const filesChanged =
-                !prevState || prevState.files.length !== files.length || prevState.files.some((f, i) => f !== files[i])
-            const mainFileChanged = !prevState || prevState.mainFile !== mainFile
-
-            if (filesChanged || mainFileChanged) {
-                prevStateRef.current = { files, mainFile }
-                onChange?.({ files, mainFile })
-            }
-        }
-    }, [files, mainFile, onChange])
+    const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
+    const isLoadingFiles = isFetching || isLoading
+    const showEmptyState = !hasImported || (files.length === 0 && !isLoadingFiles)
+    const canSubmit = !!mainFile && files.length > 0
 
     const importFiles = useCallback(() => {
         setHasImported(true)
@@ -96,8 +68,6 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
     const removeFile = useCallback(
         (fileName: string) => {
             setRemovedFiles((prev) => new Set(prev).add(fileName))
-
-            // If removing the current main file, clear the override so it falls back to next available
             if (mainFileOverride === fileName) {
                 setMainFileOverride(null)
             }
@@ -105,22 +75,67 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
         [mainFileOverride],
     )
 
+    const goBack = useCallback(() => {
+        router.push(Routes.studyUpload({ orgSlug, studyId }))
+    }, [router, orgSlug, studyId])
+
+    const { isPending: isSubmitting, mutate: submit } = useMutation({
+        mutationFn: async () => {
+            if (!mainFile || files.length === 0) {
+                throw new Error('Main file or files not set')
+            }
+            const result = await submitStudyFromIDEAction({
+                studyId,
+                mainFileName: mainFile,
+                fileNames: files,
+            })
+            if ('error' in result) {
+                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
+            }
+            return result
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
+            notifications.show({
+                title: 'Study Proposal Submitted',
+                message:
+                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                color: 'green',
+            })
+            router.push(Routes.dashboard)
+        },
+        onError: (error: Error) => {
+            notifications.show({
+                color: 'red',
+                title: 'Failed to submit study',
+                message: `${errorToString(error)}\nPlease contact support.`,
+            })
+        },
+    })
+
     return {
         // IDE Launch
         launchWorkspace,
-        isLaunching: isLaunchingWorkspace || isCreatingWorkspace,
+        isLaunching,
         launchError,
 
         // File Import
         importFiles,
-        isFetching: isFetching || isLoading,
-        hasImported,
-        lastModified: data?.lastModified ?? null,
+        isLoadingFiles,
+        showEmptyState,
+        lastModified,
 
         // File State
         files,
         mainFile,
         setMainFile,
         removeFile,
+
+        // Submit
+        canSubmit,
+        isSubmitting,
+        submit,
+        goBack,
     }
 }

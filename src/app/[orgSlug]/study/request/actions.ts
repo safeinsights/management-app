@@ -5,6 +5,7 @@ import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
+import { sanitizeFileName } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
 import { DEV_ENV, getConfigValue } from '@/server/config'
@@ -396,9 +397,17 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         }
 
         const userId = session.user.id
-        const additionalFileNames = fileNames.filter((f) => f !== mainFileName)
+        const sanitizedMainFileName = sanitizeFileName(mainFileName)
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
 
-        const { studyJobId } = await addStudyJob(db, userId, studyId, orgSlug, mainFileName, additionalFileNames)
+        const { studyJobId } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            sanitizedMainFileName,
+            additionalFileNames,
+        )
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!DEV_ENV) {
@@ -406,10 +415,11 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         }
 
         for (const fileName of fileNames) {
-            const filePath = path.join(coderFilesPath, fileName)
+            const sanitizedName = sanitizeFileName(fileName)
+            const filePath = path.join(coderFilesPath, sanitizedName)
             const fileStream = createReadStream(filePath)
             const webStream = Readable.toWeb(fileStream) as ReadableStream
-            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, fileName)
+            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitizedName)
             await storeS3File({ orgSlug, studyId }, webStream, s3Path)
         }
 

@@ -20,13 +20,21 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         if (!DEV_ENV) {
             coderFilesPath += `/${studyId}`
         }
-        const files = await fs.readdir(coderFilesPath)
+        const entries = await fs.readdir(coderFilesPath)
 
-        // Get the most recent modification time from all files
+        // Filter to only text files (not directories or binary files)
+        const files: string[] = []
         let lastModified: Date | null = null
-        for (const file of files) {
-            const filePath = path.join(coderFilesPath, file)
+
+        for (const entry of entries) {
+            const filePath = path.join(coderFilesPath, entry)
             const stats = await fs.stat(filePath)
+
+            if (!stats.isFile()) continue
+            if (stats.size === 0) continue
+
+            files.push(entry)
+
             if (!lastModified || stats.mtime > lastModified) {
                 lastModified = stats.mtime
             }

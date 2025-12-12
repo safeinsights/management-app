@@ -74,12 +74,8 @@ export default function StudyUploadPage() {
                 </Button>
 
                 {ideLaunched && (
-                    <Button
-                        variant="primary"
-                        disabled={ideLaunchLoading}
-                        onClick={handleProceedToSelectFiles}
-                    >
-                        Proceed to select files
+                    <Button variant="outline" disabled={ideLaunchLoading} onClick={handleProceedToSelectFiles}>
+                        Proceed to select files from IDE
                     </Button>
                 )}
             </Group>

@@ -163,7 +163,6 @@ describe('useWorkspaceLauncher', () => {
         it('should show notification and set error when popup is blocked', async () => {
             const workspaceUrl = 'https://workspace.example.com'
             mockWindowOpen.mockReturnValue(null) // Simulate blocked popup
-
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
                 workspace: { id: 'workspace-456' },
             })
@@ -191,7 +190,6 @@ describe('useWorkspaceLauncher', () => {
 
         it('should detect popup blocked when window.closed is true', async () => {
             mockWindowOpen.mockReturnValue({ closed: true })
-
             ;(createUserAndWorkspaceAction as Mock).mockResolvedValue({
                 workspace: { id: 'workspace-456' },
             })
