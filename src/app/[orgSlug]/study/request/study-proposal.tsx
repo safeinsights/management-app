@@ -83,26 +83,16 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
                     setStepIndex(stepIndex + 1)
                 }}
             >
-                Save and proceed to step 2
+                Save and proceed to step 4
             </Button>
         )
     }
 
     if (stepIndex == 1) {
         return (
-            <>
-                <Button
-                    variant="outline"
-                    onClick={() => createStudy({ formValues: form.values, isDraft: true })}
-                    disabled={!isValid || isPending}
-                    loading={isPending}
-                >
-                    Save as draft
-                </Button>
-                <Button type="submit" variant="primary" size="md" disabled={!isValid || isPending} loading={isPending}>
-                    Submit
-                </Button>
-            </>
+            <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
+                Save and proceed to review
+            </Button>
         )
     }
     return null
@@ -215,11 +205,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
     const queryClient = useQueryClient()
 
     const { isPending, mutate: createStudy } = useMutation({
-        mutationFn: async (variables: { formValues: StudyProposalFormValues; isDraft: boolean }) => {
-            const { formValues, isDraft } = variables
-            const action = isDraft ? onCreateStudyDraftAction : onCreateStudyAction
+        mutationFn: async (formValues: StudyProposalFormValues) => {
             const { studyId, studyJobId, ...urls } = actionResult(
-                await action({
+                await onCreateStudyAction({
                     orgSlug: formValues.orgSlug,
                     studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
@@ -244,16 +232,15 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 }
                 throw err
             }
-            return { studyId, orgSlug: formValues.orgSlug, isDraft }
         },
-        onSuccess({ isDraft }) {
+        onSuccess() {
+            // Invalidate both org-specific and user-level study queries
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             notifications.show({
-                title: isDraft ? 'Study Proposal Draft Saved' : 'Study Proposal Submitted',
-                message: isDraft
-                    ? 'Your proposal has been saved as a draft.'
-                    : 'Your proposal has been successfully submitted.',
+                title: 'Study Proposal Submitted',
+                message:
+                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
                 color: 'green',
             })
             router.push(Routes.dashboard)
