@@ -1,8 +1,12 @@
 import { Language } from '@/database/types'
+import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { InputError } from '@/components/errors'
 import { handleDuplicateUpload } from '@/hooks/file-upload'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
+import { Routes } from '@/lib/routes'
+import { useRouter } from 'next/navigation'
+import { uploadFileStore } from '@/hooks/upload-file-store'
 import {
     ActionIcon,
     Alert,
@@ -12,14 +16,15 @@ import {
     GridCol,
     Group,
     Paper,
+    Radio,
     useMantineTheme,
     Stack,
     Text,
     Title,
 } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon, CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { FC, useState } from 'react'
+import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import { FC, useEffect, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { AppModal } from './modal'
@@ -31,40 +36,54 @@ import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 
 interface StudyCodeUploadProps {
-    studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
-    showStepIndicator?: boolean
+    studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
+    stepIndicator?: string
     title?: string
     language: Language
     orgSlug: string
+    studyId: string
+    onIDELaunched?: () => void
+    onIDELoadingChange?: (loading: boolean) => void
 }
 
 export const StudyCodeUpload = ({
-    showStepIndicator = false,
+    stepIndicator,
     title = 'Study code',
     language,
     orgSlug,
+    studyId,
+    onIDELaunched,
+    onIDELoadingChange,
     studyUploadForm,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
     const theme = useMantineTheme()
 
-    const handleConfirmAndProceed = () => {
-        // TODO: Implement logic to proceed with the study code upload
-        closeModal()
-    }
+    const {
+        launchWorkspace,
+        isLaunching: isLaunchingWorkspace,
+        isCreatingWorkspace,
+        error: launchError,
+    } = useWorkspaceLauncher({ studyId })
 
     const handleLaunchIDE = () => {
-        // TODO: Implement logic to launch the IDE
+        launchWorkspace()
+        onIDELaunched?.()
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+    const isIDELoading = isLaunchingWorkspace || isCreatingWorkspace
+
+    useEffect(() => {
+        onIDELoadingChange?.(isIDELoading)
+    }, [isIDELoading, onIDELoadingChange])
 
     return (
         <Paper p="xl">
-            {showStepIndicator && (
+            {stepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 4 of 4
+                    {stepIndicator}
                 </Text>
             )}
             <Title order={4}>{title}</Title>
@@ -100,23 +119,31 @@ export const StudyCodeUpload = ({
             )}
 
             <Group align="center">
-                <UploadFilesButton onClick={openModal} language={language} />
+                {studyUploadForm && <UploadFilesButton onClick={openModal} language={language} />}
 
                 {isOpenstaxOrg && (
                     <>
-                        <OrDivider />
-                        <LaunchIDEButton onClick={handleLaunchIDE} language={language} />
+                        {studyUploadForm && <OrDivider />}
+                        <LaunchIDEButton
+                            onClick={handleLaunchIDE}
+                            language={language}
+                            loading={isIDELoading}
+                            error={!!launchError}
+                        />
                     </>
                 )}
             </Group>
 
-            <StudyCodeUploadModal
-                onClose={closeModal}
-                isOpen={isModalOpen}
-                onConfirmAndClose={handleConfirmAndProceed}
-                studyUploadForm={studyUploadForm}
-                language={language}
-            />
+            {studyUploadForm && (
+                <StudyCodeUploadModal
+                    onClose={closeModal}
+                    isOpen={isModalOpen}
+                    studyUploadForm={studyUploadForm}
+                    language={language}
+                    studyId={studyId}
+                    orgSlug={orgSlug}
+                />
+            )}
         </Paper>
     )
 }
@@ -124,17 +151,43 @@ export const StudyCodeUpload = ({
 const StudyCodeUploadModal: FC<{
     onClose: () => void
     isOpen: boolean
-    onConfirmAndClose: () => void
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
     language: Language
-}> = ({ onClose, isOpen, onConfirmAndClose, studyUploadForm, language }) => {
+    studyId: string
+    orgSlug: string
+}> = ({ onClose, isOpen, studyUploadForm, language, studyId, orgSlug }) => {
     const theme = useMantineTheme()
-    const removeAdditionalFiles = (fileToRemove: File) => {
+    const router = useRouter()
+    const [selectedMainFile, setSelectedMainFile] = useState<string>('')
+
+    // Get all files (additionalCodeFiles) - needs fresh values each render
+    const allFiles = studyUploadForm.getValues().additionalCodeFiles
+
+    const removeFile = (fileToRemove: File) => {
         const updatedAdditionalFiles = studyUploadForm
             .getValues()
             .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
         studyUploadForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
         studyUploadForm.validateField('totalFileSize')
+        // If removed file was the selected main file, clear selection
+        if (selectedMainFile === fileToRemove.name) {
+            setSelectedMainFile('')
+        }
+    }
+
+    const handleDone = () => {
+        // Get fresh file list at the time of clicking Done
+        const currentFiles = studyUploadForm.getValues().additionalCodeFiles
+        const mainFile = currentFiles.find((f) => f.name === selectedMainFile)
+
+        if (!mainFile) return
+
+        // Store File objects in module-level store (persists across navigation, cleared on refresh)
+        uploadFileStore.set(studyId, currentFiles, mainFile.name)
+
+        // Close modal and navigate to select-files page
+        onClose()
+        router.push(Routes.studySelectFiles({ orgSlug, studyId }))
     }
 
     return (
@@ -211,21 +264,27 @@ const StudyCodeUploadModal: FC<{
                         <Divider orientation="vertical" />
                         <GridCol span={{ base: 4, md: 6 }}>
                             <Title order={5}>Uploaded files</Title>
-                            {studyUploadForm.getValues().additionalCodeFiles.map((file) => (
-                                <Group key={file.name} gap="md" w="100%">
-                                    <Group>
-                                        <CheckCircleIcon weight="fill" color="#2F9844" />
-                                        <Text>{file.name}</Text>
-                                    </Group>
-                                    <ActionIcon
-                                        variant="transparent"
-                                        aria-label={`Remove file ${file.name}`}
-                                        onClick={() => removeAdditionalFiles(file)}
-                                    >
-                                        <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
-                                    </ActionIcon>
-                                </Group>
-                            ))}
+                            <Text size="xs" c="dimmed" mb="sm">
+                                Select the main file to run
+                            </Text>
+                            <Radio.Group value={selectedMainFile} onChange={setSelectedMainFile}>
+                                <Stack gap="xs">
+                                    {allFiles.map((file) => (
+                                        <Group key={file.name} gap="md" w="100%" justify="space-between">
+                                            <Group gap="sm">
+                                                <Radio value={file.name} label={file.name} />
+                                            </Group>
+                                            <ActionIcon
+                                                variant="transparent"
+                                                aria-label={`Remove file ${file.name}`}
+                                                onClick={() => removeFile(file)}
+                                            >
+                                                <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
+                                            </ActionIcon>
+                                        </Group>
+                                    ))}
+                                </Stack>
+                            </Radio.Group>
                         </GridCol>
                         {studyUploadForm.errors['totalFileSize'] && (
                             <GridCol>
@@ -239,7 +298,9 @@ const StudyCodeUploadModal: FC<{
                     <Button variant="outline" onClick={onClose}>
                         Cancel upload
                     </Button>
-                    <Button onClick={onConfirmAndClose}>Done</Button>
+                    <Button onClick={handleDone} disabled={!selectedMainFile || allFiles.length === 0}>
+                        Done
+                    </Button>
                 </Group>
             </Stack>
         </AppModal>

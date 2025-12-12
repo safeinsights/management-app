@@ -1,6 +1,7 @@
 'use server'
 
 import { z } from 'zod'
+import { v7 as uuidv7 } from 'uuid'
 import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
@@ -10,7 +11,6 @@ import { pathForStarterCode } from '@/lib/paths'
 import { fetchFileContents } from '@/server/storage'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
-import { randomString } from '@/lib/string'
 import { Routes } from '@/lib/routes'
 
 // Common middleware to fetch base image with org validation
@@ -58,10 +58,23 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, starterCode, ...fieldValues } = params
-        const starterCodePath = pathForStarterCode({ orgSlug, fileName: `${randomString(12)}-${starterCode.name}` })
+
+        // Generate UUID before insert
+        const id = uuidv7()
+
+        // Create the path with the ID and upload
+        const starterCodePath = pathForStarterCode({
+            orgSlug,
+            baseImageId: id,
+            fileName: starterCode.name,
+        })
+        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
+
+        // Insert with the pre-generated ID and path
         const newBaseImage = await db
             .insertInto('orgBaseImage')
             .values({
+                id,
                 orgId,
                 ...fieldValues,
                 settings: fieldValues.settings,
@@ -69,8 +82,6 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
             })
             .returningAll()
             .executeTakeFirstOrThrow()
-
-        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
@@ -100,7 +111,8 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
         if (starterCode && starterCode.size > 0) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
-                fileName: `${randomString(12)}-${starterCode.name}`,
+                baseImageId: imageId,
+                fileName: starterCode.name,
             })
             await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
             await deleteS3File(starterCodePath)

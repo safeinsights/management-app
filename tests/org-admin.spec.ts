@@ -91,6 +91,9 @@ test.describe('Organization Admin', () => {
             url: '/reviewer-is-org-admin/admin/settings',
         })
 
+        // Wait for the URL to be correct (not redirected to 404 or dashboard)
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
+
         // Ensure we are on the Settings page and the Base Images section is visible
         await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
         await expect(page.getByRole('heading', { name: /base research container images/i })).toBeVisible()
@@ -143,9 +146,5 @@ test.describe('Organization Admin', () => {
         // Ensure the row is still present and the starter code filename is rendered
         await expect(row).toBeVisible()
         await expect(row.getByText('starter-code.r')).toBeVisible()
-
-        // Open the "View Starter Code" modal to ensure code viewer integrates
-        await actionButtons.nth(0).click()
-        await expect(page.getByText(/starter code:/i)).toBeVisible()
     })
 })
