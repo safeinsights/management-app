@@ -266,19 +266,3 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await expect(page.getByText('Approved on')).toBeVisible()
     })
 })
-
-// TODO: Re-enable once modal file upload is implemented - the upload UI has been
-// refactored to use a modal. This is going to be addressed in a related ticket
-test.skip('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
-    await test.step('researcher creates a Python study', async () => {
-        const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
-            language: 'Python',
-            radioName: 'Python',
-            mainCodeFile: 'tests/assets/main.py',
-            titleSuffix: 'Python',
-        })
-
-        await viewDetails(page, studyTitle)
-        await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
-    })
-})
