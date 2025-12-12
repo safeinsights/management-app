@@ -6,16 +6,25 @@ import { AlertNotFound } from '@/components/errors'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { Button, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { useForm } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { getDraftStudyAction } from '../../request/actions'
+import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 
 export default function StudyUploadPage() {
     const router = useRouter()
     const { orgSlug, studyId } = useParams<{ orgSlug: string; studyId: string }>()
     const [ideLaunched, setIdeLaunched] = useState(false)
     const [ideLaunchLoading, setIdeLaunchLoading] = useState(false)
+
+    const studyUploadForm = useForm<StudyJobCodeFilesValues>({
+        initialValues: {
+            mainCodeFile: null,
+            additionalCodeFiles: [],
+        },
+    })
 
     const { data: study, isLoading } = useQuery({
         queryKey: ['draft-study', studyId],
@@ -44,8 +53,8 @@ export default function StudyUploadPage() {
             <Title order={1}>Upload study code</Title>
             <Paper>
                 <StudyCodeUpload
-                    studyUploadForm={null as never} // Not needed for IDE-only flow
-                    showStepIndicator={false}
+                    studyUploadForm={studyUploadForm}
+                    stepIndicator="Step 4 of 5"
                     title="Study code"
                     orgSlug={study.orgSlug || orgSlug}
                     language={(study.language as Language) || 'PYTHON'}

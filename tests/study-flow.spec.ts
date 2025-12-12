@@ -152,7 +152,7 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
     })
 
     // Verify "Save and proceed to step 4" button is disabled when no programming language is selected
-    const nextStepButton = page.getByRole('button', { name: 'Save and proceed to step 4' })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
     await expect(nextStepButton).toBeDisabled()
 
     // Wait for the programming language radio button to be visible (after base images load)
@@ -211,7 +211,7 @@ test('Single-language R org auto-selects language and enables Next Step', async 
     await expect(helperText).toBeVisible()
 
     // Save and proceed to step 4 should already be enabled (no manual language click required)
-    const nextStepButton = page.getByRole('button', { name: 'Save and proceed to step 4' })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
     await expect(nextStepButton).toBeEnabled()
 
     // And clicking it should take us to the upload step

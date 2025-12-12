@@ -32,8 +32,8 @@ import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 
 interface StudyCodeUploadProps {
-    studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
-    showStepIndicator?: boolean
+    studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
+    stepIndicator?: string
     title?: string
     language: Language
     orgSlug: string
@@ -44,7 +44,7 @@ interface StudyCodeUploadProps {
 }
 
 export const StudyCodeUpload = ({
-    showStepIndicator = false,
+    stepIndicator,
     title = 'Study code',
     language,
     orgSlug,
@@ -99,9 +99,9 @@ export const StudyCodeUpload = ({
 
     return (
         <Paper p="xl">
-            {showStepIndicator && (
+            {stepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 3
+                    {stepIndicator}
                 </Text>
             )}
             <Title order={4}>{title}</Title>
@@ -137,11 +137,13 @@ export const StudyCodeUpload = ({
             )}
 
             <Group align="center">
-                <UploadFilesButton onClick={openModal} language={language} />
+                {studyUploadForm && (
+                    <UploadFilesButton onClick={openModal} language={language} />
+                )}
 
                 {isOpenstaxOrg && (
                     <>
-                        <OrDivider />
+                        {studyUploadForm && <OrDivider />}
                         <LaunchIDEButton
                             onClick={handleLaunchIDE}
                             language={language}
@@ -152,13 +154,15 @@ export const StudyCodeUpload = ({
                 )}
             </Group>
 
-            <StudyCodeUploadModal
-                onClose={closeModal}
-                isOpen={isModalOpen}
-                onConfirmAndClose={handleConfirmAndProceed}
-                studyUploadForm={studyUploadForm}
-                language={language}
-            />
+            {studyUploadForm && (
+                <StudyCodeUploadModal
+                    onClose={closeModal}
+                    isOpen={isModalOpen}
+                    onConfirmAndClose={handleConfirmAndProceed}
+                    studyUploadForm={studyUploadForm}
+                    language={language}
+                />
+            )}
         </Paper>
     )
 }

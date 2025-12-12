@@ -79,7 +79,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
     return (
         <Paper p="xl" mt="xxl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 3 of 4
+                Step 3 of 5
             </Text>
             <Title id="programming-language-title" order={4}>
                 Programming language
