@@ -31,6 +31,7 @@ import {
     StudyProposalFormValues,
 } from './study-proposal-form-schema'
 import { Routes } from '@/lib/routes'
+import { StudyProposalReview } from './review-proposal'
 
 type ExistingDraftFiles = {
     descriptionDocPath?: string | null
@@ -46,9 +47,21 @@ type StepperButtonsProps = {
     isPending: boolean
     setStepIndex: (i: number) => void
     existingFiles?: ExistingDraftFiles
+    mainCodeFile: string | null
+    isSavingDraft: boolean
+    onSaveAndProceed: () => void
 }
 
-const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex, existingFiles }) => {
+const StepperButtons: React.FC<StepperButtonsProps> = ({
+    form,
+    stepIndex,
+    isPending,
+    setStepIndex,
+    existingFiles,
+    mainCodeFile,
+    isSavingDraft,
+    onSaveAndProceed,
+}) => {
     const formValues = form.getValues()
 
     // Step 0 validity: simple existence checks (accepts either new files OR existing files from draft)
@@ -77,21 +90,39 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
                 type="button"
                 size="md"
                 variant="primary"
-                disabled={!isValid || isPending}
+                disabled={!isValid || isPending || isSavingDraft}
+                loading={isSavingDraft}
                 onClick={(e) => {
                     e.preventDefault()
-                    setStepIndex(stepIndex + 1)
+                    onSaveAndProceed()
                 }}
             >
-                Save and proceed to step 4
+                Save and proceed
             </Button>
         )
     }
 
     if (stepIndex === 1) {
         return (
-            <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
+            <Button
+                disabled={!mainCodeFile || isPending}
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={(e) => {
+                    e.preventDefault()
+                    setStepIndex(2)
+                }}
+            >
                 Save and proceed to review
+            </Button>
+        )
+    }
+
+    if (stepIndex === 2) {
+        return (
+            <Button disabled={isPending} type="submit" variant="primary" size="md">
+                Submit study
             </Button>
         )
     }
@@ -140,6 +171,7 @@ type StudyProposalProps = {
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
     const [stepIndex, setStepIndex] = useState(0)
     const [codeUploadViewMode, setCodeUploadViewMode] = useState<'upload' | 'review'>('upload')
+    const [mainCodeFile, setMainCodeFile] = useState<string | null>(null)
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
@@ -196,6 +228,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 mainCodeFile: null,
                 additionalCodeFiles: [],
             })
+            if (draftData.mainCodeFileName) {
+                setMainCodeFile(draftData.mainCodeFileName)
+            }
             studyProposalForm.resetDirty()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,6 +359,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
+    const onSaveAndProceed = () => {
+        saveDraft(studyProposalForm.getValues(), {
+            onSuccess: () => setStepIndex(1),
+        })
+    }
+
     return (
         <ProxyProvider
             isDirty={studyProposalForm.isDirty()}
@@ -371,13 +412,18 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                             studyId={draftStudyId || undefined}
                             viewMode={codeUploadViewMode}
                             onViewModeChange={setCodeUploadViewMode}
+                            mainCodeFile={mainCodeFile}
+                            onMainCodeFileSelect={setMainCodeFile}
                         />
+                    </Stepper.Step>
+                    <Stepper.Step>
+                        <StudyProposalReview form={studyProposalForm} studyId={draftStudyId || ''} />
                     </Stepper.Step>
                 </Stepper>
 
                 <Group mt="xxl" style={{ width: '100%' }}>
                     <Group style={{ marginLeft: 'auto' }}>
-                        {stepIndex === 0 && (
+                        {(stepIndex === 0 || stepIndex === 2) && (
                             <Button
                                 type="button"
                                 variant="outline"
@@ -406,6 +452,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                             stepIndex={stepIndex}
                             isPending={isPending}
                             setStepIndex={setStepIndex}
+                            mainCodeFile={mainCodeFile}
+                            isSavingDraft={isSavingDraft}
+                            onSaveAndProceed={onSaveAndProceed}
                             existingFiles={
                                 draftData && 'descriptionDocPath' in draftData
                                     ? {

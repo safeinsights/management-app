@@ -1,4 +1,4 @@
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import { Paper, Title, Text, Divider, Table, Radio, ActionIcon, Stack } from '@mantine/core'
 import { TrashIcon } from '@phosphor-icons/react'
 
@@ -8,10 +8,11 @@ interface ReviewUploadedFilesProps {
     onBack: () => void
     orgSlug: string
     studyId: string
+    mainFile: string | null
+    onMainFileSelect: (fileName: string) => void
 }
 
-export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFiles }) => {
-    const [mainFile, setMainFile] = useState<string | null>(null)
+export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFiles, mainFile, onMainFileSelect }) => {
     const lastUpdated = new Date().toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -25,7 +26,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFi
         const newFiles = files.filter((file) => file.name !== fileToDelete.name)
         setFiles(newFiles)
         if (mainFile === fileToDelete.name) {
-            setMainFile(null)
+            onMainFileSelect('')
         }
     }
 
@@ -36,7 +37,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFi
                     name="mainFile"
                     value={file.name}
                     checked={mainFile === file.name}
-                    onChange={(event) => setMainFile(event.currentTarget.value)}
+                    onChange={(event) => onMainFileSelect(event.currentTarget.value)}
                 />
             </Table.Td>
             <Table.Td>{file.name}</Table.Td>

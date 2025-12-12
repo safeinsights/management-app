@@ -32,7 +32,6 @@ import {
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 import { ReviewUploadedFiles } from './study/review-uploaded-files'
 import { Dropzone } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
 import { ACCEPTED_FILE_FORMATS_TEXT, ACCEPTED_FILE_TYPES } from '@/lib/types'
@@ -48,6 +47,8 @@ interface StudyCodeUploadProps {
     studyId?: string
     viewMode?: 'upload' | 'review'
     onViewModeChange?: (mode: 'upload' | 'review') => void
+    mainCodeFile?: string | null
+    onMainCodeFileSelect?: (fileName: string) => void
 }
 
 export const StudyCodeUpload = ({
@@ -59,6 +60,8 @@ export const StudyCodeUpload = ({
     studyId,
     viewMode: externalViewMode,
     onViewModeChange,
+    mainCodeFile,
+    onMainCodeFileSelect,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
@@ -107,6 +110,8 @@ export const StudyCodeUpload = ({
                 onBack={handleBackToUpload}
                 orgSlug={orgSlug}
                 studyId={studyId || ''}
+                mainFile={mainCodeFile ?? null}
+                onMainFileSelect={onMainCodeFileSelect ?? (() => {})}
             />
         )
     }
