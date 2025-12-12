@@ -3,8 +3,16 @@ import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/ac
 import { notifications } from '@mantine/notifications'
 import { useState, useCallback } from 'react'
 
-const openWorkspaceInNewTab = (url: string) => {
-    window.open(url, 'child')
+interface OpenResult {
+    success: boolean
+    blocked: boolean
+    url: string
+}
+
+const openWorkspaceInNewTab = (url: string): OpenResult => {
+    const newWindow = window.open(url, 'child')
+    const blocked = !newWindow || newWindow.closed || typeof newWindow.closed === 'undefined'
+    return { success: !blocked, blocked, url }
 }
 
 interface UseWorkspaceLauncherOptions {
@@ -23,14 +31,6 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
-
-    const showErrorNotification = useCallback((message: string) => {
-        notifications.show({
-            title: 'Failed to launch IDE',
-            message,
-            color: 'red',
-        })
-    }, [])
 
     const mutation = useMutation({
         mutationFn: async ({ studyId }: { studyId: string }) => {
@@ -52,7 +52,6 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
             setLoading(false)
             const errorMessage = err instanceof Error ? err.message : 'Failed to launch IDE'
             setError(new Error(errorMessage))
-            showErrorNotification(errorMessage)
         },
     })
 
@@ -77,13 +76,25 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
                 const errorMessage =
                     query.state.error instanceof Error ? query.state.error.message : 'Failed to get workspace URL'
                 setError(new Error(errorMessage))
-                showErrorNotification(errorMessage)
                 return false
             }
             const url = query.state.data
             if (url) {
-                openWorkspaceInNewTab(url)
+                const result = openWorkspaceInNewTab(url)
                 setLoading(false)
+                if (result.blocked) {
+                    setError(new Error('Popup blocked'))
+                    notifications.show({
+                        title: 'Popup blocked',
+                        message: (
+                            <a href={url} target="_blank" rel="noopener noreferrer">
+                                Click here to open your workspace
+                            </a>
+                        ),
+                        color: 'yellow',
+                        autoClose: false,
+                    })
+                }
                 return false
             }
             return 5000
