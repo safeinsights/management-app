@@ -1,29 +1,25 @@
 'use server'
 
-import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
+import { AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
-import { sessionFromClerk } from '@/server/clerk'
 import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
-import { StudyResults } from './study-results'
-import { StudyReviewButtons } from './study-review-buttons'
+import { StudyResults } from '../review/study-results'
+import Link from 'next/link'
+import { ResearcherReviewButtons } from '../review/researcher-review-buttons'
+import { Routes } from '@/lib/routes'
 
-export default async function StudyReviewPage(props: {
+export default async function StudySubmitPage(props: {
     params: Promise<{
         orgSlug: string
         studyId: string
     }>
 }) {
     const params = await props.params
-    const session = await sessionFromClerk()
-
-    if (!session?.belongsToEnclave) {
-        return <AccessDeniedAlert />
-    }
 
     const { orgSlug, studyId } = params
 
@@ -39,7 +35,7 @@ export default async function StudyReviewPage(props: {
             <OrgBreadcrumbs
                 crumbs={{
                     orgSlug: orgSlug,
-                    current: 'Review submission',
+                    current: 'Review your submission',
                 }}
             />
             <Title order={2} size="h4" fw={500}>
@@ -52,6 +48,7 @@ export default async function StudyReviewPage(props: {
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
+                        <Link href={Routes.studyEdit({ orgSlug, studyId })}>Edit</Link>
                     </Group>
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
@@ -62,13 +59,14 @@ export default async function StudyReviewPage(props: {
                         <Title order={4} size="xl">
                             Study Code
                         </Title>
+                        <Link href={Routes.studyResubmit({ orgSlug, studyId })}>Edit</Link>
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />
                 </Stack>
             </Paper>
             <StudyResults job={job} />
-            <StudyReviewButtons study={study} />
+            <ResearcherReviewButtons study={study} />
         </Stack>
     )
 }

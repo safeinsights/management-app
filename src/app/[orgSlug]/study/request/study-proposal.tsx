@@ -17,7 +17,7 @@ import { notifications } from '@mantine/notifications'
 import { useParams, useRouter } from 'next/navigation'
 import React, { useState } from 'react'
 import { omit } from 'remeda'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import { onCreateStudyAction, onCreateStudyDraftAction, onDeleteStudyAction } from './actions'
 import { StudyProposalForm } from './study-proposal-form'
 import {
     codeFilesSchema,
@@ -28,13 +28,14 @@ import {
 import { Routes } from '@/lib/routes'
 
 type StepperButtonsProps = {
-    form: { isValid(): boolean }
+    form: UseFormReturnType<StudyProposalFormValues>
     stepIndex: number
     isPending: boolean
     setStepIndex: (i: number) => void
+    createStudy: (variables: { formValues: StudyProposalFormValues; isDraft: boolean }) => void
 }
 
-const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex }) => {
+const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPending, setStepIndex, createStudy }) => {
     const isValid = form.isValid()
 
     if (stepIndex == 0) {
@@ -49,16 +50,26 @@ const StepperButtons: React.FC<StepperButtonsProps> = ({ form, stepIndex, isPend
                     setStepIndex(stepIndex + 1)
                 }}
             >
-                Save and proceed to step 4
+                Save and proceed to step 2
             </Button>
         )
     }
 
     if (stepIndex == 1) {
         return (
-            <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
-                Save and proceed to review
-            </Button>
+            <>
+                <Button
+                    variant="outline"
+                    onClick={() => createStudy({ formValues: form.values, isDraft: true })}
+                    disabled={!isValid || isPending}
+                    loading={isPending}
+                >
+                    Save as draft
+                </Button>
+                <Button type="submit" variant="primary" size="md" disabled={!isValid || isPending} loading={isPending}>
+                    Submit
+                </Button>
+            </>
         )
     }
     return null
@@ -123,9 +134,11 @@ export const StudyProposal: React.FC = () => {
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
     const { isPending, mutate: createStudy } = useMutation({
-        mutationFn: async (formValues: StudyProposalFormValues) => {
+        mutationFn: async (variables: { formValues: StudyProposalFormValues; isDraft: boolean }) => {
+            const { formValues, isDraft } = variables
+            const action = isDraft ? onCreateStudyDraftAction : onCreateStudyAction
             const { studyId, studyJobId, ...urls } = actionResult(
-                await onCreateStudyAction({
+                await action({
                     orgSlug: formValues.orgSlug,
                     studyInfo: formValuesToStudyInfo(formValues),
                     mainCodeFileName: formValues.mainCodeFile!.name,
@@ -150,15 +163,16 @@ export const StudyProposal: React.FC = () => {
                 }
                 throw err
             }
+            return { studyId, orgSlug: formValues.orgSlug, isDraft }
         },
-        onSuccess() {
-            // Invalidate both org-specific and user-level study queries
+        onSuccess({ isDraft }) {
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
             notifications.show({
-                title: 'Study Proposal Submitted',
-                message:
-                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
+                title: isDraft ? 'Study Proposal Draft Saved' : 'Study Proposal Submitted',
+                message: isDraft
+                    ? 'Your proposal has been saved as a draft.'
+                    : 'Your proposal has been successfully submitted.',
                 color: 'green',
             })
             router.push(Routes.dashboard)
@@ -167,14 +181,19 @@ export const StudyProposal: React.FC = () => {
             notifications.show({
                 color: 'red',
                 title: 'Failed to create study',
-                message: `${errorToString(error)}\nPlease contact support.`,
+                message: `${errorToString(error)}
+Please contact support.`,
             })
         },
     })
 
     return (
         <ProxyProvider isDirty={studyProposalForm.isDirty()}>
-            <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
+            <form
+                onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) =>
+                    createStudy({ formValues: values, isDraft: false }),
+                )}
+            >
                 <Stepper
                     unstyled
                     active={stepIndex}
@@ -218,6 +237,7 @@ export const StudyProposal: React.FC = () => {
                             stepIndex={stepIndex}
                             isPending={isPending}
                             setStepIndex={setStepIndex}
+                            createStudy={createStudy}
                         />
                     </Group>
                 </Group>
