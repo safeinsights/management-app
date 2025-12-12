@@ -29,6 +29,13 @@ import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
+import { StudyCodeIDE } from './study-code-ide'
+
+/**
+ * - 'initial': The initial mode, where the user can upload files or launch the IDE.
+ * - 'ide': The IDE mode, where the user can view the IDE and import files from it.
+ */
+type CodeUploadMode = 'initial' | 'ide'
 
 interface StudyCodeUploadProps {
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
@@ -47,6 +54,7 @@ export const StudyCodeUpload = ({
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
+    const [mode, setMode] = useState<CodeUploadMode>('initial')
     const theme = useMantineTheme()
 
     const handleConfirmAndProceed = () => {
@@ -55,10 +63,26 @@ export const StudyCodeUpload = ({
     }
 
     const handleLaunchIDE = () => {
-        // TODO: Implement logic to launch the IDE
+        setMode('ide')
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+
+    const hasCodeFiles = !!(
+        studyUploadForm.getValues().mainCodeFile || studyUploadForm.getValues().additionalCodeFiles.length > 0
+    )
+
+    // IDE mode view
+    if (mode === 'ide') {
+        return (
+            <StudyCodeIDE
+                showStepIndicator={showStepIndicator}
+                title={title}
+                onBack={() => setMode('initial')}
+                hasExistingFiles={hasCodeFiles}
+            />
+        )
+    }
 
     return (
         <Paper p="xl">
