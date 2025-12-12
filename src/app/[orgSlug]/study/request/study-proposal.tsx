@@ -20,7 +20,7 @@ import {
     onDeleteStudyAction,
     onSaveDraftStudyAction,
     onUpdateDraftStudyAction,
-} from './actions'
+} from '@/server/actions/study-request'
 import { StudyProposalForm } from './study-proposal-form'
 import { studyProposalFormSchema, StudyProposalFormValues } from './study-proposal-form-schema'
 

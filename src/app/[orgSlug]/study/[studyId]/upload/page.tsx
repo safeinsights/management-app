@@ -10,7 +10,7 @@ import { useForm } from '@mantine/form'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { getDraftStudyAction } from '../../request/actions'
+import { getDraftStudyAction } from '@/server/actions/study-request'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 
 export default function StudyUploadPage() {

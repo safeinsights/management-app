@@ -14,7 +14,7 @@ import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema, studyProposalApiSchema } from './study-proposal-form-schema'
+import { draftStudyApiSchema, studyProposalApiSchema } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 
 async function addStudyJob(
     db: Kysely<DB>,

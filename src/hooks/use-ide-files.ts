@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@/common'
 import { errorToString } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
-import { submitStudyFromIDEAction } from '@/lib/study-actions'
+import { submitStudyFromIDEAction } from '@/server/actions/study-request'
 import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'

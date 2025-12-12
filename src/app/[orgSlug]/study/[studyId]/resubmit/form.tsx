@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Group, Stack } from '@mantine/core'
-import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
+import { addJobToStudyAction, onDeleteStudyJobAction } from '@/server/actions/study-request'
 import React from 'react'
 import { useForm } from '@mantine/form'
 import { Routes } from '@/lib/routes'

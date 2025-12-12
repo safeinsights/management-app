@@ -7,7 +7,7 @@ import { AlertNotFound } from '@/components/errors'
 import { uploadFileStore } from '@/hooks/upload-file-store'
 import { Stack, Title } from '@mantine/core'
 import { useParams } from 'next/navigation'
-import { getDraftStudyAction } from '../../request/actions'
+import { getDraftStudyAction } from '@/server/actions/study-request'
 
 export default function StudySelectFilesPage() {
     const { orgSlug, studyId } = useParams<{ orgSlug: string; studyId: string }>()
