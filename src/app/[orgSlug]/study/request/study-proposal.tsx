@@ -468,8 +468,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                         {draftStudyId && (
                             <StudyCodeFromIDE
                                 studyId={draftStudyId}
-                                onMainFileChange={(file) => studyProposalForm.setFieldValue('ideMainFile', file)}
-                                onFilesChange={(files) => studyProposalForm.setFieldValue('ideFiles', files)}
+                                onChange={({ mainFile, files }) => {
+                                    studyProposalForm.setFieldValue('ideMainFile', mainFile)
+                                    studyProposalForm.setFieldValue('ideFiles', files)
+                                }}
                             />
                         )}
                     </Stepper.Step>

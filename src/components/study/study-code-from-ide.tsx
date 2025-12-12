@@ -1,114 +1,41 @@
 'use client'
 
-import { useQuery } from '@/common'
+import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
-import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
-import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
 import { ActionIcon, Box, Button, Divider, Group, Paper, Radio, Stack, Table, Text, Title } from '@mantine/core'
-import { useForm } from '@mantine/form'
-import { notifications } from '@mantine/notifications'
 import { ArrowSquareOutIcon, DownloadSimpleIcon, TrashIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useEffect, useState } from 'react'
 import { CompactStatusButton } from './compact-status-button'
 
 interface StudyCodeFromIDEProps {
     studyId: string
-    onMainFileChange?: (fileName: string) => void
-    onFilesChange?: (files: string[]) => void
+    onChange?: (state: { files: string[]; mainFile: string }) => void
 }
 
-interface FormValues {
-    mainFile: string
-    files: string[]
-}
+export const StudyCodeFromIDE = ({ studyId, onChange }: StudyCodeFromIDEProps) => {
+    const ide = useIDEFiles({ studyId, onChange })
+    const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
-export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: StudyCodeFromIDEProps) => {
-    const [hasImported, setHasImported] = useState(false)
-    const {
-        launchWorkspace,
-        isLoading: isLaunchingWorkspace,
-        isPending: isWorkspacePending,
-        error: launchError,
-    } = useWorkspaceLauncher({ studyId })
-
-    const form = useForm<FormValues>({
-        initialValues: {
-            mainFile: '',
-            files: [],
-        },
-    })
-
-    const { data, isLoading, refetch, isFetching } = useQuery({
-        queryKey: ['workspace-files', studyId],
-        queryFn: async () => {
-            const result = await listWorkspaceFilesAction({ studyId })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
-        enabled: hasImported, // Only fetch when user explicitly imports
-    })
-
-    useEffect(() => {
-        if (data?.files && data.files.length > 0) {
-            const mainFile = data.suggestedMain ?? data.files[0]
-            form.setValues({ mainFile, files: data.files })
-            onMainFileChange?.(mainFile)
-            onFilesChange?.(data.files)
-        }
-    }, [data, form, onMainFileChange, onFilesChange])
-
-    const handleMainFileChange = (fileName: string) => {
-        form.setFieldValue('mainFile', fileName)
-        onMainFileChange?.(fileName)
-    }
-
-    const handleRemoveFile = (fileName: string) => {
-        const newFiles = form.values.files.filter((f) => f !== fileName)
-        form.setFieldValue('files', newFiles)
-        onFilesChange?.(newFiles)
-
-        if (form.values.mainFile === fileName) {
-            const newMain = newFiles[0] ?? ''
-            form.setFieldValue('mainFile', newMain)
-            onMainFileChange?.(newMain)
-        }
-    }
-
-    const handleImportFromIDE = () => {
-        setHasImported(true)
-        refetch()
-        notifications.show({
-            title: 'Files imported',
-            message: 'File list has been updated from the IDE.',
-            color: 'blue',
-        })
-    }
-
-    const isIDELoading = isLaunchingWorkspace || isWorkspacePending
-    const showEmptyState = !hasImported || (hasImported && form.values.files.length === 0 && !isLoading)
-    const { messageWithEllipsis } = useLoadingMessages(isIDELoading)
+    const showEmptyState = !ide.hasImported || (ide.hasImported && ide.files.length === 0 && !ide.isFetching)
 
     const renderLaunchButton = () => {
-        if (launchError) {
+        if (ide.launchError) {
             return (
                 <CompactStatusButton
                     icon={<WarningCircleIcon size={14} weight="fill" />}
                     primaryText="Launch failed"
                     secondaryText="Please try again later"
                     color="red"
-                    onClick={launchWorkspace}
+                    onClick={ide.launchWorkspace}
                 />
             )
         }
 
-        if (isIDELoading) {
+        if (ide.isLaunching) {
             return <CompactStatusButton primaryText="Launching IDE" secondaryText={messageWithEllipsis} loading />
         }
 
         return (
-            <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={launchWorkspace}>
+            <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={ide.launchWorkspace}>
                 Launch IDE
             </Button>
         )
@@ -129,8 +56,8 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                     <Button
                         variant="filled"
                         leftSection={<DownloadSimpleIcon size={16} />}
-                        onClick={handleImportFromIDE}
-                        loading={isFetching}
+                        onClick={ide.importFiles}
+                        loading={ide.isFetching}
                     >
                         Import files from IDE
                     </Button>
@@ -141,14 +68,14 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                 <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
                     <Stack align="center" gap="md">
                         <Text c="dimmed">
-                            {isLoading ? 'Loading files...' : 'You have not imported any files yet.'}
+                            {ide.isFetching ? 'Loading files...' : 'You have not imported any files yet.'}
                         </Text>
-                        {!isLoading && (
+                        {!ide.isFetching && (
                             <Button
                                 variant="transparent"
                                 leftSection={<DownloadSimpleIcon size={16} />}
-                                onClick={handleImportFromIDE}
-                                loading={isFetching}
+                                onClick={ide.importFiles}
+                                loading={ide.isFetching}
                             >
                                 Import files from IDE
                             </Button>
@@ -157,10 +84,10 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                 </Box>
             ) : (
                 <>
-                    {data?.lastModified && (
+                    {ide.lastModified && (
                         <Text fz="sm" c="dimmed" mb="sm">
                             Last updated on{' '}
-                            {new Date(data.lastModified).toLocaleDateString('en-US', {
+                            {new Date(ide.lastModified).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
@@ -169,7 +96,7 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                             })}
                         </Text>
                     )}
-                    <Radio.Group value={form.values.mainFile} onChange={handleMainFileChange}>
+                    <Radio.Group value={ide.mainFile} onChange={ide.setMainFile}>
                         <Table layout="fixed" verticalSpacing="md" highlightOnHover withTableBorder>
                             <Table.Thead>
                                 <Table.Tr>
@@ -179,7 +106,7 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {form.values.files.map((file) => (
+                                {ide.files.map((file) => (
                                     <Table.Tr key={file}>
                                         <Table.Td>
                                             <Radio value={file} />
@@ -189,7 +116,7 @@ export const StudyCodeFromIDE = ({ studyId, onMainFileChange, onFilesChange }: S
                                             <ActionIcon
                                                 variant="subtle"
                                                 color="red"
-                                                onClick={() => handleRemoveFile(file)}
+                                                onClick={() => ide.removeFile(file)}
                                             >
                                                 <TrashIcon />
                                             </ActionIcon>
