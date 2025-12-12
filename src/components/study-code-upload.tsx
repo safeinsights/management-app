@@ -1,7 +1,7 @@
 import { Language } from '@/database/types'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { Alert, Button, Divider, Group, Paper, useMantineTheme, Stack, Text, Title } from '@mantine/core'
-import { FC, useState } from 'react'
+import { FC, useState, useEffect } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from './modal'
 import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
@@ -18,7 +18,8 @@ interface StudyCodeUploadProps {
     orgSlug: string
     studyId?: string | null
     onBeforeLaunchIDE?: () => Promise<string | null> // Returns studyId after saving draft, or null if failed
-    onIDELaunched?: () => void // Called when IDE is successfully launched
+    onIDELaunched?: () => void // Called when IDE launch is initiated
+    onIDELoadingChange?: (loading: boolean) => void // Called when IDE loading state changes
 }
 
 export const StudyCodeUpload = ({
@@ -30,6 +31,7 @@ export const StudyCodeUpload = ({
     studyId,
     onBeforeLaunchIDE,
     onIDELaunched,
+    onIDELoadingChange,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
@@ -38,8 +40,8 @@ export const StudyCodeUpload = ({
 
     const {
         launchWorkspace,
-        isLoading: isLaunchingWorkspace,
-        isPending: isWorkspacePending,
+        isLaunching: isLaunchingWorkspace,
+        isCreatingWorkspace,
         error: launchError,
     } = useWorkspaceLauncher({
         studyId: effectiveStudyId ?? '',
@@ -68,13 +70,17 @@ export const StudyCodeUpload = ({
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
-    const isIDELoading = isLaunchingWorkspace || isWorkspacePending
+    const isIDELoading = isLaunchingWorkspace || isCreatingWorkspace
+
+    useEffect(() => {
+        onIDELoadingChange?.(isIDELoading)
+    }, [isIDELoading, onIDELoadingChange])
 
     return (
         <Paper p="xl">
             {showStepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 4 of 4
+                    Step 2 of 3
                 </Text>
             )}
             <Title order={4}>{title}</Title>

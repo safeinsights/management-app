@@ -2,25 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient, zodResolver } from '@/common'
 import ProxyProvider from '@/components/proxy-provider'
-import { StudyCodeUpload } from '@/components/study-code-upload'
-import { StudyCodeFromIDE } from '@/components/study/study-code-from-ide'
-import { Language } from '@/database/types'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { getLabSlug } from '@/lib/org'
 import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
-import { Button, Group, Stepper } from '@mantine/core'
-import { useForm, UseFormReturnType } from '@mantine/form'
+import { Button, Group } from '@mantine/core'
+import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
-import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { omit } from 'remeda'
 import {
-    submitStudyFromIDEAction,
     getDraftStudyAction,
     onCreateStudyAction,
     onDeleteStudyAction,
@@ -36,106 +30,6 @@ type ExistingDraftFiles = {
     agreementDocPath?: string | null
     mainCodeFileName?: string | null
     additionalCodeFileNames?: string[]
-}
-
-type StepperButtonsProps = {
-    form: UseFormReturnType<StudyProposalFormValues>
-    stepIndex: number
-    isPending: boolean
-    setStepIndex: (i: number) => void
-    existingFiles?: ExistingDraftFiles
-    onSubmitFromIDE: () => void
-    ideLaunched: boolean
-}
-
-const StepperButtons: React.FC<StepperButtonsProps> = ({
-    form,
-    stepIndex,
-    isPending,
-    setStepIndex,
-    existingFiles,
-    onSubmitFromIDE,
-    ideLaunched,
-}) => {
-    const formValues = form.getValues()
-
-    // Step 0 validity: simple existence checks (accepts either new files OR existing files from draft)
-    // drafts may have files in S3 but no File objects
-    const isStep0Valid = () => {
-        const hasDescription = !!formValues.descriptionDocument || !!existingFiles?.descriptionDocPath
-        const hasIrb = !!formValues.irbDocument || !!existingFiles?.irbDocPath
-        const hasAgreement = !!formValues.agreementDocument || !!existingFiles?.agreementDocPath
-
-        return (
-            !!formValues.orgSlug &&
-            !!formValues.language &&
-            !!formValues.title &&
-            formValues.title.length >= 5 &&
-            hasDescription &&
-            hasIrb &&
-            hasAgreement
-        )
-    }
-
-    const isValid = stepIndex === 0 ? isStep0Valid() : form.isValid()
-
-    if (stepIndex == 0) {
-        return (
-            <Button
-                type="button"
-                size="md"
-                variant="primary"
-                disabled={!isValid || isPending}
-                onClick={(e) => {
-                    e.preventDefault()
-                    setStepIndex(1)
-                }}
-            >
-                Save and proceed to step 4
-            </Button>
-        )
-    }
-
-    if (stepIndex == 1) {
-        // If IDE was launched, go to step 2 (file selection) instead of submitting
-        if (ideLaunched) {
-            return (
-                <Button
-                    type="button"
-                    variant="primary"
-                    size="md"
-                    disabled={isPending}
-                    onClick={(e) => {
-                        e.preventDefault()
-                        setStepIndex(2)
-                    }}
-                >
-                    Proceed to select files
-                </Button>
-            )
-        }
-        // Otherwise, submit the form with uploaded files
-        return (
-            <Button disabled={!isValid || isPending} type="submit" variant="primary" size="md">
-                Save and proceed to review
-            </Button>
-        )
-    }
-
-    if (stepIndex == 2) {
-        return (
-            <Button
-                type="button"
-                variant="primary"
-                disabled={isPending || !formValues.ideMainFile}
-                onClick={onSubmitFromIDE}
-                loading={isPending}
-            >
-                Submit Study
-            </Button>
-        )
-    }
-    return null
 }
 
 function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
@@ -159,7 +53,7 @@ function formValuesToStudyInfo(formValues: StudyProposalFormValues) {
 }
 
 // Convert partial form values to draft study info (handles missing fields)
-// Note: code files are handled separately in step 4, not during draft save
+// Note: code files are handled separately in the upload step
 function formValuesToDraftInfo(formValues: Partial<StudyProposalFormValues>) {
     return {
         title: formValues.title || undefined,
@@ -176,8 +70,6 @@ type StudyProposalProps = {
 }
 
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudyId }) => {
-    const [stepIndex, setStepIndex] = useState(0)
-    const [ideLaunched, setIdeLaunched] = useState(false)
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
@@ -238,30 +130,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 mainCodeFile: null,
                 additionalCodeFiles: [],
             })
-            // Reset dirty state but preserve ideMainFile/ideFiles as dirty if they have values
-            // by setting their baseline to empty (so current non-empty values are still "dirty")
-            studyProposalForm.resetDirty({
-                ...studyProposalForm.getValues(),
-                ideMainFile: '',
-                ideFiles: [],
-            })
+            studyProposalForm.resetDirty()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [draftData])
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues> = studyProposalForm as any
     const queryClient = useQueryClient()
-
-    // Memoize callback to prevent unnecessary effect triggers in useIDEFiles hook
-    const handleIDEFilesChange = useCallback(
-        ({ mainFile, files }: { mainFile: string; files: string[] }) => {
-            studyProposalForm.setFieldValue('ideMainFile', mainFile)
-            studyProposalForm.setFieldValue('ideFiles', files)
-        },
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [],
-    )
 
     const { isPending: isCreatingStudy, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
@@ -313,45 +187,14 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
-    const { isPending: isSubmittingFromIDE, mutate: submitStudyFromIDE } = useMutation({
-        mutationFn: async () => {
-            const studyId = draftStudyId
-            const { ideMainFile, ideFiles } = studyProposalForm.values
-            if (!studyId || !ideMainFile || ideFiles.length === 0) {
-                throw new Error('Study ID, main file, or files not set')
-            }
-            const result = await submitStudyFromIDEAction({
-                studyId,
-                mainFileName: ideMainFile,
-                fileNames: ideFiles,
-            })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
-        onSuccess() {
-            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            notifications.show({
-                title: 'Study Proposal Submitted',
-                message:
-                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
-                color: 'green',
-            })
-            router.push(Routes.dashboard)
-        },
-        onError: async (error) => {
-            notifications.show({
-                color: 'red',
-                title: 'Failed to import files from IDE',
-                message: `${errorToString(error)}\nPlease contact support.`,
-            })
-        },
-    })
-
     const { isPending: isSavingDraft, mutate: saveDraft } = useMutation({
-        mutationFn: async (formValues: Partial<StudyProposalFormValues>) => {
+        mutationFn: async ({
+            formValues,
+            navigateToUpload = false,
+        }: {
+            formValues: Partial<StudyProposalFormValues>
+            navigateToUpload?: boolean
+        }) => {
             const draftInfo = formValuesToDraftInfo(formValues)
             const filesToUpload: FileUpload[] = []
 
@@ -375,7 +218,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 )
             }
 
-            // Upload document files (code files are handled in step 4)
+            // Upload document files (code files are handled in the upload step)
             if (formValues.irbDocument && result.urlForIrbUpload) {
                 filesToUpload.push([formValues.irbDocument, result.urlForIrbUpload])
             }
@@ -390,30 +233,32 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 await uploadFiles(filesToUpload)
             }
 
-            return result.studyId
+            return { studyId: result.studyId, navigateToUpload }
         },
-        onSuccess(studyId) {
+        onSuccess({ studyId, navigateToUpload }) {
             setSessionStudyId(studyId)
             // Invalidate all related query caches so fresh data is fetched
             queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
             // Also invalidate dashboard queries so the list reflects the updated draft
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            // Navigate to edit route if this was a new draft (not already on edit page)
-            if (!propStudyId) {
-                router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+
+            if (navigateToUpload) {
+                // Navigate to upload page
+                router.push(Routes.studyUpload({ orgSlug: submittingOrgSlug, studyId }))
+            } else {
+                // Update URL to edit route if this was a new draft (not already on edit page)
+                // Use history.replaceState to avoid component remount while still updating the URL
+                if (!propStudyId) {
+                    window.history.replaceState(null, '', Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+                }
+                studyProposalForm.resetDirty()
+                notifications.show({
+                    title: 'Draft Saved',
+                    message: 'Your study proposal has been saved as a draft.',
+                    color: 'green',
+                })
             }
-            // Reset dirty state but preserve ideMainFile/ideFiles as dirty if they have values
-            studyProposalForm.resetDirty({
-                ...studyProposalForm.getValues(),
-                ideMainFile: '',
-                ideFiles: [],
-            })
-            notifications.show({
-                title: 'Draft Saved',
-                message: 'Your study proposal has been saved as a draft.',
-                color: 'green',
-            })
         },
         onError: async (error) => {
             notifications.show({
@@ -424,117 +269,88 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
         },
     })
 
-    const isPending = isCreatingStudy || isSavingDraft || isSubmittingFromIDE
+    const isPending = isCreatingStudy || isSavingDraft
+
+    // Existing files from draft for display
+    const existingFiles: ExistingDraftFiles | undefined =
+        draftData && 'descriptionDocPath' in draftData
+            ? {
+                  descriptionDocPath: draftData.descriptionDocPath,
+                  irbDocPath: draftData.irbDocPath,
+                  agreementDocPath: draftData.agreementDocPath,
+                  mainCodeFileName: draftData.mainCodeFileName,
+                  additionalCodeFileNames: draftData.additionalCodeFileNames,
+              }
+            : undefined
+
+    // Check if form is valid for proceeding
+    const formValues = studyProposalForm.getValues()
+    const hasDescription = !!formValues.descriptionDocument || !!existingFiles?.descriptionDocPath
+    const hasIrb = !!formValues.irbDocument || !!existingFiles?.irbDocPath
+    const hasAgreement = !!formValues.agreementDocument || !!existingFiles?.agreementDocPath
+    const isFormValid =
+        !!formValues.orgSlug &&
+        !!formValues.language &&
+        !!formValues.title &&
+        formValues.title.length >= 5 &&
+        hasDescription &&
+        hasIrb &&
+        hasAgreement
 
     return (
         <ProxyProvider
             isDirty={studyProposalForm.isDirty()}
             onSaveDraft={async () => {
                 await new Promise<void>((resolve, reject) => {
-                    saveDraft(studyProposalForm.getValues(), {
-                        onSuccess: () => resolve(),
-                        onError: (error) => reject(error),
-                    })
+                    saveDraft(
+                        { formValues: studyProposalForm.getValues() },
+                        {
+                            onSuccess: () => resolve(),
+                            onError: (error) => reject(error),
+                        },
+                    )
                 })
             }}
             isSavingDraft={isSavingDraft}
         >
             <form onSubmit={studyProposalForm.onSubmit((values: StudyProposalFormValues) => createStudy(values))}>
-                <Stepper
-                    unstyled
-                    active={stepIndex}
-                    styles={{
-                        steps: {
-                            display: 'none',
-                        },
-                    }}
-                >
-                    <Stepper.Step>
-                        <StudyProposalForm
-                            studyProposalForm={studyProposalForm}
-                            existingFiles={
-                                draftData && 'descriptionDocPath' in draftData
-                                    ? {
-                                          descriptionDocPath: draftData.descriptionDocPath,
-                                          irbDocPath: draftData.irbDocPath,
-                                          agreementDocPath: draftData.agreementDocPath,
-                                      }
-                                    : undefined
-                            }
-                        />
-                    </Stepper.Step>
-
-                    <Stepper.Step>
-                        <StudyCodeUpload
-                            studyUploadForm={studyUploadForm}
-                            showStepIndicator={true}
-                            orgSlug={studyProposalForm.values.orgSlug}
-                            language={studyProposalForm.values.language as Language}
-                            studyId={draftStudyId}
-                            onBeforeLaunchIDE={async () => {
-                                // Save draft first if needed, then return the studyId
-                                if (draftStudyId) return draftStudyId
-                                return new Promise<string | null>((resolve) => {
-                                    saveDraft(studyProposalForm.getValues(), {
-                                        onSuccess: (studyId) => resolve(studyId),
-                                        onError: () => resolve(null),
-                                    })
-                                })
-                            }}
-                            onIDELaunched={() => setIdeLaunched(true)}
-                        />
-                    </Stepper.Step>
-
-                    <Stepper.Step>
-                        {draftStudyId && <StudyCodeFromIDE studyId={draftStudyId} onChange={handleIDEFilesChange} />}
-                    </Stepper.Step>
-                </Stepper>
+                <StudyProposalForm
+                    studyProposalForm={studyProposalForm}
+                    existingFiles={
+                        existingFiles
+                            ? {
+                                  descriptionDocPath: existingFiles.descriptionDocPath,
+                                  irbDocPath: existingFiles.irbDocPath,
+                                  agreementDocPath: existingFiles.agreementDocPath,
+                              }
+                            : undefined
+                    }
+                />
 
                 <Group mt="xxl" style={{ width: '100%' }}>
                     <Group style={{ marginLeft: 'auto' }}>
-                        {stepIndex === 0 && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="md"
-                                disabled={!studyProposalForm.isDirty() || isPending || isSavingDraft}
-                                loading={isSavingDraft}
-                                onClick={() => saveDraft(studyProposalForm.getValues())}
-                            >
-                                Save as draft
-                            </Button>
-                        )}
-                        {(stepIndex === 1 || stepIndex === 2) && (
-                            <Button
-                                type="button"
-                                size="md"
-                                disabled={isPending}
-                                variant="subtle"
-                                onClick={() => setStepIndex(stepIndex - 1)}
-                                leftSection={<CaretLeftIcon />}
-                            >
-                                Previous
-                            </Button>
-                        )}
-                        <StepperButtons
-                            form={studyProposalForm}
-                            stepIndex={stepIndex}
-                            isPending={isPending}
-                            setStepIndex={setStepIndex}
-                            existingFiles={
-                                draftData && 'descriptionDocPath' in draftData
-                                    ? {
-                                          descriptionDocPath: draftData.descriptionDocPath,
-                                          irbDocPath: draftData.irbDocPath,
-                                          agreementDocPath: draftData.agreementDocPath,
-                                          mainCodeFileName: draftData.mainCodeFileName,
-                                          additionalCodeFileNames: draftData.additionalCodeFileNames,
-                                      }
-                                    : undefined
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="md"
+                            disabled={!studyProposalForm.isDirty() || isPending}
+                            loading={isSavingDraft}
+                            onClick={() => saveDraft({ formValues: studyProposalForm.getValues() })}
+                        >
+                            Save as draft
+                        </Button>
+                        <Button
+                            type="button"
+                            size="md"
+                            variant="primary"
+                            disabled={!isFormValid || isPending}
+                            loading={isSavingDraft}
+                            onClick={() =>
+                                saveDraft({ formValues: studyProposalForm.getValues(), navigateToUpload: true })
                             }
-                            onSubmitFromIDE={() => submitStudyFromIDE()}
-                            ideLaunched={ideLaunched}
-                        />
+                        >
+                            Save and proceed to upload
+                        </Button>
                     </Group>
                 </Group>
             </form>

@@ -1,7 +1,7 @@
 import { useQuery } from '@/common'
 import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
 import { notifications } from '@mantine/notifications'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 
 interface UseIDEFilesOptions {
@@ -35,8 +35,8 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
 
     const {
         launchWorkspace,
-        isLoading: isLaunchingWorkspace,
-        isPending: isWorkspacePending,
+        isLaunching: isLaunchingWorkspace,
+        isCreatingWorkspace,
         error: launchError,
     } = useWorkspaceLauncher({ studyId })
 
@@ -52,14 +52,28 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
         enabled: hasImported,
     })
 
-    // Derive actual values from query data + local modifications
-    const files = (data?.files ?? []).filter((f) => !removedFiles.has(f))
+    // Derive actual values from query data + local modifications (memoized to prevent infinite loops)
+    const files = useMemo(
+        () => (data?.files ?? []).filter((f) => !removedFiles.has(f)),
+        [data?.files, removedFiles],
+    )
     const mainFile = mainFileOverride ?? data?.suggestedMain ?? files[0] ?? ''
+
+    // Track previous values to avoid unnecessary onChange calls
+    const prevStateRef = useRef<{ files: string[]; mainFile: string } | null>(null)
 
     // Notify parent when derived values change
     useEffect(() => {
         if (files.length > 0) {
-            onChange?.({ files, mainFile })
+            const prevState = prevStateRef.current
+            const filesChanged =
+                !prevState || prevState.files.length !== files.length || prevState.files.some((f, i) => f !== files[i])
+            const mainFileChanged = !prevState || prevState.mainFile !== mainFile
+
+            if (filesChanged || mainFileChanged) {
+                prevStateRef.current = { files, mainFile }
+                onChange?.({ files, mainFile })
+            }
         }
     }, [files, mainFile, onChange])
 
@@ -94,7 +108,7 @@ export function useIDEFiles({ studyId, onChange }: UseIDEFilesOptions): UseIDEFi
     return {
         // IDE Launch
         launchWorkspace,
-        isLaunching: isLaunchingWorkspace || isWorkspacePending,
+        isLaunching: isLaunchingWorkspace || isCreatingWorkspace,
         launchError,
 
         // File Import

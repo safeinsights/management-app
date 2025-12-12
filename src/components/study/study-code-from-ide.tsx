@@ -44,7 +44,7 @@ export const StudyCodeFromIDE = ({ studyId, onChange }: StudyCodeFromIDEProps) =
     return (
         <Paper p="xl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                STEP 4 OF 4
+                STEP 3 OF 3
             </Text>
             <Title order={4}>Study code</Title>
             <Divider my="sm" mt="sm" mb="md" />

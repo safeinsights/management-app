@@ -5,7 +5,7 @@ import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
 import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
-import { Divider, Grid, Paper, Radio, Stack, Text, Title } from '@mantine/core'
+import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { Language } from '@/database/types'
 
@@ -63,11 +63,11 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                             value={form.values.language ?? (isSingleLanguage ? languages[0].value : '')}
                             onChange={(value) => form.setFieldValue('language', value as Language)}
                         >
-                            <Stack gap={isSingleLanguage ? 'sm' : 0}>
+                            <Group gap="xl">
                                 {languages.map((opt) => (
                                     <Radio key={opt.value} {...opt} />
                                 ))}
-                            </Stack>
+                            </Group>
                         </Radio.Group>
                         {form.errors.language && <InputError error={form.errors.language} />}
                     </Grid.Col>

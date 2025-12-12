@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@/common'
 import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
 import { notifications } from '@mantine/notifications'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 interface OpenResult {
     success: boolean
@@ -21,8 +21,10 @@ interface UseWorkspaceLauncherOptions {
 
 interface UseWorkspaceLauncherReturn {
     launchWorkspace: () => void
-    isLoading: boolean
-    isPending: boolean
+    /** True while the entire launch flow is in progress (from mutation start to workspace open) */
+    isLaunching: boolean
+    /** True only while the initial workspace creation mutation is in progress */
+    isCreatingWorkspace: boolean
     error: Error | null
     clearError: () => void
 }
@@ -31,6 +33,7 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
+    const [launchComplete, setLaunchComplete] = useState(false)
 
     const mutation = useMutation({
         mutationFn: async ({ studyId }: { studyId: string }) => {
@@ -57,7 +60,7 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
 
     const workspaceQuery = useQuery({
         queryKey: ['coder', 'workspaceStatus', studyId, workspaceId],
-        enabled: !!workspaceId,
+        enabled: !!workspaceId && !launchComplete,
         refetchOnWindowFocus: false,
         queryFn: async () => {
             const result = await getWorkspaceUrlAction({
@@ -70,39 +73,50 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
             return result
         },
         refetchInterval: (query) => {
-            if (!workspaceId) return false
-            if (query.state.error) {
-                setLoading(false)
-                const errorMessage =
-                    query.state.error instanceof Error ? query.state.error.message : 'Failed to get workspace URL'
-                setError(new Error(errorMessage))
-                return false
-            }
-            const url = query.state.data
-            if (url) {
-                const result = openWorkspaceInNewTab(url)
-                setLoading(false)
-                if (result.blocked) {
-                    setError(new Error('Popup blocked'))
-                    notifications.show({
-                        title: 'Popup blocked',
-                        message: (
-                            <a href={url} target="_blank" rel="noopener noreferrer">
-                                Click here to open your workspace
-                            </a>
-                        ),
-                        color: 'yellow',
-                        autoClose: false,
-                    })
-                }
-                return false
-            }
+            if (!workspaceId || launchComplete) return false
+            if (query.state.error || query.state.data) return false
             return 5000
         },
     })
 
+    // Handle query results
+    useEffect(() => {
+        if (launchComplete) return
+
+        if (workspaceQuery.error) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- React Query v5 requires effects for query side effects
+            setLaunchComplete(true)
+            setLoading(false)
+            const errorMessage =
+                workspaceQuery.error instanceof Error ? workspaceQuery.error.message : 'Failed to get workspace URL'
+            setError(new Error(errorMessage))
+            return
+        }
+
+        const url = workspaceQuery.data
+        if (url) {
+            setLaunchComplete(true)
+            const result = openWorkspaceInNewTab(url)
+            setLoading(false)
+            if (result.blocked) {
+                setError(new Error('Popup blocked'))
+                notifications.show({
+                    title: 'Popup blocked',
+                    message: (
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                            Click here to open your workspace
+                        </a>
+                    ),
+                    color: 'yellow',
+                    autoClose: false,
+                })
+            }
+        }
+    }, [workspaceQuery.data, workspaceQuery.error, launchComplete])
+
     const launchWorkspace = useCallback(() => {
         setError(null)
+        setLaunchComplete(false)
         mutation.mutate({ studyId })
     }, [mutation, studyId])
 
@@ -112,8 +126,8 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
 
     return {
         launchWorkspace,
-        isLoading: loading,
-        isPending: mutation.isPending,
+        isLaunching: loading,
+        isCreatingWorkspace: mutation.isPending,
         error: error || workspaceQuery.error || null,
         clearError,
     }
