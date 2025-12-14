@@ -99,7 +99,8 @@ async function viewDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     await studyRow.getByRole('link', { name: 'View' }).first().click()
-    await expect(page.getByRole('heading', { name: 'Study details' })).toBeVisible()
+    // The page heading varies: "Study Details" (submitted) or "Review your submission" (draft)
+    await expect(page.getByRole('heading', { name: /Study Details|Review your submission/i })).toBeVisible()
 }
 
 type FillStudyFormOptions = {
@@ -111,7 +112,7 @@ type FillStudyFormOptions = {
 async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
     const { title, investigator = 'Ricky McResearcher', orgNameRegex = /openstax/i } = options
 
-    await expect(page.getByText('Step 1 of 4')).toBeVisible()
+    await expect(page.getByText('Step 1 of 5')).toBeVisible()
     const orgSelect = page.getByTestId('org-select')
     await orgSelect.waitFor({ state: 'visible' })
 
@@ -151,8 +152,8 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
         orgNameRegex: languageConfig.dataOrgNameRegex,
     })
 
-    // Verify "Save and proceed to step 4" button is disabled when no programming language is selected
-    const nextStepButton = page.getByRole('button', { name: 'Save and proceed to step 4' })
+    // Verify "Save and proceed to upload" button is disabled when no programming language is selected
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
     await expect(nextStepButton).toBeDisabled()
 
     // Wait for the programming language radio button to be visible (after base images load)
@@ -162,31 +163,46 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
     // Select programming language
     await radioButton.click()
 
-    // Verify "Save and proceed to step 4" button is now enabled after language selection
+    // Verify "Save and proceed to upload" button is now enabled after language selection
     await expect(nextStepButton).toBeEnabled()
 
     await nextStepButton.click()
 
-    await expect(page.getByText('Upload your files')).toBeVisible()
+    // Wait for the upload page to load
+    await page.waitForURL('**/upload', { timeout: 15000 })
 
-    // Upload main code file
-    await page.setInputFiles('input[type="file"][name="mainCodeFile"]', languageConfig.mainCodeFile)
+    // Click "Upload your files" button to open the modal
+    await page.getByRole('button', { name: /Upload your files/i }).click()
 
-    // Upload additional code file
-    await page.setInputFiles('input[type="file"][name="additionalCodeFiles"]', 'tests/assets/code.r')
+    // Wait for the modal to open
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    // Upload files via the Dropzone file input
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles([languageConfig.mainCodeFile, 'tests/assets/code.r'])
+
+    // Select the main code file (e.g., main.r or main.py)
+    const mainFileName = languageConfig.mainCodeFile.split('/').pop()!
+    await page.getByRole('radio', { name: mainFileName }).click()
+
+    // Click "Done" to close the modal
+    await page.getByRole('button', { name: 'Done' }).click()
+
+    // Wait for the modal to close and navigation to select-files page
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+    await page.waitForURL('**/select-files**', { timeout: 15000 })
+
+    // Wait for the submit button to appear on the select-files page
+    await expect(page.getByRole('button', { name: 'Submit Study' })).toBeVisible()
 
     // Click submit and wait for navigation
-    await page.getByRole('button', { name: 'Submit', exact: true }).click()
+    await page.getByRole('button', { name: 'Submit Study' }).click()
 
     // Wait until redirected to user dashboard
     await page.waitForURL('**/dashboard', { timeout: 15000 })
 
-    // Wait for the page to fully load
-    await page.waitForLoadState('networkidle')
-
     // Navigate back to the org-specific dashboard where we started
     await page.goto('/openstax-lab/dashboard')
-    await page.waitForLoadState('networkidle')
 
     // Wait for the table to render - use the "Proposed Studies" title as indicator
     await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
@@ -211,7 +227,7 @@ test('Single-language R org auto-selects language and enables Next Step', async 
     await expect(helperText).toBeVisible()
 
     // Save and proceed to step 4 should already be enabled (no manual language click required)
-    const nextStepButton = page.getByRole('button', { name: 'Save and proceed to step 4' })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
     await expect(nextStepButton).toBeEnabled()
 
     // And clicking it should take us to the upload step
@@ -219,9 +235,7 @@ test('Single-language R org auto-selects language and enables Next Step', async 
     await expect(page.getByText('Upload your files')).toBeVisible()
 })
 
-// TODO: Re-enable once modal file upload is implemented - the upload UI has been
-// refactored to use a modal. This is going to be addressed in a related ticket.
-test.skip('Creating and reviewing a study', async ({ page, studyFeatures }) => {
+test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('researcher creates a study', async () => {
         const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
             language: 'R',
@@ -236,9 +250,6 @@ test.skip('Creating and reviewing a study', async ({ page, studyFeatures }) => {
     await test.step('reviewer reviews and approves the study', async () => {
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
-        // Wait for the dashboard to fully load
-        await page.waitForLoadState('networkidle')
-
         await expect(page.getByText('Review Studies')).toBeVisible()
 
         await viewDetails(page, studyFeatures.studyTitle)
@@ -247,28 +258,11 @@ test.skip('Creating and reviewing a study', async ({ page, studyFeatures }) => {
         await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
 
         await page.getByRole('button', { name: /approve/i }).click()
-        await page.waitForLoadState('networkidle')
 
         await page.goto('/openstax/dashboard')
 
         await viewDetails(page, studyFeatures.studyTitle)
 
         await expect(page.getByText('Approved on')).toBeVisible()
-    })
-})
-
-// TODO: Re-enable once modal file upload is implemented - the upload UI has been
-// refactored to use a modal. This is going to be addressed in a related ticket
-test.skip('Creating and reviewing a Python study', async ({ page, studyFeatures }) => {
-    await test.step('researcher creates a Python study', async () => {
-        const studyTitle = await createStudy(page, studyFeatures.studyTitle, {
-            language: 'Python',
-            radioName: 'Python',
-            mainCodeFile: 'tests/assets/main.py',
-            titleSuffix: 'Python',
-        })
-
-        await viewDetails(page, studyTitle)
-        await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
     })
 })

@@ -2,7 +2,7 @@ import { db } from '@/database'
 import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import { onCreateStudyAction, onDeleteStudyAction } from './actions'
+import { onCreateStudyAction, onDeleteStudyAction } from '@/server/actions/study-request'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')

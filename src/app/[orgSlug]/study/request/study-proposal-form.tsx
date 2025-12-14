@@ -64,7 +64,7 @@ export const StudyProposalForm: FC<{
             <StudyOrgSelector form={studyProposalForm} />
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 4
+                    Step 2 of 5
                 </Text>
                 <Title order={4}>Study Proposal</Title>
                 <Divider my="md" />
@@ -77,7 +77,7 @@ export const StudyProposalForm: FC<{
                         <Grid.Col span={titleSpan}>
                             <FormFieldLabel label="Study Title" inputId={studyProposalForm.key('title')} />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <TextInput
                                 key={studyProposalForm.key('title')}
                                 id={studyProposalForm.key('title')}
@@ -93,7 +93,7 @@ export const StudyProposalForm: FC<{
                         <Grid.Col span={titleSpan}>
                             <FormFieldLabel label="Submitted by" inputId={studyProposalForm.key('lead')} />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <TextInput
                                 id={studyProposalForm.key('lead')}
                                 aria-label="Study Lead"
@@ -114,7 +114,7 @@ export const StudyProposalForm: FC<{
                         <Grid.Col span={titleSpan}>
                             <FormFieldLabel label="Principal Investigator" inputId={studyProposalForm.key('piName')} />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <TextInput
                                 key={studyProposalForm.key('piName')}
                                 id={studyProposalForm.key('piName')}
@@ -132,7 +132,7 @@ export const StudyProposalForm: FC<{
                                 inputId={studyProposalForm.key('descriptionDocument')}
                             />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <FileInput
                                 id={studyProposalForm.key('descriptionDocument')}
                                 name="descriptionDocument"
@@ -158,7 +158,7 @@ export const StudyProposalForm: FC<{
                         <Grid.Col span={titleSpan}>
                             <FormFieldLabel label="IRB Document" inputId={studyProposalForm.key('irbDocument')} />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <FileInput
                                 id={studyProposalForm.key('irbDocument')}
                                 leftSection={irbFileUpload}
@@ -187,7 +187,7 @@ export const StudyProposalForm: FC<{
                                 inputId={studyProposalForm.key('agreementDocument')}
                             />
                         </Grid.Col>
-                        <Grid.Col span={inputSpan}>
+                        <Grid.Col span={inputSpan} miw={300}>
                             <FileInput
                                 id={studyProposalForm.key('agreementDocument')}
                                 leftSection={agreementFileUpload}

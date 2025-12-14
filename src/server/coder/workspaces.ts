@@ -1,9 +1,9 @@
 import {
+    basename,
     coderWorkspaceBuildPath,
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
-    pathForStudyJobCodeFile,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { getConfigValue } from '../config'
@@ -12,7 +12,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchBaseImageForStudy, jobInfoForJobId, latestJobForStudy } from '../db/queries'
+import { fetchLatestBaseImageForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -79,9 +79,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
-    // Fetch base image settings for the study
-    const latestJob = await latestJobForStudy(studyId)
-    const baseImage = await fetchBaseImageForStudy(latestJob.orgId, latestJob.language)
+    const baseImage = await fetchLatestBaseImageForStudyId(studyId)
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -165,27 +163,17 @@ export async function createUserAndWorkspace(
 
 const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const latestJob = await latestJobForStudy(studyId)
-    const latestJobInfo = await jobInfoForJobId(latestJob.id)
+    const baseImage = await fetchLatestBaseImageForStudyId(studyId)
 
-    const mainCodeFile = latestJob.files.filter((file) => file.fileType === 'MAIN-CODE')
-    const supplementalCodeFiles = latestJob.files.filter((file) => file.fileType === 'SUPPLEMENTAL-CODE')
+    logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
 
-    logger.info(`Initializing workspace with code files for study ${studyId} ...`)
+    const fileData = await fetchFileContents(baseImage.starterCodePath)
+    const fileName = basename(baseImage.starterCodePath)
+    const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
 
-    for (const codeFile of mainCodeFile.concat(supplementalCodeFiles)) {
-        const fileData = await fetchFileContents(
-            pathForStudyJobCodeFile(
-                { orgSlug: latestJobInfo.orgSlug, studyId: latestJob.studyId, studyJobId: latestJob.id },
-                codeFile.name,
-            ),
-        )
-        const targetFilePath = path.join(coderBaseFilePath, studyId, codeFile.name)
+    logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
 
-        logger.info(`Writing ${codeFile.name} to ${targetFilePath} for study ${studyId}`)
-
-        // Create parent directory if needed and then write file
-        await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
-        await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-    }
+    // Create parent directory if needed and then write file
+    await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
+    await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
 }

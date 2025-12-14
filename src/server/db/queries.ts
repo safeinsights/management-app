@@ -127,7 +127,13 @@ export const studyInfoForStudyId = async (studyId: string) => {
     return await Action.db
         .selectFrom('study')
         .innerJoin('org', 'study.orgId', 'org.id')
-        .select(['study.id as studyId', 'org.id as orgId', 'org.slug as orgSlug', 'study.submittedByOrgId'])
+        .select([
+            'study.id as studyId',
+            'org.id as orgId',
+            'org.slug as orgSlug',
+            'study.submittedByOrgId',
+            'study.language',
+        ])
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 }
@@ -247,13 +253,16 @@ export async function getStudyJobFileOfType(
     return file
 }
 
-export async function fetchBaseImageForStudy(orgId: string, language: 'R' | 'PYTHON') {
+export async function fetchLatestBaseImageForStudyId(studyId: string) {
     return await Action.db
-        .selectFrom('orgBaseImage')
-        .where('language', '=', language)
-        .where('orgId', '=', orgId)
-        .where('isTesting', '=', false)
-        .orderBy('createdAt', 'desc')
-        .select(['url', 'settings'])
-        .executeTakeFirstOrThrow(() => new Error(`no ${language} base image found found for orgId: ${orgId}`))
+        .selectFrom('study')
+        .innerJoin('orgBaseImage', (join) =>
+            join.onRef('orgBaseImage.orgId', '=', 'study.orgId').onRef('orgBaseImage.language', '=', 'study.language'),
+        )
+        .where('study.id', '=', studyId)
+        .where('orgBaseImage.isTesting', '=', false)
+        .orderBy('orgBaseImage.createdAt', 'desc')
+        .limit(1)
+        .select(['orgBaseImage.url', 'orgBaseImage.settings', 'orgBaseImage.starterCodePath'])
+        .executeTakeFirstOrThrow(() => new Error(`no base image found for studyId: ${studyId}`))
 }

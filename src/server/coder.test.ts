@@ -8,13 +8,8 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import {
-    getStudyAndOrgDisplayInfo,
-    siUser,
-    latestJobForStudy,
-    jobInfoForJobId,
-    fetchBaseImageForStudy,
-} from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, fetchLatestBaseImageForStudyId } from './db/queries'
+import { fetchFileContents } from './storage'
 
 // Mock external dependencies
 vi.mock('./config', () => ({
@@ -24,9 +19,7 @@ vi.mock('./config', () => ({
 vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
-    latestJobForStudy: vi.fn(),
-    jobInfoForJobId: vi.fn(),
-    fetchBaseImageForStudy: vi.fn(),
+    fetchLatestBaseImageForStudyId: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
@@ -46,9 +39,8 @@ global.fetch = vi.fn()
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
-const latestJobForStudyMock = latestJobForStudy as unknown as Mock
-const jobInfoForJobIdMock = jobInfoForJobId as unknown as Mock
-const fetchBaseImageForStudyMock = fetchBaseImageForStudy as unknown as Mock
+const fetchLatestBaseImageForStudyIdMock = fetchLatestBaseImageForStudyId as unknown as Mock
+const fetchFileContentsMock = fetchFileContents as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
 
@@ -233,19 +225,13 @@ describe('createUserAndWorkspace', () => {
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
-        latestJobForStudyMock.mockResolvedValue({
-            id: 'job123',
-            orgId: 'org123',
-            studyId: 'study123',
-            language: 'R',
-            files: [],
-        })
-        jobInfoForJobIdMock.mockResolvedValue({
-            orgSlug: 'test-org',
-        })
-        fetchBaseImageForStudyMock.mockResolvedValue({
+        fetchLatestBaseImageForStudyIdMock.mockResolvedValue({
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
+            starterCodePath: 'starter-code/test-org/main.R',
+        })
+        fetchFileContentsMock.mockResolvedValue({
+            arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
         })
 
         const result = await createUserAndWorkspace('study123')
@@ -281,9 +267,10 @@ describe('createUserAndWorkspace', () => {
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
-        latestJobForStudyMock.mockResolvedValue({
-            orgId: 'org123',
-            language: 'R',
+        fetchLatestBaseImageForStudyIdMock.mockResolvedValue({
+            url: 'test-image:latest',
+            settings: {},
+            starterCodePath: 'starter-code/test-org/main.R',
         })
 
         await expect(createUserAndWorkspace('study123')).rejects.toThrow(

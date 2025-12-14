@@ -1,63 +1,62 @@
 import { Language } from '@/database/types'
+import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
+import { getAcceptedFormatsForLanguage } from '@/lib/languages'
+import { InputError } from '@/components/errors'
+import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
+import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { Routes } from '@/lib/routes'
+import { useRouter } from 'next/navigation'
+import { uploadFileStore } from '@/hooks/upload-file-store'
 import {
+    ActionIcon,
     Alert,
     Button,
     Divider,
+    Grid,
+    GridCol,
     Group,
     Paper,
+    Radio,
     useMantineTheme,
     Stack,
     Text,
     Title,
-    Grid,
-    FileInput,
-    ActionIcon,
 } from '@mantine/core'
-import { FC, useState } from 'react'
+import { Dropzone } from '@mantine/dropzone'
+import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import { FC, useEffect, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
+import { notifications } from '@mantine/notifications'
 import { AppModal } from './modal'
 import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { UseFormReturnType } from '@mantine/form'
 import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
-import {
-    AsteriskIcon,
-    CheckCircleIcon,
-    LightbulbIcon,
-    UploadIcon,
-    UploadSimpleIcon,
-    XCircleIcon,
-    XIcon,
-} from '@phosphor-icons/react'
+import { LightbulbIcon } from '@phosphor-icons/react'
+import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 import { ReviewUploadedFiles } from './study/review-uploaded-files'
-import { Dropzone } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
-import { uniqueBy } from 'remeda'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
-import { ACCEPTED_FILE_FORMATS_TEXT, ACCEPTED_FILE_TYPES } from '@/lib/types'
 import { FormFieldLabel } from './form-field-label'
-import { InputError } from './errors'
 
 interface StudyCodeUploadProps {
-    studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
-    showStepIndicator?: boolean
+    studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
+    stepIndicator?: string
     title?: string
     language: Language
     orgSlug: string
-    studyId?: string
-    viewMode?: 'upload' | 'review'
-    onViewModeChange?: (mode: 'upload' | 'review') => void
+    studyId: string
+    onIDELaunched?: () => void
+    onIDELoadingChange?: (loading: boolean) => void
 }
 
 export const StudyCodeUpload = ({
-    studyUploadForm,
-    showStepIndicator = false,
+    stepIndicator,
     title = 'Study code',
     language,
     orgSlug,
     studyId,
-    viewMode: externalViewMode,
-    onViewModeChange,
+    onIDELaunched,
+    onIDELoadingChange,
+    studyUploadForm,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
@@ -65,56 +64,30 @@ export const StudyCodeUpload = ({
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
     const theme = useMantineTheme()
 
-    // Use external viewMode if provided, otherwise use internal state
-    const viewMode = externalViewMode ?? internalViewMode
-
-    const setViewMode = (mode: 'upload' | 'review') => {
-        if (onViewModeChange) {
-            onViewModeChange(mode)
-        } else {
-            setInternalViewMode(mode)
-        }
-    }
-
-    const handleConfirmAndProceed = (files: File[]) => {
-        setUploadedFiles(files)
-        const allFiles = [...files]
-        const mainFile = allFiles.length > 0 ? allFiles[0] : null
-        const additionalFiles = allFiles.slice(1)
-
-        studyUploadForm.setFieldValue('mainCodeFile', mainFile)
-        studyUploadForm.setFieldValue('additionalCodeFiles', additionalFiles)
-        setViewMode('review')
-        closeModal()
-    }
+    const {
+        launchWorkspace,
+        isLaunching: isLaunchingWorkspace,
+        isCreatingWorkspace,
+        error: launchError,
+    } = useWorkspaceLauncher({ studyId })
 
     const handleLaunchIDE = () => {
-        // TODO: Implement logic to launch the IDE
-    }
-
-    const handleBackToUpload = () => {
-        setViewMode('upload')
+        launchWorkspace()
+        onIDELaunched?.()
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+    const isIDELoading = isLaunchingWorkspace || isCreatingWorkspace
 
-    if (viewMode === 'review') {
-        return (
-            <ReviewUploadedFiles
-                files={uploadedFiles}
-                setFiles={setUploadedFiles}
-                onBack={handleBackToUpload}
-                orgSlug={orgSlug}
-                studyId={studyId || ''}
-            />
-        )
-    }
+    useEffect(() => {
+        onIDELoadingChange?.(isIDELoading)
+    }, [isIDELoading, onIDELoadingChange])
 
     return (
         <Paper p="xl">
-            {showStepIndicator && (
+            {stepIndicator && (
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 4 of 4
+                    {stepIndicator}
                 </Text>
             )}
             <Title order={4}>{title}</Title>
@@ -150,22 +123,31 @@ export const StudyCodeUpload = ({
             )}
 
             <Group align="center">
-                <UploadFilesButton onClick={openModal} language={language} />
+                {studyUploadForm && <UploadFilesButton onClick={openModal} language={language} />}
 
                 {isOpenstaxOrg && (
                     <>
-                        <OrDivider />
-                        <LaunchIDEButton onClick={handleLaunchIDE} language={language} />
+                        {studyUploadForm && <OrDivider />}
+                        <LaunchIDEButton
+                            onClick={handleLaunchIDE}
+                            language={language}
+                            loading={isIDELoading}
+                            error={!!launchError}
+                        />
                     </>
                 )}
             </Group>
 
-            <StudyCodeUploadModal
-                onClose={closeModal}
-                isOpen={isModalOpen}
-                onConfirmAndClose={handleConfirmAndProceed}
-                studyUploadForm={studyUploadForm}
-            />
+            {studyUploadForm && (
+                <StudyCodeUploadModal
+                    onClose={closeModal}
+                    isOpen={isModalOpen}
+                    studyUploadForm={studyUploadForm}
+                    language={language}
+                    studyId={studyId}
+                    orgSlug={orgSlug}
+                />
+            )}
         </Paper>
     )
 }
@@ -173,95 +155,72 @@ export const StudyCodeUpload = ({
 const StudyCodeUploadModal: FC<{
     onClose: () => void
     isOpen: boolean
-    onConfirmAndClose: (files: File[]) => void
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
-}> = ({ onClose, isOpen, onConfirmAndClose, studyUploadForm }) => {
+    language: Language
+    studyId: string
+    orgSlug: string
+}> = ({ onClose, isOpen, studyUploadForm, language, studyId, orgSlug }) => {
     const theme = useMantineTheme()
-    const [mainCodeFile, setMainCodeFile] = useState<File | null>(studyUploadForm.values.mainCodeFile)
-    const [additionalCodeFiles, setAdditionalCodeFiles] = useState<File[]>(studyUploadForm.values.additionalCodeFiles)
-    const { getFileUploadIcon } = useFileUploadIcons()
-    const mainFileUpload = getFileUploadIcon(theme.colors.blue[7], mainCodeFile?.name ?? '')
+    const router = useRouter()
+    const [selectedMainFile, setSelectedMainFile] = useState<string>('')
 
-    const removeAdditionalFiles = (fileToRemove: File) => {
-        const updatedAdditionalFiles = additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
-        setAdditionalCodeFiles(updatedAdditionalFiles)
+    // Get all files (additionalCodeFiles) - needs fresh values each render
+    const allFiles = studyUploadForm.getValues().additionalCodeFiles
+
+    const removeFile = (fileToRemove: File) => {
+        const updatedAdditionalFiles = studyUploadForm
+            .getValues()
+            .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
+        studyUploadForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
+        studyUploadForm.validateField('totalFileSize')
+        // If removed file was the selected main file, clear selection
+        if (selectedMainFile === fileToRemove.name) {
+            setSelectedMainFile('')
+        }
     }
 
     const handleDone = () => {
-        const allFiles: File[] = []
-        if (mainCodeFile) {
-            allFiles.push(mainCodeFile)
-        }
-        allFiles.push(...additionalCodeFiles)
-        onConfirmAndClose(allFiles)
+        // Get fresh file list at the time of clicking Done
+        const currentFiles = studyUploadForm.getValues().additionalCodeFiles
+        const mainFile = currentFiles.find((f) => f.name === selectedMainFile)
+
+        if (!mainFile) return
+
+        // Store File objects in module-level store (persists across navigation, cleared on refresh)
+        uploadFileStore.set(studyId, currentFiles, mainFile.name)
+
+        // Close modal and navigate to select-files page
+        onClose()
+        router.push(Routes.studySelectFiles({ orgSlug, studyId }))
     }
 
-    const titleSpan = { base: 12, md: 2 }
-    const inputSpan = { base: 12, md: 10 }
-
     return (
-        <AppModal isOpen={isOpen} onClose={onClose} title="Upload your code files">
+        <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
             <Stack>
-                <Group grow justify="center" align="center">
-                    <Grid>
-                        <Grid.Col span={titleSpan}>
-                            <Group gap="xs">
-                                <FormFieldLabel label="Main code file" inputId="mainCodeFile" />
-                                <AsteriskIcon size={14} color={theme.colors.red[5]} />
-                            </Group>
-                        </Grid.Col>
-                        <Grid.Col span={inputSpan}>
-                            <FileInput
-                                name="mainCodeFile"
-                                leftSection={mainFileUpload}
-                                aria-label="Upload Main Code File"
-                                placeholder="Upload Main Code File"
-                                clearable
-                                accept={'.r,.R,.rmd,.py,.ipynb'}
-                                value={mainCodeFile}
-                                onChange={(file) => {
-                                    const isDuplicate = handleDuplicateUpload(file, additionalCodeFiles)
-
-                                    if (isDuplicate) {
-                                        setMainCodeFile(null)
-                                        return
-                                    }
-
-                                    setMainCodeFile(file)
-                                }}
-                                autoFocus
-                            />
-                            <Text size="xs" c="dimmed">
-                                Accepted formats: .r, .rmd, .py, .ipynb.
-                            </Text>
-                        </Grid.Col>
-                    </Grid>
+                <Group gap={0}>
+                    <Text size="sm">Upload your code file(s).</Text>
                 </Group>
-
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>
-                        <Grid.Col span={titleSpan}>
-                            <FormFieldLabel
-                                label="Additional file(s)"
-                                variant="optional"
-                                inputId="additionalCodeFiles"
-                            />
-                        </Grid.Col>
-                        <Grid.Col span={{ base: 6, md: 4 }}>
+                        <GridCol span={{ base: 6, md: 5 }}>
                             <Dropzone
                                 name="additionalCodeFiles"
                                 onDrop={(files) => {
+                                    const { additionalCodeFiles: previousFiles, mainCodeFile } =
+                                        studyUploadForm.getValues()
+
                                     handleDuplicateUpload(mainCodeFile, files)
 
                                     const filteredFiles = mainCodeFile
                                         ? files.filter((f) => f.name !== mainCodeFile.name)
                                         : files
 
-                                    const newAdditionalFiles = uniqueBy(
-                                        [...filteredFiles, ...additionalCodeFiles],
+                                    const additionalFiles = uniqueBy(
+                                        [...filteredFiles, ...previousFiles],
                                         (file) => file.name,
                                     )
-                                    setAdditionalCodeFiles(newAdditionalFiles)
+                                    studyUploadForm.setFieldValue('additionalCodeFiles', additionalFiles)
+                                    studyUploadForm.validateField('totalFileSize')
                                 }}
                                 onReject={(rejections) =>
                                     notifications.show({
@@ -280,65 +239,72 @@ const StudyCodeUploadModal: FC<{
                                 multiple={true}
                                 maxFiles={10}
                                 accept={ACCEPTED_FILE_TYPES}
+                                p="xl"
                             >
-                                <Stack align="center" justify="center" gap="md" style={{ pointerEvents: 'none' }}>
-                                    <Text fz="sm" c="dimmed">
-                                        Upload File
-                                    </Text>
-                                    <Dropzone.Accept>
-                                        <UploadIcon />
-                                    </Dropzone.Accept>
-                                    <Dropzone.Reject>
-                                        <XIcon />
-                                    </Dropzone.Reject>
-                                    <Dropzone.Idle>
-                                        <UploadSimpleIcon />
-                                    </Dropzone.Idle>
-                                    <Group gap="xs">
-                                        <Text size="sm" c="dimmed">
-                                            Drop your files or
+                                <Dropzone.Accept>
+                                    <UploadIcon />
+                                </Dropzone.Accept>
+                                <Dropzone.Reject>
+                                    <XIcon />
+                                </Dropzone.Reject>
+                                <Dropzone.Idle>
+                                    <Stack>
+                                        <Group gap="xs">
+                                            <FileArrowUpIcon size={32} />
+                                            <Text size="sm" c="dimmed">
+                                                Drop your files or
+                                            </Text>
+                                            <Text fz="sm" c="purple.6" fw="bold">
+                                                Browse
+                                            </Text>
+                                        </Group>
+                                        <Text size="xs" c="dimmed">
+                                            {getAcceptedFormatsForLanguage(language)}
                                         </Text>
-                                        <Text td="underline" c="dimmed" fz="sm">
-                                            Browse
-                                        </Text>
-                                    </Group>
-                                    <Text size="xs" c="dimmed">
-                                        {ACCEPTED_FILE_FORMATS_TEXT}
-                                    </Text>
-                                </Stack>
+                                    </Stack>
+                                </Dropzone.Idle>
                             </Dropzone>
-                        </Grid.Col>
-                        <Grid.Col span={{ base: 4, md: 6 }}>
-                            <Divider orientation="vertical" />
-                            {additionalCodeFiles.map((file) => (
-                                <Group key={file.name} gap="md" w="100%">
-                                    <Group>
-                                        <CheckCircleIcon weight="fill" color="#2F9844" />
-                                        <Text>{file.name}</Text>
-                                    </Group>
-                                    <ActionIcon
-                                        variant="transparent"
-                                        aria-label={`Remove file ${file.name}`}
-                                        onClick={() => removeAdditionalFiles(file)}
-                                    >
-                                        <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
-                                    </ActionIcon>
-                                </Group>
-                            ))}
-                        </Grid.Col>
+                        </GridCol>
+                        <Divider orientation="vertical" />
+                        <GridCol span={{ base: 4, md: 6 }}>
+                            <Title order={5}>Uploaded files</Title>
+                            <Text size="xs" c="dimmed" mb="sm">
+                                Select the main file to run
+                            </Text>
+                            <Radio.Group value={selectedMainFile} onChange={setSelectedMainFile}>
+                                <Stack gap="xs">
+                                    {allFiles.map((file) => (
+                                        <Group key={file.name} gap="md" w="100%" justify="space-between">
+                                            <Group gap="sm">
+                                                <Radio value={file.name} label={file.name} />
+                                            </Group>
+                                            <ActionIcon
+                                                variant="transparent"
+                                                aria-label={`Remove file ${file.name}`}
+                                                onClick={() => removeFile(file)}
+                                            >
+                                                <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
+                                            </ActionIcon>
+                                        </Group>
+                                    ))}
+                                </Stack>
+                            </Radio.Group>
+                        </GridCol>
                         {studyUploadForm.errors['totalFileSize'] && (
-                            <Grid.Col>
+                            <GridCol>
                                 <InputError error={studyUploadForm.errors['totalFileSize']} />
-                            </Grid.Col>
+                            </GridCol>
                         )}
                     </Grid>
                 </Group>
 
-                <Group justify="flex-end" mt="xl">
+                <Group>
                     <Button variant="outline" onClick={onClose}>
-                        Cancel
+                        Cancel upload
                     </Button>
-                    <Button onClick={handleDone}>Done</Button>
+                    <Button onClick={handleDone} disabled={!selectedMainFile || allFiles.length === 0}>
+                        Done
+                    </Button>
                 </Group>
             </Stack>
         </AppModal>
