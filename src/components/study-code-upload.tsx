@@ -4,9 +4,6 @@ import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { InputError } from '@/components/errors'
 import { handleDuplicateUpload } from '@/hooks/file-upload'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
-import { Routes } from '@/lib/routes'
-import { useRouter } from 'next/navigation'
-import { uploadFileStore } from '@/hooks/upload-file-store'
 import {
     ActionIcon,
     Alert,
@@ -34,6 +31,7 @@ import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
+import { ReviewUploadedFiles } from './study/review-uploaded-files'
 
 interface StudyCodeUploadProps {
     studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
@@ -44,6 +42,11 @@ interface StudyCodeUploadProps {
     studyId: string
     onIDELaunched?: () => void
     onIDELoadingChange?: (loading: boolean) => void
+    viewMode?: 'upload' | 'review'
+    onViewModeChange?: (mode: 'upload' | 'review') => void
+    onFilesUploaded?: (files: File[]) => void
+    onProceed?: (mainFileName: string) => void
+    isSubmitting?: boolean
 }
 
 export const StudyCodeUpload = ({
@@ -55,10 +58,28 @@ export const StudyCodeUpload = ({
     onIDELaunched,
     onIDELoadingChange,
     studyUploadForm,
+    viewMode: externalViewMode,
+    onViewModeChange,
+    onFilesUploaded,
+    onProceed,
+    isSubmitting = false,
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
+    const [internalViewMode, setInternalViewMode] = useState<'upload' | 'review'>('upload')
+    const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
     const theme = useMantineTheme()
+
+    // Use external viewMode if provided, otherwise use internal state
+    const viewMode = externalViewMode ?? internalViewMode
+
+    const setViewMode = (mode: 'upload' | 'review') => {
+        if (onViewModeChange) {
+            onViewModeChange(mode)
+        } else {
+            setInternalViewMode(mode)
+        }
+    }
 
     const {
         launchWorkspace,
@@ -72,12 +93,56 @@ export const StudyCodeUpload = ({
         onIDELaunched?.()
     }
 
+    const handleConfirmAndProceed = (files: File[], mainFileName: string) => {
+        setUploadedFiles(files)
+        const mainFile = files.find((f) => f.name === mainFileName) || null
+        const additionalFiles = files.filter((f) => f.name !== mainFileName)
+
+        studyUploadForm?.setFieldValue('mainCodeFile', mainFile)
+        studyUploadForm?.setFieldValue('additionalCodeFiles', additionalFiles)
+
+        // Notify parent of uploaded files
+        onFilesUploaded?.(files)
+
+        setViewMode('review')
+        closeModal()
+    }
+
+    const handleBackToUpload = () => {
+        setViewMode('upload')
+    }
+
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
     const isIDELoading = isLaunchingWorkspace || isCreatingWorkspace
 
     useEffect(() => {
         onIDELoadingChange?.(isIDELoading)
     }, [isIDELoading, onIDELoadingChange])
+
+    const handleSaveAndProceed = (mainFileName: string) => {
+        // update form with the correct main file based on user's selection in review
+        const mainFile = uploadedFiles.find((f) => f.name === mainFileName) || null
+        const additionalFiles = uploadedFiles.filter((f) => f.name !== mainFileName)
+
+        studyUploadForm?.setFieldValue('mainCodeFile', mainFile)
+        studyUploadForm?.setFieldValue('additionalCodeFiles', additionalFiles)
+
+        onProceed?.(mainFileName)
+    }
+
+    if (viewMode === 'review') {
+        return (
+            <ReviewUploadedFiles
+                files={uploadedFiles}
+                setFiles={setUploadedFiles}
+                onBack={handleBackToUpload}
+                onSaveAndProceed={handleSaveAndProceed}
+                orgSlug={orgSlug}
+                studyId={studyId}
+                isSaving={isSubmitting}
+            />
+        )
+    }
 
     return (
         <Paper p="xl">
@@ -140,8 +205,7 @@ export const StudyCodeUpload = ({
                     isOpen={isModalOpen}
                     studyUploadForm={studyUploadForm}
                     language={language}
-                    studyId={studyId}
-                    orgSlug={orgSlug}
+                    onConfirmAndProceed={handleConfirmAndProceed}
                 />
             )}
         </Paper>
@@ -153,11 +217,9 @@ const StudyCodeUploadModal: FC<{
     isOpen: boolean
     studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
     language: Language
-    studyId: string
-    orgSlug: string
-}> = ({ onClose, isOpen, studyUploadForm, language, studyId, orgSlug }) => {
+    onConfirmAndProceed: (files: File[], mainFileName: string) => void
+}> = ({ onClose, isOpen, studyUploadForm, language, onConfirmAndProceed }) => {
     const theme = useMantineTheme()
-    const router = useRouter()
     const [selectedMainFile, setSelectedMainFile] = useState<string>('')
 
     // Get all files (additionalCodeFiles) - needs fresh values each render
@@ -178,16 +240,10 @@ const StudyCodeUploadModal: FC<{
     const handleDone = () => {
         // Get fresh file list at the time of clicking Done
         const currentFiles = studyUploadForm.getValues().additionalCodeFiles
-        const mainFile = currentFiles.find((f) => f.name === selectedMainFile)
 
-        if (!mainFile) return
+        if (!selectedMainFile || currentFiles.length === 0) return
 
-        // Store File objects in module-level store (persists across navigation, cleared on refresh)
-        uploadFileStore.set(studyId, currentFiles, mainFile.name)
-
-        // Close modal and navigate to select-files page
-        onClose()
-        router.push(Routes.studySelectFiles({ orgSlug, studyId }))
+        onConfirmAndProceed(currentFiles, selectedMainFile)
     }
 
     return (

@@ -1,17 +1,25 @@
 import { FC, useState } from 'react'
-import { Paper, Title, Text, Divider, Table, Radio, ActionIcon, Stack } from '@mantine/core'
+import { Paper, Title, Text, Divider, Table, Radio, ActionIcon, Stack, Group, Button } from '@mantine/core'
 import { TrashIcon } from '@phosphor-icons/react'
 
 interface ReviewUploadedFilesProps {
     files: File[]
     setFiles: (files: File[]) => void
     onBack: () => void
+    onSaveAndProceed?: (mainFileName: string) => void
     orgSlug: string
     studyId: string
+    isSaving?: boolean
 }
 
-export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFiles }) => {
-    const [mainFile, setMainFile] = useState<string | null>(null)
+export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
+    files,
+    setFiles,
+    onBack,
+    onSaveAndProceed,
+    isSaving = false,
+}) => {
+    const [mainFile, setMainFile] = useState<string | null>(files.length > 0 ? files[0].name : null)
     const lastUpdated = new Date().toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -25,7 +33,13 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFi
         const newFiles = files.filter((file) => file.name !== fileToDelete.name)
         setFiles(newFiles)
         if (mainFile === fileToDelete.name) {
-            setMainFile(null)
+            setMainFile(newFiles.length > 0 ? newFiles[0].name : null)
+        }
+    }
+
+    const handleSaveAndProceed = () => {
+        if (mainFile && onSaveAndProceed) {
+            onSaveAndProceed(mainFile)
         }
     }
 
@@ -75,6 +89,21 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({ files, setFi
                     </Table.Thead>
                     <Table.Tbody>{rows}</Table.Tbody>
                 </Table>
+
+                <Group justify="flex-end" mt="md">
+                    <Button variant="outline" onClick={onBack}>
+                        Back
+                    </Button>
+                    {onSaveAndProceed && (
+                        <Button
+                            onClick={handleSaveAndProceed}
+                            disabled={!mainFile || files.length === 0}
+                            loading={isSaving}
+                        >
+                            Save and proceed to review
+                        </Button>
+                    )}
+                </Group>
             </Stack>
         </Paper>
     )
