@@ -2,7 +2,7 @@ import { Language } from '@/database/types'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { InputError } from '@/components/errors'
-import { handleDuplicateUpload, useFileUploadIcons } from '@/hooks/file-upload'
+import { handleDuplicateUpload } from '@/hooks/file-upload'
 import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 import { Routes } from '@/lib/routes'
 import { useRouter } from 'next/navigation'
@@ -34,8 +34,6 @@ import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
-import { ReviewUploadedFiles } from './study/review-uploaded-files'
-import { FormFieldLabel } from './form-field-label'
 
 interface StudyCodeUploadProps {
     studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
@@ -60,8 +58,6 @@ export const StudyCodeUpload = ({
 }: StudyCodeUploadProps) => {
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useState(true)
-    const [internalViewMode, setInternalViewMode] = useState<'upload' | 'review'>('upload')
-    const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
     const theme = useMantineTheme()
 
     const {
