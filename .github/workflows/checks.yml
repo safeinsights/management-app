@@ -86,6 +86,7 @@ jobs:
             AWS_REGION: 'us-east-1'
             PORT: '4000'
             NEXT_PUBLIC_CLERK_DOMAIN: 'localhost:4000'
+            CODER_FILES: 'tests/coder-files'
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-node@v4
