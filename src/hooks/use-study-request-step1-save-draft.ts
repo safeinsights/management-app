@@ -6,10 +6,7 @@ import { errorToString } from '@/lib/errors'
 import { getLabSlug } from '@/lib/org'
 import { actionResult } from '@/lib/utils'
 import { notifications } from '@mantine/notifications'
-import {
-    onSaveDraftStudyAction,
-    onUpdateDraftStudyAction,
-} from '@/server/actions/study-request'
+import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import { useStudyRequestStore } from '@/stores/study-request.store'
 import type { Language } from '@/database/types'
 

@@ -43,7 +43,12 @@ export function CodeUploadPage({
     const canProceedToReview = useCanProceedToReview()
 
     // IDE launcher
-    const { launchWorkspace, isLaunching, isCreatingWorkspace, error: launchError } = useWorkspaceLauncher({
+    const {
+        launchWorkspace,
+        isLaunching,
+        isCreatingWorkspace,
+        error: launchError,
+    } = useWorkspaceLauncher({
         studyId,
         onSuccess: () => {
             router.push(Routes.studySelectFiles({ orgSlug: submittingOrgSlug, studyId }))
@@ -94,12 +99,7 @@ export function CodeUploadPage({
 
     // Show review mode if files are selected
     if (viewMode === 'review' && codeFiles.mainFile) {
-        return (
-            <CodeFilesReview
-                onBack={handleBackToUpload}
-                onProceed={handleProceedToReview}
-            />
-        )
+        return <CodeFilesReview onBack={handleBackToUpload} onProceed={handleProceedToReview} />
     }
 
     return (
@@ -167,9 +167,7 @@ export function CodeUploadPage({
                             Main file: <strong>{existingMainFile}</strong>
                         </Text>
                         {existingAdditionalFiles && existingAdditionalFiles.length > 0 && (
-                            <Text size="sm">
-                                Additional files: {existingAdditionalFiles.join(', ')}
-                            </Text>
+                            <Text size="sm">Additional files: {existingAdditionalFiles.join(', ')}</Text>
                         )}
                         <Text size="xs" c="dimmed">
                             Upload new files to replace these, or proceed to review with existing files.

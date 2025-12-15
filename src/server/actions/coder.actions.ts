@@ -36,7 +36,8 @@ export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
     .handler(async ({ params: { studyId, workspaceId }, session }) => {
         if (!session) throw new Error('Unauthorized')
         if (!workspaceId) return
-        if (DEV_ENV || CI_ENV) { // these envs do not have a 'real' coder setup
+        if (DEV_ENV || CI_ENV) {
+            // these envs do not have a 'real' coder setup
             await new Promise((resolve) => setTimeout(resolve, 3000))
             return `https://coder.dev.example.com/workspace/${studyId}`
         }

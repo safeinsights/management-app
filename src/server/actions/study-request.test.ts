@@ -2,11 +2,7 @@ import { db } from '@/database'
 import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import {
-    onDeleteStudyAction,
-    onSaveDraftStudyAction,
-    onSubmitDraftStudyAction,
-} from '@/server/actions/study-request'
+import { onDeleteStudyAction, onSaveDraftStudyAction, onSubmitDraftStudyAction } from '@/server/actions/study-request'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -94,11 +90,7 @@ describe('Request Study Actions', () => {
         expect(submitResult.studyJobId).toBeDefined()
 
         // Verify it's now PENDING-REVIEW
-        study = await db
-            .selectFrom('study')
-            .selectAll('study')
-            .where('id', '=', draftResult.studyId)
-            .executeTakeFirst()
+        study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
         expect(study?.status).toEqual('PENDING-REVIEW')
     })
 

@@ -7,9 +7,7 @@ import { notFound, redirect } from 'next/navigation'
 import { CodeUploadPage } from './step2-code-upload'
 import { Routes } from '@/lib/routes'
 
-export default async function StudyCodeUploadRoute(props: {
-    params: Promise<{ studyId: string; orgSlug: string }>
-}) {
+export default async function StudyCodeUploadRoute(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
 
     // Fetch draft study data

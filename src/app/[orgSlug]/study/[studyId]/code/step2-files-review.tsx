@@ -1,18 +1,7 @@
 'use client'
 
 import { FC, useState } from 'react'
-import {
-    ActionIcon,
-    Button,
-    Group,
-    Paper,
-    Radio,
-    Table,
-    Text,
-    Title,
-    Divider,
-    useMantineTheme,
-} from '@mantine/core'
+import { ActionIcon, Button, Group, Paper, Radio, Table, Text, Title, Divider, useMantineTheme } from '@mantine/core'
 import { CaretLeftIcon, XCircleIcon } from '@phosphor-icons/react'
 import { useStudyRequestStore, useCodeFiles, FileRef } from '@/stores/study-request.store'
 
@@ -43,10 +32,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, i
     const [selectedMainFile, setSelectedMainFile] = useState(mainFileName)
 
     // Get all files as a flat array
-    const allFiles: FileRef[] = [
-        ...(codeFiles.mainFile ? [codeFiles.mainFile] : []),
-        ...codeFiles.additionalFiles,
-    ]
+    const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
 
     const handleRemoveFile = (fileName: string) => {
         store.removeCodeFile(fileName)

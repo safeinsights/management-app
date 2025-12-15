@@ -81,10 +81,7 @@ export function useProposalForm(draftData?: DraftData | null) {
     return { form, existingFiles }
 }
 
-export function isProposalFormValid(
-    formValues: StudyProposalFormValues,
-    existingFiles?: ExistingFiles,
-): boolean {
+export function isProposalFormValid(formValues: StudyProposalFormValues, existingFiles?: ExistingFiles): boolean {
     const hasDescription = !!formValues.descriptionDocument || !!existingFiles?.descriptionDocPath
     const hasIrb = !!formValues.irbDocument || !!existingFiles?.irbDocPath
     const hasAgreement = !!formValues.agreementDocument || !!existingFiles?.agreementDocPath

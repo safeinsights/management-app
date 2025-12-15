@@ -42,10 +42,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, lan
     const codeFiles = useCodeFiles()
 
     // Get all files as a flat array for display
-    const allFiles: FileRef[] = [
-        ...(codeFiles.mainFile ? [codeFiles.mainFile] : []),
-        ...codeFiles.additionalFiles,
-    ]
+    const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
 
     // Handle file drop
     const handleDrop = (files: File[]) => {

@@ -85,19 +85,21 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     title: (
                         <Flex align="center">
                             <span>Permission</span>
-                            <InfoTooltip label={(
-                                <Flex direction="column">
-                                    <Text w='b' mb="xs">
-                                        Shows someone’s permissions within the organization:
-                                    </Text>
-                                    <Text>
-                                        <b>Contributor</b> – full access within their role; no admin privileges
-                                    </Text>
-                                    <Text>
-                                        <b>Administrator</b> – manages team-level settings and contributors
-                                    </Text>
-                                </Flex>
-                            )}>
+                            <InfoTooltip
+                                label={
+                                    <Flex direction="column">
+                                        <Text w="b" mb="xs">
+                                            Shows someone’s permissions within the organization:
+                                        </Text>
+                                        <Text>
+                                            <b>Contributor</b> – full access within their role; no admin privileges
+                                        </Text>
+                                        <Text>
+                                            <b>Administrator</b> – manages team-level settings and contributors
+                                        </Text>
+                                    </Flex>
+                                }
+                            >
                                 <InfoIcon />
                             </InfoTooltip>
                         </Flex>

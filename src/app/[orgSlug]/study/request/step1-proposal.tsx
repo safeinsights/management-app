@@ -43,7 +43,11 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
                 if (!studyId) {
-                    window.history.replaceState(null, '', Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
+                    window.history.replaceState(
+                        null,
+                        '',
+                        Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }),
+                    )
                 }
                 notifications.show({
                     title: 'Draft Saved',
