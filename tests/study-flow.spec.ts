@@ -96,7 +96,7 @@ async function verifyStudyFileDownloads(page: Page, expectedPdfPath: string) {
 }
 
 async function viewDetails(page: Page, studyTitle: string) {
-    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+    const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     await studyRow.getByRole('link', { name: 'View' }).first().click()
     await expect(
