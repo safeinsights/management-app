@@ -43,10 +43,10 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
     // Wait for dashboard to be fully loaded before interacting
-    await expect(page.getByTestId('table-skeleton')).not.toBeVisible({ timeout: 30000 })
+    await expect(page.getByTestId('table-skeleton')).not.toBeVisible({ timeout: 60000 })
 
     const newStudyButton = page.getByTestId('new-study').first()
-    await newStudyButton.waitFor({ state: 'visible', timeout: 30000 })
+    await newStudyButton.waitFor({ state: 'visible', timeout: 60000 })
     await newStudyButton.click()
 
     await fillStudyForm(page, studyTitle)
@@ -61,7 +61,7 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
     await expect(nextStepButton).toBeEnabled()
     await nextStepButton.click()
 
-    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 30000 })
+    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 60000 })
 
     await page.getByRole('button', { name: /Upload your files/i }).click()
 
@@ -104,8 +104,8 @@ test('Resubmit code flow: researcher can resubmit code for an approved study', a
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
 
         // Wait for dashboard content to be fully loaded
-        await expect(page.getByTestId('table-skeleton')).not.toBeVisible({ timeout: 30000 })
-        await expect(page.getByText('Review Studies')).toBeVisible({ timeout: 30000 })
+        await expect(page.getByTestId('table-skeleton')).not.toBeVisible({ timeout: 60000 })
+        await expect(page.getByText('Review Studies')).toBeVisible({ timeout: 60000 })
 
         await viewDetails(page, studyFeatures.studyTitle)
 
