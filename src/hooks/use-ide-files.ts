@@ -1,12 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@/common'
-import { errorToString } from '@/lib/errors'
+import { useQuery, useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
-import { submitStudyFromIDEAction } from '@/server/actions/study-request'
 import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
 import { useState, useCallback, useMemo } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
+import { useStudyRequestStore } from '@/stores/study-request.store'
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -16,6 +15,7 @@ interface UseIDEFilesOptions {
 export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
+    const store = useStudyRequestStore()
 
     const [hasImported, setHasImported] = useState(false)
     const [removedFiles, setRemovedFiles] = useState<Set<string>>(new Set())
@@ -76,66 +76,43 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     )
 
     const goBack = useCallback(() => {
-        router.push(Routes.studyUpload({ orgSlug, studyId }))
+        router.push(Routes.studyCode({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
-    const { isPending: isSubmitting, mutate: submit } = useMutation({
-        mutationFn: async () => {
-            if (!mainFile || files.length === 0) {
-                throw new Error('Main file or files not set')
-            }
-            const result = await submitStudyFromIDEAction({
-                studyId,
-                mainFileName: mainFile,
-                fileNames: files,
-            })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
-            queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
-            notifications.show({
-                title: 'Study Proposal Submitted',
-                message:
-                    'Your proposal has been successfully submitted to the reviewing organization. Check your dashboard for status updates.',
-                color: 'green',
-            })
-            router.push(Routes.dashboard)
-        },
-        onError: (error: Error) => {
+    const proceedToReview = useCallback(() => {
+        if (!mainFile || files.length === 0) {
             notifications.show({
                 color: 'red',
-                title: 'Failed to submit study',
-                message: `${errorToString(error)}\nPlease contact support.`,
+                title: 'Cannot proceed',
+                message: 'Please import files and select a main file first.',
             })
-        },
-    })
+            return
+        }
+
+        store.setIDECodeFiles(mainFile, files)
+
+        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+
+        router.push(Routes.studyReview({ orgSlug, studyId }))
+    }, [mainFile, files, store, queryClient, studyId, router, orgSlug])
 
     return {
-        // IDE Launch
         launchWorkspace,
         isLaunching,
         launchError,
 
-        // File Import
         importFiles,
         isLoadingFiles,
         showEmptyState,
         lastModified,
 
-        // File State
         files,
         mainFile,
         setMainFile,
         removeFile,
 
-        // Submit
         canSubmit,
-        isSubmitting,
-        submit,
+        proceedToReview,
         goBack,
     }
 }

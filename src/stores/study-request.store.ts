@@ -46,12 +46,14 @@ interface StudyRequestState {
     codeFiles: CodeFileState
     documentFiles: DocumentFileState
     codeUploadViewMode: 'upload' | 'review'
+    codeSource: 'upload' | 'ide'
 
     setStudyId: (id: string) => void
     setOrgSlug: (slug: string) => void
     setSubmittingOrgSlug: (slug: string) => void
     setLanguage: (lang: Language | null) => void
     setCodeFiles: (main: File | null, additional: File[]) => void
+    setIDECodeFiles: (mainFileName: string, fileNames: string[]) => void
     setMainCodeFile: (fileName: string) => void
     removeCodeFile: (fileName: string) => void
     clearCodeFiles: () => void
@@ -78,6 +80,7 @@ const initialState = {
     codeFiles: { mainFile: null, additionalFiles: [] } as CodeFileState,
     documentFiles: { description: null, irb: null, agreement: null } as DocumentFileState,
     codeUploadViewMode: 'upload' as const,
+    codeSource: 'upload' as const,
 }
 
 export const useStudyRequestStore = create<StudyRequestState>((set, get) => ({
@@ -94,7 +97,19 @@ export const useStudyRequestStore = create<StudyRequestState>((set, get) => ({
                 mainFile: main ? { type: 'memory', file: main } : null,
                 additionalFiles: additional.map((f) => ({ type: 'memory', file: f })),
             },
+            codeSource: 'upload',
         }),
+
+    setIDECodeFiles: (mainFileName, fileNames) => {
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName)
+        set({
+            codeFiles: {
+                mainFile: { type: 'server', path: '', name: mainFileName },
+                additionalFiles: additionalFileNames.map((name) => ({ type: 'server' as const, path: '', name })),
+            },
+            codeSource: 'ide',
+        })
+    },
 
     setMainCodeFile: (fileName) => {
         const { codeFiles } = get()
@@ -170,6 +185,7 @@ export const useStudyId = () => useStudyRequestStore((state) => state.studyId)
 export const useCodeFiles = () => useStudyRequestStore((state) => state.codeFiles)
 export const useDocumentFiles = () => useStudyRequestStore((state) => state.documentFiles)
 export const useCodeUploadViewMode = () => useStudyRequestStore((state) => state.codeUploadViewMode)
+export const useCodeSource = () => useStudyRequestStore((state) => state.codeSource)
 export const useCanProceedToReview = () => useStudyRequestStore((state) => state.codeFiles.mainFile !== null)
 
 export const getFileFromRef = (ref: FileRef | null): File | null => {

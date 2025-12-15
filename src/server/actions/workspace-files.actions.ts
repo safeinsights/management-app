@@ -14,7 +14,7 @@ const isMainFile = (filename: string): boolean => {
 export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {})
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
-    .requireAbilityTo('view', 'Study')
+    .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId } }) => {
         let coderFilesPath = await getConfigValue('CODER_FILES')
         if (!DEV_ENV) {

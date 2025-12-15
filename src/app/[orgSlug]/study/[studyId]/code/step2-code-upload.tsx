@@ -43,7 +43,12 @@ export function CodeUploadPage({
     const canProceedToReview = useCanProceedToReview()
 
     // IDE launcher
-    const { launchWorkspace, isLaunching, isCreatingWorkspace, error: launchError } = useWorkspaceLauncher({ studyId })
+    const { launchWorkspace, isLaunching, isCreatingWorkspace, error: launchError } = useWorkspaceLauncher({
+        studyId,
+        onSuccess: () => {
+            router.push(Routes.studySelectFiles({ orgSlug: submittingOrgSlug, studyId }))
+        },
+    })
 
     // Initialize store from server data on mount
     useEffect(() => {
