@@ -31,6 +31,7 @@ export const PROD_BUILD = process.env.NODE_ENV === 'production'
 
 export const PROD_ENV = ENVIRONMENT_ID == 'production'
 export const STAGING_ENV = ENVIRONMENT_ID == 'staging'
+export const CODER_DISABLED = Boolean(CI_ENV || DEV_ENV)
 
 export const APP_BASE_URL = `http${PROD_BUILD ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
 
