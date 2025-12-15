@@ -2,7 +2,11 @@ import { db } from '@/database'
 import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import { onCreateStudyAction, onDeleteStudyAction } from '@/server/actions/study-request'
+import {
+    onDeleteStudyAction,
+    onSaveDraftStudyAction,
+    onSubmitDraftStudyAction,
+} from '@/server/actions/study-request'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -14,37 +18,29 @@ vi.mock('@/server/aws', async () => {
 })
 
 describe('Request Study Actions', () => {
-    it('onCreateStudyAction creates a study', async () => {
+    it('onSaveDraftStudyAction creates a draft study', async () => {
         // create the enclave that owns the data
-        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test' })
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-draft' })
 
         // create its lab counterpart
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
         const studyInfo = {
-            title: 'Test Study',
+            title: 'Test Draft Study',
             piName: 'Test PI',
             language: 'R' as const,
-            descriptionDocPath: 'test-desc.pdf',
-            irbDocPath: 'test-irb.pdf',
-            agreementDocPath: 'test-agreement.pdf',
-            mainCodeFilePath: 'main.R',
-            additionalCodeFilePaths: ['helpers.R'],
         }
 
         const result = actionResult(
-            await onCreateStudyAction({
+            await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
                 studyInfo,
-                mainCodeFileName: 'main.R',
-                codeFileNames: ['helpers.R'],
                 submittingOrgSlug: lab.slug,
             }),
         )
 
         expect(result.studyId).toBeDefined()
-        expect(result.studyJobId).toBeDefined()
 
         const study = await db
             .selectFrom('study')
@@ -53,45 +49,112 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study).toBeDefined()
         expect(study?.title).toEqual(studyInfo.title)
-        expect(study?.language).toEqual('R')
+        expect(study?.status).toEqual('DRAFT')
     })
 
-    it('onCreateStudyAction stores Python language correctly', async () => {
-        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
+    it('onSubmitDraftStudyAction converts draft to PENDING-REVIEW', async () => {
+        // create the enclave that owns the data
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-submit' })
+
+        // create its lab counterpart
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
 
-        const studyInfo = {
-            title: 'Python Study',
-            piName: 'Test PI',
-            language: 'PYTHON' as const,
-            descriptionDocPath: 'test-desc.pdf',
-            irbDocPath: 'test-irb.pdf',
-            agreementDocPath: 'test-agreement.pdf',
-            mainCodeFilePath: 'main.py',
-            additionalCodeFilePaths: ['helpers.py'],
-        }
-
-        const result = actionResult(
-            await onCreateStudyAction({
+        // First create a draft
+        const draftResult = actionResult(
+            await onSaveDraftStudyAction({
                 orgSlug: enclave.slug,
-                studyInfo,
-                mainCodeFileName: 'main.py',
-                codeFileNames: ['helpers.py'],
+                studyInfo: {
+                    title: 'Test Study',
+                    piName: 'Test PI',
+                    language: 'R' as const,
+                },
                 submittingOrgSlug: lab.slug,
             }),
         )
 
-        expect(result.studyId).toBeDefined()
-        expect(result.studyJobId).toBeDefined()
+        // Verify it's a draft
+        let study = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', draftResult.studyId)
+            .executeTakeFirst()
+        expect(study?.status).toEqual('DRAFT')
+
+        // Submit the draft
+        const submitResult = actionResult(
+            await onSubmitDraftStudyAction({
+                studyId: draftResult.studyId,
+                mainCodeFileName: 'main.R',
+                codeFileNames: ['helpers.R'],
+            }),
+        )
+
+        expect(submitResult.studyId).toEqual(draftResult.studyId)
+        expect(submitResult.studyJobId).toBeDefined()
+
+        // Verify it's now PENDING-REVIEW
+        study = await db
+            .selectFrom('study')
+            .selectAll('study')
+            .where('id', '=', draftResult.studyId)
+            .executeTakeFirst()
+        expect(study?.status).toEqual('PENDING-REVIEW')
+    })
+
+    it('onSubmitDraftStudyAction works with Python language', async () => {
+        const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
+        const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+        await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+        // Create a draft with Python
+        const draftResult = actionResult(
+            await onSaveDraftStudyAction({
+                orgSlug: enclave.slug,
+                studyInfo: {
+                    title: 'Python Study',
+                    piName: 'Test PI',
+                    language: 'PYTHON' as const,
+                },
+                submittingOrgSlug: lab.slug,
+            }),
+        )
+
+        // Submit the draft
+        const submitResult = actionResult(
+            await onSubmitDraftStudyAction({
+                studyId: draftResult.studyId,
+                mainCodeFileName: 'main.py',
+                codeFileNames: ['helpers.py'],
+            }),
+        )
+
+        expect(submitResult.studyId).toBeDefined()
+        expect(submitResult.studyJobId).toBeDefined()
 
         const study = await db
             .selectFrom('study')
             .selectAll('study')
-            .where('id', '=', result.studyId)
+            .where('id', '=', submitResult.studyId)
             .executeTakeFirst()
-        expect(study).toBeDefined()
         expect(study?.language).toEqual('PYTHON')
+        expect(study?.status).toEqual('PENDING-REVIEW')
+    })
+
+    it('onSubmitDraftStudyAction rejects non-draft studies', async () => {
+        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
+        // insertTestStudyData creates a study with PENDING-REVIEW status
+        const { studyId } = await insertTestStudyData({ org })
+
+        const result = await onSubmitDraftStudyAction({
+            studyId,
+            mainCodeFileName: 'main.R',
+            codeFileNames: [],
+        })
+
+        // The action returns an error object for non-draft studies
+        expect(result).toHaveProperty('error')
+        expect((result as { error: string }).error).toMatch(/expected status DRAFT|not found/)
     })
 
     it('onDeleteStudyAction deletes a study', async () => {

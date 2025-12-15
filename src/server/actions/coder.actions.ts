@@ -2,6 +2,7 @@
 
 import { getInfoForStudyId } from '@/server/db/queries'
 import { createUserAndWorkspace, getCoderWorkspaceUrl } from '../coder'
+import { DEV_ENV } from '../config'
 import { Action, z } from './action'
 
 export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAction', {})
@@ -14,6 +15,12 @@ export const createUserAndWorkspaceAction = new Action('createUserAndWorkspaceAc
     .requireAbilityTo('load', 'IDE')
     .handler(async ({ params: { studyId }, session }) => {
         if (!session) throw new Error('Unauthorized')
+        if (DEV_ENV) {
+            return {
+                success: true,
+                workspace: { id: `dev-workspace-${studyId}` },
+            }
+        }
         return await createUserAndWorkspace(studyId)
     })
 
@@ -29,5 +36,9 @@ export const getWorkspaceUrlAction = new Action('getWorkspaceUrlAction', {})
     .handler(async ({ params: { studyId, workspaceId }, session }) => {
         if (!session) throw new Error('Unauthorized')
         if (!workspaceId) return
+        if (DEV_ENV) {
+            await new Promise((resolve) => setTimeout(resolve, 10000))
+            return `https://coder.dev.example.com/workspace/${studyId}`
+        }
         return await getCoderWorkspaceUrl(studyId, workspaceId)
     })
