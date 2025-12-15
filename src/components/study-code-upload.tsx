@@ -1,9 +1,8 @@
 import { Language } from '@/database/types'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
-import { InputError } from '@/components/errors'
 import { handleDuplicateUpload } from '@/hooks/file-upload'
-import { ACCEPTED_FILE_TYPES, ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
+import { ACCEPTED_FILE_TYPES } from '@/lib/types'
 import {
     ActionIcon,
     Alert,
@@ -26,15 +25,19 @@ import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { AppModal } from './modal'
 import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
-import { UseFormReturnType } from '@mantine/form'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
 import { ReviewUploadedFiles } from './study/review-uploaded-files'
 
+// Interface for form operations we need - avoids complex generic typing
+interface CodeFilesFormMethods {
+    getValues: () => { mainCodeFile: File | null; additionalCodeFiles: File[] }
+    setFieldValue: (field: string, value: File | null | File[]) => void
+}
+
 interface StudyCodeUploadProps {
-    studyUploadForm?: UseFormReturnType<StudyJobCodeFilesValues> | null
+    studyUploadForm?: CodeFilesFormMethods | null
     stepIndicator?: string
     title?: string
     language: Language
@@ -45,7 +48,7 @@ interface StudyCodeUploadProps {
     viewMode?: 'upload' | 'review'
     onViewModeChange?: (mode: 'upload' | 'review') => void
     onFilesUploaded?: (files: File[]) => void
-    onProceed?: (mainFileName: string) => void
+    onProceed?: () => void
     isSubmitting?: boolean
 }
 
@@ -110,6 +113,18 @@ export const StudyCodeUpload = ({
 
     const handleBackToUpload = () => {
         setViewMode('upload')
+    }
+
+    const handleSaveAndProceed = (mainFileName: string) => {
+        // Update the form with the correct main file based on user's selection in review
+        const mainFile = uploadedFiles.find((f) => f.name === mainFileName) || null
+        const additionalFiles = uploadedFiles.filter((f) => f.name !== mainFileName)
+
+        studyUploadForm?.setFieldValue('mainCodeFile', mainFile)
+        studyUploadForm?.setFieldValue('additionalCodeFiles', additionalFiles)
+
+        // Call onProceed - parent will handle navigation to next step
+        onProceed?.()
     }
 
     const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
@@ -215,7 +230,7 @@ export const StudyCodeUpload = ({
 const StudyCodeUploadModal: FC<{
     onClose: () => void
     isOpen: boolean
-    studyUploadForm: UseFormReturnType<StudyJobCodeFilesValues>
+    studyUploadForm: CodeFilesFormMethods
     language: Language
     onConfirmAndProceed: (files: File[], mainFileName: string) => void
 }> = ({ onClose, isOpen, studyUploadForm, language, onConfirmAndProceed }) => {
@@ -223,14 +238,15 @@ const StudyCodeUploadModal: FC<{
     const [selectedMainFile, setSelectedMainFile] = useState<string>('')
 
     // Get all files (additionalCodeFiles) - needs fresh values each render
-    const allFiles = studyUploadForm.getValues().additionalCodeFiles
+    const formValues = studyUploadForm.getValues()
+    const allFiles: File[] = formValues.additionalCodeFiles
 
     const removeFile = (fileToRemove: File) => {
-        const updatedAdditionalFiles = studyUploadForm
-            .getValues()
-            .additionalCodeFiles.filter((file) => file.name !== fileToRemove.name)
+        const currentValues = studyUploadForm.getValues()
+        const updatedAdditionalFiles = currentValues.additionalCodeFiles.filter(
+            (file) => file.name !== fileToRemove.name,
+        )
         studyUploadForm.setFieldValue('additionalCodeFiles', updatedAdditionalFiles)
-        studyUploadForm.validateField('totalFileSize')
         // If removed file was the selected main file, clear selection
         if (selectedMainFile === fileToRemove.name) {
             setSelectedMainFile('')
@@ -239,7 +255,8 @@ const StudyCodeUploadModal: FC<{
 
     const handleDone = () => {
         // Get fresh file list at the time of clicking Done
-        const currentFiles = studyUploadForm.getValues().additionalCodeFiles
+        const currentValues = studyUploadForm.getValues()
+        const currentFiles = currentValues.additionalCodeFiles
 
         if (!selectedMainFile || currentFiles.length === 0) return
 
@@ -258,8 +275,9 @@ const StudyCodeUploadModal: FC<{
                             <Dropzone
                                 name="additionalCodeFiles"
                                 onDrop={(files) => {
-                                    const { additionalCodeFiles: previousFiles, mainCodeFile } =
-                                        studyUploadForm.getValues()
+                                    const currentValues = studyUploadForm.getValues()
+                                    const previousFiles = currentValues.additionalCodeFiles
+                                    const mainCodeFile = currentValues.mainCodeFile
 
                                     handleDuplicateUpload(mainCodeFile, files)
 
@@ -272,7 +290,6 @@ const StudyCodeUploadModal: FC<{
                                         (file) => file.name,
                                     )
                                     studyUploadForm.setFieldValue('additionalCodeFiles', additionalFiles)
-                                    studyUploadForm.validateField('totalFileSize')
                                 }}
                                 onReject={(rejections) =>
                                     notifications.show({
@@ -342,11 +359,6 @@ const StudyCodeUploadModal: FC<{
                                 </Stack>
                             </Radio.Group>
                         </GridCol>
-                        {studyUploadForm.errors['totalFileSize'] && (
-                            <GridCol>
-                                <InputError error={studyUploadForm.errors['totalFileSize']} />
-                            </GridCol>
-                        )}
                     </Grid>
                 </Group>
 

@@ -6,7 +6,7 @@ interface ReviewUploadedFilesProps {
     files: File[]
     setFiles: (files: File[]) => void
     onBack: () => void
-    onSaveAndProceed?: (mainFileName: string) => void
+    onSaveAndProceed: (mainFileName: string) => void
     orgSlug: string
     studyId: string
     isSaving?: boolean
@@ -20,6 +20,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
     isSaving = false,
 }) => {
     const [mainFile, setMainFile] = useState<string | null>(files.length > 0 ? files[0].name : null)
+
     const lastUpdated = new Date().toLocaleString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -38,7 +39,7 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
     }
 
     const handleSaveAndProceed = () => {
-        if (mainFile && onSaveAndProceed) {
+        if (mainFile) {
             onSaveAndProceed(mainFile)
         }
     }
@@ -94,15 +95,13 @@ export const ReviewUploadedFiles: FC<ReviewUploadedFilesProps> = ({
                     <Button variant="outline" onClick={onBack}>
                         Back
                     </Button>
-                    {onSaveAndProceed && (
-                        <Button
-                            onClick={handleSaveAndProceed}
-                            disabled={!mainFile || files.length === 0}
-                            loading={isSaving}
-                        >
-                            Save and proceed to review
-                        </Button>
-                    )}
+                    <Button
+                        onClick={handleSaveAndProceed}
+                        disabled={!mainFile || files.length === 0}
+                        loading={isSaving}
+                    >
+                        Save and proceed to review
+                    </Button>
                 </Group>
             </Stack>
         </Paper>
