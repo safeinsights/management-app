@@ -1,5 +1,7 @@
-import { expect, test, visitClerkProtectedPage, fs } from './e2e.helpers'
+import { expect, test, visitClerkProtectedPage, fs, readTestSupportFile } from './e2e.helpers'
 import type { Page } from '@playwright/test'
+import jwt from 'jsonwebtoken'
+import { execSync } from 'child_process'
 
 // re-use the same worker between the tests inside the describe block
 // this ensures they run in order and will share the study title
@@ -8,8 +10,7 @@ test.describe.configure({ mode: 'serial' })
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
 test.beforeEach(async ({}, testInfo) => {
-    // Extend timeout for all tests running this hook by 30 seconds.
-    testInfo.setTimeout(testInfo.timeout + 30_000)
+    testInfo.setTimeout(testInfo.timeout + 50_000)
 })
 
 // ============================================================================
@@ -232,6 +233,165 @@ async function reviewerApprovesStudy(page: Page, studyTitle: string) {
 }
 
 // ============================================================================
+// Job failure and error log helpers
+// ============================================================================
+
+async function createOrgAuthToken(orgSlug: string = 'openstax'): Promise<string> {
+    const privateKeyPem = await readTestSupportFile('private_key.pem')
+    const payload = {
+        iss: orgSlug,
+        exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
+    }
+    const token = jwt.sign(payload, privateKeyPem, { algorithm: 'RS256' })
+    return `Bearer ${token}`
+}
+
+function extractStudyIdFromUrl(page: Page): string {
+    const url = page.url()
+    const match = url.match(/\/study\/([^/]+)/)
+    if (!match) throw new Error(`Could not extract study ID from URL: ${url}`)
+    return match[1]
+}
+
+async function waitForJobReady(page: Page, studyId: string, authToken: string): Promise<string> {
+    const baseUrl = 'http://localhost:4000'
+    for (let i = 0; i < 30; i++) {
+        const response = await page.request.get(`${baseUrl}/api/studies/ready`, {
+            headers: { Authorization: authToken },
+        })
+        if (response.ok()) {
+            const data = (await response.json()) as { jobs: Array<{ studyId: string; jobId: string }> }
+            const job = data.jobs?.find((j) => j.studyId === studyId)
+            if (job) return job.jobId
+        }
+        await page.waitForTimeout(1000)
+    }
+    throw new Error(`Job for study ${studyId} did not become ready within 30 seconds`)
+}
+
+function uploadErrorLogs(jobId: string): void {
+    // Use the existing debug script to upload error logs
+    // This handles encryption and sets status to JOB-ERRORED
+    const cmd = `npx tsx bin/debug/upload-results.ts -j ${jobId} -l tests/assets/error-log.txt`
+    execSync(cmd, { stdio: 'inherit' })
+}
+
+async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promise<void> {
+    await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
+    await expect(page.getByText('Review Studies')).toBeVisible()
+
+    await viewStudyDetails(page, studyTitle)
+
+    // Enter the private key to decrypt results
+    const privateKey = await readTestSupportFile('private_key.pem')
+    const privateKeyTextarea = page.getByLabel(/Enter Reviewer Key/i)
+    await expect(privateKeyTextarea).toBeVisible({ timeout: 10000 })
+    await privateKeyTextarea.fill(privateKey)
+
+    // Click "View Results" to decrypt
+    const viewResultsButton = page.getByRole('button', { name: /View Results/i })
+    await expect(viewResultsButton).toBeEnabled({ timeout: 5000 })
+    await viewResultsButton.click()
+
+    // Wait for decryption to complete and approve button to be enabled
+    const approveButton = page.getByRole('button', { name: /approve/i }).last()
+    await expect(approveButton).toBeEnabled({ timeout: 15000 })
+    await approveButton.click()
+
+    // Verify approval shows up
+    await page.goto('/openstax/dashboard')
+    await viewStudyDetails(page, studyTitle)
+    await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })
+}
+
+async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promise<void> {
+    // Check dashboard shows "Errored" status
+    await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+
+    const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
+    await expect(studyRow.getByText(/Errored/i)).toBeVisible({ timeout: 10000 })
+
+    // Navigate to study details
+    await viewStudyDetails(page, studyTitle)
+
+    // Verify error message
+    await expect(page.getByText(/The code errored/i)).toBeVisible()
+
+    // Verify Job ID is displayed
+    await expect(page.getByText(/Job ID/i)).toBeVisible()
+
+    // Verify logs section exists
+    await expect(page.getByText(/Logs:/i)).toBeVisible()
+}
+
+// ============================================================================
+// Resubmit helpers
+// ============================================================================
+
+async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Promise<string> {
+    // Click the resubmit button on the study details page
+    await page.getByRole('link', { name: /Resubmit study code/i }).click()
+
+    // Wait for resubmit page to load
+    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
+
+    // Click "Upload your files" button to open modal
+    await page.getByRole('button', { name: /Upload your files/i }).click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+
+    // Upload files
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles([mainCodeFile, 'tests/assets/code.r'])
+
+    // Select main file
+    const mainFileName = mainCodeFile.split('/').pop()!
+    await page.getByRole('radio', { name: mainFileName }).click()
+
+    // Confirm and proceed
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(page.getByRole('dialog')).not.toBeVisible()
+
+    // Wait for review page
+    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+
+    // Submit the resubmission
+    await page.getByRole('button', { name: /Resubmit study code/i }).click()
+
+    // Wait for redirect
+    await page.waitForURL('**/view', { timeout: 15000 })
+
+    return mainFileName
+}
+
+async function resubmitCodeViaIDE(page: Page): Promise<string> {
+    // Click the resubmit button on the study details page
+    await page.getByRole('link', { name: /Resubmit study code/i }).click()
+
+    // Wait for resubmit page to load
+    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
+
+    // Launch IDE
+    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
+    await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
+
+    // Import files from IDE
+    const importBtn = page.getByRole('button', { name: /Import files from IDE/i }).first()
+    await expect(importBtn).toBeVisible({ timeout: 10000 })
+    await importBtn.click()
+
+    // Wait for files to appear
+    await expect(page.getByText(/main.r/i)).toBeVisible()
+
+    // Submit the resubmission
+    await page.getByRole('button', { name: /Resubmit study code/i }).click()
+
+    // Wait for redirect
+    await page.waitForURL('**/view', { timeout: 15000 })
+
+    return 'main.r'
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -260,6 +420,34 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     await test.step('reviewer approves study', async () => {
         await reviewerApprovesStudy(page, studyTitle)
     })
+
+    await test.step('simulate job failure with error logs', async () => {
+        const authToken = await createOrgAuthToken('openstax')
+
+        // Navigate to study to get study ID
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        await viewStudyDetails(page, studyTitle)
+        const studyId = extractStudyIdFromUrl(page)
+
+        // Wait for job to be ready and get job ID
+        const jobId = await waitForJobReady(page, studyId, authToken)
+
+        // Upload error logs (sets status to JOB-ERRORED)
+        uploadErrorLogs(jobId)
+    })
+
+    await test.step('reviewer approves error logs', async () => {
+        await reviewerApprovesErrorLogs(page, studyTitle)
+    })
+
+    await test.step('researcher verifies failed status and logs on dashboard', async () => {
+        await verifyFailedStatusDisplay(page, studyTitle)
+    })
+
+    await test.step('researcher resubmits code via file upload', async () => {
+        // Already on study details page from verifyFailedStatusDisplay
+        await resubmitCodeViaFileUpload(page, 'tests/assets/main.r')
+    })
 })
 
 test('Study creation via IDE', async ({ page, studyFeatures }) => {
@@ -285,5 +473,33 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
 
     await test.step('reviewer approves study', async () => {
         await reviewerApprovesStudy(page, studyTitle)
+    })
+
+    await test.step('simulate job failure with error logs', async () => {
+        const authToken = await createOrgAuthToken('openstax')
+
+        // Navigate to study to get study ID
+        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
+        await viewStudyDetails(page, studyTitle)
+        const studyId = extractStudyIdFromUrl(page)
+
+        // Wait for job to be ready and get job ID
+        const jobId = await waitForJobReady(page, studyId, authToken)
+
+        // Upload error logs (sets status to JOB-ERRORED)
+        uploadErrorLogs(jobId)
+    })
+
+    await test.step('reviewer approves error logs', async () => {
+        await reviewerApprovesErrorLogs(page, studyTitle)
+    })
+
+    await test.step('researcher verifies failed status and logs on dashboard', async () => {
+        await verifyFailedStatusDisplay(page, studyTitle)
+    })
+
+    await test.step('researcher resubmits code via IDE', async () => {
+        // Already on study details page from verifyFailedStatusDisplay
+        await resubmitCodeViaIDE(page)
     })
 })
