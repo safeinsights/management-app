@@ -99,8 +99,9 @@ async function viewDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     await studyRow.getByRole('link', { name: 'View' }).first().click()
-    // The page heading varies: "Study Details" (submitted) or "Review your submission" (draft)
-    await expect(page.getByRole('heading', { name: /Study Details|Review your submission/i })).toBeVisible()
+    await expect(
+        page.getByRole('heading', { name: /Study Details|Review your submission|Review submission/i }),
+    ).toBeVisible()
 }
 
 type FillStudyFormOptions = {
@@ -134,12 +135,9 @@ type StudyLanguageConfig = {
     radioName: string
     mainCodeFile: string
     titleSuffix?: string
-    // Optional: override which data organization to select in Step 1
-    // Defaults to /openstax/i to keep existing tests unchanged.
     dataOrgNameRegex?: RegExp
 }
 
-// Helper to create a study with the given language configuration
 async function createStudy(page: Page, studyTitle: string, languageConfig: StudyLanguageConfig): Promise<string> {
     const finalTitle = languageConfig.titleSuffix ? `${studyTitle} - ${languageConfig.titleSuffix}` : studyTitle
 
@@ -152,59 +150,46 @@ async function createStudy(page: Page, studyTitle: string, languageConfig: Study
         orgNameRegex: languageConfig.dataOrgNameRegex,
     })
 
-    // Verify "Save and proceed to upload" button is disabled when no programming language is selected
-    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed to Step 4/i })
     await expect(nextStepButton).toBeDisabled()
 
-    // Wait for the programming language radio button to be visible (after base images load)
     const radioButton = page.getByRole('radio', { name: languageConfig.radioName, exact: true })
     await radioButton.waitFor({ state: 'visible', timeout: 10000 })
 
-    // Select programming language
     await radioButton.click()
 
-    // Verify "Save and proceed to upload" button is now enabled after language selection
     await expect(nextStepButton).toBeEnabled()
 
     await nextStepButton.click()
 
-    // Wait for the upload page to load
-    await page.waitForURL('**/upload', { timeout: 15000 })
+    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 15000 })
 
-    // Click "Upload your files" button to open the modal
     await page.getByRole('button', { name: /Upload your files/i }).click()
 
-    // Wait for the modal to open
     await expect(page.getByRole('dialog')).toBeVisible()
 
-    // Upload files via the Dropzone file input
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([languageConfig.mainCodeFile, 'tests/assets/code.r'])
 
-    // Select the main code file (e.g., main.r or main.py)
     const mainFileName = languageConfig.mainCodeFile.split('/').pop()!
     await page.getByRole('radio', { name: mainFileName }).click()
 
-    // Click "Done" to close the modal
     await page.getByRole('button', { name: 'Done' }).click()
 
-    // Wait for the modal to close and navigation to select-files page
     await expect(page.getByRole('dialog')).not.toBeVisible()
-    await page.waitForURL('**/select-files**', { timeout: 15000 })
 
-    // Wait for the submit button to appear on the select-files page
-    await expect(page.getByRole('button', { name: 'Submit Study' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
 
-    // Click submit and wait for navigation
-    await page.getByRole('button', { name: 'Submit Study' }).click()
+    await page.getByRole('button', { name: /Save and proceed to review/i }).click()
 
-    // Wait until redirected to user dashboard
+    await expect(page.getByRole('heading', { name: /Review your submission/i })).toBeVisible({ timeout: 15000 })
+
+    await page.getByRole('button', { name: /Submit study/i }).click()
+
     await page.waitForURL('**/dashboard', { timeout: 15000 })
 
-    // Navigate back to the org-specific dashboard where we started
     await page.goto('/openstax-lab/dashboard')
 
-    // Wait for the table to render - use the "Proposed Studies" title as indicator
     await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
 
     return finalTitle
@@ -220,18 +205,16 @@ test('Single-language R org auto-selects language and enables Next Step', async 
         orgNameRegex: /single-lang r enclave/i,
     })
 
-    // Wait for programming language section to appear
     const helperText = page.getByText(
         /At the present Single-Lang R Enclave only supports R\. Code files submitted in other languages will not be able to run\./i,
     )
     await expect(helperText).toBeVisible()
 
-    // Save and proceed to step 4 should already be enabled (no manual language click required)
-    const nextStepButton = page.getByRole('button', { name: /Save and proceed/ })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed to Step 4/i })
     await expect(nextStepButton).toBeEnabled()
 
-    // And clicking it should take us to the upload step
     await nextStepButton.click()
+    await expect(page.getByText('Step 4 of 5')).toBeVisible()
     await expect(page.getByText('Upload your files')).toBeVisible()
 })
 
@@ -254,7 +237,6 @@ test('Creating and reviewing a study', async ({ page, studyFeatures }) => {
 
         await viewDetails(page, studyFeatures.studyTitle)
 
-        // Verify file downloads work before approving
         await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
 
         await page.getByRole('button', { name: /approve/i }).click()
