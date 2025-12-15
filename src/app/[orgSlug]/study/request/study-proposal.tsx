@@ -146,6 +146,17 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
 
+    const [uploadedDocuments, setUploadedDocuments] = useState<{
+        irbDocument: File | null
+        descriptionDocument: File | null
+        agreementDocument: File | null
+    }>({ irbDocument: null, descriptionDocument: null, agreementDocument: null })
+
+    const [uploadedCodeFiles, setUploadedCodeFiles] = useState<{
+        mainCodeFile: File | null
+        additionalCodeFiles: File[]
+    }>({ mainCodeFile: null, additionalCodeFiles: [] })
+
     // Use prop studyId (from edit page) or state (for same-session updates after first save)
     const [sessionStudyId, setSessionStudyId] = useState<string | null>(null)
     const draftStudyId = propStudyId || sessionStudyId
@@ -224,15 +235,24 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
 
     const { isPending: isCreatingStudy, mutate: createStudy } = useMutation({
         mutationFn: async (formValues: StudyProposalFormValues) => {
-            // Use form file names if available, otherwise fall back to existing file paths from draft
-            const descriptionDocPath = formValues.descriptionDocument?.name || existingFiles?.descriptionDocPath
-            const agreementDocPath = formValues.agreementDocument?.name || existingFiles?.agreementDocPath
-            const irbDocPath = formValues.irbDocument?.name || existingFiles?.irbDocPath
-            const mainCodeFileName = formValues.mainCodeFile?.name || existingFiles?.mainCodeFileName
+            const descriptionDocPath =
+                formValues.descriptionDocument?.name ||
+                uploadedDocuments.descriptionDocument?.name ||
+                existingFiles?.descriptionDocPath
+            const agreementDocPath =
+                formValues.agreementDocument?.name ||
+                uploadedDocuments.agreementDocument?.name ||
+                existingFiles?.agreementDocPath
+            const irbDocPath =
+                formValues.irbDocument?.name || uploadedDocuments.irbDocument?.name || existingFiles?.irbDocPath
+            const mainCodeFileName =
+                formValues.mainCodeFile?.name || uploadedCodeFiles.mainCodeFile?.name || existingFiles?.mainCodeFileName
             const additionalCodeFileNames =
                 formValues.additionalCodeFiles.length > 0
                     ? formValues.additionalCodeFiles.map((f) => f.name)
-                    : existingFiles?.additionalCodeFileNames || []
+                    : uploadedCodeFiles.additionalCodeFiles.length > 0
+                      ? uploadedCodeFiles.additionalCodeFiles.map((f) => f.name)
+                      : existingFiles?.additionalCodeFileNames || []
 
             if (!descriptionDocPath || !agreementDocPath || !irbDocPath || !mainCodeFileName) {
                 throw new Error('Missing required files. Please upload all required documents.')
@@ -266,22 +286,34 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 }),
             )
 
-            // Only upload files that exist as File objects (not already uploaded)
             const filesToUpload: FileUpload[] = []
-            if (formValues.mainCodeFile) {
-                filesToUpload.push([formValues.mainCodeFile, urlForCodeUpload])
+
+            const mainCodeFile = formValues.mainCodeFile || uploadedCodeFiles.mainCodeFile
+            if (mainCodeFile) {
+                filesToUpload.push([mainCodeFile, urlForCodeUpload])
             }
-            formValues.additionalCodeFiles.forEach((f) => {
+
+            const additionalFiles =
+                formValues.additionalCodeFiles.length > 0
+                    ? formValues.additionalCodeFiles
+                    : uploadedCodeFiles.additionalCodeFiles
+            additionalFiles.forEach((f) => {
                 filesToUpload.push([f, urlForCodeUpload])
             })
-            if (formValues.irbDocument) {
-                filesToUpload.push([formValues.irbDocument, urls.urlForIrbUpload])
+
+            const irbDoc = formValues.irbDocument || uploadedDocuments.irbDocument
+            if (irbDoc) {
+                filesToUpload.push([irbDoc, urls.urlForIrbUpload])
             }
-            if (formValues.agreementDocument) {
-                filesToUpload.push([formValues.agreementDocument, urls.urlForAgreementUpload])
+
+            const agreementDoc = formValues.agreementDocument || uploadedDocuments.agreementDocument
+            if (agreementDoc) {
+                filesToUpload.push([agreementDoc, urls.urlForAgreementUpload])
             }
-            if (formValues.descriptionDocument) {
-                filesToUpload.push([formValues.descriptionDocument, urls.urlForDescriptionUpload])
+
+            const descriptionDoc = formValues.descriptionDocument || uploadedDocuments.descriptionDocument
+            if (descriptionDoc) {
+                filesToUpload.push([descriptionDoc, urls.urlForDescriptionUpload])
             }
 
             if (filesToUpload.length > 0) {
@@ -360,10 +392,24 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
                 await uploadFiles(filesToUpload)
             }
 
-            return { studyId: result.studyId }
+            return {
+                studyId: result.studyId,
+                uploadedDocs: {
+                    irbDocument: formValues.irbDocument || null,
+                    descriptionDocument: formValues.descriptionDocument || null,
+                    agreementDocument: formValues.agreementDocument || null,
+                },
+            }
         },
-        onSuccess({ studyId }) {
+        onSuccess({ studyId, uploadedDocs }) {
             setSessionStudyId(studyId)
+            if (uploadedDocs.irbDocument || uploadedDocs.descriptionDocument || uploadedDocs.agreementDocument) {
+                setUploadedDocuments((prev) => ({
+                    irbDocument: uploadedDocs.irbDocument || prev.irbDocument,
+                    descriptionDocument: uploadedDocs.descriptionDocument || prev.descriptionDocument,
+                    agreementDocument: uploadedDocs.agreementDocument || prev.agreementDocument,
+                }))
+            }
             // Invalidate all related query caches so fresh data is fetched
             queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
             // Also invalidate dashboard queries so the list reflects the updated draft
@@ -407,8 +453,13 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId: propStudy
 
     // Handle when files are uploaded and user proceeds from ReviewUploadedFiles
     const handleCodeUploadProceed = () => {
-        // The form should already have mainCodeFile and additionalCodeFiles set
-        // from StudyCodeUpload component, so we just move to step 2
+        const formValues = studyProposalForm.getValues()
+        if (formValues.mainCodeFile || formValues.additionalCodeFiles.length > 0) {
+            setUploadedCodeFiles({
+                mainCodeFile: formValues.mainCodeFile,
+                additionalCodeFiles: formValues.additionalCodeFiles,
+            })
+        }
         setStepIndex(2)
     }
 
