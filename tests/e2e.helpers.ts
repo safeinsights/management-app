@@ -71,7 +71,7 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
 }
 
 class StudyFeatures {
-    public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()}`
+    public studyTitle = `${faker.hacker.ingverb()} ${faker.commerce.productName().toLowerCase()} - ${Date.now()}`
 
     static perWorkerFeatures: Record<number, StudyFeatures> = {}
 
