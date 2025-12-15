@@ -6,10 +6,10 @@ import { Button, Group } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
-import { useProposalForm, isProposalFormValid, type DraftData } from '@/hooks/use-proposal-form'
-import { useSaveDraft } from '@/hooks/use-save-draft'
+import { useProposalForm, isProposalFormValid, type DraftData } from '@/hooks/use-study-request-step1-form'
+import { useSaveDraft } from '@/hooks/use-study-request-step1-save-draft'
 import { useStudyRequestStore } from '@/stores/study-request.store'
-import { StudyProposalForm } from './study-proposal-form'
+import { StudyProposalForm } from './step1-proposal-form'
 
 interface StudyProposalProps {
     studyId?: string
@@ -19,14 +19,15 @@ interface StudyProposalProps {
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const store = useStudyRequestStore()
+    const setStudyId = useStudyRequestStore((s) => s.setStudyId)
+    const setSubmittingOrgSlug = useStudyRequestStore((s) => s.setSubmittingOrgSlug)
     const { form, existingFiles } = useProposalForm(draftData)
     const { saveDraft, isSaving } = useSaveDraft()
 
     useEffect(() => {
-        if (studyId) store.setStudyId(studyId)
-        store.setSubmittingOrgSlug(submittingOrgSlug)
-    }, [studyId, submittingOrgSlug, store])
+        if (studyId) setStudyId(studyId)
+        setSubmittingOrgSlug(submittingOrgSlug)
+    }, [studyId, submittingOrgSlug, setStudyId, setSubmittingOrgSlug])
 
     const handleSaveAndProceed = () => {
         saveDraft(form.getValues(), {

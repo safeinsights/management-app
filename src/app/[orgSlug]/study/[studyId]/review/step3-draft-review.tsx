@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { Language } from '@/database/types'
-import { SubmissionReview } from '@/components/study-request/submission-review'
+import { SubmissionReview } from './step3-submission-review'
 import { useStudyRequestStore, useCodeFiles } from '@/stores/study-request.store'
 
 interface DraftSubmissionReviewProps {

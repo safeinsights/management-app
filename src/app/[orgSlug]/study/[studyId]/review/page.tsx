@@ -12,7 +12,7 @@ import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
 import { StudyReviewButtons } from './study-review-buttons'
-import { DraftSubmissionReview } from './draft-submission-review'
+import { DraftSubmissionReview } from './step3-draft-review'
 import { auth } from '@clerk/nextjs/server'
 
 export default async function StudyReviewPage(props: {

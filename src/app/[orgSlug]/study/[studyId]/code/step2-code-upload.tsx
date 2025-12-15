@@ -11,8 +11,8 @@ import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
 import { useStudyRequestStore, useCodeFiles, useCanProceedToReview } from '@/stores/study-request.store'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
-import { CodeUploadModal } from '@/components/study-request/code-upload-modal'
-import { CodeFilesReview } from '@/components/study-request/code-files-review'
+import { CodeUploadModal } from './step2-upload-modal'
+import { CodeFilesReview } from './step2-files-review'
 
 interface CodeUploadPageProps {
     studyId: string

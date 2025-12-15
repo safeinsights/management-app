@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useForm } from '@mantine/form'
 import { zodResolver } from '@/common'
-import { studyProposalFormSchema, type StudyProposalFormValues } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
+import { studyProposalFormSchema, type StudyProposalFormValues } from '@/app/[orgSlug]/study/request/step1-schema'
 import type { Language } from '@/database/types'
 
 export interface DraftData {

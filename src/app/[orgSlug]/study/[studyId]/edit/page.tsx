@@ -2,7 +2,7 @@ import { db } from '@/database'
 import { Form } from './form'
 import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { StudyProposal } from '../../request/study-proposal'
+import { StudyProposal } from '../../request/step1-proposal'
 
 export const dynamic = 'force-dynamic'
 
