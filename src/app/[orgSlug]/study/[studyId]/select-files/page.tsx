@@ -7,7 +7,7 @@ import { AlertNotFound } from '@/components/errors'
 import { uploadFileStore } from '@/hooks/upload-file-store'
 import { Stack, Title } from '@mantine/core'
 import { useParams } from 'next/navigation'
-import { getDraftStudyAction } from '@/server/actions/study-request'
+import { getStudyAction } from '@/server/actions/study.actions'
 
 export default function StudySelectFilesPage() {
     const { orgSlug, studyId } = useParams<{ orgSlug: string; studyId: string }>()
@@ -15,8 +15,8 @@ export default function StudySelectFilesPage() {
     const hasUploadedFiles = !!uploadFileStore.get(studyId)
 
     const { data: study, isLoading } = useQuery({
-        queryKey: ['draft-study', studyId],
-        queryFn: () => getDraftStudyAction({ studyId }),
+        queryKey: ['study', studyId],
+        queryFn: () => getStudyAction({ studyId }),
         enabled: !!studyId,
     })
 
@@ -29,7 +29,7 @@ export default function StudySelectFilesPage() {
     }
 
     if (!study || 'error' in study) {
-        return <AlertNotFound title="Study not found" message="This study does not exist or is not a draft." />
+        return <AlertNotFound title="Study not found" message="This study does not exist." />
     }
 
     return (
