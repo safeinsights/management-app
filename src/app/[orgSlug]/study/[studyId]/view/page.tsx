@@ -10,8 +10,6 @@ import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { OpenWorkspaceButton } from '@/components/study/open-workspace-button'
-import { NonProduction } from '@/components/non-production'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,14 +61,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                             Study Code
                         </Title>
 
-                        {!isStatusFocused && (
-                            <Group>
-                                <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />
-                                <NonProduction>
-                                    <OpenWorkspaceButton studyId={study.id} />
-                                </NonProduction>
-                            </Group>
-                        )}
+                        {!isStatusFocused && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="code" />}
                     </Group>
                     <Divider c="dimmed" />
                     <StudyCodeDetails job={job} />

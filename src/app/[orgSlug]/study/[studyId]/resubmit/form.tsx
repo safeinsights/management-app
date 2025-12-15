@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Group, Stack } from '@mantine/core'
-import { addJobToStudyAction, onDeleteStudyJobAction } from '../../request/actions'
+import { addJobToStudyAction, onDeleteStudyJobAction } from '@/server/actions/study-request'
 import React from 'react'
 import { useForm } from '@mantine/form'
 import { Routes } from '@/lib/routes'
@@ -13,24 +13,18 @@ import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { zodResolver } from 'mantine-form-zod-resolver'
 import { reportMutationError } from '@/components/errors'
-import { ResubmitProposalFormValues } from '@/schema/study-proposal'
-import { z } from 'zod'
+import { codeFilesSchema, StudyJobCodeFilesValues } from '../../request/study-proposal-form-schema'
 import { actionResult } from '@/lib/utils'
 import { errorToString, isActionError } from '@/lib/errors'
 import logger from '@/lib/logger'
 import { StudyCodeUpload } from '@/components/study-code-upload'
 
-const resubmitStudySchema = z.object({
-    mainCodeFile: z.instanceof(File, { message: 'Please upload a main code file to resubmit.' }).or(z.null()),
-    additionalCodeFiles: z.array(z.instanceof(File)).default([]),
-})
-
 export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     const { study } = props
     const router = useRouter()
     const queryClient = useQueryClient()
-    const studyUploadForm = useForm<ResubmitProposalFormValues>({
-        validate: zodResolver(resubmitStudySchema),
+    const studyUploadForm = useForm<StudyJobCodeFilesValues>({
+        validate: zodResolver(codeFilesSchema),
         initialValues: {
             mainCodeFile: null,
             additionalCodeFiles: [],
@@ -43,7 +37,7 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     }
 
     const { isPending, mutate: resubmitStudy } = useMutation({
-        mutationFn: async (formValues: ResubmitProposalFormValues) => {
+        mutationFn: async (formValues: StudyJobCodeFilesValues) => {
             const { urlForCodeUpload, studyJobId } = actionResult(
                 await addJobToStudyAction({
                     studyId: study.id,
@@ -80,12 +74,12 @@ export function ResubmitStudyCodeForm(props: { study: SelectedStudy }) {
     })
 
     return (
-        <form onSubmit={studyUploadForm.onSubmit((values: ResubmitProposalFormValues) => resubmitStudy(values))}>
+        <form onSubmit={studyUploadForm.onSubmit((values) => resubmitStudy(values))}>
             <Stack>
                 <StudyCodeUpload
                     studyUploadForm={studyUploadForm}
-                    language={study.language}
                     orgSlug={study.orgSlug}
+                    language={study.language}
                     studyId={study.id}
                 />
 

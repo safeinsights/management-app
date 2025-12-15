@@ -10,7 +10,9 @@ import { sessionFromClerk } from '@/server/clerk'
 import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
+import { ResearcherReviewButtons } from './researcher-review-buttons'
 import { StudyReviewButtons } from './study-review-buttons'
+import { auth } from '@clerk/nextjs/server'
 
 export default async function StudyReviewPage(props: {
     params: Promise<{
@@ -33,6 +35,10 @@ export default async function StudyReviewPage(props: {
     }
 
     const job = await latestJobForStudy(studyId)
+
+    // Check if the current user is the study owner (researcher) or a reviewer
+    const { userId } = await auth()
+    const isResearcher = userId === study.createdBy
 
     return (
         <Stack px="xl" gap="xl">
@@ -68,7 +74,7 @@ export default async function StudyReviewPage(props: {
                 </Stack>
             </Paper>
             <StudyResults job={job} />
-            <StudyReviewButtons study={study} />
+            {isResearcher ? <ResearcherReviewButtons study={study} /> : <StudyReviewButtons study={study} />}
         </Stack>
     )
 }

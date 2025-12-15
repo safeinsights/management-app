@@ -12,6 +12,9 @@ export type StatusLabel = {
 
 // Proposal -> Code -> Results
 export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
+    // note: there is no 'DRAFT' label here even though that status exists on studies
+    // BECAUSE a reviewer should never see a DRAFT study
+
     // Proposal
     'PENDING-REVIEW': {
         stage: 'Proposal',

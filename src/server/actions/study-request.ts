@@ -1,15 +1,20 @@
 'use server'
+import * as path from 'node:path'
+import { createReadStream } from 'node:fs'
+import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
+import { sanitizeFileName } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
-import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload } from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
+import { DEV_ENV, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema, studyProposalApiSchema } from './study-proposal-form-schema'
+import { draftStudyApiSchema, studyProposalApiSchema } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -376,4 +381,52 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
         return { studyJobId, urlForCodeUpload }
+    })
+
+export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string(), mainFileName: z.string(), fileNames: z.array(z.string()) }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('create', 'StudyJob')
+    .handler(async ({ orgSlug, params: { studyId, mainFileName, fileNames }, session, db }) => {
+        if (fileNames.length === 0) {
+            throw new Error('No files provided')
+        }
+
+        if (!fileNames.includes(mainFileName)) {
+            throw new Error('Main file not in file list')
+        }
+
+        const userId = session.user.id
+        const sanitizedMainFileName = sanitizeFileName(mainFileName)
+        const additionalFileNames = fileNames.filter((f) => f !== mainFileName).map((f) => sanitizeFileName(f))
+
+        const { studyJobId } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            sanitizedMainFileName,
+            additionalFileNames,
+        )
+
+        let coderFilesPath = await getConfigValue('CODER_FILES')
+        if (!DEV_ENV) {
+            coderFilesPath += `/${studyId}`
+        }
+
+        for (const fileName of fileNames) {
+            const sanitizedName = sanitizeFileName(fileName)
+            const filePath = path.join(coderFilesPath, sanitizedName)
+            const fileStream = createReadStream(filePath)
+            const webStream = Readable.toWeb(fileStream) as ReadableStream
+            const s3Path = pathForStudyJobCodeFile({ orgSlug, studyId, studyJobId }, sanitizedName)
+            await storeS3File({ orgSlug, studyId }, webStream, s3Path)
+        }
+
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        revalidatePath('/dashboard')
+        revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        return { studyJobId }
     })
