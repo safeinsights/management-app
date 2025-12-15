@@ -8,7 +8,7 @@ import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
-import { DEV_ENV, getConfigValue } from '@/server/config'
+import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
@@ -383,7 +383,7 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         )
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!DEV_ENV) {
+        if (!CODER_DISABLED) {
             coderFilesPath += `/${studyId}`
         }
 

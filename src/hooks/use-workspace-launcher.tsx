@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@/common'
-import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
+import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
 import { useState, useCallback, useEffect, useRef } from 'react'
 

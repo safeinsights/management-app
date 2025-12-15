@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
-import { listWorkspaceFilesAction } from '@/server/actions/workspace-files.actions'
+import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
 import { useState, useCallback, useMemo } from 'react'
