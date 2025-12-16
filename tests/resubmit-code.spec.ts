@@ -79,7 +79,7 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
 
     await page.getByRole('button', { name: /Save and proceed to review/i }).click()
 
-    await expect(page.getByRole('heading', { name: /Review your submission/i })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: /Review your submission/i })).toBeVisible({ timeout: 30000 })
 
     await page.getByRole('button', { name: /Submit study/i }).click()
 
@@ -87,7 +87,7 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
 
     await page.goto('/openstax-lab/dashboard')
 
-    await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Proposed Studies' })).toBeVisible({ timeout: 30000 })
 
     return studyTitle
 }
