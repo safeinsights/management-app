@@ -101,22 +101,12 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug }: StudyCodeFromIDEProps) =>
             </Paper>
 
             <Group justify="space-between">
-                <Button
-                    variant="subtle"
-                    leftSection={<CaretLeftIcon />}
-                    onClick={ide.goBack}
-                    disabled={ide.isSubmitting}
-                >
+                <Button variant="subtle" leftSection={<CaretLeftIcon />} onClick={ide.goBack}>
                     Back to upload
                 </Button>
 
-                <Button
-                    variant="primary"
-                    disabled={!ide.canSubmit}
-                    loading={ide.isSubmitting}
-                    onClick={() => ide.submit()}
-                >
-                    Submit Study
+                <Button variant="primary" disabled={!ide.canSubmit} onClick={ide.proceedToReview}>
+                    Save and proceed to review
                 </Button>
             </Group>
         </>

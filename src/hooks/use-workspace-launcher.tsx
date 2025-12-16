@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@/common'
-import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
+import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 
 interface OpenResult {
     success: boolean
@@ -17,6 +17,7 @@ const openWorkspaceInNewTab = (url: string): OpenResult => {
 
 interface UseWorkspaceLauncherOptions {
     studyId: string
+    onSuccess?: () => void
 }
 
 interface UseWorkspaceLauncherReturn {
@@ -29,11 +30,16 @@ interface UseWorkspaceLauncherReturn {
     clearError: () => void
 }
 
-export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
+export function useWorkspaceLauncher({ studyId, onSuccess }: UseWorkspaceLauncherOptions): UseWorkspaceLauncherReturn {
     const [workspaceId, setWorkspaceId] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<Error | null>(null)
     const [launchComplete, setLaunchComplete] = useState(false)
+    const onSuccessRef = useRef(onSuccess)
+
+    useEffect(() => {
+        onSuccessRef.current = onSuccess
+    }, [onSuccess])
 
     const mutation = useMutation({
         mutationFn: async ({ studyId }: { studyId: string }) => {
@@ -111,6 +117,7 @@ export function useWorkspaceLauncher({ studyId }: UseWorkspaceLauncherOptions): 
                     autoClose: false,
                 })
             }
+            onSuccessRef.current?.()
         }
     }, [workspaceQuery.data, workspaceQuery.error, launchComplete])
 
