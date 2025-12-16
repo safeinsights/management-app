@@ -1,52 +1,26 @@
-# This file is for a smoke screen test as there are no data dependencies and pushes a CSV.
+source("libraries/openstax.R")
+source("libraries/safeinsights_common.R")
 
-library(httr)  # For sending files to an API
-library(readr) # For writing CSV files
-library(jsonlite)
+###############################################################################
+# Initialize Research Container
+# DO NOT TOUCH
+initialize()
+###############################################################################
+# Researcher: Insert query code here
 
+# OpenStax Tutor Example: Count unique tasked_id for date range
+results <- query_tutor("
+  SELECT COUNT(DISTINCT tasked_id) as unique_tasked_count
+  FROM tutor_data
+  WHERE created_at >= '2020-02-02' AND created_at <= '2024-12-03'
+")
 
-# Set Trusted Output App API Endpoint
-trusted_output_endpoint <- Sys.getenv("TRUSTED_OUTPUT_ENDPOINT")
-
-# Retrieve the basic auth credentials from the environment variable
-auth_credentials <- Sys.getenv("TRUSTED_OUTPUT_BASIC_AUTH")
-
-# Write the query results to a CSV file
-csv_file_path <- "query_result.csv"
-write_csv(data.frame(result = 42), csv_file_path)
-
-# Split the credentials into username and password
-auth_parts <- strsplit(auth_credentials, ":", fixed = TRUE)[[1]]
-username <- auth_parts[1]
-password <- auth_parts[2]
-
-response <- PUT(
-  url = trusted_output_endpoint,
-  body = toJSON(list(status = "JOB-RUNNING"), auto_unbox = TRUE),
-  encode = "json",
-  authenticate(username, password),  # Add the basic authentication
-  content_type_json()
-)
-response_content <- content(response, as = "parsed", type = "application/json")
-print(response_content)
+###############################################################################
+# Researcher: Insert manipulate data and analysis code here
 
 
-# Send aggregate results to Trusted Output App
-# Make the POST request with basic authentication
-response <- POST(
-  url = paste0(trusted_output_endpoint, "/upload"),
-  body = list(file = upload_file(csv_file_path)),  # Attach the CSV file
-  encode = "multipart",  # Multipart form data encoding
-  authenticate(username, password)  # Add the basic authentication
-)
+write.csv(results, "results.csv", row.names = FALSE)
 
-# DEBUG: Print the response content
-response_content <- content(response, as = "parsed", type = "application/json")
-print(response_content)
-
-# Check the API response
-if (response$status_code == 200) {
-  print("File uploaded successfully.")
-} else {
-  print(paste("File upload failed. Status code:", response$status_code))
-}
+###############################################################################
+# Researcher: Upload results
+toa_results_upload("results.csv")
