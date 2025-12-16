@@ -1,7 +1,6 @@
 'use server'
 
-import { ResearcherStudiesTable } from '@/components/dashboard/researcher-table'
-import { ReviewerStudiesTable } from '@/components/dashboard/reviewer-table'
+import { StudiesTable } from '@/components/dashboard/studies-table'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
 import { orgInitials, displayOrgName } from '@/lib/string'
@@ -35,7 +34,16 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
             />
             <Title order={1}>{orgName + (isEnclave ? ' Data Organization' : ' Research Lab')} dashboard</Title>
             <Text>{description}</Text>
-            {isEnclave ? <ReviewerStudiesTable orgSlug={orgSlug} /> : <ResearcherStudiesTable />}
+            <StudiesTable
+                audience={isEnclave ? 'reviewer' : 'researcher'}
+                scope="org"
+                orgSlug={orgSlug}
+                title={isEnclave ? 'Review Studies' : 'Proposed Studies'}
+                description={isEnclave ? "Review all the studies submitted to your organization. Studies that need your attention will be labeled 'Needs review'." : undefined}
+                showNewStudyButton={!isEnclave}
+                showRefresher={isEnclave}
+                paperWrapper
+            />
         </Stack>
     )
 }
