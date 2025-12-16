@@ -1,8 +1,20 @@
 'use client'
 
 import { FC, useState } from 'react'
-import { ActionIcon, Button, Group, Paper, Radio, Table, Text, Title, Divider, useMantineTheme } from '@mantine/core'
-import { CaretLeftIcon, XCircleIcon } from '@phosphor-icons/react'
+import {
+    ActionIcon,
+    Button,
+    Group,
+    Paper,
+    Radio,
+    Table,
+    Text,
+    Title,
+    Divider,
+    useMantineTheme,
+    Stack,
+} from '@mantine/core'
+import { CaretLeftIcon, TrashIcon, UploadIcon } from '@phosphor-icons/react'
 import { useStudyRequestStore, useCodeFiles, FileRef } from '@/stores/study-request.store'
 
 interface CodeFilesReviewProps {
@@ -67,14 +79,24 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, i
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
                     Step 2 of 3
                 </Text>
-                <Title order={4}>Review uploaded files</Title>
+                <Group justify="space-between" align="center" mb="md">
+                    <Stack gap={0}>
+                        <Title order={4}>Review uploaded files</Title>
+                        <Text size="sm" c="dimmed" mt="xs">
+                            Last updated: {new Date().toLocaleString()}
+                        </Text>
+                    </Stack>
+                    <Button variant="outline" color="blue" size="sm" onClick={onBack} leftSection={<UploadIcon />}>
+                        Upload file(s)
+                    </Button>
+                </Group>
                 <Divider my="sm" mt="sm" mb="md" />
                 <Text mb="xl">
                     Review your uploaded files and select the main file to run. You can remove files or go back to
                     upload more.
                 </Text>
 
-                <Table>
+                <Table w="60%">
                     <Table.Thead>
                         <Table.Tr>
                             <Table.Th>Main</Table.Th>
@@ -111,7 +133,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, i
                                             onClick={() => handleRemoveFile(fileName)}
                                             disabled={allFiles.length === 1}
                                         >
-                                            <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
+                                            <TrashIcon color={theme.colors.grey[2]} weight="bold" />
                                         </ActionIcon>
                                     </Table.Td>
                                 </Table.Tr>
