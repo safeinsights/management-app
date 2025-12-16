@@ -100,6 +100,8 @@ export const Routes = {
 
     studyReview: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/review`, StudyParams),
 
+    studyCode: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/code`, StudyParams),
+
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
     // -------------------------------------------------------------------------

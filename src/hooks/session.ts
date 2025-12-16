@@ -27,8 +27,7 @@ export const useSession = ():
                 prefs: user.unsafeMetadata || {},
                 clerkUserId: user.id,
             })
-            // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
-            // eslint-disable-next-line react-hooks/set-state-in-effect
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing external auth state
             setSession(sessFromMD)
         } catch {
             syncUserMetadataAction().then((metadata) => {
