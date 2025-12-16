@@ -51,7 +51,7 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
 
     await fillStudyForm(page, studyTitle)
 
-    const nextStepButton = page.getByRole('button', { name: /Save and proceed to Step 4/i })
+    const nextStepButton = page.getByRole('button', { name: /Save and proceed to code upload/i })
     await expect(nextStepButton).toBeDisabled()
 
     const radioButton = page.getByRole('radio', { name: 'R', exact: true })
@@ -61,7 +61,7 @@ async function createStudy(page: Page, studyTitle: string): Promise<string> {
     await expect(nextStepButton).toBeEnabled()
     await nextStepButton.click()
 
-    await expect(page.getByText('Step 4 of 5')).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText('Step 2 of 3')).toBeVisible({ timeout: 60000 })
 
     await page.getByRole('button', { name: /Upload your files/i }).click()
 
