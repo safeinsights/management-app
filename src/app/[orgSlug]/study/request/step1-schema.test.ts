@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { studyProposalFormSchema, studyProposalApiSchema } from './study-proposal-form-schema'
+import { studyProposalFormSchema, studyProposalApiSchema } from './step1-schema'
 
 describe('studyProposalFormSchema', () => {
     describe('language field', () => {

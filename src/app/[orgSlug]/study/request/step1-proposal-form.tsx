@@ -10,7 +10,7 @@ import { Divider, FileInput, Grid, Group, Paper, Stack, Text, TextInput, Title, 
 import { UseFormReturnType } from '@mantine/form'
 import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import React, { FC } from 'react'
-import { StudyProposalFormValues } from './study-proposal-form-schema'
+import { StudyProposalFormValues } from './step1-schema'
 
 export type ExistingFilePaths = {
     descriptionDocPath?: string | null

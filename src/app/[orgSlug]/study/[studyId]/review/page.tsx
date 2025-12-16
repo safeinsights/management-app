@@ -1,17 +1,18 @@
 'use server'
 
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
+import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
 import { isActionError } from '@/lib/errors'
 import { getStudyAction } from '@/server/actions/study.actions'
+import { getDraftStudyAction } from '@/server/actions/study-request'
 import { sessionFromClerk } from '@/server/clerk'
 import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { StudyResults } from './study-results'
-import { ResearcherReviewButtons } from './researcher-review-buttons'
 import { StudyReviewButtons } from './study-review-buttons'
+import { DraftSubmissionReview } from './draft-submission-review'
 import { auth } from '@clerk/nextjs/server'
 
 export default async function StudyReviewPage(props: {
@@ -21,13 +22,50 @@ export default async function StudyReviewPage(props: {
     }>
 }) {
     const params = await props.params
+    const { orgSlug, studyId } = params
+    await auth() // Verify authentication
+
+    // First, try to get this as a draft study (for submission flow)
+    const draftResult = await getDraftStudyAction({ studyId })
+
+    // If this is a DRAFT study and user is the researcher, show submission review
+    if (!('error' in draftResult) && draftResult.status === 'DRAFT') {
+        return (
+            <Stack p="xl" gap="xl">
+                <ResearcherBreadcrumbs
+                    crumbs={{
+                        orgSlug: draftResult.orgSlug,
+                        studyId,
+                        current: 'Review submission',
+                    }}
+                />
+                <DraftSubmissionReview
+                    studyId={studyId}
+                    orgSlug={draftResult.orgSlug}
+                    submittingOrgSlug={orgSlug}
+                    title={draftResult.title || ''}
+                    piName={draftResult.piName || ''}
+                    language={draftResult.language!}
+                    existingDocuments={{
+                        description: draftResult.descriptionDocPath,
+                        irb: draftResult.irbDocPath,
+                        agreement: draftResult.agreementDocPath,
+                    }}
+                    existingCodeFiles={{
+                        mainFileName: draftResult.mainCodeFileName,
+                        additionalFileNames: draftResult.additionalCodeFileNames,
+                    }}
+                />
+            </Stack>
+        )
+    }
+
+    // Otherwise, this is for reviewers viewing a submitted study
     const session = await sessionFromClerk()
 
     if (!session?.belongsToEnclave) {
         return <AccessDeniedAlert />
     }
-
-    const { orgSlug, studyId } = params
 
     const study = await getStudyAction({ studyId })
     if (isActionError(study) || !study) {
@@ -35,10 +73,6 @@ export default async function StudyReviewPage(props: {
     }
 
     const job = await latestJobForStudy(studyId)
-
-    // Check if the current user is the study owner (researcher) or a reviewer
-    const { userId } = await auth()
-    const isResearcher = userId === study.createdBy
 
     return (
         <Stack px="xl" gap="xl">
@@ -74,7 +108,7 @@ export default async function StudyReviewPage(props: {
                 </Stack>
             </Paper>
             <StudyResults job={job} />
-            {isResearcher ? <ResearcherReviewButtons study={study} /> : <StudyReviewButtons study={study} />}
+            <StudyReviewButtons study={study} />
         </Stack>
     )
 }

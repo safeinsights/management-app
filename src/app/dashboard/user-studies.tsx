@@ -2,6 +2,7 @@
 
 import { ResearcherUserStudiesTable } from '@/components/dashboard/researcher-user-studies-table'
 import { ReviewerUserStudiesTable } from '@/components/dashboard/reviewer-user-studies-table'
+import { DashboardHeaderSkeleton, TableSkeleton } from '@/components/layout/skeleton/dashboard'
 import { useSession } from '@/hooks/session'
 import { Flex, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
@@ -19,6 +20,13 @@ export default function UserStudiesDashboard() {
     const [activeTab, setActiveTab] = useState<'researcher' | 'reviewer'>(
         session?.belongsToEnclave ? 'reviewer' : 'researcher',
     )
+    const [isClientReady, setIsClientReady] = useState(false)
+
+    // Mark client as ready after hydration
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional hydration tracking
+        setIsClientReady(true)
+    }, [])
 
     useEffect(() => {
         const params = new URLSearchParams(searchParams.toString())
@@ -41,6 +49,18 @@ export default function UserStudiesDashboard() {
 
         router.replace(`${pathname}?${params.toString()}` as Route)
     }, [skippedOrg, declinedOrg, pathname, searchParams, router])
+
+    // Show skeleton only during SSR/initial hydration, remove once client-side code runs
+    if (!isClientReady) {
+        return (
+            <Stack p="xxl" gap="xxl">
+                <DashboardHeaderSkeleton />
+                <Paper shadow="xs" p="xl">
+                    <TableSkeleton paperWrapper={false} />
+                </Paper>
+            </Stack>
+        )
+    }
 
     if (!session) return null
 
