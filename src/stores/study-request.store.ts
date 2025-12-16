@@ -38,7 +38,7 @@ export interface DraftStudyData {
     additionalCodeFileNames?: string[]
 }
 
-interface StudyRequestState {
+export interface StudyRequestState {
     studyId: string | null
     orgSlug: string
     submittingOrgSlug: string
