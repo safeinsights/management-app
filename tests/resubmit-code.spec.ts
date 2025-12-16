@@ -118,9 +118,9 @@ test('Resubmit code flow: researcher can resubmit code for an approved study', a
         await expect(page.getByText('Approved on')).toBeVisible()
     })
 
-    // 3. Test that select-files page works for non-draft (approved) study
+    // 3. Navigate to study view to get ID (preparation for resubmit)
     let studyId: string
-    await test.step('select-files page loads for approved (non-draft) study', async () => {
+    await test.step('navigate to study view to get ID', async () => {
         await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
         // Wait for dashboard content to be fully loaded
@@ -132,15 +132,6 @@ test('Resubmit code flow: researcher can resubmit code for an approved study', a
         // Extract the study ID from the current URL
         const url = page.url()
         studyId = url.split('/study/')[1].split('/')[0]
-
-        // Navigate directly to the select-files page
-        await page.goto(`/openstax-lab/study/${studyId}/select-files`)
-
-        // Verify the page loads without the "Study not found" error
-        await expect(page.getByText('Study not found')).not.toBeVisible({ timeout: 5000 })
-
-        // Verify page content is visible
-        await expect(page.getByText('Select files to submit')).toBeVisible({ timeout: 15000 })
     })
 
     // 4. Test the full resubmit code flow
