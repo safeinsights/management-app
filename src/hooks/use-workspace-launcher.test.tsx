@@ -6,7 +6,7 @@ import React from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 
 // Mock the server actions
-vi.mock('@/server/actions/coder.actions', () => ({
+vi.mock('@/server/actions/workspaces.actions', () => ({
     createUserAndWorkspaceAction: vi.fn(),
     getWorkspaceUrlAction: vi.fn(),
 }))
@@ -25,7 +25,7 @@ Object.defineProperty(window, 'open', {
     writable: true,
 })
 
-import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/coder.actions'
+import { createUserAndWorkspaceAction, getWorkspaceUrlAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
 
 const createWrapper = () => {

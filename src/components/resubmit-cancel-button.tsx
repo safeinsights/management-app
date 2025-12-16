@@ -26,6 +26,7 @@ export function ResubmitCancelButton({
     }
 
     const confirmCancel = () => {
+        setIsOpen(false)
         router.push((href as Route) ?? Routes.home)
     }
 

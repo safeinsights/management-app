@@ -8,13 +8,13 @@ import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
 import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
-import { DEV_ENV, getConfigValue } from '@/server/config'
+import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema, studyProposalApiSchema } from '@/app/[orgSlug]/study/request/study-proposal-form-schema'
+import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/step1-schema'
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -86,89 +86,8 @@ async function addStudyJob(
     }
 }
 
-const onCreateStudyActionArgsSchema = z.object({
-    orgSlug: z.string(),
-    studyInfo: studyProposalApiSchema,
-    mainCodeFileName: z.string(),
-    codeFileNames: z.array(z.string()),
-    submittingOrgSlug: z.string(),
-})
-
-export const onCreateStudyAction = new Action('onCreateStudyAction', { performsMutations: true })
-    .params(onCreateStudyActionArgsSchema)
-    .middleware(async ({ params: { orgSlug } }) => await getOrgIdFromSlug({ orgSlug }))
-    .requireAbilityTo('create', 'Study') // uses orgId from above
-    .handler(
-        async ({
-            db,
-            params: { orgSlug, studyInfo, mainCodeFileName, codeFileNames, submittingOrgSlug },
-            session,
-            orgId,
-        }) => {
-            const userId = session.user.id
-            const submittingLab = await getOrgIdFromSlug({ orgSlug: submittingOrgSlug })
-
-            const studyId = uuidv7()
-
-            const containerLocation = await codeBuildRepositoryUrl({ studyId, orgSlug })
-
-            await db
-                .insertInto('study')
-                .values({
-                    id: studyId,
-                    title: studyInfo.title,
-                    piName: studyInfo.piName,
-                    language: studyInfo.language,
-                    descriptionDocPath: studyInfo.descriptionDocPath,
-                    irbDocPath: studyInfo.irbDocPath,
-                    agreementDocPath: studyInfo.agreementDocPath,
-                    orgId,
-                    researcherId: userId,
-                    submittedByOrgId: submittingLab.orgId,
-                    containerLocation,
-                    status: 'PENDING-REVIEW',
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
-
-            const { studyJobId, urlForCodeUpload } = await addStudyJob(
-                db,
-                userId,
-                studyId,
-                orgSlug,
-                mainCodeFileName,
-                codeFileNames,
-            )
-
-            onStudyCreated({ userId, studyId })
-
-            const urlForAgreementUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
-            )
-
-            const urlForIrbUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
-            )
-
-            const urlForDescriptionUpload = await signedUrlForStudyUpload(
-                pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
-            )
-
-            revalidatePath(`/${orgSlug}/dashboard`)
-
-            return {
-                studyId: studyId,
-                studyJobId,
-                urlForCodeUpload,
-                urlForAgreementUpload,
-                urlForIrbUpload,
-                urlForDescriptionUpload,
-            }
-        },
-    )
-
-// Schema for creating a new draft (partial data allowed)
-const onSaveDraftStudyActionArgsSchema = onCreateStudyActionArgsSchema.partial().extend({
+// Schema for creating a new draft
+const onSaveDraftStudyActionArgsSchema = z.object({
     orgSlug: z.string(),
     submittingOrgSlug: z.string(),
     studyInfo: draftStudyApiSchema,
@@ -263,6 +182,60 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             urlForDescriptionUpload: await signedUrlForStudyUpload(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
             ),
+        }
+    })
+
+// Submit a draft study - converts DRAFT to PENDING-REVIEW and creates study job
+const onSubmitDraftStudyActionArgsSchema = z.object({
+    studyId: z.string(),
+    mainCodeFileName: z.string(),
+    codeFileNames: z.array(z.string()),
+})
+
+export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', { performsMutations: true })
+    .params(onSubmitDraftStudyActionArgsSchema)
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId, mainCodeFileName, codeFileNames }, session, orgSlug }) => {
+        const userId = session.user.id
+
+        // Verify the study is in DRAFT status before submitting
+        const study = await db
+            .selectFrom('study')
+            .select(['id', 'status'])
+            .where('id', '=', studyId)
+            .where('researcherId', '=', userId)
+            .executeTakeFirst()
+
+        if (!study) {
+            throw new Error('Study not found or access denied')
+        }
+
+        if (study.status !== 'DRAFT') {
+            throw new Error(`Cannot submit study: expected status DRAFT but got ${study.status}`)
+        }
+
+        // Create the study job for the code files
+        const { studyJobId, urlForCodeUpload } = await addStudyJob(
+            db,
+            userId,
+            studyId,
+            orgSlug,
+            mainCodeFileName,
+            codeFileNames,
+        )
+
+        // Change status to PENDING-REVIEW
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        onStudyCreated({ userId, studyId })
+
+        revalidatePath(`/${orgSlug}/dashboard`)
+
+        return {
+            studyId,
+            studyJobId,
+            urlForCodeUpload,
         }
     })
 
@@ -410,7 +383,7 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
         )
 
         let coderFilesPath = await getConfigValue('CODER_FILES')
-        if (!DEV_ENV) {
+        if (!CODER_DISABLED) {
             coderFilesPath += `/${studyId}`
         }
 

@@ -11,6 +11,7 @@ import { InfoTooltip } from '@/components/tooltip'
 import { reportMutationError } from '@/components/errors'
 import { permissionLabelForUser, PERMISSION_LABELS } from '@/lib/role'
 import { updateUserRoleAction } from '@/server/actions/user.actions'
+import { InfoIcon } from '@phosphor-icons/react'
 
 type User = OrgUserReturn
 
@@ -84,12 +85,12 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                     title: (
                         <Flex align="center">
                             <span>Permission</span>
-                            <InfoTooltip label="Shows someone’s permissions within the organization:">
-                                {' '}
-                                text=
-                                {
+                            <InfoTooltip
+                                label={
                                     <Flex direction="column">
-                                        <Text>Shows someone’s permissions within the organization:</Text>
+                                        <Text w="b" mb="xs">
+                                            Shows someone’s permissions within the organization:
+                                        </Text>
                                         <Text>
                                             <b>Contributor</b> – full access within their role; no admin privileges
                                         </Text>
@@ -98,6 +99,8 @@ export const UsersTable: React.FC<{ orgSlug: string }> = ({ orgSlug }) => {
                                         </Text>
                                     </Flex>
                                 }
+                            >
+                                <InfoIcon />
                             </InfoTooltip>
                         </Flex>
                     ),
