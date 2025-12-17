@@ -1,10 +1,7 @@
 'use client'
 
-import { useState } from '@/common'
 import { InputError } from '@/components/errors'
-import { AppModal } from '@/components/modal'
 import { useMutation } from '@/hooks/query-wrappers'
-import { resetUserMFAAction } from '@/server/actions/user.actions'
 import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
@@ -16,12 +13,9 @@ import { Routes } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
-export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => void }) => {
+export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
     const router = useRouter()
-
-    const [isConfirmOpen, setIsConfirmOpen] = useState(false)
-    const [verifiedSessionId, setVerifiedSessionId] = useState<string | null>(null)
 
     const form = useForm({
         initialValues: { code: '' },
@@ -31,23 +25,28 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
         },
     })
 
-    const { mutate: resetMfa, isPending: isProcessing } = useMutation<{ twoFactorEnabled: boolean }>({
-        mutationFn: async () => {
-            if (!verifiedSessionId) throw new Error('No verified session')
+    const { mutate: signInWithRecoveryCode, isPending: isProcessing } = useMutation({
+        mutationFn: async (code: string) => {
+            if (!signIn) throw new Error('SignIn not loaded')
+
+            const result = await signIn.attemptSecondFactor({ strategy: 'backup_code', code })
+
+            if (result.status !== 'complete') {
+                throw new Error('Verification failed')
+            }
 
             // activate the session verified by backup code
-            await setActive?.({ session: verifiedSessionId })
-
-            return await resetUserMFAAction()
+            await setActive?.({ session: result.createdSessionId })
         },
-        onSuccess: (result) => {
-            if (result?.twoFactorEnabled === false) {
-                notifications.show({ message: 'MFA has been reset. Please set up a new method.', color: 'green' })
-                router.push(Routes.accountMfa)
-            }
+        onSuccess: () => {
+            notifications.show({
+                message: 'You have signed in using a recovery code.',
+                color: 'green',
+            })
+            router.push(Routes.dashboard)
         },
         onError: () => {
-            notifications.show({ message: 'Failed to reset MFA', color: 'red' })
+            form.setFieldError('code', 'Code is incorrect or already in use. Please try another.')
         },
     })
 
@@ -55,40 +54,22 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
 
     const handleSubmit = async (values: typeof form.values) => {
         const trimmed = values.code.trim()
-
-        if (!signIn) {
-            return
-        }
-
-        try {
-            const result = await signIn.attemptSecondFactor({ strategy: 'backup_code', code: trimmed })
-
-            if (result.status !== 'complete') {
-                form.setFieldError('code', 'Code is incorrect or already in use. Please try another.')
-                return
-            }
-
-            // store session id but postpone activation until user confirms reset
-            setVerifiedSessionId(result.createdSessionId)
-            setIsConfirmOpen(true)
-        } catch {
-            form.setFieldError('code', 'Code is incorrect or already in use. Please try another.')
-        }
+        signInWithRecoveryCode(trimmed)
     }
 
     return (
         <Stack mb="xxl">
             <Title mb="xs" ta="center" order={3}>
-                Use recovery code to reset your MFA
+                Use recovery code to sign in
             </Title>
             <Text size="md">
                 If you no longer have access to your authentication device, you can use one of your saved recovery codes
-                to verify your identity and reset your Multi-Factor Authentication (MFA).
+                to verify your identity and access your account.
             </Text>
             <Text size="md">Enter one of your recovery codes below. Each code can only be used once.</Text>
-            <Text size="md" c="red.8" mb="xs">
-                <b>Note:</b> If you proceed with this option, you will be required to reset your chosen MFA method. This
-                ensures your account remains secure.
+            <Text size="md" c="blue.8" mb="xs">
+                <b>Note:</b> If you have lost your authentication device permanently, you should reset your MFA settings
+                after signing in.
             </Text>
 
             <form onSubmit={form.onSubmit(handleSubmit)}>
@@ -106,10 +87,11 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
                         type="submit"
                         fullWidth
                         size="lg"
+                        loading={isProcessing}
                         disabled={form.values.code.trim().length === 0 || Boolean(form.errors.code)}
                         mt="md"
                     >
-                        Reset MFA
+                        Sign in
                     </Button>
                     <Group gap="xs" justify="center">
                         <Button onClick={() => setStep('select')} mt="md" fw={600} fz="md" variant="subtle">
@@ -119,45 +101,6 @@ export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => voi
                     </Group>
                 </Stack>
             </form>
-            <ConfirmationModal
-                isConfirmOpen={isConfirmOpen}
-                setIsConfirmOpen={setIsConfirmOpen}
-                isProcessing={isProcessing}
-                proceedReset={resetMfa}
-            />
         </Stack>
-    )
-}
-
-export const ConfirmationModal = ({
-    isConfirmOpen,
-    setIsConfirmOpen,
-    isProcessing,
-    proceedReset,
-}: {
-    isConfirmOpen: boolean
-    setIsConfirmOpen: (isOpen: boolean) => void
-    isProcessing: boolean
-    proceedReset: () => void
-}) => {
-    return (
-        <AppModal isOpen={isConfirmOpen} onClose={() => setIsConfirmOpen(false)} title="Confirm MFA reset">
-            <Stack>
-                <Text size="md">You are about to reset your Multi-Factor Authentication (MFA) settings.</Text>
-                <Text size="md">
-                    This means your current authentication method will be removed, and you’ll need to set up MFA again
-                    to secure your account.
-                </Text>
-                <Text size="md">Do you want to proceed?</Text>
-                <Group gap="sm" mt="md">
-                    <Button size="md" variant="outline" onClick={() => setIsConfirmOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button size="md" loading={isProcessing} onClick={proceedReset}>
-                        Reset MFA
-                    </Button>
-                </Group>
-            </Stack>
-        </AppModal>
     )
 }

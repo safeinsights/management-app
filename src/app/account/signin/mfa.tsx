@@ -14,11 +14,11 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
-import { RecoveryCodeMFAReset } from './reset-mfa'
+import { RecoveryCodeSignIn } from './reset-mfa'
 import { VerifyCode } from './verify-code'
 export const dynamic = 'force-dynamic'
 
-export type Step = 'select' | 'verify' | 'reset'
+export type Step = 'select' | 'verify' | 'recovery'
 type Method = 'sms' | 'totp'
 
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
@@ -199,7 +199,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         variant="outline"
                         size="lg"
                         onClick={() => {
-                            setStep('reset')
+                            setStep('recovery')
                         }}
                     >
                         Try recovery code
@@ -219,7 +219,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 />
             )}
 
-            {step === 'reset' && <RecoveryCodeMFAReset setStep={setStep} />}
+            {step === 'recovery' && <RecoveryCodeSignIn setStep={setStep} />}
         </Paper>
     )
 }
