@@ -7,13 +7,11 @@ interface OpenStaxOnlyProps {
 }
 
 export const OpenStaxOnly: FC<OpenStaxOnlyProps> = ({ orgSlug, children }) => {
-    const isOpenStaxOrg = OPENSTAX_ORG_SLUGS.includes(orgSlug as (typeof OPENSTAX_ORG_SLUGS)[number])
-
-    if (!isOpenStaxOrg) {
+    if (!isOpenStaxOrg(orgSlug)) {
         return null
     }
 
-    return <>{children}</>
+    return children
 }
 
 export const isOpenStaxOrg = (orgSlug: string): boolean => {
