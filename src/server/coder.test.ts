@@ -71,7 +71,7 @@ describe('getOrCreateCoderUser', () => {
 
         const result = await getOrCreateCoderUser('study123')
         expect(result).toEqual(expect.objectContaining(mockUsersEmailQueryResponse.users[0]))
-        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john@example.com', {
+        expect(mockFetch).toHaveBeenCalledWith('https://api.coder.com/api/v2/users?q=john%40example.com', {
             method: 'GET',
             headers: {
                 Accept: 'application/json',
