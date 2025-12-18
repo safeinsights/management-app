@@ -65,7 +65,7 @@ interface StudyRequestState {
     }) => void
     setCodeUploadViewMode: (mode: 'upload' | 'review') => void
     initFromDraft: (draft: DraftStudyData, submittingOrgSlug: string) => void
-    reset: () => void
+    reset: (studyId?: string) => void
 }
 
 const getFileName = (f: FileRef): string => (f.type === 'memory' ? f.file.name : f.name)
@@ -182,7 +182,7 @@ export const useStudyRequestStore = create<StudyRequestState>((set, get) => ({
             },
         }),
 
-    reset: () => set(initialState),
+    reset: (studyId?: string) => set({ ...initialState, studyId: studyId ?? null }),
 }))
 
 export const useStudyId = () => useStudyRequestStore((state) => state.studyId)

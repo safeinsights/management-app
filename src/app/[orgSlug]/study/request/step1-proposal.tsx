@@ -19,15 +19,16 @@ interface StudyProposalProps {
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const setStudyId = useStudyRequestStore((s) => s.setStudyId)
+    const reset = useStudyRequestStore((s) => s.reset)
     const setSubmittingOrgSlug = useStudyRequestStore((s) => s.setSubmittingOrgSlug)
     const { form, existingFiles } = useProposalForm(draftData)
     const { saveDraft, isSaving } = useSaveDraft()
 
     useEffect(() => {
-        if (studyId) setStudyId(studyId)
+        // Reset store when arriving, optionally preserving studyId for existing drafts
+        reset(studyId)
         setSubmittingOrgSlug(submittingOrgSlug)
-    }, [studyId, submittingOrgSlug, setStudyId, setSubmittingOrgSlug])
+    }, [studyId, submittingOrgSlug, reset, setSubmittingOrgSlug])
 
     const handleSaveAndProceed = () => {
         saveDraft(form.getValues(), {
@@ -75,6 +76,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 })
             }
             isSavingDraft={isSaving}
+            onNavigateAway={() => reset()}
         >
             <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
 

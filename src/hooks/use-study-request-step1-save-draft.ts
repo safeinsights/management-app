@@ -14,7 +14,7 @@ export interface DraftFormValues {
     title?: string
     piName?: string
     language?: Language | null
-    orgSlug?: string
+    orgSlug: string
     descriptionDocument?: File | null
     irbDocument?: File | null
     agreementDocument?: File | null
@@ -50,9 +50,12 @@ export function useSaveDraft() {
                     }),
                 )
             } else {
+                if (!formValues.orgSlug) {
+                    throw new Error('Data organization is required to create a study')
+                }
                 result = actionResult(
                     await onSaveDraftStudyAction({
-                        orgSlug: formValues.orgSlug || '',
+                        orgSlug: formValues.orgSlug,
                         studyInfo: draftInfo,
                         submittingOrgSlug: getLabSlug(submittingOrgSlug),
                     }),
