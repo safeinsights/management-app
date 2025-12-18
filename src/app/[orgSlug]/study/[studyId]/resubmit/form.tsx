@@ -46,6 +46,7 @@ export function ResubmitStudyCodeForm({ study }: { study: SelectedStudy }) {
             <ImportIDEFiles
                 studyId={study.id}
                 orgSlug={orgSlug}
+                studyOrgSlug={study.orgSlug}
                 filteredIdeFiles={filteredIdeFiles}
                 currentIdeMainFile={currentIdeMainFile}
                 lastModified={lastModified}

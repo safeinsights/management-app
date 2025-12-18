@@ -6,11 +6,13 @@ import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { CompactStatusButton } from '@/components/study/compact-status-button'
 import { FileReviewTable } from '@/components/study/file-review-table'
+import { OpenStaxOnly } from '@/components/openstax-only'
 import { useResubmitCodeStore } from '@/stores/resubmit-code.store'
 
 interface ImportIDEFilesProps {
     studyId: string
     orgSlug: string
+    studyOrgSlug: string
     filteredIdeFiles: string[]
     currentIdeMainFile: string
     lastModified: string | null
@@ -29,6 +31,7 @@ interface ImportIDEFilesProps {
 export function ImportIDEFiles({
     studyId,
     orgSlug,
+    studyOrgSlug,
     filteredIdeFiles,
     currentIdeMainFile,
     lastModified,
@@ -103,17 +106,19 @@ export function ImportIDEFiles({
 
                 <Group justify="space-between" align="center">
                     <Text fw={600}>Review files from IDE</Text>
-                    <Group>
-                        {launchButton}
-                        <Button
-                            variant="filled"
-                            leftSection={<DownloadSimpleIcon size={16} />}
-                            onClick={onImportFiles}
-                            loading={isLoadingFiles}
-                        >
-                            Import files from IDE
-                        </Button>
-                    </Group>
+                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                        <Group>
+                            {launchButton}
+                            <Button
+                                variant="filled"
+                                leftSection={<DownloadSimpleIcon size={16} />}
+                                onClick={onImportFiles}
+                                loading={isLoadingFiles}
+                            >
+                                Import files from IDE
+                            </Button>
+                        </Group>
+                    </OpenStaxOnly>
                 </Group>
 
                 {body}

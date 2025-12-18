@@ -6,7 +6,7 @@ import { LightbulbIcon } from '@phosphor-icons/react'
 import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
-import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
+import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
 import { Language } from '@/database/types'
 import { UploadFilesModal } from './upload-files-modal'
 import { useResubmitCodeStore } from '@/stores/resubmit-code.store'
@@ -39,7 +39,7 @@ export function UploadOrLaunch({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    const isOpenstaxOrg = studyOrgSlug === OPENSTAX_ORG_SLUG
+    const isOpenstax = isOpenStaxOrg(studyOrgSlug)
 
     const handleConfirmAndProceed = (files: File[], mainFileName: string) => {
         store.setUploadedFiles(files, mainFileName)
@@ -52,50 +52,48 @@ export function UploadOrLaunch({
             <Paper p="xl">
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
-                <Text mb={isOpenstaxOrg && isAlertVisible ? '' : 'xl'}>
+                <Text mb={isOpenstax && isAlertVisible ? '' : 'xl'}>
                     Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
-                    {isOpenstaxOrg && (
-                        <>
-                            You can either upload your own files or write them in our{' '}
-                            <Text component="span" fw={600}>
-                                Integrated Development Environment (IDE).
-                            </Text>
-                        </>
-                    )}
+                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                        You can either upload your own files or write them in our{' '}
+                        <Text component="span" fw={600}>
+                            Integrated Development Environment (IDE).
+                        </Text>
+                    </OpenStaxOnly>
                 </Text>
-                {isOpenstaxOrg && isAlertVisible && (
-                    <Alert
-                        icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
-                        title="Helpful tip"
-                        color="green"
-                        withCloseButton
-                        onClose={setIsAlertVisible.close}
-                        mt="md"
-                        mb="xl"
-                        styles={{
-                            body: { gap: 8 },
-                            title: { color: theme.colors.green[9] },
-                            closeButton: { color: theme.colors.green[9] },
-                        }}
-                    >
-                        IDE is pre-configured to help you write your code and test it against sample data.
-                    </Alert>
-                )}
+                <OpenStaxOnly orgSlug={studyOrgSlug}>
+                    {isAlertVisible && (
+                        <Alert
+                            icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                            title="Helpful tip"
+                            color="green"
+                            withCloseButton
+                            onClose={setIsAlertVisible.close}
+                            mt="md"
+                            mb="xl"
+                            styles={{
+                                body: { gap: 8 },
+                                title: { color: theme.colors.green[9] },
+                                closeButton: { color: theme.colors.green[9] },
+                            }}
+                        >
+                            IDE is pre-configured to help you write your code and test it against sample data.
+                        </Alert>
+                    )}
+                </OpenStaxOnly>
 
                 <Group align="center">
                     <UploadFilesButton onClick={openModal} language={language} />
 
-                    {isOpenstaxOrg && (
-                        <>
-                            <OrDivider />
-                            <LaunchIDEButton
-                                onClick={onLaunchWorkspace}
-                                language={language}
-                                loading={isIDELoading}
-                                error={!!launchError}
-                            />
-                        </>
-                    )}
+                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                        <OrDivider />
+                        <LaunchIDEButton
+                            onClick={onLaunchWorkspace}
+                            language={language}
+                            loading={isIDELoading}
+                            error={!!launchError}
+                        />
+                    </OpenStaxOnly>
                 </Group>
             </Paper>
 
