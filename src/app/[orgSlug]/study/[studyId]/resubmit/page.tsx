@@ -5,7 +5,7 @@ import { ResubmitStudyCodeForm } from './form'
 import { notFound } from 'next/navigation'
 
 export default async function ResubmitStudyCodePage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
-    const { studyId, orgSlug: _orgSlug } = await props.params
+    const { studyId, orgSlug } = await props.params
     const study = await getStudyAction({ studyId })
 
     if ('error' in study) {
@@ -16,7 +16,7 @@ export default async function ResubmitStudyCodePage(props: { params: Promise<{ s
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
-                    orgSlug: study.orgSlug,
+                    orgSlug, // research lab's org slug
                     studyId,
                     current: 'Resubmit study code',
                 }}
