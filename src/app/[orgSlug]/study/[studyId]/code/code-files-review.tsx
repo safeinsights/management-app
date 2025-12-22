@@ -48,11 +48,7 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
     return (
         <Table.Tr>
             <Table.Td>
-                <Radio
-                    checked={isSelected}
-                    onChange={onSelect}
-                    aria-label={`Select ${fileName} as main file`}
-                />
+                <Radio checked={isSelected} onChange={onSelect} aria-label={`Select ${fileName} as main file`} />
             </Table.Td>
             <Table.Td>
                 <Text size="sm">{fileName}</Text>

@@ -83,7 +83,9 @@ export function useSubmitStudy({
                     } catch (err: unknown) {
                         const result = await onDeleteStudyAction({ studyId: submittedStudyId })
                         if (isActionError(result)) {
-                            logger.error(`Failed to remove temp study details after upload failure: ${errorToString(result.error)}`)
+                            logger.error(
+                                `Failed to remove temp study details after upload failure: ${errorToString(result.error)}`,
+                            )
                         }
                         throw err
                     }

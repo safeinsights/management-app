@@ -1,11 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import {
-    type FileRef,
-    type CodeFileState,
-    getFileName,
-    toMemoryFile,
-    toServerFile,
-} from './file-types'
+import { type FileRef, type CodeFileState, getFileName, toMemoryFile, toServerFile } from './file-types'
 
 export type CodeSource = 'upload' | 'ide' | null
 
@@ -82,14 +76,11 @@ export function useCodeFiles(): UseCodeFilesReturn {
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : null
 
-    const additionalFileNames = useMemo(
-        () => codeFiles.additionalFiles.map(getFileName),
-        [codeFiles.additionalFiles]
-    )
+    const additionalFileNames = useMemo(() => codeFiles.additionalFiles.map(getFileName), [codeFiles.additionalFiles])
 
     const allFileNames = useMemo(
         () => [mainFileName, ...additionalFileNames].filter(Boolean) as string[],
-        [mainFileName, additionalFileNames]
+        [mainFileName, additionalFileNames],
     )
 
     const canProceed = codeFiles.mainFile !== null

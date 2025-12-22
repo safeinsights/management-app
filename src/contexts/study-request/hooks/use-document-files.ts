@@ -6,7 +6,11 @@ export interface UseDocumentFilesReturn {
     documentFiles: DocumentFileState
     existingFiles: ExistingFiles | undefined
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
-    setExistingDocuments: (docs: { description?: string | null; irb?: string | null; agreement?: string | null }) => void
+    setExistingDocuments: (docs: {
+        description?: string | null
+        irb?: string | null
+        agreement?: string | null
+    }) => void
     initDocumentFilesFromPaths: (paths: {
         descriptionDocPath?: string | null
         irbDocPath?: string | null
@@ -38,7 +42,11 @@ export function useDocumentFiles(): UseDocumentFilesReturn {
     )
 
     const initDocumentFilesFromPaths = useCallback(
-        (paths: { descriptionDocPath?: string | null; irbDocPath?: string | null; agreementDocPath?: string | null }) => {
+        (paths: {
+            descriptionDocPath?: string | null
+            irbDocPath?: string | null
+            agreementDocPath?: string | null
+        }) => {
             setDocumentFilesState({
                 description: pathToServerFile(paths.descriptionDocPath),
                 irb: pathToServerFile(paths.irbDocPath),

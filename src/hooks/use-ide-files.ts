@@ -66,7 +66,16 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         setIDECodeFiles(fileManager.mainFile, fileManager.filteredFiles)
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
         router.push(Routes.studyReview({ orgSlug, studyId }))
-    }, [canSubmit, fileManager.mainFile, fileManager.filteredFiles, setIDECodeFiles, queryClient, studyId, router, orgSlug])
+    }, [
+        canSubmit,
+        fileManager.mainFile,
+        fileManager.filteredFiles,
+        setIDECodeFiles,
+        queryClient,
+        studyId,
+        router,
+        orgSlug,
+    ])
 
     return {
         launchWorkspace,

@@ -13,21 +13,15 @@ export interface UseFileListManagerReturn {
     reset: () => void
 }
 
-export function useFileListManager({
-    files,
-    suggestedMain,
-}: UseFileListManagerOptions): UseFileListManagerReturn {
+export function useFileListManager({ files, suggestedMain }: UseFileListManagerOptions): UseFileListManagerReturn {
     const [removedFiles, setRemovedFiles] = useState<Set<string>>(new Set())
     const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
 
-    const filteredFiles = useMemo(
-        () => files.filter((f) => !removedFiles.has(f)),
-        [files, removedFiles]
-    )
+    const filteredFiles = useMemo(() => files.filter((f) => !removedFiles.has(f)), [files, removedFiles])
 
     const mainFile = useMemo(
         () => mainFileOverride ?? suggestedMain ?? filteredFiles[0] ?? '',
-        [mainFileOverride, suggestedMain, filteredFiles]
+        [mainFileOverride, suggestedMain, filteredFiles],
     )
 
     const setMainFile = useCallback((fileName: string) => {

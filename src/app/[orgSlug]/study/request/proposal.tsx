@@ -21,13 +21,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { form, existingFiles, isFormValid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
 
     useEffect(() => {
+        // Only initialize if we have draft data to load
+        // For new studies, the context is already fresh (no need to reset)
         if (draftData) {
             initFromDraft(draftData, submittingOrgSlug)
-        } else {
-            // Reset store when arriving, optionally preserving studyId for existing drafts
-            reset(studyId)
         }
-    }, [studyId, submittingOrgSlug, reset, initFromDraft, draftData])
+    }, [draftData, submittingOrgSlug, initFromDraft])
 
     const handleSave = (proceed: boolean) => {
         saveDraft({

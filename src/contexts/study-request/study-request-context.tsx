@@ -77,7 +77,8 @@ export function StudyRequestProvider({
             orgSlug: formValues.orgSlug,
             language: formValues.language,
             title: formValues.title,
-            hasDescriptionDocument: !!formValues.descriptionDocument || !!documentFiles.existingFiles?.descriptionDocPath,
+            hasDescriptionDocument:
+                !!formValues.descriptionDocument || !!documentFiles.existingFiles?.descriptionDocPath,
             hasIrbDocument: !!formValues.irbDocument || !!documentFiles.existingFiles?.irbDocPath,
             hasAgreementDocument: !!formValues.agreementDocument || !!documentFiles.existingFiles?.agreementDocPath,
         })
@@ -147,7 +148,7 @@ export function StudyRequestProvider({
                 ])
             }
         },
-        [form, initDocumentFilesFromPaths, codeFilesHook],
+        [form, initDocumentFilesFromPaths, codeFilesHook.setIDEFiles],
     )
 
     useEffect(() => {
@@ -198,13 +199,21 @@ export function StudyRequestProvider({
             submittingOrgSlug,
             form,
             isFormValid,
-            codeFilesHook,
+            codeFilesHook.codeFiles,
+            codeFilesHook.mainFileName,
+            codeFilesHook.additionalFileNames,
+            codeFilesHook.canProceed,
+            codeFilesHook.setMainFile,
+            codeFilesHook.removeFile,
             codeSource,
             codeUploadViewMode,
             setCodeFiles,
             setIDECodeFiles,
             clearCodeFiles,
-            documentFiles,
+            documentFiles.documentFiles,
+            documentFiles.existingFiles,
+            documentFiles.setDocumentFile,
+            documentFiles.setExistingDocuments,
             initFromDraft,
             reset,
             saveDraft,

@@ -78,7 +78,9 @@ export function useResubmitMutation({
             } catch (err: unknown) {
                 const response = await onDeleteStudyJobAction({ studyJobId })
                 if (isActionError(response)) {
-                    logger.error(`Failed to remove temp study job details after upload failure: ${errorToString(response.error)}`)
+                    logger.error(
+                        `Failed to remove temp study job details after upload failure: ${errorToString(response.error)}`,
+                    )
                 }
                 throw err
             }

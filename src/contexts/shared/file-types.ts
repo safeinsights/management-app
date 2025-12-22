@@ -46,9 +46,7 @@ export const getFileFromRef = (ref: FileRef | null): File | null => {
 
 export const getCodeFilesForUpload = (codeFiles: CodeFileState): { main: File | null; additional: File[] } => {
     const main = codeFiles.mainFile?.type === 'memory' ? codeFiles.mainFile.file : null
-    const additional = codeFiles.additionalFiles
-        .filter((f): f is MemoryFile => f.type === 'memory')
-        .map((f) => f.file)
+    const additional = codeFiles.additionalFiles.filter((f): f is MemoryFile => f.type === 'memory').map((f) => f.file)
     return { main, additional }
 }
 

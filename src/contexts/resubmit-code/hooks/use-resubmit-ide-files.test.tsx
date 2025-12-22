@@ -17,9 +17,11 @@ import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
 const createWrapper = () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    return ({ children }: { children: React.ReactNode }) => (
+    const Wrapper = ({ children }: { children: React.ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
     )
+    Wrapper.displayName = 'TestWrapper'
+    return Wrapper
 }
 
 describe('useResubmitIDEFiles', () => {

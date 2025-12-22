@@ -1,10 +1,4 @@
-export type {
-    MemoryFile,
-    ServerFile,
-    FileRef,
-    CodeFileState,
-    DocumentFileState,
-} from './file-types'
+export type { MemoryFile, ServerFile, FileRef, CodeFileState, DocumentFileState } from './file-types'
 export {
     getFileName,
     getFileSize,

@@ -52,7 +52,11 @@ export interface StudyRequestContextValue {
     clearCodeFiles: () => void
     setCodeUploadViewMode: (mode: 'upload' | 'review') => void
     setDocumentFile: (type: 'description' | 'irb' | 'agreement', file: File) => void
-    setExistingDocuments: (docs: { description?: string | null; irb?: string | null; agreement?: string | null }) => void
+    setExistingDocuments: (docs: {
+        description?: string | null
+        irb?: string | null
+        agreement?: string | null
+    }) => void
     initFromDraft: (draft: DraftStudyData, submittingOrgSlug: string) => void
     reset: (studyId?: string) => void
     saveDraft: (options?: MutationOptions) => void

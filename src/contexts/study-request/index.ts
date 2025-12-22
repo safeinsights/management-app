@@ -6,8 +6,4 @@ export type {
     StudyProposalFormValues,
     MutationOptions,
 } from './study-request-types'
-export {
-    initialFormValues,
-    initialCodeFilesState,
-    initialDocumentFilesState,
-} from './study-request-types'
+export { initialFormValues, initialCodeFilesState, initialDocumentFilesState } from './study-request-types'
