@@ -1,44 +1,37 @@
-'use client'
-
+import { useCallback } from 'react'
+import { notifications } from '@mantine/notifications'
 import { useMutation, useQueryClient } from '@/common'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
+import { actionResult } from '@/lib/utils'
 import { errorToString } from '@/lib/errors'
 import { getLabSlug } from '@/lib/org'
-import { actionResult } from '@/lib/utils'
-import { notifications } from '@mantine/notifications'
 import { onSaveDraftStudyAction, onUpdateDraftStudyAction } from '@/server/actions/study-request'
-import { useStudyRequestStore } from '@/stores/study-request.store'
-import type { Language } from '@/database/types'
+import type { StudyProposalFormValues, MutationOptions } from '../study-request-types'
 
-export interface DraftFormValues {
-    title?: string
-    piName?: string
-    language?: Language | null
-    orgSlug: string
-    descriptionDocument?: File | null
-    irbDocument?: File | null
-    agreementDocument?: File | null
+export interface UseSaveDraftOptions {
+    studyId: string | null
+    submittingOrgSlug: string
+    onStudyCreated?: (studyId: string) => void
 }
 
-function formValuesToDraftInfo(formValues: DraftFormValues) {
-    return {
-        title: formValues.title || undefined,
-        piName: formValues.piName || undefined,
-        language: formValues.language || undefined,
-        descriptionDocPath: formValues.descriptionDocument?.name,
-        agreementDocPath: formValues.agreementDocument?.name,
-        irbDocPath: formValues.irbDocument?.name,
-    }
+export interface UseSaveDraftReturn {
+    saveDraft: (formValues: StudyProposalFormValues, options?: MutationOptions) => void
+    isSaving: boolean
 }
 
-export function useSaveDraft() {
+export function useSaveDraft({ studyId, submittingOrgSlug, onStudyCreated }: UseSaveDraftOptions): UseSaveDraftReturn {
     const queryClient = useQueryClient()
-    const store = useStudyRequestStore()
 
     const mutation = useMutation({
-        mutationFn: async (formValues: DraftFormValues) => {
-            const { studyId, submittingOrgSlug } = store
-            const draftInfo = formValuesToDraftInfo(formValues)
+        mutationFn: async (formValues: StudyProposalFormValues) => {
+            const draftInfo = {
+                title: formValues.title || undefined,
+                piName: formValues.piName || undefined,
+                language: formValues.language || undefined,
+                descriptionDocPath: formValues.descriptionDocument?.name,
+                agreementDocPath: formValues.agreementDocument?.name,
+                irbDocPath: formValues.irbDocument?.name,
+            }
             const filesToUpload: FileUpload[] = []
 
             let result
@@ -78,9 +71,9 @@ export function useSaveDraft() {
 
             return { studyId: result.studyId }
         },
-        onSuccess({ studyId }) {
-            store.setStudyId(studyId)
-            queryClient.invalidateQueries({ queryKey: ['draft-study', studyId] })
+        onSuccess({ studyId: newStudyId }) {
+            onStudyCreated?.(newStudyId)
+            queryClient.invalidateQueries({ queryKey: ['draft-study', newStudyId] })
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
         },
@@ -93,9 +86,18 @@ export function useSaveDraft() {
         },
     })
 
+    const saveDraft = useCallback(
+        (formValues: StudyProposalFormValues, options?: MutationOptions) => {
+            mutation.mutate(formValues, {
+                onSuccess: options?.onSuccess,
+                onError: options?.onError,
+            })
+        },
+        [mutation],
+    )
+
     return {
-        saveDraft: mutation.mutate,
-        saveDraftAsync: mutation.mutateAsync,
+        saveDraft,
         isSaving: mutation.isPending,
     }
 }

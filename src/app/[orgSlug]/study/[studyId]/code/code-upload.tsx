@@ -8,11 +8,11 @@ import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
-import { useStudyRequestStore, useCodeFiles, useCanProceedToReview } from '@/stores/study-request.store'
+import { useStudyRequest } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
-import { CodeUploadModal } from './step2-upload-modal'
-import { CodeFilesReview } from './step2-files-review'
+import { CodeUploadModal } from './code-upload-modal'
+import { CodeFilesReview } from './code-files-review'
 
 interface CodeUploadPageProps {
     studyId: string
@@ -36,11 +36,8 @@ export function CodeUploadPage({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    // Zustand store
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
-    const viewMode = store.codeUploadViewMode
-    const canProceedToReview = useCanProceedToReview()
+    // Context
+    const { codeFiles, codeUploadViewMode, canProceedToReview, setStudyId, setCodeUploadViewMode } = useStudyRequest()
 
     // IDE launcher
     const {
@@ -55,21 +52,9 @@ export function CodeUploadPage({
         },
     })
 
-    // Initialize store from server data on mount
+    // Initialize context from server data on mount
     useEffect(() => {
-        store.setStudyId(studyId)
-        store.setOrgSlug(orgSlug)
-        store.setSubmittingOrgSlug(submittingOrgSlug)
-        store.setLanguage(language)
-
-        // Set existing files if any (from a previous draft save)
-        if (existingMainFile || (existingAdditionalFiles && existingAdditionalFiles.length > 0)) {
-            // Only initialize if we don't already have files in memory
-            if (!codeFiles.mainFile) {
-                // These are server files - we can't upload them again, just show their names
-                // User will need to re-upload if they want to change them
-            }
-        }
+        setStudyId(studyId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
@@ -89,16 +74,16 @@ export function CodeUploadPage({
     }
 
     const handleBackToUpload = () => {
-        store.setCodeUploadViewMode('upload')
+        setCodeUploadViewMode('upload')
     }
 
     const handleFilesConfirmed = () => {
-        store.setCodeUploadViewMode('review')
+        setCodeUploadViewMode('review')
         closeModal()
     }
 
     // Show review mode if files are selected
-    if (viewMode === 'review' && codeFiles.mainFile) {
+    if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
         return <CodeFilesReview onBack={handleBackToUpload} onProceed={handleProceedToReview} />
     }
 

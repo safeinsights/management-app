@@ -7,49 +7,33 @@ import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { CompactStatusButton } from '@/components/study/compact-status-button'
 import { FileReviewTable } from '@/components/study/file-review-table'
 import { OpenStaxOnly } from '@/components/openstax-only'
-import { useResubmitCodeStore } from '@/stores/resubmit-code.store'
+import { useResubmitCode } from '@/contexts/resubmit-code'
 
-interface ImportIDEFilesProps {
-    studyId: string
-    orgSlug: string
-    studyOrgSlug: string
-    filteredIdeFiles: string[]
-    currentIdeMainFile: string
-    lastModified: string | null
-    showEmptyState: boolean
-    isLoadingFiles: boolean
-    isIDELoading: boolean
-    ideLoadingMessage: string
-    launchError: Error | null
-    canSubmitFromIDE: boolean
-    isPending: boolean
-    onLaunchWorkspace: () => void
-    onImportFiles: () => void
-    onResubmit: () => void
-}
-
-export function ImportIDEFiles({
-    studyId,
-    orgSlug,
-    studyOrgSlug,
-    filteredIdeFiles,
-    currentIdeMainFile,
-    lastModified,
-    showEmptyState,
-    isLoadingFiles,
-    isIDELoading,
-    ideLoadingMessage,
-    launchError,
-    canSubmitFromIDE,
-    isPending,
-    onLaunchWorkspace,
-    onImportFiles,
-    onResubmit,
-}: ImportIDEFilesProps) {
-    const store = useResubmitCodeStore()
+export function ImportIDEFiles() {
+    const {
+        studyId,
+        orgSlug,
+        submittingOrgSlug,
+        filteredIdeFiles,
+        currentIdeMainFile,
+        lastModified,
+        showEmptyState,
+        isLoadingFiles,
+        isIDELoading,
+        ideLoadingMessage,
+        launchError,
+        canSubmitFromIDE,
+        isPending,
+        goToUpload,
+        setIdeMainFile,
+        removeIdeFile,
+        launchWorkspace,
+        handleImportFiles,
+        resubmitStudy,
+    } = useResubmitCode()
 
     let launchButton = (
-        <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={onLaunchWorkspace}>
+        <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={launchWorkspace}>
             Launch IDE
         </Button>
     )
@@ -60,7 +44,7 @@ export function ImportIDEFiles({
                 primaryText="Launch failed"
                 secondaryText="Please try again later"
                 color="red"
-                onClick={onLaunchWorkspace}
+                onClick={launchWorkspace}
             />
         )
     } else if (isIDELoading) {
@@ -71,8 +55,8 @@ export function ImportIDEFiles({
         <FileReviewTable
             files={filteredIdeFiles}
             mainFile={currentIdeMainFile}
-            onMainFileChange={store.setIdeMainFile}
-            onRemoveFile={store.removeIdeFile}
+            onMainFileChange={setIdeMainFile}
+            onRemoveFile={removeIdeFile}
             lastModified={lastModified}
         />
     )
@@ -87,7 +71,7 @@ export function ImportIDEFiles({
                         <Button
                             variant="transparent"
                             leftSection={<DownloadSimpleIcon size={16} />}
-                            onClick={onImportFiles}
+                            onClick={handleImportFiles}
                             loading={isLoadingFiles}
                         >
                             Import files from IDE
@@ -106,13 +90,13 @@ export function ImportIDEFiles({
 
                 <Group justify="space-between" align="center">
                     <Text fw={600}>Review files from IDE</Text>
-                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                    <OpenStaxOnly orgSlug={orgSlug}>
                         <Group>
                             {launchButton}
                             <Button
                                 variant="filled"
                                 leftSection={<DownloadSimpleIcon size={16} />}
-                                onClick={onImportFiles}
+                                onClick={handleImportFiles}
                                 loading={isLoadingFiles}
                             >
                                 Import files from IDE
@@ -124,15 +108,15 @@ export function ImportIDEFiles({
                 {body}
 
                 <Group justify="flex-end" mt="md">
-                    <Button variant="outline" onClick={store.goToUpload}>
+                    <Button variant="outline" onClick={goToUpload}>
                         Back
                     </Button>
                     <ResubmitCancelButton
                         isDirty={filteredIdeFiles.length > 0}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug, studyId })}
+                        href={Routes.studyView({ orgSlug: submittingOrgSlug, studyId })}
                     />
-                    <Button onClick={onResubmit} disabled={!canSubmitFromIDE} loading={isPending}>
+                    <Button onClick={resubmitStudy} disabled={!canSubmitFromIDE} loading={isPending}>
                         Resubmit study code
                     </Button>
                 </Group>

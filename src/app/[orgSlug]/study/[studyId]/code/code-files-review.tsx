@@ -15,16 +15,14 @@ import {
     Stack,
 } from '@mantine/core'
 import { CaretLeftIcon, TrashIcon, UploadIcon } from '@phosphor-icons/react'
-import { useStudyRequestStore, useCodeFiles, FileRef } from '@/stores/study-request.store'
+import { useStudyRequest } from '@/contexts/study-request'
+import { getFileName, getFileSize, type FileRef } from '@/contexts/shared/file-types'
 
 interface CodeFilesReviewProps {
     onBack: () => void
     onProceed: () => void
     isSaving?: boolean
 }
-
-const getFileName = (f: FileRef): string => (f.type === 'memory' ? f.file.name : f.name)
-const getFileSize = (f: FileRef): number => (f.type === 'memory' ? f.file.size : 0)
 
 const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return 'N/A'
@@ -34,41 +32,77 @@ const formatFileSize = (bytes: number): string => {
     return `${mb.toFixed(2)} MB`
 }
 
-export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, isSaving = false }) => {
-    const theme = useMantineTheme()
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
+interface FileRowProps {
+    fileRef: FileRef
+    isSelected: boolean
+    isOnlyFile: boolean
+    onSelect: () => void
+    onRemove: () => void
+}
 
-    // Get the current main file name
+const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, onRemove }) => {
+    const theme = useMantineTheme()
+    const fileName = getFileName(fileRef)
+    const fileSize = getFileSize(fileRef)
+
+    return (
+        <Table.Tr>
+            <Table.Td>
+                <Radio
+                    checked={isSelected}
+                    onChange={onSelect}
+                    aria-label={`Select ${fileName} as main file`}
+                />
+            </Table.Td>
+            <Table.Td>
+                <Text size="sm">{fileName}</Text>
+            </Table.Td>
+            <Table.Td>
+                <Text size="sm" c="dimmed">
+                    {formatFileSize(fileSize)}
+                </Text>
+            </Table.Td>
+            <Table.Td>
+                <ActionIcon
+                    variant="transparent"
+                    aria-label={`Remove ${fileName}`}
+                    onClick={onRemove}
+                    disabled={isOnlyFile}
+                >
+                    <TrashIcon color={theme.colors.grey[2]} weight="bold" />
+                </ActionIcon>
+            </Table.Td>
+        </Table.Tr>
+    )
+}
+
+export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, isSaving = false }) => {
+    const { codeFiles, removeCodeFile, setMainCodeFile } = useStudyRequest()
+
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : ''
     const [selectedMainFile, setSelectedMainFile] = useState(mainFileName)
-
-    // Get all files as a flat array
     const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
 
     const handleRemoveFile = (fileName: string) => {
-        store.removeCodeFile(fileName)
-
-        // If we removed the selected main file, select the new main
+        removeCodeFile(fileName)
         if (selectedMainFile === fileName) {
             const remaining = allFiles.filter((f) => getFileName(f) !== fileName)
             if (remaining.length > 0) {
                 const newMain = getFileName(remaining[0])
                 setSelectedMainFile(newMain)
-                store.setMainCodeFile(newMain)
+                setMainCodeFile(newMain)
             }
         }
     }
 
     const handleMainFileChange = (fileName: string) => {
         setSelectedMainFile(fileName)
-        store.setMainCodeFile(fileName)
+        setMainCodeFile(fileName)
     }
 
     const handleProceed = () => {
-        // Ensure the selected main file is set in the store
         if (selectedMainFile && selectedMainFile !== mainFileName) {
-            store.setMainCodeFile(selectedMainFile)
+            setMainCodeFile(selectedMainFile)
         }
         onProceed()
     }
@@ -106,39 +140,16 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, i
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {allFiles.map((fileRef) => {
-                            const fileName = getFileName(fileRef)
-                            const fileSize = getFileSize(fileRef)
-                            return (
-                                <Table.Tr key={fileName}>
-                                    <Table.Td>
-                                        <Radio
-                                            checked={selectedMainFile === fileName}
-                                            onChange={() => handleMainFileChange(fileName)}
-                                            aria-label={`Select ${fileName} as main file`}
-                                        />
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="sm">{fileName}</Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <Text size="sm" c="dimmed">
-                                            {formatFileSize(fileSize)}
-                                        </Text>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <ActionIcon
-                                            variant="transparent"
-                                            aria-label={`Remove ${fileName}`}
-                                            onClick={() => handleRemoveFile(fileName)}
-                                            disabled={allFiles.length === 1}
-                                        >
-                                            <TrashIcon color={theme.colors.grey[2]} weight="bold" />
-                                        </ActionIcon>
-                                    </Table.Td>
-                                </Table.Tr>
-                            )
-                        })}
+                        {allFiles.map((fileRef) => (
+                            <FileRow
+                                key={getFileName(fileRef)}
+                                fileRef={fileRef}
+                                isSelected={selectedMainFile === getFileName(fileRef)}
+                                isOnlyFile={allFiles.length === 1}
+                                onSelect={() => handleMainFileChange(getFileName(fileRef))}
+                                onRemove={() => handleRemoveFile(getFileName(fileRef))}
+                            />
+                        ))}
                     </Table.Tbody>
                 </Table>
 

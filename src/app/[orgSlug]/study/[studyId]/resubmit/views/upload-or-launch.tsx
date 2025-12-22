@@ -7,43 +7,33 @@ import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
-import { Language } from '@/database/types'
+import { useResubmitCode } from '@/contexts/resubmit-code'
 import { UploadFilesModal } from './upload-files-modal'
-import { useResubmitCodeStore } from '@/stores/resubmit-code.store'
 
-interface UploadOrLaunchProps {
-    studyId: string
-    orgSlug: string
-    studyOrgSlug: string
-    language: Language
-    uploadedFiles: File[]
-    isIDELoading: boolean
-    launchError: Error | null
-    isPending: boolean
-    onLaunchWorkspace: () => void
-}
-
-export function UploadOrLaunch({
-    studyId,
-    orgSlug,
-    studyOrgSlug,
-    language,
-    uploadedFiles,
-    isIDELoading,
-    launchError,
-    isPending,
-    onLaunchWorkspace,
-}: UploadOrLaunchProps) {
+export function UploadOrLaunch() {
     const theme = useMantineTheme()
-    const store = useResubmitCodeStore()
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    const isOpenstax = isOpenStaxOrg(studyOrgSlug)
+    const {
+        studyId,
+        orgSlug,
+        submittingOrgSlug,
+        language,
+        uploadedFiles,
+        isIDELoading,
+        launchError,
+        isPending,
+        launchWorkspace,
+        setUploadedFiles,
+        goToReview,
+    } = useResubmitCode()
+
+    const isOpenstax = isOpenStaxOrg(orgSlug)
 
     const handleConfirmAndProceed = (files: File[], mainFileName: string) => {
-        store.setUploadedFiles(files, mainFileName)
-        store.goToReview()
+        setUploadedFiles(files, mainFileName)
+        goToReview()
         closeModal()
     }
 
@@ -54,14 +44,14 @@ export function UploadOrLaunch({
                 <Divider my="sm" mt="sm" mb="md" />
                 <Text mb={isOpenstax && isAlertVisible ? '' : 'xl'}>
                     Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
-                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                    <OpenStaxOnly orgSlug={orgSlug}>
                         You can either upload your own files or write them in our{' '}
                         <Text component="span" fw={600}>
                             Integrated Development Environment (IDE).
                         </Text>
                     </OpenStaxOnly>
                 </Text>
-                <OpenStaxOnly orgSlug={studyOrgSlug}>
+                <OpenStaxOnly orgSlug={orgSlug}>
                     {isAlertVisible && (
                         <Alert
                             icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
@@ -85,10 +75,10 @@ export function UploadOrLaunch({
                 <Group align="center">
                     <UploadFilesButton onClick={openModal} language={language} />
 
-                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                    <OpenStaxOnly orgSlug={orgSlug}>
                         <OrDivider />
                         <LaunchIDEButton
-                            onClick={onLaunchWorkspace}
+                            onClick={launchWorkspace}
                             language={language}
                             loading={isIDELoading}
                             error={!!launchError}
@@ -101,7 +91,7 @@ export function UploadOrLaunch({
                 <ResubmitCancelButton
                     isDirty={uploadedFiles.length > 0}
                     disabled={isPending}
-                    href={Routes.studyView({ orgSlug, studyId })}
+                    href={Routes.studyView({ orgSlug: submittingOrgSlug, studyId })}
                 />
             </Group>
 

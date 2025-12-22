@@ -2,7 +2,7 @@ import { db } from '@/database'
 import { Form } from './form'
 import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
-import { StudyProposal } from '../../request/step1-proposal'
+import { StudyProposal } from '../../request/proposal'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,6 +41,7 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
             <StudyProposal
                 studyId={studyId}
                 draftData={{
+                    id: studyId,
                     title: study.title,
                     piName: study.piName,
                     language: study.language,
