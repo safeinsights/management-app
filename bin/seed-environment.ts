@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url'
 import { db } from '@/database'
 import { findOrCreateSiUserId, findOrCreateOrgMembership } from '@/server/mutations'
 import { pemToArrayBuffer } from 'si-encryption/util/keypair'
+import type { UserInfo } from '@/lib/types'
 
 type TestUserRole = 'researcher' | 'reviewer' | 'admin'
 
@@ -192,6 +193,36 @@ async function ensurePublicKey(userId: string) {
     }
 }
 
+async function updateClerkPublicMetadata(clerk: ClerkClient, clerkUserId: string, siUserId: string) {
+    const orgs = await db
+        .selectFrom('orgUser')
+        .innerJoin('org', 'org.id', 'orgUser.orgId')
+        .select(['org.id', 'org.slug', 'org.type', 'isAdmin'])
+        .where('userId', '=', siUserId)
+        .execute()
+
+    const metadata: UserInfo = {
+        format: 'v3',
+        user: { id: siUserId },
+        teams: null,
+        orgs: orgs.reduce(
+            (acc, org) => {
+                acc[org.slug] = {
+                    ...org,
+                    isAdmin: org.isAdmin || false,
+                }
+                return acc
+            },
+            {} as UserInfo['orgs'],
+        ),
+    }
+
+    await clerk.users.updateUserMetadata(clerkUserId, {
+        publicMetadata: metadata,
+    })
+    console.log(`📝 Updated Clerk publicMetadata with ${orgs.length} org(s)`)
+}
+
 async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
     switch (role) {
         case 'admin':
@@ -233,7 +264,7 @@ async function setupOrgMemberships(role: TestUserRole, siUserId: string) {
     }
 }
 
-async function setupSiUser(clerkUserId: string, config: TestUserConfig): Promise<string> {
+async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: TestUserConfig): Promise<string> {
     const { role, email } = config
     const firstName = `Test ${role.charAt(0).toUpperCase() + role.slice(1)}`
 
@@ -251,6 +282,7 @@ async function setupSiUser(clerkUserId: string, config: TestUserConfig): Promise
     }
 
     await setupOrgMemberships(role, siUserId)
+    await updateClerkPublicMetadata(clerk, clerkUserId, siUserId)
 
     return siUserId
 }
@@ -403,7 +435,7 @@ async function seedEnvironment() {
             const clerkUserId = await setupClerkUser(clerk, config)
             if (!clerkUserId) continue
 
-            await setupSiUser(clerkUserId, config)
+            await setupSiUser(clerk, clerkUserId, config)
         } catch (err) {
             console.error(`❌ Error processing ${config.role}:`, err)
         }
