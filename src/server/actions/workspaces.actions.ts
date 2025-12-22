@@ -29,8 +29,15 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
 
         for (const entry of entries) {
             const filePath = path.join(coderFilesPath, entry)
-            const stats = await fs.stat(filePath)
+            let stats
+            try {
+                stats = await fs.lstat(filePath)
+            } catch {
+                continue
+            }
 
+            // Skip symlinks and non-files (directories, etc.)
+            if (stats.isSymbolicLink()) continue
             if (!stats.isFile()) continue
             if (stats.size === 0) continue
 
