@@ -39,7 +39,11 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 scope="org"
                 orgSlug={orgSlug}
                 title={isEnclave ? 'Review Studies' : 'Proposed Studies'}
-                description={isEnclave ? "Review all the studies submitted to your organization. Studies that need your attention will be labeled 'Needs review'." : undefined}
+                description={
+                    isEnclave
+                        ? "Review all the studies submitted to your organization. Studies that need your attention will be labeled 'Needs review'."
+                        : undefined
+                }
                 showNewStudyButton={!isEnclave}
                 showRefresher={isEnclave}
                 paperWrapper

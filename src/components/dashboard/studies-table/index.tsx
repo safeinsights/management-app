@@ -19,7 +19,14 @@ import { PlusIcon } from '@phosphor-icons/react/dist/ssr'
 import { TableHeader } from './columns'
 import { EmptyState } from './empty-state'
 import { StudyRow } from './study-row'
-import { Audience, FINAL_STATUS, REVIEWER_ACTION_STATUSES, Scope, StudiesTableProps, StudyRow as StudyRowType } from './types'
+import {
+    Audience,
+    FINAL_STATUS,
+    REVIEWER_ACTION_STATUSES,
+    Scope,
+    StudiesTableProps,
+    StudyRow as StudyRowType,
+} from './types'
 
 function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?: string): string[] {
     if (scope === 'org') {
@@ -29,11 +36,7 @@ function getQueryKey(audience: Audience, scope: Scope, orgSlug: string, userId?:
     return audience === 'researcher' ? ['user-researcher-studies'] : ['user-reviewer-studies', userId || '']
 }
 
-function filterStudiesForUser(
-    studies: StudyRowType[],
-    audience: Audience,
-    userId: string
-): StudyRowType[] {
+function filterStudiesForUser(studies: StudyRowType[], audience: Audience, userId: string): StudyRowType[] {
     if (audience === 'researcher') {
         return studies.filter((study) => study.researcherId === userId)
     }
@@ -42,15 +45,13 @@ function filterStudiesForUser(
         (study) =>
             study.reviewerId === userId ||
             study.jobStatusChanges.some(
-                (change) => change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status)
-            )
+                (change) => change.userId === userId && REVIEWER_ACTION_STATUSES.includes(change.status),
+            ),
     )
 }
 
 function needsRefresh(studies: StudyRowType[]): boolean {
-    return studies.some((study) =>
-        study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status))
-    )
+    return studies.some((study) => study.jobStatusChanges.some((change) => !FINAL_STATUS.includes(change.status)))
 }
 
 export function StudiesTable({
@@ -111,7 +112,10 @@ export function StudiesTable({
     }
 
     // Apply client-side filtering for user scope
-    const displayedStudies = scope === 'user' && userId ? filterStudiesForUser(studies as StudyRowType[], audience, userId) : (studies as StudyRowType[])
+    const displayedStudies =
+        scope === 'user' && userId
+            ? filterStudiesForUser(studies as StudyRowType[], audience, userId)
+            : (studies as StudyRowType[])
 
     // Empty state
     if (!displayedStudies.length) {
@@ -126,10 +130,18 @@ export function StudiesTable({
                 {title && <Title order={3}>{title}</Title>}
                 <Flex justify="flex-end" align="center" gap="md">
                     {showRefresher && (
-                        <Refresher isEnabled={shouldShowRefresher} refresh={refetch} isPending={isRefetching || isFetching} />
+                        <Refresher
+                            isEnabled={shouldShowRefresher}
+                            refresh={refetch}
+                            isPending={isRefetching || isFetching}
+                        />
                     )}
                     {showNewStudyButton && (
-                        <ButtonLink leftSection={<PlusIcon />} data-testid="new-study" href={Routes.studyRequest({ orgSlug: effectiveOrgSlug })}>
+                        <ButtonLink
+                            leftSection={<PlusIcon />}
+                            data-testid="new-study"
+                            href={Routes.studyRequest({ orgSlug: effectiveOrgSlug })}
+                        >
                             Propose New Study
                         </ButtonLink>
                     )}
@@ -141,7 +153,13 @@ export function StudiesTable({
                 <TableHeader audience={audience} scope={scope} />
                 <TableTbody>
                     {displayedStudies.map((study) => (
-                        <StudyRow key={study.id} study={study} audience={audience} scope={scope} orgSlug={effectiveOrgSlug} />
+                        <StudyRow
+                            key={study.id}
+                            study={study}
+                            audience={audience}
+                            scope={scope}
+                            orgSlug={effectiveOrgSlug}
+                        />
                     ))}
                 </TableTbody>
             </Table>

@@ -29,7 +29,9 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
     })
 
     const isHighlighted = shouldHighlight(study, audience)
-    const highlightStyle = isHighlighted ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 } : undefined
+    const highlightStyle = isHighlighted
+        ? { backgroundColor: `${theme.colors.purple[0]}80`, fontWeight: 600 }
+        : undefined
 
     // Get the "Submitted To" value (researcher only)
     const submittedTo = study.reviewingEnclaveName || study.orgName || ''
@@ -55,11 +57,7 @@ export function StudyRow({ study, audience, scope, orgSlug }: StudyRowProps) {
             <TableTd>{dayjs(study.createdAt).format('MMM DD, YYYY')}</TableTd>
 
             {/* Third column differs by audience */}
-            {audience === 'researcher' ? (
-                <TableTd>{submittedTo}</TableTd>
-            ) : (
-                <TableTd>{submittedBy}</TableTd>
-            )}
+            {audience === 'researcher' ? <TableTd>{submittedTo}</TableTd> : <TableTd>{submittedBy}</TableTd>}
 
             {/* Fourth column - reviewer only has this extra column */}
             {audience === 'reviewer' && <TableTd>{reviewedByOrOrg}</TableTd>}

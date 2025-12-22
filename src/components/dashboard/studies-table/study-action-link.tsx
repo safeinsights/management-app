@@ -16,7 +16,10 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
     if (audience === 'researcher') {
         if (study.status === 'DRAFT') {
             return (
-                <Link href={Routes.studyEdit({ orgSlug: slug, studyId: study.id })} aria-label={`Edit draft study ${study.title}`}>
+                <Link
+                    href={Routes.studyEdit({ orgSlug: slug, studyId: study.id })}
+                    aria-label={`Edit draft study ${study.title}`}
+                >
                     Edit
                 </Link>
             )
@@ -34,7 +37,11 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
 
     // Reviewer always goes to studyReview
     return (
-        <Link href={Routes.studyReview({ orgSlug: slug, studyId: study.id })} c="blue.7" fw={isHighlighted ? 600 : undefined}>
+        <Link
+            href={Routes.studyReview({ orgSlug: slug, studyId: study.id })}
+            c="blue.7"
+            fw={isHighlighted ? 600 : undefined}
+        >
             View
         </Link>
     )

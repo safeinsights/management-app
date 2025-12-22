@@ -84,6 +84,8 @@ vi.mock('@/server/actions/study.actions', () => ({
 
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
         user: {
             id: 'test-clerk-user-id',
             firstName: 'Tester',
@@ -104,7 +106,7 @@ beforeEach(() => {
                 currentOrgSlug: 'test-org',
             },
         },
-    } as UseUserReturn)
+    } as unknown as UseUserReturn)
 })
 
 describe('Studies Table', () => {
@@ -118,7 +120,7 @@ describe('Studies Table', () => {
                 title="Review Studies"
                 showRefresher
                 paperWrapper
-            />
+            />,
         )
 
         expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
@@ -133,7 +135,7 @@ describe('Studies Table', () => {
                 title="Review Studies"
                 showRefresher
                 paperWrapper
-            />
+            />,
         )
 
         await waitFor(() => {
