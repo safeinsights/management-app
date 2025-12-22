@@ -18,14 +18,12 @@ export const sessionFromMetadata = ({
     prefs: UserUnsafeMetadata
     clerkUserId: string
 }): UserSessionWithAbility => {
-    // Flattened structure - metadata is directly UserInfo
-    const info: UserInfo = metadata as UserInfo
+    const info = metadata as unknown as UserInfo
 
     if (!info || !info.format) {
         throw new Error('user does not have valid metadata')
     }
 
-    // Flattened structure - prefs is directly UserPreferences
     const userPrefs = prefs || {}
 
     // TODO: remove 'teams' once all users are on v3 after migration

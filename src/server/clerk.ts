@@ -66,9 +66,8 @@ export const updateClerkUserMetadata = async (userId: string) => {
 
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
 
-    // Flattened structure - no environment key wrapping
     await client.users.updateUserMetadata(clerkId, {
-        publicMetadata: metadata as UserPublicMetadata,
+        publicMetadata: metadata as unknown as UserPublicMetadata,
     })
 
     return metadata

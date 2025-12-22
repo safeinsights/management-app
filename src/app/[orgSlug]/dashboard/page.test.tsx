@@ -35,6 +35,8 @@ const mockOrg: Org = {
 
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
         user: {
             id: 'test-clerk-user-id',
             firstName: 'Tester',
@@ -55,7 +57,7 @@ beforeEach(() => {
                 currentOrgSlug: 'test-org',
             },
         },
-    } as UseUserReturn)
+    } as unknown as UseUserReturn)
 })
 
 describe('Org Dashboard', () => {

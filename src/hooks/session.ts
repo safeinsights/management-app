@@ -18,7 +18,6 @@ export const useSession = ():
         if (!user) return
 
         try {
-            // Flattened structure - publicMetadata is directly UserInfo
             const sessFromMD = sessionFromMetadata({
                 metadata: (user.publicMetadata || {}) as UserPublicMetadata,
                 prefs: (user.unsafeMetadata || {}) as UserUnsafeMetadata,
@@ -30,7 +29,6 @@ export const useSession = ():
             syncUserMetadataAction()
                 .then((metadata) => {
                     if (!metadata) return
-                    // Flattened structure - metadata is directly UserInfo
                     const updatedSession = sessionFromMetadata({
                         metadata: metadata as UserPublicMetadata,
                         prefs: (user.unsafeMetadata || {}) as UserUnsafeMetadata,
@@ -39,9 +37,7 @@ export const useSession = ():
 
                     setSession(updatedSession)
                 })
-                .catch(() => {
-                    // Silently fail - session will remain null and component can handle loading state
-                })
+                .catch(() => {})
         }
     }, [user?.id, user?.publicMetadata, user])
 

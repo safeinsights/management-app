@@ -29,15 +29,13 @@ declare global {
         }
     }
 
-    // Flattened - no longer nested by environment
-    interface UserPublicMetadata extends UserInfo {}
+    type UserPublicMetadata = UserInfo
 
     interface UserPreferences {
         currentOrgSlug?: string
     }
 
-    // Flattened - no longer nested by environment
-    interface UserUnsafeMetadata extends UserPreferences {}
+    type UserUnsafeMetadata = UserPreferences
 
     interface CustomJwtSessionClaims {
         hasMFA?: boolean

@@ -17,7 +17,7 @@ interface CopyResult {
     created: number
     skipped: number
     errors: string[]
-    userMapping: Map<string, string> // sourceUserId -> targetUserId
+    userMapping: Map<string, string>
 }
 
 function parseArgs(): Config {
@@ -134,11 +134,7 @@ async function getExistingUserEmails(clerk: ClerkClient): Promise<Set<string>> {
     return emails
 }
 
-async function copyUsers(
-    sourceClerk: ClerkClient,
-    targetClerk: ClerkClient,
-    config: Config,
-): Promise<CopyResult> {
+async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, config: Config): Promise<CopyResult> {
     const result: CopyResult = {
         created: 0,
         skipped: 0,
@@ -146,12 +142,10 @@ async function copyUsers(
         userMapping: new Map(),
     }
 
-    // Get existing emails in target to detect duplicates
     console.log('\nFetching existing users in target...')
     const existingEmails = config.skipExisting ? await getExistingUserEmails(targetClerk) : new Set<string>()
     console.log(`  Found ${existingEmails.size} existing users in target\n`)
 
-    // Fetch and copy users from source
     const pageSize = 100
     let offset = 0
     let hasMore = true
@@ -167,7 +161,6 @@ async function copyUsers(
         })
 
         for (const user of response.data) {
-            // Check limit
             if (config.limit && totalProcessed >= config.limit) {
                 hasMore = false
                 break
@@ -177,7 +170,6 @@ async function copyUsers(
             const primaryEmail = user.primaryEmailAddress?.emailAddress || user.emailAddresses[0]?.emailAddress
             const displayName = user.fullName || primaryEmail || user.id
 
-            // Check if user already exists
             if (primaryEmail && existingEmails.has(primaryEmail.toLowerCase())) {
                 console.log(`  ⏭️  Skipped: ${displayName} (already exists)`)
                 result.skipped++
@@ -191,27 +183,23 @@ async function copyUsers(
             }
 
             try {
-                // Prepare user data for creation
                 const createParams: Parameters<typeof targetClerk.users.createUser>[0] = {
                     firstName: user.firstName || undefined,
                     lastName: user.lastName || undefined,
                     username: user.username || undefined,
                     externalId: user.externalId || undefined,
-                    skipPasswordRequirement: true, // Users will need to reset password
+                    skipPasswordRequirement: true,
                     skipPasswordChecks: true,
                 }
 
-                // Add email addresses
                 if (user.emailAddresses.length > 0) {
                     createParams.emailAddress = user.emailAddresses.map((e) => e.emailAddress)
                 }
 
-                // Add phone numbers
                 if (user.phoneNumbers.length > 0) {
                     createParams.phoneNumber = user.phoneNumbers.map((p) => p.phoneNumber)
                 }
 
-                // Add metadata if requested
                 if (config.includeMetadata) {
                     if (user.publicMetadata && Object.keys(user.publicMetadata).length > 0) {
                         createParams.publicMetadata = user.publicMetadata
@@ -257,11 +245,9 @@ async function main() {
         console.log('\n⚠️  DRY RUN MODE - No changes will be made')
     }
 
-    // Create Clerk clients
     const sourceClerk = createClerkClient({ secretKey: config.sourceKey })
     const targetClerk = createClerkClient({ secretKey: config.targetKey })
 
-    // Validate connections
     console.log('\nValidating Clerk connections...')
     const sourceValid = await validateClerkClient(sourceClerk, 'source')
     if (!sourceValid) {
@@ -277,7 +263,6 @@ async function main() {
     }
     console.log('  ✅ Target: Connected')
 
-    // Get user counts
     const sourceCount = await sourceClerk.users.getCount()
     const targetCount = await targetClerk.users.getCount()
     console.log(`\n  Source users: ${sourceCount}`)
@@ -287,10 +272,8 @@ async function main() {
         console.log(`\n  Limit: ${config.limit} users`)
     }
 
-    // Copy users
     const result = await copyUsers(sourceClerk, targetClerk, config)
 
-    // Print summary
     console.log('\n========================================')
     console.log('Summary')
     console.log('========================================')
