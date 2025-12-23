@@ -35,10 +35,29 @@ const mockOrg: Org = {
 
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
         user: {
+            id: 'test-clerk-user-id',
             firstName: 'Tester',
+            publicMetadata: {
+                format: 'v3',
+                user: { id: 'test-user-id' },
+                teams: null,
+                orgs: {
+                    'test-org': {
+                        id: 'test-org-id',
+                        slug: 'test-org',
+                        type: 'enclave',
+                        isAdmin: false,
+                    },
+                },
+            },
+            unsafeMetadata: {
+                currentOrgSlug: 'test-org',
+            },
         },
-    } as UseUserReturn)
+    } as unknown as UseUserReturn)
 })
 
 describe('Org Dashboard', () => {

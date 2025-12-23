@@ -1,12 +1,10 @@
 import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
-import { capitalize, isObjectType } from 'remeda'
+import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
-import { ENVIRONMENT_ID, PROD_ENV } from './config'
+import { PROD_ENV } from './config'
 import { marshalSession, type syncUserMetadataFn } from './session'
 import logger from '@/lib/logger'
-import { findOrCreateOrgMembership } from './mutations'
-import { NotFoundError } from '@/lib/errors'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -43,7 +41,7 @@ export const findOrCreateClerkOrganization = async ({ name, slug, adminUserId }:
 export async function calculateUserPublicMetadata(userId: string): Promise<UserInfo> {
     const orgs = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
-        format: 'v2',
+        format: 'v3',
         user: { id: userId },
         teams: null,
         orgs: orgs.reduce(
@@ -63,17 +61,13 @@ export async function calculateUserPublicMetadata(userId: string): Promise<UserI
 export const updateClerkUserMetadata = async (userId: string) => {
     const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
     const client = await clerkClient()
-    const user = await client.users.getUser(clerkId)
 
     const metadata = await calculateUserPublicMetadata(userId)
 
     logger.info('Updating user metadata for clerkId:', clerkId, 'with metadata:', metadata)
 
     await client.users.updateUserMetadata(clerkId, {
-        publicMetadata: {
-            ...user.publicMetadata,
-            [`${ENVIRONMENT_ID}`]: metadata,
-        },
+        publicMetadata: metadata as unknown as UserPublicMetadata,
     })
 
     return metadata
@@ -114,56 +108,8 @@ export const syncCurrentClerkUser = async () => {
             .executeTakeFirstOrThrow()
     }
 
-    // loop through each env and attempt to establish the same roles in this one
-    for (const env of Object.values(clerkUser.publicMetadata || {})) {
-        if (isObjectType(env)) {
-            const envData = env as Record<string, unknown>
-            // TODO: remove v1Metadata migration and 'teams' access after 2026-02-15
-            const orgs = envData['orgs'] || (envData['teams'] as Record<string, unknown>)
-
-            if (isObjectType(orgs)) {
-                // Check if this is v1 metadata (no format field or not v2)
-                // TODO: remove v1Metadata migration after 2026-02-15
-                const isV1Metadata = !envData.format || envData.format !== 'v2'
-
-                for (const slug of Object.keys(orgs)) {
-                    try {
-                        if (isV1Metadata) {
-                            const info = (orgs as Record<string, unknown>)[slug] as UserOrgMembershipInfoV1
-                            if (info.isReviewer) {
-                                await findOrCreateOrgMembership({ userId: user.id, ...info })
-                            } else if (info.isResearcher) {
-                                await findOrCreateOrgMembership({
-                                    userId: user.id,
-                                    slug: `${slug}-lab`,
-                                    isAdmin: false,
-                                })
-                                // no other roles, need to remove the org from metadata
-                                if (!info.isReviewer && !info.isAdmin) {
-                                    const client = await clerkClient()
-                                    await client.users.updateUserMetadata(clerkUser.id, {
-                                        publicMetadata: {
-                                            [`${ENVIRONMENT_ID}`]: { orgs: { [`${slug}`]: null } },
-                                        },
-                                    })
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    delete ((envData.orgs || {}) as Record<string, any>)[slug]
-                                }
-                            }
-                        } else {
-                            const info = (orgs as Record<string, unknown>)[slug] as UserOrgMembershipInfo
-                            await findOrCreateOrgMembership({ userId: user.id, ...info })
-                        }
-                    } catch (e) {
-                        // not found is thrown when the org doesn't exist
-                        if (!(e instanceof NotFoundError)) {
-                            throw e
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // App DB is the source of truth for org memberships.
+    // We no longer sync org memberships from Clerk metadata.
 
     return user
 }

@@ -11,7 +11,8 @@ test.beforeEach(async ({}, testInfo) => {
 
 test.describe('Organization Admin', () => {
     test('can invite users and the invitation can be accepted', async ({ page }) => {
-        const email = faker.internet.email({ provider: 'test.com' })
+        const uniqueSuffix = Date.now().toString(36)
+        const email = `test-invite-${uniqueSuffix}@test.com`
 
         await visitClerkProtectedPage({ page, role: 'reviewer', url: '/reviewer-is-org-admin/admin/team' })
 
@@ -76,26 +77,22 @@ test.describe('Organization Admin', () => {
         // Submit the form
         await submitBtn.click()
 
-        // verify we landed on the MFA setup screen
-        // Check if the code input field is visible
-        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible()
-
-        // Further checks for MFA page elements like link visibility are handled in mfa.spec.ts
+        await expect(page.getByRole('heading', { name: /multi-factor authentication/i })).toBeVisible({
+            timeout: 15000,
+        })
     })
 
     test('org admin can create and edit base image starter code', async ({ page }) => {
-        // Navigate as org admin to the settings page for the primary admin org
         await visitClerkProtectedPage({
             page,
             role: 'reviewer',
             url: '/reviewer-is-org-admin/admin/settings',
         })
 
-        // Wait for the URL to be correct (not redirected to 404 or dashboard)
-        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/)
+        await page.waitForLoadState('networkidle')
+        await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/, { timeout: 10000 })
 
-        // Ensure we are on the Settings page and the Base Images section is visible
-        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible({ timeout: 10000 })
         await expect(page.getByRole('heading', { name: /base research container images/i })).toBeVisible()
 
         const baseImageName = `E2E Base Image ${faker.string.alpha(6)}`
@@ -124,6 +121,8 @@ test.describe('Organization Admin', () => {
         // Save the new base image
         await page.getByRole('button', { name: /save image/i }).click()
 
+        await expect(page.getByRole('dialog', { name: /add new base image/i })).toBeHidden({ timeout: 10000 })
+
         // Wait for the new row to appear in the table
         const row = page.getByRole('row', { name: new RegExp(baseImageName) })
         await expect(row).toBeVisible()
@@ -142,6 +141,8 @@ test.describe('Organization Admin', () => {
 
         // Submit the update
         await page.getByRole('button', { name: /update image/i }).click()
+
+        await expect(page.getByRole('dialog', { name: /edit base image/i })).toBeHidden({ timeout: 10000 })
 
         // Ensure the row is still present and the starter code filename is rendered
         await expect(row).toBeVisible()

@@ -1,4 +1,3 @@
-import { ENVIRONMENT_ID } from './config'
 import { UserSession } from '@/lib/types'
 import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
@@ -16,16 +15,15 @@ export async function marshalSession(
 ) {
     if (!clerkUserId || !sessionClaims) return null
 
-    let info: UserInfo | null = sessionClaims.userMetadata?.[ENVIRONMENT_ID] || null
+    // Flattened structure - userMetadata is directly UserInfo
+    let info: UserInfo | null = (sessionClaims.userMetadata as UserInfo) || null
 
-    if (!info) {
-        logger.info(
-            `clerk user ${clerkUserId} does not have metadata for environment ${ENVIRONMENT_ID} syncing: ${syncer ? 'yes' : 'no'}`,
-        )
+    if (!info || !info.format) {
+        logger.info(`clerk user ${clerkUserId} does not have valid metadata, syncing: ${syncer ? 'yes' : 'no'}`)
         if (syncer) {
             info = await syncer(clerkUserId)
             if (info) {
-                sessionClaims.userMetadata[ENVIRONMENT_ID] = info
+                sessionClaims.userMetadata = info
             } else {
                 logger.warn(`clerk user ${clerkUserId} metadata sync failed`)
                 return null
@@ -36,7 +34,6 @@ export async function marshalSession(
     }
 
     return sessionFromMetadata({
-        env: ENVIRONMENT_ID,
         metadata: sessionClaims.userMetadata || {},
         prefs: sessionClaims.unsafeMetadata || {},
         clerkUserId,

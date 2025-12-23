@@ -180,29 +180,40 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 privateMetadata,
             })
             clerkId = clerkUser.id
+
+            const primaryEmail = clerkUser.emailAddresses.find((e) => e.emailAddress === invite.email)
+            if (primaryEmail) {
+                await clerk.emailAddresses.updateEmailAddress(primaryEmail.id, { verified: true })
+            }
         }
 
         const siUser = await db.transaction().execute(async (trx) => {
             const existing = await trx
                 .selectFrom('user')
-                .select(['id'])
+                .select(['id', 'clerkId'])
                 .where('email', '=', invite.email)
                 .executeTakeFirst()
 
-            if (existing) {
-                throw new ActionFailure({ user: 'already has account' })
-            }
+            let user: { id: string }
 
-            const user = await trx
-                .insertInto('user')
-                .values({
-                    clerkId,
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    email: invite.email,
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
+            if (existing) {
+                if (existing.clerkId === clerkId) {
+                    user = existing
+                } else {
+                    throw new ActionFailure({ user: 'already has account' })
+                }
+            } else {
+                user = await trx
+                    .insertInto('user')
+                    .values({
+                        clerkId,
+                        firstName: form.firstName,
+                        lastName: form.lastName,
+                        email: invite.email,
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
+            }
 
             const orgUser = await trx
                 .selectFrom('orgUser')

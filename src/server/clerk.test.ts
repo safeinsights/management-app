@@ -109,76 +109,7 @@ describe('syncCurrentClerkUser', () => {
         expect(createdUser.email).toBe('')
     })
 
-    it('should sync org memberships from clerk metadata', async () => {
-        const org1 = await insertTestOrg({ slug: 'test-org-1' })
-        const org2 = await insertTestOrg({ slug: 'test-org-2' })
-
-        // Create organizations in database
-        const clerkUser = {
-            id: faker.string.alpha(10),
-            firstName: 'Test',
-            lastName: 'User',
-            primaryEmailAddress: { emailAddress: 'test@test.com' },
-            publicMetadata: {
-                'dev-env': {
-                    teams: {
-                        'test-org-1': {
-                            id: org1.id,
-                            slug: 'test-org-1',
-                            isAdmin: true,
-                            isReviewer: false,
-                            orgType: 'lab',
-                        },
-                        'test-org-2': {
-                            id: org2.id,
-                            slug: 'test-org-2',
-                            isAdmin: false,
-                            orgType: 'enclave',
-                            isResearcher: false,
-                        },
-                    },
-                },
-            },
-        }
-
-        currentUserMock.mockResolvedValue(clerkUser)
-
-        await syncCurrentClerkUser()
-
-        // Note: The actual org membership creation is handled by findOrCreateOrgMembership
-        // which is called but errors are caught and ignored, so we just verify the function completes
-        // Verify user was created in database
-        const createdUser = await db
-            .selectFrom('user')
-            .selectAll('user')
-            .where('clerkId', '=', clerkUser.id)
-            .executeTakeFirstOrThrow()
-
-        expect(createdUser.clerkId).toBe(clerkUser.id)
-    })
-
-    it('should handle malformed metadata gracefully', async () => {
-        const clerkUser = {
-            id: faker.string.alpha(10),
-            firstName: 'Test',
-            lastName: 'User',
-            primaryEmailAddress: { emailAddress: 'test@test.com' },
-            publicMetadata: {
-                'invalid-metadata': 'not-an-object',
-            },
-        }
-
-        currentUserMock.mockResolvedValue(clerkUser)
-
-        await syncCurrentClerkUser()
-
-        // Verify user was created in database
-        const createdUser = await db
-            .selectFrom('user')
-            .selectAll('user')
-            .where('clerkId', '=', clerkUser.id)
-            .executeTakeFirstOrThrow()
-
-        expect(createdUser.clerkId).toBe(clerkUser.id)
-    })
+    // Note: Org membership sync from Clerk metadata has been removed.
+    // App DB is now the source of truth for org memberships.
+    // syncCurrentClerkUser only syncs user profile data (name, email).
 })

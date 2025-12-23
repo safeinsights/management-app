@@ -19,7 +19,7 @@ declare global {
     }
 
     interface UserInfo {
-        format?: 'v2' // Version indicator
+        format?: 'v3' // Version indicator
         user: {
             id: string
         }
@@ -29,26 +29,18 @@ declare global {
         }
     }
 
-    interface UserPublicMetadata {
-        [envId: string]: UserInfo
-    }
+    type UserPublicMetadata = UserInfo
 
     interface UserPreferences {
-        currentOrgSlug: string
+        currentOrgSlug?: string
     }
 
-    interface UserUnsafeMetadata {
-        [envId: string]: UserPreferences
-    }
+    type UserUnsafeMetadata = UserPreferences
 
     interface CustomJwtSessionClaims {
         hasMFA?: boolean
-        unsafeMetadata?: {
-            [envId: string]: UserPreferences
-        }
-        userMetadata?: {
-            [envId: string]: UserSession
-        }
+        unsafeMetadata?: UserPreferences
+        userMetadata?: UserInfo
     }
 
     interface Window {

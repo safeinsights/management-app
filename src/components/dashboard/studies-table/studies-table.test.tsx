@@ -2,7 +2,7 @@ import { StudyJobStatus, StudyStatus } from '@/database/types'
 import { renderWithProviders } from '@/tests/unit.helpers'
 import { screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ReviewerStudiesTable } from './reviewer-table'
+import { StudiesTable } from './index'
 
 import { useUser } from '@clerk/nextjs'
 import { UseUserReturn } from '@clerk/types'
@@ -84,22 +84,59 @@ vi.mock('@/server/actions/study.actions', () => ({
 
 beforeEach(() => {
     vi.mocked(useUser).mockReturnValue({
+        isLoaded: true,
+        isSignedIn: true,
         user: {
+            id: 'test-clerk-user-id',
             firstName: 'Tester',
+            publicMetadata: {
+                format: 'v3',
+                user: { id: 'test-user-id' },
+                teams: null,
+                orgs: {
+                    'test-org': {
+                        id: 'test-org-id',
+                        slug: 'test-org',
+                        type: 'enclave',
+                        isAdmin: false,
+                    },
+                },
+            },
+            unsafeMetadata: {
+                currentOrgSlug: 'test-org',
+            },
         },
-    } as UseUserReturn)
+    } as unknown as UseUserReturn)
 })
 
 describe('Studies Table', () => {
     it('renders empty state when no studies', async () => {
         vi.mocked(fetchStudiesForOrgAction).mockResolvedValueOnce([])
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
 
         expect(await screen.findByText(/You have no studies to review/i)).toBeDefined()
     })
 
     it('renders the table when studies exist', async () => {
-        renderWithProviders(<ReviewerStudiesTable orgSlug="test-org" />)
+        renderWithProviders(
+            <StudiesTable
+                audience="reviewer"
+                scope="org"
+                orgSlug="test-org"
+                title="Review Studies"
+                showRefresher
+                paperWrapper
+            />,
+        )
 
         await waitFor(() => {
             expect(screen.getByText(/Study Title 1/i)).toBeDefined()
