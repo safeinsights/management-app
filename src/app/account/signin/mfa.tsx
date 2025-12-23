@@ -185,7 +185,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 variant="outline"
                                 size="lg"
                                 onClick={() => {
-                                    setStep('reset')
+                                    setStep('recovery')
                                 }}
                             >
                                 Try recovery code
@@ -219,7 +219,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 variant="outline"
                                 size="lg"
                                 onClick={() => {
-                                    setStep('reset')
+                                    setStep('recovery')
                                 }}
                             >
                                 Try recovery code
