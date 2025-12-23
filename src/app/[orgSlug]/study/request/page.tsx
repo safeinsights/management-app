@@ -4,9 +4,9 @@ import { AccessDeniedAlert } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
-import { StudyProposal } from './step1-proposal'
+import { StudyProposal } from './proposal'
 
-export default async function OrgHomePage(props: { params: Promise<{ orgSlug: string }> }) {
+export default async function RequestStudyPage(props: { params: Promise<{ orgSlug: string }> }) {
     const params = await props.params
 
     const session = await sessionFromClerk()

@@ -6,66 +6,56 @@ import { Button, Group } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
-import { useProposalForm, isProposalFormValid, type DraftData } from '@/hooks/use-study-request-step1-form'
-import { useSaveDraft } from '@/hooks/use-study-request-step1-save-draft'
-import { useStudyRequestStore } from '@/stores/study-request.store'
-import { StudyProposalForm } from './step1-proposal-form'
+import { useStudyRequest } from '@/contexts/study-request'
+import { StudyProposalForm } from './proposal-form'
+import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
     studyId?: string
-    draftData?: DraftData | null
+    draftData?: DraftStudyData | null
 }
 
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const setStudyId = useStudyRequestStore((s) => s.setStudyId)
-    const setSubmittingOrgSlug = useStudyRequestStore((s) => s.setSubmittingOrgSlug)
-    const { form, existingFiles } = useProposalForm(draftData)
-    const { saveDraft, isSaving } = useSaveDraft()
+    const { form, existingFiles, isFormValid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
 
     useEffect(() => {
-        if (studyId) setStudyId(studyId)
-        setSubmittingOrgSlug(submittingOrgSlug)
-    }, [studyId, submittingOrgSlug, setStudyId, setSubmittingOrgSlug])
+        // Only initialize if we have draft data to load
+        // For new studies, the context is already fresh (no need to reset)
+        if (draftData) {
+            initFromDraft(draftData, submittingOrgSlug)
+        }
+    }, [draftData, submittingOrgSlug, initFromDraft])
 
-    const handleSaveAndProceed = () => {
-        saveDraft(form.getValues(), {
+    const handleSave = (proceed: boolean) => {
+        saveDraft({
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
-                router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
-            },
-        })
-    }
-
-    const handleSaveDraftOnly = () => {
-        saveDraft(form.getValues(), {
-            onSuccess: ({ studyId: newStudyId }) => {
-                form.resetDirty()
-                if (!studyId) {
-                    window.history.replaceState(
-                        null,
-                        '',
-                        Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }),
-                    )
+                if (proceed) {
+                    router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
+                } else {
+                    if (!studyId) {
+                        router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }), {
+                            scroll: false,
+                        })
+                    }
+                    notifications.show({
+                        title: 'Draft Saved',
+                        message: 'Your study proposal has been saved as a draft.',
+                        color: 'green',
+                    })
                 }
-                notifications.show({
-                    title: 'Draft Saved',
-                    message: 'Your study proposal has been saved as a draft.',
-                    color: 'green',
-                })
             },
         })
     }
-
-    const isValid = isProposalFormValid(form.getValues(), existingFiles)
 
     return (
         <ProxyProvider
             isDirty={form.isDirty()}
             onSaveDraft={() =>
                 new Promise<void>((resolve, reject) => {
-                    saveDraft(form.getValues(), {
+                    saveDraft({
                         onSuccess: () => {
                             form.resetDirty()
                             resolve()
@@ -75,6 +65,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 })
             }
             isSavingDraft={isSaving}
+            onNavigateAway={() => reset()}
         >
             <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
 
@@ -86,7 +77,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                         size="md"
                         disabled={!form.isDirty() || isSaving}
                         loading={isSaving}
-                        onClick={handleSaveDraftOnly}
+                        onClick={() => handleSave(false)}
                     >
                         Save as draft
                     </Button>
@@ -94,9 +85,9 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                         type="button"
                         size="md"
                         variant="primary"
-                        disabled={!isValid || isSaving}
+                        disabled={!isFormValid || isSaving}
                         loading={isSaving}
-                        onClick={handleSaveAndProceed}
+                        onClick={() => handleSave(true)}
                     >
                         Save and proceed to code upload
                     </Button>

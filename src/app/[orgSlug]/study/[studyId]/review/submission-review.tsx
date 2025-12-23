@@ -7,9 +7,8 @@ import { useRouter } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { Language } from '@/database/types'
 import { Link } from '@/components/links'
-import { useStudyRequestStore } from '@/stores/study-request.store'
-import type { FileRef } from '@/stores/study-request.store'
-import { useSubmitStudy } from '@/hooks/use-study-request-step3-submit'
+import { useStudyRequest } from '@/contexts/study-request'
+import { getFileName, type FileRef } from '@/contexts/shared/file-types'
 
 interface DetailRowProps {
     label: string
@@ -24,8 +23,6 @@ const DetailRow: FC<DetailRowProps> = ({ label, children }) => (
         <div>{children}</div>
     </Group>
 )
-
-const getFileName = (f: FileRef): string => (f.type === 'memory' ? f.file.name : f.name)
 
 interface FileLinkProps {
     fileRef: FileRef | null
@@ -74,8 +71,7 @@ export const SubmissionReview: FC<SubmissionReviewProps> = ({
     existingDocuments,
 }) => {
     const router = useRouter()
-    const documentFiles = useStudyRequestStore((s) => s.documentFiles)
-    const { submitStudy, isSubmitting, mainFileName, additionalFileNames, canSubmit } = useSubmitStudy({ studyId })
+    const { documentFiles, mainFileName, additionalFileNames, canSubmit, submitStudy, isSubmitting } = useStudyRequest()
 
     const handleBackToCode = () => {
         router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId }))

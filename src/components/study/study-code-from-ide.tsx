@@ -11,13 +11,15 @@ import {
 } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
+import { OpenStaxOnly } from '@/components/openstax-only'
 
 interface StudyCodeFromIDEProps {
     studyId: string
     orgSlug: string
+    studyOrgSlug: string
 }
 
-export const StudyCodeFromIDE = ({ studyId, orgSlug }: StudyCodeFromIDEProps) => {
+export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFromIDEProps) => {
     const ide = useIDEFiles({ studyId, orgSlug })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
 
@@ -84,17 +86,19 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug }: StudyCodeFromIDEProps) =>
 
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files from IDE</Text>
-                    <Group>
-                        {launchButton}
-                        <Button
-                            variant="filled"
-                            leftSection={<DownloadSimpleIcon size={16} />}
-                            onClick={ide.importFiles}
-                            loading={ide.isLoadingFiles}
-                        >
-                            Import files from IDE
-                        </Button>
-                    </Group>
+                    <OpenStaxOnly orgSlug={studyOrgSlug}>
+                        <Group>
+                            {launchButton}
+                            <Button
+                                variant="filled"
+                                leftSection={<DownloadSimpleIcon size={16} />}
+                                onClick={ide.importFiles}
+                                loading={ide.isLoadingFiles}
+                            >
+                                Import files from IDE
+                            </Button>
+                        </Group>
+                    </OpenStaxOnly>
                 </Group>
 
                 {body}

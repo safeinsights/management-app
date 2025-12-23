@@ -131,5 +131,15 @@ export const studyProposalApiSchema = z.object({
     additionalCodeFilePaths: z.array(z.string()),
 })
 
-// Partial schema for draft saves
 export const draftStudyApiSchema = studyProposalApiSchema.partial()
+
+export const formReadinessSchema = z.object({
+    orgSlug: z.string().min(1),
+    language: z.enum(['R', 'PYTHON']),
+    title: z.string().min(5),
+    hasDescriptionDocument: z.literal(true),
+    hasIrbDocument: z.literal(true),
+    hasAgreementDocument: z.literal(true),
+})
+
+export type FormReadinessInput = z.infer<typeof formReadinessSchema>
