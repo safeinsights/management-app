@@ -8,6 +8,9 @@ import logger from '@/lib/logger'
 
 export { type UserSessionWithAbility } from './session'
 
+// Re-export test user utilities for convenience
+export { TEST_USER_PATTERN, getProtectedTestEmails, isTestUser } from '@/lib/clerk'
+
 type ClerkOrganizationProps = {
     adminUserId?: string
     name?: string
@@ -78,40 +81,30 @@ export const syncCurrentClerkUser = async () => {
 
     if (!clerkUser) throw new Error('User not authenticated')
 
-    let user = await db.selectFrom('user').select('id').where('clerkId', '=', clerkUser.id).executeTakeFirst()
+    const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase()
+    if (!email) throw new Error('User has no email address')
 
-    // we do not sync on prod, syncing is only intended to keep dev/qa/staging updated
-    if (PROD_ENV) {
-        if (!user) throw new Error(`no user found for clerk user id ${clerkUser.id}`)
-        return user
-    }
-
-    // temporary hack, we do not currently have UI
-    // edit user information in the app, so we use clerk
     const userAttrs = {
+        clerkId: clerkUser.id,
         firstName: clerkUser.firstName ?? '',
         lastName: clerkUser.lastName ?? '',
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    if (user) {
-        await db.updateTable('user').set(userAttrs).where('id', '=', user.id).executeTakeFirstOrThrow()
-    } else {
-        // the user came with a clerk account but does not have a user account here
-        user = await db
-            .insertInto('user')
-            .values({
-                clerkId: clerkUser.id,
-                ...userAttrs,
-            })
-            .returningAll()
-            .executeTakeFirstOrThrow()
-    }
+    return await db.transaction().execute(async (trx) => {
+        const existing = await trx
+            .selectFrom('user')
+            .select('id')
+            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
+            .executeTakeFirst()
 
-    // App DB is the source of truth for org memberships.
-    // We no longer sync org memberships from Clerk metadata.
+        if (existing) {
+            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
+            return existing
+        }
 
-    return user
+        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
+    })
 }
 
 export async function sessionFromClerk() {
