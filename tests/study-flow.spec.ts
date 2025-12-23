@@ -133,7 +133,9 @@ async function fillProposalAndSelectLanguage(page: Page, studyTitle: string): Pr
     await expect(nextStepButton).toBeEnabled()
     await nextStepButton.click()
 
-    await expect(page.getByText('Step 2 of 3')).toBeVisible({ timeout: 15000 })
+    // The wizard now has 5 steps - after proposal, we land on the code upload step
+    // Use first() since multiple step indicators may be in the DOM
+    await expect(page.getByText(/Step \d of 5/).first()).toBeVisible({ timeout: 15000 })
 
     return studyTitle
 }

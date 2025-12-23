@@ -33,7 +33,7 @@ fi
 npx prettier --write $TYPES
 npx eslint --fix $TYPES
 
-npx tsx tests/configure-test-env.ts
+npx tsx bin/seed-environment.ts
 
 if [ -e "$CI" ]; then
     if git diff --name-only | grep -q 'src/database/types.ts'; then

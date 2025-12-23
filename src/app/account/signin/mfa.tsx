@@ -34,6 +34,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
     const hasBoth = Boolean(hasSMS && hasTOTP)
+    const hasNoFactors = !hasSMS && !hasTOTP
 
     const form = useForm({
         initialValues: {
@@ -173,37 +174,58 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         To complete the log in process, please verify your identity using Multi-Factor Authentication
                         (MFA).
                     </Text>
-                    <Stack gap="xl">
-                        {hasSMS && (
-                            <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
-                                SMS Verification
-                            </Button>
-                        )}
-                        {hasTOTP && (
+                    {hasNoFactors ? (
+                        <>
+                            <Text size="sm" c="red.7" mb="xs">
+                                No MFA factors are configured for your account. Please contact your administrator to set
+                                up MFA, or use a recovery code if you have one.
+                            </Text>
                             <Button
                                 w="100%"
-                                variant={hasBoth ? 'outline' : 'primary'}
+                                variant="outline"
                                 size="lg"
-                                onClick={() => onSelectMethod('totp')}
+                                onClick={() => {
+                                    setStep('reset')
+                                }}
                             >
-                                Authenticator app verification
+                                Try recovery code
                             </Button>
-                        )}
-                    </Stack>
-                    <Divider my="xs" c="charcoal.1" />
-                    <Text size="md" c="grey.7">
-                        Can&apos;t access your MFA device?
-                    </Text>
-                    <Button
-                        w="100%"
-                        variant="outline"
-                        size="lg"
-                        onClick={() => {
-                            setStep('reset')
-                        }}
-                    >
-                        Try recovery code
-                    </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Stack gap="xl">
+                                {hasSMS && (
+                                    <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
+                                        SMS Verification
+                                    </Button>
+                                )}
+                                {hasTOTP && (
+                                    <Button
+                                        w="100%"
+                                        variant={hasBoth ? 'outline' : 'primary'}
+                                        size="lg"
+                                        onClick={() => onSelectMethod('totp')}
+                                    >
+                                        Authenticator app verification
+                                    </Button>
+                                )}
+                            </Stack>
+                            <Divider my="xs" c="charcoal.1" />
+                            <Text size="md" c="grey.7">
+                                Can&apos;t access your MFA device?
+                            </Text>
+                            <Button
+                                w="100%"
+                                variant="outline"
+                                size="lg"
+                                onClick={() => {
+                                    setStep('reset')
+                                }}
+                            >
+                                Try recovery code
+                            </Button>
+                        </>
+                    )}
                 </Stack>
             )}
 
