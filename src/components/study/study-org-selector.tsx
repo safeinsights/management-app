@@ -42,13 +42,11 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                         <Select
                             id="studyOrg"
                             data-testid="org-select"
+                            key={form.key('orgSlug')}
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
-                            value={form.values.orgSlug}
                             placeholder="Select a data organization"
                             disabled={isLoading}
-                            onChange={(value) => {
-                                form.setFieldValue('orgSlug', value || '')
-                            }}
+                            {...form.getInputProps('orgSlug')}
                         />
                     </Grid.Col>
                 </Grid>

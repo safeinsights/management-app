@@ -16,6 +16,7 @@ type ProxyProviderProps = {
     isDirty: boolean
     onSaveDraft?: () => Promise<void>
     isSavingDraft?: boolean
+    onNavigateAway?: () => void
 }
 
 const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
@@ -23,6 +24,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
     isDirty,
     onSaveDraft,
     isSavingDraft = false,
+    onNavigateAway,
 }) => {
     const router = useRouter()
     const [tips, setTips] = useState<string | undefined>()
@@ -110,6 +112,7 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
 
     const navigateAway = () => {
         setIsOpen(false)
+        onNavigateAway?.()
         if (targetUrl) {
             router.push(targetUrl as Route)
         } else {

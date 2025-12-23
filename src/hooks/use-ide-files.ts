@@ -1,11 +1,12 @@
-import { useQuery, useQueryClient } from '@/common'
+import { useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
-import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
-import { useStudyRequestStore } from '@/stores/study-request.store'
+import { useWorkspaceFiles } from './use-workspace-files'
+import { useFileListManager } from './use-file-list-manager'
+import { useStudyRequest } from '@/contexts/study-request'
 
 interface UseIDEFilesOptions {
     studyId: string
@@ -15,11 +16,9 @@ interface UseIDEFilesOptions {
 export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const store = useStudyRequestStore()
+    const { setIDECodeFiles } = useStudyRequest()
 
     const [hasImported, setHasImported] = useState(false)
-    const [removedFiles, setRemovedFiles] = useState<Set<string>>(new Set())
-    const [mainFileOverride, setMainFileOverride] = useState<string | null>(null)
 
     const {
         launchWorkspace,
@@ -28,59 +27,34 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         error: launchError,
     } = useWorkspaceLauncher({ studyId })
 
-    const { data, isLoading, refetch, isFetching } = useQuery({
-        queryKey: ['workspace-files', studyId],
-        queryFn: async () => {
-            const result = await listWorkspaceFilesAction({ studyId })
-            if ('error' in result) {
-                throw new Error(typeof result.error === 'string' ? result.error : JSON.stringify(result.error))
-            }
-            return result
-        },
-        enabled: hasImported,
+    const workspace = useWorkspaceFiles({ studyId, enabled: hasImported })
+
+    const fileManager = useFileListManager({
+        files: workspace.files,
+        suggestedMain: workspace.suggestedMain,
     })
 
-    const files = useMemo(() => (data?.files ?? []).filter((f) => !removedFiles.has(f)), [data?.files, removedFiles])
-    const mainFile = mainFileOverride ?? data?.suggestedMain ?? files[0] ?? ''
-    const lastModified = data?.lastModified ?? null
-
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
-    const isLoadingFiles = isFetching || isLoading
-    const showEmptyState = !hasImported || (files.length === 0 && !isLoadingFiles)
-    const canSubmit = !!mainFile && files.length > 0
+    const showEmptyState = !hasImported || (fileManager.filteredFiles.length === 0 && !workspace.isLoading)
+    const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
 
     const importFiles = useCallback(() => {
         setHasImported(true)
-        setRemovedFiles(new Set())
-        setMainFileOverride(null)
-        refetch()
+        fileManager.reset()
+        workspace.refetch()
         notifications.show({
             title: 'Files imported',
             message: 'File list has been updated from the IDE.',
             color: 'blue',
         })
-    }, [refetch])
-
-    const setMainFile = useCallback((file: string) => {
-        setMainFileOverride(file)
-    }, [])
-
-    const removeFile = useCallback(
-        (fileName: string) => {
-            setRemovedFiles((prev) => new Set(prev).add(fileName))
-            if (mainFileOverride === fileName) {
-                setMainFileOverride(null)
-            }
-        },
-        [mainFileOverride],
-    )
+    }, [fileManager, workspace])
 
     const goBack = useCallback(() => {
         router.push(Routes.studyCode({ orgSlug, studyId }))
     }, [router, orgSlug, studyId])
 
     const proceedToReview = useCallback(() => {
-        if (!mainFile || files.length === 0) {
+        if (!canSubmit) {
             notifications.show({
                 color: 'red',
                 title: 'Cannot proceed',
@@ -89,12 +63,19 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
             return
         }
 
-        store.setIDECodeFiles(mainFile, files)
-
+        setIDECodeFiles(fileManager.mainFile, fileManager.filteredFiles)
         queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
-
         router.push(Routes.studyReview({ orgSlug, studyId }))
-    }, [mainFile, files, store, queryClient, studyId, router, orgSlug])
+    }, [
+        canSubmit,
+        fileManager.mainFile,
+        fileManager.filteredFiles,
+        setIDECodeFiles,
+        queryClient,
+        studyId,
+        router,
+        orgSlug,
+    ])
 
     return {
         launchWorkspace,
@@ -102,14 +83,14 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         launchError,
 
         importFiles,
-        isLoadingFiles,
+        isLoadingFiles: workspace.isLoading,
         showEmptyState,
-        lastModified,
+        lastModified: workspace.lastModified,
 
-        files,
-        mainFile,
-        setMainFile,
-        removeFile,
+        files: fileManager.filteredFiles,
+        mainFile: fileManager.mainFile,
+        setMainFile: fileManager.setMainFile,
+        removeFile: fileManager.removeFile,
 
         canSubmit,
         proceedToReview,

@@ -5,11 +5,12 @@ import { FormFieldLabel } from '@/components/form-field-label' // adjust path if
 import { StudyOrgSelector } from '@/components/study/study-org-selector'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
 import { ProgrammingLanguageSection } from '@/components/study/programming-language-section'
+import { useFileTypeIcon } from '@/hooks/use-file-type-icon'
 import { useUser } from '@clerk/nextjs'
 import { Divider, FileInput, Grid, Group, Paper, Stack, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { FileDocIcon, FilePdfIcon, FileTextIcon, UploadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
-import React, { FC } from 'react'
+import { FileDocIcon } from '@phosphor-icons/react/dist/ssr'
+import { FC } from 'react'
 import { StudyProposalFormValues } from './step1-schema'
 
 export type ExistingFilePaths = {
@@ -40,22 +41,10 @@ export const StudyProposalForm: FC<{
 }> = ({ studyProposalForm, existingFiles }) => {
     const { user } = useUser()
     const theme = useMantineTheme()
-    const color = theme.colors.blue[7]
 
-    const getFileUploadIcon = (color: string, fileName?: string | null) => {
-        if (!fileName) return <UploadSimpleIcon size={14} color={theme.colors.purple[5]} weight="fill" />
-        const Icons: [RegExp, React.ReactNode][] = [
-            [/\.docx?$/i, <FileDocIcon key="doc" size={14} color={color} />],
-            [/\.txt$/i, <FileTextIcon key="txt" size={14} color={color} />],
-            [/\.pdf$/i, <FilePdfIcon key="pdf" size={14} color={color} />],
-        ]
-        const matchedIcon = Icons.find(([re]) => re.test(fileName))?.[1]
-        return matchedIcon || <UploadSimpleIcon size={14} color={color} weight="fill" />
-    }
-
-    const fileUpload = getFileUploadIcon(color, studyProposalForm.values.descriptionDocument?.name ?? '')
-    const irbFileUpload = getFileUploadIcon(color, studyProposalForm.values.irbDocument?.name ?? '')
-    const agreementFileUpload = getFileUploadIcon(color, studyProposalForm.values.agreementDocument?.name ?? '')
+    const fileUpload = useFileTypeIcon(studyProposalForm.values.descriptionDocument?.name)
+    const irbFileUpload = useFileTypeIcon(studyProposalForm.values.irbDocument?.name)
+    const agreementFileUpload = useFileTypeIcon(studyProposalForm.values.agreementDocument?.name)
 
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
