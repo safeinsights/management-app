@@ -1,19 +1,13 @@
 import 'dotenv/config'
 import { PROD_BUILD } from '@/server/config'
+import { isTestUser, getProtectedTestEmails } from '@/lib/clerk'
 import { createClerkClient } from '@clerk/backend'
 import dayjs from 'dayjs'
 
 export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minutes').toDate()) {
     if (PROD_BUILD) throw new Error('cowardly refusing to delete users ON PRODUCTION!')
 
-    const SAFE_TO_DELETE = /^(?!.*dbfyq3).*(?:test|delete).*$/i
-
-    const protectedEmails = new Set(
-        [process.env.CLERK_RESEARCHER_EMAIL, process.env.CLERK_REVIEWER_EMAIL, process.env.CLERK_ADMIN_EMAIL]
-            .filter(Boolean)
-            .map((e) => e!.toLowerCase()),
-    )
-
+    const protectedEmails = getProtectedTestEmails()
     const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
 
     const pageSize = 100
@@ -39,17 +33,10 @@ export async function deleteClerkTestUsers(cutoff = dayjs().subtract(30, 'minute
         })
 
         for (const user of users.data) {
-            const isProtected = user.emailAddresses.some((e) => protectedEmails.has(e.emailAddress.toLowerCase()))
-            if (isProtected) continue
-
-            const emailMatches = user.emailAddresses.some((e) => SAFE_TO_DELETE.test(e.emailAddress))
-            const nameMatches = SAFE_TO_DELETE.test(user.firstName || '') || SAFE_TO_DELETE.test(user.lastName || '')
             const createdBefore = dayjs(user.createdAt).isBefore(cutoff)
-            const matchesPattern = emailMatches || nameMatches
-
             const ciMatch = ciJobId ? user.privateMetadata.createdByCIJobId == ciJobId : true
 
-            if (createdBefore && matchesPattern && ciMatch) {
+            if (createdBefore && isTestUser(user, protectedEmails) && ciMatch) {
                 try {
                     await clerk.users.deleteUser(user.id)
                     // eslint-disable-next-line no-console

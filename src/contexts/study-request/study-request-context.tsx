@@ -148,6 +148,7 @@ export function StudyRequestProvider({
                 ])
             }
         },
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- using stable setIDEFiles reference to avoid infinite loops
         [form, initDocumentFilesFromPaths, codeFilesHook.setIDEFiles],
     )
 
@@ -193,6 +194,7 @@ export function StudyRequestProvider({
             submitStudy,
             isSubmitting,
         }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- using individual stable properties instead of whole objects
         [
             studyId,
             orgSlug,
