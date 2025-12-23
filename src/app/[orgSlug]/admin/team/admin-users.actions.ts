@@ -5,6 +5,7 @@ import { Action } from '@/server/actions/action'
 import { onUserInvited } from '@/server/events'
 import { sendInviteEmail } from '@/server/mailer'
 import { inviteUserSchema, z } from './invite-user.schema'
+import { clerkClient } from '@clerk/nextjs/server'
 
 export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     .params(
@@ -19,17 +20,24 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     )
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { invite, invitedByUserId }, orgId, db }) => {
-        // Block invitation if user is already a member of this organization
-        const existingOrgMember = await db
-            .selectFrom('orgUser')
-            .innerJoin('user', 'user.id', 'orgUser.userId')
-            .select(['orgUser.id'])
-            .where('orgUser.orgId', '=', orgId)
-            .where('user.email', '=', invite.email)
-            .executeTakeFirst()
+        // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
+        const clerk = await clerkClient()
+        const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
 
-        if (existingOrgMember) {
-            throw new ActionFailure({ email: 'This team member is already in this organization.' })
+        if (clerkUsers.data.length > 0) {
+            // Check if this Clerk user is already a member of this org
+            const existingOrgMember = await db
+                .selectFrom('orgUser')
+                .innerJoin('user', 'user.id', 'orgUser.userId')
+                .select(['orgUser.id'])
+                .where('orgUser.orgId', '=', orgId)
+                .where('user.clerkId', '=', clerkUsers.data[0].id)
+                .executeTakeFirst()
+
+            if (existingOrgMember) {
+                throw new ActionFailure({ email: 'This team member is already in this organization.' })
+            }
+            // User exists but not in this org - allow invite to proceed
         }
 
         // Check if the user already exists in pending users, resend invitation if so
