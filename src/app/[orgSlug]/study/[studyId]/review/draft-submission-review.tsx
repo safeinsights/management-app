@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react'
 import { Language } from '@/database/types'
-import { SubmissionReview } from './step3-submission-review'
-import { useStudyRequestStore, useCodeFiles } from '@/stores/study-request.store'
+import { SubmissionReview } from './submission-review'
+import { useStudyRequest } from '@/contexts/study-request'
 
 interface DraftSubmissionReviewProps {
     studyId: string
@@ -33,31 +33,21 @@ export function DraftSubmissionReview({
     existingDocuments,
     existingCodeFiles,
 }: DraftSubmissionReviewProps) {
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
+    const { codeFiles, setStudyId, setExistingDocuments, initFromDraft } = useStudyRequest()
 
-    // Initialize store from server data on mount
     useEffect(() => {
-        // Set basic info
-        store.setStudyId(studyId)
-        store.setOrgSlug(orgSlug)
-        store.setSubmittingOrgSlug(submittingOrgSlug)
-        store.setLanguage(language)
+        setStudyId(studyId)
 
-        // Set existing documents if we don't already have them in memory
         if (existingDocuments) {
-            store.setExistingDocuments({
+            setExistingDocuments({
                 description: existingDocuments.description,
                 irb: existingDocuments.irb,
                 agreement: existingDocuments.agreement,
             })
         }
 
-        // Set existing code files only if we don't have files in memory
-        // (user might have uploaded new files in code step that aren't saved yet)
         if (existingCodeFiles && !codeFiles.mainFile) {
-            // Initialize with server file references
-            store.initFromDraft(
+            initFromDraft(
                 {
                     id: studyId,
                     orgSlug,

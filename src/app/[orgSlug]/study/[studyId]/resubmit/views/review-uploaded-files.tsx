@@ -4,46 +4,33 @@ import { ActionIcon, Button, Divider, Group, Paper, Radio, Stack, Table, Text, T
 import { TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import { Routes } from '@/lib/routes'
 import { ResubmitCancelButton } from '@/components/resubmit-cancel-button'
-import { useResubmitCodeStore } from '@/stores/resubmit-code.store'
+import { useResubmitCode } from '@/contexts/resubmit-code'
 
-interface ReviewUploadedFilesProps {
-    studyId: string
-    orgSlug: string
-    uploadedFiles: File[]
-    uploadMainFile: string | null
-    canSubmitUpload: boolean
-    isPending: boolean
-    onResubmit: () => void
-}
-
-export function ReviewUploadedFiles({
-    studyId,
-    orgSlug,
-    uploadedFiles,
-    uploadMainFile,
-    canSubmitUpload,
-    isPending,
-    onResubmit,
-}: ReviewUploadedFilesProps) {
-    const store = useResubmitCodeStore()
-
-    const lastUpdated = new Date().toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        second: '2-digit',
-    })
+export function ReviewUploadedFiles() {
+    const {
+        studyId,
+        submittingOrgSlug,
+        uploadedFiles,
+        uploadMainFile,
+        uploadLastModified,
+        canSubmitUpload,
+        isPending,
+        goToUpload,
+        setUploadMainFile,
+        removeUploadedFile,
+        resubmitStudy,
+    } = useResubmitCode()
 
     return (
         <Paper p="xl">
             <Stack gap="md">
                 <div>
                     <Title order={4}>Review uploaded files</Title>
-                    <Text size="sm" c="dimmed">
-                        Last updated on {lastUpdated}
-                    </Text>
+                    {uploadLastModified && (
+                        <Text size="sm" c="dimmed">
+                            Last updated on {uploadLastModified}
+                        </Text>
+                    )}
                 </div>
 
                 <Divider />
@@ -69,7 +56,7 @@ export function ReviewUploadedFiles({
                                         name="mainFile"
                                         value={file.name}
                                         checked={uploadMainFile === file.name}
-                                        onChange={(event) => store.setUploadMainFile(event.currentTarget.value)}
+                                        onChange={(event) => setUploadMainFile(event.currentTarget.value)}
                                     />
                                 </Table.Td>
                                 <Table.Td>{file.name}</Table.Td>
@@ -77,7 +64,7 @@ export function ReviewUploadedFiles({
                                     <ActionIcon
                                         variant="subtle"
                                         color="red"
-                                        onClick={() => store.removeUploadedFile(file.name)}
+                                        onClick={() => removeUploadedFile(file.name)}
                                     >
                                         <TrashIcon />
                                     </ActionIcon>
@@ -88,15 +75,15 @@ export function ReviewUploadedFiles({
                 </Table>
 
                 <Group justify="flex-end" mt="md">
-                    <Button variant="outline" onClick={store.goToUpload}>
+                    <Button variant="outline" onClick={goToUpload}>
                         Back
                     </Button>
                     <ResubmitCancelButton
                         isDirty={uploadedFiles.length > 0}
                         disabled={isPending}
-                        href={Routes.studyView({ orgSlug, studyId })}
+                        href={Routes.studyView({ orgSlug: submittingOrgSlug, studyId })}
                     />
-                    <Button onClick={onResubmit} disabled={!canSubmitUpload} loading={isPending}>
+                    <Button onClick={resubmitStudy} disabled={!canSubmitUpload} loading={isPending}>
                         Resubmit study code
                     </Button>
                 </Group>

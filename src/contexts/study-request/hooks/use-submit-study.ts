@@ -1,43 +1,50 @@
+import { useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient } from '@/common'
 import { notifications } from '@mantine/notifications'
-import { Routes } from '@/lib/routes'
+import { useMutation, useQueryClient } from '@/common'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
-import { onSubmitDraftStudyAction, onDeleteStudyAction, submitStudyFromIDEAction } from '@/server/actions/study-request'
-import { isActionError, errorToString } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
+import { isActionError, errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
-import {
-    useStudyRequestStore,
-    useCodeFiles,
-    useCodeSource,
-    getCodeFilesForUpload,
-    hasNewCodeFiles,
-} from '@/stores/study-request.store'
+import { onSubmitDraftStudyAction, onDeleteStudyAction, submitStudyFromIDEAction } from '@/server/actions/study-request'
+import { type CodeFileState, getCodeFilesForUpload, hasNewCodeFiles } from '@/contexts/shared/file-types'
 
-interface UseSubmitStudyOptions {
-    studyId: string
+export interface UseSubmitStudyOptions {
+    studyId: string | null
+    mainFileName: string | null
+    additionalFileNames: string[]
+    codeSource: 'upload' | 'ide'
+    codeFiles: CodeFileState
+    onSuccess?: () => void
 }
 
-export function useSubmitStudy({ studyId }: UseSubmitStudyOptions) {
+export interface UseSubmitStudyReturn {
+    submitStudy: () => void
+    isSubmitting: boolean
+}
+
+export function useSubmitStudy({
+    studyId,
+    mainFileName,
+    additionalFileNames,
+    codeSource,
+    codeFiles,
+    onSuccess,
+}: UseSubmitStudyOptions): UseSubmitStudyReturn {
     const router = useRouter()
     const queryClient = useQueryClient()
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
-    const codeSource = useCodeSource()
-
-    const getFileName = (f: { type: 'memory'; file: File } | { type: 'server'; name: string }): string =>
-        f.type === 'memory' ? f.file.name : f.name
-
-    const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : null
-    const additionalFileNames = codeFiles.additionalFiles.map(getFileName)
-    const allFileNames = mainFileName ? [mainFileName, ...additionalFileNames] : additionalFileNames
 
     const mutation = useMutation({
         mutationFn: async () => {
+            if (!studyId) {
+                throw new Error('Study ID is required to submit')
+            }
             if (!mainFileName) {
                 throw new Error('Missing required code file. Please upload the main code file.')
             }
+
+            const allFileNames = [mainFileName, ...additionalFileNames]
 
             if (codeSource === 'ide') {
                 const result = await submitStudyFromIDEAction({
@@ -88,8 +95,7 @@ export function useSubmitStudy({ studyId }: UseSubmitStudyOptions) {
             return { studyId: submittedStudyId }
         },
         onSuccess() {
-            store.reset()
-
+            onSuccess?.()
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
 
@@ -111,11 +117,12 @@ export function useSubmitStudy({ studyId }: UseSubmitStudyOptions) {
         },
     })
 
+    const submitStudy = useCallback(() => {
+        mutation.mutate()
+    }, [mutation])
+
     return {
-        submitStudy: mutation.mutate,
+        submitStudy,
         isSubmitting: mutation.isPending,
-        mainFileName,
-        additionalFileNames,
-        canSubmit: !!mainFileName,
     }
 }

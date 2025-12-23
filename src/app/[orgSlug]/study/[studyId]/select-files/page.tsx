@@ -37,7 +37,7 @@ export default function StudySelectFilesPage() {
             {hasUploadedFiles ? (
                 <StudyCodeFromUpload studyId={studyId} orgSlug={orgSlug} />
             ) : (
-                <StudyCodeFromIDE studyId={studyId} orgSlug={orgSlug} />
+                <StudyCodeFromIDE studyId={studyId} orgSlug={orgSlug} studyOrgSlug={study.orgSlug} />
             )}
         </Stack>
     )

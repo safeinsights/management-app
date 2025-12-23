@@ -7,12 +7,12 @@ import { useDisclosure } from '@mantine/hooks'
 import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
-import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
-import { useStudyRequestStore, useCodeFiles, useCanProceedToReview } from '@/stores/study-request.store'
+import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
+import { useStudyRequest } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
-import { CodeUploadModal } from './step2-upload-modal'
-import { CodeFilesReview } from './step2-files-review'
+import { CodeUploadModal } from './code-upload-modal'
+import { CodeFilesReview } from './code-files-review'
 
 interface CodeUploadPageProps {
     studyId: string
@@ -36,11 +36,8 @@ export function CodeUploadPage({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
-    // Zustand store
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
-    const viewMode = store.codeUploadViewMode
-    const canProceedToReview = useCanProceedToReview()
+    // Context
+    const { codeFiles, codeUploadViewMode, canProceedToReview, setStudyId, setCodeUploadViewMode } = useStudyRequest()
 
     // IDE launcher
     const {
@@ -55,25 +52,13 @@ export function CodeUploadPage({
         },
     })
 
-    // Initialize store from server data on mount
+    // Initialize context from server data on mount
     useEffect(() => {
-        store.setStudyId(studyId)
-        store.setOrgSlug(orgSlug)
-        store.setSubmittingOrgSlug(submittingOrgSlug)
-        store.setLanguage(language)
-
-        // Set existing files if any (from a previous draft save)
-        if (existingMainFile || (existingAdditionalFiles && existingAdditionalFiles.length > 0)) {
-            // Only initialize if we don't already have files in memory
-            if (!codeFiles.mainFile) {
-                // These are server files - we can't upload them again, just show their names
-                // User will need to re-upload if they want to change them
-            }
-        }
+        setStudyId(studyId)
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
-    const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+    const isOpenstax = isOpenStaxOrg(orgSlug)
     const isIDELoading = isLaunching || isCreatingWorkspace
 
     const handleLaunchIDE = () => {
@@ -89,16 +74,16 @@ export function CodeUploadPage({
     }
 
     const handleBackToUpload = () => {
-        store.setCodeUploadViewMode('upload')
+        setCodeUploadViewMode('upload')
     }
 
     const handleFilesConfirmed = () => {
-        store.setCodeUploadViewMode('review')
+        setCodeUploadViewMode('review')
         closeModal()
     }
 
     // Show review mode if files are selected
-    if (viewMode === 'review' && codeFiles.mainFile) {
+    if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
         return <CodeFilesReview onBack={handleBackToUpload} onProceed={handleProceedToReview} />
     }
 
@@ -110,51 +95,49 @@ export function CodeUploadPage({
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
-                <Text mb={isOpenstaxOrg && isAlertVisible ? '' : 'xl'}>
+                <Text mb={isOpenstax && isAlertVisible ? '' : 'xl'}>
                     Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
-                    {isOpenstaxOrg && (
-                        <>
-                            You can either upload your own files or write them in our{' '}
-                            <Text component="span" fw={600}>
-                                Integrated Development Environment (IDE).
-                            </Text>
-                        </>
-                    )}
+                    <OpenStaxOnly orgSlug={orgSlug}>
+                        You can either upload your own files or write them in our{' '}
+                        <Text component="span" fw={600}>
+                            Integrated Development Environment (IDE).
+                        </Text>
+                    </OpenStaxOnly>
                 </Text>
 
-                {isOpenstaxOrg && isAlertVisible && (
-                    <Alert
-                        icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
-                        title="Helpful tip"
-                        color="green"
-                        withCloseButton
-                        onClose={setIsAlertVisible.close}
-                        mt="md"
-                        mb="xl"
-                        styles={{
-                            body: { gap: 8 },
-                            title: { color: theme.colors.green[9] },
-                            closeButton: { color: theme.colors.green[9] },
-                        }}
-                    >
-                        IDE is pre-configured to help you write your code and test it against sample data.
-                    </Alert>
-                )}
+                <OpenStaxOnly orgSlug={orgSlug}>
+                    {isAlertVisible && (
+                        <Alert
+                            icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                            title="Helpful tip"
+                            color="green"
+                            withCloseButton
+                            onClose={setIsAlertVisible.close}
+                            mt="md"
+                            mb="xl"
+                            styles={{
+                                body: { gap: 8 },
+                                title: { color: theme.colors.green[9] },
+                                closeButton: { color: theme.colors.green[9] },
+                            }}
+                        >
+                            IDE is pre-configured to help you write your code and test it against sample data.
+                        </Alert>
+                    )}
+                </OpenStaxOnly>
 
                 <Group align="center">
                     <UploadFilesButton onClick={openModal} language={language} />
 
-                    {isOpenstaxOrg && (
-                        <>
-                            <OrDivider />
-                            <LaunchIDEButton
-                                onClick={handleLaunchIDE}
-                                language={language}
-                                loading={isIDELoading}
-                                error={!!launchError}
-                            />
-                        </>
-                    )}
+                    <OpenStaxOnly orgSlug={orgSlug}>
+                        <OrDivider />
+                        <LaunchIDEButton
+                            onClick={handleLaunchIDE}
+                            language={language}
+                            loading={isIDELoading}
+                            error={!!launchError}
+                        />
+                    </OpenStaxOnly>
                 </Group>
 
                 {/* Show existing files info if any */}

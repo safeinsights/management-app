@@ -1,6 +1,6 @@
 'use client'
 
-import { FC, useState } from 'react'
+import { FC } from 'react'
 import {
     ActionIcon,
     Button,
@@ -14,15 +14,14 @@ import {
     Title,
     useMantineTheme,
 } from '@mantine/core'
-import { Dropzone, FileRejection } from '@mantine/dropzone'
-import { notifications } from '@mantine/notifications'
+import { Dropzone } from '@mantine/dropzone'
 import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
-import { uniqueBy } from 'remeda'
 import { Language } from '@/database/types'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
 import { AppModal } from '@/components/modal'
-import { useStudyRequestStore, useCodeFiles, FileRef } from '@/stores/study-request.store'
+import { getFileName } from '@/contexts/shared/file-types'
+import { useCodeUploadModal } from '@/hooks/use-code-upload-modal'
 
 interface CodeUploadModalProps {
     isOpen: boolean
@@ -31,74 +30,19 @@ interface CodeUploadModalProps {
     onConfirm: () => void
 }
 
-const getFileName = (f: FileRef): string => (f.type === 'memory' ? f.file.name : f.name)
-
 export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, language, onConfirm }) => {
     const theme = useMantineTheme()
-    const [selectedMainFile, setSelectedMainFile] = useState<string>('')
-
-    // Zustand store
-    const store = useStudyRequestStore()
-    const codeFiles = useCodeFiles()
-
-    // Get all files as a flat array for display
-    const allFiles: FileRef[] = [...(codeFiles.mainFile ? [codeFiles.mainFile] : []), ...codeFiles.additionalFiles]
-
-    // Handle file drop
-    const handleDrop = (files: File[]) => {
-        // Combine with existing files, deduping by name
-        const existingFiles = allFiles
-            .filter((f): f is { type: 'memory'; file: File } => f.type === 'memory')
-            .map((f) => f.file)
-
-        const combinedFiles = uniqueBy([...files, ...existingFiles], (file) => file.name)
-
-        // Determine main file
-        const mainFileName = selectedMainFile || combinedFiles[0]?.name || ''
-        const mainFile = combinedFiles.find((f) => f.name === mainFileName) || null
-        const additionalFiles = combinedFiles.filter((f) => f.name !== mainFileName)
-
-        store.setCodeFiles(mainFile, additionalFiles)
-
-        // Auto-select first file if none selected
-        if (!selectedMainFile && combinedFiles.length > 0) {
-            setSelectedMainFile(combinedFiles[0].name)
-        }
-    }
-
-    const handleReject = (rejections: FileRejection[]) => {
-        notifications.show({
-            color: 'red',
-            title: 'Rejected files',
-            message: rejections
-                .map((rej) => `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`)
-                .join('\n'),
-        })
-    }
-
-    const removeFile = (fileName: string) => {
-        store.removeCodeFile(fileName)
-        if (selectedMainFile === fileName) {
-            // Select next available file
-            const remaining = allFiles.filter((f) => getFileName(f) !== fileName)
-            setSelectedMainFile(remaining.length > 0 ? getFileName(remaining[0]) : '')
-        }
-    }
-
-    const handleDone = () => {
-        if (!selectedMainFile || allFiles.length === 0) return
-
-        // Update the main file selection in store
-        store.setMainCodeFile(selectedMainFile)
-        onConfirm()
-    }
-
-    const handleCancel = () => {
-        // Clear files and close
-        store.clearCodeFiles()
-        setSelectedMainFile('')
-        onClose()
-    }
+    const {
+        allFiles,
+        selectedMainFile,
+        setSelectedMainFile,
+        handleDrop,
+        handleReject,
+        handleRemoveFile,
+        handleConfirm,
+        handleCancel,
+        canConfirm,
+    } = useCodeUploadModal({ onConfirm, onClose })
 
     return (
         <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
@@ -160,7 +104,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, lan
                                                 <ActionIcon
                                                     variant="transparent"
                                                     aria-label={`Remove file ${fileName}`}
-                                                    onClick={() => removeFile(fileName)}
+                                                    onClick={() => handleRemoveFile(fileName)}
                                                 >
                                                     <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
                                                 </ActionIcon>
@@ -177,7 +121,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, lan
                     <Button variant="outline" onClick={handleCancel}>
                         Cancel upload
                     </Button>
-                    <Button onClick={handleDone} disabled={!selectedMainFile || allFiles.length === 0}>
+                    <Button onClick={handleConfirm} disabled={!canConfirm}>
                         Done
                     </Button>
                 </Group>
