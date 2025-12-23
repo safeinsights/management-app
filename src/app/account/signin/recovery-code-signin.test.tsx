@@ -1,6 +1,6 @@
 import { renderWithProviders, fireEvent, screen, waitFor, userEvent } from '@/tests/unit.helpers'
 import { vi, describe, it, expect } from 'vitest'
-import { RecoveryCodeSignIn } from './reset-mfa'
+import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { useSignIn } from '@clerk/nextjs'
 import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'

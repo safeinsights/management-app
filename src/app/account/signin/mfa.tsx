@@ -14,7 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
-import { RecoveryCodeSignIn } from './reset-mfa'
+import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { VerifyCode } from './verify-code'
 export const dynamic = 'force-dynamic'
 
