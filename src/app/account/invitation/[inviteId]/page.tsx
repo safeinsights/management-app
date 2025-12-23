@@ -7,6 +7,7 @@ import { redirect, RedirectType } from 'next/navigation'
 import { FC } from 'react'
 import { SignOutPanel } from './signout-panel'
 import { Routes } from '@/lib/routes'
+import { clerkClient } from '@clerk/nextjs/server'
 export const dynamic = 'force-dynamic'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
@@ -26,6 +27,7 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
             'user.id as matchingUser',
             'org.name as orgName',
             'pendingUser.isAdmin',
+            'pendingUser.email',
             'invitingUser.firstName as firstName',
             'invitingUser.lastName as lastName',
         ])
@@ -50,7 +52,27 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         redirect(`/account/signin?invite_not_found=1`, RedirectType.replace)
     }
 
-    if (pendingInvite?.matchingUser) {
+    // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
+    let matchingUser = pendingInvite?.matchingUser
+    if (!matchingUser && pendingInvite?.email) {
+        const clerk = await clerkClient()
+        const clerkUsers = await clerk.users.getUserList({ emailAddress: [pendingInvite.email] })
+
+        if (clerkUsers.data.length > 0) {
+            // Check if this Clerk user has a corresponding user in our database
+            const userWithClerkId = await db
+                .selectFrom('user')
+                .select(['id'])
+                .where('clerkId', '=', clerkUsers.data[0].id)
+                .executeTakeFirst()
+
+            if (userWithClerkId) {
+                matchingUser = userWithClerkId.id
+            }
+        }
+    }
+
+    if (matchingUser) {
         // redirect to the join team page after signing in
         const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)

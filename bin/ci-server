@@ -17,7 +17,8 @@ fi
 npm run build > $LOG 2>&1
 
 cp -r public .next/standalone/
-cp -r tests/coder-files .next/standalone/
+mkdir -p .next/standalone/coder-files
+cp tests/coder-files/main.r tests/coder-files/main.py tests/coder-files/code.r .next/standalone/coder-files/
 cp -r .next/static .next/standalone/.next/
 
 node .next/standalone/server.js >> $LOG 2>&1 &

@@ -24,7 +24,7 @@ import { FC, useEffect, useState } from 'react'
 import { useDisclosure } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
 import { AppModal } from './modal'
-import { OPENSTAX_ORG_SLUG } from '@/lib/constants'
+import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
 import { LightbulbIcon } from '@phosphor-icons/react'
 import { uniqueBy } from 'remeda'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from './study/study-upload-buttons'
@@ -127,7 +127,7 @@ export const StudyCodeUpload = ({
         onProceed?.()
     }
 
-    const isOpenstaxOrg = orgSlug === OPENSTAX_ORG_SLUG
+    const isOpenstax = isOpenStaxOrg(orgSlug)
     const isIDELoading = isLaunchingWorkspace || isCreatingWorkspace
 
     useEffect(() => {
@@ -157,50 +157,48 @@ export const StudyCodeUpload = ({
             )}
             <Title order={4}>{title}</Title>
             <Divider my="sm" mt="sm" mb="md" />
-            <Text mb={isOpenstaxOrg && isAlertVisible ? '' : 'xl'}>
+            <Text mb={isOpenstax && isAlertVisible ? '' : 'xl'}>
                 Include the code files you wish to run on the Data Organization&apos;s dataset.{' '}
-                {isOpenstaxOrg && (
-                    <>
-                        You can either upload your own files or write them in our{' '}
-                        <Text component="span" fw={600}>
-                            Integrated Development Environment (IDE).
-                        </Text>
-                    </>
-                )}
+                <OpenStaxOnly orgSlug={orgSlug}>
+                    You can either upload your own files or write them in our{' '}
+                    <Text component="span" fw={600}>
+                        Integrated Development Environment (IDE).
+                    </Text>
+                </OpenStaxOnly>
             </Text>
-            {isOpenstaxOrg && isAlertVisible && (
-                <Alert
-                    icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
-                    title="Helpful tip"
-                    color="green"
-                    withCloseButton
-                    onClose={() => setIsAlertVisible(false)}
-                    mt="md"
-                    mb="xl"
-                    styles={{
-                        body: { gap: 8 },
-                        title: { color: theme.colors.green[9] },
-                        closeButton: { color: theme.colors.green[9] },
-                    }}
-                >
-                    IDE is pre-configured to help you write your code and test it against sample data.
-                </Alert>
-            )}
+            <OpenStaxOnly orgSlug={orgSlug}>
+                {isAlertVisible && (
+                    <Alert
+                        icon={<LightbulbIcon weight="fill" color={theme.colors.green[9]} />}
+                        title="Helpful tip"
+                        color="green"
+                        withCloseButton
+                        onClose={() => setIsAlertVisible(false)}
+                        mt="md"
+                        mb="xl"
+                        styles={{
+                            body: { gap: 8 },
+                            title: { color: theme.colors.green[9] },
+                            closeButton: { color: theme.colors.green[9] },
+                        }}
+                    >
+                        IDE is pre-configured to help you write your code and test it against sample data.
+                    </Alert>
+                )}
+            </OpenStaxOnly>
 
             <Group align="center">
                 {studyUploadForm && <UploadFilesButton onClick={openModal} language={language} />}
 
-                {isOpenstaxOrg && (
-                    <>
-                        {studyUploadForm && <OrDivider />}
-                        <LaunchIDEButton
-                            onClick={handleLaunchIDE}
-                            language={language}
-                            loading={isIDELoading}
-                            error={!!launchError}
-                        />
-                    </>
-                )}
+                <OpenStaxOnly orgSlug={orgSlug}>
+                    {studyUploadForm && <OrDivider />}
+                    <LaunchIDEButton
+                        onClick={handleLaunchIDE}
+                        language={language}
+                        loading={isIDELoading}
+                        error={!!launchError}
+                    />
+                </OpenStaxOnly>
             </Group>
 
             {studyUploadForm && (

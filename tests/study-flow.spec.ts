@@ -68,15 +68,15 @@ async function verifyStudyFileDownloads(page: Page, expectedPdfPath: string) {
             await fs.promises.writeFile(tempPath, buffer)
 
             if (filename === 'main.r') {
-                const originalContent = await fs.promises.readFile('tests/assets/main.r', 'utf8')
+                const originalContent = await fs.promises.readFile('tests/coder-files/main.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
                 expect(downloadedContent).toBe(originalContent)
             } else if (filename === 'main.py') {
-                const originalContent = await fs.promises.readFile('tests/assets/main.py', 'utf8')
+                const originalContent = await fs.promises.readFile('tests/coder-files/main.py', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
                 expect(downloadedContent).toBe(originalContent)
             } else if (filename === 'code.r') {
-                const originalContent = await fs.promises.readFile('tests/assets/code.r', 'utf8')
+                const originalContent = await fs.promises.readFile('tests/coder-files/code.r', 'utf8')
                 const downloadedContent = await fs.promises.readFile(tempPath, 'utf8')
                 expect(downloadedContent).toBe(originalContent)
             }
@@ -133,7 +133,9 @@ async function fillProposalAndSelectLanguage(page: Page, studyTitle: string): Pr
     await expect(nextStepButton).toBeEnabled()
     await nextStepButton.click()
 
-    await expect(page.getByText('Step 2 of 3')).toBeVisible({ timeout: 15000 })
+    // The wizard now has 5 steps - after proposal, we land on the code upload step
+    // Use first() since multiple step indicators may be in the DOM
+    await expect(page.getByText(/Step \d of 5/).first()).toBeVisible({ timeout: 15000 })
 
     return studyTitle
 }
@@ -148,7 +150,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     await expect(page.getByRole('dialog')).toBeVisible()
 
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/assets/code.r'])
+    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
 
     const mainFileName = mainCodeFile.split('/').pop()!
     await page.getByRole('radio', { name: mainFileName }).click()
@@ -341,7 +343,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 
     // Upload files
     const fileInput = page.locator('input[type="file"]')
-    await fileInput.setInputFiles([mainCodeFile, 'tests/assets/code.r'])
+    await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
 
     // Select main file
     const mainFileName = mainCodeFile.split('/').pop()!
@@ -403,7 +405,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     })
 
     await test.step('researcher uploads code files', async () => {
-        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/assets/main.r')
+        const mainFileName = await uploadCodeViaFileUpload(page, 'tests/coder-files/main.r')
         await verifySummaryPage(page, mainFileName)
     })
 
@@ -446,7 +448,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
     await test.step('researcher resubmits code via file upload', async () => {
         // Already on study details page from verifyFailedStatusDisplay
-        await resubmitCodeViaFileUpload(page, 'tests/assets/main.r')
+        await resubmitCodeViaFileUpload(page, 'tests/coder-files/main.r')
     })
 })
 

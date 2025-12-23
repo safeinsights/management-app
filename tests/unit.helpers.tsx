@@ -3,7 +3,6 @@ import { db } from '@/database'
 import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
-import { ENVIRONMENT_ID } from '@/server/config'
 import { latestJobForStudy } from '@/server/db/queries'
 import { findOrCreateOrgMembership } from '@/server/mutations'
 import { theme } from '@/theme'
@@ -339,10 +338,9 @@ export const mockClerkSession = (values: MockSession | null) => {
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
+    // Flattened structure - no environment nesting
     const unsafeMetadata = {
-        [`${ENVIRONMENT_ID}`]: {
-            currentOrgSlug: values.orgSlug,
-        },
+        currentOrgSlug: values.orgSlug,
     }
     const orgs: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string; type?: 'enclave' | 'lab' }> = {
         [values.orgSlug]: {
@@ -362,14 +360,14 @@ export const mockClerkSession = (values: MockSession | null) => {
             isAdmin: true,
         }
     }
+    // Flattened structure - no environment nesting
     const publicMetadata = {
-        [`${ENVIRONMENT_ID}`]: {
-            format: 'v2',
-            user: {
-                id: values.userId,
-            },
-            orgs,
+        format: 'v3',
+        user: {
+            id: values.userId,
         },
+        teams: null,
+        orgs,
     }
     const userProperties = {
         id: values.clerkUserId,
