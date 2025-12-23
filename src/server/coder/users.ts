@@ -37,7 +37,9 @@ export async function getCoderUser(studyId: string): Promise<CoderUser | null> {
         throw new Error('Error retrieving researcher info!')
     }
 
-    const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${studyInfo.researcherEmail}`, {
+    const encodedEmail = encodeURIComponent(studyInfo.researcherEmail)
+
+    const data = await coderFetch<CoderUserQueryResponse>(`${coderUsersPath()}?q=${encodedEmail}`, {
         errorMessage: 'Failed to query users',
     })
 
