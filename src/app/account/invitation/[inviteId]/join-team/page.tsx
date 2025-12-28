@@ -40,8 +40,9 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
         queryFn: () => getOrgInfoForInviteAction({ inviteId }),
     })
 
-    // Check if logged-in user's email matches the invite email
-    const emailMismatch = user && org && user.primaryEmailAddress?.emailAddress !== org.email
+    // Check if logged-in user's email matches the invite email (handles both primary and merged emails)
+    const userEmails = user?.emailAddresses?.map((ea) => ea.emailAddress) || []
+    const emailMismatch = user && org && !userEmails.includes(org.email)
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),

@@ -65,11 +65,26 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('id', '=', inviteId)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        const user = await db
+        let user = await db
             .selectFrom('user')
             .select(['id', 'email', 'clerkId'])
             .where('email', '=', loggedInEmail ? loggedInEmail : invite.email)
             .executeTakeFirst()
+
+        // If user not found by email, check if email belongs to any existing Clerk user (handles merged emails)
+        if (!user) {
+            const clerk = await clerkClient()
+            const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
+
+            if (clerkUsers.data.length > 0) {
+                // Check if this Clerk user has a corresponding user in the DB
+                user = await db
+                    .selectFrom('user')
+                    .select(['id', 'email', 'clerkId'])
+                    .where('clerkId', '=', clerkUsers.data[0].id)
+                    .executeTakeFirst()
+            }
+        }
 
         if (!user) {
             throw new ActionFailure({ user: 'does not exist' })

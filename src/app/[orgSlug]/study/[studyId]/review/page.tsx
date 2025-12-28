@@ -34,7 +34,7 @@ export default async function StudyReviewPage(props: {
             <Stack p="xl" gap="xl">
                 <ResearcherBreadcrumbs
                     crumbs={{
-                        orgSlug: draftResult.orgSlug,
+                        orgSlug, // research lab's org slug
                         studyId,
                         current: 'Review submission',
                     }}

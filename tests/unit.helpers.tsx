@@ -312,6 +312,7 @@ type MockSession = {
     clerkUserId: string
     userId: string
     orgSlug: string
+    email?: string
     imageUrl?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
@@ -369,6 +370,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         teams: null,
         orgs,
     }
+    const mockEmail = values.email || faker.internet.email({ provider: 'test.com' })
     const userProperties = {
         id: values.clerkUserId,
         banned: false,
@@ -377,6 +379,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         organizationMemberships: [],
         unsafeMetadata,
         publicMetadata,
+        primaryEmailAddress: { emailAddress: mockEmail },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -472,6 +475,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const mocks = mockClerkSession({
         userId: user.id,
         clerkUserId: user.clerkId,
+        email: user.email ?? undefined,
         orgSlug: org.slug,
         orgId: org.id,
         roles: {

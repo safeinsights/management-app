@@ -36,10 +36,10 @@ describe('syncCurrentClerkUser', () => {
         const { user } = await insertTestUser({ org })
 
         const clerkUser = {
-            id: user.clerkId,
+            id: faker.string.alpha(10), // Different clerkId - lookup is by email now
             firstName: 'Updated',
             lastName: 'Name',
-            primaryEmailAddress: { emailAddress: 'updated@test.com' },
+            primaryEmailAddress: { emailAddress: user.email }, // Same email as existing user
             publicMetadata: {},
         }
 
@@ -56,7 +56,7 @@ describe('syncCurrentClerkUser', () => {
 
         expect(updatedUser.firstName).toBe('Updated')
         expect(updatedUser.lastName).toBe('Name')
-        expect(updatedUser.email).toBe('updated@test.com')
+        expect(updatedUser.clerkId).toBe(clerkUser.id) // clerkId should be updated too
     })
 
     it('should create new user when clerk user does not exist in database', async () => {
@@ -84,12 +84,26 @@ describe('syncCurrentClerkUser', () => {
         expect(createdUser.email).toBe('new@test.com')
     })
 
-    it('should handle missing firstName, lastName, or email gracefully', async () => {
+    it('should throw error when user has no email address', async () => {
         const clerkUser = {
             id: faker.string.alpha(10),
             firstName: null,
             lastName: null,
             primaryEmailAddress: null,
+            publicMetadata: {},
+        }
+
+        currentUserMock.mockResolvedValue(clerkUser)
+
+        await expect(syncCurrentClerkUser()).rejects.toThrow('User has no email address')
+    })
+
+    it('should handle missing firstName and lastName gracefully', async () => {
+        const clerkUser = {
+            id: faker.string.alpha(10),
+            firstName: null,
+            lastName: null,
+            primaryEmailAddress: { emailAddress: 'test@example.com' },
             publicMetadata: {},
         }
 
@@ -106,7 +120,7 @@ describe('syncCurrentClerkUser', () => {
 
         expect(createdUser.firstName).toBe('')
         expect(createdUser.lastName).toBe('')
-        expect(createdUser.email).toBe('')
+        expect(createdUser.email).toBe('test@example.com')
     })
 
     // Note: Org membership sync from Clerk metadata has been removed.
