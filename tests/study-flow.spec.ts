@@ -152,14 +152,15 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles([mainCodeFile, 'tests/coder-files/code.r'])
 
-    const mainFileName = mainCodeFile.split('/').pop()!
-    await page.getByRole('radio', { name: mainFileName }).click()
-
+    // Close the modal first
     await page.getByRole('button', { name: 'Done' }).click()
-
     await expect(page.getByRole('dialog')).not.toBeVisible()
 
+    // Now on the review page, select the main file
     await expect(page.getByRole('heading', { name: /Review uploaded files/i })).toBeVisible({ timeout: 10000 })
+
+    const mainFileName = mainCodeFile.split('/').pop()!
+    await page.getByRole('radio', { name: mainFileName }).click()
 
     await page.getByRole('button', { name: /Proceed to review/i }).click()
 
