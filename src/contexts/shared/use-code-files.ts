@@ -16,6 +16,7 @@ export interface UseCodeFilesReturn {
     allFileNames: string[]
     canProceed: boolean
     hasFiles: boolean
+    lastUpdated: Date | null
     setUploadedFiles: (main: File | null, additional: File[]) => void
     setIDEFiles: (mainFileName: string, fileNames: string[]) => void
     setMainFile: (fileName: string) => void
@@ -26,6 +27,7 @@ export interface UseCodeFilesReturn {
 export function useCodeFiles(): UseCodeFilesReturn {
     const [codeFiles, setCodeFilesState] = useState<CodeFileState>(initialState)
     const [source, setSource] = useState<CodeSource>(null)
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
     const setUploadedFiles = useCallback((main: File | null, additional: File[]) => {
         setCodeFilesState({
@@ -33,6 +35,7 @@ export function useCodeFiles(): UseCodeFilesReturn {
             additionalFiles: additional.map(toMemoryFile),
         })
         setSource('upload')
+        setLastUpdated(new Date())
     }, [])
 
     const setIDEFiles = useCallback((mainFileName: string, fileNames: string[]) => {
@@ -42,6 +45,7 @@ export function useCodeFiles(): UseCodeFilesReturn {
             additionalFiles: additionalFileNames.map((name) => toServerFile(name)),
         })
         setSource('ide')
+        setLastUpdated(new Date())
     }, [])
 
     const setMainFile = useCallback((fileName: string) => {
@@ -67,11 +71,13 @@ export function useCodeFiles(): UseCodeFilesReturn {
                 additionalFiles: prev.additionalFiles.filter((f) => getFileName(f) !== fileName),
             }
         })
+        setLastUpdated(new Date())
     }, [])
 
     const clear = useCallback(() => {
         setCodeFilesState(initialState)
         setSource(null)
+        setLastUpdated(null)
     }, [])
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : null
@@ -94,6 +100,7 @@ export function useCodeFiles(): UseCodeFilesReturn {
         allFileNames,
         canProceed,
         hasFiles,
+        lastUpdated,
         setUploadedFiles,
         setIDEFiles,
         setMainFile,

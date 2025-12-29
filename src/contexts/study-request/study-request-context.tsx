@@ -168,6 +168,7 @@ export function StudyRequestProvider({
             isFormValid,
 
             codeFiles: codeFilesHook.codeFiles,
+            codeFilesLastUpdated: codeFilesHook.lastUpdated,
             mainFileName: codeFilesHook.mainFileName,
             additionalFileNames: codeFilesHook.additionalFileNames,
             canProceedToReview: codeFilesHook.canProceed,
@@ -202,6 +203,7 @@ export function StudyRequestProvider({
             form,
             isFormValid,
             codeFilesHook.codeFiles,
+            codeFilesHook.lastUpdated,
             codeFilesHook.mainFileName,
             codeFilesHook.additionalFileNames,
             codeFilesHook.canProceed,
