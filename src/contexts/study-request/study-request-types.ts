@@ -37,6 +37,7 @@ export interface StudyRequestContextValue {
     existingFiles: ExistingFiles | undefined
     isFormValid: boolean
     codeFiles: CodeFileState
+    codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'
     codeUploadViewMode: 'upload' | 'review'
     canProceedToReview: boolean

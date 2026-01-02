@@ -84,14 +84,29 @@ export function CodeUploadPage({
 
     // Show review mode if files are selected
     if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
-        return <CodeFilesReview onBack={handleBackToUpload} onProceed={handleProceedToReview} />
+        return (
+            <>
+                <CodeFilesReview
+                    onBack={handleBackToUpload}
+                    onProceed={handleProceedToReview}
+                    onOpenUploadModal={openModal}
+                />
+                <CodeUploadModal
+                    isOpen={isModalOpen}
+                    onClose={closeModal}
+                    language={language}
+                    onConfirm={handleFilesConfirmed}
+                    isAddingFiles // review page is adding files, cancel should not reset the files
+                />
+            </>
+        )
     }
 
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 3
+                    Step 4 of 5
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
