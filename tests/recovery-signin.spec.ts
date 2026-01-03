@@ -1,0 +1,52 @@
+import { clerk, expect, test, TestingUsers } from './e2e.helpers'
+
+test.describe('recovery code sign in UI', async () => {
+    // We use a fixed role for this test
+    const role = 'reviewer'
+    const props = TestingUsers[role]
+
+    test('can navigate to recovery code screen and back', async ({ page }) => {
+        await page.goto('/account/signin')
+        await clerk.signOut({ page })
+
+        // 1. Initial sign in
+        await page.getByLabel('email').fill(props.identifier)
+        await page.getByLabel('password').fill(props.password)
+        await page.getByRole('button', { name: 'login' }).click()
+
+        // 2. Wait for MFA challenge
+        await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
+
+        // 3. Click "Try recovery code"
+        const recoveryBtn = page.getByRole('button', { name: /Try recovery code/i })
+        await expect(recoveryBtn).toBeVisible()
+        await recoveryBtn.click()
+
+        // 4. Verify Recovery Code UI
+        await expect(page.getByRole('heading', { name: /Use recovery code to sign in/i })).toBeVisible()
+        await expect(page.getByLabel('Enter recovery code')).toBeVisible()
+
+        // 5. Go back
+        await page.getByRole('button', { name: /Back to options/i }).click()
+
+        // Should see MFA options again
+        await expect(page.getByRole('heading', { name: /multi-factor authentication required/i })).toBeVisible()
+        await expect(page.getByRole('button', { name: /Try recovery code/i })).toBeVisible()
+    })
+
+    test('shows error on incorrect recovery code', async ({ page }) => {
+        await page.goto('/account/signin')
+        await clerk.signOut({ page })
+
+        await page.getByLabel('email').fill(props.identifier)
+        await page.getByLabel('password').fill(props.password)
+        await page.getByRole('button', { name: 'login' }).click()
+
+        await page.getByRole('button', { name: /Try recovery code/i }).click()
+
+        await page.getByLabel('Enter recovery code').fill('wrongcode123')
+        await page.getByRole('button', { name: 'Sign in' }).click()
+
+        await expect(page.getByText(/Code is incorrect or already in use/i)).toBeVisible()
+    })
+})
