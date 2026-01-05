@@ -1,21 +1,9 @@
 'use client'
 
 import { FC } from 'react'
-import {
-    ActionIcon,
-    Button,
-    Divider,
-    Grid,
-    GridCol,
-    Group,
-    Radio,
-    Stack,
-    Text,
-    Title,
-    useMantineTheme,
-} from '@mantine/core'
+import { ActionIcon, Button, Divider, Grid, GridCol, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
 import { Language } from '@/database/types'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
@@ -28,21 +16,19 @@ interface CodeUploadModalProps {
     onClose: () => void
     language: Language
     onConfirm: () => void
+    isAddingFiles?: boolean
 }
 
-export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, language, onConfirm }) => {
+export const CodeUploadModal: FC<CodeUploadModalProps> = ({
+    isOpen,
+    onClose,
+    language,
+    onConfirm,
+    isAddingFiles = false,
+}) => {
     const theme = useMantineTheme()
-    const {
-        allFiles,
-        selectedMainFile,
-        setSelectedMainFile,
-        handleDrop,
-        handleReject,
-        handleRemoveFile,
-        handleConfirm,
-        handleCancel,
-        canConfirm,
-    } = useCodeUploadModal({ onConfirm, onClose })
+    const { allFiles, handleDrop, handleReject, handleRemoveFile, handleConfirm, handleCancel, canConfirm } =
+        useCodeUploadModal({ onConfirm, onClose, isAddingFiles })
 
     return (
         <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
@@ -89,30 +75,30 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({ isOpen, onClose, lan
                         <Divider orientation="vertical" />
                         <GridCol span={{ base: 4, md: 6 }}>
                             <Title order={5}>Uploaded files</Title>
-                            <Text size="xs" c="dimmed" mb="sm">
-                                Select the main file to run
-                            </Text>
-                            <Radio.Group value={selectedMainFile} onChange={setSelectedMainFile}>
-                                <Stack gap="xs">
-                                    {allFiles.map((fileRef) => {
-                                        const fileName = getFileName(fileRef)
-                                        return (
-                                            <Group key={fileName} gap="md" w="100%" justify="space-between">
-                                                <Group gap="sm">
-                                                    <Radio value={fileName} label={fileName} />
-                                                </Group>
-                                                <ActionIcon
-                                                    variant="transparent"
-                                                    aria-label={`Remove file ${fileName}`}
-                                                    onClick={() => handleRemoveFile(fileName)}
-                                                >
-                                                    <XCircleIcon color={theme.colors.grey[2]} weight="bold" />
-                                                </ActionIcon>
+                            <Stack gap="xs" mt="sm">
+                                {allFiles.map((fileRef) => {
+                                    const fileName = getFileName(fileRef)
+                                    return (
+                                        <Group key={fileName} gap="md" w="100%" justify="space-between">
+                                            <Group gap="sm">
+                                                <CheckCircleIcon
+                                                    size={20}
+                                                    color={theme.colors.green[9]}
+                                                    weight="fill"
+                                                />
+                                                <Text size="sm">{fileName}</Text>
                                             </Group>
-                                        )
-                                    })}
-                                </Stack>
-                            </Radio.Group>
+                                            <ActionIcon
+                                                variant="transparent"
+                                                aria-label={`Remove file ${fileName}`}
+                                                onClick={() => handleRemoveFile(fileName)}
+                                            >
+                                                <XCircleIcon color={theme.colors.charcoal[4]} weight="fill" />
+                                            </ActionIcon>
+                                        </Group>
+                                    )
+                                })}
+                            </Stack>
                         </GridCol>
                     </Grid>
                 </Group>
