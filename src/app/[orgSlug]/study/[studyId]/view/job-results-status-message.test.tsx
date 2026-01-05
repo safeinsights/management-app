@@ -231,7 +231,7 @@ describe('JobResultsStatusMessage', () => {
             // Should show files rejected message as it's checked first in the component logic
             expect(
                 screen.getByText(
-                    'The code errored. While logs are not available at this time, consider re-submitting an updated study code.',
+                    'The results of your study have not been released by the data organization, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
         })
