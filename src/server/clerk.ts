@@ -3,7 +3,7 @@ import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { PROD_ENV } from './config'
-import { marshalSession, type syncUserMetadataFn } from './session'
+import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 
 export { type UserSessionWithAbility } from './session'
@@ -107,14 +107,7 @@ export const syncCurrentClerkUser = async () => {
     })
 }
 
-export async function sessionFromClerk() {
+export async function sessionFromClerk(options?: MarshalSessionOptions) {
     const { userId, sessionClaims } = await auth()
-
-    const syncer: syncUserMetadataFn = async () => {
-        await syncCurrentClerkUser()
-        const user = await db.selectFrom('user').select('id').where('clerkId', '=', userId!).executeTakeFirstOrThrow()
-        return await updateClerkUserMetadata(user.id)
-    }
-
-    return await marshalSession(userId, sessionClaims, syncer)
+    return await marshalSession(userId, sessionClaims, options)
 }

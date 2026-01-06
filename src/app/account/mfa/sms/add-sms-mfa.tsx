@@ -18,7 +18,6 @@ import 'react-phone-number-input/style.css'
 import BackupCodes from '../app/backup-codes'
 import styles from './panel.module.css'
 import { Routes } from '@/lib/routes'
-export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa

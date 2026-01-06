@@ -1,3 +1,5 @@
+'use client'
+
 import { CopyingInput } from '@/components/copying-input'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -10,9 +12,10 @@ import { type FileType } from '@/database/types'
 export type JobResultsStatusMessageProps = {
     job: LatestJobForStudy
     files: { fileType: FileType }[]
+    submittingOrgSlug: string
 }
 
-export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, files }) => {
+export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job, files, submittingOrgSlug }) => {
     const { isApproved, isRejected, isFilesRejected, isErrored } = useJobStatus(job.statusChanges)
 
     let message: string
@@ -61,7 +64,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
             {additionalContent}
             {!hideResults && <JobResults job={job} />}
             <Group>
-                <ResubmitButton studyId={job.studyId} />
+                <ResubmitButton studyId={job.studyId} orgSlug={submittingOrgSlug} />
             </Group>
         </Stack>
     )

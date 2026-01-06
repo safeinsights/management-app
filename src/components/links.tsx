@@ -14,11 +14,9 @@ export type LinkProps = AnchorProps & {
 }
 
 export const Link: FC<LinkProps> = ({ href, target, children, ...anchorProps }) => (
-    <NextLink href={href} target={target} passHref>
-        <MantineAnchor component="span" {...anchorProps}>
-            {children}
-        </MantineAnchor>
-    </NextLink>
+    <MantineAnchor component={NextLink} href={href} target={target} {...anchorProps}>
+        {children}
+    </MantineAnchor>
 )
 
 export type ButtonLinkProps = ButtonProps & {

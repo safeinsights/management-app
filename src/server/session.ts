@@ -2,33 +2,98 @@ import { UserSession } from '@/lib/types'
 import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
+import { db } from '@/database'
+import { clerkClient } from '@clerk/nextjs/server'
+import { getOrgInfoForUserId } from './db/queries'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
 
-export type syncUserMetadataFn = (userId: string) => Promise<UserInfo | null>
+export interface MarshalSessionOptions {
+    forceUpdate?: boolean
+}
+
+async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo | null> {
+    const client = await clerkClient()
+    const clerkUser = await client.users.getUser(clerkUserId)
+
+    const email = clerkUser.primaryEmailAddress?.emailAddress?.toLowerCase()
+    if (!email) {
+        logger.warn(`clerk user ${clerkUserId} has no email address`)
+        return null
+    }
+
+    const userAttrs = {
+        clerkId: clerkUser.id,
+        firstName: clerkUser.firstName ?? '',
+        lastName: clerkUser.lastName ?? '',
+        email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
+    }
+
+    const user = await db.transaction().execute(async (trx) => {
+        const existing = await trx
+            .selectFrom('user')
+            .select('id')
+            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
+            .executeTakeFirst()
+
+        if (existing) {
+            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
+            return existing
+        }
+
+        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
+    })
+
+    const orgs = await getOrgInfoForUserId(user.id)
+    const metadata: UserInfo = {
+        format: 'v3',
+        user: { id: user.id },
+        teams: null,
+        orgs: orgs.reduce(
+            (acc, org) => {
+                acc[org.slug] = {
+                    ...org,
+                    isAdmin: org.isAdmin || false,
+                }
+                return acc
+            },
+            {} as UserInfo['orgs'],
+        ),
+    }
+
+    logger.info('Updating user metadata for clerkId:', clerkUserId, 'with metadata:', metadata)
+
+    await client.users.updateUserMetadata(clerkUserId, {
+        publicMetadata: metadata as unknown as UserPublicMetadata,
+    })
+
+    return metadata
+}
 
 export async function marshalSession(
     clerkUserId: string | null,
     sessionClaims: JwtPayload | null,
-    syncer?: syncUserMetadataFn,
+    options: MarshalSessionOptions = {},
 ) {
     if (!clerkUserId || !sessionClaims) return null
 
-    // Flattened structure - userMetadata is directly UserInfo
+    const { forceUpdate = false } = options
+
     let info: UserInfo | null = (sessionClaims.userMetadata as UserInfo) || null
 
-    if (!info || !info.format) {
-        logger.info(`clerk user ${clerkUserId} does not have valid metadata, syncing: ${syncer ? 'yes' : 'no'}`)
-        if (syncer) {
-            info = await syncer(clerkUserId)
-            if (info) {
-                sessionClaims.userMetadata = info
-            } else {
-                logger.warn(`clerk user ${clerkUserId} metadata sync failed`)
-                return null
-            }
+    const needsUpdate = !info || info.format !== 'v3' || forceUpdate
+
+    if (needsUpdate) {
+        logger.info(
+            `clerk user ${clerkUserId} needs metadata update (missing: ${!info}, format: ${info?.format}, forceUpdate: ${forceUpdate})`,
+        )
+
+        info = await syncAndUpdateUserMetadata(clerkUserId)
+        if (info) {
+            sessionClaims.userMetadata = info
         } else {
+            logger.warn(`clerk user ${clerkUserId} metadata sync failed`)
             return null
         }
     }

@@ -14,8 +14,6 @@ import { useRouter } from 'next/navigation'
 import { Step } from './mfa'
 import { Routes } from '@/lib/routes'
 
-export const dynamic = 'force-dynamic'
-
 export const RecoveryCodeMFAReset = ({ setStep }: { setStep: (step: Step) => void }) => {
     const { isLoaded: isSignInLoaded, signIn, setActive } = useSignIn()
     const router = useRouter()
