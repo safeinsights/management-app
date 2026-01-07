@@ -90,32 +90,6 @@ test.describe('recovery code sign in UI', async () => {
         await page.getByRole('button', { name: 'Sign in' }).click()
 
         // Wait for the error message to appear (with extended timeout for slow CI)
-        try {
-            await expect(page.getByText(/Code is incorrect or already in use/i)).toBeVisible({ timeout: 15000 })
-        } catch (err) {
-            // Diagnostics to explain CI-only mismatch.
-            const url = page.url()
-            const alerts = await page
-                .locator('[role="alert"]')
-                .allInnerTexts()
-                .catch(() => [])
-
-            // Try a few likely containers first to keep output small.
-            const formText = await page
-                .locator('form')
-                .innerText()
-                .catch(() => null)
-            const bodyText = await page
-                .locator('body')
-                .innerText()
-                .catch(() => null)
-
-            console.log('[e2e][recovery-signin] expected recovery-code error text not found')
-            console.log('[e2e][recovery-signin] url:', url)
-            if (alerts.length) console.log('[e2e][recovery-signin] role=alert texts:', JSON.stringify(alerts))
-            const snippet = (formText || bodyText || '').replace(/\s+/g, ' ').trim().slice(0, 500)
-            console.log('[e2e][recovery-signin] page text snippet:', JSON.stringify(snippet))
-            throw err
-        }
+        await expect(page.getByText(/Code is incorrect or already in use/i)).toBeVisible({ timeout: 15000 })
     })
 })
