@@ -1,6 +1,5 @@
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
-export const dynamic = 'force-dynamic'
 
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>

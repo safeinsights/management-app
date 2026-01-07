@@ -1,5 +1,3 @@
-export const dynamic = 'force-dynamic' // defaults to auto
-
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { NotFoundError, throwNotFound } from '@/lib/errors'

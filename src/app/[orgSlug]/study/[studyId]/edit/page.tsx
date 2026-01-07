@@ -4,8 +4,6 @@ import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { StudyProposal } from '../../request/proposal'
 
-export const dynamic = 'force-dynamic'
-
 export default async function StudyEditPage(props: { params: Promise<{ studyId: string }> }) {
     const params = await props.params
     const { studyId } = params

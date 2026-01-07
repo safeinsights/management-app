@@ -31,7 +31,7 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
     return NextResponse.redirect(new URL('/dashboard', request.url))
 }
 
-export default clerkMiddleware(async (auth, req) => {
+export const proxy = clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
     let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)

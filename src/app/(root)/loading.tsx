@@ -1,13 +1,11 @@
+import DashboardSkeleton from '@/components/layout/skeleton/dashboard'
 import { mainStyles, pageStyles } from '@/styles/common'
-import { UserNav } from './user-nav'
 
-// TODO Remove this root page?,
-//  or route users based on their roles to correct pages?
-export default function Home() {
+export default function LoadingRoot() {
     return (
         <div className={pageStyles}>
             <main className={mainStyles}>
-                <UserNav />
+                <DashboardSkeleton />
             </main>
         </div>
     )

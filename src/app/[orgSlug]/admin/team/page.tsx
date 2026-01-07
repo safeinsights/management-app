@@ -5,8 +5,6 @@ import { RequireOrgAdmin } from '@/components/require-org-admin'
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import { Routes } from '@/lib/routes'
 
-export const dynamic = 'force-dynamic'
-
 export default async function UsersListingPage(props: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await props.params
 

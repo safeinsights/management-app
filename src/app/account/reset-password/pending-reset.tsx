@@ -108,8 +108,8 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push((redirectUrl as Route) ?? Routes.home)
+                const redirectUrl = searchParams.get('redirect_url') ?? Routes.home
+                router.push(redirectUrl as Route)
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)
