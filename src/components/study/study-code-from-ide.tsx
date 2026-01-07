@@ -55,19 +55,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
         body = (
             <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
                 <Stack align="center" gap="md">
-                    <Text c="dimmed">
-                        {ide.isLoadingFiles ? 'Loading files...' : 'You have not imported any files yet.'}
-                    </Text>
-                    {!ide.isLoadingFiles && (
-                        <Button
-                            variant="transparent"
-                            leftSection={<DownloadSimpleIcon size={16} />}
-                            onClick={ide.importFiles}
-                            loading={ide.isLoadingFiles}
-                        >
-                            Import files from IDE
-                        </Button>
-                    )}
+                    <Text c="dimmed">{ide.isLoadingFiles ? 'Loading files...' : 'No files found in workspace.'}</Text>
                 </Stack>
             </Box>
         )
@@ -87,17 +75,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files from IDE</Text>
                     <OpenStaxOnly orgSlug={studyOrgSlug}>
-                        <Group>
-                            {launchButton}
-                            <Button
-                                variant="filled"
-                                leftSection={<DownloadSimpleIcon size={16} />}
-                                onClick={ide.importFiles}
-                                loading={ide.isLoadingFiles}
-                            >
-                                Import files from IDE
-                            </Button>
-                        </Group>
+                        <Group>{launchButton}</Group>
                     </OpenStaxOnly>
                 </Group>
 
