@@ -1,4 +1,4 @@
-import { renderWithProviders, fireEvent, screen, waitFor, userEvent } from '@/tests/unit.helpers'
+import { renderWithProviders, fireEvent, screen, waitFor, userEvent, Mock } from '@/tests/unit.helpers'
 import { vi, describe, it, expect } from 'vitest'
 import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { useSignIn } from '@clerk/nextjs'
@@ -22,8 +22,7 @@ describe('RecoveryCodeSignIn', () => {
         const mockSetActive = vi.fn()
 
         // Override the global mock
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(useSignIn as any).mockReturnValue({
+        ;(useSignIn as Mock).mockReturnValue({
             isLoaded: true,
             signIn: { attemptSecondFactor: mockAttemptSecondFactor },
             setActive: mockSetActive,
