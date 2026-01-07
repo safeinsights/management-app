@@ -1,3 +1,5 @@
+'use client'
+
 import { Anchor as MantineAnchor, AnchorProps, Button, ButtonProps } from '@mantine/core'
 import { FC, ReactNode } from 'react'
 import NextLink from 'next/link'
@@ -23,7 +25,7 @@ export type ButtonLinkProps = ButtonProps & {
 }
 
 export const ButtonLink: FC<ButtonLinkProps> = ({ href, target, children, ...anchorProps }) => (
-    <Button component={Link} href={href} target={target} {...anchorProps}>
+    <Button component={NextLink} href={href} target={target} {...anchorProps}>
         {children}
     </Button>
 )

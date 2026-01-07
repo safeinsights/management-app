@@ -1,12 +1,12 @@
 'use client'
 
 import { Button } from '@mantine/core'
-import { Link } from '../links'
+import NextLink from 'next/link'
 import { Routes } from '@/lib/routes'
 
 export const ResubmitButton = ({ studyId, orgSlug }: { studyId: string; orgSlug: string }) => {
     return (
-        <Button component={Link} href={Routes.studyResubmit({ orgSlug, studyId })}>
+        <Button component={NextLink} href={Routes.studyResubmit({ orgSlug, studyId })}>
             + Resubmit study code
         </Button>
     )
