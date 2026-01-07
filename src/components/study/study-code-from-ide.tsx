@@ -3,12 +3,7 @@
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import {
-    ArrowSquareOutIcon,
-    CaretLeftIcon,
-    DownloadSimpleIcon,
-    WarningCircleIcon,
-} from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
 import { OpenStaxOnly } from '@/components/openstax-only'

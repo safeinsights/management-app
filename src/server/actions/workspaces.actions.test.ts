@@ -1,4 +1,3 @@
-
 import { describe, expect, test, afterEach } from 'vitest'
 import { listWorkspaceFilesAction } from './workspaces.actions'
 import * as fs from 'node:fs/promises'
@@ -9,21 +8,25 @@ describe('Workspace Actions', () => {
     // Setup a temp directory for this test suite
     const TEST_CODER_FILES = '/tmp/coder-test-suite-' + Math.random().toString(36).slice(2)
     const STUDY_ID = 'test-study-efs-unit'
-    
+
     // Save original env var to restore later
     const originalCoderFiles = process.env.CODER_FILES
 
     // Ensure clean state before start (unlikely collision but good practice)
     try {
         await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
-    } catch {}
+    } catch {
+        // ignore
+    }
 
     afterEach(async () => {
         // Cleanup after each test
         try {
             await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
-        } catch {}
-        
+        } catch {
+            // ignore
+        }
+
         // Restore environment
         if (originalCoderFiles) {
             process.env.CODER_FILES = originalCoderFiles

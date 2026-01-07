@@ -170,10 +170,7 @@ async function uploadCodeViaFileUpload(page: Page, mainCodeFile: string) {
 async function uploadCodeViaIDE(page: Page) {
     const launchButton = page.getByRole('button', { name: /Launch IDE/i })
 
-    const [popup] = await Promise.all([
-        page.waitForEvent('popup', { timeout: 5000 }).catch(() => null),
-        launchButton.click(),
-    ])
+    await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
     // Wait for files to appear (auto-sync)
     await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })

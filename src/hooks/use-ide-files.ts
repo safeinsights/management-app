@@ -2,7 +2,7 @@ import { useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles } from './use-workspace-files'
 import { useFileListManager } from './use-file-list-manager'
@@ -17,8 +17,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const router = useRouter()
     const queryClient = useQueryClient()
     const { setIDECodeFiles } = useStudyRequest()
-
-
 
     const {
         launchWorkspace,
@@ -37,8 +35,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
     const showEmptyState = fileManager.filteredFiles.length === 0 && !workspace.isLoading
     const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
-
-
 
     const goBack = useCallback(() => {
         router.push(Routes.studyCode({ orgSlug, studyId }))
@@ -72,7 +68,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         launchWorkspace,
         isLaunching,
         launchError,
-
 
         isLoadingFiles: workspace.isLoading,
         showEmptyState,
