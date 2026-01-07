@@ -1,14 +1,12 @@
-import { Link } from '@/components/links'
 import { db } from '@/database'
 import { sessionFromClerk } from '@/server/clerk'
-import { Button, Flex, Paper, Text, Title } from '@mantine/core'
-import type { Route } from 'next'
 import { redirect, RedirectType } from 'next/navigation'
-import { FC } from 'react'
 import { SignOutPanel } from './signout-panel'
 import { Routes } from '@/lib/routes'
 import { clerkClient } from '@clerk/nextjs/server'
-export const dynamic = 'force-dynamic'
+import { ButtonLink } from '@/components/links'
+import { Flex, Paper, Text, Title } from '@mantine/core'
+import type { Route } from 'next'
 
 export default async function AcceptInvitePage({ params }: { params: Promise<{ inviteId: string }> }) {
     const session = await sessionFromClerk()
@@ -76,29 +74,15 @@ export default async function AcceptInvitePage({ params }: { params: Promise<{ i
         // redirect to the join team page after signing in
         const joinTeamUrl = Routes.accountInvitationJoinTeam({ inviteId })
         redirect(`/account/signin?redirect_url=${joinTeamUrl}`, RedirectType.replace)
-    } else {
-        return (
-            <InviteAccountPanel
-                orgName={pendingInvite?.orgName}
-                isAdmin={pendingInvite?.isAdmin}
-                invitingUserName={invitingUserName}
-                inviteId={inviteId}
-            />
-        )
     }
-}
 
-const InviteAccountPanel: FC<{
-    orgName?: string
-    isAdmin?: boolean
-    invitingUserName?: string
-    inviteId: string
-}> = ({ orgName, isAdmin, invitingUserName, inviteId }) => {
+    const { orgName, isAdmin } = pendingInvite
+
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>
             <Flex direction="column" maw={500} mx="auto" pb="xxl" gap="md">
                 <Title order={3} ta="center">
-                    You’ve been invited to join SafeInsights!
+                    You&apos;ve been invited to join SafeInsights!
                 </Title>
                 <Text size="md" my="xs">
                     {invitingUserName} has invited you to join {orgName} as a {isAdmin ? 'admin' : 'contributor'}. Since
@@ -108,15 +92,14 @@ const InviteAccountPanel: FC<{
                 <Text size="md" fw={600} ta="center">
                     Already have a SafeInsights account?
                 </Text>
-                <Button
+                <ButtonLink
                     variant="filled"
                     size="lg"
-                    component={Link}
                     href={`/account/signin?invite_id=${inviteId}` as Route}
-                    w="100%"
+                    fullWidth
                 >
                     Login with existing account
-                </Button>
+                </ButtonLink>
                 <Text size="sm" c="red.8">
                     <b>Note:</b> Strongly recommended if you already have an account, since merging accounts later is
                     not supported.
@@ -127,15 +110,9 @@ const InviteAccountPanel: FC<{
                 <Text size="md" fw={600} ta="center">
                     Setting up a new SafeInsights account?
                 </Text>
-                <Button
-                    variant="outline"
-                    size="lg"
-                    component={Link}
-                    href={Routes.accountInvitationSignup({ inviteId })}
-                    w="100%"
-                >
+                <ButtonLink variant="outline" size="lg" href={Routes.accountInvitationSignup({ inviteId })} fullWidth>
                     Create New Account
-                </Button>
+                </ButtonLink>
             </Flex>
         </Paper>
     )

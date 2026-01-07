@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 import 'dotenv/config'
 import { createClerkClient, type ClerkClient } from '@clerk/backend'
+import { isTestUser, getProtectedTestEmails } from '@/lib/clerk'
 // @ts-expect-error - minimist types don't match ESM import
 import minimist from 'minimist'
 
@@ -144,7 +145,10 @@ async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, con
 
     console.log('\nFetching existing users in target...')
     const existingEmails = config.skipExisting ? await getExistingUserEmails(targetClerk) : new Set<string>()
-    console.log(`  Found ${existingEmails.size} existing users in target\n`)
+    console.log(`  Found ${existingEmails.size} existing users in target`)
+
+    const protectedTestEmails = getProtectedTestEmails()
+    console.log(`  Skipping test users (except ${protectedTestEmails.size} protected seeded accounts)\n`)
 
     const pageSize = 100
     let offset = 0
@@ -172,6 +176,13 @@ async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, con
 
             if (primaryEmail && existingEmails.has(primaryEmail.toLowerCase())) {
                 console.log(`  ⏭️  Skipped: ${displayName} (already exists)`)
+                result.skipped++
+                continue
+            }
+
+            // Skip test users (but allow protected seeded test accounts)
+            if (isTestUser(user, protectedTestEmails)) {
+                console.log(`  ⏭️  Skipped: ${displayName} (test user)`)
                 result.skipped++
                 continue
             }

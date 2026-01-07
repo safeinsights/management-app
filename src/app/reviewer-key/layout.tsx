@@ -1,9 +1,9 @@
-export const dynamic = 'force-dynamic'
-
 import { UserLayout } from '@/components/layout/user-layout'
 import { actionResult } from '@/lib/utils'
 import { reviewerKeyExistsAction } from '@/server/actions/user-keys.actions'
 import { redirect } from 'next/navigation'
+
+export const dynamic = 'force-dynamic'
 
 type Props = { children: React.ReactNode }
 

@@ -8,9 +8,10 @@ import { getFileName, type FileRef } from '@/contexts/shared/file-types'
 interface UseCodeUploadModalOptions {
     onConfirm: () => void
     onClose: () => void
+    isAddingFiles?: boolean
 }
 
-export function useCodeUploadModal({ onConfirm, onClose }: UseCodeUploadModalOptions) {
+export function useCodeUploadModal({ onConfirm, onClose, isAddingFiles = false }: UseCodeUploadModalOptions) {
     const { codeFiles, setCodeFiles, removeCodeFile, setMainCodeFile, clearCodeFiles } = useStudyRequest()
     const [selectedMainFile, setSelectedMainFile] = useState<string>('')
 
@@ -69,10 +70,12 @@ export function useCodeUploadModal({ onConfirm, onClose }: UseCodeUploadModalOpt
     }, [selectedMainFile, allFiles.length, setMainCodeFile, onConfirm])
 
     const handleCancel = useCallback(() => {
-        clearCodeFiles()
-        setSelectedMainFile('')
+        if (!isAddingFiles) {
+            clearCodeFiles()
+            setSelectedMainFile('')
+        }
         onClose()
-    }, [clearCodeFiles, onClose])
+    }, [clearCodeFiles, isAddingFiles, onClose])
 
     const canConfirm = !!selectedMainFile && allFiles.length > 0
 

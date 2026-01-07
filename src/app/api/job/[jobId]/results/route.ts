@@ -1,6 +1,5 @@
 import { sendResultsReadyForReviewEmail } from '@/server/mailer'
 
-export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { NextResponse } from 'next/server'
 import { apiRequestingOrg, wrapApiOrgAction } from '@/server/api-wrappers'
