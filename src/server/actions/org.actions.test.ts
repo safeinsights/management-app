@@ -87,7 +87,7 @@ describe('Org Actions', () => {
     })
 
     describe('updateOrgSettingsAction', () => {
-        const targetOrgSlug = faker.string.alpha()
+        const targetOrgSlug = faker.string.alpha(10)
         const initialName = 'Initial Org Name for Settings Update'
         const initialDescription = 'Initial Org Description for Settings Update'
         let targetOrg: Org
@@ -106,7 +106,7 @@ describe('Org Actions', () => {
             const newDescription = 'Updated Org Description Successfully by Test'
 
             const secondOrg = await insertTestOrg({
-                slug: faker.string.alpha(),
+                slug: faker.string.alpha(10),
                 name: initialName,
                 description: initialDescription,
             })

@@ -20,8 +20,6 @@ const HasMFA = () => {
     )
 }
 
-export const dynamic = 'force-dynamic'
-
 export function ManageMFA() {
     const { isLoaded, user } = useUser()
 

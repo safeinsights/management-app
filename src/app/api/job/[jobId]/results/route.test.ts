@@ -9,6 +9,14 @@ vi.mock('@/server/mailer', () => ({
     sendResultsReadyForReviewEmail: vi.fn(),
 }))
 
+vi.mock('@/server/aws', () => ({
+    storeS3File: vi.fn(),
+    fetchS3File: vi.fn(async function* () {
+        yield new Uint8Array([116, 101, 115, 116]) // 'test'
+    }),
+    signedUrlForFile: vi.fn(),
+}))
+
 test('uploading results', async () => {
     const org = await insertTestOrg()
 

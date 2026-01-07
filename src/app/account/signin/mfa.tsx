@@ -16,7 +16,6 @@ import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitatio
 import { MFAState } from './logic'
 import { RecoveryCodeMFAReset } from './reset-mfa'
 import { VerifyCode } from './verify-code'
-export const dynamic = 'force-dynamic'
 
 export type Step = 'select' | 'verify' | 'reset'
 type Method = 'sms' | 'totp'
@@ -71,7 +70,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
-                        let redirectUrl = searchParams.get('redirect_url') || Routes.dashboard
+                        let redirectUrl: Route = (searchParams.get('redirect_url') as Route) || Routes.dashboard
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
@@ -83,7 +82,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 )
 
                                 const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                redirectUrl = Routes.orgDashboard({ orgSlug: slug })
+                                redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
 
                                 const email = signInAttempt?.identifier || 'your account'
                                 notifications.show({
@@ -109,14 +108,14 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 }
                             }
                         }
-                        router.push((redirectUrl as Route) ?? Routes.dashboard)
+                        router.push(redirectUrl)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    const redirectUrl = searchParams.get('redirect_url')
-                    router.push((redirectUrl as Route) ?? Routes.home)
+                    const redirectUrl = searchParams.get('redirect_url') || Routes.home
+                    router.push(redirectUrl as Route)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
