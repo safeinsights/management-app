@@ -38,8 +38,8 @@ describe('Workspace Actions', () => {
         // Point to our temp location which currently does not exist
         process.env.CODER_FILES = TEST_CODER_FILES
 
-        const { org } = await mockSessionWithTestData()
-        const { study } = await insertTestStudyJobData({ org })
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
 
@@ -53,8 +53,8 @@ describe('Workspace Actions', () => {
     test('listWorkspaceFilesAction lists files from workspace directory', async () => {
         process.env.CODER_FILES = TEST_CODER_FILES
 
-        const { org } = await mockSessionWithTestData()
-        const { study } = await insertTestStudyJobData({ org })
+        const { org, user } = await mockSessionWithTestData()
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
         const studyDir = path.join(TEST_CODER_FILES, study.id)
 
