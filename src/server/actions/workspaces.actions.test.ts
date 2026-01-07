@@ -1,8 +1,9 @@
 import { mockSessionWithTestData, actionResult, insertTestStudyJobData } from '@/tests/unit.helpers'
-import { describe, expect, test, afterEach } from 'vitest'
-import { listWorkspaceFilesAction } from './workspaces.actions'
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+
+// Mock dependencies moved to doMock in beforeEach
 
 describe('Workspace Actions', () => {
     // Setup a temp directory for this test suite
@@ -17,6 +18,20 @@ describe('Workspace Actions', () => {
     } catch {
         // ignore
     }
+
+    beforeEach(() => {
+        vi.resetModules() // Ensure we get fresh modules with our mocks applied
+
+        // Define the mock for this test run
+        vi.doMock('@/server/config', async (importOriginal) => {
+            const mod = await importOriginal<typeof import('@/server/config')>()
+            return {
+                ...mod,
+                CODER_DISABLED: false, // Force false to test production path logic
+                getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
+            }
+        })
+    })
 
     afterEach(async () => {
         // Cleanup after each test
@@ -41,6 +56,9 @@ describe('Workspace Actions', () => {
         const { org, user } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
+        // Dynamic import to ensure it picks up the mock after resetModules
+        const { listWorkspaceFilesAction } = await import('./workspaces.actions')
+
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
 
         // Should return empty list, not throw
@@ -64,6 +82,9 @@ describe('Workspace Actions', () => {
         await fs.writeFile(path.join(studyDir, 'README.md'), '# readme')
         await fs.writeFile(path.join(studyDir, 'data.csv'), '1,2,3') // File
         await fs.mkdir(path.join(studyDir, 'subdir')) // Directory (should be ignored based on logic)
+
+        // Dynamic import to ensure it picks up the mock after resetModules
+        const { listWorkspaceFilesAction } = await import('./workspaces.actions')
 
         const result = actionResult(await listWorkspaceFilesAction({ studyId: study.id }))
 
