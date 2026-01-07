@@ -1,6 +1,7 @@
 import { InputError } from '@/components/errors'
+import OtpInput from '@/components/otp-input'
 import { SignInResource } from '@clerk/types'
-import { Anchor, Button, Group, PinInput, Text, Title } from '@mantine/core'
+import { Anchor, Button, Group, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
@@ -37,15 +38,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
             <Title order={4} ta="center" mt="xs" mb={'-0.5rem'}>
                 Enter your code
             </Title>
-            <PinInput
-                length={6}
-                placeholder="0"
-                size="lg"
-                type="number"
-                data-testid="sms-pin-input"
-                error={!!form.errors.code}
-                {...form.getInputProps('code')}
-            />
+            <OtpInput form={form} />
             <InputError error={form.errors.code} />
             <Button
                 type="submit"
