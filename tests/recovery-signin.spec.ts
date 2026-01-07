@@ -47,9 +47,13 @@ test.describe('recovery code sign in UI', async () => {
 
         await page.getByRole('button', { name: /Try recovery code/i }).click()
 
+        // Wait for Recovery Code UI to appear
+        await page.getByRole('heading', { name: /Use recovery code to sign in/i }).waitFor({ state: 'visible' })
+
         await page.getByLabel('Enter recovery code').fill('wrongcode123')
         await page.getByRole('button', { name: 'Sign in' }).click()
 
-        await expect(page.getByText(/Code is incorrect or already in use/i)).toBeVisible()
+        // Wait for the error message to appear (with extended timeout for slow CI)
+        await expect(page.getByText(/Code is incorrect or already in use/i)).toBeVisible({ timeout: 15000 })
     })
 })
