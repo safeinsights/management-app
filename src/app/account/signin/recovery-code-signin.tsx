@@ -2,6 +2,7 @@
 
 import { InputError } from '@/components/errors'
 import { useMutation } from '@/hooks/query-wrappers'
+import { errorToString } from '@/lib/errors'
 import { useSignIn } from '@clerk/nextjs'
 import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
@@ -45,8 +46,13 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
             })
             router.push(Routes.dashboard)
         },
-        onError: () => {
-            form.setFieldError('code', 'Code is incorrect or already in use. Please try another.')
+        onError: (err) => {
+            form.setFieldError(
+                'code',
+                errorToString(err, {
+                    form_code_incorrect: 'Code is incorrect or already in use. Please try another.',
+                }),
+            )
         },
     })
 
