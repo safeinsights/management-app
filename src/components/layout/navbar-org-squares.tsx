@@ -78,7 +78,7 @@ export const NavbarOrgSquares: React.FC<Props> = ({ isMainDashboard, focusedOrgS
                             color="white"
                             isActive={isActive}
                             href={Routes.orgDashboard({ orgSlug: org.slug })}
-                            eventCount={org.eventCount}
+                            eventCount={isActive ? 0 : org.eventCount}
                         >
                             {orgInitials(org.name, org.type)}
                         </Square>
