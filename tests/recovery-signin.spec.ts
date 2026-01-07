@@ -42,6 +42,9 @@ test.describe('recovery code sign in UI', async () => {
         await page.getByLabel('password').fill(props.password)
         await page.getByRole('button', { name: 'login' }).click()
 
+        // Wait for MFA challenge page to fully load (matches pattern in test above)
+        await page.getByRole('heading', { name: /multi-factor authentication required/i }).waitFor({ state: 'visible' })
+
         await page.getByRole('button', { name: /Try recovery code/i }).click()
 
         await page.getByLabel('Enter recovery code').fill('wrongcode123')
