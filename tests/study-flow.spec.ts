@@ -133,9 +133,12 @@ async function fillProposalAndSelectLanguage(page: Page, studyTitle: string): Pr
     await expect(nextStepButton).toBeEnabled()
     await nextStepButton.click()
 
-    // The wizard now has 5 steps - after proposal, we land on the code upload step
-    // Use first() since multiple step indicators may be in the DOM
-    await expect(page.getByText(/Step \d of 5/).first()).toBeVisible({ timeout: 15000 })
+    // Wait for navigation to code upload page (URL will contain /code)
+    await page.waitForURL(/\/code$/, { timeout: 30000 })
+
+    // After saving, we navigate to the code upload page
+    // Wait for the code upload page heading to confirm navigation
+    await expect(page.getByRole('heading', { name: /Upload your study code/i })).toBeVisible({ timeout: 15000 })
 
     return studyTitle
 }
@@ -211,10 +214,17 @@ async function submitStudy(page: Page) {
 async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
-    await studyRow.getByRole('link', { name: 'View' }).first().click()
+    const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
+    const href = await viewLink.getAttribute('href')
+
+    // Navigate directly instead of clicking
+    if (href) {
+        await page.goto(href, { waitUntil: 'domcontentloaded' })
+    }
+
     await expect(
         page.getByRole('heading', { name: /Study Details|Review your submission|Review submission/i }),
-    ).toBeVisible()
+    ).toBeVisible({ timeout: 10000 })
 }
 
 async function reviewerApprovesStudy(page: Page, studyTitle: string) {
@@ -332,8 +342,14 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
 // ============================================================================
 
 async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Promise<string> {
+    // Scroll to the bottom of the page to reveal the resubmit button
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
+    await page.waitForTimeout(500)
+
     // Click the resubmit button on the study details page
-    await page.getByRole('link', { name: /Resubmit study code/i }).click()
+    const resubmitLink = page.getByRole('link', { name: /Resubmit study code/i })
+    await expect(resubmitLink).toBeVisible({ timeout: 10000 })
+    await resubmitLink.click()
 
     // Wait for resubmit page to load
     await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })

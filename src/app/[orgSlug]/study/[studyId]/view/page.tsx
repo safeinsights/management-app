@@ -11,8 +11,6 @@ import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 
-export const dynamic = 'force-dynamic'
-
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
 
@@ -77,7 +75,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
                         {!isErrored && <ApprovalStatus job={job} orgSlug={study.orgSlug} type="files" />}
                     </Group>
                     <Divider c="dimmed" />
-                    <JobResultsStatusMessage job={job} files={job.files} />
+                    <JobResultsStatusMessage job={job} files={job.files} submittingOrgSlug={orgSlug} />
                 </Stack>
             </Paper>
         </Stack>

@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
