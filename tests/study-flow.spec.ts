@@ -175,13 +175,8 @@ async function uploadCodeViaIDE(page: Page) {
         launchButton.click(),
     ])
 
-    expect(popup).not.toBeNull()
-
-    const importBtn = page.getByRole('button', { name: /Import files from IDE/i }).first()
-    await expect(importBtn).toBeVisible({ timeout: 10000 })
-
-    await importBtn.click()
-    await expect(page.getByText(/main.r/i)).toBeVisible()
+    // Wait for files to appear (auto-sync)
+    await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
 
     await page.getByRole('button', { name: /proceed to review/i }).click()
 
@@ -377,13 +372,8 @@ async function resubmitCodeViaIDE(page: Page): Promise<string> {
     const launchButton = page.getByRole('button', { name: /Launch IDE/i })
     await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
 
-    // Import files from IDE
-    const importBtn = page.getByRole('button', { name: /Import files from IDE/i }).first()
-    await expect(importBtn).toBeVisible({ timeout: 10000 })
-    await importBtn.click()
-
-    // Wait for files to appear
-    await expect(page.getByText(/main.r/i)).toBeVisible()
+    // Wait for files to appear (auto-sync)
+    await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
 
     // Submit the resubmission
     await page.getByRole('button', { name: /Resubmit study code/i }).click()
