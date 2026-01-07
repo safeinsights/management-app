@@ -14,7 +14,7 @@ describe('Workspace Actions', () => {
 
     // Ensure clean state before start (unlikely collision but good practice)
     try {
-        await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
+        fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
     } catch {
         // ignore
     }
