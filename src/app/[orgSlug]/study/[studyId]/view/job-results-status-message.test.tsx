@@ -39,7 +39,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
             const files = createMockFiles(['APPROVED-LOG', 'APPROVED-RESULT'])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -56,7 +56,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
             const files = createMockFiles(['APPROVED-RESULT'])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -72,7 +72,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
             const files = createMockFiles(['ENCRYPTED-LOG'])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -87,7 +87,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -105,11 +105,11 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-REJECTED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
-                    'The code errored. While logs are not available at this time, consider re-submitting an updated study code.',
+                    'The results of your study have not been released by the data organization, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
             expect(screen.queryByTestId('job-results')).toBeNull()
@@ -120,7 +120,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['CODE-REJECTED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -135,7 +135,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['CODE-REJECTED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(screen.queryByTestId('job-results')).toBeNull()
         })
@@ -146,7 +146,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['RUN-COMPLETE'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -161,7 +161,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['INITIATED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -176,7 +176,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob([])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -189,7 +189,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
             const files: { fileType: FileType }[] = []
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -202,7 +202,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(screen.getByTestId('resubmit-button')).toBeDefined()
         })
@@ -213,7 +213,7 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED', 'RUN-COMPLETE'])
             const files = createMockFiles(['APPROVED-LOG'])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             expect(
                 screen.getByText(
@@ -226,12 +226,12 @@ describe('JobResultsStatusMessage', () => {
             const job = createMockJob(['CODE-REJECTED', 'FILES-REJECTED'])
             const files = createMockFiles([])
 
-            renderWithProviders(<JobResultsStatusMessage job={job} files={files} />)
+            renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
             // Should show files rejected message as it's checked first in the component logic
             expect(
                 screen.getByText(
-                    'The code errored. While logs are not available at this time, consider re-submitting an updated study code.',
+                    'The results of your study have not been released by the data organization, possibly due to the presence of personally identifiable information (PII). Consider resubmitting an updated study code.',
                 ),
             ).toBeDefined()
         })

@@ -32,8 +32,6 @@ type AddTotpSteps = 'add' | 'verify' | 'success'
 
 type DisplayFormat = 'qr' | 'uri'
 
-export const dynamic = 'force-dynamic'
-
 function AddTotpScreenContent({
     setStep,
     setBackupCodes,

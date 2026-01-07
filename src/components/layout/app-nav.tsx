@@ -24,9 +24,8 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop
         return [...orgs].sort((a, b) => a.name.localeCompare(b.name))
     }, [orgs])
 
-    const isMainDashboard = path == '/dashboard'
-
     const focusedOrgSlug = extractOrgSlugFromPath(path)
+    const isMainDashboard = path == '/dashboard' || !focusedOrgSlug
     const focusedOrg = focusedOrgSlug ? sortedOrgs.find((o) => o.slug == focusedOrgSlug) : undefined
     const focusedOrgTheme = focusedOrg ? (focusedOrg.type === 'enclave' ? ENCLAVE_BG : LAB_BG) : undefined
 

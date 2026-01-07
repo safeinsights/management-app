@@ -21,6 +21,7 @@ import { getFileName, getFileSize, type FileRef } from '@/contexts/shared/file-t
 interface CodeFilesReviewProps {
     onBack: () => void
     onProceed: () => void
+    onOpenUploadModal: () => void
     isSaving?: boolean
 }
 
@@ -65,15 +66,20 @@ const FileRow: FC<FileRowProps> = ({ fileRef, isSelected, isOnlyFile, onSelect, 
                     onClick={onRemove}
                     disabled={isOnlyFile}
                 >
-                    <TrashIcon color={theme.colors.grey[2]} weight="bold" />
+                    <TrashIcon color={theme.colors.charcoal[4]} weight="fill" />
                 </ActionIcon>
             </Table.Td>
         </Table.Tr>
     )
 }
 
-export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, isSaving = false }) => {
-    const { codeFiles, removeCodeFile, setMainCodeFile } = useStudyRequest()
+export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
+    onBack,
+    onProceed,
+    onOpenUploadModal,
+    isSaving = false,
+}) => {
+    const { codeFiles, codeFilesLastUpdated, removeCodeFile, setMainCodeFile } = useStudyRequest()
 
     const mainFileName = codeFiles.mainFile ? getFileName(codeFiles.mainFile) : ''
     const [selectedMainFile, setSelectedMainFile] = useState(mainFileName)
@@ -103,36 +109,44 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({ onBack, onProceed, i
         onProceed()
     }
 
+    const date = codeFilesLastUpdated?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const time = codeFilesLastUpdated
+        ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
+        .toLowerCase()
+
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 2 of 3
+                    Step 4 of 5
                 </Text>
+                <Title order={4}>Study code</Title>
+                <Divider my="sm" mt="sm" mb="md" />
                 <Group justify="space-between" align="center" mb="md">
                     <Stack gap={0}>
                         <Title order={4}>Review uploaded files</Title>
-                        <Text size="sm" c="dimmed" mt="xs">
-                            Last updated: {new Date().toLocaleString()}
-                        </Text>
+                        {codeFilesLastUpdated && (
+                            <Text size="sm" c="dimmed" mt="xs">
+                                Last updated on {date} at {time}
+                            </Text>
+                        )}
                     </Stack>
-                    <Button variant="outline" color="blue" size="sm" onClick={onBack} leftSection={<UploadIcon />}>
+                    <Button variant="outline" size="sm" onClick={onOpenUploadModal} leftSection={<UploadIcon />}>
                         Upload file(s)
                     </Button>
                 </Group>
-                <Divider my="sm" mt="sm" mb="md" />
                 <Text mb="xl">
-                    Review your uploaded files and select the main file to run. You can remove files or go back to
-                    upload more.
+                    If you&apos;re uploading multiple files, please select your main file (i.e., the script that runs
+                    first).
                 </Text>
 
                 <Table w="60%">
                     <Table.Thead>
                         <Table.Tr>
-                            <Table.Th>Main</Table.Th>
+                            <Table.Th>Main file</Table.Th>
                             <Table.Th>File name</Table.Th>
                             <Table.Th>Size</Table.Th>
-                            <Table.Th>Actions</Table.Th>
+                            <Table.Th>Delete</Table.Th>
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>

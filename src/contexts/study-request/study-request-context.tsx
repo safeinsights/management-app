@@ -148,6 +148,7 @@ export function StudyRequestProvider({
                 ])
             }
         },
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- using stable setIDEFiles reference to avoid infinite loops
         [form, initDocumentFilesFromPaths, codeFilesHook.setIDEFiles],
     )
 
@@ -167,6 +168,7 @@ export function StudyRequestProvider({
             isFormValid,
 
             codeFiles: codeFilesHook.codeFiles,
+            codeFilesLastUpdated: codeFilesHook.lastUpdated,
             mainFileName: codeFilesHook.mainFileName,
             additionalFileNames: codeFilesHook.additionalFileNames,
             canProceedToReview: codeFilesHook.canProceed,
@@ -193,6 +195,7 @@ export function StudyRequestProvider({
             submitStudy,
             isSubmitting,
         }),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- using individual stable properties instead of whole objects
         [
             studyId,
             orgSlug,
@@ -200,6 +203,7 @@ export function StudyRequestProvider({
             form,
             isFormValid,
             codeFilesHook.codeFiles,
+            codeFilesHook.lastUpdated,
             codeFilesHook.mainFileName,
             codeFilesHook.additionalFileNames,
             codeFilesHook.canProceed,

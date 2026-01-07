@@ -11,7 +11,7 @@ export type UserSessionWithAbility = UserSession & { ability: AppAbility; can: A
 
 export const sessionFromMetadata = ({
     metadata,
-    prefs,
+    prefs: _prefs,
     clerkUserId,
 }: {
     metadata: UserPublicMetadata
@@ -24,14 +24,9 @@ export const sessionFromMetadata = ({
         throw new Error('user does not have valid metadata')
     }
 
-    const userPrefs = prefs || {}
-
     // TODO: remove 'teams' once all users are on v3 after migration
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>)
-
-    const orgSlug = userPrefs.currentOrgSlug || Object.values(orgs)[0]?.slug
-    if (!orgSlug) throw new Error(`user does not belong to any orgs`)
+    const orgs = info.orgs || ((info as any).teams as Record<string, UserOrgMembershipInfo>) || {}
 
     const isSiAdmin = Boolean(orgs[CLERK_ADMIN_ORG_SLUG]?.isAdmin)
 
