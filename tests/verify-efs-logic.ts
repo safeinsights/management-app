@@ -1,8 +1,6 @@
-
 import { listWorkspaceFilesAction } from '../src/server/actions/workspaces.actions';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { fileURLToPath } from 'url';
 
 // Mock specific env var for testing if not already present
 process.env.CODER_FILES = process.env.CODER_FILES || '/tmp/coder-sim';
