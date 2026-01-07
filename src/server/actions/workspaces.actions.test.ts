@@ -7,7 +7,7 @@ import * as path from 'node:path'
 describe('Workspace Actions', () => {
     // Setup a temp directory for this test suite
     const TEST_CODER_FILES = '/tmp/coder-test-suite-' + Math.random().toString(36).slice(2)
-    
+
     // Save original env var to restore later
     const originalCoderFiles = process.env.CODER_FILES
 
@@ -25,7 +25,7 @@ describe('Workspace Actions', () => {
         } catch {
             // ignore
         }
-        
+
         // Restore environment
         if (originalCoderFiles) {
             process.env.CODER_FILES = originalCoderFiles
@@ -37,7 +37,7 @@ describe('Workspace Actions', () => {
     test('listWorkspaceFilesAction gracefully handles missing workspace directory', async () => {
         // Point to our temp location which currently does not exist
         process.env.CODER_FILES = TEST_CODER_FILES
-        
+
         const { org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org })
 
@@ -52,10 +52,10 @@ describe('Workspace Actions', () => {
 
     test('listWorkspaceFilesAction lists files from workspace directory', async () => {
         process.env.CODER_FILES = TEST_CODER_FILES
-        
+
         const { org } = await mockSessionWithTestData()
         const { study } = await insertTestStudyJobData({ org })
-        
+
         const studyDir = path.join(TEST_CODER_FILES, study.id)
 
         // Create mock workspace with files
