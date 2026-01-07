@@ -215,6 +215,13 @@ async function submitStudy(page: Page) {
 
 async function viewStudyDetails(page: Page, studyTitle: string) {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
+    const draftRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasText: 'DRAFT' })
+    
+    // Check if the row exists with DRAFT status which might be causing the failure
+    if (await draftRow.count() > 0) {
+        console.log(`Study '${studyTitle}' found but is currently in DRAFT state`)
+    }
+
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
     const href = await viewLink.getAttribute('href')
