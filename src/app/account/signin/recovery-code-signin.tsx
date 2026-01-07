@@ -27,9 +27,10 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
     })
 
     const { mutate: signInWithRecoveryCode, isPending: isProcessing } = useMutation({
-        mutationFn: async (code: string) => {
+        mutationFn: async (values: typeof form.values) => {
             if (!signIn) throw new Error('SignIn not loaded')
 
+            const code = values.code.trim()
             const result = await signIn.attemptSecondFactor({ strategy: 'backup_code', code })
 
             if (result.status !== 'complete') {
@@ -58,11 +59,6 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
 
     if (!isSignInLoaded) return null
 
-    const handleSubmit = async (values: typeof form.values) => {
-        const trimmed = values.code.trim()
-        signInWithRecoveryCode(trimmed)
-    }
-
     return (
         <Stack mb="xxl">
             <Title mb="xs" ta="center" order={3}>
@@ -78,7 +74,7 @@ export const RecoveryCodeSignIn = ({ setStep }: { setStep: (step: Step) => void 
                 after signing in.
             </Text>
 
-            <form onSubmit={form.onSubmit(handleSubmit)}>
+            <form onSubmit={form.onSubmit((values) => signInWithRecoveryCode(values))}>
                 <Stack gap="xs">
                     <TextInput
                         label="Enter recovery code"
