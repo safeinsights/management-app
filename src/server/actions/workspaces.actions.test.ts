@@ -1,5 +1,5 @@
 import { mockSessionWithTestData, actionResult, insertTestStudyJobData } from '@/tests/unit.helpers'
-import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
+import { describe, expect, test } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
@@ -8,46 +8,6 @@ import * as path from 'node:path'
 describe('Workspace Actions', () => {
     // Setup a temp directory for this test suite
     const TEST_CODER_FILES = '/tmp/coder-test-suite-' + Math.random().toString(36).slice(2)
-
-    // Save original env var to restore later
-    const originalCoderFiles = process.env.CODER_FILES
-
-    // Ensure clean state before start
-    try {
-        fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
-    } catch {
-        // ignore
-    }
-
-    beforeEach(() => {
-        vi.resetModules() // Ensure we get fresh modules with our mocks applied
-
-        // Define the mock for this test run
-        vi.doMock('@/server/config', async (importOriginal) => {
-            const mod = await importOriginal<typeof import('@/server/config')>()
-            return {
-                ...mod,
-                CODER_DISABLED: false, // Force false to test production path logic
-                getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
-            }
-        })
-    })
-
-    afterEach(async () => {
-        // Cleanup after each test
-        try {
-            await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
-        } catch {
-            // ignore
-        }
-
-        // Restore environment
-        if (originalCoderFiles) {
-            process.env.CODER_FILES = originalCoderFiles
-        } else {
-            delete process.env.CODER_FILES
-        }
-    })
 
     test('listWorkspaceFilesAction gracefully handles missing workspace directory', async () => {
         // Point to our temp location which currently does not exist
