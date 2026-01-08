@@ -1,5 +1,5 @@
 import { mockSessionWithTestData, actionResult, insertTestStudyJobData } from '@/tests/unit.helpers'
-import { describe, expect, test, afterEach } from 'vitest'
+import { describe, expect, test, afterEach, beforeEach, vi } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
@@ -13,6 +13,20 @@ describe('Workspace Actions', () => {
     const originalCoderFiles = process.env.CODER_FILES
 
     fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
+
+    beforeEach(() => {
+        vi.resetModules() // Ensure we get fresh modules with our mocks applied
+
+        // Define the mock for this test run
+        vi.doMock('@/server/config', async (importOriginal) => {
+            const mod = await importOriginal<typeof import('@/server/config')>()
+            return {
+                ...mod,
+                CODER_DISABLED: false, // Force false to test production path logic
+                getConfigValue: vi.fn().mockImplementation((key) => process.env[key]),
+            }
+        })
+    })
 
     afterEach(async () => {
         // Cleanup after each test
