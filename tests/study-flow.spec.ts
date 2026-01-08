@@ -376,7 +376,6 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     return mainFileName
 }
 
-
 // ============================================================================
 // Tests
 // ============================================================================
@@ -483,5 +482,4 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies failed status and logs on dashboard', async () => {
         await verifyFailedStatusDisplay(page, studyTitle)
     })
-
 })
