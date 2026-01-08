@@ -1,5 +1,5 @@
 import { mockSessionWithTestData, actionResult, insertTestStudyJobData } from '@/tests/unit.helpers'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, afterEach } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 
@@ -8,6 +8,27 @@ import * as path from 'node:path'
 describe('Workspace Actions', () => {
     // Setup a temp directory for this test suite
     const TEST_CODER_FILES = '/tmp/coder-test-suite-' + Math.random().toString(36).slice(2)
+
+    // Save original env var to restore later
+    const originalCoderFiles = process.env.CODER_FILES
+
+    fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
+
+    afterEach(async () => {
+        // Cleanup after each test
+        try {
+            await fs.rm(TEST_CODER_FILES, { recursive: true, force: true })
+        } catch {
+            // ignore
+        }
+
+        // Restore environment
+        if (originalCoderFiles) {
+            process.env.CODER_FILES = originalCoderFiles
+        } else {
+            delete process.env.CODER_FILES
+        }
+    })
 
     test('listWorkspaceFilesAction gracefully handles missing workspace directory', async () => {
         // Point to our temp location which currently does not exist
