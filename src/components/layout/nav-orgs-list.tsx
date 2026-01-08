@@ -1,7 +1,7 @@
 import { orgInitials, orgInitialsTitle } from '@/lib/string'
 import { ActionSuccessType } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
-import { Badge, Flex, Stack } from '@mantine/core'
+import { Flex, Stack } from '@mantine/core'
 import { HouseIcon } from '@phosphor-icons/react'
 import { NavbarLink } from './navbar-link'
 
@@ -37,13 +37,6 @@ export const NavOrgsList: React.FC<Props> = ({ orgs }) => {
                         >
                             {orgInitials(org.name, org.type)}
                         </Flex>
-                    }
-                    rightSection={
-                        Number(org.eventCount) > 0 ? (
-                            <Badge size="sm" color="red" fz="sx">
-                                {Number(org.eventCount)}
-                            </Badge>
-                        ) : undefined
                     }
                 />
             ))}
