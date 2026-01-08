@@ -19,7 +19,6 @@ import BackupCodes from '../app/backup-codes'
 import styles from './panel.module.css'
 import { Routes } from '@/lib/routes'
 import OtpInput from '@/components/otp-input'
-export const dynamic = 'force-dynamic'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -258,8 +257,11 @@ export function AddSMSMFA() {
                                             Verify code
                                         </Button>
                                         <Group>
-                                            <Text fz="md" color="grey.7">
-                                                Didn’t receive a code? <Anchor onClick={resendCode}>Resend code</Anchor>
+                                            <Text fz="md" c="grey.7">
+                                                Didn&apos;t receive a code?{' '}
+                                                <Anchor component="button" onClick={resendCode}>
+                                                    Resend code
+                                                </Anchor>
                                             </Text>
                                         </Group>
                                         <Group gap="xs" justify="center">

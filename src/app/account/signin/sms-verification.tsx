@@ -54,7 +54,7 @@ export const SmsVerification = ({ signIn, phoneNumber, form, isVerifyingCode }: 
             </Button>
             <Group>
                 <Text fz="sm" c="grey.7">
-                    Didn’t receive a code?{' '}
+                    Didn&apos;t receive a code?{' '}
                     <Anchor
                         component="button"
                         type="button"

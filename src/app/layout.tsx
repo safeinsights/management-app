@@ -1,5 +1,3 @@
-'use server'
-
 import type { Metadata } from 'next'
 import { Open_Sans } from 'next/font/google'
 
@@ -13,8 +11,9 @@ import 'mantine-datatable/styles.layer.css'
 import '@mantine/dropzone/styles.layer.css'
 
 import { Providers } from '@/components/layout/providers'
-import { type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import { PiSymbol } from '../components/pi-symbol'
+import { GlobalLoading } from '@/components/layout/global-loading'
 
 export async function generateMetadata(): Promise<Metadata> {
     return {
@@ -34,7 +33,9 @@ export default async function RootLayout({
     return (
         <html lang="en" className={globalFont.className}>
             <body>
-                <Providers>{children}</Providers>
+                <Providers>
+                    <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
+                </Providers>
                 <PiSymbol />
             </body>
         </html>

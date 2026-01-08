@@ -1,3 +1,5 @@
+'use client'
+
 import { useSession } from '@/hooks/session'
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'

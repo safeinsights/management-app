@@ -231,7 +231,13 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
 
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
     const pin = pinCode.split('')
-    const pinInputs = page.getByTestId(testId).locator('input')
+    // Try to find inputs within the testId element, fallback to direct selection
+    let pinInputs = page.getByTestId(testId).locator('input')
+    const count = await pinInputs.count()
+    if (count === 0) {
+        // Fallback: try to find the PinInput group directly
+        pinInputs = page.locator('[role="group"]').locator('input[placeholder="0"]')
+    }
     for (let i = 0; i < pin.length; i++) {
         await pinInputs.nth(i).fill(pin[i])
     }

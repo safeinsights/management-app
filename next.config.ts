@@ -1,30 +1,26 @@
 import { withSentryConfig } from '@sentry/nextjs'
 import type { NextConfig } from 'next'
 
-import { PHASE_DEVELOPMENT_SERVER } from 'next/constants'
+const isDev = Boolean(process.env.CI || process.env.NODE_ENV === 'development')
 
-const nextConfig: NextConfig = async (phase: string) => {
-    const isDev = Boolean(process.env.CI || phase === PHASE_DEVELOPMENT_SERVER)
-
-    const nextConfig: NextConfig = {
-        productionBrowserSourceMaps: true,
-        assetPrefix: isDev ? undefined : '/assets/',
-        output: 'standalone',
-        typedRoutes: true,
-        transpilePackages: ['si-encryption'],
-        env: {
-            // sets the DSN for Sentry in the client bundle at build time
-            NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
+const nextConfig: NextConfig = {
+    cacheComponents: false,
+    productionBrowserSourceMaps: true,
+    assetPrefix: isDev ? undefined : '/assets/',
+    output: 'standalone',
+    typedRoutes: true,
+    transpilePackages: ['si-encryption'],
+    env: {
+        // sets the DSN for Sentry in the client bundle at build time
+        NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN || '',
+    },
+    experimental: {
+        // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
+        optimizePackageImports: ['@phosphor-icons/react'],
+        serverActions: {
+            bodySizeLimit: '6mb',
         },
-        experimental: {
-            // https://github.com/phosphor-icons/react?tab=readme-ov-file#nextjs-specific-optimizations
-            optimizePackageImports: ['@phosphor-icons/react'],
-            serverActions: {
-                bodySizeLimit: '6mb',
-            },
-        },
-    }
-    return nextConfig
+    },
 }
 
 const configWithSentry = withSentryConfig(nextConfig, {

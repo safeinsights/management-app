@@ -411,12 +411,15 @@ export const mockClerkSession = (values: MockSession | null) => {
                 }
                 return { data: [], totalCount: 0 }
             }),
-            getUser: vi.fn(async (clerkId: string) => ({
-                id: clerkId,
-                firstName: 'Mocked',
-                lastName: 'User',
-                emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' }) }],
-            })),
+            getUser: vi.fn(async (clerkId: string) => {
+                return {
+                    id: clerkId,
+                    firstName: 'Mocked',
+                    lastName: 'User',
+                    emailAddresses: [{ emailAddress: mockEmail }],
+                    primaryEmailAddress: { emailAddress: mockEmail },
+                }
+            }),
             createUser: vi.fn(async () => ({ id: '1234' })),
             getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },

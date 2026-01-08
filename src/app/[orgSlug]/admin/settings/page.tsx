@@ -9,8 +9,6 @@ import { redirect } from 'next/navigation'
 import { isActionError } from '@/lib/errors'
 import { Routes } from '@/lib/routes'
 
-export const dynamic = 'force-dynamic'
-
 export default async function AdminSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
     const { orgSlug } = await params
 
