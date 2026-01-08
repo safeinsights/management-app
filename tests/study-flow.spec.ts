@@ -119,7 +119,9 @@ async function fillStudyForm(page: Page, options: FillStudyFormOptions) {
 async function fillProposalAndSelectLanguage(page: Page, studyTitle: string): Promise<string> {
     await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
 
-    await page.getByTestId('new-study').first().click()
+    const newStudyButton = page.getByTestId('new-study').first()
+    await newStudyButton.waitFor({ state: 'visible', timeout: 30000 })
+    await newStudyButton.click()
 
     await fillStudyForm(page, { title: studyTitle })
 
