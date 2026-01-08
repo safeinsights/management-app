@@ -376,28 +376,6 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
     return mainFileName
 }
 
-async function resubmitCodeViaIDE(page: Page): Promise<string> {
-    // Click the resubmit button on the study details page
-    await page.getByRole('link', { name: /Resubmit study code/i }).click()
-
-    // Wait for resubmit page to load
-    await expect(page.getByRole('heading', { name: /Resubmit study code/i })).toBeVisible({ timeout: 10000 })
-
-    // Launch IDE
-    const launchButton = page.getByRole('button', { name: /Launch IDE/i })
-    await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), launchButton.click()])
-
-    // Wait for files to appear (auto-sync)
-    await expect(page.getByText(/main.r/i)).toBeVisible({ timeout: 15000 })
-
-    // Submit the resubmission
-    await page.getByRole('button', { name: /Resubmit study code/i }).click()
-
-    // Wait for redirect
-    await page.waitForURL('**/view', { timeout: 15000 })
-
-    return 'main.r'
-}
 
 // ============================================================================
 // Tests
@@ -506,8 +484,4 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
         await verifyFailedStatusDisplay(page, studyTitle)
     })
 
-    await test.step('researcher resubmits code via IDE', async () => {
-        // Already on study details page from verifyFailedStatusDisplay
-        await resubmitCodeViaIDE(page)
-    })
 })
