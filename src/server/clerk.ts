@@ -91,20 +91,40 @@ export const syncCurrentClerkUser = async () => {
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    return await db.transaction().execute(async (trx) => {
-        const existing = await trx
-            .selectFrom('user')
-            .select('id')
-            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
-            .executeTakeFirst()
+    // First check if user exists by clerkId (stable identifier)
+    const existingByClerkId = await db
+        .selectFrom('user')
+        .select('id')
+        .where('clerkId', '=', userAttrs.clerkId)
+        .executeTakeFirst()
 
-        if (existing) {
-            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
-            return existing
-        }
+    if (existingByClerkId) {
+        await db
+            .updateTable('user')
+            .set({
+                firstName: userAttrs.firstName,
+                lastName: userAttrs.lastName,
+                email: userAttrs.email,
+            })
+            .where('id', '=', existingByClerkId.id)
+            .execute()
+        return existingByClerkId
+    }
 
-        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
-    })
+    // User not found by clerkId - use email-based upsert
+    // This handles the case where a user's clerkId changes (e.g., new Clerk account)
+    return await db
+        .insertInto('user')
+        .values(userAttrs)
+        .onConflict((oc) =>
+            oc.expression(db.fn('lower', ['email'])).doUpdateSet({
+                clerkId: userAttrs.clerkId,
+                firstName: userAttrs.firstName,
+                lastName: userAttrs.lastName,
+            }),
+        )
+        .returning(['id'])
+        .executeTakeFirstOrThrow()
 }
 
 export async function sessionFromClerk(options?: MarshalSessionOptions) {

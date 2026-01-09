@@ -1,6 +1,9 @@
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
 
+// this page must be dynamically rendered to access env
+export const dynamic = 'force-dynamic'
+
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
         <Text component="div" fz="lg" fw={500}>

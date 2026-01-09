@@ -41,6 +41,12 @@ export const SignInForm: FC<{
                 message: 'The invitation link you followed is invalid or has already been used.',
             })
         }
+        if (searchParams.get('error') === 'session') {
+            setClerkError({
+                title: 'Session Error',
+                message: 'There was a problem with your session. Please sign in again.',
+            })
+        }
     }, [searchParams])
 
     const form = useForm<SignInFormData>({
