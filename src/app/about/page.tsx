@@ -47,6 +47,10 @@ export default function AboutPage() {
                 <Divider my="md" />
 
                 <Stat title="Container Repo" value={process.env.CODE_BUILD_REPOSITORY_DOMAIN || 'none'} />
+
+                <Divider my="md" />
+
+                <Stat title="Clerk Key" value={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'none'} />
             </Card>
         </Paper>
     )

@@ -12,6 +12,7 @@ const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
 const isOrgRoute = createRouteMatcher(['/[orgSlug]'])
 
 const ANON_ROUTES: Array<string> = [
+    '/about',
     '/account/reset-password',
     '/account/signup',
     '/account/signin',
