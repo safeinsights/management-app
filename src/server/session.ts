@@ -30,20 +30,41 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    const user = await db.transaction().execute(async (trx) => {
-        const existing = await trx
-            .selectFrom('user')
-            .select('id')
-            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
-            .executeTakeFirst()
+    // First check if user exists by clerkId (stable identifier)
+    const existingByClerkId = await db
+        .selectFrom('user')
+        .select('id')
+        .where('clerkId', '=', userAttrs.clerkId)
+        .executeTakeFirst()
 
-        if (existing) {
-            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
-            return existing
-        }
-
-        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
-    })
+    let user: { id: string }
+    if (existingByClerkId) {
+        await db
+            .updateTable('user')
+            .set({
+                firstName: userAttrs.firstName,
+                lastName: userAttrs.lastName,
+                email: userAttrs.email,
+            })
+            .where('id', '=', existingByClerkId.id)
+            .execute()
+        user = existingByClerkId
+    } else {
+        // User not found by clerkId - use email-based upsert
+        // This handles the case where a user's clerkId changes (e.g., new Clerk account)
+        user = await db
+            .insertInto('user')
+            .values(userAttrs)
+            .onConflict((oc) =>
+                oc.expression(db.fn('lower', ['email'])).doUpdateSet({
+                    clerkId: userAttrs.clerkId,
+                    firstName: userAttrs.firstName,
+                    lastName: userAttrs.lastName,
+                }),
+            )
+            .returning(['id'])
+            .executeTakeFirstOrThrow()
+    }
 
     const orgs = await getOrgInfoForUserId(user.id)
     const metadata: UserInfo = {
