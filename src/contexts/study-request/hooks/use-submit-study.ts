@@ -98,6 +98,7 @@ export function useSubmitStudy({
             onSuccess?.()
             queryClient.invalidateQueries({ queryKey: ['researcher-studies'] })
             queryClient.invalidateQueries({ queryKey: ['user-researcher-studies'] })
+            queryClient.invalidateQueries({ queryKey: ['orgs-with-stats'] })
 
             notifications.show({
                 title: 'Study Proposal Submitted',

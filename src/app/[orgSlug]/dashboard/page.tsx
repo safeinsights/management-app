@@ -33,7 +33,7 @@ export default async function OrgDashboardPage(props: { params: Promise<{ orgSlu
                 ]}
             />
             <Title order={1}>{orgName + (isEnclave ? ' Data Organization' : ' Research Lab')} dashboard</Title>
-            <Text>{description}</Text>
+            <Text mt="-md">{description}</Text>
             <StudiesTable
                 audience={isEnclave ? 'reviewer' : 'researcher'}
                 scope="org"
