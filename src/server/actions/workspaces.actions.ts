@@ -21,7 +21,21 @@ export const listWorkspaceFilesAction = new Action('listWorkspaceFilesAction', {
         if (!CODER_DISABLED) {
             coderFilesPath += `/${studyId}`
         }
-        const entries = await fs.readdir(coderFilesPath)
+
+        let entries: string[] = []
+        try {
+            entries = await fs.readdir(coderFilesPath)
+        } catch (e) {
+            if (e instanceof Error && 'code' in e && e.code === 'ENOENT') {
+                // Directory doesn't exist yet, just return empty list
+                return {
+                    files: [],
+                    suggestedMain: undefined,
+                    lastModified: null,
+                }
+            }
+            throw e
+        }
 
         // Filter to only text files (not directories or binary files)
         const files: string[] = []

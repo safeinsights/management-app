@@ -4,6 +4,7 @@ import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 export interface UseWorkspaceFilesOptions {
     studyId: string
     enabled: boolean
+    refetchInterval?: number
 }
 
 export interface UseWorkspaceFilesReturn {
@@ -14,7 +15,8 @@ export interface UseWorkspaceFilesReturn {
     refetch: () => void
 }
 
-export function useWorkspaceFiles({ studyId, enabled }: UseWorkspaceFilesOptions): UseWorkspaceFilesReturn {
+export function useWorkspaceFiles(props: UseWorkspaceFilesOptions): UseWorkspaceFilesReturn {
+    const { studyId, enabled } = props
     const { data, isFetching, refetch } = useQuery({
         queryKey: ['workspace-files', studyId],
         queryFn: async () => {
@@ -25,6 +27,7 @@ export function useWorkspaceFiles({ studyId, enabled }: UseWorkspaceFilesOptions
             return result
         },
         enabled,
+        refetchInterval: enabled ? (props.refetchInterval ?? false) : false,
     })
 
     return {
