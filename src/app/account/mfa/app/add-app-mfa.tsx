@@ -16,7 +16,6 @@ import {
     CopyButton,
     Group,
     Paper,
-    PinInput,
     rgba,
     Stack,
     Text,
@@ -27,6 +26,7 @@ import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
+import OtpInput from '@/components/otp-input'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -181,15 +181,7 @@ function AddTotpScreenContent({
                     <Title order={4} ta="center" mt="xs">
                         Enter your code
                     </Title>
-                    <PinInput
-                        length={6}
-                        size="lg"
-                        type="number"
-                        value={form.values.code}
-                        error={Boolean(form.errors.code)}
-                        placeholder="0"
-                        {...form.getInputProps('code')}
-                    />
+                    <OtpInput form={form} />
                     <InputError error={form.errors.code} />
                     <Button
                         type="submit"
