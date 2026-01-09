@@ -7,7 +7,6 @@ const OtpInput = ({ form }: { form: UseFormReturnType<{ code: string }> }) => {
             length={6}
             size="lg"
             type="number"
-            value={form.values.code}
             onChange={(value) => form.setFieldValue('code', value)}
             error={Boolean(form.errors.code)}
             placeholder="0"
