@@ -63,16 +63,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
         },
         onError: (error) => {
-            if (error.message.includes('already a member')) {
-                notifications.show({
-                    color: 'blue',
-                    title: 'Already a member',
-                    message: `You're already a member of ${org!.name}.`,
-                })
-                router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
-            } else {
-                reportError(error, 'Unable to join team')
-            }
+            reportError(error, 'Unable to join team')
         },
     })
 
