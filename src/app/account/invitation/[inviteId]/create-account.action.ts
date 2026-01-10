@@ -98,8 +98,11 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .select(['id'])
                 .executeTakeFirst()
 
+            // If the user is already a member, we simply return the user so the
+            // rest of the handler can continue (adding the invite email to the
+            // account, marking the invite as claimed, etc.).
             if (orgUser) {
-                throw new ActionFailure({ team: 'already a member' })
+                return user
             }
 
             await trx
