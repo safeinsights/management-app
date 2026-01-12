@@ -23,20 +23,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `src/server/db/mutations.ts` - database writes
 - `src/database/migrations/` - Kysely migrations
 
-## Workflow
-
-```bash
-npm run lint:fix               # Fix lint issues
-npm run test:unit              # Run unit tests (required after changes)
-npm run pre:push               # Full check: lint + typecheck + validate-actions
-npm run db:migrate             # Run database migrations
-npx kysely migrate:make <name> # Create migration (use snake_case)
-```
-
 ## Stop Conditions
 
-- Stop if `npm run test:unit` fails; fix before proceeding
-- Stop if `npm run lint:fix` reports unfixable errors
+- Stop if running unit tests or linting fails; fix before proceeding
+- Ask before committing work
 - Ask before creating new migrations
 - Ask before modifying permission rules in `src/lib/permissions.ts`
 - Ask before changing route definitions in `src/lib/routes/definitions.ts`
