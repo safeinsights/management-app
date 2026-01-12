@@ -22,6 +22,14 @@ import {
 } from './org.actions'
 import logger from '@/lib/logger'
 
+vi.mock('@/server/aws', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/server/aws')>()
+    return {
+        ...actual,
+        signedUrlForFile: vi.fn().mockResolvedValue('https://mock-signed-url.example.com/file'),
+    }
+})
+
 describe('Org Actions', () => {
     let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
 
@@ -263,7 +271,11 @@ describe('Org Actions', () => {
             expect(createdOrg).toBeDefined()
 
             const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: testOrg.slug }))
-            expect(langs.languages).toEqual(expect.arrayContaining([{ label: 'R', value: 'R' }]))
+            expect(langs.languages).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ label: 'R', value: 'R', starterCodeUrl: expect.any(String) }),
+                ]),
+            )
         })
     })
 })
