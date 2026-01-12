@@ -6,6 +6,7 @@ import { type UserSession, BLANK_SESSION, isOrgAdmin, type Org } from './lib/typ
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
+import * as Sentry from '@sentry/nextjs'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
@@ -35,7 +36,14 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
 export const proxy = clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
-    let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)
+    let session: UserSession | null = null
+    try {
+        session = await marshalSession(clerkUserId, sessionClaims)
+    } catch (error) {
+        Sentry.captureException(error)
+        log.error('Failed to marshal session:', error)
+        return NextResponse.redirect(new URL('/account/signin?error=session', req.url))
+    }
 
     if (session) {
         setSentryFromSession(session)
