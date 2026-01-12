@@ -23,6 +23,8 @@ playwright-report/
 src/styles/generated
 ./tests/fixtures/temp/large-file
 
+# auto-created and updated by nextjs
+next-env.d.ts
 # clerk configuration (can include secrets)
 /.clerk/
 

@@ -2,7 +2,6 @@ import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
-import { PROD_ENV } from './config'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
 
@@ -111,20 +110,10 @@ export const syncCurrentClerkUser = async () => {
         return existingByClerkId
     }
 
-    // User not found by clerkId - use email-based upsert
-    // This handles the case where a user's clerkId changes (e.g., new Clerk account)
-    return await db
-        .insertInto('user')
-        .values(userAttrs)
-        .onConflict((oc) =>
-            oc.expression(db.fn('lower', ['email'])).doUpdateSet({
-                clerkId: userAttrs.clerkId,
-                firstName: userAttrs.firstName,
-                lastName: userAttrs.lastName,
-            }),
-        )
-        .returning(['id'])
-        .executeTakeFirstOrThrow()
+    // User not found by clerkId - create new user
+    // Note: If email already exists for another user, the unique email index will throw
+    // This is intentional - it indicates a data integrity issue to investigate
+    return await db.insertInto('user').values(userAttrs).returning(['id']).executeTakeFirstOrThrow()
 }
 
 export async function sessionFromClerk(options?: MarshalSessionOptions) {

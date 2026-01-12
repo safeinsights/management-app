@@ -36,12 +36,19 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
 export const proxy = clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
+    // Check if this is an anonymous route before doing session work
+    const isAnonRoute = ANON_ROUTES.some((r) => req.nextUrl.pathname.startsWith(r))
+
     let session: UserSession | null = null
     try {
         session = await marshalSession(clerkUserId, sessionClaims)
     } catch (error) {
         Sentry.captureException(error)
         log.error('Failed to marshal session:', error)
+        // Don't redirect if already on signin page to avoid redirect loop
+        if (isAnonRoute) {
+            return NextResponse.next()
+        }
         return NextResponse.redirect(new URL('/account/signin?error=session', req.url))
     }
 
