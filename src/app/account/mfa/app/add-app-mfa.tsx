@@ -6,7 +6,7 @@ import { Link } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
 import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
-import { useUser } from '@clerk/nextjs'
+import { useReverification, useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import {
     ActionIcon,
@@ -41,6 +41,7 @@ function AddTotpScreenContent({
 }) {
     const theme = useMantineTheme()
     const { user } = useUser()
+    const createBackupCode = useReverification(() => user?.createBackupCode())
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
@@ -75,8 +76,8 @@ function AddTotpScreenContent({
             // Generate backup codes after verification
             if (user && !user.backupCodeEnabled) {
                 try {
-                    const resource = await user.createBackupCode()
-                    setBackupCodes(resource.codes || [])
+                    const resource = await createBackupCode()
+                    setBackupCodes(resource?.codes || [])
                 } catch (err) {
                     logger.error({ err, message: 'Error generating backup codes' })
                     setBackupCodes([])
