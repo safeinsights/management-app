@@ -503,6 +503,7 @@ export type InsertTestBaseImageOptions = {
     isTesting?: boolean
     starterCodePath?: string
     environment?: Array<{ name: string; value: string }>
+    createdAt?: Date
 }
 
 export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
@@ -520,6 +521,7 @@ export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) =
             isTesting: options.isTesting ?? false,
             starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
             settings: { environment: options.environment ?? [] },
+            ...(options.createdAt ? { createdAt: options.createdAt } : {}),
         })
         .returningAll()
         .executeTakeFirstOrThrow()

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { type Org } from '@/schema/org'
 import {
+    db,
+    insertTestBaseImage,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -9,6 +11,7 @@ import {
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType, type StudyJobStatus, type StudyStatus } from '@/database/types'
@@ -62,6 +65,90 @@ describe('View Study Results', () => {
     it('renders the form to unlock results', async () => {
         await insertAndRender('PENDING-REVIEW', 'RUN-COMPLETE')
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
+    })
+
+    it('distinguishes build/scan error (errored before JOB-READY) and shows base image info', async () => {
+        const baseImageUrl = 'http://example.com/r-base:latest'
+        await insertTestBaseImage({ orgId: org.id, language: 'R', url: baseImageUrl })
+
+        const { study } = await insertTestStudyJobData({
+            org,
+            language: 'R',
+            jobStatus: 'JOB-ERRORED',
+        })
+        const job = await latestJobForStudy(study.id)
+
+        renderWithProviders(<StudyResults job={job} />)
+
+        expect(
+            screen.getByText('Building researcher code failed, please check the base image used to build the image.'),
+        ).toBeDefined()
+        expect(screen.getByText('Base image:')).toBeDefined()
+        expect(screen.getByText(baseImageUrl)).toBeDefined()
+
+        // build/scan errors should not prompt reviewers to decrypt results/logs
+        expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
+
+        // build/scan errors should not show runtime error help text
+        expect(
+            screen.queryByText(
+                'The code errored out! Review the error logs before these can be shared with the researcher.',
+            ),
+        ).toBeNull()
+        expect(screen.queryByText('Job ID:')).toBeNull()
+    })
+
+    it('gracefully handles build/scan error when base image has been deleted (no baseImageUrl)', async () => {
+        const { study } = await insertTestStudyJobData({
+            org,
+            language: 'R',
+            jobStatus: 'JOB-ERRORED',
+        })
+
+        const job = await latestJobForStudy(study.id)
+        renderWithProviders(<StudyResults job={job} />)
+
+        expect(
+            screen.getByText('Building researcher code failed, please check the base image used to build the image.'),
+        ).toBeDefined()
+
+        // base image details are optional and should be omitted when missing
+        expect(screen.queryByText('Base image:')).toBeNull()
+
+        // build/scan errors should not prompt reviewers to decrypt results/logs
+        expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
+    })
+
+    it('distinguishes run error (errored after JOB-READY) and still shows decrypt UI', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'JOB-READY',
+        })
+
+        await db
+            .insertInto('jobStatusChange')
+            .values({
+                status: 'JOB-ERRORED',
+                studyJobId: job.id,
+                userId: study.researcherId,
+            })
+            .execute()
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<StudyResults job={latestJob} />)
+
+        expect(
+            screen.getByText(
+                'The code errored out! Review the error logs before these can be shared with the researcher.',
+            ),
+        ).toBeDefined()
+        expect(screen.getByText('Job ID:')).toBeDefined()
+        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
+
+        // runtime errors should not be treated as build/scan errors
+        expect(
+            screen.queryByText('Building researcher code failed, please check the base image used to build the image.'),
+        ).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {

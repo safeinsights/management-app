@@ -5,7 +5,7 @@ import { JobResults } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Code, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { DecryptResults } from './decrypt-results'
 import { JobReviewButtons } from './job-review-buttons'
@@ -16,6 +16,10 @@ export const StudyResults: FC<{
     job: LatestJobForStudy | null
 }> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
+
+    const { isErrored } = useJobStatus(job?.statusChanges ?? [])
+    const reachedReadyState = job?.statusChanges?.some((sc) => sc.status === 'JOB-READY') ?? false
+    const isBuildPhaseError = !!job && isErrored && !reachedReadyState
 
     // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
@@ -44,15 +48,23 @@ export const StudyResults: FC<{
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider c="dimmed" />
-                <JobStatusHelpText job={job} />
-                <DecryptResults job={job} onApproval={setDecryptedResults} />
+                <JobStatusHelpText
+                    job={job}
+                    isBuildPhaseError={isBuildPhaseError}
+                    baseImageURL={job.baseImageUrl ?? null}
+                />
+                {!isBuildPhaseError && <DecryptResults job={job} onApproval={setDecryptedResults} />}
                 <JobResults job={job} />
             </Stack>
         </Paper>
     )
 }
 
-export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+export const JobStatusHelpText: FC<{
+    job: LatestJobForStudy
+    isBuildPhaseError: boolean
+    baseImageURL: string | null
+}> = ({ job, isBuildPhaseError, baseImageURL }) => {
     const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
@@ -60,6 +72,19 @@ export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     }
 
     if (isErrored) {
+        if (isBuildPhaseError) {
+            return (
+                <Stack gap="xs">
+                    <Text>Building researcher code failed, please check the base image used to build the image.</Text>
+                    {baseImageURL && (
+                        <Text>
+                            <Text span>Base image:</Text> <Code>{baseImageURL}</Code>
+                        </Text>
+                    )}
+                </Stack>
+            )
+        }
+
         return (
             <Stack>
                 <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
