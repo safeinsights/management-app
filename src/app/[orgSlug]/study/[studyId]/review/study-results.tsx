@@ -64,9 +64,7 @@ export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
             <Stack>
                 <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
                 <Group justify="flex-start" align="center">
-                    <Text fw={650}>
-                        Job ID:
-                    </Text>
+                    <Text fw={650}>Job ID:</Text>
                     <CopyingInput value={job.id} tooltipLabel="Copy" />
                 </Group>
             </Stack>
