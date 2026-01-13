@@ -76,8 +76,7 @@ describe('View Study Results', () => {
 
         renderWithProviders(<StudyResults job={job} />)
 
-        expect(screen.getByText('Building researcher code failed!')).toBeDefined()
-        expect(screen.getByText('Maybe check the base image or contact support.')).toBeDefined()
+        expect(screen.getByText('Job failed during code packaging.')).toBeDefined()
 
         // build/scan errors should not prompt reviewers to decrypt results/logs
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
@@ -101,8 +100,7 @@ describe('View Study Results', () => {
         const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={job} />)
 
-        expect(screen.getByText('Building researcher code failed!')).toBeDefined()
-        expect(screen.getByText('Maybe check the base image or contact support.')).toBeDefined()
+        expect(screen.getByText('Job failed during code packaging.')).toBeDefined()
 
         // build/scan errors should not prompt reviewers to decrypt results/logs
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
@@ -135,7 +133,7 @@ describe('View Study Results', () => {
         expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
 
         // runtime errors should not be treated as build/scan errors
-        expect(screen.queryByText('Building researcher code failed!')).toBeNull()
+        expect(screen.queryByText('Job failed during code packaging.')).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {

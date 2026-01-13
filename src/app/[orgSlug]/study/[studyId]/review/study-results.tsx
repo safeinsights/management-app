@@ -70,8 +70,7 @@ export const JobStatusHelpText: FC<{
         if (isBuildPhaseError) {
             return (
                 <Stack gap="xs">
-                    <Text>Building researcher code failed!</Text>
-                    <Text>Maybe check the base image or contact support.</Text>
+                    <Text>Job failed during code packaging.</Text>
                 </Stack>
             )
         }
