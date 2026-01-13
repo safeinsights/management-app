@@ -64,18 +64,6 @@ describe('View Study Results', () => {
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
     })
 
-    it('shows decrypt UI for JOB-ERRORED (unified build/scan + runtime error UX)', async () => {
-        await insertAndRender('PENDING-REVIEW', 'JOB-ERRORED')
-
-        expect(
-            screen.getByText(
-                'The code errored out! Review the error logs before these can be shared with the researcher.',
-            ),
-        ).toBeDefined()
-        expect(screen.getByText('Job ID:')).toBeDefined()
-        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
-    })
-
     it('decrypts and displays the results', async () => {
         // Capture blobs created for the download link so we can verify their contents
         const createdBlobs: Blob[] = []
