@@ -1,17 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import {
-    insertTestBaseImage,
-    insertTestOrg,
-    insertTestStudyJobData,
-    insertTestStudyJobUsers,
-} from '@/tests/unit.helpers'
-import {
-    getReviewerPublicKey,
-    getUsersForOrgId,
-    jobInfoForJobId,
-    latestJobForStudy,
-    studyInfoForStudyId,
-} from './queries'
+import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
+import { getReviewerPublicKey, getUsersForOrgId, jobInfoForJobId, studyInfoForStudyId } from './queries'
 
 async function insertRecords() {
     const org1 = await insertTestOrg({ slug: 'test-org-1' })
@@ -96,66 +85,5 @@ describe('getUsersForOrgId', () => {
     it('returns empty array when orgId is invalid', async () => {
         const users = await getUsersForOrgId(invalidUUID)
         expect(users).toEqual([])
-    })
-})
-
-describe('latestJobForStudy', () => {
-    it('selects the newest non-testing base image for the study language', async () => {
-        const org = await insertTestOrg({ slug: 'test-org-base-image-ordering' })
-        const { study } = await insertTestStudyJobData({
-            org: { id: org.id, slug: org.slug, type: org.type },
-            language: 'R',
-            jobStatus: 'JOB-READY',
-        })
-
-        // Same org, same language (R): choose the newest one
-        await insertTestBaseImage({
-            orgId: org.id,
-            language: 'R',
-            url: 'http://example.com/r-prod-old',
-            isTesting: false,
-            createdAt: new Date('2024-01-01T00:00:00.000Z'),
-        })
-
-        await insertTestBaseImage({
-            orgId: org.id,
-            language: 'R',
-            url: 'http://example.com/r-prod-new',
-            isTesting: false,
-            createdAt: new Date('2024-02-01T00:00:00.000Z'),
-        })
-
-        // Same org, same language (R) but testing image: should be ignored even if newest
-        await insertTestBaseImage({
-            orgId: org.id,
-            language: 'R',
-            url: 'http://example.com/r-testing-newest',
-            isTesting: true,
-            createdAt: new Date('2024-03-01T00:00:00.000Z'),
-        })
-
-        // Same org but different language: should be ignored
-        await insertTestBaseImage({
-            orgId: org.id,
-            language: 'PYTHON',
-            url: 'http://example.com/python-prod-newest',
-            isTesting: false,
-            createdAt: new Date('2024-04-01T00:00:00.000Z'),
-        })
-
-        const job = await latestJobForStudy(study.id)
-        expect(job.baseImageUrl).toBe('http://example.com/r-prod-new')
-    })
-
-    it('returns null baseImageUrl when no matching base image exists (deleted or never created)', async () => {
-        const org = await insertTestOrg({ slug: 'test-org-base-image-missing' })
-        const { study } = await insertTestStudyJobData({
-            org: { id: org.id, slug: org.slug, type: org.type },
-            language: 'R',
-            jobStatus: 'JOB-ERRORED',
-        })
-
-        const job = await latestJobForStudy(study.id)
-        expect(job.baseImageUrl).toBeNull()
     })
 })

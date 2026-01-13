@@ -24,7 +24,6 @@ describe('JobResultsStatusMessage', () => {
         studyId: 'study-456',
         orgId: 'org-789',
         language: 'PYTHON',
-        baseImageUrl: null,
         statusChanges: statuses.map((status) => ({
             status,
             createdAt: new Date().toISOString(),

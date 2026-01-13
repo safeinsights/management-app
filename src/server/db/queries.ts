@@ -87,15 +87,6 @@ export const latestJobForStudy = async (studyId: string) => {
         .innerJoin('study', 'study.id', 'studyJob.studyId')
         .select(['study.orgId', 'study.language'])
         .select((eb) => [
-            eb
-                .selectFrom('orgBaseImage')
-                .select('orgBaseImage.url')
-                .whereRef('orgBaseImage.orgId', '=', 'study.orgId')
-                .whereRef('orgBaseImage.language', '=', 'study.language')
-                .where('orgBaseImage.isTesting', '=', false)
-                .orderBy('orgBaseImage.createdAt', 'desc')
-                .limit(1)
-                .as('baseImageUrl'),
             jsonArrayFrom(
                 eb
                     .selectFrom('jobStatusChange')

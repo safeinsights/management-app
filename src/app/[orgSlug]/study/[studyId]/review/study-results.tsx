@@ -5,7 +5,7 @@ import { JobResults } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
 import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Code, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { FC, useState } from 'react'
 import { DecryptResults } from './decrypt-results'
 import { JobReviewButtons } from './job-review-buttons'
@@ -48,11 +48,7 @@ export const StudyResults: FC<{
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider c="dimmed" />
-                <JobStatusHelpText
-                    job={job}
-                    isBuildPhaseError={isBuildPhaseError}
-                    baseImageURL={job.baseImageUrl ?? null}
-                />
+                <JobStatusHelpText job={job} isBuildPhaseError={isBuildPhaseError} />
                 {!isBuildPhaseError && <DecryptResults job={job} onApproval={setDecryptedResults} />}
                 <JobResults job={job} />
             </Stack>
@@ -63,8 +59,7 @@ export const StudyResults: FC<{
 export const JobStatusHelpText: FC<{
     job: LatestJobForStudy
     isBuildPhaseError: boolean
-    baseImageURL: string | null
-}> = ({ job, isBuildPhaseError, baseImageURL }) => {
+}> = ({ job, isBuildPhaseError }) => {
     const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
@@ -75,12 +70,8 @@ export const JobStatusHelpText: FC<{
         if (isBuildPhaseError) {
             return (
                 <Stack gap="xs">
-                    <Text>Building researcher code failed, please check the base image used to build the image.</Text>
-                    {baseImageURL && (
-                        <Text>
-                            <Text span>Base image:</Text> <Code>{baseImageURL}</Code>
-                        </Text>
-                    )}
+                    <Text>Building researcher code failed!</Text>
+                    <Text>Maybe check the base image or contact your administrator.</Text>
                 </Stack>
             )
         }
