@@ -2,9 +2,10 @@ import { UserSession } from '@/lib/types'
 import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
-import { db } from '@/database'
 import { clerkClient } from '@clerk/nextjs/server'
 import { getOrgInfoForUserId } from './db/queries'
+import { syncUserToDatabaseWithConflictResolution } from './user-sync'
+import { updateClerkUserMetadata } from './clerk'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -30,36 +31,14 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    // First check if user exists by clerkId (stable identifier)
-    const existingByClerkId = await db
-        .selectFrom('user')
-        .select('id')
-        .where('clerkId', '=', userAttrs.clerkId)
-        .executeTakeFirst()
+    const { id: userId } = await syncUserToDatabaseWithConflictResolution(userAttrs, async (previousUserId) => {
+        await updateClerkUserMetadata(previousUserId)
+    })
 
-    let user: { id: string }
-    if (existingByClerkId) {
-        await db
-            .updateTable('user')
-            .set({
-                firstName: userAttrs.firstName,
-                lastName: userAttrs.lastName,
-                email: userAttrs.email,
-            })
-            .where('id', '=', existingByClerkId.id)
-            .execute()
-        user = existingByClerkId
-    } else {
-        // User not found by clerkId - create new user
-        // Note: If email already exists for another user, the unique email index will throw
-        // This is intentional - it indicates a data integrity issue to investigate
-        user = await db.insertInto('user').values(userAttrs).returning(['id']).executeTakeFirstOrThrow()
-    }
-
-    const orgs = await getOrgInfoForUserId(user.id)
+    const orgs = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
         format: 'v3',
-        user: { id: user.id },
+        user: { id: userId },
         teams: null,
         orgs: orgs.reduce(
             (acc, org) => {
