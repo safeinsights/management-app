@@ -1,7 +1,8 @@
 import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestStudyData, mockSessionWithTestData, readTestSupportFile } from '@/tests/unit.helpers'
+import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 
 vi.mock('@/lib/logger', () => {
     const error = vi.fn()
@@ -15,6 +16,29 @@ vi.mock('@/lib/logger', () => {
         },
     }
 })
+
+vi.mock('@/server/aws', () => ({
+    storeS3File: vi.fn(),
+    fetchS3File: vi.fn(),
+    signedUrlForFile: vi.fn(),
+}))
+
+async function ensureValidUserPublicKeysForOrg(orgId: string) {
+    const publicKeyPem = await readTestSupportFile('public_key.pem')
+    const publicKey = pemToArrayBuffer(publicKeyPem)
+    const fingerprint = await fingerprintKeyData(publicKey)
+
+    const orgUserIds = await db.selectFrom('orgUser').select(['userId']).where('orgId', '=', orgId).execute()
+    const userIds = orgUserIds.map((r) => r.userId)
+
+    if (!userIds.length) return
+
+    await db
+        .updateTable('userPublicKey')
+        .set({ publicKey: Buffer.from(publicKey), fingerprint })
+        .where('userId', 'in', userIds)
+        .execute()
+}
 
 async function getStatusRows(jobId: string) {
     return await db
@@ -80,7 +104,8 @@ test('code-push persists JOB-READY', async () => {
 })
 
 test('code-push persists JOB-ERRORED once and is idempotent for same status', async () => {
-    const { org, user } = await mockSessionWithTestData()
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+    await ensureValidUserPublicKeysForOrg(org.id)
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
@@ -108,6 +133,103 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status', as
     rows = await getStatusRows(jobId)
     const afterSecondErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterSecondErr).toBe(afterFirstErr)
+})
+
+test('code-push stores an ENCRYPTED-LOG when JOB-ERRORED happens before JOB-READY', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+    await ensureValidUserPublicKeysForOrg(org.id)
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    // Ensure no READY exists for this job.
+    await db.deleteFrom('jobStatusChange').where('studyJobId', '=', jobId).where('status', '=', 'JOB-READY').execute()
+
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
+})
+
+test('code-push does not store a fake ENCRYPTED-LOG when JOB-READY already exists', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+    await ensureValidUserPublicKeysForOrg(org.id)
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    // Create READY for this specific job.
+    await db.insertInto('jobStatusChange').values({ status: 'JOB-READY', studyJobId: jobId, userId: user.id }).execute()
+
+    const baseline = await db
+        .selectFrom('studyJobFile')
+        .select(['id'])
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-LOG')
+        .execute()
+
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
+
+    const after = await db
+        .selectFrom('studyJobFile')
+        .select(['id'])
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-LOG')
+        .execute()
+
+    expect(after.length).toBe(baseline.length)
+})
+
+test('code-push does not duplicate ENCRYPTED-LOG when one already exists', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+    await ensureValidUserPublicKeysForOrg(org.id)
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    // Ensure no READY exists
+    await db.deleteFrom('jobStatusChange').where('studyJobId', '=', jobId).where('status', '=', 'JOB-READY').execute()
+
+    // First JOB-ERRORED creates the log
+    const req1 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
+    })
+    await apiHandler.POST(req1)
+
+    const afterFirst = await db
+        .selectFrom('studyJobFile')
+        .select(['id'])
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-LOG')
+        .execute()
+    expect(afterFirst.length).toBe(1)
+
+    // Reset status so second JOB-ERRORED is not idempotent-blocked by status check
+    await db.deleteFrom('jobStatusChange').where('studyJobId', '=', jobId).where('status', '=', 'JOB-ERRORED').execute()
+
+    // Second JOB-ERRORED should not create another log (hasLog check)
+    const req2 = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
+    })
+    await apiHandler.POST(req2)
+
+    const afterSecond = await db
+        .selectFrom('studyJobFile')
+        .select(['id'])
+        .where('studyJobId', '=', jobId)
+        .where('fileType', '=', 'ENCRYPTED-LOG')
+        .execute()
+    expect(afterSecond.length).toBe(1)
 })
 
 test('logs error with context on invalid payload', async () => {

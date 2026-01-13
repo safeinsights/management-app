@@ -3,6 +3,7 @@ import logger from '@/lib/logger'
 import { NotFoundError, throwNotFound } from '@/lib/errors'
 import { z, ZodError } from 'zod'
 import { NextResponse } from 'next/server'
+import { createAndStoreBuildErrorLog } from '@/server/encryption/fake-packaging-log'
 
 const schema = z.object({
     jobId: z.string(),
@@ -19,9 +20,22 @@ export async function POST(req: Request) {
         const job = await db
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
+            .innerJoin('org', 'org.id', 'study.orgId')
             .where('studyJob.id', '=', body.jobId)
-            .select(['studyJob.id as jobId', 'study.researcherId'])
+            .select([
+                'studyJob.id as jobId',
+                'study.researcherId',
+                'study.id as studyId',
+                'study.orgId',
+                'org.slug as orgSlug',
+            ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
+
+        // If packaging/build failed (JOB-ERRORED) before we ever reached JOB-READY,
+        // generate a fake encrypted log so reviewers can use the same decrypt UX.
+        if (body.status === 'JOB-ERRORED') {
+            await createAndStoreBuildErrorLog(job)
+        }
 
         // Idempotency: avoid inserting duplicate consecutive statuses.
         const last = await db
