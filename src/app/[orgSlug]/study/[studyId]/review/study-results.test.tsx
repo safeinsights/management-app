@@ -66,7 +66,7 @@ describe('View Study Results', () => {
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
     })
 
-    it('distinguishes build/scan error (errored before JOB-READY) and shows base image info', async () => {
+    it('distinguishes between build/scan error and container runtime error', async () => {
         const { study } = await insertTestStudyJobData({
             org,
             language: 'R',
