@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
