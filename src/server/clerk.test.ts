@@ -31,15 +31,15 @@ describe('syncCurrentClerkUser', () => {
         await expect(syncCurrentClerkUser()).rejects.toThrow('User not authenticated')
     })
 
-    it('should update existing user when clerk user already exists in database', async () => {
+    it('should update existing user when clerk user already exists in database by clerkId', async () => {
         const org = await insertTestOrg()
         const { user } = await insertTestUser({ org })
 
         const clerkUser = {
-            id: faker.string.alpha(10), // Different clerkId - lookup is by email now
+            id: user.clerkId, // Same clerkId as existing user
             firstName: 'Updated',
             lastName: 'Name',
-            primaryEmailAddress: { emailAddress: user.email }, // Same email as existing user
+            primaryEmailAddress: { emailAddress: user.email },
             publicMetadata: {},
         }
 
@@ -56,7 +56,25 @@ describe('syncCurrentClerkUser', () => {
 
         expect(updatedUser.firstName).toBe('Updated')
         expect(updatedUser.lastName).toBe('Name')
-        expect(updatedUser.clerkId).toBe(clerkUser.id) // clerkId should be updated too
+        expect(updatedUser.clerkId).toBe(user.clerkId)
+    })
+
+    it('should throw error when different clerkId tries to use existing email', async () => {
+        const org = await insertTestOrg()
+        const { user } = await insertTestUser({ org })
+
+        const clerkUser = {
+            id: faker.string.alpha(10), // Different clerkId
+            firstName: 'New',
+            lastName: 'User',
+            primaryEmailAddress: { emailAddress: user.email }, // Same email as existing user
+            publicMetadata: {},
+        }
+
+        currentUserMock.mockResolvedValue(clerkUser)
+
+        // Should throw due to unique email constraint - no longer silently merges
+        await expect(syncCurrentClerkUser()).rejects.toThrow()
     })
 
     it('should create new user when clerk user does not exist in database', async () => {
