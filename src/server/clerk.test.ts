@@ -59,22 +59,41 @@ describe('syncCurrentClerkUser', () => {
         expect(updatedUser.clerkId).toBe(user.clerkId)
     })
 
-    it('should throw error when different clerkId tries to use existing email', async () => {
+    it('should resolve email conflict by nullifying old user email when different clerkId claims it', async () => {
         const org = await insertTestOrg()
-        const { user } = await insertTestUser({ org })
+        const { user: existingUser } = await insertTestUser({ org })
+        const originalEmail = existingUser.email!
 
         const clerkUser = {
             id: faker.string.alpha(10), // Different clerkId
             firstName: 'New',
             lastName: 'User',
-            primaryEmailAddress: { emailAddress: user.email }, // Same email as existing user
+            primaryEmailAddress: { emailAddress: originalEmail }, // Same email as existing user
             publicMetadata: {},
         }
 
         currentUserMock.mockResolvedValue(clerkUser)
 
-        // Should throw due to unique email constraint - no longer silently merges
-        await expect(syncCurrentClerkUser()).rejects.toThrow()
+        const result = await syncCurrentClerkUser()
+
+        // New user should be created with the email
+        const newUser = await db
+            .selectFrom('user')
+            .selectAll('user')
+            .where('clerkId', '=', clerkUser.id)
+            .executeTakeFirstOrThrow()
+
+        expect(newUser.email).toBe(originalEmail)
+        expect(result.id).toBe(newUser.id)
+
+        // Old user should have null email
+        const oldUser = await db
+            .selectFrom('user')
+            .selectAll('user')
+            .where('id', '=', existingUser.id)
+            .executeTakeFirstOrThrow()
+
+        expect(oldUser.email).toBeNull()
     })
 
     it('should create new user when clerk user does not exist in database', async () => {

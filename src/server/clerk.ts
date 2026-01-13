@@ -4,6 +4,7 @@ import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
 import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
+import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -90,30 +91,7 @@ export const syncCurrentClerkUser = async () => {
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    // First check if user exists by clerkId (stable identifier)
-    const existingByClerkId = await db
-        .selectFrom('user')
-        .select('id')
-        .where('clerkId', '=', userAttrs.clerkId)
-        .executeTakeFirst()
-
-    if (existingByClerkId) {
-        await db
-            .updateTable('user')
-            .set({
-                firstName: userAttrs.firstName,
-                lastName: userAttrs.lastName,
-                email: userAttrs.email,
-            })
-            .where('id', '=', existingByClerkId.id)
-            .execute()
-        return existingByClerkId
-    }
-
-    // User not found by clerkId - create new user
-    // Note: If email already exists for another user, the unique email index will throw
-    // This is intentional - it indicates a data integrity issue to investigate
-    return await db.insertInto('user').values(userAttrs).returning(['id']).executeTakeFirstOrThrow()
+    return await syncUserToDatabaseWithConflictResolution(userAttrs)
 }
 
 export async function sessionFromClerk(options?: MarshalSessionOptions) {
