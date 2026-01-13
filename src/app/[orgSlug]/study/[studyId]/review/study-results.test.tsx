@@ -77,7 +77,7 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         expect(screen.getByText('Building researcher code failed!')).toBeDefined()
-        expect(screen.getByText('Maybe check the base image or contact your administrator.')).toBeDefined()
+        expect(screen.getByText('Maybe check the base image or contact support.')).toBeDefined()
 
         // build/scan errors should not prompt reviewers to decrypt results/logs
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
@@ -102,7 +102,7 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         expect(screen.getByText('Building researcher code failed!')).toBeDefined()
-        expect(screen.getByText('Maybe check the base image or contact your administrator.')).toBeDefined()
+        expect(screen.getByText('Maybe check the base image or contact support.')).toBeDefined()
 
         // build/scan errors should not prompt reviewers to decrypt results/logs
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()

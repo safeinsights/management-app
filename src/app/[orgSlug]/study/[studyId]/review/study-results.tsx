@@ -71,7 +71,7 @@ export const JobStatusHelpText: FC<{
             return (
                 <Stack gap="xs">
                     <Text>Building researcher code failed!</Text>
-                    <Text>Maybe check the base image or contact your administrator.</Text>
+                    <Text>Maybe check the base image or contact support.</Text>
                 </Stack>
             )
         }
