@@ -1,7 +1,8 @@
 import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
+import { insertTestStudyData, mockSessionWithTestData, readTestSupportFile } from '@/tests/unit.helpers'
+import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 
 vi.mock('@/lib/logger', () => {
     const error = vi.fn()
@@ -15,6 +16,29 @@ vi.mock('@/lib/logger', () => {
         },
     }
 })
+
+vi.mock('@/server/aws', () => ({
+    storeS3File: vi.fn(),
+    fetchS3File: vi.fn(),
+    signedUrlForFile: vi.fn(),
+}))
+
+async function ensureValidUserPublicKeysForOrg(orgId: string) {
+    const publicKeyPem = await readTestSupportFile('public_key.pem')
+    const publicKey = pemToArrayBuffer(publicKeyPem)
+    const fingerprint = await fingerprintKeyData(publicKey)
+
+    const orgUserIds = await db.selectFrom('orgUser').select(['userId']).where('orgId', '=', orgId).execute()
+    const userIds = orgUserIds.map((r) => r.userId)
+
+    if (!userIds.length) return
+
+    await db
+        .updateTable('userPublicKey')
+        .set({ publicKey: Buffer.from(publicKey), fingerprint })
+        .where('userId', 'in', userIds)
+        .execute()
+}
 
 async function getStatusRows(jobId: string) {
     return await db
@@ -148,4 +172,25 @@ test('returns 404 job-not-found for unknown jobId', async () => {
 
     const body = await resp.json()
     expect(body).toEqual({ error: 'job-not-found' })
+})
+
+test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
+    await ensureValidUserPublicKeysForOrg(org.id)
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({
+            jobId,
+            status: 'JOB-ERRORED',
+            plaintextLog: 'Build failed during code packaging/scanning.',
+        }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
 })

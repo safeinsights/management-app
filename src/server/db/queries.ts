@@ -7,6 +7,7 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import type { PublicKey } from 'si-encryption/job-results/types'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -265,4 +266,27 @@ export async function fetchLatestBaseImageForStudyId(studyId: string) {
         .limit(1)
         .select(['orgBaseImage.url', 'orgBaseImage.settings', 'orgBaseImage.starterCodePath'])
         .executeTakeFirstOrThrow(() => new Error(`no base image found for studyId: ${studyId}`))
+}
+
+/**
+ * Fetches all public keys for users belonging to an organization.
+ * Returns keys converted to ArrayBuffer format suitable for encryption operations.
+ */
+export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
+    const keys = await Action.db
+        .selectFrom('orgUser')
+        .innerJoin('userPublicKey', 'userPublicKey.userId', 'orgUser.userId')
+        .select(['userPublicKey.publicKey', 'userPublicKey.fingerprint'])
+        .where('orgUser.orgId', '=', orgId)
+        .execute()
+
+    return keys
+        .filter((k) => k.publicKey && k.fingerprint)
+        .map((k) => {
+            // Convert Node Buffer to ArrayBuffer
+            const buf = Buffer.from(k.publicKey)
+            const arrayBuffer = new ArrayBuffer(buf.byteLength)
+            new Uint8Array(arrayBuffer).set(buf)
+            return { publicKey: arrayBuffer, fingerprint: k.fingerprint }
+        })
 }

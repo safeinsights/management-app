@@ -3,10 +3,14 @@ import logger from '@/lib/logger'
 import { NotFoundError, throwNotFound } from '@/lib/errors'
 import { z, ZodError } from 'zod'
 import { NextResponse } from 'next/server'
+import { createEncryptedLogZip } from '@/server/encryption/encrypt-log'
+import { getOrgPublicKeys, getStudyJobFileOfType } from '@/server/db/queries'
+import { storeStudyEncryptedLogFile } from '@/server/storage'
 
 const schema = z.object({
     jobId: z.string(),
     status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
+    plaintextLog: z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -19,9 +23,47 @@ export async function POST(req: Request) {
         const job = await db
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
+            .innerJoin('org', 'org.id', 'study.orgId')
             .where('studyJob.id', '=', body.jobId)
-            .select(['studyJob.id as jobId', 'study.researcherId'])
+            .select([
+                'studyJob.id as jobId',
+                'study.researcherId',
+                'study.id as studyId',
+                'study.orgId',
+                'org.slug as orgSlug',
+            ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
+
+        // If build failed and plaintext log provided, try to encrypt and store it.
+        // Encryption failure should not block saving the JOB-ERRORED status - we log
+        // the error but continue so the job at least shows as errored in the UI.
+        // Idempotency: CodeBuild may retry on transient failures, so we check if an
+        // encrypted log already exists for this job to avoid duplicate DB rows.
+        if (body.status === 'JOB-ERRORED' && body.plaintextLog) {
+            try {
+                const existingLog = await getStudyJobFileOfType(job.jobId, 'ENCRYPTED-LOG', false)
+                if (!existingLog) {
+                    const recipients = await getOrgPublicKeys(job.orgId)
+                    if (recipients.length > 0) {
+                        const zipBytes = await createEncryptedLogZip(body.plaintextLog, recipients)
+                        const encryptedFile = new File([Uint8Array.from(zipBytes)], 'encrypted-logs.zip', {
+                            type: 'application/zip',
+                        })
+                        await storeStudyEncryptedLogFile(
+                            { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                            encryptedFile,
+                        )
+                    }
+                }
+            } catch (encryptionError) {
+                logger.error('Failed to encrypt and store error log', encryptionError, {
+                    route: '/api/services/code-push',
+                    jobId: job.jobId,
+                    studyId: job.studyId,
+                    orgId: job.orgId,
+                })
+            }
+        }
 
         // Idempotency: avoid inserting duplicate consecutive statuses.
         const last = await db

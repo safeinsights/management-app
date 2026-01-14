@@ -17,6 +17,11 @@ export const StudyResults: FC<{
 }> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
+    const { isErrored } = useJobStatus(job?.statusChanges ?? [])
+    // If errored but no encrypted logs available, don't show decrypt UI
+    const hasEncryptedLogs = job?.files?.some((f) => f.fileType === 'ENCRYPTED-LOG') ?? false
+    const showDecryptUI = !isErrored || hasEncryptedLogs
+
     // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
         return (
@@ -44,15 +49,18 @@ export const StudyResults: FC<{
                     <JobReviewButtons job={job} decryptedResults={decryptedResults} />
                 </Group>
                 <Divider c="dimmed" />
-                <JobStatusHelpText job={job} />
-                <DecryptResults job={job} onApproval={setDecryptedResults} />
+                <JobStatusHelpText job={job} hasEncryptedLogs={hasEncryptedLogs} />
+                {showDecryptUI && <DecryptResults job={job} onApproval={setDecryptedResults} />}
                 <JobResults job={job} />
             </Stack>
         </Paper>
     )
 }
 
-export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
+export const JobStatusHelpText: FC<{
+    job: LatestJobForStudy
+    hasEncryptedLogs: boolean
+}> = ({ job, hasEncryptedLogs }) => {
     const { isComplete, isErrored, isApproved } = useJobStatus(job.statusChanges)
 
     if (isApproved) {
@@ -60,6 +68,15 @@ export const JobStatusHelpText: FC<{ job: LatestJobForStudy }> = ({ job }) => {
     }
 
     if (isErrored) {
+        if (!hasEncryptedLogs) {
+            return (
+                <Stack gap="xs">
+                    <Text>Study job errored. No logs available.</Text>
+                </Stack>
+            )
+        }
+
+        // Encrypted logs available for review
         return (
             <Stack>
                 <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
