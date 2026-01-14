@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 
-import { useEnvironmentId } from '@/hooks/environment'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
 
 import { useUser } from '@clerk/nextjs'
@@ -11,8 +10,6 @@ import { syncUserMetadataAction } from '@/server/actions/user.actions'
 export const useSession = ():
     | { isLoaded: false; session: null }
     | { isLoaded: true; session: UserSessionWithAbility } => {
-    const env = useEnvironmentId()
-
     const { user } = useUser()
 
     const [session, setSession] = useState<UserSessionWithAbility | null>(null)
@@ -22,25 +19,27 @@ export const useSession = ():
 
         try {
             const sessFromMD = sessionFromMetadata({
-                env,
-                metadata: user.publicMetadata || {},
-                prefs: user.unsafeMetadata || {},
+                metadata: (user.publicMetadata || {}) as UserPublicMetadata,
+                prefs: (user.unsafeMetadata || {}) as UserUnsafeMetadata,
                 clerkUserId: user.id,
             })
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing external auth state
             setSession(sessFromMD)
         } catch {
-            syncUserMetadataAction().then((metadata) => {
-                const updatedSession = sessionFromMetadata({
-                    env,
-                    metadata: { [`${env}`]: metadata },
-                    prefs: user.unsafeMetadata || {},
-                    clerkUserId: user.id,
-                })
+            syncUserMetadataAction()
+                .then((metadata) => {
+                    if (!metadata) return
+                    const updatedSession = sessionFromMetadata({
+                        metadata: metadata as UserPublicMetadata,
+                        prefs: (user.unsafeMetadata || {}) as UserUnsafeMetadata,
+                        clerkUserId: user.id,
+                    })
 
-                setSession(updatedSession)
-            })
+                    setSession(updatedSession)
+                })
+                .catch(() => {})
         }
-    }, [user?.id, user?.publicMetadata, env, user])
+    }, [user?.id, user?.publicMetadata, user])
 
     if (session) {
         return { isLoaded: true, session }

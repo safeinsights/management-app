@@ -5,6 +5,7 @@ set -e
 export ASSETS_PREFIX=/
 export PORT=4000
 export NEXT_PUBLIC_CLERK_DOMAIN=localhost:4000
+export CODER_FILES=./coder-files
 
 LOG=$1
 
@@ -16,7 +17,8 @@ fi
 npm run build > $LOG 2>&1
 
 cp -r public .next/standalone/
-
+mkdir -p .next/standalone/coder-files
+cp tests/coder-files/main.r tests/coder-files/main.py tests/coder-files/code.r .next/standalone/coder-files/
 cp -r .next/static .next/standalone/.next/
 
 node .next/standalone/server.js >> $LOG 2>&1 &

@@ -1,22 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { reportMutationError } from '@/components/errors'
 import {
-    renderWithProviders,
-    screen,
-    userEvent,
-    mockSessionWithTestData,
-    insertTestStudyJobData,
-    waitFor,
-    actionResult,
-} from '@/tests/unit.helpers'
-import { StudyReviewButtons } from './study-review-buttons'
-import {
-    getStudyAction,
     approveStudyProposalAction,
+    getStudyAction,
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
+import {
+    actionResult,
+    insertTestStudyJobData,
+    mockSessionWithTestData,
+    renderWithProviders,
+    screen,
+    userEvent,
+    waitFor,
+} from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
-import { reportMutationError } from '@/components/errors'
+import { useParams } from 'next/navigation'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { StudyReviewButtons } from './study-review-buttons'
+import * as Session from '@/hooks/session'
 
 // Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
@@ -25,7 +27,7 @@ vi.mock('@/server/actions/study.actions', async (importOriginal) => {
         ...original,
         approveStudyProposalAction: vi.fn(),
         rejectStudyProposalAction: vi.fn(),
-        doesTestImageExistForStudyAction: vi.fn().mockResolvedValue(true), // Mock to return true
+        doesTestImageExistForStudyAction: () => Promise.resolve(true),
     }
 })
 
@@ -50,6 +52,12 @@ describe('StudyReviewButtons', () => {
             studyStatus: 'PENDING-REVIEW',
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+
+        // Mock useParams to return both orgSlug and studyId
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
 
         mockReportMutationError.mockReturnValue(vi.fn())
     })
@@ -98,7 +106,7 @@ describe('StudyReviewButtons', () => {
         await user.click(approveButton)
 
         await waitFor(() => {
-            expect(memoryRouter.asPath).toBe('/reviewer/test-org/dashboard')
+            expect(memoryRouter.asPath).toBe('/test-org/dashboard')
         })
     })
 
@@ -138,7 +146,50 @@ describe('StudyReviewButtons', () => {
                 expect.objectContaining({ error: 'Rejection failed due to network error' }),
                 'REJECTED',
                 undefined,
+                expect.anything(),
             )
         })
+    })
+
+    it('does not render approve and reject buttons for a lab user', async () => {
+        await mockSessionWithTestData({ orgType: 'lab', orgSlug: 'test-org' })
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+    })
+
+    it('renders approve and reject buttons for an enclave user', async () => {
+        await mockSessionWithTestData({ orgType: 'enclave', orgSlug: 'test-org' })
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+        renderWithProviders(<StudyReviewButtons study={study} />)
+        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
+    })
+
+    it('renders nothing while session is loading', async () => {
+        // Ensure route params are present (component reads orgSlug/studyId)
+        vi.mocked(useParams).mockReturnValue({
+            orgSlug: 'test-org',
+            studyId: study.id,
+        })
+
+        // Force the loading branch of useSession
+        const spy = vi
+            .spyOn(Session, 'useSession')
+            .mockReturnValue({ isLoaded: false, session: null } as unknown as ReturnType<typeof Session.useSession>)
+
+        renderWithProviders(<StudyReviewButtons study={study} />)
+
+        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
+
+        spy.mockRestore()
     })
 })

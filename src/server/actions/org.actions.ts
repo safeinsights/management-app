@@ -1,10 +1,11 @@
 'use server'
 
-import { orgSchema, updateOrgSchema } from '@/schema/org'
-import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
-import { revalidatePath } from 'next/cache'
-import { z, Action } from './action'
 import { ActionSuccessType } from '@/lib/types'
+import { orgSchema, updateOrgSchema } from '@/schema/org'
+import { revalidatePath } from 'next/cache'
+import { getReviewerPublicKeyByUserId, orgIdFromSlug } from '../db/queries'
+import { Action, z } from './action'
+import { Language } from '@/database/types'
 
 export const updateOrgAction = new Action('updateOrgAction', { performsMutations: true })
     .params(updateOrgSchema)
@@ -29,43 +30,100 @@ export const getOrgFromIdAction = new Action('getOrgFromIdAction')
         return await db.selectFrom('org').selectAll('org').where('id', '=', orgId).executeTakeFirst()
     })
 
-export const fetchOrgsWithStatsAction = new Action('fetchOrgsWithStatsAction')
+export const fetchUsersOrgsWithStatsAction = new Action('fetchUsersOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
     .handler(async ({ db, session }) => {
+        // Latest job per study
+        const latestStudyJob = db
+            .selectFrom('studyJob')
+            .select(['studyJob.studyId as studyId', 'studyJob.id as jobId'])
+            .distinctOn('studyId')
+            .orderBy('studyId')
+            .orderBy('createdAt', 'desc')
+            .as('latestStudyJob')
+
+        // Latest status per latest job
+        const latestStatusPerStudy = db
+            .selectFrom(latestStudyJob)
+            .innerJoin(
+                (eb) =>
+                    eb
+                        .selectFrom('jobStatusChange')
+                        .select(['jobStatusChange.studyJobId', 'jobStatusChange.status'])
+                        .distinctOn('studyJobId')
+                        .orderBy('studyJobId')
+                        .orderBy('createdAt', 'desc')
+                        .as('latestStatus'),
+                (join) => join.onRef('latestStatus.studyJobId', '=', 'latestStudyJob.jobId'),
+            )
+            .select(['latestStudyJob.studyId as studyId', 'latestStatus.status as status'])
+            .as('latestStatusPerStudy')
+
+        // Counts for Lab orgs (Research Labs)
+        const labCounts = db
+            .selectFrom('study as s')
+            .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
+            .select((eb) => ['s.submittedByOrgId as orgId', eb.fn.count('s.id').distinct().as('count')])
+            .where('s.researcherId', '=', session.user.id)
+            .where((eb) =>
+                eb.or([
+                    eb('s.status', 'in', ['APPROVED', 'REJECTED']),
+                    eb('latestStatusPerStudy.status', 'in', ['JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']),
+                ]),
+            )
+            .groupBy('s.submittedByOrgId')
+            .as('labCounts')
+
+        // Counts for Enclave orgs (Data Orgs)
+        const enclaveCounts = db
+            .selectFrom('study as s')
+            .leftJoin(latestStatusPerStudy, (join) => join.onRef('latestStatusPerStudy.studyId', '=', 's.id'))
+            .select((eb) => ['s.orgId as orgId', eb.fn.count('s.id').distinct().as('count')])
+            .where((eb) =>
+                eb.or([
+                    eb('s.status', '=', 'PENDING-REVIEW'),
+                    eb('latestStatusPerStudy.status', 'in', ['JOB-ERRORED', 'RUN-COMPLETE']),
+                ]),
+            )
+            .groupBy('s.orgId')
+            .as('enclaveCounts')
+
         return await db
             .selectFrom('orgUser')
             .innerJoin('org', 'org.id', 'orgUser.orgId')
-            .leftJoin('study', 'study.orgId', 'org.id')
-            .select([
+            .leftJoin(labCounts, (join) => join.onRef('labCounts.orgId', '=', 'org.id').on('org.type', '=', 'lab'))
+            .leftJoin(enclaveCounts, (join) =>
+                join.onRef('enclaveCounts.orgId', '=', 'org.id').on('org.type', '=', 'enclave'),
+            )
+            .select((eb) => [
                 'org.id',
                 'org.name',
                 'org.slug',
                 'org.type',
-                // TODO: replace this with whatever stats we need
-                (eb) => eb.fn.count('study.id').as('eventCount'),
+                eb.fn.coalesce('labCounts.count', eb.fn.coalesce('enclaveCounts.count', eb.val(0))).as('eventCount'),
             ])
-            .groupBy(['org.id'])
             .where('orgUser.userId', '=', session.user.id)
             .execute()
     })
 
-export const fetchOrgsWithStudyCountsAction = new Action('fetchOrgsWithStudyCountsAction')
+export const fetchAdminOrgsWithStatsAction = new Action('fetchAdminOrgsWithStatsAction')
     .requireAbilityTo('view', 'Orgs')
-    .handler(async ({ db, session }) => {
+    .handler(async ({ db }) => {
         return await db
-            .selectFrom('orgUser')
-            .innerJoin('org', 'org.id', 'orgUser.orgId')
+            .selectFrom('org')
             .leftJoin('study', 'study.orgId', 'org.id')
+            .leftJoin('orgUser', 'orgUser.orgId', 'org.id')
             .select([
                 'org.id',
                 'org.name',
+                'org.email',
                 'org.slug',
                 'org.type',
                 'org.settings',
-                (eb) => eb.fn.count('study.id').as('totalStudies'),
+                (eb) => eb.fn.count('orgUser.id').distinct().as('totalUsers'),
+                (eb) => eb.fn.count('study.id').distinct().as('totalStudies'),
             ])
             .groupBy(['org.id'])
-            .where('orgUser.userId', '=', session.user.id)
             .execute()
     })
 
@@ -73,6 +131,54 @@ export const deleteOrgAction = new Action('deleteOrgAction')
     .params(z.object({ orgId: z.string() }))
     .requireAbilityTo('delete', 'Org')
     .handler(async ({ db, params: { orgId } }) => db.deleteFrom('org').where('id', '=', orgId).execute())
+
+export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEnclaveOrgsAction')
+    .requireAbilityTo('view', 'Orgs')
+    .handler(async ({ db }) => {
+        return await db
+            .selectFrom('org')
+            .select(['org.slug', 'org.name', 'org.type'])
+            .where((eb) =>
+                eb.exists(
+                    eb
+                        .selectFrom('orgBaseImage')
+                        .select('orgBaseImage.id')
+                        .whereRef('orgBaseImage.orgId', '=', 'org.id')
+                        .where('orgBaseImage.isTesting', '=', false),
+                ),
+            )
+            .where('org.type', '=', 'enclave')
+            .orderBy('org.name', 'asc')
+            .execute()
+    })
+
+type LanguageOption = { value: Language; label: string }
+
+export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
+    .requireAbilityTo('view', 'Orgs')
+    .params(z.object({ orgSlug: z.string() }))
+    .handler(async ({ db, params: { orgSlug } }) => {
+        const { languageLabels } = await import('@/lib/languages')
+
+        const org = await db
+            .selectFrom('org')
+            .select(['name', 'id'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
+
+        const rows = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.language'])
+            .where('orgBaseImage.orgId', '=', org.id)
+            .where('orgBaseImage.isTesting', '=', false)
+            .distinct()
+            .execute()
+
+        return {
+            orgName: org.name,
+            languages: rows.map((l) => ({ value: l.language, label: languageLabels[l.language] }) as LanguageOption),
+        }
+    })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
@@ -121,6 +227,7 @@ export const getUsersForOrgAction = new Action('getUsersForOrgAction')
             }),
         }),
     )
+    .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'User')
     .handler(async ({ db, params: { orgSlug, sort } }) => {
         return await db

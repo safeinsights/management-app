@@ -22,7 +22,7 @@ describe('StudyApprovalStatus', () => {
     })
 
     it('renders nothing for other statuses or missing date', () => {
-        renderWithProviders(<StudyApprovalStatus status="INITIATED" date={new Date()} />)
+        renderWithProviders(<StudyApprovalStatus status="DRAFT" date={new Date()} />)
         expect(screen.queryByText(/Approved|Rejected/)).toBeNull()
 
         renderWithProviders(<StudyApprovalStatus status="APPROVED" date={null} />)

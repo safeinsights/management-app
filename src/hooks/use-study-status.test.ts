@@ -19,7 +19,7 @@ describe('useStudyStatus', () => {
             const result = useStudyStatus(params)
 
             expect(result).toEqual({
-                type: 'Proposal',
+                stage: 'Proposal',
                 label: 'Under Review',
                 tooltip: "Your proposal is being reviewed. You'll receive an email once a decision is made.",
             })
@@ -29,7 +29,7 @@ describe('useStudyStatus', () => {
             const params = createTestParams('APPROVED', 'researcher', [{ status: 'RUN-COMPLETE' }])
             const result = useStudyStatus(params)
 
-            expect(result?.type).toBe('Results')
+            expect(result.stage).toBe('Results')
             expect(result?.label).toBe('Under Review')
         })
 
@@ -115,7 +115,7 @@ describe('useStudyStatus', () => {
             const result = useStudyStatus(params)
 
             // Should find the most relevant status based on priority order
-            expect(result?.type).toBe('Results')
+            expect(result.stage).toBe('Results')
         })
 
         it('handles mixed status types in correct priority order', () => {
@@ -133,12 +133,13 @@ describe('useStudyStatus', () => {
     })
 
     describe('edge cases', () => {
-        it('returns null when no matching status is found', () => {
+        it('returns DRAFT status as fallback when no matching status is found', () => {
             // Create a scenario where no status matches the status keys
-            const params = createTestParams('DRAFT' as StudyStatus, 'researcher', [])
+            const params = createTestParams('UNKNOWN' as unknown as StudyStatus, 'researcher', [])
             const result = useStudyStatus(params)
 
-            expect(result).toBeNull()
+            expect(result).toBeDefined()
+            expect(result?.label).toBe('Draft')
         })
 
         it('handles empty job status changes array', () => {
@@ -169,7 +170,7 @@ describe('useStudyStatus', () => {
             const result = useStudyStatus(params)
 
             // RUN-COMPLETE should have higher priority than CODE-APPROVED
-            expect(result?.type).toBe('Results')
+            expect(result.stage).toBe('Results')
         })
 
         it('finds the first matching status in priority order, not chronological order', () => {
@@ -180,7 +181,7 @@ describe('useStudyStatus', () => {
             const result = useStudyStatus(params)
 
             // Should prioritize RUN-COMPLETE despite being chronologically earlier
-            expect(result?.type).toBe('Results')
+            expect(result.stage).toBe('Results')
         })
     })
 

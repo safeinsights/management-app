@@ -1,0 +1,99 @@
+import { useQueryClient } from '@/common'
+import { Routes } from '@/lib/routes'
+import { notifications } from '@mantine/notifications'
+import { useRouter } from 'next/navigation'
+import { useState, useCallback } from 'react'
+import { useWorkspaceLauncher } from './use-workspace-launcher'
+import { useWorkspaceFiles } from './use-workspace-files'
+import { useFileListManager } from './use-file-list-manager'
+import { useStudyRequest } from '@/contexts/study-request'
+
+interface UseIDEFilesOptions {
+    studyId: string
+    orgSlug: string
+}
+
+export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
+    const router = useRouter()
+    const queryClient = useQueryClient()
+    const { setIDECodeFiles } = useStudyRequest()
+
+    const [hasImported, setHasImported] = useState(false)
+
+    const {
+        launchWorkspace,
+        isLaunching: isLaunchingWorkspace,
+        isCreatingWorkspace,
+        error: launchError,
+    } = useWorkspaceLauncher({ studyId })
+
+    const workspace = useWorkspaceFiles({ studyId, enabled: hasImported })
+
+    const fileManager = useFileListManager({
+        files: workspace.files,
+        suggestedMain: workspace.suggestedMain,
+    })
+
+    const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
+    const showEmptyState = !hasImported || (fileManager.filteredFiles.length === 0 && !workspace.isLoading)
+    const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
+
+    const importFiles = useCallback(() => {
+        setHasImported(true)
+        fileManager.reset()
+        workspace.refetch()
+        notifications.show({
+            title: 'Files imported',
+            message: 'File list has been updated from the IDE.',
+            color: 'blue',
+        })
+    }, [fileManager, workspace])
+
+    const goBack = useCallback(() => {
+        router.push(Routes.studyCode({ orgSlug, studyId }))
+    }, [router, orgSlug, studyId])
+
+    const proceedToReview = useCallback(() => {
+        if (!canSubmit) {
+            notifications.show({
+                color: 'red',
+                title: 'Cannot proceed',
+                message: 'Please import files and select a main file first.',
+            })
+            return
+        }
+
+        setIDECodeFiles(fileManager.mainFile, fileManager.filteredFiles)
+        queryClient.invalidateQueries({ queryKey: ['workspace-files', studyId] })
+        router.push(Routes.studyReview({ orgSlug, studyId }))
+    }, [
+        canSubmit,
+        fileManager.mainFile,
+        fileManager.filteredFiles,
+        setIDECodeFiles,
+        queryClient,
+        studyId,
+        router,
+        orgSlug,
+    ])
+
+    return {
+        launchWorkspace,
+        isLaunching,
+        launchError,
+
+        importFiles,
+        isLoadingFiles: workspace.isLoading,
+        showEmptyState,
+        lastModified: workspace.lastModified,
+
+        files: fileManager.filteredFiles,
+        mainFile: fileManager.mainFile,
+        setMainFile: fileManager.setMainFile,
+        removeFile: fileManager.removeFile,
+
+        canSubmit,
+        proceedToReview,
+        goBack,
+    }
+}

@@ -1,14 +1,61 @@
-import { isActionError, type ActionResponse, errorToString } from '@/lib/errors'
+import { errorToString, isActionError, type ActionResponse } from '@/lib/errors'
+import * as Sentry from '@sentry/nextjs'
+import { UserSession } from './types'
 
-/**
- * Helper function to handle action results.
- * If the result is an error, throws it as an Error.
- * Otherwise, returns the result with proper typing.
- *
- * @example
- * const result = actionResult(await someAction({ param: 'value' }))
- * // result is fully typed and errors are automatically thrown
- */
+export type TimeOpts =
+    | { [key: number]: 'ms' }
+    | { 1: 'second' }
+    | { [key: number]: 'seconds' }
+    | { 1: 'minute' }
+    | { [key: number]: 'minutes' }
+
+export function timeOptsToMS(opts: TimeOpts) {
+    let ms = 0
+    for (const [key, unit] of Object.entries(opts)) {
+        const duration = parseInt(key, 10)
+        if (unit === 'ms') {
+            ms += duration
+        } else if (unit.startsWith('second')) {
+            ms += duration * 1000
+        } else if (unit.startsWith('minute')) {
+            ms += duration * 60 * 1000
+        }
+    }
+    return ms
+}
+
+export async function sleep(opts: TimeOpts): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        try {
+            setTimeout(resolve, timeOptsToMS(opts))
+        } catch (error) {
+            Sentry.captureException(error)
+            reject(error)
+        }
+    })
+}
+
+export function sanitizeFileName(fileName: string) {
+    return (
+        fileName
+            .substring(0, 512) // max path + filename length
+            .replace(/^\/+/, '') // leading slashes
+            .replace(/\.\./g, '') // no directory traversal with ..
+            // eslint-disable-next-line no-control-regex
+            .replace(/[^\x00-\x7F]/g, '')
+    ) // non-ascii (intentionally includes control characters)
+}
+
+export const labOrgIds = (session: UserSession) =>
+    Object.values(session.orgs)
+        .filter((org) => org.type === 'lab')
+        .map((org) => org.id)
+
+export const enclaveOrgIds = (session: UserSession) =>
+    Object.values(session.orgs)
+        .filter((org) => org.type === 'enclave')
+        .map((org) => org.id)
+
 export function actionResult<T>(result: ActionResponse<T>): T {
     if (isActionError(result)) {
         throw new Error(errorToString(result))

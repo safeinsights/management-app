@@ -1,7 +1,7 @@
-import type { FileType, StudyJobStatus, StudyStatus, OrgType } from '../database/types'
-import { z } from 'zod'
-import { FileEntry } from 'si-encryption/job-results/types'
 import type { ActionResponse } from '@/lib/errors'
+import { FileEntry } from 'si-encryption/job-results/types'
+import { z } from 'zod'
+import type { FileType, Language, OrgType, StudyJobStatus, StudyStatus } from '../database/types'
 
 export type UserOrgRoles = { isAdmin: boolean }
 
@@ -79,8 +79,7 @@ export type TreeNode = {
     children?: TreeNode[]
 }
 
-// only R for now
-export type SupportedLanguages = 'r'
+export type SupportedLanguages = 'r' | 'python'
 export type CodeManifestFileInfo = {
     size: number
     contentType: string
@@ -102,28 +101,44 @@ export enum StudyDocumentType {
     'DESCRIPTION' = 'DESCRIPTION',
     'AGREEMENT' = 'AGREEMENT',
 }
+export const ACCEPTED_LANGUAGE_FILE_TYPES: Record<Language, Record<string, string[]>> = {
+    R: {
+        'application/x-r': ['.r', '.R'],
+        'text/x-r': ['.r', '.R'],
+        'text/markdown': ['.rmd'],
+    },
+    PYTHON: {
+        'application/x-python': ['.py'],
+        'application/x-ipynb': ['.ipynb'],
+    },
+}
+
 export const ACCEPTED_FILE_TYPES = {
-    'application/x-r': ['.r', '.R'],
-    'text/x-r': ['.r', '.R'],
-    'text/markdown': ['.rmd'],
+    ...ACCEPTED_LANGUAGE_FILE_TYPES['R'],
+    ...ACCEPTED_LANGUAGE_FILE_TYPES['PYTHON'],
     'application/json': ['.json'],
     'text/csv': ['.csv'],
     'text/plain': ['.txt'],
-    'application/x-python': ['.py'],
-    'application/x-ipynb': ['.ipynb'],
 }
 
 export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'
 
-export const minimalStudyInfoSchema = z.object({
+export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
+})
+
+export type MinimalOrgInfo = z.infer<typeof minimalOrgInfoSchema>
+
+export const minimalStudyInfoSchema = minimalOrgInfoSchema.extend({
     studyId: z.string(),
 })
+
 export type MinimalStudyInfo = z.infer<typeof minimalStudyInfoSchema>
 
 export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
     studyJobId: z.string(),
 })
+
 export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
 export type AllStatus = StudyJobStatus | StudyStatus

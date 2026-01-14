@@ -1,12 +1,13 @@
-import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
-import { fetchOrgsWithStatsAction } from '@/server/actions/org.actions'
-import { Divider, Stack, Title } from '@mantine/core'
-import { NavbarLink } from './navbar-link'
-import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
-import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 import { useSession } from '@/hooks/session'
+import { orgInitialsTitle } from '@/lib/string'
+import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
+import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
+import { Divider, Stack, Title } from '@mantine/core'
+import { BookOpenIcon, BooksIcon, HouseIcon } from '@phosphor-icons/react'
+import { NavbarLink } from './navbar-link'
+import { OrgAdminDashboardLink } from './org-admin-dashboard-link'
 
-type Org = ActionSuccessType<typeof fetchOrgsWithStatsAction>[number]
+type Org = ActionSuccessType<typeof fetchUsersOrgsWithStatsAction>[number]
 
 type Props = {
     org: Org
@@ -62,11 +63,11 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
     return (
         <Stack>
             <Title c="white" py="md" px="sm" order={4}>
-                {org.name}
+                {orgInitialsTitle(org.name, org.type)}
             </Title>
             <Divider />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}
-            <OrgAdminDashboardLink isVisible={!session.orgs[org.slug]?.isAdmin} />
+            <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} org={org} />
         </Stack>
     )
 }

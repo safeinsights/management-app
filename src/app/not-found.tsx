@@ -1,6 +1,7 @@
 'use client'
 
-import { SafeInsightsLogo } from '@/components/layout/si-logo'
+import { SafeInsightsLogo } from '@/components/layout/svg/si-logo'
+import { Routes } from '@/lib/routes'
 import {
     AppShell,
     AppShellFooter,
@@ -49,7 +50,7 @@ export default function NotFound() {
                             loading={loading}
                             onClick={() => {
                                 setLoading(true)
-                                router.push('/')
+                                router.push(Routes.home)
                             }}
                             mt="xl"
                             style={{ margin: '0 auto' }}

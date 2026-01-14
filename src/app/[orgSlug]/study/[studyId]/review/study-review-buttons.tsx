@@ -1,26 +1,29 @@
 'use client'
 
-import React, { FC, useState } from 'react'
 import { useMutation, useQueryClient } from '@/common'
-import { Button, Group, Stack } from '@mantine/core'
-import { useParams, useRouter } from 'next/navigation'
+import { reportMutationError } from '@/components/errors'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
     rejectStudyProposalAction,
     type SelectedStudy,
 } from '@/server/actions/study.actions'
-import { reportMutationError } from '@/components/errors'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { Button, Group, Stack } from '@mantine/core'
+import { useRouter } from 'next/navigation'
+import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
+import { Routes, useTypedParams } from '@/lib/routes'
+import { useSession } from '@/hooks/session'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
+    const { session } = useSession()
     const router = useRouter()
-    const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { orgSlug } = useTypedParams(Routes.studyReview.schema)
     const [useTestImage, setUseTestImage] = useState(false)
     const queryClient = useQueryClient()
 
-    const backPath = `/reviewer/${orgSlug}/dashboard`
+    const backPath = Routes.orgDashboard({ orgSlug })
 
     const {
         mutate: updateStudy,
@@ -43,6 +46,10 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
         return <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
+    }
+
+    if (!session?.belongsToEnclave) {
+        return null
     }
 
     return (

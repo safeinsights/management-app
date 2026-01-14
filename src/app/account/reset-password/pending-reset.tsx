@@ -9,6 +9,8 @@ import { useSignIn } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
 import { signInToMFAState, type MFAState } from '../signin/logic'
 import { RequestMFA } from '../signin/mfa'
 import { PASSWORD_REQUIREMENTS, Requirements, usePasswordRequirements } from './password-requirements'
@@ -106,8 +108,8 @@ export function PendingReset({ pendingReset, onResetUpdate }: PendingResetProps)
             if (info.status == 'complete') {
                 await setActive({ session: info.createdSessionId })
                 await onUserResetPWAction()
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push(redirectUrl || '/')
+                const redirectUrl = searchParams.get('redirect_url') ?? Routes.home
+                router.push(redirectUrl as Route)
             } else if (info.status == 'needs_second_factor') {
                 const state = await signInToMFAState(info)
                 setNeedsMFA(state)

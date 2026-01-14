@@ -1,12 +1,12 @@
 'use server'
 
+import { ActionFailure } from '@/lib/errors'
 import { JobFile, minimalJobInfoSchema } from '@/lib/types'
+import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
+import { onStudyFilesApproved } from '@/server/events'
+import { sendStudyResultsRejectedEmail } from '@/server/mailer'
 import { fetchFileContents, storeApprovedJobFile } from '@/server/storage'
 import { revalidatePath } from 'next/cache'
-import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
-import { sendStudyResultsRejectedEmail } from '@/server/mailer'
-import { ActionFailure } from '@/lib/errors'
-import { onStudyFilesApproved } from '@/server/events'
 import { Action, z } from './action'
 
 export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction')
@@ -82,14 +82,14 @@ export const rejectStudyJobFilesAction = new Action('rejectStudyJobFilesAction')
         // TODO Confirm / Make sure we delete files from S3 when rejecting?
         await sendStudyResultsRejectedEmail(info.studyId)
 
-        revalidatePath(`/reviewer/[orgSlug]/study/${info.studyId}`)
+        revalidatePath(`/[orgSlug]/study/${info.studyId}`)
     })
 
 export const loadStudyJobAction = new Action('loadStudyJobAction')
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
     .handler(async ({ studyJob }) => {
@@ -111,7 +111,7 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
     .params(z.object({ studyJobId: z.string() }))
     .middleware(async ({ params: { studyJobId } }) => {
         const studyJob = await getStudyJobInfo(studyJobId)
-        return { studyJob, orgId: studyJob.orgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
+        return { studyJob, orgId: studyJob.orgId, submittedByOrgId: studyJob.submittedByOrgId } // Return the jobInfo along with the orgId for validation in requireAbilityTo below
     })
     .requireAbilityTo('view', 'StudyJob')
 

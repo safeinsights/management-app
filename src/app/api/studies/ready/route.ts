@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic' // defaults to auto
 import { db, sql } from '@/database'
 import { wrapApiOrgAction, apiRequestingOrg } from '@/server/api-wrappers'
 import { NextResponse } from 'next/server'

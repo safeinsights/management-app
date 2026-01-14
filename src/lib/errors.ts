@@ -12,6 +12,7 @@ export type ClerkAPIErrorObject = {
 export const clerkErrorOverrides: Record<string, string> = {
     form_password_incorrect: 'Invalid login credentials. Please double-check your email and password.',
     form_identifier_not_found: 'Invalid login credentials. Please double-check your email and password.',
+    strategy_for_user_invalid: 'Account password is invalid, please reset it by using the forgot password link below.',
 }
 
 export type ClerkAPIErrorResponse = {
@@ -21,10 +22,10 @@ export type ClerkAPIErrorResponse = {
 export function isClerkApiError(error: unknown): error is ClerkAPIErrorResponse {
     return Boolean(
         error != null &&
-            typeof error === 'object' &&
-            'errors' in error &&
-            Array.isArray(error.errors) &&
-            error.errors?.[0].code,
+        typeof error === 'object' &&
+        'errors' in error &&
+        Array.isArray(error.errors) &&
+        error.errors?.[0].code,
     )
 }
 
@@ -65,7 +66,9 @@ export function extractActionFailure(error: unknown): string | Record<string, st
         try {
             const encoded = JSON.parse(error.message)
             return extractActionFailure(encoded)
-        } catch {}
+        } catch {
+            // Ignore JSON parse errors
+        }
         return null
     }
 

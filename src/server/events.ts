@@ -1,13 +1,13 @@
 import { db } from '@/database'
 import { AuditEventType, AuditRecordType, Json } from '@/database/types'
-import * as email from './mailer'
 import logger from '@/lib/logger'
 import { UserOrgRoles } from '@/lib/types'
-import { after } from 'next/server'
-import { revalidatePath } from 'next/cache'
 import * as Sentry from '@sentry/nextjs'
+import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { updateClerkUserMetadata } from './clerk'
 import { siUser } from './db/queries'
+import * as email from './mailer'
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functions in this file are intended to be contain non-essential code that should run after the calling action has completed.    //
@@ -46,19 +46,19 @@ export const onStudyCreated = deferred(async ({ studyId, userId }: StudyEvent) =
 })
 
 export const onStudyFilesApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyResultsApprovedEmail(studyId)
 })
 
 export const onStudyApproved = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'APPROVED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalApprovedEmail(studyId)
 })
 
 export const onStudyRejected = deferred(async ({ studyId, userId }: StudyEvent) => {
-    revalidatePath(`/reviewer/[orgSlug]/study/${studyId}`, 'page')
+    revalidatePath(`/[orgSlug]/study/${studyId}`, 'page')
     await audit({ userId, eventType: 'REJECTED', recordType: 'STUDY', recordId: studyId })
     await email.sendStudyProposalRejectedEmail(studyId)
 })
@@ -87,7 +87,6 @@ export const onUserInvited = deferred(
 )
 
 export const onUserAcceptInvite = deferred(async (userId: string) => {
-    await updateClerkUserMetadata(userId)
     await audit({ userId, eventType: 'ACCEPTED_INVITE', recordType: 'USER', recordId: userId })
 })
 

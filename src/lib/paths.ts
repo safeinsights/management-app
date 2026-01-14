@@ -1,5 +1,5 @@
-import type { MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
-import { sanitizeFileName } from './util'
+import type { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
 
@@ -19,6 +19,12 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
+export const pathForStarterCode = ({
+    orgSlug,
+    baseImageId,
+    fileName,
+}: MinimalOrgInfo & { baseImageId: string; fileName: string }) => `starter-code/${orgSlug}/${baseImageId}/${fileName}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 
@@ -27,7 +33,19 @@ export const studyDocumentURL = (studyId: string, type: StudyDocumentType, fileN
 
 export const studyCodeURL = (jobId: string, fileName: string) => `/dl/study-code/${jobId}/${fileName}`
 
-const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard']
+export const coderUserInfoPath = (username: string) => `/api/v2/users/${username}`
+export const coderUsersPath = () => `/api/v2/users`
+export const coderOrgsPath = () => `/api/v2/organizations`
+export const coderTemplateId = () => `/api/v2/templates`
+export const coderWorkspaceCreatePath = (organization: string, username: string) =>
+    `/api/v2/organizations/${organization}/members/${username}/workspaces`
+export const coderWorkspacePath = (username: string, workspaceName: string) =>
+    `/@${username}/${workspaceName}.main/apps/code-server`
+export const coderWorkspaceDataPath = (username: string, workspaceName: string) =>
+    `/api/v2/users/${username}/workspace/${workspaceName}`
+export const coderWorkspaceBuildPath = (workspaceId: string) => `/api/v2/workspaces/${workspaceId}/builds`
+
+const NON_ORG_PREFIXES = ['about', 'account', 'dl', 'error-demo', 'dashboard', 'reviewer-key', 'admin']
 export function extractOrgSlugFromPath(pathname: string) {
     const parts = pathname.split('/').slice(1)
     if (NON_ORG_PREFIXES.includes(parts[0])) {
@@ -35,4 +53,9 @@ export function extractOrgSlugFromPath(pathname: string) {
     }
 
     return parts[0]
+}
+
+export function basename(path: string) {
+    const parts = path.split('/')
+    return parts[parts.length - 1]
 }

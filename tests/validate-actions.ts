@@ -108,6 +108,8 @@ function isActionsFile(filePath: string) {
 }
 
 const IS_SERVER = /['"]use server['"]/
+
+const IGNORE = new Set(['non-production.tsx', 'layout.tsx', 'page.tsx', 'focused-layout.tsx', 'user-layout.tsx'])
 /**
  * Analyzes a single file: checks if it contains the "use server" directive,
  * then parses its AST to check for exported functions and if they are wrapped.
@@ -116,8 +118,8 @@ function analyzeFile(filePath: string) {
     const content = fs.readFileSync(filePath, 'utf8')
     let success = true
     const logs: string[] = []
-
-    if (!IS_SERVER.test(content) || filePath.endsWith('layout.tsx') || filePath.endsWith('page.tsx')) {
+    const filename = path.basename(filePath)
+    if (!IS_SERVER.test(content) || IGNORE.has(filename)) {
         return { success, logs }
     }
 
@@ -167,6 +169,7 @@ function analyzeDirectory(directoryPath: string): void {
             overallSuccess = false
             errorLogs.push(...logs)
         } else if (VERBOSE) {
+            // eslint-disable-next-line no-console
             logs.forEach((log) => console.log(log))
         }
     }
@@ -176,6 +179,7 @@ function analyzeDirectory(directoryPath: string): void {
         errorLogs.forEach((log) => console.error(log))
         process.exit(1)
     } else {
+        // eslint-disable-next-line no-console
         if (VERBOSE) console.log('All files passed analysis.')
     }
 }

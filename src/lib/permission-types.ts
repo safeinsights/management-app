@@ -37,6 +37,7 @@ type Abilities =
     | Ability<'PendingUser', 'claim', object>
     | Ability<'OrgMembers', 'view', { orgId: UUID }>
     | Ability<'Studies', 'view', object>
+    | Ability<'OrgStudies', 'view', { orgType: 'enclave' | 'lab'; orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'view' | 'create', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'Study', 'review' | 'approve' | 'reject' | 'update' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
     | Ability<'StudyJob', 'view' | 'create' | 'delete', { orgId?: UUID; submittedByOrgId?: UUID }>
@@ -45,6 +46,7 @@ type Abilities =
     | Ability<'OrgMembers', 'view', { orgId?: UUID; orgSlug?: string }>
     | Ability<'Orgs', 'view', object>
     | Ability<'MFA', 'reset', object>
+    | Ability<'IDE', 'load', { researcherId: UUID }>
 
 export type PermissionsObjectSubjects = Extract<Abilities[1], object>
 

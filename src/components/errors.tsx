@@ -9,11 +9,11 @@ import { FC, ReactNode } from 'react'
 import { difference } from 'remeda'
 
 export const reportError = (error: unknown, title = 'An error occurred') => {
-    captureException(error)
+    const eventId = captureException(error)
     notifications.show({
         color: 'red',
         title,
-        message: errorToString(error),
+        message: eventId ? `${errorToString(error)}\nReference: ${eventId}` : errorToString(error),
     })
 }
 

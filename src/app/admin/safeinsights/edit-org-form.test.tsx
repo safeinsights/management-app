@@ -1,4 +1,4 @@
-import { renderWithProviders } from '@/tests/unit.helpers'
+import { renderWithProviders, faker } from '@/tests/unit.helpers'
 import { describe, expect, it } from 'vitest'
 import { fireEvent, screen } from '@testing-library/react'
 import { EditOrgForm } from './edit-org-form'
@@ -6,9 +6,11 @@ import { EditOrgForm } from './edit-org-form'
 const mockOrg = {
     id: '1',
     slug: 'test',
+    email: faker.internet.email(),
     name: 'test',
     type: 'enclave' as const,
     settings: { publicKey: 'junk' },
+    totalUsers: BigInt(0),
     totalStudies: BigInt(0),
 }
 
@@ -41,7 +43,7 @@ describe('EditOrgForm', () => {
         const typeSelect = screen.getByDisplayValue('Enclave (Data Organization)')
 
         expect(nameInput.value).toBe(mockOrg.name)
-        expect(emailInput.value).toBe('')
+        expect(emailInput.value).toBe(mockOrg.email)
         expect(publicKeyTextarea.value).toBe((mockOrg.settings as { publicKey: string }).publicKey)
         expect(typeSelect).toBeDefined()
     })

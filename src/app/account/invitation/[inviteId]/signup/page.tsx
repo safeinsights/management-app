@@ -6,14 +6,17 @@ import {
     usePasswordRequirements,
 } from '@/app/account/reset-password/password-requirements'
 import { useMutation, useQuery, z, zodResolver } from '@/common'
-import { handleMutationErrorsWithForm, InputError } from '@/components/errors'
+import { handleMutationErrorsWithForm, InputError, reportError } from '@/components/errors'
 import { LoadingMessage } from '@/components/loading'
 import { useAuth, useSignIn } from '@clerk/nextjs'
 import { Alert, Button, Flex, Paper, PasswordInput, Text, TextInput, Title, useMantineTheme } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { useRouter } from 'next/navigation'
-import { FC, use } from 'react'
+import { FC, use, useState } from 'react'
 import { getOrgInfoForInviteAction, onCreateAccountAction, onPendingUserLoginAction } from '../create-account.action'
+import { Routes } from '@/lib/routes'
+import { RequestMFA } from '@/app/account/signin/mfa'
+import { type MFAState } from '@/app/account/signin/logic'
 
 const formSchema = z
     .object({
@@ -46,10 +49,15 @@ type InviteData = {
     orgName: string
 }
 
+type SignupStep = 'form' | 'mfa'
+
 const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
     const { setActive, signIn } = useSignIn()
     const theme = useMantineTheme()
     const router = useRouter()
+    const [step, setStep] = useState<SignupStep>('form')
+    const [mfaState, setMfaState] = useState<MFAState>(false)
+
     const form = useForm({
         validate: zodResolver(formSchema),
         validateInputOnBlur: true,
@@ -68,25 +76,43 @@ const SetupAccountForm: FC<InviteData> = ({ inviteId, email, orgName }) => {
         mutationFn: (form: FormValues) => onCreateAccountAction({ inviteId, form }),
         onError: handleMutationErrorsWithForm(form),
         async onSuccess(_, vals) {
-            if (!signIn) {
+            if (!signIn || !setActive) {
                 reportError('unable to signin')
                 return
             }
 
-            const attempt = await signIn.create({
-                identifier: email,
-                password: vals.password,
-            })
+            try {
+                const attempt = await signIn.create({
+                    identifier: email,
+                    password: vals.password,
+                })
 
-            if (attempt.status === 'complete') {
-                await setActive({ session: attempt.createdSessionId })
-                await onPendingUserLoginAction({ inviteId })
-                router.push('/account/mfa')
-            } else {
-                reportError('unable to sign in')
+                if (attempt.status === 'complete') {
+                    await setActive({ session: attempt.createdSessionId })
+                    await onPendingUserLoginAction({ inviteId })
+                    router.push(Routes.accountMfa)
+                } else if (attempt.status === 'needs_second_factor') {
+                    setMfaState({ signIn: attempt, usingSMS: false })
+                    setStep('mfa')
+                } else {
+                    console.error(
+                        'Sign-in status:',
+                        attempt.status,
+                        'First factor:',
+                        attempt.firstFactorVerification?.status,
+                    )
+                    reportError(`unable to sign in: ${attempt.status}`)
+                }
+            } catch (error) {
+                console.error('Sign-in error:', error)
+                reportError('sign in failed')
             }
         },
     })
+
+    if (step === 'mfa' && mfaState) {
+        return <RequestMFA mfa={mfaState} />
+    }
 
     return (
         <Paper bg="white" p="xxl" radius="sm" w={600} my={{ base: '1rem', lg: 0 }}>

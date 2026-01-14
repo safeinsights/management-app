@@ -1,6 +1,10 @@
 import { Button, Flex, Link, useForm, zodResolver } from '@/common'
 import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
+import { actionResult } from '@/lib/utils'
+import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -30,9 +34,17 @@ export const SignInForm: FC<{
 
     useEffect(() => {
         if (searchParams.get('invite_not_found')) {
+            // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setClerkError({
                 title: 'Invite not found',
                 message: 'The invitation link you followed is invalid or has already been used.',
+            })
+        }
+        if (searchParams.get('error') === 'session') {
+            setClerkError({
+                title: 'Session Error',
+                message: 'There was a problem with your session. Please sign in again.',
             })
         }
     }, [searchParams])
@@ -61,8 +73,13 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push(redirectUrl || '/')
+                const result = actionResult(await onUserSignInAction())
+                if (result?.redirectToReviewerKey) {
+                    router.push(Routes.accountKeys as Route)
+                } else {
+                    const redirectUrl = searchParams.get('redirect_url') ?? Routes.home
+                    router.push(redirectUrl as Route)
+                }
             }
             if (attempt.status === 'needs_second_factor') {
                 // Auth method not yet determined, set to false for now
@@ -127,7 +144,11 @@ export const SignInForm: FC<{
                         fw={600}
                         w="fit-content"
                         size="xs"
-                        href={`/account/reset-password${searchParams.get('redirect_url') ? `?redirect_url=${searchParams.get('redirect_url')}` : ''}`}
+                        href={
+                            (searchParams.get('redirect_url')
+                                ? `${Routes.accountResetPassword}?redirect_url=${searchParams.get('redirect_url')}`
+                                : Routes.accountResetPassword) as Route
+                        }
                     >
                         Forgot password?
                     </Link>

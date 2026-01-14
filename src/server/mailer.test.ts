@@ -1,8 +1,8 @@
-import { describe, it, vi, expect, Mock } from 'vitest'
+import { db } from '@/database'
 import * as mailgun from '@/server/mailer'
 import { insertTestOrgStudyJobUsers } from '@/tests/unit.helpers'
+import { describe, expect, it, Mock, vi } from 'vitest'
 import { deliver } from './mailgun'
-import { db } from '@/database'
 
 vi.mock('./mailgun')
 
@@ -37,13 +37,14 @@ describe('mailgun email functions', () => {
 
         expect(deliver).toHaveBeenCalledWith(
             expect.objectContaining({
+                to: expect.stringContaining(user1.email || researcher.email || ''),
                 bcc: expect.stringContaining(user1.email || ''),
                 subject: expect.stringContaining('New study proposal'),
                 template: 'vb - new research proposal',
                 vars: expect.objectContaining({
                     studyTitle: study.title,
                     submittedBy: researcher.fullName,
-                    studyURL: expect.stringContaining(`/reviewer/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
                 }),
             }),
         )
@@ -105,7 +106,7 @@ describe('mailgun email functions', () => {
                     fullName: reviewer.fullName,
                     studyTitle: study.title,
                     submittedBy: expect.any(String),
-                    studyURL: expect.stringContaining(`/reviewer/${org.slug}/study/${study.id}/review`),
+                    studyURL: expect.stringContaining(`/${org.slug}/study/${study.id}/review`),
                 }),
             }),
         )

@@ -1,21 +1,23 @@
 'use client'
 import { useMutation } from '@/common'
 import { errorToString } from '@/lib/errors'
+import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { onUserSignInAction } from '@/server/actions/user.actions'
-import { useSignIn, useUser } from '@clerk/nextjs'
+import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import type { SignInResource } from '@clerk/types'
 import { Button, Divider, Loader, Paper, Stack, Text, Title } from '@mantine/core'
 import { isNotEmpty, useForm } from '@mantine/form'
+import { notifications } from '@mantine/notifications'
+import type { Route } from 'next'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
+import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
-import { RecoveryCodeMFAReset } from './reset-mfa'
+import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { VerifyCode } from './verify-code'
 
-export const dynamic = 'force-dynamic'
-
-export type Step = 'select' | 'verify' | 'reset'
+export type Step = 'select' | 'verify' | 'recovery'
 type Method = 'sms' | 'totp'
 
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
@@ -25,11 +27,13 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { isSignedIn } = useUser()
+    const auth = useAuth()
 
     // Determine which second-factor strategies are available for this sign-in attempt
     const hasSMS = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'phone_code'))
     const hasTOTP = Boolean(mfa && mfa.signIn.supportedSecondFactors?.some((sf) => sf.strategy === 'totp'))
     const hasBoth = Boolean(hasSMS && hasTOTP)
+    const hasNoFactors = !hasSMS && !hasTOTP
 
     const form = useForm({
         initialValues: {
@@ -60,20 +64,49 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
         async onSuccess(signInAttempt?: SignInResource) {
             if (signInAttempt?.status === 'complete' && setActive) {
                 await setActive({ session: signInAttempt.createdSessionId })
+
                 try {
                     const result = actionResult(await onUserSignInAction())
                     if (result?.redirectToReviewerKey) {
-                        router.push('/account/keys')
+                        router.push(Routes.accountKeys)
                     } else {
-                        const redirectUrl = searchParams.get('redirect_url')
-                        router.push(redirectUrl || '/dashboard')
+                        let redirectUrl: Route = (searchParams.get('redirect_url') as Route) || Routes.dashboard
+                        const inviteId = searchParams.get('invite_id')
+                        if (inviteId) {
+                            try {
+                                actionResult(
+                                    await onJoinTeamAccountAction({
+                                        inviteId,
+                                        loggedInEmail: signInAttempt?.identifier || undefined,
+                                    }),
+                                )
+
+                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
+
+                                const email = signInAttempt?.identifier || 'your account'
+                                notifications.show({
+                                    color: 'green',
+                                    message: `You've successfully linked your SafeInsights accounts under ${email}.`,
+                                })
+
+                                // forces Clerk to regenerate the JWT session token with the latest user metadata
+                                await auth.getToken({ skipCache: true })
+                            } catch {
+                                notifications.show({
+                                    color: 'red',
+                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                })
+                            }
+                        }
+                        router.push(redirectUrl)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    const redirectUrl = searchParams.get('redirect_url')
-                    router.push(redirectUrl || '/')
+                    const redirectUrl = searchParams.get('redirect_url') || Routes.home
+                    router.push(redirectUrl as Route)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
@@ -131,37 +164,58 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         To complete the log in process, please verify your identity using Multi-Factor Authentication
                         (MFA).
                     </Text>
-                    <Stack gap="xl">
-                        {hasSMS && (
-                            <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
-                                SMS Verification
-                            </Button>
-                        )}
-                        {hasTOTP && (
+                    {hasNoFactors ? (
+                        <>
+                            <Text size="sm" c="red.7" mb="xs">
+                                No MFA factors are configured for your account. Please contact your administrator to set
+                                up MFA, or use a recovery code if you have one.
+                            </Text>
                             <Button
                                 w="100%"
-                                variant={hasBoth ? 'outline' : 'primary'}
+                                variant="outline"
                                 size="lg"
-                                onClick={() => onSelectMethod('totp')}
+                                onClick={() => {
+                                    setStep('recovery')
+                                }}
                             >
-                                Authenticator app verification
+                                Try recovery code
                             </Button>
-                        )}
-                    </Stack>
-                    <Divider my="xs" c="charcoal.1" />
-                    <Text size="md" c="grey.7">
-                        Can&apos;t access your MFA device?
-                    </Text>
-                    <Button
-                        w="100%"
-                        variant="outline"
-                        size="lg"
-                        onClick={() => {
-                            setStep('reset')
-                        }}
-                    >
-                        Try recovery code
-                    </Button>
+                        </>
+                    ) : (
+                        <>
+                            <Stack gap="xl">
+                                {hasSMS && (
+                                    <Button w="100%" size="lg" variant="primary" onClick={() => onSelectMethod('sms')}>
+                                        SMS Verification
+                                    </Button>
+                                )}
+                                {hasTOTP && (
+                                    <Button
+                                        w="100%"
+                                        variant={hasBoth ? 'outline' : 'primary'}
+                                        size="lg"
+                                        onClick={() => onSelectMethod('totp')}
+                                    >
+                                        Authenticator app verification
+                                    </Button>
+                                )}
+                            </Stack>
+                            <Divider my="xs" c="charcoal.1" />
+                            <Text size="md" c="grey.7">
+                                Can&apos;t access your MFA device?
+                            </Text>
+                            <Button
+                                w="100%"
+                                variant="outline"
+                                size="lg"
+                                onClick={() => {
+                                    setStep('recovery')
+                                }}
+                            >
+                                Try recovery code
+                            </Button>
+                        </>
+                    )}
                 </Stack>
             )}
 
@@ -177,7 +231,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 />
             )}
 
-            {step === 'reset' && <RecoveryCodeMFAReset setStep={setStep} />}
+            {step === 'recovery' && <RecoveryCodeSignIn setStep={setStep} />}
         </Paper>
     )
 }

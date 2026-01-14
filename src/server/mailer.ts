@@ -1,7 +1,7 @@
 import { getStudyAndOrgDisplayInfo, getUserById, getUsersForOrgId } from '@/server/db/queries'
 import dayjs from 'dayjs'
-import { deliver } from './mailgun'
 import { APP_BASE_URL } from './config'
+import { deliver } from './mailgun'
 
 export const sendInviteEmail = async ({ emailTo, inviteId }: { inviteId: string; emailTo: string }) => {
     await deliver({
@@ -21,6 +21,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
     const emails = reviewersToNotify.map((reviewer) => reviewer.email).filter((email) => email)
 
     await deliver({
+        to: study.reviewerEmail ?? emails.join(', '), // work around in case no reviewer is set. mailgun requires a to address
         bcc: emails.join(', '),
         subject: 'New study proposal',
         template: 'vb - new research proposal',
@@ -28,7 +29,7 @@ export const sendStudyProposalEmails = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }
@@ -90,7 +91,7 @@ export const sendResultsReadyForReviewEmail = async (studyId: string) => {
             studyTitle: study.title,
             submittedBy: study.researcherFullName,
             submittedOn: dayjs(study.createdAt).format('MM/DD/YYYY'),
-            studyURL: `${APP_BASE_URL}/reviewer/${study.orgSlug}/study/${studyId}/review`,
+            studyURL: `${APP_BASE_URL}/${study.orgSlug}/study/${studyId}/review`,
         },
     })
 }

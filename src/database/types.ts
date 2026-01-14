@@ -4,6 +4,7 @@
  */
 
 import type { ColumnType } from 'kysely'
+import type { OrgBaseImageSettings } from './types-manual'
 
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
@@ -41,7 +42,7 @@ export type JsonPrimitive = boolean | number | string | null
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type Language = 'R'
+export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
@@ -59,7 +60,7 @@ export type StudyJobStatus =
     | 'JOB-RUNNING'
     | 'RUN-COMPLETE'
 
-export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'INITIATED' | 'PENDING-REVIEW' | 'REJECTED'
+export type StudyStatus = 'APPROVED' | 'ARCHIVED' | 'DRAFT' | 'PENDING-REVIEW' | 'REJECTED'
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>
 
@@ -102,6 +103,8 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
+    settings: Generated<OrgBaseImageSettings>
+    starterCodePath: string
     url: string
 }
 
@@ -118,6 +121,7 @@ export interface PendingUser {
     createdAt: Generated<Timestamp>
     email: string
     id: Generated<string>
+    invitedByUserId: string | null
     isAdmin: Generated<boolean>
     orgId: string
 }
@@ -132,6 +136,7 @@ export interface Study {
     id: Generated<string>
     irbDocPath: string | null
     irbProtocols: string | null
+    language: Generated<Language>
     orgId: string
     outputMimeType: string | null
     piName: string
@@ -139,13 +144,13 @@ export interface Study {
     researcherId: string
     reviewerId: string | null
     status: Generated<StudyStatus>
+    submittedByOrgId: string
     title: string
 }
 
 export interface StudyJob {
     createdAt: Generated<Timestamp>
     id: Generated<string>
-    language: Language
     studyId: string
 }
 
@@ -192,3 +197,6 @@ export interface DB {
     user: User
     userPublicKey: UserPublicKey
 }
+
+// Re-export manual types for convenience
+export type { EnvVar, OrgBaseImageSettings } from './types-manual'

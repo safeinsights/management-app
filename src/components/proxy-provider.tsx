@@ -7,13 +7,29 @@ import Script from 'next/script'
 import { FC, PropsWithChildren, createContext, useEffect, useState } from 'react'
 import { AppModal } from '@/components/modal'
 import { Button, Text, Stack, Group } from '@mantine/core'
+import { Routes } from '@/lib/routes'
+import type { Route } from 'next'
 
 const ProxyContext = createContext<ProxyInstance>([undefined, () => {}])
 
-const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, isDirty }) => {
+type ProxyProviderProps = {
+    isDirty: boolean
+    onSaveDraft?: () => Promise<void>
+    isSavingDraft?: boolean
+    onNavigateAway?: () => void
+}
+
+const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
+    children,
+    isDirty,
+    onSaveDraft,
+    isSavingDraft = false,
+    onNavigateAway,
+}) => {
     const router = useRouter()
     const [tips, setTips] = useState<string | undefined>()
     const [isOpen, setIsOpen] = useState(false)
+    const [targetUrl, setTargetUrl] = useState<string>('')
     const msg = tips === undefined ? tips : tips || 'Are you sure want to leave this page?'
 
     const pathname = usePathname()
@@ -21,13 +37,12 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
 
     const url = [pathname, searchParams].filter((i) => i).join('?')
     useEffect(() => {
+        // TODO: investigate if this is an issue, disable was added during upgrading eslint which pointed out possible errors
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setTips(undefined)
     }, [url, setTips])
 
     useEffect(() => {
-        // Track the target URL for navigation after confirmation
-        const targetUrl = { current: '' }
-
         // Handle browser reload/close
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
             if (isDirty) {
@@ -38,9 +53,13 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
         }
 
         // Handle browser back/forward buttons
-        const handlePopState = (event: PopStateEvent) => {
+        // Note: event.preventDefault() doesn't work for popstate - it fires AFTER history changes
+        // Instead, we push state back to stay on the current URL and show the dialog
+        const handlePopState = (_: PopStateEvent) => {
             if (isDirty) {
-                event.preventDefault()
+                // Push the current URL back onto the history stack to "undo" the back/forward
+                window.history.pushState(null, '', window.location.href)
+                setTargetUrl('')
                 setIsOpen(true)
             }
         }
@@ -66,13 +85,13 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
                         event.stopImmediatePropagation()
 
                         // Store the target URL for later navigation
-                        targetUrl.current = isExternal
+                        const normalizedUrl = isExternal
                             ? href
                             : href.startsWith('http')
                               ? href.replace(window.location.origin, '')
                               : href
 
-                        // Show the modal
+                        setTargetUrl(normalizedUrl)
                         setIsOpen(true)
                     }
                 }
@@ -91,13 +110,30 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
         }
     }, [isDirty])
 
-    const confirmNavigation = () => {
+    const navigateAway = () => {
         setIsOpen(false)
-        router.push('/')
+        onNavigateAway?.()
+        if (targetUrl) {
+            router.push(targetUrl as Route)
+        } else {
+            router.push(Routes.home)
+        }
     }
 
-    const handleBackToForm = () => {
+    const handleSaveDraft = async () => {
+        if (onSaveDraft) {
+            await onSaveDraft()
+        }
+        navigateAway()
+    }
+
+    const handleDiscard = () => {
+        navigateAway()
+    }
+
+    const handleClose = () => {
         setIsOpen(false)
+        setTargetUrl('')
     }
 
     return (
@@ -132,8 +168,8 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
             <>
                 <AppModal
                     isOpen={isOpen}
-                    onClose={handleBackToForm}
-                    title="Cancel proposal?"
+                    onClose={handleClose}
+                    title="Save study as draft"
                     overlayProps={{
                         style: {
                             position: 'fixed',
@@ -144,16 +180,15 @@ const ProxyProvider: FC<PropsWithChildren<{ isDirty: boolean }>> = ({ children, 
                 >
                     <Stack>
                         <Text size="md">
-                            You&apos;re about to cancel this study proposal draft. On cancel, the current proposal will
-                            be deleted and you won&apos;t be able to retrieve it in the future.
+                            You have made changes to this study. Would you like to discard this study or should we save
+                            this as a draft for later use? Discarded studies cannot be retrieved.
                         </Text>
-                        <Text size="md">Do you want to proceed?</Text>
-                        <Group>
-                            <Button variant="outline" onClick={handleBackToForm}>
-                                Back to proposal
+                        <Group justify="flex-end">
+                            <Button variant="outline" onClick={handleDiscard} disabled={isSavingDraft}>
+                                Discard study
                             </Button>
-                            <Button variant="filled" color="red.7" onClick={confirmNavigation}>
-                                Yes, delete proposal
+                            <Button variant="filled" onClick={handleSaveDraft} loading={isSavingDraft}>
+                                Save as draft
                             </Button>
                         </Group>
                     </Stack>

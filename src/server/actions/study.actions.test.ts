@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import logger from '@/lib/logger'
+import { onStudyApproved } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -8,15 +9,14 @@ import {
     mockClerkSession,
     mockSessionWithTestData,
 } from '@/tests/unit.helpers'
+import { describe, expect, it, vi } from 'vitest'
+import { latestJobForStudy } from '../db/queries'
 import {
     approveStudyProposalAction,
     doesTestImageExistForStudyAction,
-    fetchStudiesForCurrentResearcherAction,
+    fetchStudiesForOrgAction,
     getStudyAction,
 } from './study.actions'
-import { latestJobForStudy } from '../db/queries'
-import { onStudyApproved } from '@/server/events'
-import logger from '@/lib/logger'
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
@@ -28,6 +28,36 @@ describe('Study Actions', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id, studyStatus: 'PENDING-REVIEW' })
         await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
         expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+        const job = await latestJobForStudy(study.id)
+
+        expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
+    })
+
+    it('successfully approves a python language study proposal', async () => {
+        const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+
+        await db
+            .insertInto('orgBaseImage')
+            .values({
+                name: 'Python Base',
+                language: 'PYTHON',
+                cmdLine: 'python %f',
+                url: 'test/url',
+                isTesting: true,
+                orgId: org.id,
+                starterCodePath: 'test/path/starter.py',
+            })
+            .execute()
+
+        const { study } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            language: 'PYTHON',
+        })
+
+        await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
         const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
@@ -88,6 +118,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: true,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -117,6 +148,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: false,
                     orgId: org.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -139,6 +171,7 @@ describe('Study Actions', () => {
                     url: 'test/url',
                     isTesting: true,
                     orgId: otherOrg.id,
+                    starterCodePath: 'test/path/starter.R',
                 })
                 .execute()
 
@@ -148,7 +181,7 @@ describe('Study Actions', () => {
         })
     })
 
-    it('fetchStudiesForCurrentResearcherAction requires user to be a researcher', async () => {
+    it('fetchStudiesForOrgAction requires user to be a researcher', async () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         const otherOrg = await insertTestOrg()
@@ -156,11 +189,13 @@ describe('Study Actions', () => {
 
         const { studyId } = await insertTestStudyData({ org, researcherId: user.id })
 
-        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toEqual(
+        await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toEqual(
             expect.arrayContaining([expect.objectContaining({ id: studyId })]),
         )
 
         mockClerkSession({ clerkUserId: otherUser.clerkId, orgSlug: otherOrg.slug, userId: otherUser.id })
-        await expect(fetchStudiesForCurrentResearcherAction()).resolves.toHaveLength(0)
+        await expect(fetchStudiesForOrgAction({ orgSlug: org.slug })).resolves.toMatchObject({
+            error: expect.objectContaining({ permission_denied: expect.any(String) }),
+        })
     })
 })

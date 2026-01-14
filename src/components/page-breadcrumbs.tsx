@@ -1,6 +1,8 @@
-import { Breadcrumbs, Anchor, Text, Divider } from '@mantine/core'
-import Link from 'next/link'
+import { Breadcrumbs, Text, Divider } from '@mantine/core'
 import { FC } from 'react'
+import type { Route } from 'next'
+import { Routes } from '@/lib/routes'
+import { Link } from '@/components/links'
 
 export const PageBreadcrumbs: FC<{
     crumbs: Array<[string, string?]>
@@ -10,15 +12,14 @@ export const PageBreadcrumbs: FC<{
             <Breadcrumbs separator="/">
                 {crumbs.map(([title, href], index) =>
                     href ? (
-                        <Anchor
+                        <Link
                             c="blue.7"
-                            component={Link}
-                            href={href}
+                            href={href as Route}
                             key={index}
                             style={{ whiteSpace: 'normal', wordBreak: 'break-word' }} //mobile breadcrumb overflows
                         >
                             {title}
-                        </Anchor>
+                        </Link>
                     ) : (
                         <Text c="grey.5" key={index} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                             {title}
@@ -39,9 +40,9 @@ export const OrgBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.orgDashboard({ orgSlug })]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
+        crumbs.push([studyTitle, Routes.studyReview({ orgSlug, studyId })])
     }
     if (current) {
         crumbs.push([current])
@@ -57,9 +58,9 @@ export const ResearcherBreadcrumbs: FC<{
         current?: string
     }
 }> = ({ crumbs: { orgSlug, studyId, studyTitle, current } }) => {
-    const crumbs: Array<[string, string?]> = [['Dashboard', `/${orgSlug}/dashboard`]]
+    const crumbs: Array<[string, string?]> = [['Dashboard', Routes.orgDashboard({ orgSlug })]]
     if (studyTitle && studyId) {
-        crumbs.push([studyTitle, `/${orgSlug}/study/${studyId}/review`])
+        crumbs.push([studyTitle, Routes.studyView({ orgSlug, studyId })])
     }
     if (current) {
         crumbs.push([current])

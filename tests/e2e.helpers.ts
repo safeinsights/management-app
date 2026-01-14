@@ -100,6 +100,8 @@ export const test = baseTest.extend<{ codeCoverageAutoTestFixture: void }, { stu
         { auto: true },
     ],
     studyFeatures: [
+        // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
+        // eslint-disable-next-line no-empty-pattern
         async ({}, use, workerInfo) => {
             const feat = StudyFeatures.getFeature(workerInfo.workerIndex)
             await use(feat)
@@ -189,9 +191,11 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
     const creds = TestingUsers[role]
 
     await setupClerkTestingToken({ page })
-    await goto(page, url)
+    // load a page to initialize Clerk
+    await page.goto('/')
     const currentEmail = await clerkLoaded(page)
     if (currentEmail == creds.identifier) {
+        await goto(page, url)
         return
     }
 
@@ -227,7 +231,13 @@ export const visitClerkProtectedPage = async ({ page, url, role }: VisitClerkPro
 
 export const fillPinInput = async (page: Page, pinCode: string, testId: string) => {
     const pin = pinCode.split('')
-    const pinInputs = page.getByTestId(testId).locator('input')
+    // Try to find inputs within the testId element, fallback to direct selection
+    let pinInputs = page.getByTestId(testId).locator('input')
+    const count = await pinInputs.count()
+    if (count === 0) {
+        // Fallback: try to find the PinInput group directly
+        pinInputs = page.locator('[role="group"]').locator('input[placeholder="0"]')
+    }
     for (let i = 0; i < pin.length; i++) {
         await pinInputs.nth(i).fill(pin[i])
     }

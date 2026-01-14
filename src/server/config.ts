@@ -1,4 +1,4 @@
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager'
+import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager'
 
 export const DEV_ENV = !!process && process.env.NODE_ENV === 'development'
 
@@ -30,13 +30,19 @@ export const ENVIRONMENT_ID = process.env.ENVIRONMENT_ID || 'local'
 export const PROD_BUILD = process.env.NODE_ENV === 'production'
 
 export const PROD_ENV = ENVIRONMENT_ID == 'production'
+export const STAGING_ENV = ENVIRONMENT_ID == 'staging'
+export const CODER_DISABLED = Boolean(CI_ENV || DEV_ENV)
 
 export const APP_BASE_URL = `http${PROD_BUILD ? 's' : ''}://${process.env.DOMAIN_NAME || 'safeinsights.org'}`
 
-async function fetchSecret<T extends Record<string, unknown>>(envKey: string, throwIfNotFound: boolean): Promise<T> {
+async function fetchSecret<T extends Record<string, unknown>>(
+    envKey: string,
+    configKey: string,
+    throwIfNotFound: boolean,
+): Promise<T> {
     const arn = process.env[envKey]
     if (!arn) {
-        if (throwIfNotFound) throw new Error(`missing ARN ${envKey} in env`)
+        if (throwIfNotFound) throw new Error(`missing ARN ${envKey} in env while looking up ${configKey}`)
         return {} as T
     }
     try {
@@ -59,7 +65,7 @@ export async function getConfigValue(key: string, throwIfNotFound = true): Promi
     const envValue = process.env[key]
     if (envValue != null) return envValue
 
-    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN', throwIfNotFound)
+    const secret = await fetchSecret<Record<string, string>>('SECRETS_ARN', key, throwIfNotFound)
     if (throwIfNotFound && !secret[key]) throw new Error(`failed to find ${key} in config`)
 
     return secret[key]
@@ -78,7 +84,7 @@ type DBSecrets = {
 export async function databaseURL(): Promise<string> {
     if (process.env['DATABASE_URL']) return process.env['DATABASE_URL']
 
-    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN', true)
+    const db = await fetchSecret<DBSecrets>('DB_SECRET_ARN', 'DATABASE_URL', true)
 
     return `postgres://${db.username}:${db.password}@${db.host}/${db.dbname}`
 }

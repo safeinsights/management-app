@@ -1,6 +1,7 @@
 'use server'
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
+import { updateClerkUserMetadata } from '@/server/clerk'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -25,7 +26,16 @@ export const getOrgInfoForInviteAction = new Action('getOrgInfoForInviteAction')
         return await db
             .selectFrom('org')
             .innerJoin('pendingUser', 'pendingUser.orgId', 'org.id')
-            .select(['org.id', 'org.name', 'org.slug', 'pendingUser.email'])
+            .innerJoin('user as invitingUser', 'invitingUser.id', 'pendingUser.invitedByUserId')
+            .select([
+                'org.id',
+                'org.name',
+                'org.slug',
+                'pendingUser.isAdmin',
+                'pendingUser.email',
+                'invitingUser.firstName as invitingUserFirstName',
+                'invitingUser.lastName as invitingUserLastName',
+            ])
             .where('pendingUser.id', '=', inviteId)
             .executeTakeFirstOrThrow()
     })
@@ -44,17 +54,38 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
     .params(
         z.object({
             inviteId: z.string(),
+            loggedInEmail: z.string().optional(), // provide if merging team invite to existing user account
         }),
     )
 
-    .handler(async function ({ params: { inviteId }, db }) {
+    .handler(async function ({ params: { inviteId, loggedInEmail }, db }) {
         const invite = await db
             .selectFrom('pendingUser')
             .selectAll('pendingUser')
             .where('id', '=', inviteId)
             .executeTakeFirstOrThrow(() => new ActionFailure({ invite: 'not found' }))
 
-        const user = await db.selectFrom('user').select(['id']).where('email', '=', invite.email).executeTakeFirst()
+        let user = await db
+            .selectFrom('user')
+            .select(['id', 'email', 'clerkId'])
+            .where('email', '=', loggedInEmail ? loggedInEmail : invite.email)
+            .executeTakeFirst()
+
+        // If user not found by email, check if email belongs to any existing Clerk user (handles merged emails)
+        if (!user) {
+            const clerk = await clerkClient()
+            const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })
+
+            if (clerkUsers.data.length > 0) {
+                // Check if this Clerk user has a corresponding user in the DB
+                user = await db
+                    .selectFrom('user')
+                    .select(['id', 'email', 'clerkId'])
+                    .where('clerkId', '=', clerkUsers.data[0].id)
+                    .executeTakeFirst()
+            }
+        }
+
         if (!user) {
             throw new ActionFailure({ user: 'does not exist' })
         }
@@ -67,8 +98,11 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
                 .select(['id'])
                 .executeTakeFirst()
 
+            // If the user is already a member, we simply return the user so the
+            // rest of the handler can continue (adding the invite email to the
+            // account, marking the invite as claimed, etc.).
             if (orgUser) {
-                throw new ActionFailure({ team: 'already a member' })
+                return user
             }
 
             await trx
@@ -84,6 +118,20 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             return user
         })
 
+        if (loggedInEmail) {
+            // add the invite email to the existing user's email addresses in clerk
+            const clerk = await clerkClient()
+
+            const emailAddress = await clerk.emailAddresses.createEmailAddress({
+                userId: user.clerkId,
+                emailAddress: invite.email,
+            })
+
+            // auto-verify email (the user has already followed the email invite link)
+            await clerk.emailAddresses.updateEmailAddress(emailAddress.id, { verified: true })
+        }
+
+        await updateClerkUserMetadata(siUser.id)
         onUserAcceptInvite(siUser.id)
 
         // mark invite as claimed by this user so it no longer shows in pending lists
@@ -135,29 +183,40 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
                 privateMetadata,
             })
             clerkId = clerkUser.id
+
+            const primaryEmail = clerkUser.emailAddresses.find((e) => e.emailAddress === invite.email)
+            if (primaryEmail) {
+                await clerk.emailAddresses.updateEmailAddress(primaryEmail.id, { verified: true })
+            }
         }
 
         const siUser = await db.transaction().execute(async (trx) => {
             const existing = await trx
                 .selectFrom('user')
-                .select(['id'])
+                .select(['id', 'clerkId'])
                 .where('email', '=', invite.email)
                 .executeTakeFirst()
 
-            if (existing) {
-                throw new ActionFailure({ user: 'already has account' })
-            }
+            let user: { id: string }
 
-            const user = await trx
-                .insertInto('user')
-                .values({
-                    clerkId,
-                    firstName: form.firstName,
-                    lastName: form.lastName,
-                    email: invite.email,
-                })
-                .returning('id')
-                .executeTakeFirstOrThrow()
+            if (existing) {
+                if (existing.clerkId === clerkId) {
+                    user = existing
+                } else {
+                    throw new ActionFailure({ user: 'already has account' })
+                }
+            } else {
+                user = await trx
+                    .insertInto('user')
+                    .values({
+                        clerkId,
+                        firstName: form.firstName,
+                        lastName: form.lastName,
+                        email: invite.email,
+                    })
+                    .returning('id')
+                    .executeTakeFirstOrThrow()
+            }
 
             const orgUser = await trx
                 .selectFrom('orgUser')
@@ -183,6 +242,7 @@ export const onCreateAccountAction = new Action('onCreateAccountAction')
             return user
         })
 
+        await updateClerkUserMetadata(siUser.id)
         onUserAcceptInvite(siUser.id)
 
         return { userId: siUser.id }

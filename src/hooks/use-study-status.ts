@@ -30,11 +30,7 @@ const LABELS: Record<'reviewer' | 'researcher', Partial<Record<AllStatus, Status
     researcher: RESEARCHER_STATUS_LABELS,
 }
 
-export const useStudyStatus = ({
-    studyStatus,
-    audience,
-    jobStatusChanges,
-}: UseStudyStatusParams): StatusLabel | null => {
+export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
     // add studyStatus as the last entry as a fallback in case a job hasn't started yet
     let statuses: AllStatus[] = [...jobStatusChanges.map((change) => change.status), studyStatus]
 
@@ -51,7 +47,7 @@ export const useStudyStatus = ({
 
     // JOB-ERRORED always takes precedence if present
     if (statuses.includes('JOB-ERRORED')) {
-        return labels['JOB-ERRORED'] || null
+        return labels['JOB-ERRORED']!
     }
 
     const displayedStatus = statusKeys.find((statusKey) => {
@@ -59,10 +55,10 @@ export const useStudyStatus = ({
     })
 
     if (!displayedStatus) {
-        return null
+        return labels['DRAFT']!
     }
 
-    const statusLabel = labels[displayedStatus as AllStatus] || null
+    const statusLabel = labels[displayedStatus as AllStatus]!
 
     return statusLabel
 }

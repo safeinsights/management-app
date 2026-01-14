@@ -5,21 +5,20 @@ import { useUser } from '@clerk/nextjs'
 import { Container, Paper, Stack, Text, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { redirect } from 'next/navigation'
+import { Routes } from '@/lib/routes'
 
 const HasMFA = () => {
     return (
         <Container>
             <Panel title="MFA is enabled">
                 <Text>You have successfully enabled MFA on your account</Text>
-                <Link href="/" display="inline-block" mt="md">
+                <Link href={Routes.home} display="inline-block" mt="md">
                     Return to homepage
                 </Link>
             </Panel>
         </Container>
     )
 }
-
-export const dynamic = 'force-dynamic'
 
 export function ManageMFA() {
     const { isLoaded, user } = useUser()
@@ -49,10 +48,10 @@ export function ManageMFA() {
                     You can choose to receive verification codes via text message (SMS) or use an authenticator app.
                 </Text>
                 <Stack gap="xl">
-                    <ButtonLink href="/account/mfa/sms" w="100%" size="md" variant="primary">
+                    <ButtonLink href={Routes.accountMfaSms} w="100%" size="md" variant="primary">
                         SMS Verification
                     </ButtonLink>
-                    <ButtonLink href="/account/mfa/app" w="100%" variant="outline" size="md">
+                    <ButtonLink href={Routes.accountMfaApp} w="100%" variant="outline" size="md">
                         Authenticator app verification
                     </ButtonLink>
                 </Stack>

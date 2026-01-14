@@ -42,6 +42,7 @@ class FileSender extends DebugRequest {
         const { resultFile, logFile, jobId } = this.program.opts()
 
         if (!resultFile && !logFile) {
+            // eslint-disable-next-line no-console
             console.log(this.program.opts())
             console.warn('must supply either logs or results')
             process.exit(1)
@@ -62,7 +63,7 @@ class FileSender extends DebugRequest {
             body: form,
         })
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            throw new Error(`HTTP error! status: ${response.status} ${response.statusText} ${await response.text()}`)
         }
         return {}
     }
@@ -70,6 +71,7 @@ class FileSender extends DebugRequest {
 
 const sender = new FileSender()
 sender.perform().then(() => {
+    // eslint-disable-next-line no-console
     console.info(
         'Results must be decrypted using ONLY tests/support/private_key.pem.  normal reviewer keys will not work.  use:\ncat tests/support/private_key.pem | pbcopy',
     )

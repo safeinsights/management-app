@@ -1,10 +1,9 @@
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import dayjs from 'dayjs'
-import { Button, Group, Text } from '@mantine/core'
+import { Group, Text } from '@mantine/core'
 import { FC } from 'react'
 import { type AllStatus } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
-import { Link } from '../links'
 
 const allowedStatuses: AllStatus[] = ['CODE-APPROVED', 'CODE-REJECTED', 'FILES-APPROVED', 'FILES-REJECTED']
 
@@ -30,36 +29,28 @@ const JobApprovalStatus: FC<{ statusChange: Status }> = ({ statusChange }) => {
     )
 }
 
-export const CodeApprovalStatus: FC<{ job: LatestJobForStudy }> = ({ job }) => {
-    const codeStatusChange = job.statusChanges.find((statusChange) => {
-        return statusChange.status === 'CODE-APPROVED' || statusChange.status === 'CODE-REJECTED'
+export const ApprovalStatus: FC<{
+    job: LatestJobForStudy
+    orgSlug: string
+    type: 'code' | 'files'
+}> = ({ job, type }) => {
+    const statusPair =
+        type === 'code'
+            ? (['CODE-APPROVED', 'CODE-REJECTED'] as const)
+            : (['FILES-APPROVED', 'FILES-REJECTED'] as const)
+
+    const statusChange = job.statusChanges.find((statusChange) => {
+        return statusChange.status === statusPair[0] || statusChange.status === statusPair[1]
     })
 
-    if (!codeStatusChange) {
+    //  check if any status change is CODE-REJECTED (since find returns first match)
+    const codeRejectedStatusChange = job.statusChanges.find((statusChange) => statusChange.status === 'CODE-REJECTED')
+
+    const finalStatusChange = statusChange ?? codeRejectedStatusChange
+
+    if (!finalStatusChange) {
         return null
     }
 
-    return <JobApprovalStatus statusChange={codeStatusChange} />
-}
-
-export const FileApprovalStatus: FC<{ job: LatestJobForStudy; orgSlug: string }> = ({ job, orgSlug }) => {
-    const hasBeenReviewed = job.statusChanges.find((statusChange) => {
-        return statusChange.status === 'FILES-APPROVED' || statusChange.status === 'FILES-REJECTED'
-    })
-
-    const hasErrored = job.statusChanges.some((statusChange) => statusChange.status === 'JOB-ERRORED')
-
-    if (!hasBeenReviewed) {
-        return null
-    }
-
-    if (hasBeenReviewed && hasErrored) {
-        return (
-            <Button component={Link} href={`/researcher/study/${job.studyId}/resubmit/${orgSlug}`}>
-                Resubmit study code
-            </Button>
-        )
-    }
-
-    return <JobApprovalStatus statusChange={hasBeenReviewed} />
+    return <JobApprovalStatus statusChange={finalStatusChange} />
 }

@@ -1,20 +1,30 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { revalidatePath } from 'next/cache'
 import { db } from '@/database'
-import { mockSessionWithTestData, insertTestOrg, insertTestUser, faker, actionResult } from '@/tests/unit.helpers'
+import {
+    mockSessionWithTestData,
+    insertTestOrg,
+    insertTestUser,
+    insertTestBaseImage,
+    faker,
+    actionResult,
+} from '@/tests/unit.helpers'
 import { type Org } from '@/schema/org'
 import {
     deleteOrgAction,
     getOrgFromSlugAction,
     getUsersForOrgAction,
-    fetchOrgsWithStatsAction,
+    fetchUsersOrgsWithStatsAction,
     insertOrgAction,
     updateOrgSettingsAction,
+    getStudyCapableEnclaveOrgsAction,
+    getLanguagesForOrgAction,
 } from './org.actions'
 import logger from '@/lib/logger'
 
 describe('Org Actions', () => {
     let newOrg: { slug: string; name: string; email: string; type: 'enclave'; settings: { publicKey: string } }
+
     beforeEach(async () => {
         newOrg = {
             slug: `test-org-${faker.string.uuid()}`,
@@ -23,7 +33,7 @@ describe('Org Actions', () => {
             type: 'enclave',
             settings: { publicKey: 'no-such-key' },
         }
-        await mockSessionWithTestData({ isAdmin: true })
+        await mockSessionWithTestData({ isSiAdmin: true })
         try {
             await insertOrgAction(newOrg)
         } catch (e) {
@@ -59,7 +69,7 @@ describe('Org Actions', () => {
                 .where('slug', '=', newOrg.slug)
                 .executeTakeFirstOrThrow()
             await deleteOrgAction({ orgId: org.id })
-            const result = await fetchOrgsWithStatsAction()
+            const result = await fetchUsersOrgsWithStatsAction()
             expect(result).not.toEqual(expect.arrayContaining([expect.objectContaining({ slug: newOrg.slug })]))
         })
     })
@@ -77,7 +87,7 @@ describe('Org Actions', () => {
     })
 
     describe('updateOrgSettingsAction', () => {
-        const targetOrgSlug = faker.string.alpha()
+        const targetOrgSlug = faker.string.alpha(10)
         const initialName = 'Initial Org Name for Settings Update'
         const initialDescription = 'Initial Org Description for Settings Update'
         let targetOrg: Org
@@ -95,6 +105,12 @@ describe('Org Actions', () => {
             const newName = 'Updated Org Name Successfully by Test'
             const newDescription = 'Updated Org Description Successfully by Test'
 
+            const secondOrg = await insertTestOrg({
+                slug: faker.string.alpha(10),
+                name: initialName,
+                description: initialDescription,
+            })
+
             const result = actionResult(
                 await updateOrgSettingsAction({
                     orgSlug: targetOrgSlug,
@@ -102,12 +118,6 @@ describe('Org Actions', () => {
                     description: newDescription,
                 }),
             )
-
-            const secondOrg = await insertTestOrg({
-                slug: faker.string.alpha(),
-                name: initialName,
-                description: initialDescription,
-            })
 
             expect(result).toEqual({
                 success: true,
@@ -220,6 +230,40 @@ describe('Org Actions', () => {
                 sort: { columnAccessor: 'fullName', direction: 'asc' },
             })
             expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
+        })
+    })
+
+    describe('getStudyCapableEnclaveOrgsAction', () => {
+        it('returns orgs with supportedLanguages from non-testing base images', async () => {
+            const testOrg = await insertTestOrg({
+                slug: `lang-test-${faker.string.uuid()}`,
+                name: 'Language Test Org',
+                type: 'enclave',
+            })
+
+            // Add a non-testing R base image
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'R Production Image',
+                language: 'R',
+                isTesting: false,
+            })
+
+            // Add a testing Python base image (should not appear in supportedLanguages)
+            await insertTestBaseImage({
+                orgId: testOrg.id,
+                name: 'Python Testing Image',
+                language: 'PYTHON',
+                isTesting: true,
+            })
+
+            const result = actionResult(await getStudyCapableEnclaveOrgsAction())
+
+            const createdOrg = result.find((o: { slug: string }) => o.slug === testOrg.slug)
+            expect(createdOrg).toBeDefined()
+
+            const langs = actionResult(await getLanguagesForOrgAction({ orgSlug: testOrg.slug }))
+            expect(langs.languages).toEqual(expect.arrayContaining([{ label: 'R', value: 'R' }]))
         })
     })
 })

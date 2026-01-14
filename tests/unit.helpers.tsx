@@ -1,26 +1,28 @@
 import { db } from '@/database'
 
-import fs from 'fs'
-import path from 'path'
-import os from 'os'
+import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
+import { Org } from '@/schema/org'
+import { latestJobForStudy } from '@/server/db/queries'
+import { findOrCreateOrgMembership } from '@/server/mutations'
+import { theme } from '@/theme'
+import { useAuth, useClerk, useSession, useUser } from '@clerk/nextjs'
+import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { faker } from '@faker-js/faker'
+import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+// eslint-disable-next-line no-restricted-imports
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render } from '@testing-library/react'
+import fs from 'fs'
 import jwt from 'jsonwebtoken'
 import { headers } from 'next/headers.js'
 import { useParams } from 'next/navigation'
-import { render } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MantineProvider } from '@mantine/core'
-import { ModalsProvider } from '@mantine/modals'
-import { theme } from '@/theme'
+import os from 'os'
+import path from 'path'
+
 import { ReactElement } from 'react'
-import { useClerk, useAuth, useUser, useSession } from '@clerk/nextjs'
-import { auth as clerkAuth, clerkClient, currentUser as currentClerkUser } from '@clerk/nextjs/server'
 import { Mock, vi } from 'vitest'
-import { ENVIRONMENT_ID } from '@/server/config'
-import { latestJobForStudy } from '@/server/db/queries'
-import type { StudyJobStatus, StudyStatus } from '@/database/types'
-import { Org } from '@/schema/org'
-import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 
 import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
@@ -34,10 +36,10 @@ export const mockPathname = (path: string) => {
     ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
 }
 
-export { faker } from '@faker-js/faker'
 export { db } from '@/database'
-export { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-export { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
+export { faker } from '@faker-js/faker'
+export { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+export { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 
 export const readTestSupportFile = (file: string) => {
     return fs.promises.readFile(path.join(__dirname, 'support', file), 'utf8')
@@ -76,6 +78,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('study')
         .values({
             orgId: org.id,
+            submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
@@ -84,6 +87,7 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
             status: 'APPROVED',
             dataSources: ['all'],
             outputMimeType: 'text/csv',
+            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -92,7 +96,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -105,7 +108,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -118,7 +120,6 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -180,11 +181,13 @@ export const insertTestStudyJobData = async ({
     researcherId,
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
+    language,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
+    language?: Language
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -197,6 +200,7 @@ export const insertTestStudyJobData = async ({
         .insertInto('study')
         .values({
             orgId: org.id,
+            submittedByOrgId: org.id,
             containerLocation: 'test-container',
             title: 'my 1st study',
             researcherId: researcherId,
@@ -204,6 +208,7 @@ export const insertTestStudyJobData = async ({
             status: studyStatus,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
+            language: language || 'R',
         })
         .returningAll()
         .executeTakeFirstOrThrow()
@@ -213,7 +218,6 @@ export const insertTestStudyJobData = async ({
         .insertInto('studyJob')
         .values({
             studyId: study.id,
-            language: 'R',
         })
         .returning('id')
         .executeTakeFirstOrThrow()
@@ -308,6 +312,7 @@ type MockSession = {
     clerkUserId: string
     userId: string
     orgSlug: string
+    email?: string
     imageUrl?: string
     orgId?: string
     roles?: Partial<UserOrgRoles>
@@ -334,10 +339,9 @@ export const mockClerkSession = (values: MockSession | null) => {
     const client = clerkClient as unknown as Mock
     const user = currentClerkUser as unknown as Mock
     const auth = clerkAuth as unknown as Mock
+    // Flattened structure - no environment nesting
     const unsafeMetadata = {
-        [`${ENVIRONMENT_ID}`]: {
-            currentOrgSlug: values.orgSlug,
-        },
+        currentOrgSlug: values.orgSlug,
     }
     const orgs: Record<string, Partial<UserOrgRoles> & { id?: string; slug: string; type?: 'enclave' | 'lab' }> = {
         [values.orgSlug]: {
@@ -357,15 +361,16 @@ export const mockClerkSession = (values: MockSession | null) => {
             isAdmin: true,
         }
     }
+    // Flattened structure - no environment nesting
     const publicMetadata = {
-        [`${ENVIRONMENT_ID}`]: {
-            format: 'v2',
-            user: {
-                id: values.userId,
-            },
-            orgs,
+        format: 'v3',
+        user: {
+            id: values.userId,
         },
+        teams: null,
+        orgs,
     }
+    const mockEmail = values.email || faker.internet.email({ provider: 'test.com' })
     const userProperties = {
         id: values.clerkUserId,
         banned: false,
@@ -374,6 +379,7 @@ export const mockClerkSession = (values: MockSession | null) => {
         organizationMemberships: [],
         unsafeMetadata,
         publicMetadata,
+        primaryEmailAddress: { emailAddress: mockEmail },
     }
     user.mockResolvedValue(userProperties)
     const clientMocks = {
@@ -405,12 +411,15 @@ export const mockClerkSession = (values: MockSession | null) => {
                 }
                 return { data: [], totalCount: 0 }
             }),
-            getUser: vi.fn(async (clerkId: string) => ({
-                id: clerkId,
-                firstName: 'Mocked',
-                lastName: 'User',
-                emailAddresses: [{ emailAddress: faker.internet.email({ provider: 'test.com' }) }],
-            })),
+            getUser: vi.fn(async (clerkId: string) => {
+                return {
+                    id: clerkId,
+                    firstName: 'Mocked',
+                    lastName: 'User',
+                    emailAddresses: [{ emailAddress: mockEmail }],
+                    primaryEmailAddress: { emailAddress: mockEmail },
+                }
+            }),
             createUser: vi.fn(async () => ({ id: '1234' })),
             getOrganizationMembershipList: vi.fn().mockResolvedValue({ data: [] }),
         },
@@ -453,7 +462,7 @@ type MockSessionWithTestDataOptions = {
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
-    if (!options.orgSlug) options.orgSlug = options.isAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
+    if (!options.orgSlug) options.orgSlug = options.isSiAdmin ? CLERK_ADMIN_ORG_SLUG : faker.string.alpha(10)
 
     const org = await insertTestOrg({ slug: options.orgSlug, type: options.orgType })
     const { user, orgUser } = await insertTestUser({
@@ -462,20 +471,14 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     })
 
     if (options.isSiAdmin) {
-        const siOrg = await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
-        await db
-            .insertInto('orgUser')
-            .values({
-                orgId: siOrg.id,
-                userId: user.id,
-                isAdmin: true,
-            })
-            .execute()
+        await insertTestOrg({ slug: CLERK_ADMIN_ORG_SLUG })
+        await findOrCreateOrgMembership({ userId: user.id, slug: CLERK_ADMIN_ORG_SLUG, isAdmin: true })
     }
 
     const mocks = mockClerkSession({
         userId: user.id,
         clerkUserId: user.clerkId,
+        email: user.email ?? undefined,
         orgSlug: org.slug,
         orgId: org.id,
         roles: {
@@ -489,6 +492,37 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const session = { user, org: { id: org.id, slug: org.slug } }
 
     return { session, org, user, orgUser, ...mocks }
+}
+
+export type InsertTestBaseImageOptions = {
+    orgId: string
+    name?: string
+    language?: Language
+    cmdLine?: string
+    url?: string
+    isTesting?: boolean
+    starterCodePath?: string
+    environment?: Array<{ name: string; value: string }>
+}
+
+export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
+    const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
+    const fileExtension = language === 'R' ? 'R' : 'py'
+
+    return await db
+        .insertInto('orgBaseImage')
+        .values({
+            orgId: options.orgId,
+            name: options.name || `${language} ${faker.system.semver()} Base Image`,
+            language,
+            cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
+            url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,
+            isTesting: options.isTesting ?? false,
+            starterCodePath: options.starterCodePath || `test/path/to/starter.${fileExtension}`,
+            settings: { environment: options.environment ?? [] },
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
 }
 
 // Re-export actionResult for backwards compatibility in tests

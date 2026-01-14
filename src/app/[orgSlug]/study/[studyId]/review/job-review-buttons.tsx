@@ -1,11 +1,15 @@
+'use client'
+
+import { useSession } from '@/hooks/session'
+import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { StudyJobStatus } from '@/database/types'
+import { Routes } from '@/lib/routes'
 import { JobFileInfo, MinimalJobInfo } from '@/lib/types'
 import { approveStudyJobFilesAction, rejectStudyJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Group, Text, useMantineTheme } from '@mantine/core'
 import { CheckCircleIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
-import { useMutation, useQueryClient } from '@/common'
 import dayjs from 'dayjs'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -16,6 +20,7 @@ export const JobReviewButtons = ({
     job: NonNullable<LatestJobForStudy>
     decryptedResults?: JobFileInfo[]
 }) => {
+    const { session } = useSession()
     const theme = useMantineTheme()
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -47,7 +52,7 @@ export const JobReviewButtons = ({
         onError: reportMutationError('Failed to update study job status'),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['org-studies', orgSlug] })
-            router.push(`/reviewer/${orgSlug}/dashboard`)
+            router.push(Routes.orgDashboard({ orgSlug }))
         },
     })
 
@@ -77,7 +82,9 @@ export const JobReviewButtons = ({
         )
     }
 
-    if (!decryptedResults) return null
+    if (!decryptedResults || !session?.belongsToEnclave) {
+        return null
+    }
 
     return (
         <Group>

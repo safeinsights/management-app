@@ -4,10 +4,10 @@ import { InputError } from '@/components/errors'
 import { Link } from '@/components/links'
 import { errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { sleep } from '@/lib/util'
+import { sleep } from '@/lib/utils'
 import { useReverification, useUser } from '@clerk/nextjs'
 import { PhoneNumberResource } from '@clerk/types'
-import { Anchor, Button, Container, Group, Paper, PinInput, Stack, Stepper, Text, Title } from '@mantine/core'
+import { Anchor, Button, Container, Group, Paper, Stack, Stepper, Text, Title } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import { CaretLeftIcon } from '@phosphor-icons/react'
@@ -17,7 +17,8 @@ import PhoneInput from 'react-phone-number-input'
 import 'react-phone-number-input/style.css'
 import BackupCodes from '../app/backup-codes'
 import styles from './panel.module.css'
-export const dynamic = 'force-dynamic'
+import { Routes } from '@/lib/routes'
+import OtpInput from '@/components/otp-input'
 
 // Reference code: https://clerk.com/docs/custom-flows/add-phone
 // and: https://clerk.com/docs/custom-flows/manage-sms-based-mfa
@@ -35,6 +36,7 @@ export function AddSMSMFA() {
         phone.setReservedForSecondFactor({ reserved: true }),
     )
     const makeDefaultSecondFactor = useReverification((phone: PhoneNumberResource) => phone.makeDefaultSecondFactor())
+    const createBackupCode = useReverification(() => user?.createBackupCode())
 
     const phoneForm = useForm({
         initialValues: {
@@ -138,8 +140,8 @@ export function AddSMSMFA() {
                 // Then, generate backup codes
                 try {
                     if (user && !user.backupCodeEnabled) {
-                        const resource = await user.createBackupCode()
-                        setBackupCodes(resource.codes || [])
+                        const resource = await createBackupCode()
+                        setBackupCodes(resource?.codes || [])
                     }
                 } catch (err) {
                     logger.error({ err, message: 'Error generating backup codes' })
@@ -215,7 +217,7 @@ export function AddSMSMFA() {
                                         </Button>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}
@@ -242,15 +244,7 @@ export function AddSMSMFA() {
                                         <Title order={4} ta="center" mt="xs">
                                             Enter your code
                                         </Title>
-                                        <PinInput
-                                            length={6}
-                                            placeholder="0"
-                                            size="lg"
-                                            type="number"
-                                            data-testid="sms-pin-input"
-                                            error={otpForm.errors.code !== undefined}
-                                            {...otpForm.getInputProps('code')}
-                                        />
+                                        <OtpInput form={otpForm} />
                                         {otpForm.errors.code && <InputError error={otpForm.errors.code} />}
                                         <Button
                                             type="submit"
@@ -264,13 +258,16 @@ export function AddSMSMFA() {
                                             Verify code
                                         </Button>
                                         <Group>
-                                            <Text fz="md" color="grey.7">
-                                                Didn’t receive a code? <Anchor onClick={resendCode}>Resend code</Anchor>
+                                            <Text fz="md" c="grey.7">
+                                                Didn&apos;t receive a code?{' '}
+                                                <Anchor component="button" onClick={resendCode}>
+                                                    Resend code
+                                                </Anchor>
                                             </Text>
                                         </Group>
                                         <Group gap="xs" justify="center">
                                             <Link
-                                                href="/account/mfa"
+                                                href={Routes.accountMfa}
                                                 mt="md"
                                                 c="purple.5"
                                                 fw={600}

@@ -53,15 +53,56 @@ export function titleize(str: string) {
     return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase())
 }
 
-export function orgInitials(orgName: string, type: string) {
-    if (!orgName || !type) {
-        return ''
-    }
+// ----- Organization initials helpers -----
 
-    const nameInitials = orgName
-        .split(/\s+/)
-        .map((word) => word.charAt(0).toUpperCase())
-        .join('')
+// Map of suffixes based on organization type
+const ORG_SUFFIX_SHORT: Record<string, string> = {
+    enclave: '-D',
+    lab: '-L',
+}
 
-    return nameInitials + (type == 'enclave' ? '-D' : '-L')
+const ORG_SUFFIX_LONG: Record<string, string> = {
+    enclave: '-Data Org',
+    lab: '-Research Lab',
+}
+
+// Shared helper that derives the 1-3 character uppercase initials
+function orgFirstThree(orgName: string): string {
+    if (!orgName) return ''
+    const compact = orgName.replace(/\s+/g, '')
+    return compact.substring(0, Math.min(3, compact.length)).toUpperCase()
+}
+
+// Returns only the initials or the initials with the icon type suffix (short form)
+export function orgInitials(orgName: string, type: string, initialsOnly: boolean = false) {
+    if (!orgName || !type) return ''
+
+    const firstThree = orgFirstThree(orgName)
+    if (initialsOnly) return firstThree
+
+    return firstThree + ORG_SUFFIX_SHORT[type]
+}
+
+// Returns the initials with the title text type suffix (long form)
+export function orgInitialsTitle(orgName: string, type: string) {
+    if (!orgName || !type) return ''
+
+    const firstThree = orgFirstThree(orgName)
+    return firstThree + ORG_SUFFIX_LONG[type]
+}
+
+// Removes 'Lab' from an organization name
+export function displayOrgName(orgName: string): string {
+    if (!orgName) return ''
+    return orgName
+        .replace(/\bLab\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+export function toSentence(items: string[], conjunction: string = 'and'): string {
+    if (items.length === 0) return ''
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} ${conjunction} ${items[1]}`
+    return `${items.slice(0, -1).join(', ')}, ${conjunction} ${items[items.length - 1]}`
 }

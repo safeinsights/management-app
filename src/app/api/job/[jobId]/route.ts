@@ -1,4 +1,3 @@
-export const dynamic = 'force-dynamic' // defaults to auto
 import { db } from '@/database'
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
@@ -10,7 +9,15 @@ const schema = z.object({
     // it's tempting to try to type this, but doesn't seem to work.
     // not really needed though because the where clause below will error if an invalid status is present in the list below
     // TODO: consider removing the RESULTS status since we're reviewing in the BMA now
-    status: z.enum(['JOB-PROVISIONING', 'JOB-RUNNING', 'JOB-ERRORED', 'FILES-REJECTED', 'FILES-APPROVED']),
+    status: z.enum([
+        'JOB-PROVISIONING',
+        'JOB-RUNNING',
+        'JOB-ERRORED',
+        'FILES-REJECTED',
+        'FILES-APPROVED',
+        'CODE-REJECTED',
+        'RUN-COMPLETE',
+    ]),
 })
 
 const handler = async (req: Request, { params }: { params: Promise<{ jobId: string }> }) => {
