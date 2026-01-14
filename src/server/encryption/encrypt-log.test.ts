@@ -10,14 +10,12 @@ describe('createEncryptedLogZip', () => {
         const fingerprint = await fingerprintKeyData(publicKey)
 
         const message = 'Build failed during code packaging'
-        const zipBytes = await createEncryptedLogZip(message, [{ publicKey, fingerprint }])
+        const zipBlob = await createEncryptedLogZip(message, [{ publicKey, fingerprint }])
 
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)
 
-        // Use a plain Uint8Array clone to avoid TS treating underlying buffer as ArrayBufferLike/SharedArrayBuffer.
-        const zipClone = Uint8Array.from(zipBytes)
-        const reader = new ResultsReader(new Blob([zipClone]), privateKeyBuffer, fingerprint)
+        const reader = new ResultsReader(zipBlob, privateKeyBuffer, fingerprint)
         const files = await reader.extractFiles()
 
         expect(files).toHaveLength(1)

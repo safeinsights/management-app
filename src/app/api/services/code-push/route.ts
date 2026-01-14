@@ -45,8 +45,8 @@ export async function POST(req: Request) {
                 if (!existingLog) {
                     const recipients = await getOrgPublicKeys(job.orgId)
                     if (recipients.length > 0) {
-                        const zipBytes = await createEncryptedLogZip(body.plaintextLog, recipients)
-                        const encryptedFile = new File([Uint8Array.from(zipBytes)], 'encrypted-logs.zip', {
+                        const zipBlob = await createEncryptedLogZip(body.plaintextLog, recipients)
+                        const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', {
                             type: 'application/zip',
                         })
                         await storeStudyEncryptedLogFile(
