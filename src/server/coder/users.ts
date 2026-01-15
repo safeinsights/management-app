@@ -3,7 +3,7 @@ import { getStudyAndOrgDisplayInfo } from '../db/queries'
 import { coderFetch } from './client'
 import { getCoderOrganizationId } from './organizations'
 import { CoderUser, CoderUserQueryResponse } from './types'
-import { shaHash } from '@/server/coder/utils'
+import { generateCoderUsername } from '@/server/coder/utils'
 
 async function createCoderUser(studyId: string): Promise<CoderUser> {
     const studyInfo = await getStudyAndOrgDisplayInfo(studyId)
@@ -13,7 +13,7 @@ async function createCoderUser(studyId: string): Promise<CoderUser> {
     }
 
     // Coder usernames are limited to 30 characters
-    const generatedUsername = shaHash(studyInfo.researcherEmail).slice(0, 30)
+    const generatedUsername = generateCoderUsername(studyInfo.researcherEmail).slice(0, 30)
     const body = {
         email: studyInfo.researcherEmail,
         login_type: 'oidc',
