@@ -1,6 +1,9 @@
 import { Card, Divider, Flex, Paper, Text } from '@mantine/core'
 import { EyeIcon } from '@phosphor-icons/react/dist/ssr'
 
+// this page must be dynamically rendered to access env
+export const dynamic = 'force-dynamic'
+
 const Stat = ({ title, value }: { title: string; value: React.ReactNode }) => (
     <>
         <Text component="div" fz="lg" fw={500}>
@@ -47,6 +50,10 @@ export default function AboutPage() {
                 <Divider my="md" />
 
                 <Stat title="Container Repo" value={process.env.CODE_BUILD_REPOSITORY_DOMAIN || 'none'} />
+
+                <Divider my="md" />
+
+                <Stat title="Clerk Key" value={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'none'} />
             </Card>
         </Paper>
     )

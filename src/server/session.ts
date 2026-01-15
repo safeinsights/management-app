@@ -2,9 +2,10 @@ import { UserSession } from '@/lib/types'
 import logger from '@/lib/logger'
 import { JwtPayload } from 'jsonwebtoken'
 import { sessionFromMetadata, type UserSessionWithAbility } from '@/lib/session'
-import { db } from '@/database'
 import { clerkClient } from '@clerk/nextjs/server'
 import { getOrgInfoForUserId } from './db/queries'
+import { syncUserToDatabaseWithConflictResolution } from './user-sync'
+import { updateClerkUserMetadata } from './clerk'
 
 export { subject, type AppAbility } from '@/lib/permissions'
 export type { UserSession, UserSessionWithAbility }
@@ -30,25 +31,14 @@ async function syncAndUpdateUserMetadata(clerkUserId: string): Promise<UserInfo 
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    const user = await db.transaction().execute(async (trx) => {
-        const existing = await trx
-            .selectFrom('user')
-            .select('id')
-            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
-            .executeTakeFirst()
-
-        if (existing) {
-            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
-            return existing
-        }
-
-        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
+    const { id: userId } = await syncUserToDatabaseWithConflictResolution(userAttrs, async (previousUserId) => {
+        await updateClerkUserMetadata(previousUserId)
     })
 
-    const orgs = await getOrgInfoForUserId(user.id)
+    const orgs = await getOrgInfoForUserId(userId)
     const metadata: UserInfo = {
         format: 'v3',
-        user: { id: user.id },
+        user: { id: userId },
         teams: null,
         orgs: orgs.reduce(
             (acc, org) => {

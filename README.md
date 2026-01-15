@@ -87,13 +87,29 @@ const params = useTypedParams(Routes.studyView.schema)
 // params.orgSlug and params.studyId are guaranteed to be valid
 ```
 
-### Authentication Configuration 🔐
+### Creating Your Admin Account 🔐
 
-You can configure test accounts in one of two ways:
+To develop locally, you'll need to create your own SI Staff admin account:
 
-1. **Recommended**: Copy the `.env.sample` file to `.env`, replacing the XXX strings with values obtained from your teammates. This will set up the app with a sandbox Clerk backend, and provide credentials for test users. When testing, copy the `E2E_CLERK_<ACCOUNT_TYPE>_EMAIL` and `...PASSWORD` values to log in as one of the test users. Use `424242` for MFA.
+1. Copy the `.env.sample` file to `.env`, replacing the XXX strings with values obtained from your teammates. This will set up the app with a sandbox Clerk backend. Your `.env` file MUST have valid `CLERK_SECRET_KEY` and `DATABASE_URL` values (get values from teammates)
 
-2. **Workaround**: Sign up for a Clerk account using either an authenticator app or [test email or phone number](https://clerk.com/docs/testing/test-emails-and-phones). Our testing phone numbers start with +15555550100 and must be unique for each user. If clerk says one is in use then increment the last digit and try a new one, i.e. +15555550101, 0102 etc. Using the testing contact info means that no SMS or email is sent and `424242` can be used to authenticate.
+2. Run the admin user creation script:
+
+    ```bash
+    npm run create-admin-user
+    ```
+
+    Or if using Docker (with `docker compose up` running):
+
+    ```bash
+    docker compose exec mgmnt-app npm run create-admin-user
+    ```
+
+3. Follow the interactive prompts to enter your email, password, and name
+
+4. Sign in at [http://localhost:4000](http://localhost:4000) with your new credentials
+
+**Note:** This creates an SI Staff admin with full access to administer all organizations.
 
 ### Useful Docker Commands 🐋
 

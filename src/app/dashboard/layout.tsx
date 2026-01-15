@@ -1,5 +1,3 @@
-'use server'
-
 import { ErrorAlert } from '@/components/errors'
 import { AppShell } from '@/components/layout/app-shell'
 import SentryUserProvider from '@/components/sentry-user-provider'
@@ -9,8 +7,11 @@ import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
 import { connection } from 'next/server'
 
+// this page must be dynamically rendered
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({ children }: Readonly<{ children: ReactNode }>) {
-    await connection() // force server rendering so we can access env vars
+    await connection()
     const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ''
 
     if (!clerkPublishableKey) return <ErrorAlert error={'missing clerk key'} />
