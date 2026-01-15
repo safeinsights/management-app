@@ -12,8 +12,7 @@ async function createCoderUser(studyId: string): Promise<CoderUser> {
         throw new Error('Researcher email is missing!')
     }
 
-    // Coder usernames are limited to 30 characters
-    const generatedUsername = generateCoderUsername(studyInfo.researcherEmail).slice(0, 30)
+    const generatedUsername = generateCoderUsername(studyInfo.researcherEmail)
     const body = {
         email: studyInfo.researcherEmail,
         login_type: 'oidc',
