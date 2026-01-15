@@ -10,6 +10,7 @@ import { getDraftStudyAction } from '@/server/actions/study-request'
 import { sessionFromClerk } from '@/server/clerk'
 import { latestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { StudyResults } from './study-results'
 import { StudyReviewButtons } from './study-review-buttons'
 import { DraftSubmissionReview } from './draft-submission-review'
@@ -92,6 +93,7 @@ export default async function StudyReviewPage(props: {
                         <Title order={4} size="xl">
                             Study Proposal
                         </Title>
+                        <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
                     {studyId && <StudyDetails studyId={study.id} />}
                 </Stack>
