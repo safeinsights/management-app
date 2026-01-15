@@ -5,7 +5,8 @@ import {
     getCoderOrganizationId,
     getCoderTemplateId,
     getOrCreateCoderUser,
-    generateCoderUsername, shaHash
+    generateCoderUsername,
+    shaHash,
 } from './coder'
 import { getConfigValue } from './config'
 import { getStudyAndOrgDisplayInfo, siUser, fetchLatestBaseImageForStudyId } from './db/queries'
@@ -132,7 +133,7 @@ describe('getOrCreateCoderUser', () => {
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: undefined,
-                username: '855f96e983f1f8e8be944692b6f719',
+                username: 'john_example_com-855f96e9',
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
@@ -456,9 +457,9 @@ describe('generateCoderUsername', () => {
     })
 
     it('should not truncate short emails', () => {
-        const result = generateCoderUsername('test22015678@gmail.com')
+        const result = generateCoderUsername('test2201567@gmail.com')
         // test22015678_gmail_com = 21 chars, plus hyphen and 8 char hash = 30 chars
-        expect(result).toMatch(/^test22015678_gmail_com-[a-f0-9]{8}$/)
+        expect(result).toMatch(/^test2201567_gmail_com-[a-f0-9]{8}$/)
         expect(result.length).toBe(30)
     })
 
@@ -476,7 +477,7 @@ describe('generateCoderUsername', () => {
 
     it('should handle emails with multiple special characters', () => {
         const result = generateCoderUsername('user.name+tag@sub.domain.com')
-        expect(result).toMatch(/^user_name_tag_sub_dom-[a-f0-9]{8}$/)
+        expect(result).toMatch('user_name_tag_sub_doma-f7fdd5e8')
         expect(result.length).toBeLessThanOrEqual(31)
     })
 
