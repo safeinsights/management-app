@@ -110,18 +110,20 @@ describe('StudyReviewButtons', () => {
         })
     })
 
-    it('does not render buttons if the study is approved', async () => {
+    it('renders status for approved study and no buttons', async () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date() }
         renderWithProviders(<StudyReviewButtons study={approvedStudy} />)
 
+        expect(screen.getByText(/approved on/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 
-    it('does not render buttons if the study is rejected', async () => {
+    it('renders status for rejected study and no buttons', async () => {
         const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date() }
         renderWithProviders(<StudyReviewButtons study={rejectedStudy} />)
 
+        expect(screen.getByText(/rejected on/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
