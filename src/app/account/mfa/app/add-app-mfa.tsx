@@ -6,7 +6,7 @@ import { Link } from '@/components/links'
 import { InfoTooltip } from '@/components/tooltip'
 import logger from '@/lib/logger'
 import { Routes } from '@/lib/routes'
-import { useUser } from '@clerk/nextjs'
+import { useReverification, useUser } from '@clerk/nextjs'
 import { TOTPResource } from '@clerk/types'
 import {
     ActionIcon,
@@ -16,7 +16,6 @@ import {
     CopyButton,
     Group,
     Paper,
-    PinInput,
     rgba,
     Stack,
     Text,
@@ -27,6 +26,7 @@ import { useForm } from '@mantine/form'
 import { CaretLeftIcon, CheckIcon, CopyIcon } from '@phosphor-icons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import BackupCodes from './backup-codes'
+import OtpInput from '@/components/otp-input'
 
 type AddTotpSteps = 'add' | 'verify' | 'success'
 
@@ -41,6 +41,7 @@ function AddTotpScreenContent({
 }) {
     const theme = useMantineTheme()
     const { user } = useUser()
+    const createBackupCode = useReverification(() => user?.createBackupCode())
     const [totp, setTOTP] = useState<TOTPResource | undefined>(undefined)
     const [canRegenerate, setCanRegenerate] = useState(true)
     const [displayFormat, setDisplayFormat] = useState<DisplayFormat>('qr')
@@ -75,8 +76,8 @@ function AddTotpScreenContent({
             // Generate backup codes after verification
             if (user && !user.backupCodeEnabled) {
                 try {
-                    const resource = await user.createBackupCode()
-                    setBackupCodes(resource.codes || [])
+                    const resource = await createBackupCode()
+                    setBackupCodes(resource?.codes || [])
                 } catch (err) {
                     logger.error({ err, message: 'Error generating backup codes' })
                     setBackupCodes([])
@@ -181,15 +182,7 @@ function AddTotpScreenContent({
                     <Title order={4} ta="center" mt="xs">
                         Enter your code
                     </Title>
-                    <PinInput
-                        length={6}
-                        size="lg"
-                        type="number"
-                        value={form.values.code}
-                        error={Boolean(form.errors.code)}
-                        placeholder="0"
-                        {...form.getInputProps('code')}
-                    />
+                    <OtpInput form={form} />
                     <InputError error={form.errors.code} />
                     <Button
                         type="submit"

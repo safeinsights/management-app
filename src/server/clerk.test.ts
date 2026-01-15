@@ -31,15 +31,15 @@ describe('syncCurrentClerkUser', () => {
         await expect(syncCurrentClerkUser()).rejects.toThrow('User not authenticated')
     })
 
-    it('should update existing user when clerk user already exists in database', async () => {
+    it('should update existing user when clerk user already exists in database by clerkId', async () => {
         const org = await insertTestOrg()
         const { user } = await insertTestUser({ org })
 
         const clerkUser = {
-            id: faker.string.alpha(10), // Different clerkId - lookup is by email now
+            id: user.clerkId, // Same clerkId as existing user
             firstName: 'Updated',
             lastName: 'Name',
-            primaryEmailAddress: { emailAddress: user.email }, // Same email as existing user
+            primaryEmailAddress: { emailAddress: user.email },
             publicMetadata: {},
         }
 
@@ -56,7 +56,41 @@ describe('syncCurrentClerkUser', () => {
 
         expect(updatedUser.firstName).toBe('Updated')
         expect(updatedUser.lastName).toBe('Name')
-        expect(updatedUser.clerkId).toBe(clerkUser.id) // clerkId should be updated too
+        expect(updatedUser.clerkId).toBe(user.clerkId)
+    })
+
+    it('should resolve email conflict by reassigning old user to new clerkId in non-production', async () => {
+        const org = await insertTestOrg()
+        const { user: existingUser } = await insertTestUser({ org })
+        const originalEmail = existingUser.email!
+        const newClerkId = faker.string.alpha(10)
+
+        const clerkUser = {
+            id: newClerkId, // Different clerkId
+            firstName: 'New',
+            lastName: 'User',
+            primaryEmailAddress: { emailAddress: originalEmail }, // Same email as existing user
+            publicMetadata: {},
+        }
+
+        currentUserMock.mockResolvedValue(clerkUser)
+
+        const result = await syncCurrentClerkUser()
+
+        // Should return the existing user's ID (not create a new one)
+        expect(result.id).toBe(existingUser.id)
+
+        // Existing user should have updated clerkId and name
+        const updatedUser = await db
+            .selectFrom('user')
+            .selectAll('user')
+            .where('id', '=', existingUser.id)
+            .executeTakeFirstOrThrow()
+
+        expect(updatedUser.clerkId).toBe(newClerkId)
+        expect(updatedUser.firstName).toBe('New')
+        expect(updatedUser.lastName).toBe('User')
+        expect(updatedUser.email).toBe(originalEmail) // Email preserved
     })
 
     it('should create new user when clerk user does not exist in database', async () => {

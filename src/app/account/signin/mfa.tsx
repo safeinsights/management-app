@@ -92,20 +92,11 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
 
                                 // forces Clerk to regenerate the JWT session token with the latest user metadata
                                 await auth.getToken({ skipCache: true })
-                            } catch (error) {
-                                // Check if user is already a member
-                                if (error instanceof Error && error.message.includes('already a member')) {
-                                    notifications.show({
-                                        color: 'blue',
-                                        title: 'Already a member',
-                                        message: `You're already a member of this organization.`,
-                                    })
-                                } else {
-                                    notifications.show({
-                                        color: 'red',
-                                        message: `Failed to link your SafeInsights accounts. Please try again.`,
-                                    })
-                                }
+                            } catch {
+                                notifications.show({
+                                    color: 'red',
+                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                })
                             }
                         }
                         router.push(redirectUrl)
