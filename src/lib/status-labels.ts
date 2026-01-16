@@ -76,7 +76,7 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     // Results
     'RUN-COMPLETE': {
         stage: 'Results',
-        label: 'Awaiting Review',
+        label: 'Needs Review',
         tooltip: 'Study results are now ready for review. Open the study for more details.',
     },
     'FILES-APPROVED': {

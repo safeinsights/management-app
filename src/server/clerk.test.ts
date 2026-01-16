@@ -59,13 +59,14 @@ describe('syncCurrentClerkUser', () => {
         expect(updatedUser.clerkId).toBe(user.clerkId)
     })
 
-    it('should resolve email conflict by nullifying old user email when different clerkId claims it', async () => {
+    it('should resolve email conflict by reassigning old user to new clerkId in non-production', async () => {
         const org = await insertTestOrg()
         const { user: existingUser } = await insertTestUser({ org })
         const originalEmail = existingUser.email!
+        const newClerkId = faker.string.alpha(10)
 
         const clerkUser = {
-            id: faker.string.alpha(10), // Different clerkId
+            id: newClerkId, // Different clerkId
             firstName: 'New',
             lastName: 'User',
             primaryEmailAddress: { emailAddress: originalEmail }, // Same email as existing user
@@ -76,24 +77,20 @@ describe('syncCurrentClerkUser', () => {
 
         const result = await syncCurrentClerkUser()
 
-        // New user should be created with the email
-        const newUser = await db
-            .selectFrom('user')
-            .selectAll('user')
-            .where('clerkId', '=', clerkUser.id)
-            .executeTakeFirstOrThrow()
+        // Should return the existing user's ID (not create a new one)
+        expect(result.id).toBe(existingUser.id)
 
-        expect(newUser.email).toBe(originalEmail)
-        expect(result.id).toBe(newUser.id)
-
-        // Old user should have null email
-        const oldUser = await db
+        // Existing user should have updated clerkId and name
+        const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
             .where('id', '=', existingUser.id)
             .executeTakeFirstOrThrow()
 
-        expect(oldUser.email).toBeNull()
+        expect(updatedUser.clerkId).toBe(newClerkId)
+        expect(updatedUser.firstName).toBe('New')
+        expect(updatedUser.lastName).toBe('User')
+        expect(updatedUser.email).toBe(originalEmail) // Email preserved
     })
 
     it('should create new user when clerk user does not exist in database', async () => {
