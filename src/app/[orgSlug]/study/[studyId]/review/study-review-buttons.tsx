@@ -43,8 +43,8 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         },
     })
 
-    if (study.status === 'APPROVED' || study.status === 'REJECTED' || !session?.belongsToEnclave) {
-        return null // do not show buttons if the study is already approved or rejected or the user is not an enclave user
+    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
+        return null // do not show buttons if the study is already approved or rejected
     }
 
     return (
