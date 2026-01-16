@@ -13,10 +13,8 @@ import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
 import { Routes, useTypedParams } from '@/lib/routes'
-import { useSession } from '@/hooks/session'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
-    const { session } = useSession()
     const router = useRouter()
     const { orgSlug } = useTypedParams(Routes.studyReview.schema)
     const [useTestImage, setUseTestImage] = useState(false)
