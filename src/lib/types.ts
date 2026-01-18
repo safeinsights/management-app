@@ -109,6 +109,7 @@ export const ACCEPTED_LANGUAGE_FILE_TYPES: Record<Language, Record<string, strin
     },
     PYTHON: {
         'application/x-python': ['.py'],
+        'text/x-python-script': ['.py'],
         'application/x-ipynb': ['.ipynb'],
     },
 }
@@ -120,8 +121,6 @@ export const ACCEPTED_FILE_TYPES = {
     'text/csv': ['.csv'],
     'text/plain': ['.txt'],
 }
-
-export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'
 
 export const minimalOrgInfoSchema = z.object({
     orgSlug: z.string(),
