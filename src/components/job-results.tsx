@@ -106,9 +106,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
     const theme = useMantineTheme()
     return (
         <Group gap="xs">
-            <Text fz="sm" fw={600}>
-                {file.fileType === 'APPROVED-RESULT' ? 'Results:' : 'Logs:'}
-            </Text>
+            <Text fw={650}>{file.fileType === 'APPROVED-RESULT' ? 'Results:' : 'Logs:'}</Text>
             <ViewResultsLink content={file.contents} />
             <span
                 style={{
