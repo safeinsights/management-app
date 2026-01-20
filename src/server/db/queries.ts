@@ -269,22 +269,43 @@ export async function fetchLatestBaseImageForStudyId(studyId: string) {
 }
 
 /**
- * Fetches all public keys for users belonging to an organization.
- * Returns keys converted to ArrayBuffer format suitable for encryption operations.
+ * Gets the orgId for a given jobId.
+ * Returns undefined if job doesn't exist.
  */
-export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
-    const keys = await Action.db
+export async function getOrgIdForJobId(jobId: string) {
+    const job = await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .where('studyJob.id', '=', jobId)
+        .select(['study.orgId'])
+        .executeTakeFirst()
+
+    return job?.orgId
+}
+
+/**
+ * Fetches all public keys for users belonging to an organization.
+ * Returns keys with Buffer format (as stored in DB).
+ */
+export async function getOrgPublicKeysRaw(orgId: string) {
+    return await Action.db
         .selectFrom('orgUser')
         .innerJoin('userPublicKey', 'userPublicKey.userId', 'orgUser.userId')
         .select(['userPublicKey.publicKey', 'userPublicKey.fingerprint'])
         .where('orgUser.orgId', '=', orgId)
         .execute()
+}
 
-    return keys.map((k) => {
-        // Convert Node Buffer to ArrayBuffer
-        const buf = Buffer.from(k.publicKey)
-        const arrayBuffer = new ArrayBuffer(buf.byteLength)
-        new Uint8Array(arrayBuffer).set(buf)
-        return { publicKey: arrayBuffer, fingerprint: k.fingerprint }
+/**
+ * Fetches all public keys for users belonging to an organization.
+ * Returns keys converted to si-encryption (ArrayBuffer) format.
+ */
+export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
+    const keys = await getOrgPublicKeysRaw(orgId)
+    return keys.map(({ publicKey, fingerprint }) => {
+        // Safe Buffer to ArrayBuffer conversion (handles offset/length correctly)
+        const arrayBuffer = new ArrayBuffer(publicKey.byteLength)
+        new Uint8Array(arrayBuffer).set(publicKey)
+        return { publicKey: arrayBuffer, fingerprint }
     })
 }

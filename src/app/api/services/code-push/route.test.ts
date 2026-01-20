@@ -1,8 +1,7 @@
 import { expect, test, vi, type Mock } from 'vitest'
 import * as apiHandler from './route'
 import { db } from '@/database'
-import { insertTestStudyData, mockSessionWithTestData, readTestSupportFile } from '@/tests/unit.helpers'
-import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
+import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
 vi.mock('@/lib/logger', () => {
     const error = vi.fn()
@@ -22,23 +21,6 @@ vi.mock('@/server/aws', () => ({
     fetchS3File: vi.fn(),
     signedUrlForFile: vi.fn(),
 }))
-
-async function ensureValidUserPublicKeysForOrg(orgId: string) {
-    const publicKeyPem = await readTestSupportFile('public_key.pem')
-    const publicKey = pemToArrayBuffer(publicKeyPem)
-    const fingerprint = await fingerprintKeyData(publicKey)
-
-    const orgUserIds = await db.selectFrom('orgUser').select(['userId']).where('orgId', '=', orgId).execute()
-    const userIds = orgUserIds.map((r) => r.userId)
-
-    if (!userIds.length) return
-
-    await db
-        .updateTable('userPublicKey')
-        .set({ publicKey: Buffer.from(publicKey), fingerprint })
-        .where('userId', 'in', userIds)
-        .execute()
-}
 
 async function getStatusRows(jobId: string) {
     return await db
@@ -175,8 +157,7 @@ test('returns 404 job-not-found for unknown jobId', async () => {
 })
 
 test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
-    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave' })
-    await ensureValidUserPublicKeysForOrg(org.id)
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 

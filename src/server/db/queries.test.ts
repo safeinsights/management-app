@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { insertTestOrg, insertTestStudyJobUsers } from '@/tests/unit.helpers'
-import { getReviewerPublicKey, getUsersForOrgId, jobInfoForJobId, studyInfoForStudyId } from './queries'
+import { insertTestOrg, insertTestStudyJobUsers, readTestSupportFile } from '@/tests/unit.helpers'
+import {
+    getOrgIdForJobId,
+    getOrgPublicKeys,
+    getOrgPublicKeysRaw,
+    getReviewerPublicKey,
+    getUsersForOrgId,
+    jobInfoForJobId,
+    studyInfoForStudyId,
+} from './queries'
+import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
+import { ResultsWriter } from 'si-encryption/job-results/writer'
+import { ResultsReader } from 'si-encryption/job-results/reader'
 
 async function insertRecords() {
     const org1 = await insertTestOrg({ slug: 'test-org-1' })
@@ -85,5 +96,86 @@ describe('getUsersForOrgId', () => {
     it('returns empty array when orgId is invalid', async () => {
         const users = await getUsersForOrgId(invalidUUID)
         expect(users).toEqual([])
+    })
+})
+
+describe('getOrgIdForJobId', () => {
+    it('returns orgId when jobId is valid', async () => {
+        const { job1, org1 } = await insertRecords()
+        const orgId = await getOrgIdForJobId(job1.id)
+        expect(orgId).toBe(org1.id)
+    })
+
+    it('returns undefined when jobId is invalid', async () => {
+        const orgId = await getOrgIdForJobId(invalidUUID)
+        expect(orgId).toBeUndefined()
+    })
+})
+
+describe('getOrgPublicKeysRaw', () => {
+    it('returns public keys with Buffer format for org users', async () => {
+        const { org1 } = await insertRecords()
+        const keys = await getOrgPublicKeysRaw(org1.id)
+
+        expect(keys.length).toBeGreaterThan(0)
+        keys.forEach((key) => {
+            expect(key.publicKey).toBeInstanceOf(Buffer)
+            expect(typeof key.fingerprint).toBe('string')
+        })
+    })
+
+    it('returns empty array when orgId is invalid', async () => {
+        const keys = await getOrgPublicKeysRaw(invalidUUID)
+        expect(keys).toEqual([])
+    })
+})
+
+describe('getOrgPublicKeys', () => {
+    it('returns public keys with ArrayBuffer format for org users', async () => {
+        const { org1 } = await insertRecords()
+        const keys = await getOrgPublicKeys(org1.id)
+
+        expect(keys.length).toBeGreaterThan(0)
+        keys.forEach((key) => {
+            expect(key.publicKey).toBeInstanceOf(ArrayBuffer)
+            expect(typeof key.fingerprint).toBe('string')
+        })
+    })
+
+    it('returns empty array when orgId is invalid', async () => {
+        const keys = await getOrgPublicKeys(invalidUUID)
+        expect(keys).toEqual([])
+    })
+
+    it('produces keys that can be used for encryption round-trip', async () => {
+        const org = await insertTestOrg({ slug: 'test-org-encryption' })
+        await insertTestStudyJobUsers({ org, useRealKeys: true })
+
+        // Get expected fingerprint from the test key file
+        const publicKeyPem = await readTestSupportFile('public_key.pem')
+        const publicKeyArrayBuffer = pemToArrayBuffer(publicKeyPem)
+        const fingerprint = await fingerprintKeyData(publicKeyArrayBuffer)
+
+        // Get keys using the function under test
+        const keys = await getOrgPublicKeys(org.id)
+        expect(keys.length).toBeGreaterThan(0)
+
+        // Encrypt a message using the keys
+        const message = 'Test encryption message'
+        const writer = new ResultsWriter(keys)
+        const bytes = new TextEncoder().encode(message)
+        await writer.addFile('test.txt', bytes.buffer)
+        const encryptedBlob = await writer.generate()
+
+        // Decrypt and verify
+        const privateKeyPem = await readTestSupportFile('private_key.pem')
+        const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)
+        const reader = new ResultsReader(encryptedBlob, privateKeyBuffer, fingerprint)
+        const files = await reader.extractFiles()
+
+        expect(files).toHaveLength(1)
+        expect(files[0].path).toBe('test.txt')
+        const decoded = new TextDecoder().decode(new Uint8Array(files[0].contents))
+        expect(decoded).toBe(message)
     })
 })
