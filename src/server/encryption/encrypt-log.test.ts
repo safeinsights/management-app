@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { createEncryptedLogZip, LOG_FILENAME } from './encrypt-log'
+import { createEncryptedLogBlob, LOG_FILENAME } from './encrypt-log'
 import { readTestSupportFile } from '@/tests/unit.helpers'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util'
 import { ResultsReader } from 'si-encryption/job-results/reader'
 
-describe('createEncryptedLogZip', () => {
+describe('createEncryptedLogBlob', () => {
     it('creates a decryptable zip containing the expected log contents', async () => {
         const publicKey = pemToArrayBuffer(await readTestSupportFile('public_key.pem'))
         const fingerprint = await fingerprintKeyData(publicKey)
 
         const message = 'Build failed during code packaging'
-        const zipBlob = await createEncryptedLogZip(message, [{ publicKey, fingerprint }])
+        const zipBlob = await createEncryptedLogBlob(message, [{ publicKey, fingerprint }])
 
         const privateKeyPem = await readTestSupportFile('private_key.pem')
         const privateKeyBuffer = pemToArrayBuffer(privateKeyPem)

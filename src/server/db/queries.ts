@@ -281,10 +281,10 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         .execute()
 
     return keys.map((k) => {
-            // Convert Node Buffer to ArrayBuffer
-            const buf = Buffer.from(k.publicKey)
-            const arrayBuffer = new ArrayBuffer(buf.byteLength)
-            new Uint8Array(arrayBuffer).set(buf)
-            return { publicKey: arrayBuffer, fingerprint: k.fingerprint }
-        })
+        // Convert Node Buffer to ArrayBuffer
+        const buf = Buffer.from(k.publicKey)
+        const arrayBuffer = new ArrayBuffer(buf.byteLength)
+        new Uint8Array(arrayBuffer).set(buf)
+        return { publicKey: arrayBuffer, fingerprint: k.fingerprint }
+    })
 }

@@ -3,7 +3,7 @@ import logger from '@/lib/logger'
 import { NotFoundError, throwNotFound } from '@/lib/errors'
 import { z, ZodError } from 'zod'
 import { NextResponse } from 'next/server'
-import { createEncryptedLogZip } from '@/server/encryption/encrypt-log'
+import { createEncryptedLogBlob } from '@/server/encryption/encrypt-log'
 import { getOrgPublicKeys } from '@/server/db/queries'
 import { storeStudyEncryptedLogFile } from '@/server/storage'
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
             try {
                 const recipients = await getOrgPublicKeys(job.orgId)
                 if (recipients.length > 0) {
-                    const zipBlob = await createEncryptedLogZip(body.plaintextLog, recipients)
+                    const zipBlob = await createEncryptedLogBlob(body.plaintextLog, recipients)
                     const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', {
                         type: 'application/zip',
                     })
