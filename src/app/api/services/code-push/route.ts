@@ -4,7 +4,7 @@ import { NotFoundError, throwNotFound } from '@/lib/errors'
 import { z, ZodError } from 'zod'
 import { NextResponse } from 'next/server'
 import { createEncryptedLogZip } from '@/server/encryption/encrypt-log'
-import { getOrgPublicKeys, getStudyJobFileOfType } from '@/server/db/queries'
+import { getOrgPublicKeys } from '@/server/db/queries'
 import { storeStudyEncryptedLogFile } from '@/server/storage'
 
 const schema = z.object({
@@ -37,23 +37,18 @@ export async function POST(req: Request) {
         // If build failed and plaintext log provided, try to encrypt and store it.
         // Encryption failure should not block saving the JOB-ERRORED status - we log
         // the error but continue so the job at least shows as errored in the UI.
-        // Idempotency: CodeBuild may retry on transient failures, so we check if an
-        // encrypted log already exists for this job to avoid duplicate DB rows.
         if (body.status === 'JOB-ERRORED' && body.plaintextLog) {
             try {
-                const existingLog = await getStudyJobFileOfType(job.jobId, 'ENCRYPTED-LOG', false)
-                if (!existingLog) {
-                    const recipients = await getOrgPublicKeys(job.orgId)
-                    if (recipients.length > 0) {
-                        const zipBlob = await createEncryptedLogZip(body.plaintextLog, recipients)
-                        const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', {
-                            type: 'application/zip',
-                        })
-                        await storeStudyEncryptedLogFile(
-                            { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
-                            encryptedFile,
-                        )
-                    }
+                const recipients = await getOrgPublicKeys(job.orgId)
+                if (recipients.length > 0) {
+                    const zipBlob = await createEncryptedLogZip(body.plaintextLog, recipients)
+                    const encryptedFile = new File([zipBlob], 'encrypted-logs.zip', {
+                        type: 'application/zip',
+                    })
+                    await storeStudyEncryptedLogFile(
+                        { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
+                        encryptedFile,
+                    )
                 }
             } catch (encryptionError) {
                 logger.error('Failed to encrypt and store error log', encryptionError, {
