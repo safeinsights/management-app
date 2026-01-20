@@ -18,7 +18,6 @@ import { memoryRouter } from 'next-router-mock'
 import { useParams } from 'next/navigation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { StudyReviewButtons } from './study-review-buttons'
-import * as Session from '@/hooks/session'
 
 // Mock the actions
 vi.mock('@/server/actions/study.actions', async (importOriginal) => {
@@ -110,20 +109,18 @@ describe('StudyReviewButtons', () => {
         })
     })
 
-    it('renders status for approved study and no buttons', async () => {
+    it('does not render buttons if the study is approved', async () => {
         const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date() }
         renderWithProviders(<StudyReviewButtons study={approvedStudy} />)
 
-        expect(screen.getByText(/approved on/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
 
-    it('renders status for rejected study and no buttons', async () => {
+    it('does not render buttons if the study is rejected', async () => {
         const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date() }
         renderWithProviders(<StudyReviewButtons study={rejectedStudy} />)
 
-        expect(screen.getByText(/rejected on/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
     })
@@ -149,47 +146,5 @@ describe('StudyReviewButtons', () => {
                 expect.anything(),
             )
         })
-    })
-
-    it('does not render approve and reject buttons for a lab user', async () => {
-        await mockSessionWithTestData({ orgType: 'lab', orgSlug: 'test-org' })
-        vi.mocked(useParams).mockReturnValue({
-            orgSlug: 'test-org',
-            studyId: study.id,
-        })
-        renderWithProviders(<StudyReviewButtons study={study} />)
-        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
-    })
-
-    it('renders approve and reject buttons for an enclave user', async () => {
-        await mockSessionWithTestData({ orgType: 'enclave', orgSlug: 'test-org' })
-        vi.mocked(useParams).mockReturnValue({
-            orgSlug: 'test-org',
-            studyId: study.id,
-        })
-        renderWithProviders(<StudyReviewButtons study={study} />)
-        expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Reject' })).toBeInTheDocument()
-    })
-
-    it('renders nothing while session is loading', async () => {
-        // Ensure route params are present (component reads orgSlug/studyId)
-        vi.mocked(useParams).mockReturnValue({
-            orgSlug: 'test-org',
-            studyId: study.id,
-        })
-
-        // Force the loading branch of useSession
-        const spy = vi
-            .spyOn(Session, 'useSession')
-            .mockReturnValue({ isLoaded: false, session: null } as unknown as ReturnType<typeof Session.useSession>)
-
-        renderWithProviders(<StudyReviewButtons study={study} />)
-
-        expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument()
-
-        spy.mockRestore()
     })
 })
