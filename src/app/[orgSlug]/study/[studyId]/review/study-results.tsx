@@ -65,24 +65,22 @@ export const JobStatusHelpText: FC<{
     }
 
     if (isErrored) {
-        if (!hasEncryptedLogs) {
-            return (
-                <Stack gap="xs">
-                    <Text>Study job errored. No logs available.</Text>
-                </Stack>
-            )
-        }
-
-        // Encrypted logs available for review
         return (
-            <Stack>
-                <Text>The code errored out! Review the error logs before these can be shared with the researcher.</Text>
-                <Group justify="flex-start" align="center">
-                    <Text size="xs" fw="bold">
-                        Job ID:
-                    </Text>
-                    <CopyingInput value={job.id} tooltipLabel="Copy" />
-                </Group>
+            <Stack gap="xs">
+                <Text>
+                    The code errored out!{' '}
+                    {hasEncryptedLogs
+                        ? 'Review the error logs before these can be shared with the researcher.'
+                        : 'Unknown reason, no logs were sent'}
+                </Text>
+                {hasEncryptedLogs && (
+                    <Group justify="flex-start" align="center">
+                        <Text size="xs" fw="bold">
+                            Job ID:
+                        </Text>
+                        <CopyingInput value={job.id} tooltipLabel="Copy" />
+                    </Group>
+                )}
             </Stack>
         )
     }

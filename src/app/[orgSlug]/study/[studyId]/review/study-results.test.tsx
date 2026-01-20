@@ -76,17 +76,13 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         // Should show no logs message
-        expect(screen.getByText('Study job errored. No logs available.')).toBeDefined()
+        expect(screen.getByText(/Unknown reason, no logs were sent/)).toBeDefined()
 
         // Should NOT show decrypt UI
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
 
         // Should NOT show error help text with Job ID
-        expect(
-            screen.queryByText(
-                'The code errored out! Review the error logs before these can be shared with the researcher.',
-            ),
-        ).toBeNull()
+        expect(screen.queryByText(/Review the error logs/)).toBeNull()
         expect(screen.queryByText('Job ID:')).toBeNull()
     })
 
@@ -111,18 +107,14 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={latestJob} />)
 
         // Should show error message with review instructions
-        expect(
-            screen.getByText(
-                'The code errored out! Review the error logs before these can be shared with the researcher.',
-            ),
-        ).toBeDefined()
+        expect(screen.getByText(/Review the error logs before these can be shared with the researcher/)).toBeDefined()
         expect(screen.getByText('Job ID:')).toBeDefined()
 
         // Should show decrypt UI
         expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
 
         // Should NOT show no logs message
-        expect(screen.queryByText('Study job errored. No logs available.')).toBeNull()
+        expect(screen.queryByText(/Unknown reason, no logs were sent/)).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {
