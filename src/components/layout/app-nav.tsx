@@ -15,7 +15,7 @@ import { NavbarOrgSquares } from './navbar-org-squares'
 import { NavbarProfileMenu } from './navbar-profile-menu'
 import { SafeInsightsLogo } from './svg/si-logo'
 
-export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop }) => {
+export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop }) => {
     const path = usePathname()
     const { data: orgs = [] } = useQuery({
         queryFn: async () => fetchUsersOrgsWithStatsAction(),
@@ -37,7 +37,7 @@ export const AppNav: React.FC<{ isDesktop: boolean }> = ({ isDesktop: _isDesktop
             <Group h="100%" gap={0}>
                 <NavbarOrgSquares isMainDashboard={isMainDashboard} focusedOrgSlug={focusedOrgSlug} orgs={sortedOrgs} />
                 <Stack h="100%" flex={1}>
-                    {_isDesktop && (
+                    {isDesktop && (
                         <Box p={24}>
                             <Link href={Routes.home}>
                                 <SafeInsightsLogo />
