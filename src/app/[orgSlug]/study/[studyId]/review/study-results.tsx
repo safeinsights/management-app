@@ -17,10 +17,7 @@ export const StudyResults: FC<{
 }> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
-    const { isErrored } = useJobStatus(job?.statusChanges ?? [])
-    // If errored but no encrypted logs available, don't show decrypt UI
     const hasEncryptedLogs = job?.files?.some((f) => f.fileType === 'ENCRYPTED-LOG') ?? false
-    const showDecryptUI = !isErrored || hasEncryptedLogs
 
     // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {
@@ -50,7 +47,7 @@ export const StudyResults: FC<{
                 </Group>
                 <Divider c="dimmed" />
                 <JobStatusHelpText job={job} hasEncryptedLogs={hasEncryptedLogs} />
-                {showDecryptUI && <DecryptResults job={job} onApproval={setDecryptedResults} />}
+                <DecryptResults job={job} onApproval={setDecryptedResults} />
                 <JobResults job={job} />
             </Stack>
         </Paper>
