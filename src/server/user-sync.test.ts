@@ -1,5 +1,19 @@
 import { describe, it, expect, vi } from 'vitest'
 import { db, insertTestOrg, insertTestUser, faker } from '@/tests/unit.helpers'
+
+const mockProdEnv = vi.hoisted(() => ({ value: false }))
+
+vi.mock('./config', async (importOriginal) => {
+    const original = await importOriginal<typeof import('./config')>()
+    return {
+        ...original,
+        get PROD_ENV() {
+            return mockProdEnv.value
+        },
+    }
+})
+
+// Import after mock is set up
 import { syncUserToDatabase, syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 describe('syncUserToDatabase', () => {
@@ -55,13 +69,14 @@ describe('syncUserToDatabase', () => {
         expect(user.email).toBe('updated@test.com')
     })
 
-    it('should resolve email conflict by nullifying old user email', async () => {
+    it('should resolve email conflict by reassigning old user to new clerkId in non-production', async () => {
         const org = await insertTestOrg()
         const { user: existingUser } = await insertTestUser({ org })
         const originalEmail = existingUser.email!
+        const newClerkId = faker.string.alpha(10)
 
         const attrs = {
-            clerkId: faker.string.alpha(10), // Different clerkId
+            clerkId: newClerkId, // Different clerkId
             firstName: 'New',
             lastName: 'User',
             email: originalEmail, // Same email
@@ -71,38 +86,44 @@ describe('syncUserToDatabase', () => {
             return syncUserToDatabase(attrs, trx)
         })
 
+        // Should return the existing user's ID (not create a new one)
+        expect(result.id).toBe(existingUser.id)
         expect(result.emailConflictResolved).toBeDefined()
         expect(result.emailConflictResolved?.previousUserId).toBe(existingUser.id)
         expect(result.emailConflictResolved?.email).toBe(originalEmail)
 
-        // Old user should have null email
-        const oldUser = await db
+        // Old user should have updated clerkId and name
+        const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
             .where('id', '=', existingUser.id)
             .executeTakeFirstOrThrow()
 
-        expect(oldUser.email).toBeNull()
+        expect(updatedUser.clerkId).toBe(newClerkId)
+        expect(updatedUser.firstName).toBe('New')
+        expect(updatedUser.lastName).toBe('User')
+        expect(updatedUser.email).toBe(originalEmail) // Email preserved
 
-        // New user should have the email
-        const newUser = await db
+        // No new user should be created
+        const userCount = await db
             .selectFrom('user')
-            .selectAll('user')
-            .where('id', '=', result.id)
+            .select((eb) => eb.fn.count('id').as('count'))
+            .where('email', '=', originalEmail)
             .executeTakeFirstOrThrow()
 
-        expect(newUser.email).toBe(originalEmail)
+        expect(Number(userCount.count)).toBe(1)
     })
 
     it('should handle case-insensitive email matching for conflicts', async () => {
         const org = await insertTestOrg()
         const { user: existingUser } = await insertTestUser({ org })
+        const newClerkId = faker.string.alpha(10)
 
         // Update existing user's email to mixed case
         await db.updateTable('user').set({ email: 'Test@Example.COM' }).where('id', '=', existingUser.id).execute()
 
         const attrs = {
-            clerkId: faker.string.alpha(10),
+            clerkId: newClerkId,
             firstName: 'New',
             lastName: 'User',
             email: 'test@example.com', // Different case
@@ -112,17 +133,19 @@ describe('syncUserToDatabase', () => {
             return syncUserToDatabase(attrs, trx)
         })
 
+        expect(result.id).toBe(existingUser.id)
         expect(result.emailConflictResolved).toBeDefined()
         expect(result.emailConflictResolved?.previousUserId).toBe(existingUser.id)
 
-        // Old user should have null email
-        const oldUser = await db
+        // Old user should have updated clerkId
+        const updatedUser = await db
             .selectFrom('user')
             .selectAll('user')
             .where('id', '=', existingUser.id)
             .executeTakeFirstOrThrow()
 
-        expect(oldUser.email).toBeNull()
+        expect(updatedUser.clerkId).toBe(newClerkId)
+        expect(updatedUser.email).toBe('Test@Example.COM') // Original email preserved
     })
 })
 
@@ -178,5 +201,38 @@ describe('syncUserToDatabaseWithConflictResolution', () => {
 
         // But callback should have been called
         expect(onConflictResolved).toHaveBeenCalledWith(existingUser.id)
+    })
+})
+
+describe('syncUserToDatabase in production', () => {
+    it('should throw an exception on email conflict in production', async () => {
+        // Reset modules and re-mock with PROD_ENV = true
+        vi.resetModules()
+        vi.doMock('./config', async (importOriginal) => {
+            const original = await importOriginal<typeof import('./config')>()
+            return {
+                ...original,
+                PROD_ENV: true,
+            }
+        })
+
+        // Dynamically import after mock is set up
+        const { syncUserToDatabase: syncUserToDatabaseProd } = await import('./user-sync')
+
+        const org = await insertTestOrg()
+        const { user: existingUser } = await insertTestUser({ org })
+
+        const attrs = {
+            clerkId: faker.string.alpha(10), // Different clerkId
+            firstName: 'New',
+            lastName: 'User',
+            email: existingUser.email!, // Same email - conflict
+        }
+
+        await expect(
+            db.transaction().execute(async (trx) => {
+                return syncUserToDatabaseProd(attrs, trx)
+            }),
+        ).rejects.toThrow(/Email conflict during user sync/)
     })
 })

@@ -1,5 +1,6 @@
 import { db, type DBExecutor } from '@/database'
 import logger from '@/lib/logger'
+import { PROD_ENV } from './config'
 
 export type UserSyncAttrs = {
     clerkId: string
@@ -18,7 +19,9 @@ export type SyncResult = {
 
 /**
  * Synchronizes user attributes from Clerk to the database.
- * Handles email conflicts by nullifying the email on the old user.
+ * Handles email conflicts differently based on environment:
+ * - Production: throws an exception
+ * - Non-production: reassigns the old account to the new clerkId
  *
  * @param attrs - User attributes from Clerk
  * @param executor - Database executor (transaction or connection)
@@ -54,22 +57,38 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
         .where((eb) => eb(eb.fn('lower', ['email']), '=', attrs.email.toLowerCase()))
         .executeTakeFirst()
 
-    let emailConflictResolved: SyncResult['emailConflictResolved'] = undefined
-
     if (existingByEmail) {
         // Email conflict - another user has this email
+        if (PROD_ENV) {
+            throw new Error(
+                `Email conflict during user sync: email ${attrs.email} belongs to user ${existingByEmail.id} ` +
+                    `(clerkId: ${existingByEmail.clerkId}), but new clerkId ${attrs.clerkId} is claiming it.`,
+            )
+        }
+
+        // Non-production: reassign the old account to the new clerkId
         logger.warn(
             `Email conflict during user sync: email ${attrs.email} belongs to user ${existingByEmail.id} ` +
                 `(clerkId: ${existingByEmail.clerkId}), but new clerkId ${attrs.clerkId} is claiming it. ` +
-                `Nullifying email on old user.`,
+                `Reassigning old account to new clerkId.`,
         )
 
-        // Nullify email on the old user
-        await executor.updateTable('user').set({ email: null }).where('id', '=', existingByEmail.id).execute()
+        await executor
+            .updateTable('user')
+            .set({
+                clerkId: attrs.clerkId,
+                firstName: attrs.firstName,
+                lastName: attrs.lastName,
+            })
+            .where('id', '=', existingByEmail.id)
+            .execute()
 
-        emailConflictResolved = {
-            previousUserId: existingByEmail.id,
-            email: attrs.email,
+        return {
+            id: existingByEmail.id,
+            emailConflictResolved: {
+                previousUserId: existingByEmail.id,
+                email: attrs.email,
+            },
         }
     }
 
@@ -78,7 +97,6 @@ export async function syncUserToDatabase(attrs: UserSyncAttrs, executor: DBExecu
 
     return {
         id: user.id,
-        emailConflictResolved,
     }
 }
 

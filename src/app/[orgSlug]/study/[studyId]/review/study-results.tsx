@@ -71,13 +71,11 @@ export const JobStatusHelpText: FC<{
                     The code errored out!{' '}
                     {hasEncryptedLogs
                         ? 'Review the error logs before these can be shared with the researcher.'
-                        : 'Unknown reason, no logs were sent'}
+                        : 'Unknown reason, no logs were sent.'}
                 </Text>
                 {hasEncryptedLogs && (
                     <Group justify="flex-start" align="center">
-                        <Text size="xs" fw="bold">
-                            Job ID:
-                        </Text>
+                        <Text fw={650}>Job ID:</Text>
                         <CopyingInput value={job.id} tooltipLabel="Copy" />
                     </Group>
                 )}
