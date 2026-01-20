@@ -280,9 +280,7 @@ export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
         .where('orgUser.orgId', '=', orgId)
         .execute()
 
-    return keys
-        .filter((k) => k.publicKey && k.fingerprint)
-        .map((k) => {
+    return keys.map((k) => {
             // Convert Node Buffer to ArrayBuffer
             const buf = Buffer.from(k.publicKey)
             const arrayBuffer = new ArrayBuffer(buf.byteLength)
