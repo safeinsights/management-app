@@ -16,9 +16,10 @@ type Props = {
 export const NavOrgsList: React.FC<Props> = ({ orgs }) => {
     return (
         <Stack>
-            <NavbarLink isVisible={true} url="/dashboard" label="My dashboard" icon={<HouseIcon size={16} />} />
+            <NavbarLink pl={24} isVisible={true} url="/dashboard" label="My dashboard" icon={<HouseIcon size={16} />} />
             {orgs.map((org) => (
                 <NavbarLink
+                    pl={24}
                     key={org.slug}
                     isVisible={true}
                     url={`/${org.slug}/dashboard`}
