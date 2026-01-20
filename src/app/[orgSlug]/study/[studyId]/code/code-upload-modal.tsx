@@ -3,7 +3,7 @@
 import { FC } from 'react'
 import { ActionIcon, Button, Divider, Grid, GridCol, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { CheckCircleIcon, FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import { CheckCircleIcon, FileArrowUpIcon, UploadIcon, XCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { Language } from '@/database/types'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
@@ -47,12 +47,13 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                                 maxFiles={10}
                                 accept={ACCEPTED_FILE_TYPES}
                                 p="xl"
+                                rejectColor="purple"
                             >
                                 <Dropzone.Accept>
                                     <UploadIcon />
                                 </Dropzone.Accept>
                                 <Dropzone.Reject>
-                                    <XIcon />
+                                    <UploadIcon />
                                 </Dropzone.Reject>
                                 <Dropzone.Idle>
                                     <Stack>
