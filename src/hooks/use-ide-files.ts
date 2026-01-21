@@ -2,7 +2,7 @@ import { useQueryClient } from '@/common'
 import { Routes } from '@/lib/routes'
 import { notifications } from '@mantine/notifications'
 import { useRouter } from 'next/navigation'
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useWorkspaceLauncher } from './use-workspace-launcher'
 import { useWorkspaceFiles } from './use-workspace-files'
 import { useFileListManager } from './use-file-list-manager'
@@ -18,8 +18,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     const queryClient = useQueryClient()
     const { setIDECodeFiles } = useStudyRequest()
 
-    const [hasImported, setHasImported] = useState(false)
-
     const {
         launchWorkspace,
         isLaunching: isLaunchingWorkspace,
@@ -27,7 +25,7 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         error: launchError,
     } = useWorkspaceLauncher({ studyId })
 
-    const workspace = useWorkspaceFiles({ studyId, enabled: hasImported })
+    const workspace = useWorkspaceFiles({ studyId, enabled: true, refetchInterval: 5000 })
 
     const fileManager = useFileListManager({
         files: workspace.files,
@@ -35,19 +33,8 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     })
 
     const isLaunching = isLaunchingWorkspace || isCreatingWorkspace
-    const showEmptyState = !hasImported || (fileManager.filteredFiles.length === 0 && !workspace.isLoading)
+    const showEmptyState = fileManager.filteredFiles.length === 0 && !workspace.isLoading
     const canSubmit = fileManager.mainFile !== '' && fileManager.filteredFiles.length > 0
-
-    const importFiles = useCallback(() => {
-        setHasImported(true)
-        fileManager.reset()
-        workspace.refetch()
-        notifications.show({
-            title: 'Files imported',
-            message: 'File list has been updated from the IDE.',
-            color: 'blue',
-        })
-    }, [fileManager, workspace])
 
     const goBack = useCallback(() => {
         router.push(Routes.studyCode({ orgSlug, studyId }))
@@ -82,7 +69,6 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
         isLaunching,
         launchError,
 
-        importFiles,
         isLoadingFiles: workspace.isLoading,
         showEmptyState,
         lastModified: workspace.lastModified,
