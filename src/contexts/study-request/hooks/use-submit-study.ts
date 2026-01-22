@@ -63,7 +63,11 @@ export function useSubmitStudy({
                 return { studyId }
             }
 
-            const { studyId: submittedStudyId, studyJobId, urlForCodeUpload } = actionResult(
+            const {
+                studyId: submittedStudyId,
+                studyJobId,
+                urlForCodeUpload,
+            } = actionResult(
                 await onSubmitDraftStudyAction({
                     studyId,
                     mainCodeFileName: mainFileName,
