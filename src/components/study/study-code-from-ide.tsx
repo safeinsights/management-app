@@ -3,12 +3,7 @@
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
-import {
-    ArrowSquareOutIcon,
-    CaretLeftIcon,
-    DownloadSimpleIcon,
-    WarningCircleIcon,
-} from '@phosphor-icons/react/dist/ssr'
+import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
 import { FileReviewTable } from './file-review-table'
 import { OpenStaxOnly } from '@/components/openstax-only'
@@ -55,19 +50,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
         body = (
             <Box bg="gray.1" py={60} style={{ borderRadius: 8 }}>
                 <Stack align="center" gap="md">
-                    <Text c="dimmed">
-                        {ide.isLoadingFiles ? 'Loading files...' : 'You have not imported any files yet.'}
-                    </Text>
-                    {!ide.isLoadingFiles && (
-                        <Button
-                            variant="transparent"
-                            leftSection={<DownloadSimpleIcon size={16} />}
-                            onClick={ide.importFiles}
-                            loading={ide.isLoadingFiles}
-                        >
-                            Import files from IDE
-                        </Button>
-                    )}
+                    <Text c="dimmed">{ide.isLoadingFiles ? 'Loading files...' : 'No files found in workspace.'}</Text>
                 </Stack>
             </Box>
         )
@@ -87,17 +70,7 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
                 <Group justify="space-between" align="center" mb="md">
                     <Text fw={600}>Review files from IDE</Text>
                     <OpenStaxOnly orgSlug={studyOrgSlug}>
-                        <Group>
-                            {launchButton}
-                            <Button
-                                variant="filled"
-                                leftSection={<DownloadSimpleIcon size={16} />}
-                                onClick={ide.importFiles}
-                                loading={ide.isLoadingFiles}
-                            >
-                                Import files from IDE
-                            </Button>
-                        </Group>
+                        <Group>{launchButton}</Group>
                     </OpenStaxOnly>
                 </Group>
 

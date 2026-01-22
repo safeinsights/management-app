@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@/common'
 import { reportMutationError } from '@/components/errors'
-import StudyApprovalStatus from '@/components/study/study-approval-status'
 import type { StudyStatus } from '@/database/types'
 import {
     approveStudyProposalAction,
@@ -14,10 +13,8 @@ import { useRouter } from 'next/navigation'
 import { FC, useState } from 'react'
 import { TestImageCheckbox } from './test-image-checkbox'
 import { Routes, useTypedParams } from '@/lib/routes'
-import { useSession } from '@/hooks/session'
 
 export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
-    const { session } = useSession()
     const router = useRouter()
     const { orgSlug } = useTypedParams(Routes.studyReview.schema)
     const [useTestImage, setUseTestImage] = useState(false)
@@ -45,11 +42,7 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
     })
 
     if (study.status === 'APPROVED' || study.status === 'REJECTED') {
-        return <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
-    }
-
-    if (!session?.belongsToEnclave) {
-        return null
+        return null // do not show buttons if the study is already approved or rejected
     }
 
     return (
