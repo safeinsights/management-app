@@ -30,7 +30,7 @@ export default async function StudyReviewPage(props: {
     // Route based on study status and org type:
     // - DRAFT studies: LabReviewView (researcher reviewing before submission)
     // - Submitted studies (enclave org): EnclaveReviewView (enclave reviewing submitted code)
-    if (study.status === 'DRAFT' || currentOrg.type === 'lab') {
+    if (study.status === 'DRAFT') {
         return <LabReviewView orgSlug={orgSlug} study={study} />
     }
 
