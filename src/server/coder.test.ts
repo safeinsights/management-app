@@ -133,7 +133,7 @@ describe('getOrCreateCoderUser', () => {
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: undefined,
-                username: 'john_example_com-855f96e9',
+                username: 'john-example-com-855f96e9',
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
@@ -445,20 +445,20 @@ describe('md5Hash', () => {
 describe('generateCoderUsername', () => {
     it('should sanitize email by replacing non-alphanumeric characters with underscores', () => {
         const result = generateCoderUsername('test220@gmail.com')
-        expect(result).toMatch(/^test220_gmail_com-[a-f0-9]{8}$/)
+        expect(result).toMatch(/^test220-gmail-com-[a-f0-9]{8}$/)
     })
 
     it('should truncate long emails to fit within 31 character limit', () => {
         const result = generateCoderUsername('test2201512345678901234567@gmail.com')
         expect(result.length).toBe(31)
         // Sanitized email should be truncated to 22 chars + hyphen + 8 char hash
-        expect(result).toMatch(/^[a-zA-Z0-9_]{22}-[a-f0-9]{8}$/)
+        expect(result).toMatch(/^[a-zA-Z0-9-]{22}-[a-f0-9]{8}$/)
     })
 
     it('should not truncate short emails', () => {
         const result = generateCoderUsername('test2201567@gmail.com')
-        // test22015678_gmail_com = 21 chars, plus hyphen and 8 char hash = 30 chars
-        expect(result).toMatch(/^test2201567_gmail_com-[a-f0-9]{8}$/)
+        // test22015678-gmail-com = 21 chars, plus hyphen and 8 char hash = 30 chars
+        expect(result).toMatch(/^test2201567-gmail-com-[a-f0-9]{8}$/)
         expect(result.length).toBe(30)
     })
 
@@ -476,7 +476,7 @@ describe('generateCoderUsername', () => {
 
     it('should handle emails with multiple special characters', () => {
         const result = generateCoderUsername('user.name+tag@sub.domain.com')
-        expect(result).toMatch('user_name_tag_sub_doma-f7fdd5e8')
+        expect(result).toMatch('user-name-tag-sub-doma-f7fdd5e8')
         expect(result.length).toBeLessThanOrEqual(31)
     })
 
@@ -489,6 +489,6 @@ describe('generateCoderUsername', () => {
     it('should produce alphanumeric usernames with underscores and one hyphen', () => {
         const result = generateCoderUsername('ANY.email@test.org')
         // Should only contain alphanumeric, underscores, and exactly one hyphen before hash
-        expect(result).toMatch(/^[a-zA-Z0-9_]+-[a-f0-9]{8}$/)
+        expect(result).toMatch(/^[a-zA-Z0-9-]+-[a-f0-9]{8}$/)
     })
 })
