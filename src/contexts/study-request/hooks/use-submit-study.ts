@@ -7,7 +7,12 @@ import { Routes } from '@/lib/routes'
 import { actionResult } from '@/lib/utils'
 import { isActionError, errorToString } from '@/lib/errors'
 import logger from '@/lib/logger'
-import { onSubmitDraftStudyAction, onDeleteStudyAction, submitStudyFromIDEAction } from '@/server/actions/study-request'
+import {
+    onSubmitDraftStudyAction,
+    onDeleteStudyJobAction,
+    submitStudyFromIDEAction,
+    finalizeStudySubmissionAction,
+} from '@/server/actions/study-request'
 import { type CodeFileState, getCodeFilesForUpload, hasNewCodeFiles } from '@/contexts/shared/file-types'
 
 export interface UseSubmitStudyOptions {
@@ -58,7 +63,11 @@ export function useSubmitStudy({
                 return { studyId }
             }
 
-            const { studyId: submittedStudyId, urlForCodeUpload } = actionResult(
+            const {
+                studyId: submittedStudyId,
+                studyJobId,
+                urlForCodeUpload,
+            } = actionResult(
                 await onSubmitDraftStudyAction({
                     studyId,
                     mainCodeFileName: mainFileName,
@@ -81,15 +90,25 @@ export function useSubmitStudy({
                     try {
                         await uploadFiles(filesToUpload)
                     } catch (err: unknown) {
-                        const result = await onDeleteStudyAction({ studyId: submittedStudyId })
+                        // Delete only the study job, not the entire study
+                        // The study should remain as a DRAFT so user can try again
+                        const result = await onDeleteStudyJobAction({ studyJobId })
                         if (isActionError(result)) {
                             logger.error(
-                                `Failed to remove temp study details after upload failure: ${errorToString(result.error)}`,
+                                `Failed to remove study job after upload failure: ${errorToString(result.error)}`,
                             )
                         }
                         throw err
                     }
                 }
+            }
+
+            // Finalize submission - change status to PENDING-REVIEW only after files are successfully
+            // uploaded and the study is submitted. This prevents the page from redirecting before files are uploaded, which could
+            // cause errors if upload fails.
+            const finalizeResult = await finalizeStudySubmissionAction({ studyId: submittedStudyId })
+            if (isActionError(finalizeResult)) {
+                throw new Error(errorToString(finalizeResult.error))
             }
 
             return { studyId: submittedStudyId }
@@ -112,8 +131,8 @@ export function useSubmitStudy({
         onError: (error) => {
             notifications.show({
                 color: 'red',
-                title: 'Failed to submit study',
-                message: `${errorToString(error)}\nPlease contact support.`,
+                title: 'Unable to Submit Study',
+                message: errorToString(error.message),
             })
         },
     })

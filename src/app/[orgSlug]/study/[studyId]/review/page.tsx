@@ -27,10 +27,14 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    // Route based on org type
+    // Route based on study status and org type:
+    // - DRAFT studies: LabReviewView (researcher reviewing before submission)
+    // - Submitted studies (enclave org): EnclaveReviewView (enclave reviewing submitted code)
+    if (study.status === 'DRAFT') {
+        return <LabReviewView orgSlug={orgSlug} study={study} />
+    }
+
     if (currentOrg.type === 'enclave') {
         return <EnclaveReviewView orgSlug={orgSlug} study={study} />
     }
-
-    return <LabReviewView orgSlug={orgSlug} study={study} />
 }

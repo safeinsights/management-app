@@ -226,6 +226,22 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             codeFileNames,
         )
 
+        return {
+            studyId,
+            studyJobId,
+            urlForCodeUpload,
+        }
+    })
+
+// Finalize study submission after files are uploaded
+// This changes the status to PENDING-REVIEW and triggers revalidation
+export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId }, session, orgSlug }) => {
+        const userId = session.user.id
+
         // Change status to PENDING-REVIEW
         await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
 
@@ -233,11 +249,7 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
 
         revalidatePath(`/${orgSlug}/dashboard`)
 
-        return {
-            studyId,
-            studyJobId,
-            urlForCodeUpload,
-        }
+        return { studyId }
     })
 
 // Fetch draft study data for editing
