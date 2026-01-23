@@ -112,7 +112,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
 
     if (isApproved) return null
 
-    // If errored but no encrypted logs available, don't render anything
+    // If errored but no encrypted logs available, don't render decryption form here - missing logs message is shown on the main results page
     const hasEncryptedLogs = job.files?.some((f) => f.fileType === 'ENCRYPTED-LOG') ?? false
     if (isErrored && !hasEncryptedLogs) return null
 
