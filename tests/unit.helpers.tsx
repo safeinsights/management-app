@@ -69,9 +69,17 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
 
 export * from './common.helpers'
 
-export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalTestOrg; researcherId?: string }) => {
+export const insertTestStudyData = async ({
+    org,
+    researcherId,
+    useRealKeys = false,
+}: {
+    org: MinimalTestOrg
+    researcherId?: string
+    useRealKeys?: boolean
+}) => {
     if (!researcherId) {
-        const { user } = await insertTestUser({ org })
+        const { user } = await insertTestUser({ org, useRealKeys })
         researcherId = user.id
     }
     const study = await db
@@ -136,7 +144,15 @@ export const insertTestStudyData = async ({ org, researcherId }: { org: MinimalT
     }
 }
 
-export const insertTestUser = async ({ org, isAdmin = false }: { org: MinimalTestOrg; isAdmin?: boolean }) => {
+export const insertTestUser = async ({
+    org,
+    isAdmin = false,
+    useRealKeys = false,
+}: {
+    org: MinimalTestOrg
+    isAdmin?: boolean
+    useRealKeys?: boolean
+}) => {
     const user = await db
         .insertInto('user')
         .values({
@@ -161,12 +177,26 @@ export const insertTestUser = async ({ org, isAdmin = false }: { org: MinimalTes
 
     // Add user public key for enclave orgs (reviewers)
     if (org.type === 'enclave') {
+        let publicKey: Buffer
+        let fingerprint: string
+
+        if (useRealKeys) {
+            const { pemToArrayBuffer, fingerprintKeyData } = await import('si-encryption/util')
+            const publicKeyPem = await readTestSupportFile('public_key.pem')
+            const publicKeyArrayBuffer = pemToArrayBuffer(publicKeyPem)
+            publicKey = Buffer.from(publicKeyArrayBuffer)
+            fingerprint = await fingerprintKeyData(publicKeyArrayBuffer)
+        } else {
+            publicKey = Buffer.from('testPublicKey1')
+            fingerprint = 'testFingerprint1'
+        }
+
         await db
             .insertInto('userPublicKey')
             .values({
                 userId: user.id,
-                publicKey: Buffer.from('testPublicKey1'),
-                fingerprint: 'testFingerprint1',
+                publicKey,
+                fingerprint,
             })
             .executeTakeFirstOrThrow()
     }
@@ -243,14 +273,17 @@ export const insertTestStudyJobData = async ({
     }
 }
 
-export const insertTestStudyJobUsers = async ({ org }: { org?: MinimalTestOrg } = {}) => {
+export const insertTestStudyJobUsers = async ({
+    org,
+    useRealKeys = false,
+}: { org?: MinimalTestOrg; useRealKeys?: boolean } = {}) => {
     if (!org) {
         org = await insertTestOrg()
     }
-    const { user: user1 } = await insertTestUser({ org })
-    const { user: user2 } = await insertTestUser({ org })
+    const { user: user1 } = await insertTestUser({ org, useRealKeys })
+    const { user: user2 } = await insertTestUser({ org, useRealKeys })
 
-    const { study, job, ...rest } = await insertTestStudyJobData({ org })
+    const { study, job, ...rest } = await insertTestStudyJobData({ org, researcherId: user1.id })
 
     return { study, job, user1, user2, ...rest }
 }
@@ -459,6 +492,7 @@ type MockSessionWithTestDataOptions = {
     isSiAdmin?: boolean
     clerkId?: string
     twoFactorEnabled?: boolean
+    useRealKeys?: boolean
 }
 
 export async function mockSessionWithTestData(options: MockSessionWithTestDataOptions = {}) {
@@ -468,6 +502,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     const { user, orgUser } = await insertTestUser({
         org: { id: org.id, slug: options.orgSlug, type: org.type },
         isAdmin: options.isAdmin,
+        useRealKeys: options.useRealKeys,
     })
 
     if (options.isSiAdmin) {

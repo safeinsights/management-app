@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { type Org } from '@/schema/org'
 import {
+    db,
     insertTestStudyJobData,
     mockSessionWithTestData,
     renderWithProviders,
@@ -9,6 +10,7 @@ import {
 import { fireEvent, waitFor, screen } from '@testing-library/react'
 import { StudyResults } from './study-results'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
+import { latestJobForStudy } from '@/server/db/queries'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { fingerprintKeyData, pemToArrayBuffer } from 'si-encryption/util'
 import { type FileType, type StudyJobStatus, type StudyStatus } from '@/database/types'
@@ -62,6 +64,57 @@ describe('View Study Results', () => {
     it('renders the form to unlock results', async () => {
         await insertAndRender('PENDING-REVIEW', 'RUN-COMPLETE')
         expect(screen.queryByText('Latest results rejected')).toBeDefined()
+    })
+
+    it('shows no logs message and hides decrypt UI when JOB-ERRORED has no encrypted logs', async () => {
+        const { study } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'JOB-ERRORED',
+        })
+        const job = await latestJobForStudy(study.id)
+
+        renderWithProviders(<StudyResults job={job} />)
+
+        // Should show no logs message
+        expect(screen.getByText(/Unknown reason, no logs were sent/)).toBeDefined()
+
+        // Should NOT show decrypt UI
+        expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
+
+        // Should NOT show error help text with Job ID
+        expect(screen.queryByText(/Review the error logs/)).toBeNull()
+        expect(screen.queryByText('Job ID:')).toBeNull()
+    })
+
+    it('shows error message and decrypt UI when JOB-ERRORED has encrypted logs', async () => {
+        const { study, job } = await insertTestStudyJobData({
+            org,
+            jobStatus: 'JOB-ERRORED',
+        })
+
+        // Add an encrypted log file to the job
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: job.id,
+                name: 'encrypted-logs.zip',
+                path: `test-org/${study.id}/${job.id}/results/encrypted-logs.zip`,
+                fileType: 'ENCRYPTED-LOG',
+            })
+            .execute()
+
+        const latestJob = await latestJobForStudy(study.id)
+        renderWithProviders(<StudyResults job={latestJob} />)
+
+        // Should show error message with review instructions
+        expect(screen.getByText(/Review the error logs before these can be shared with the researcher/)).toBeDefined()
+        expect(screen.getByText('Job ID:')).toBeDefined()
+
+        // Should show decrypt UI
+        expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
+
+        // Should NOT show no logs message
+        expect(screen.queryByText(/Unknown reason, no logs were sent/)).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {

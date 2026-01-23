@@ -16,6 +16,12 @@ vi.mock('@/lib/logger', () => {
     }
 })
 
+vi.mock('@/server/aws', () => ({
+    storeS3File: vi.fn(),
+    fetchS3File: vi.fn(),
+    signedUrlForFile: vi.fn(),
+}))
+
 async function getStatusRows(jobId: string) {
     return await db
         .selectFrom('jobStatusChange')
@@ -148,4 +154,24 @@ test('returns 404 job-not-found for unknown jobId', async () => {
 
     const body = await resp.json()
     expect(body).toEqual({ error: 'job-not-found' })
+})
+
+test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
+    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
+    const jobId = jobIds[0]
+
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({
+            jobId,
+            status: 'JOB-ERRORED',
+            plaintextLog: 'Build failed during code packaging/scanning.',
+        }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.ok).toBe(true)
+
+    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
 })
