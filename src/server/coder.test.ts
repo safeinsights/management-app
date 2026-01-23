@@ -133,7 +133,7 @@ describe('getOrCreateCoderUser', () => {
                 email: 'john@example.com',
                 login_type: 'oidc',
                 name: undefined,
-                username: 'john_example_com-855f96e9',
+                username: 'john-example-com-855f96e9',
                 user_status: 'active',
                 organization_ids: ['org'],
             }),
@@ -476,7 +476,7 @@ describe('generateCoderUsername', () => {
 
     it('should handle emails with multiple special characters', () => {
         const result = generateCoderUsername('user.name+tag@sub.domain.com')
-        expect(result).toMatch('user_name_tag_sub_doma-f7fdd5e8')
+        expect(result).toMatch('user-name-tag-sub-doma-f7fdd5e8')
         expect(result.length).toBeLessThanOrEqual(31)
     })
 
