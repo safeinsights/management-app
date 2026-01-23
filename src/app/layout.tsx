@@ -35,8 +35,8 @@ export default async function RootLayout({
             <body>
                 <Providers>
                     <Suspense fallback={<GlobalLoading />}>{children}</Suspense>
+                    <PiSymbol />
                 </Providers>
-                <PiSymbol />
             </body>
         </html>
     )
