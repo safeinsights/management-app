@@ -28,3 +28,16 @@
 .spy-mode .spy-mode-element {
     display: block;
 }
+
+/* EditableText (Lexical) formatting classes */
+.editable-text-bold {
+    font-weight: bold;
+}
+
+.editable-text-italic {
+    font-style: italic;
+}
+
+.editable-text-underline {
+    text-decoration: underline;
+}
