@@ -2,7 +2,12 @@ import { db } from '@/database'
 import * as aws from '@/server/aws'
 import { actionResult, insertTestOrg, insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
-import { onDeleteStudyAction, onSaveDraftStudyAction, onSubmitDraftStudyAction } from '@/server/actions/study-request'
+import {
+    onDeleteStudyAction,
+    onSaveDraftStudyAction,
+    onSubmitDraftStudyAction,
+    finalizeStudySubmissionAction,
+} from '@/server/actions/study-request'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -48,7 +53,7 @@ describe('Request Study Actions', () => {
         expect(study?.status).toEqual('DRAFT')
     })
 
-    it('onSubmitDraftStudyAction converts draft to PENDING-REVIEW', async () => {
+    it('onSubmitDraftStudyAction creates job and finalizeStudySubmissionAction converts to PENDING-REVIEW', async () => {
         // create the enclave that owns the data
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-submit' })
 
@@ -77,7 +82,7 @@ describe('Request Study Actions', () => {
             .executeTakeFirst()
         expect(study?.status).toEqual('DRAFT')
 
-        // Submit the draft
+        // Submit the draft - this creates the job but doesn't change status
         const submitResult = actionResult(
             await onSubmitDraftStudyAction({
                 studyId: draftResult.studyId,
@@ -89,12 +94,19 @@ describe('Request Study Actions', () => {
         expect(submitResult.studyId).toEqual(draftResult.studyId)
         expect(submitResult.studyJobId).toBeDefined()
 
+        // Verify status is still DRAFT after onSubmitDraftStudyAction
+        study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
+        expect(study?.status).toEqual('DRAFT')
+
+        // Finalize the submission - this changes status to PENDING-REVIEW
+        actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+
         // Verify it's now PENDING-REVIEW
         study = await db.selectFrom('study').selectAll('study').where('id', '=', draftResult.studyId).executeTakeFirst()
         expect(study?.status).toEqual('PENDING-REVIEW')
     })
 
-    it('onSubmitDraftStudyAction works with Python language', async () => {
+    it('submission flow works with Python language', async () => {
         const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-python' })
         const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
         await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
@@ -112,7 +124,7 @@ describe('Request Study Actions', () => {
             }),
         )
 
-        // Submit the draft
+        // Submit the draft - creates job but doesn't change status
         const submitResult = actionResult(
             await onSubmitDraftStudyAction({
                 studyId: draftResult.studyId,
@@ -123,6 +135,9 @@ describe('Request Study Actions', () => {
 
         expect(submitResult.studyId).toBeDefined()
         expect(submitResult.studyJobId).toBeDefined()
+
+        // Finalize the submission
+        actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
 
         const study = await db
             .selectFrom('study')

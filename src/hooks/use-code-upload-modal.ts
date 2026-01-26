@@ -4,6 +4,7 @@ import { notifications } from '@mantine/notifications'
 import { uniqueBy } from 'remeda'
 import { useStudyRequest } from '@/contexts/study-request'
 import { getFileName, type FileRef } from '@/contexts/shared/file-types'
+import { ACCEPTED_FILE_FORMATS_TEXT } from '@/lib/types'
 
 interface UseCodeUploadModalOptions {
     onConfirm: () => void
@@ -42,12 +43,11 @@ export function useCodeUploadModal({ onConfirm, onClose, isAddingFiles = false }
     )
 
     const handleReject = useCallback((rejections: FileRejection[]) => {
+        const rejectedFileNames = rejections.map((rej) => rej.file.name).join(', ')
         notifications.show({
             color: 'red',
             title: 'Rejected files',
-            message: rejections
-                .map((rej) => `${rej.file.name} ${rej.errors.map((err) => `${err.code}: ${err.message}`).join(', ')}`)
-                .join('\n'),
+            message: `${rejectedFileNames} — ${ACCEPTED_FILE_FORMATS_TEXT}`,
         })
     }, [])
 

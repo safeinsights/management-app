@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { Readable } from 'node:stream'
 import { DB } from '@/database/types'
+import { throwNotFound } from '@/lib/errors'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from '@/lib/utils'
@@ -225,13 +226,6 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             codeFileNames,
         )
 
-        // Change status to PENDING-REVIEW
-        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
-
-        onStudyCreated({ userId, studyId })
-
-        revalidatePath(`/${orgSlug}/dashboard`)
-
         return {
             studyId,
             studyJobId,
@@ -239,16 +233,29 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
         }
     })
 
+// Finalize study submission after files are uploaded
+// This changes the status to PENDING-REVIEW and triggers revalidation
+export const finalizeStudySubmissionAction = new Action('finalizeStudySubmissionAction', { performsMutations: true })
+    .params(z.object({ studyId: z.string() }))
+    .middleware(async ({ params: { studyId } }) => await getInfoForStudyId(studyId))
+    .requireAbilityTo('update', 'Study')
+    .handler(async ({ db, params: { studyId }, session, orgSlug }) => {
+        const userId = session.user.id
+
+        // Change status to PENDING-REVIEW
+        await db.updateTable('study').set({ status: 'PENDING-REVIEW' }).where('id', '=', studyId).execute()
+
+        onStudyCreated({ userId, studyId })
+
+        revalidatePath(`/${orgSlug}/dashboard`)
+
+        return { studyId }
+    })
+
 // Fetch draft study data for editing
-// Note: We don't use requireAbilityTo here because drafts should be accessible
-// to the researcher who created them regardless of current org context.
 export const getDraftStudyAction = new Action('getDraftStudyAction')
     .params(z.object({ studyId: z.string() }))
-    .handler(async ({ db, params: { studyId }, session }) => {
-        if (!session) {
-            throw new Error('Authentication required')
-        }
-
+    .middleware(async ({ db, params: { studyId } }) => {
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
@@ -262,22 +269,22 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.agreementDocPath',
                 'study.status',
                 'study.researcherId',
+                'study.orgId',
+                'study.submittedByOrgId',
                 'org.slug as orgSlug',
             ])
             .where('study.id', '=', studyId)
             .where('study.status', '=', 'DRAFT')
-            .where('study.researcherId', '=', session.user.id)
-            .executeTakeFirst()
-
-        if (!study) {
-            throw new Error('Draft study not found or access denied')
-        }
-
+            .executeTakeFirstOrThrow(throwNotFound('Draft study'))
+        return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
+    })
+    .requireAbilityTo('view', 'Study')
+    .handler(async ({ db, study }) => {
         // Get code files if they exist
         const studyJob = await db
             .selectFrom('studyJob')
             .select('id')
-            .where('studyId', '=', studyId)
+            .where('studyId', '=', study.id)
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
 

@@ -113,7 +113,7 @@ interface CreateCoderWorkspaceOptions {
 }
 
 async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promise<CoderWorkspace> {
-    const { studyId, username } = options
+    const { studyId, username, environment = [] } = options
     const workspaceName = generateWorkspaceName(studyId)
 
     // Populate code files prior to launching workspace
@@ -127,6 +127,10 @@ async function createCoderWorkspace(options: CreateCoderWorkspaceOptions): Promi
         {
             name: 'container_image',
             value: options.containerImage,
+        },
+        {
+            name: 'environment',
+            value: JSON.stringify(environment),
         },
     ]
 
