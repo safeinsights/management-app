@@ -1,11 +1,8 @@
 import { type Kysely, sql } from 'kysely'
 
-// Researcher Profile
-// - Stored separately so only opted-in users have these fields.
-// - Uses a single table with JSON/arrays for simplicity (Option A).
+// Researcher Profile - stored separately so only opted-in users have these fields
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function up(db: Kysely<any>): Promise<void> {
+export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('researcher_profile')
         // One profile per user
