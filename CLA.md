@@ -1,5 +1,4 @@
-Contributor license agreement
-=============================
+# Contributor license agreement
 
 Assignment of Rights. By submitting any contribution to this project, you hereby
 irrevocably assign, transfer, and convey to William Marsh Rice University, an
