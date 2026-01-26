@@ -589,6 +589,10 @@ export function ResearcherProfileClientPage() {
                                             required
                                             inputId="affiliation"
                                         />
+                                        <Text size="sm" mb={6}>
+                                            State your current institutional or organizational affiliation. If you are a
+                                            student, please specify your current educational institution.
+                                        </Text>
                                         <TextInput
                                             id="affiliation"
                                             placeholder="Ex: University of California, Berkeley"
@@ -597,6 +601,9 @@ export function ResearcherProfileClientPage() {
                                     </div>
                                     <div>
                                         <FormFieldLabel label="Position" required inputId="position" />
+                                        <Text size="sm" mb={6}>
+                                            Your current position at this organization or institution.
+                                        </Text>
                                         <TextInput
                                             id="position"
                                             placeholder="Ex: Senior Researcher"
@@ -605,6 +612,10 @@ export function ResearcherProfileClientPage() {
                                     </div>
                                     <div>
                                         <FormFieldLabel label="Link to your profile page" inputId="profileUrl" />
+                                        <Text size="sm" mb={6}>
+                                            Add a link to your personal institutional or organization&apos;s profile
+                                            page, if available.
+                                        </Text>
                                         <TextInput
                                             id="profileUrl"
                                             placeholder="https://university.edu/student/yourname"
@@ -687,7 +698,7 @@ export function ResearcherProfileClientPage() {
                                             />
                                         </Pill.Group>
                                     </PillsInput>
-                                    <Text c="dimmed" size="xs" mt={4}>
+                                    <Text size="sm" mt={4}>
                                         Include up to five area(s) of research interest.
                                     </Text>
                                 </div>
@@ -698,6 +709,10 @@ export function ResearcherProfileClientPage() {
                                         required
                                         inputId="detailedPublicationsUrl"
                                     />
+                                    <Text size="sm" mb={6}>
+                                        Provide a digital link where your complete and most recent publications are
+                                        listed (e.g., Google Scholar, LinkedIn, personal website, or resume).
+                                    </Text>
                                     <TextInput
                                         id="detailedPublicationsUrl"
                                         placeholder="https://scholar.google.com/user..."
@@ -707,8 +722,10 @@ export function ResearcherProfileClientPage() {
 
                                 <div>
                                     <FormFieldLabel label="Featured publications URLs" inputId="featured0" />
-                                    <Text c="dimmed" size="sm" mb={6}>
-                                        Share the URL for two of your most relevant publications, if available.
+                                    <Text size="sm" mb={6}>
+                                        Share the URL for two of your most relevant publications, if available. If you
+                                        do not have any publications yet, please share publications from your current
+                                        research lab that closely represent the work you want to do.
                                     </Text>
                                     <Stack gap="sm">
                                         <TextInput
