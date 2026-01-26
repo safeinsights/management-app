@@ -18,6 +18,8 @@ import {
     Anchor,
     ActionIcon,
     Box,
+    PillsInput,
+    Pill,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import {
@@ -157,14 +159,26 @@ export function ResearcherProfileClientPage() {
         validateInputOnBlur: true,
     })
 
+    const [researchInterestDraft, setResearchInterestDraft] = useState('')
+
     useEffect(() => {
         researchForm.setValues(researchDefaults)
         researchForm.resetDirty(researchDefaults)
         const complete =
             Boolean(researchDefaults.researchInterests?.length) && Boolean(researchDefaults.detailedPublicationsUrl)
         setIsEditingResearchDetails(!complete)
+        setResearchInterestDraft('')
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [researchDefaults.detailedPublicationsUrl, (researchDefaults.researchInterests || []).join('|')])
+
+    // Ensure initial disabled state is correct (Save buttons disabled until valid)
+    useEffect(() => {
+        personalForm.validate()
+        educationForm.validate()
+        researchForm.validate()
+        // positions form is only visible when editing/adding
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
+    }, [])
 
     const savePersonal = useMutation({
         mutationFn: async (values: PersonalInfoValues) => updatePersonalInfoAction(values),
@@ -236,12 +250,42 @@ export function ResearcherProfileClientPage() {
         setEditingPositionIndex(null)
         positionForm.setValues({ affiliation: '', position: '', profileUrl: '' })
         positionForm.resetDirty()
+        positionForm.validate()
     }
 
     const cancelEditPosition = () => {
+        // If there are no positions on file, we keep the add panel open (matches “default state” behavior).
+        if (currentPositions.length === 0) {
+            openAddPosition()
+            return
+        }
         setEditingPositionIndex(null)
         setIsAddingPosition(false)
         positionForm.reset()
+    }
+
+    const addResearchInterest = () => {
+        const v = researchInterestDraft.trim()
+        if (!v) return
+
+        const existing = researchForm.values.researchInterests || []
+        if (existing.length >= 5) return
+        if (existing.some((x) => x.toLowerCase() === v.toLowerCase())) {
+            setResearchInterestDraft('')
+            return
+        }
+
+        researchForm.setFieldValue('researchInterests', [...existing, v])
+        // Validate immediately so Save button state updates
+        researchForm.validateField('researchInterests')
+        setResearchInterestDraft('')
+    }
+
+    const removeResearchInterest = (idx: number) => {
+        const next = [...(researchForm.values.researchInterests || [])]
+        next.splice(idx, 1)
+        researchForm.setFieldValue('researchInterests', next)
+        researchForm.validateField('researchInterests')
     }
 
     return (
@@ -478,11 +522,7 @@ export function ResearcherProfileClientPage() {
                                                 <Anchor href={pos.profileUrl} target="_blank">
                                                     {pos.profileUrl}
                                                 </Anchor>
-                                            ) : (
-                                                <Text c="dimmed" size="sm">
-                                                    —
-                                                </Text>
-                                            )}
+                                            ) : null}
                                         </Table.Td>
                                         <Table.Td ta="center">
                                             <ActionIcon
@@ -522,11 +562,11 @@ export function ResearcherProfileClientPage() {
                         </Anchor>
                     </Box>
 
-                    {(editingPositionIndex !== null || isAddingPosition) && (
+                    {(editingPositionIndex !== null || isAddingPosition || currentPositions.length === 0) && (
                         <Box mt="lg">
                             <Divider my="md" />
                             <Title order={5} mb="sm">
-                                {isAddingPosition ? 'Add current position' : 'Edit current position'}
+                                {isAddingPosition || currentPositions.length === 0 ? 'Add current position' : 'Edit current position'}
                             </Title>
 
                             <form
@@ -622,17 +662,32 @@ export function ResearcherProfileClientPage() {
                             <Stack gap="md">
                                 <div>
                                     <FormFieldLabel label="Research interests" required inputId="researchInterests" />
-                                    <TextInput
+                                    <PillsInput
                                         id="researchInterests"
-                                        placeholder="Type a research interest and press enter"
-                                        value={''}
-                                        // Minimal implementation: comma-separated entry (pills to be added next)
-                                        onChange={() => {}}
-                                        disabled
-                                    />
+                                        error={researchForm.errors.researchInterests as unknown as string}
+                                    >
+                                        <Pill.Group>
+                                            {(researchForm.values.researchInterests || []).map((item, idx) => (
+                                                <Pill key={`${item}-${idx}`} withRemoveButton onRemove={() => removeResearchInterest(idx)}>
+                                                    {item}
+                                                </Pill>
+                                            ))}
+                                            <PillsInput.Field
+                                                placeholder="Type a research interest and press enter"
+                                                value={researchInterestDraft}
+                                                onChange={(e) => setResearchInterestDraft(e.currentTarget.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        addResearchInterest()
+                                                    }
+                                                }}
+                                                disabled={(researchForm.values.researchInterests || []).length >= 5}
+                                            />
+                                        </Pill.Group>
+                                    </PillsInput>
                                     <Text c="dimmed" size="xs" mt={4}>
-                                        Pill input UI (enter to add, max 5) will be implemented next using Mantine pills
-                                        input.
+                                        Include up to five area(s) of research interest.
                                     </Text>
                                 </div>
 
@@ -665,7 +720,7 @@ export function ResearcherProfileClientPage() {
                                                     researchForm.values.featuredPublicationsUrls?.[1] ?? '',
                                                 ])
                                             }
-                                            error={researchForm.errors.featuredPublicationsUrls as unknown as string}
+                                            error={(researchForm.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[0]}
                                         />
                                         <TextInput
                                             id="featured1"
@@ -677,7 +732,7 @@ export function ResearcherProfileClientPage() {
                                                     e.currentTarget.value,
                                                 ])
                                             }
-                                            error={researchForm.errors.featuredPublicationsUrls as unknown as string}
+                                            error={(researchForm.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[1]}
                                         />
                                     </Stack>
                                 </div>
@@ -699,9 +754,11 @@ export function ResearcherProfileClientPage() {
                                 <Text fw={600} size="sm">
                                     Research interests
                                 </Text>
-                                <Text c="dimmed" size="sm">
-                                    (Pill display will be added next)
-                                </Text>
+                                <Group gap="xs" mt={6}>
+                                    {(researchDefaults.researchInterests || []).map((item, idx) => (
+                                        <Pill key={`${item}-${idx}`}>{item}</Pill>
+                                    ))}
+                                </Group>
                             </div>
                             <div>
                                 <Text fw={600} size="sm">

@@ -28,6 +28,19 @@ const httpUrlOptional = (label: string) =>
             message: `${label}: please enter a valid URL.`,
         })
 
+// Like httpUrlOptional, but for form fields that use empty string as “unset”
+// (e.g., array fields with fixed slots).
+const httpUrlOptionalItem = (label: string) =>
+    z
+        .string()
+        .trim()
+        .refine((v) => !v || v.startsWith('http://') || v.startsWith('https://'), {
+            message: `${label}: please enter a valid URL (must start with http:// or https://).`,
+        })
+        .refine((v) => !v || z.string().url().safeParse(v).success, {
+            message: `${label}: please enter a valid URL.`,
+        })
+
 // -----------------------------------------------------------------------------
 // Personal information
 // - Email is required but NOT editable (source of truth is Clerk).
@@ -90,7 +103,8 @@ export const researchDetailsSchema = z.object({
         .max(5, 'You can include up to five area(s) of research interest.'),
     detailedPublicationsUrl: httpUrl('Detailed publications URL'),
     featuredPublicationsUrls: z
-        .array(httpUrl('Featured publications URL'))
+        // Optional field: allow empty strings in the UI and validate only when provided.
+        .array(httpUrlOptionalItem('Featured publications URL'))
         .max(2, 'You can include up to two featured publications URLs.')
         .default([]),
 })
