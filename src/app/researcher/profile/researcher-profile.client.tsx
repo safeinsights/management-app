@@ -43,8 +43,6 @@ import { FormFieldLabel } from '@/components/form-field-label'
 import { DEGREE_OPTIONS } from '@/lib/degree-options'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 
-// TODO: Replace research interests placeholder with Mantine PillsInput (enter to add, max 5)
-
 // UI implementation will be built iteratively; this is the initial scaffold.
 export function ResearcherProfileClientPage() {
     const [isEditingPersonal, setIsEditingPersonal] = useState(true)
@@ -78,6 +76,9 @@ export function ResearcherProfileClientPage() {
     useEffect(() => {
         personalForm.setValues(personalDefaults)
         personalForm.resetDirty(personalDefaults)
+        // Default to view mode once section is complete
+        const complete = Boolean(personalDefaults.firstName) && Boolean(personalDefaults.lastName)
+        setIsEditingPersonal(!complete)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [personalDefaults.firstName, personalDefaults.lastName])
 
@@ -487,86 +488,82 @@ export function ResearcherProfileClientPage() {
                         {/* This section is view-first. Editing is row-level (pencil icon). */}
                     </Group>
 
-                    <Table withTableBorder withColumnBorders>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Institutional affiliation</Table.Th>
-                                <Table.Th>Position</Table.Th>
-                                <Table.Th>Profile page</Table.Th>
-                                <Table.Th w={80} ta="center">
-                                    Edit
-                                </Table.Th>
-                                {currentPositions.length >= 2 && (
-                                    <Table.Th w={80} ta="center">
-                                        Delete
-                                    </Table.Th>
-                                )}
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {currentPositions.length === 0 ? (
-                                <Table.Tr>
-                                    <Table.Td colSpan={currentPositions.length >= 2 ? 5 : 4}>
-                                        <Text c="dimmed" size="sm">
-                                            No current positions yet.
-                                        </Text>
-                                    </Table.Td>
-                                </Table.Tr>
-                            ) : (
-                                currentPositions.map((pos, idx) => (
-                                    <Table.Tr key={idx}>
-                                        <Table.Td>{pos.affiliation}</Table.Td>
-                                        <Table.Td>{pos.position}</Table.Td>
-                                        <Table.Td>
-                                            {pos.profileUrl ? (
-                                                <Anchor href={pos.profileUrl} target="_blank">
-                                                    {pos.profileUrl}
-                                                </Anchor>
-                                            ) : null}
-                                        </Table.Td>
-                                        <Table.Td ta="center">
-                                            <ActionIcon
-                                                variant="subtle"
-                                                onClick={() => openEditPosition(idx)}
-                                                aria-label="Edit current position"
-                                            >
-                                                <PencilSimpleIcon />
-                                            </ActionIcon>
-                                        </Table.Td>
+                    {currentPositions.length > 0 && (
+                        <>
+                            <Table withTableBorder withColumnBorders>
+                                <Table.Thead>
+                                    <Table.Tr>
+                                        <Table.Th>Institutional affiliation</Table.Th>
+                                        <Table.Th>Position</Table.Th>
+                                        <Table.Th>Profile page</Table.Th>
+                                        <Table.Th w={80} ta="center">
+                                            Edit
+                                        </Table.Th>
                                         {currentPositions.length >= 2 && (
+                                            <Table.Th w={80} ta="center">
+                                                Delete
+                                            </Table.Th>
+                                        )}
+                                    </Table.Tr>
+                                </Table.Thead>
+                                <Table.Tbody>
+                                    {currentPositions.map((pos, idx) => (
+                                        <Table.Tr key={idx}>
+                                            <Table.Td>{pos.affiliation}</Table.Td>
+                                            <Table.Td>{pos.position}</Table.Td>
+                                            <Table.Td>
+                                                {pos.profileUrl ? (
+                                                    <Anchor href={pos.profileUrl} target="_blank">
+                                                        {pos.profileUrl}
+                                                    </Anchor>
+                                                ) : null}
+                                            </Table.Td>
                                             <Table.Td ta="center">
                                                 <ActionIcon
                                                     variant="subtle"
-                                                    color="red"
-                                                    disabled={currentPositions.length < 2}
-                                                    onClick={() => {
-                                                        if (currentPositions.length < 2) return
-                                                        const next = currentPositions.filter((_, i) => i !== idx)
-                                                        savePositions.mutate(next)
-                                                    }}
-                                                    aria-label="Delete current position"
+                                                    onClick={() => openEditPosition(idx)}
+                                                    aria-label="Edit current position"
                                                 >
-                                                    <TrashIcon />
+                                                    <PencilSimpleIcon />
                                                 </ActionIcon>
                                             </Table.Td>
-                                        )}
-                                    </Table.Tr>
-                                ))
-                            )}
-                        </Table.Tbody>
-                    </Table>
+                                            {currentPositions.length >= 2 && (
+                                                <Table.Td ta="center">
+                                                    <ActionIcon
+                                                        variant="subtle"
+                                                        color="red"
+                                                        disabled={currentPositions.length < 2}
+                                                        onClick={() => {
+                                                            if (currentPositions.length < 2) return
+                                                            const next = currentPositions.filter((_, i) => i !== idx)
+                                                            savePositions.mutate(next)
+                                                        }}
+                                                        aria-label="Delete current position"
+                                                    >
+                                                        <TrashIcon />
+                                                    </ActionIcon>
+                                                </Table.Td>
+                                            )}
+                                        </Table.Tr>
+                                    ))}
+                                </Table.Tbody>
+                            </Table>
 
-                    <Box mt="md">
-                        <Anchor component="button" onClick={openAddPosition}>
-                            + Add another current position
-                        </Anchor>
-                    </Box>
+                            <Box mt="md">
+                                <Anchor component="button" onClick={openAddPosition}>
+                                    + Add another current position
+                                </Anchor>
+                            </Box>
+                        </>
+                    )}
 
                     {(editingPositionIndex !== null || isAddingPosition || currentPositions.length === 0) && (
-                        <Box mt="lg">
-                            <Divider my="md" />
+                        <Box mt={currentPositions.length > 0 ? 'lg' : undefined}>
+                            {currentPositions.length > 0 && <Divider my="md" />}
                             <Title order={5} mb="sm">
-                                {isAddingPosition || currentPositions.length === 0 ? 'Add current position' : 'Edit current position'}
+                                {isAddingPosition || currentPositions.length === 0
+                                    ? 'Add current position'
+                                    : 'Edit current position'}
                             </Title>
 
                             <form
@@ -668,7 +665,11 @@ export function ResearcherProfileClientPage() {
                                     >
                                         <Pill.Group>
                                             {(researchForm.values.researchInterests || []).map((item, idx) => (
-                                                <Pill key={`${item}-${idx}`} withRemoveButton onRemove={() => removeResearchInterest(idx)}>
+                                                <Pill
+                                                    key={`${item}-${idx}`}
+                                                    withRemoveButton
+                                                    onRemove={() => removeResearchInterest(idx)}
+                                                >
                                                     {item}
                                                 </Pill>
                                             ))}
@@ -720,7 +721,13 @@ export function ResearcherProfileClientPage() {
                                                     researchForm.values.featuredPublicationsUrls?.[1] ?? '',
                                                 ])
                                             }
-                                            error={(researchForm.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[0]}
+                                            error={
+                                                (
+                                                    researchForm.errors.featuredPublicationsUrls as unknown as
+                                                        | string[]
+                                                        | undefined
+                                                )?.[0]
+                                            }
                                         />
                                         <TextInput
                                             id="featured1"
@@ -732,7 +739,13 @@ export function ResearcherProfileClientPage() {
                                                     e.currentTarget.value,
                                                 ])
                                             }
-                                            error={(researchForm.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[1]}
+                                            error={
+                                                (
+                                                    researchForm.errors.featuredPublicationsUrls as unknown as
+                                                        | string[]
+                                                        | undefined
+                                                )?.[1]
+                                            }
                                         />
                                     </Stack>
                                 </div>
