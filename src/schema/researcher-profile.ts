@@ -22,10 +22,10 @@ const httpUrlOptional = (label: string) =>
         .trim()
         .optional()
         .refine((v) => !v || v.startsWith('http://') || v.startsWith('https://'), {
-            message: `Please enter a valid URL (e.g., must start with http:// or https://).`,
+            message: `${label}: please enter a valid URL (must start with http:// or https://).`,
         })
         .refine((v) => !v || z.string().url().safeParse(v).success, {
-            message: `Please enter a valid URL (e.g., must start with http:// or https://).`,
+            message: `${label}: please enter a valid URL.`,
         })
 
 // -----------------------------------------------------------------------------
@@ -96,4 +96,3 @@ export const researchDetailsSchema = z.object({
 })
 
 export type ResearchDetailsValues = z.infer<typeof researchDetailsSchema>
-

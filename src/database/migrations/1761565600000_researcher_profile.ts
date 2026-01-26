@@ -29,14 +29,9 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('updated_at', 'timestamp', (col) => col.defaultTo(sql`now()`).notNull())
         .execute()
 
-    await db.schema
-        .createIndex('researcher_profile_user_id_idx')
-        .on('researcher_profile')
-        .column('user_id')
-        .execute()
+    await db.schema.createIndex('researcher_profile_user_id_idx').on('researcher_profile').column('user_id').execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
     await db.schema.dropTable('researcher_profile').execute()
 }
-

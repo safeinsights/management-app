@@ -31,27 +31,17 @@ function setCookie(name: string, value: string) {
 }
 
 export const SpyModeProvider: FC<{ children: ReactNode }> = ({ children }) => {
-    const [isSpyMode, setIsSpyMode] = useState(false)
+    // Initialize from cookie on first client render (avoids setState inside an effect).
+    const [isSpyMode, setIsSpyMode] = useState(() => getCookie(SPY_MODE_COOKIE_NAME) === '1')
 
-    // Initialize from cookie so server-gated pages can be aligned with client UI.
+    // Sync external DOM state (body class) to React state.
     useEffect(() => {
-        const cookieValue = getCookie(SPY_MODE_COOKIE_NAME)
-        const enabled = cookieValue === '1'
-        setIsSpyMode(enabled)
-        if (enabled) {
-            document.body.classList.add('spy-mode')
-        }
-    }, [])
+        document.body.classList.toggle('spy-mode', isSpyMode)
+    }, [isSpyMode])
 
     const toggleSpyMode = () => {
         setIsSpyMode((prev) => {
             const newValue = !prev
-            if (newValue) {
-                document.body.classList.add('spy-mode')
-            } else {
-                document.body.classList.remove('spy-mode')
-            }
-
             setCookie(SPY_MODE_COOKIE_NAME, newValue ? '1' : '0')
             return newValue
         })

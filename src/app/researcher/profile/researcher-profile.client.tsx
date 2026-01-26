@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery, zodResolver, useForm } from '@/common'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useForm, zodResolver } from '@/common'
 import {
     Container,
     Group,
@@ -21,7 +20,13 @@ import {
     Box,
 } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { getResearcherProfileAction, updatePersonalInfoAction , updateEducationAction , updateCurrentPositionsAction , updateResearchDetailsAction } from '@/server/actions/researcher-profile.actions'
+import {
+    getResearcherProfileAction,
+    updatePersonalInfoAction,
+    updateEducationAction,
+    updateCurrentPositionsAction,
+    updateResearchDetailsAction,
+} from '@/server/actions/researcher-profile.actions'
 import {
     currentPositionSchema,
     educationSchema,
@@ -138,7 +143,11 @@ export function ResearcherProfileClientPage() {
             detailedPublicationsUrl: data?.profile.detailedPublicationsUrl ?? '',
             featuredPublicationsUrls: ((data?.profile.featuredPublicationsUrls ?? []) as string[]).slice(0, 2),
         }),
-        [data?.profile.researchInterests, data?.profile.detailedPublicationsUrl, data?.profile.featuredPublicationsUrls],
+        [
+            data?.profile.researchInterests,
+            data?.profile.detailedPublicationsUrl,
+            data?.profile.featuredPublicationsUrls,
+        ],
     )
 
     const researchForm = useForm<ResearchDetailsValues>({
@@ -151,7 +160,8 @@ export function ResearcherProfileClientPage() {
     useEffect(() => {
         researchForm.setValues(researchDefaults)
         researchForm.resetDirty(researchDefaults)
-        const complete = Boolean(researchDefaults.researchInterests?.length) && Boolean(researchDefaults.detailedPublicationsUrl)
+        const complete =
+            Boolean(researchDefaults.researchInterests?.length) && Boolean(researchDefaults.detailedPublicationsUrl)
         setIsEditingResearchDetails(!complete)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [researchDefaults.detailedPublicationsUrl, (researchDefaults.researchInterests || []).join('|')])
@@ -347,7 +357,11 @@ export function ResearcherProfileClientPage() {
                         >
                             <Stack gap="md">
                                 <div>
-                                    <FormFieldLabel label="Educational institution" required inputId="educationalInstitution" />
+                                    <FormFieldLabel
+                                        label="Educational institution"
+                                        required
+                                        inputId="educationalInstitution"
+                                    />
                                     <TextInput
                                         id="educationalInstitution"
                                         placeholder="Ex: Rice University"
@@ -403,7 +417,9 @@ export function ResearcherProfileClientPage() {
                             <Group grow>
                                 <div>
                                     <Text fw={600} size="sm">
-                                        {educationDefaults.isCurrentlyPursuing ? 'Degree (currently pursuing)' : 'Degree'}
+                                        {educationDefaults.isCurrentlyPursuing
+                                            ? 'Degree (currently pursuing)'
+                                            : 'Degree'}
                                     </Text>
                                     <Text>{educationDefaults.degree}</Text>
                                 </div>
@@ -594,7 +610,9 @@ export function ResearcherProfileClientPage() {
                         <form
                             onSubmit={researchForm.onSubmit((values) => {
                                 // Normalize featured URLs: drop empty strings
-                                const featured = (values.featuredPublicationsUrls || []).filter((v) => v && v.trim()).slice(0, 2)
+                                const featured = (values.featuredPublicationsUrls || [])
+                                    .filter((v) => v && v.trim())
+                                    .slice(0, 2)
                                 saveResearchDetails.mutate({
                                     ...values,
                                     featuredPublicationsUrls: featured,
@@ -613,12 +631,17 @@ export function ResearcherProfileClientPage() {
                                         disabled
                                     />
                                     <Text c="dimmed" size="xs" mt={4}>
-                                        Pill input UI (enter to add, max 5) will be implemented next using Mantine pills input.
+                                        Pill input UI (enter to add, max 5) will be implemented next using Mantine pills
+                                        input.
                                     </Text>
                                 </div>
 
                                 <div>
-                                    <FormFieldLabel label="Detailed publications URL" required inputId="detailedPublicationsUrl" />
+                                    <FormFieldLabel
+                                        label="Detailed publications URL"
+                                        required
+                                        inputId="detailedPublicationsUrl"
+                                    />
                                     <TextInput
                                         id="detailedPublicationsUrl"
                                         placeholder="https://scholar.google.com/user..."

@@ -12,8 +12,7 @@ export const DEGREE_OPTIONS: string[] = [
     'M.D.',
     'Pharm.D.',
     'D.V.M.',
-    "Doctor of Philosophy (Ph.D.)",
+    'Doctor of Philosophy (Ph.D.)',
     'Doctorate (Ed.D., D.Sc., etc.)',
     'Other',
 ]
-
