@@ -51,7 +51,7 @@ export function NavbarProfileMenu() {
                         leftSection={<UserIcon aria-hidden="true" />}
                         c="white"
                         className={styles.navLinkProfileHover}
-                        onClick={() => {}} // TODO: add profile page
+                        onClick={closeAndCall(() => router.push(Routes.researcherProfile))}
                         aria-label="Profile"
                         role="menuitem"
                         component="button"
