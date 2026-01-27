@@ -20,7 +20,6 @@ import {
     FileArrowUpIcon,
     UploadIcon,
     XCircleIcon,
-    XIcon,
     ArrowSquareOutIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { Language } from '@/database/types'
@@ -97,7 +96,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                                     <UploadIcon />
                                 </Dropzone.Accept>
                                 <Dropzone.Reject>
-                                    <XIcon />
+                                    <UploadIcon />
                                 </Dropzone.Reject>
                                 <Dropzone.Idle>
                                     <Stack>
