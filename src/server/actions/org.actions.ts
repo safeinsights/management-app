@@ -197,11 +197,7 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
     .handler(async ({ db, params: { orgSlug, language } }) => {
         const { signedUrlForFile } = await import('@/server/aws')
 
-        const org = await db
-            .selectFrom('org')
-            .select(['id'])
-            .where('slug', '=', orgSlug)
-            .executeTakeFirstOrThrow()
+        const org = await db.selectFrom('org').select(['id']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
 
         const row = await db
             .selectFrom('orgBaseImage')

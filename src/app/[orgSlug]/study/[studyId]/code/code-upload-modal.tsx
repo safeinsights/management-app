@@ -31,8 +31,6 @@ import { useCodeUploadModal } from '@/hooks/use-code-upload-modal'
 import { useQuery } from '@/common'
 import { getStarterCodeUrlAction } from '@/server/actions/org.actions'
 
-
-
 interface CodeUploadModalProps {
     isOpen: boolean
     onClose: () => void
@@ -41,7 +39,6 @@ interface CodeUploadModalProps {
     onConfirm: () => void
     isAddingFiles?: boolean
 }
-
 
 export const CodeUploadModal: FC<CodeUploadModalProps> = ({
     isOpen,
@@ -73,11 +70,11 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                     <Text size="sm" c="blue.7" fw="bold">
                         Starter Code
                     </Text>
-                        {starterCodeUrl && (
-                            <Anchor href={starterCodeUrl} target="_blank" ml={4}>
-                                <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
-                            </Anchor>
-                        )}
+                    {starterCodeUrl && (
+                        <Anchor href={starterCodeUrl} target="_blank" ml={4}>
+                            <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
+                        </Anchor>
+                    )}
                     <Text size="sm">provided by the data organization.</Text>
                 </Group>
                 <Group grow justify="center" align="center" mt="md">
