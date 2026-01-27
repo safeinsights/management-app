@@ -117,7 +117,7 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
     return (
         <>
             <Paper p="xl">
-                <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                <Text fz="sm" fw={700} c="gray.6" pb="sm" tt="uppercase">
                     Step 4 of 5
                 </Text>
                 <Title order={4}>Study code</Title>

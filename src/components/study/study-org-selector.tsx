@@ -6,11 +6,13 @@ import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
 import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
+import { useOpenStaxFeatureFlag } from '../openstax-feature-flag'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
+    const isFeatureFlagEnabled = useOpenStaxFeatureFlag()
 
     const { data: orgs = [], isLoading } = useQuery({
         queryKey: ['orgs-with-languages'],
@@ -20,20 +22,31 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     if (!isLoaded || !user) return null
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
+    const hasOrgSelected = !!form.values.orgSlug
+
+    const content = isFeatureFlagEnabled
+        ? {
+              step: hasOrgSelected ? 'Step 1A' : 'Step 1',
+              title: 'Data organization',
+              description:
+                  'Select the data organization your study is intended for: This crucial initial step ensures your proposal is routed correctly for review. You can save a draft or cancel at any time during the process.',
+          }
+        : {
+              step: 'Step 1 of 5',
+              title: 'Select data organization',
+              description:
+                  'To begin your study proposal, please first select the data organization to which you wish to submit. This crucial initial step ensures your proposal is routed correctly for review. Once selected, you will proceed to fill in your study details and upload supporting documents. You can cancel at any time during the process.',
+          }
+
     return (
-        <Paper p="xl" mb="xxl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 1 of 5
+        <Paper p="xl">
+            <Text fz="sm" fw={700} c="gray.6" pb="sm" tt="uppercase">
+                {content.step}
             </Text>
-            <Title order={4}>Select data organization</Title>
+            <Title order={4}>{content.title}</Title>
             <Divider my="md" />
             <Stack gap="xl">
-                <Text>
-                    To begin your study proposal, please first select the data organization to which you wish to submit.
-                    This crucial initial step ensures your proposal is routed correctly for review. Once selected, you
-                    will proceed to fill in your study details and upload supporting documents. You can cancel at any
-                    time during the process.
-                </Text>
+                <Text>{content.description}</Text>
                 <Grid align="flex-start">
                     <Grid.Col span={titleSpan}>
                         <FormFieldLabel label="Data Organization" inputId="studyOrg" />

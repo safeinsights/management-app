@@ -6,6 +6,7 @@ import { zodResolver } from '@/common'
 import {
     studyProposalFormSchema,
     formReadinessSchema,
+    openStaxStep1ReadinessSchema,
     type StudyProposalFormValues,
 } from '@/app/[orgSlug]/study/request/step1-schema'
 import {
@@ -85,6 +86,16 @@ export function StudyRequestProvider({
 
         return result.success
     }, [form, documentFiles.existingFiles])
+
+    // OpenStax step 1 only requires org + language
+    const isStep1Valid = useMemo(() => {
+        const formValues = form.getValues()
+        const result = openStaxStep1ReadinessSchema.safeParse({
+            orgSlug: formValues.orgSlug,
+            language: formValues.language,
+        })
+        return result.success
+    }, [form])
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
@@ -166,6 +177,7 @@ export function StudyRequestProvider({
             submittingOrgSlug,
             form,
             isFormValid,
+            isStep1Valid,
 
             codeFiles: codeFilesHook.codeFiles,
             codeFilesLastUpdated: codeFilesHook.lastUpdated,
@@ -202,6 +214,7 @@ export function StudyRequestProvider({
             submittingOrgSlug,
             form,
             isFormValid,
+            isStep1Valid,
             codeFilesHook.codeFiles,
             codeFilesHook.lastUpdated,
             codeFilesHook.mainFileName,
