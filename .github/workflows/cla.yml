@@ -27,7 +27,7 @@ jobs:
           # Full GitHub blob URL to CLA.md committed in this repository (required)
           path-to-document: 'https://github.com/safeinsights/management-app/blob/main/CLA.md'
           # Branch that stores the signatures file; MUST NOT be protected
-          branch: 'main'
+          branch: 'cla-signatures'
           # Exempt known users/bots from signing (optional)
           allowlist: 'dependabot[bot],bot*'
           # Optional customizations (uncomment to use)
