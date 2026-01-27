@@ -6,12 +6,14 @@ import { type UserSession, BLANK_SESSION, isOrgAdmin, type Org } from './lib/typ
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
+import * as Sentry from '@sentry/nextjs'
 
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
 const isOrgRoute = createRouteMatcher(['/[orgSlug]'])
 
 const ANON_ROUTES: Array<string> = [
+    '/about',
     '/account/reset-password',
     '/account/signup',
     '/account/signin',
@@ -31,10 +33,24 @@ function redirectToDashboard(request: NextRequest, route: string, session: UserS
     return NextResponse.redirect(new URL('/dashboard', request.url))
 }
 
-export default clerkMiddleware(async (auth, req) => {
+export const proxy = clerkMiddleware(async (auth, req) => {
     const { userId: clerkUserId, sessionClaims } = await auth()
 
-    let session: UserSession | null = await marshalSession(clerkUserId, sessionClaims)
+    // Check if this is an anonymous route before doing session work
+    const isAnonRoute = ANON_ROUTES.some((r) => req.nextUrl.pathname.startsWith(r))
+
+    let session: UserSession | null = null
+    try {
+        session = await marshalSession(clerkUserId, sessionClaims)
+    } catch (error) {
+        Sentry.captureException(error)
+        log.error('Failed to marshal session:', error)
+        // Don't redirect if already on signin page to avoid redirect loop
+        if (isAnonRoute) {
+            return NextResponse.next()
+        }
+        return NextResponse.redirect(new URL('/account/signin?error=session', req.url))
+    }
 
     if (session) {
         setSentryFromSession(session)

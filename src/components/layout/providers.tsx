@@ -8,6 +8,7 @@ import { useEffect, type FC, type ReactNode } from 'react'
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
 import { ErrorBoundary } from '@/components/error-boundary'
+import { SpyModeProvider } from '@/components/spy-mode-context'
 // eslint-disable-next-line no-restricted-imports
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
@@ -53,7 +54,9 @@ export const Providers: FC<Props> = ({ children }) => {
         <QueryClientProvider client={queryClient}>
             <MantineProvider theme={theme}>
                 <ModalsProvider>
-                    <ErrorBoundary>{children}</ErrorBoundary>
+                    <ErrorBoundary>
+                        <SpyModeProvider>{children}</SpyModeProvider>
+                    </ErrorBoundary>
                 </ModalsProvider>
             </MantineProvider>
         </QueryClientProvider>

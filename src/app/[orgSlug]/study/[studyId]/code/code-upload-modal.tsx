@@ -91,6 +91,7 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
                                 maxFiles={10}
                                 accept={ACCEPTED_FILE_TYPES}
                                 p="xl"
+                                rejectColor="purple"
                             >
                                 <Dropzone.Accept>
                                     <UploadIcon />

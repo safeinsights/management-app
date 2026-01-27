@@ -29,7 +29,8 @@
         "**/*.tsx",
         ".next/types/**/*.ts",
         "vitest.config.mts",
-        "src/server/actions/f"
+        "src/server/actions/f",
+        ".next/dev/types/**/*.ts"
     ],
     "exclude": ["node_modules", "bin/**/*"]
 }

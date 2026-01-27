@@ -106,19 +106,23 @@ export const ACCEPTED_LANGUAGE_FILE_TYPES: Record<Language, Record<string, strin
         'application/x-r': ['.r', '.R'],
         'text/x-r': ['.r', '.R'],
         'text/markdown': ['.rmd'],
+        'text/x-rmd': ['.rmd'],
     },
     PYTHON: {
-        'application/x-python': ['.py'],
-        'application/x-ipynb': ['.ipynb'],
+        'text/x-python': ['.py'],
+        'application/x-python-code': ['.py'],
+        'text/x-python-script': ['.py'],
+        'application/x-ipynb+json': ['.ipynb'],
     },
 }
 
 export const ACCEPTED_FILE_TYPES = {
     ...ACCEPTED_LANGUAGE_FILE_TYPES['R'],
     ...ACCEPTED_LANGUAGE_FILE_TYPES['PYTHON'],
-    'application/json': ['.json'],
+    'application/json': ['.json', '.ipynb'],
     'text/csv': ['.csv'],
-    'text/plain': ['.txt'],
+    'application/vnd.ms-excel': ['.csv'], // fallback for Windows
+    'text/plain': ['.txt', '.py', '.r', '.R', '.rmd', '.csv'],
 }
 
 export const ACCEPTED_FILE_FORMATS_TEXT = 'Accepted formats: .r, .rmd, .json, .csv, .txt, .py, .ipynb.'

@@ -90,10 +90,13 @@ export function StudiesTable({
         isError,
         isFetching,
         isRefetching,
+        isLoading,
     } = useQuery({
         queryKey,
         placeholderData: [],
         queryFn: fetchStudies,
+        enabled: scope === 'org' || (scope === 'user' && !!userId),
+        refetchOnWindowFocus: false,
     })
 
     // For researcher user scope, we need the lab org - return null if not available
@@ -102,7 +105,7 @@ export function StudiesTable({
     }
 
     // Loading state
-    if (isFetching && studies.length === 0) {
+    if (isLoading) {
         return <TableSkeleton showActionButton={showNewStudyButton} paperWrapper={paperWrapper} />
     }
 

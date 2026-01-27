@@ -37,6 +37,7 @@ export const studyProposalFormSchema = z
             .min(5, { message: 'Title must be at least 5 characters long' })
             .max(50, { message: 'Word limit is 50 characters' }),
         piName: z.string().max(100, { message: 'Word limit is 100 characters' }).trim(),
+        description: z.string().optional(),
         descriptionDocument: validateDocumentFile('description'),
         irbDocument: validateDocumentFile('IRB'),
         agreementDocument: validateDocumentFile('agreement'),

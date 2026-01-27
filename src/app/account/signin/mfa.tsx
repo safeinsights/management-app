@@ -14,11 +14,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import { getOrgInfoForInviteAction, onJoinTeamAccountAction } from '../invitation/[inviteId]/create-account.action'
 import { MFAState } from './logic'
-import { RecoveryCodeMFAReset } from './reset-mfa'
+import { RecoveryCodeSignIn } from './recovery-code-signin'
 import { VerifyCode } from './verify-code'
-export const dynamic = 'force-dynamic'
 
-export type Step = 'select' | 'verify' | 'reset'
+export type Step = 'select' | 'verify' | 'recovery'
 type Method = 'sms' | 'totp'
 
 export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
@@ -71,7 +70,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                     if (result?.redirectToReviewerKey) {
                         router.push(Routes.accountKeys)
                     } else {
-                        let redirectUrl = searchParams.get('redirect_url') || Routes.dashboard
+                        let redirectUrl: Route = (searchParams.get('redirect_url') as Route) || Routes.dashboard
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
@@ -83,7 +82,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 )
 
                                 const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                redirectUrl = Routes.orgDashboard({ orgSlug: slug })
+                                redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
 
                                 const email = signInAttempt?.identifier || 'your account'
                                 notifications.show({
@@ -93,30 +92,21 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
 
                                 // forces Clerk to regenerate the JWT session token with the latest user metadata
                                 await auth.getToken({ skipCache: true })
-                            } catch (error) {
-                                // Check if user is already a member
-                                if (error instanceof Error && error.message.includes('already a member')) {
-                                    notifications.show({
-                                        color: 'blue',
-                                        title: 'Already a member',
-                                        message: `You're already a member of this organization.`,
-                                    })
-                                } else {
-                                    notifications.show({
-                                        color: 'red',
-                                        message: `Failed to link your SafeInsights accounts. Please try again.`,
-                                    })
-                                }
+                            } catch {
+                                notifications.show({
+                                    color: 'red',
+                                    message: `Failed to link your SafeInsights accounts. Please try again.`,
+                                })
                             }
                         }
-                        router.push((redirectUrl as Route) ?? Routes.dashboard)
+                        router.push(redirectUrl)
                     }
                 } catch (error) {
                     // If onUserSignInAction returns an error, we still want to continue with navigation
                     // since the user is already signed in via Clerk
                     console.error('onUserSignInAction failed:', error)
-                    const redirectUrl = searchParams.get('redirect_url')
-                    router.push((redirectUrl as Route) ?? Routes.home)
+                    const redirectUrl = searchParams.get('redirect_url') || Routes.home
+                    router.push(redirectUrl as Route)
                 }
             } else {
                 // clerk did not throw an error but also did not return a signIn object
@@ -185,7 +175,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 variant="outline"
                                 size="lg"
                                 onClick={() => {
-                                    setStep('reset')
+                                    setStep('recovery')
                                 }}
                             >
                                 Try recovery code
@@ -219,7 +209,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                                 variant="outline"
                                 size="lg"
                                 onClick={() => {
-                                    setStep('reset')
+                                    setStep('recovery')
                                 }}
                             >
                                 Try recovery code
@@ -241,7 +231,7 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                 />
             )}
 
-            {step === 'reset' && <RecoveryCodeMFAReset setStep={setStep} />}
+            {step === 'recovery' && <RecoveryCodeSignIn setStep={setStep} />}
         </Paper>
     )
 }

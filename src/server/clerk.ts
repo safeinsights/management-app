@@ -2,9 +2,9 @@ import { auth, clerkClient, currentUser } from '@clerk/nextjs/server'
 import { capitalize } from 'remeda'
 import { db } from '@/database'
 import { getOrgInfoForUserId } from './db/queries'
-import { PROD_ENV } from './config'
-import { marshalSession, type syncUserMetadataFn } from './session'
+import { marshalSession, type MarshalSessionOptions } from './session'
 import logger from '@/lib/logger'
+import { syncUserToDatabaseWithConflictResolution } from './user-sync'
 
 export { type UserSessionWithAbility } from './session'
 
@@ -91,30 +91,10 @@ export const syncCurrentClerkUser = async () => {
         email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
     }
 
-    return await db.transaction().execute(async (trx) => {
-        const existing = await trx
-            .selectFrom('user')
-            .select('id')
-            .where((eb) => eb(eb.fn('lower', ['email']), '=', email))
-            .executeTakeFirst()
-
-        if (existing) {
-            await trx.updateTable('user').set(userAttrs).where('id', '=', existing.id).executeTakeFirstOrThrow()
-            return existing
-        }
-
-        return await trx.insertInto('user').values(userAttrs).returningAll().executeTakeFirstOrThrow()
-    })
+    return await syncUserToDatabaseWithConflictResolution(userAttrs)
 }
 
-export async function sessionFromClerk() {
+export async function sessionFromClerk(options?: MarshalSessionOptions) {
     const { userId, sessionClaims } = await auth()
-
-    const syncer: syncUserMetadataFn = async () => {
-        await syncCurrentClerkUser()
-        const user = await db.selectFrom('user').select('id').where('clerkId', '=', userId!).executeTakeFirstOrThrow()
-        return await updateClerkUserMetadata(user.id)
-    }
-
-    return await marshalSession(userId, sessionClaims, syncer)
+    return await marshalSession(userId, sessionClaims, options)
 }
