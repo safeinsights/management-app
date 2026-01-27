@@ -95,6 +95,7 @@ export function CodeUploadPage({
                     isOpen={isModalOpen}
                     onClose={closeModal}
                     language={language}
+                    orgSlug={orgSlug}
                     onConfirm={handleFilesConfirmed}
                     isAddingFiles // review page is adding files, cancel should not reset the files
                 />
@@ -201,6 +202,7 @@ export function CodeUploadPage({
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 language={language}
+                orgSlug={orgSlug}
                 onConfirm={handleFilesConfirmed}
             />
         </>

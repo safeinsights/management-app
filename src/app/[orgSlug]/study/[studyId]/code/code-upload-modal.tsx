@@ -1,28 +1,54 @@
 'use client'
 
 import { FC } from 'react'
-import { ActionIcon, Button, Divider, Grid, GridCol, Group, Stack, Text, Title, useMantineTheme } from '@mantine/core'
+import {
+    ActionIcon,
+    Anchor,
+    Button,
+    Divider,
+    Grid,
+    GridCol,
+    Group,
+    Stack,
+    Text,
+    Title,
+    useMantineTheme,
+} from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { CheckCircleIcon, FileArrowUpIcon, UploadIcon, XCircleIcon, XIcon } from '@phosphor-icons/react/dist/ssr'
+import {
+    CheckCircleIcon,
+    FileArrowUpIcon,
+    UploadIcon,
+    XCircleIcon,
+    XIcon,
+    ArrowSquareOutIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { Language } from '@/database/types'
 import { getAcceptedFormatsForLanguage } from '@/lib/languages'
 import { ACCEPTED_FILE_TYPES } from '@/lib/types'
 import { AppModal } from '@/components/modal'
 import { getFileName } from '@/contexts/shared/file-types'
 import { useCodeUploadModal } from '@/hooks/use-code-upload-modal'
+import { useQuery } from '@/common'
+import { getStarterCodeUrlAction } from '@/server/actions/org.actions'
+
+
 
 interface CodeUploadModalProps {
     isOpen: boolean
     onClose: () => void
     language: Language
+    orgSlug: string
     onConfirm: () => void
     isAddingFiles?: boolean
 }
+
 
 export const CodeUploadModal: FC<CodeUploadModalProps> = ({
     isOpen,
     onClose,
     language,
+    orgSlug,
     onConfirm,
     isAddingFiles = false,
 }) => {
@@ -30,11 +56,30 @@ export const CodeUploadModal: FC<CodeUploadModalProps> = ({
     const { allFiles, handleDrop, handleReject, handleRemoveFile, handleConfirm, handleCancel, canConfirm } =
         useCodeUploadModal({ onConfirm, onClose, isAddingFiles })
 
+    const { data: starterCodeData } = useQuery({
+        queryKey: ['starter-code-url', orgSlug, language],
+        queryFn: () => getStarterCodeUrlAction({ orgSlug, language }),
+        enabled: isOpen,
+    })
+
+    const starterCodeUrl = starterCodeData?.starterCodeUrl
+
     return (
         <AppModal size="xl" isOpen={isOpen} onClose={onClose} title="Upload your code files">
             <Stack>
                 <Group gap={0}>
-                    <Text size="sm">Upload your code file(s).</Text>
+                    <Text size="sm">
+                        Upload your code file(s). Important: Make sure that your main file includes the &nbsp;
+                    </Text>
+                    <Text size="sm" c="blue.7" fw="bold">
+                        Starter Code
+                    </Text>
+                        {starterCodeUrl && (
+                            <Anchor href={starterCodeUrl} target="_blank" ml={4}>
+                                <ArrowSquareOutIcon size={14} weight="bold" color={theme.colors.blue[7]} />
+                            </Anchor>
+                        )}
+                    <Text size="sm">provided by the data organization.</Text>
                 </Group>
                 <Group grow justify="center" align="center" mt="md">
                     <Grid>

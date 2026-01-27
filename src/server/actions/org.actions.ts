@@ -191,6 +191,36 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
         }
     })
 
+export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
+    .requireAbilityTo('view', 'Orgs')
+    .params(z.object({ orgSlug: z.string(), language: z.string() }))
+    .handler(async ({ db, params: { orgSlug, language } }) => {
+        const { signedUrlForFile } = await import('@/server/aws')
+
+        const org = await db
+            .selectFrom('org')
+            .select(['id'])
+            .where('slug', '=', orgSlug)
+            .executeTakeFirstOrThrow()
+
+        const row = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.starterCodePath'])
+            .where('orgBaseImage.orgId', '=', org.id)
+            .where('orgBaseImage.language', '=', language as Language)
+            .where('orgBaseImage.isTesting', '=', false)
+            .orderBy('orgBaseImage.createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (!row?.starterCodePath) {
+            return { starterCodeUrl: null }
+        }
+
+        const starterCodeUrl = await signedUrlForFile(row.starterCodePath)
+
+        return { starterCodeUrl }
+    })
+
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
     .params(z.object({ orgSlug: z.string() }))
     .middleware(async ({ db, params: { orgSlug } }) => {
