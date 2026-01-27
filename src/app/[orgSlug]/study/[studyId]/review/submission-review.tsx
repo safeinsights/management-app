@@ -2,8 +2,7 @@
 
 import { FC } from 'react'
 import { Stack, Title, Paper, Divider, Group, Text, Button } from '@mantine/core'
-import { CaretLeftIcon } from '@phosphor-icons/react'
-import { useRouter } from 'next/navigation'
+import { notifications } from '@mantine/notifications'
 import { Routes } from '@/lib/routes'
 import { Language } from '@/database/types'
 import { Link } from '@/components/links'
@@ -70,11 +69,27 @@ export const SubmissionReview: FC<SubmissionReviewProps> = ({
     language,
     existingDocuments,
 }) => {
-    const router = useRouter()
-    const { documentFiles, mainFileName, additionalFileNames, canSubmit, submitStudy, isSubmitting } = useStudyRequest()
+    const {
+        documentFiles,
+        mainFileName,
+        additionalFileNames,
+        canSubmit,
+        submitStudy,
+        isSubmitting,
+        saveDraft,
+        isSaving,
+    } = useStudyRequest()
 
-    const handleBackToCode = () => {
-        router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId }))
+    const handleSaveAsDraft = () => {
+        saveDraft({
+            onSuccess: () => {
+                notifications.show({
+                    title: 'Draft Saved',
+                    message: 'Your study proposal has been saved as a draft.',
+                    color: 'green',
+                })
+            },
+        })
     }
 
     return (
@@ -173,12 +188,12 @@ export const SubmissionReview: FC<SubmissionReviewProps> = ({
                     <Button
                         type="button"
                         size="md"
-                        variant="subtle"
-                        onClick={handleBackToCode}
-                        leftSection={<CaretLeftIcon />}
-                        disabled={isSubmitting}
+                        variant="outline"
+                        onClick={handleSaveAsDraft}
+                        disabled={isSaving || isSubmitting}
+                        loading={isSaving}
                     >
-                        Previous
+                        Save as draft
                     </Button>
                     <Button
                         type="button"
