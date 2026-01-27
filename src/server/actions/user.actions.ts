@@ -1,18 +1,21 @@
 'use server'
 
 import { clerkClient } from '@clerk/nextjs/server'
-import { syncCurrentClerkUser, updateClerkUserMetadata } from '../clerk'
+import { sessionFromClerk } from '../clerk'
 import { getReviewerPublicKey } from '../db/queries'
 import { onUserLogIn, onUserResetPW, onUserRoleUpdate } from '../events'
 import { Action, z } from './action'
 import { isEnclaveOrg } from '@/lib/types'
 
 export const onUserSignInAction = new Action('onUserSignInAction').handler(async () => {
-    const user = await syncCurrentClerkUser()
-    const metadata = await updateClerkUserMetadata(user.id)
-    onUserLogIn({ userId: user.id })
-    if (Object.values(metadata.orgs).some((org) => isEnclaveOrg(org))) {
-        const publicKey = await getReviewerPublicKey(user.id)
+    // Force metadata sync on sign-in to ensure session has fresh data
+    const session = await sessionFromClerk({ forceUpdate: true })
+    if (!session) {
+        throw new Error('Failed to establish session')
+    }
+    onUserLogIn({ userId: session.user.id })
+    if (Object.values(session.orgs).some((org) => isEnclaveOrg(org))) {
+        const publicKey = await getReviewerPublicKey(session.user.id)
         if (!publicKey) {
             return { redirectToReviewerKey: true }
         }
@@ -21,9 +24,17 @@ export const onUserSignInAction = new Action('onUserSignInAction').handler(async
 })
 
 export const syncUserMetadataAction = new Action('syncUserMetadataAction').handler(async () => {
-    const user = await syncCurrentClerkUser()
-    const metadata = await updateClerkUserMetadata(user.id)
-    return metadata
+    // Force metadata sync
+    const session = await sessionFromClerk({ forceUpdate: true })
+    if (!session) {
+        throw new Error('Failed to establish session')
+    }
+    return {
+        format: 'v3' as const,
+        user: { id: session.user.id },
+        teams: null,
+        orgs: session.orgs,
+    }
 })
 
 export const onUserResetPWAction = new Action('onUserResetPWAction')

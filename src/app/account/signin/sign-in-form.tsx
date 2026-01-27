@@ -3,6 +3,8 @@ import { reportError } from '@/components/errors'
 import { clerkErrorOverrides, errorToString } from '@/lib/errors'
 import type { Route } from 'next'
 import { Routes } from '@/lib/routes'
+import { actionResult } from '@/lib/utils'
+import { onUserSignInAction } from '@/server/actions/user.actions'
 import { useAuth, useSignIn, useUser } from '@clerk/nextjs'
 import { Paper, PasswordInput, TextInput, Title } from '@mantine/core'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -39,6 +41,12 @@ export const SignInForm: FC<{
                 message: 'The invitation link you followed is invalid or has already been used.',
             })
         }
+        if (searchParams.get('error') === 'session') {
+            setClerkError({
+                title: 'Session Error',
+                message: 'There was a problem with your session. Please sign in again.',
+            })
+        }
     }, [searchParams])
 
     const form = useForm<SignInFormData>({
@@ -65,8 +73,13 @@ export const SignInForm: FC<{
             if (attempt.status === 'complete') {
                 await setActive({ session: attempt.createdSessionId })
                 await onComplete(false)
-                const redirectUrl = searchParams.get('redirect_url')
-                router.push((redirectUrl as Route) ?? Routes.home)
+                const result = actionResult(await onUserSignInAction())
+                if (result?.redirectToReviewerKey) {
+                    router.push(Routes.accountKeys as Route)
+                } else {
+                    const redirectUrl = searchParams.get('redirect_url') ?? Routes.home
+                    router.push(redirectUrl as Route)
+                }
             }
             if (attempt.status === 'needs_second_factor') {
                 // Auth method not yet determined, set to false for now

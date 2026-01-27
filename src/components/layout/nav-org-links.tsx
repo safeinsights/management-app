@@ -66,6 +66,7 @@ export const NavOrgLinks: React.FC<Partial<Props>> = ({ org }) => {
                 {orgInitialsTitle(org.name, org.type)}
             </Title>
             <Divider />
+            <NavbarLink isVisible={true} url="/dashboard" label="Home" icon={<HouseIcon size={16} />} />
             {isEnclave ? <EnclaveLinks org={org} /> : <LabLinks org={org} />}
             <OrgAdminDashboardLink isVisible={session.orgs[org.slug]?.isAdmin} org={org} />
         </Stack>

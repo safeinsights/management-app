@@ -26,7 +26,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         if (draftData) {
             initFromDraft(draftData, submittingOrgSlug)
         }
-    }, [draftData, submittingOrgSlug, initFromDraft])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when draft ID changes, not on every object reference change
+    }, [draftData?.id, submittingOrgSlug])
 
     const handleSave = (proceed: boolean) => {
         saveDraft({

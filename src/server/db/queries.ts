@@ -7,6 +7,7 @@ import { findOrCreateSiUserId } from './mutations'
 import { FileType } from '@/database/types'
 import { Selectable } from 'kysely'
 import { Action } from '../actions/action'
+import type { PublicKey } from 'si-encryption/job-results/types'
 
 export type SiUser = ClerkUser & {
     id: string
@@ -265,4 +266,46 @@ export async function fetchLatestBaseImageForStudyId(studyId: string) {
         .limit(1)
         .select(['orgBaseImage.url', 'orgBaseImage.settings', 'orgBaseImage.starterCodePath'])
         .executeTakeFirstOrThrow(() => new Error(`no base image found for studyId: ${studyId}`))
+}
+
+/**
+ * Gets the orgId for a given jobId.
+ * Returns undefined if job doesn't exist.
+ */
+export async function getOrgIdForJobId(jobId: string) {
+    const job = await Action.db
+        .selectFrom('studyJob')
+        .innerJoin('study', 'study.id', 'studyJob.studyId')
+        .where('studyJob.id', '=', jobId)
+        .select(['study.orgId'])
+        .executeTakeFirst()
+
+    return job?.orgId
+}
+
+/**
+ * Fetches all public keys for users belonging to an organization.
+ * Returns keys with Buffer format (as stored in DB).
+ */
+export async function getOrgPublicKeysRaw(orgId: string) {
+    return await Action.db
+        .selectFrom('orgUser')
+        .innerJoin('userPublicKey', 'userPublicKey.userId', 'orgUser.userId')
+        .select(['userPublicKey.publicKey', 'userPublicKey.fingerprint'])
+        .where('orgUser.orgId', '=', orgId)
+        .execute()
+}
+
+/**
+ * Fetches all public keys for users belonging to an organization.
+ * Returns keys converted to si-encryption (ArrayBuffer) format.
+ */
+export async function getOrgPublicKeys(orgId: string): Promise<PublicKey[]> {
+    const keys = await getOrgPublicKeysRaw(orgId)
+    return keys.map(({ publicKey, fingerprint }) => {
+        // Safe Buffer to ArrayBuffer conversion (handles offset/length correctly)
+        const arrayBuffer = new ArrayBuffer(publicKey.byteLength)
+        new Uint8Array(arrayBuffer).set(publicKey)
+        return { publicKey: arrayBuffer, fingerprint }
+    })
 }

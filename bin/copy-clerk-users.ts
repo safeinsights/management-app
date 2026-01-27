@@ -2,14 +2,12 @@
 import 'dotenv/config'
 import { createClerkClient, type ClerkClient } from '@clerk/backend'
 import { isTestUser, getProtectedTestEmails } from '@/lib/clerk'
-// @ts-expect-error - minimist types don't match ESM import
 import minimist from 'minimist'
 
 interface Config {
     sourceKey: string
     targetKey: string
     dryRun: boolean
-    includeMetadata: boolean
     skipExisting: boolean
     limit?: number
 }
@@ -24,15 +22,13 @@ interface CopyResult {
 function parseArgs(): Config {
     const args = minimist(process.argv.slice(2), {
         string: ['source-key', 'target-key', 'limit'],
-        boolean: ['dry-run', 'help', 'include-metadata', 'skip-existing'],
+        boolean: ['dry-run', 'help', 'skip-existing'],
         alias: {
             s: 'source-key',
             t: 'target-key',
             h: 'help',
-            m: 'include-metadata',
         },
         default: {
-            'include-metadata': true,
             'skip-existing': true,
         },
     })
@@ -49,7 +45,6 @@ Usage:
 Options:
   -s, --source-key <key>      Source Clerk secret key (required)
   -t, --target-key <key>      Target Clerk secret key (required)
-  -m, --include-metadata      Copy user metadata (default: true)
       --skip-existing         Skip users that already exist in target (default: true)
       --limit <n>             Only copy first n users (useful for testing)
       --dry-run               Preview changes without applying
@@ -63,16 +58,14 @@ Example:
 
 What Gets Copied:
   - Email addresses (primary marked, but unverified in target)
-  - Phone numbers (unverified in target)
   - First name, last name, username
-  - External ID
-  - Public metadata (optional)
-  - Private metadata (optional)
-  - Unsafe metadata (optional)
 
 What Does NOT Get Copied:
   - Passwords (users must reset or use passwordless auth)
-  - Verification status (emails/phones are unverified in target)
+  - Phone numbers
+  - External ID
+  - Metadata (public, private, unsafe)
+  - Verification status (emails are unverified in target)
   - Sessions
   - Organization memberships (use separate script)
   - Profile images
@@ -87,7 +80,6 @@ Note: Users in target will need to:
     const sourceKey = args['source-key']
     const targetKey = args['target-key']
     const dryRun = args['dry-run'] || false
-    const includeMetadata = args['include-metadata']
     const skipExisting = args['skip-existing']
     const limit = args['limit'] ? parseInt(args['limit'], 10) : undefined
 
@@ -97,7 +89,7 @@ Note: Users in target will need to:
         process.exit(1)
     }
 
-    return { sourceKey, targetKey, dryRun, includeMetadata, skipExisting, limit }
+    return { sourceKey, targetKey, dryRun, skipExisting, limit }
 }
 
 async function validateClerkClient(clerk: ClerkClient, name: string): Promise<boolean> {
@@ -198,29 +190,12 @@ async function copyUsers(sourceClerk: ClerkClient, targetClerk: ClerkClient, con
                     firstName: user.firstName || undefined,
                     lastName: user.lastName || undefined,
                     username: user.username || undefined,
-                    externalId: user.externalId || undefined,
                     skipPasswordRequirement: true,
                     skipPasswordChecks: true,
                 }
 
                 if (user.emailAddresses.length > 0) {
                     createParams.emailAddress = user.emailAddresses.map((e) => e.emailAddress)
-                }
-
-                if (user.phoneNumbers.length > 0) {
-                    createParams.phoneNumber = user.phoneNumbers.map((p) => p.phoneNumber)
-                }
-
-                if (config.includeMetadata) {
-                    if (user.publicMetadata && Object.keys(user.publicMetadata).length > 0) {
-                        createParams.publicMetadata = user.publicMetadata
-                    }
-                    if (user.privateMetadata && Object.keys(user.privateMetadata).length > 0) {
-                        createParams.privateMetadata = user.privateMetadata
-                    }
-                    if (user.unsafeMetadata && Object.keys(user.unsafeMetadata).length > 0) {
-                        createParams.unsafeMetadata = user.unsafeMetadata
-                    }
                 }
 
                 const newUser = await targetClerk.users.createUser(createParams)

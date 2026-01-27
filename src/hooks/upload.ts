@@ -7,7 +7,7 @@ async function uploadFile(file: File, upload: PresignedPost) {
         body.append(key, value)
     }
     body.append('file', file)
-    const failureMsg = `failed to upload file ${file.name}.  please remove it and attempt to re-upload`
+    const failureMsg = `An error occurred when uploading ${file.name}, please remove it and attempt to re-upload it.`
     try {
         const response = await fetch(upload.url, {
             method: 'POST',
