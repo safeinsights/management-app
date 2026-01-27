@@ -13,6 +13,12 @@ This document outlines the coding conventions and best practices used in this pr
   Limit lines to 120 characters.
 - **Whitespace:**
   Trim trailing whitespace and enforce a final newline.
+- Use `@/` import alias for all `src/` imports
+- Import React Query from `@/common` only
+- Never use hardcoded route strings; use `Routes.*` from `src/lib/routes`
+- Unit tests go next to source files with `.test.ts(x)` suffix
+- Don't mock database in unit tests; test actual records exist
+- After any code change: run `npm run lint:fix && npm run test:unit`
 
 ## Linting and Formatting
 
