@@ -1,17 +1,16 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Hard Rules
 
-- No semicolons (ESLint enforced)
-- 4-space indentation, 120 char max line length
+- Keep JSX minimal: No complex ternary operators, map functions, or calculations inside the return statement.
+- Move logic out: All state management, event handling, and data processing must be in custom hooks (useFeatureName) or helper functions outside the main component function.
+- Co-locate, don't embed: If logic is used only in the component, define it just above the JSX, keep the JSX declaration clean.
+- Extract components: If a sub-section of the JSX is complex, break it into a separate, smaller component files.
 - Use `@/` import alias for all `src/` imports
 - Import React Query from `@/common` only
 - Never use hardcoded route strings; use `Routes.*` from `src/lib/routes`
 - Unit tests go next to source files with `.test.ts(x)` suffix
 - Don't mock database in unit tests; test actual records exist
 - After any code change: run `npm run lint:fix && npm run test:unit`
+- Do not intermingle logic with JSX, create small cohesive components instead.   
 
 ## Authority & Links
 
