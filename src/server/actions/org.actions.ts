@@ -152,13 +152,14 @@ export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEncla
             .execute()
     })
 
-type LanguageOption = { value: Language; label: string }
+type LanguageOption = { value: Language; label: string; starterCodeUrl: string }
 
 export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
     .requireAbilityTo('view', 'Orgs')
     .params(z.object({ orgSlug: z.string() }))
     .handler(async ({ db, params: { orgSlug } }) => {
         const { languageLabels } = await import('@/lib/languages')
+        const { signedUrlForFile } = await import('@/server/aws')
 
         const org = await db
             .selectFrom('org')
@@ -168,16 +169,52 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
 
         const rows = await db
             .selectFrom('orgBaseImage')
-            .select(['orgBaseImage.language'])
+            .select(['orgBaseImage.language', 'orgBaseImage.starterCodePath'])
             .where('orgBaseImage.orgId', '=', org.id)
             .where('orgBaseImage.isTesting', '=', false)
-            .distinct()
+            .distinctOn('orgBaseImage.language')
+            .orderBy('orgBaseImage.language')
+            .orderBy('orgBaseImage.createdAt', 'desc')
             .execute()
+
+        const languages = await Promise.all(
+            rows.map(async (l) => ({
+                value: l.language,
+                label: languageLabels[l.language],
+                starterCodeUrl: await signedUrlForFile(l.starterCodePath),
+            })),
+        )
 
         return {
             orgName: org.name,
-            languages: rows.map((l) => ({ value: l.language, label: languageLabels[l.language] }) as LanguageOption),
+            languages: languages as LanguageOption[],
         }
+    })
+
+export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
+    .requireAbilityTo('view', 'Orgs')
+    .params(z.object({ orgSlug: z.string(), language: z.string() }))
+    .handler(async ({ db, params: { orgSlug, language } }) => {
+        const { signedUrlForFile } = await import('@/server/aws')
+
+        const org = await db.selectFrom('org').select(['id']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
+
+        const row = await db
+            .selectFrom('orgBaseImage')
+            .select(['orgBaseImage.starterCodePath'])
+            .where('orgBaseImage.orgId', '=', org.id)
+            .where('orgBaseImage.language', '=', language as Language)
+            .where('orgBaseImage.isTesting', '=', false)
+            .orderBy('orgBaseImage.createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (!row?.starterCodePath) {
+            return { starterCodeUrl: null }
+        }
+
+        const starterCodeUrl = await signedUrlForFile(row.starterCodePath)
+
+        return { starterCodeUrl }
     })
 
 export const getOrgFromSlugAction = new Action('getOrgFromSlugAction')
