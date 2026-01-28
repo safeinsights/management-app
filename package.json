@@ -25,7 +25,7 @@
         "lint:fix": "eslint --fix . && prettier --write --log-level warn .",
         "pre:push": "run-p lint:fix typecheck validate-actions",
         "typecheck": "tsc --noEmit --skipLibCheck",
-        "update-db-types": "kysely-codegen --out-file src/database/types.ts",
+        "update-db-types": "kysely-codegen --camel-case --out-file src/database/types.ts",
         "checks": "run-p -c typecheck lint validate-actions",
         "test:e2e": "playwright test",
         "test:e2e:debug": "playwright test --ui --headed --debug",
