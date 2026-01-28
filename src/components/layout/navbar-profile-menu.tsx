@@ -8,9 +8,9 @@ import { AuthRole } from '@/lib/types'
 import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useClickOutside, useDisclosure } from '@mantine/hooks'
-import { CaretRightIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
+import { CaretRightIcon, GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
 import { useRouter } from 'next/navigation'
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import { Protect } from '../auth'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
@@ -21,7 +21,6 @@ export function NavbarProfileMenu() {
     const router = useRouter()
     const { session } = useSession()
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
-    const firstMenuItemRef = useRef<HTMLButtonElement>(null)
     const isSiAdmin = session?.user.isSiAdmin || false
 
     const closeAndCall = (fn: () => void) => (e: React.MouseEvent) => {
@@ -37,22 +36,35 @@ export function NavbarProfileMenu() {
         if (!wasOpened) {
             // focus the first menu item
             setTimeout(() => {
-                firstMenuItemRef.current?.focus()
+                const firstItem = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')
+                firstItem?.focus()
             }, 0)
         }
-    }, [opened, toggle])
+    }, [opened, toggle, menuRef])
 
     return (
         <AppShellSection ref={menuRef}>
             <Collapse in={opened} bg="purple.9" id="profile-menu" role="menu">
+                <Protect role={AuthRole.Researcher}>
+                    <NavLink
+                        label="Profile"
+                        leftSection={<UserIcon aria-hidden="true" />}
+                        c="white"
+                        className={styles.navLinkProfileHover}
+                        onClick={() => {}} // TODO: add profile page
+                        aria-label="Profile"
+                        role="menuitem"
+                        component="button"
+                    />
+                </Protect>
+
                 <NavLink
-                    ref={firstMenuItemRef}
-                    label="My Account"
-                    leftSection={<UserIcon aria-hidden="true" />}
+                    label="Settings"
+                    leftSection={<GearIcon aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
                     onClick={closeAndCall(() => openUserProfile())}
-                    aria-label="My Account"
+                    aria-label="Settings"
                     role="menuitem"
                     component="button"
                 />
