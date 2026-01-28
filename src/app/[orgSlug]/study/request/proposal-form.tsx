@@ -29,15 +29,6 @@ const EditableStudyProposalForm: FC<StudyProposalFormProps> = ({ studyProposalFo
     return (
         <Stack gap="xxl">
             <StudyOrgSelector form={studyProposalForm} />
-            {/* TODO: cleanup - keeping as reference for step 2 use */}
-            {/* <Paper p="xl">
-                <FormFieldLabel label="Study Description" inputId="description" />
-                <EditableText
-                    id="description"
-                    placeholder="Enter study description..."
-                    {...studyProposalForm.getInputProps('description')}
-                />
-            </Paper> */}
             <ProgrammingLanguageSection form={studyProposalForm} />
         </Stack>
     )
