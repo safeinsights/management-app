@@ -35,16 +35,13 @@ export function useEducationSection(data: ResearcherProfileData | null, refetch:
     useEffect(() => {
         form.setValues(defaults)
         form.resetDirty(defaults)
-        const complete =
-            Boolean(defaults.educationalInstitution) && Boolean(defaults.degree) && Boolean(defaults.fieldOfStudy)
-        setIsEditing(!complete)
+        if (data) {
+            const complete =
+                Boolean(defaults.educationalInstitution) && Boolean(defaults.degree) && Boolean(defaults.fieldOfStudy)
+            setIsEditing(!complete)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
-
-    useEffect(() => {
-        form.validate()
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
-    }, [])
 
     const saveMutation = useMutation({
         mutationFn: async (values: EducationValues) => updateEducationAction(values),

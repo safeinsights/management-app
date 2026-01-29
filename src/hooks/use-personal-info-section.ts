@@ -28,15 +28,12 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
     useEffect(() => {
         form.setValues(defaults)
         form.resetDirty(defaults)
-        const complete = Boolean(defaults.firstName) && Boolean(defaults.lastName)
-        setIsEditing(!complete)
+        if (data) {
+            const complete = Boolean(defaults.firstName) && Boolean(defaults.lastName)
+            setIsEditing(!complete)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [defaults.firstName, defaults.lastName])
-
-    useEffect(() => {
-        form.validate()
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
-    }, [])
 
     const saveMutation = useMutation({
         mutationFn: async (values: PersonalInfoValues) => updatePersonalInfoAction(values),

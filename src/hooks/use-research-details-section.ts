@@ -37,16 +37,13 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
     useEffect(() => {
         form.setValues(defaults)
         form.resetDirty(defaults)
-        const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
-        setIsEditing(!complete)
+        if (data) {
+            const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
+            setIsEditing(!complete)
+        }
         setInterestDraft('')
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
-
-    useEffect(() => {
-        form.validate()
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
-    }, [])
 
     const saveMutation = useMutation({
         mutationFn: async (values: ResearchDetailsValues) => updateResearchDetailsAction(values),

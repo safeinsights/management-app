@@ -44,25 +44,17 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
     useEffect(() => {
         form.setValues(defaults)
         form.resetDirty(defaults)
-
-        // Reset editing state when data loads with existing positions
-        // This prevents the race condition where editingIndex was set to 0
-        // before real data arrived
-        const hasData = defaults.positions.some((p) => p.affiliation || p.position)
-        if (hasData) {
-            setEditingIndex(null)
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [JSON.stringify(defaults.positions)])
 
     const hasExistingPositions = defaults.positions.some((p) => p.affiliation || p.position)
 
-    // Auto-open form when there are no existing positions
+    // Auto-open form when there are no existing positions (only after data loads)
     useEffect(() => {
-        if (!hasExistingPositions && editingIndex === null) {
+        if (data && !hasExistingPositions && editingIndex === null) {
             setEditingIndex(0)
         }
-    }, [hasExistingPositions, editingIndex])
+    }, [data, hasExistingPositions, editingIndex])
 
     const saveMutation = useMutation({
         mutationFn: async (positionsToSave: CurrentPositionValues[]) =>
