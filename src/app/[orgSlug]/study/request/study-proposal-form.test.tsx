@@ -1,13 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { StudyProposalForm } from './proposal-form'
-import { useForm } from '@mantine/form'
-import { MantineProvider } from '@mantine/core'
-import { theme } from '@/theme'
-import { FC, ReactNode } from 'react'
-// eslint-disable-next-line no-restricted-imports
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { StudyProposalFormValues } from './step1-schema'
+import { FC } from 'react'
+import { TestingProviders, useTestStudyProposalForm } from '@/tests/providers'
 
 // Mock the dependencies
 vi.mock('@/components/openstax-feature-flag', () => ({
@@ -33,40 +28,13 @@ vi.mock('./study-details', () => ({
     RequestStudyDetails: () => <div data-testid="study-details">Study Details</div>,
 }))
 
-const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-})
-
-const TestWrapper: FC<{ children: ReactNode }> = ({ children }) => (
-    <QueryClientProvider client={queryClient}>
-        <MantineProvider theme={theme}>{children}</MantineProvider>
-    </QueryClientProvider>
-)
-
 const FormWrapper: FC = () => {
-    const form = useForm<StudyProposalFormValues>({
-        initialValues: {
-            orgSlug: '',
-            language: null,
-            title: '',
-            piName: '',
-            description: '',
-            descriptionDocument: null,
-            irbDocument: null,
-            agreementDocument: null,
-            mainCodeFile: null,
-            additionalCodeFiles: [],
-            stepIndex: 0,
-            createdStudyId: null,
-            ideMainFile: '',
-            ideFiles: [],
-        },
-    })
+    const form = useTestStudyProposalForm()
 
     return (
-        <TestWrapper>
+        <TestingProviders>
             <StudyProposalForm studyProposalForm={form} />
-        </TestWrapper>
+        </TestingProviders>
     )
 }
 
