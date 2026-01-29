@@ -31,7 +31,7 @@ const initialFormValues: StudyProposalFormValues = {
     mainCodeFile: null,
     additionalCodeFiles: [],
     orgSlug: '',
-    language: 'R',
+    language: null,
     stepIndex: 0,
     createdStudyId: null,
     ideMainFile: '',
@@ -59,7 +59,7 @@ export function useProposalForm(draftData?: DraftData | null) {
             form.setValues({
                 title: draftData.title || '',
                 piName: draftData.piName || '',
-                language: draftData.language || undefined,
+                language: draftData.language || null,
                 orgSlug: draftData.orgSlug || '',
                 irbDocument: null,
                 descriptionDocument: null,

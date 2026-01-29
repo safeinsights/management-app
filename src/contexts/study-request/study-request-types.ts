@@ -71,7 +71,7 @@ export const initialFormValues: StudyProposalFormValues = {
     title: '',
     piName: '',
     orgSlug: '',
-    language: 'R',
+    language: null,
     descriptionDocument: null,
     irbDocument: null,
     agreementDocument: null,

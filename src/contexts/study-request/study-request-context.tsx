@@ -130,7 +130,7 @@ export function StudyRequestProvider({
                 ...initialFormValues,
                 title: draft.title || '',
                 piName: draft.piName || '',
-                language: draft.language || undefined,
+                language: draft.language || null,
                 orgSlug: draft.orgSlug || '',
             })
             form.resetDirty()
