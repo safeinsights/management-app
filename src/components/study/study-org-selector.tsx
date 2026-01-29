@@ -6,7 +6,7 @@ import { getStudyCapableEnclaveOrgsAction } from '@/server/actions/org.actions'
 import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { useOpenStaxFeatureFlag } from '../openstax-feature-flag'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 

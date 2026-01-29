@@ -4,9 +4,10 @@ import { StudyOrgSelector } from './study-org-selector'
 import { FC } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { TestingProviders, useTestStudyProposalForm } from '@/tests/providers'
+import { mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
 
-vi.mock('../openstax-feature-flag', () => ({
-    useOpenStaxFeatureFlag: vi.fn(() => (globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled),
+vi.mock('@/components/openstax-feature-flag', () => ({
+    useOpenStaxFeatureFlag: () => globalThis.__mockOpenStaxEnabled,
 }))
 
 vi.mock('@/server/actions/org.actions', () => ({
@@ -35,7 +36,7 @@ const FormWrapper: FC<FormWrapperProps> = ({ orgSlug = '' }) => {
 describe('StudyOrgSelector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        ;(globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled = false
+        mockOpenStaxFeatureFlagState(false)
         vi.mocked(useUser).mockReturnValue({
             user: { id: 'user-1', publicMetadata: {}, unsafeMetadata: {} },
             isLoaded: true,
@@ -62,7 +63,7 @@ describe('StudyOrgSelector', () => {
 
     describe('OpenStax flow (feature flag enabled)', () => {
         beforeEach(() => {
-            ;(globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled = true
+            mockOpenStaxFeatureFlagState(true)
         })
 
         it('renders step indicator as "Step 1" when no org is selected', async () => {

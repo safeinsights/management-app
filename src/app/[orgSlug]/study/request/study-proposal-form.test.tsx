@@ -3,15 +3,16 @@ import { render, screen } from '@testing-library/react'
 import { StudyProposalForm } from './proposal-form'
 import { FC } from 'react'
 import { TestingProviders, useTestStudyProposalForm } from '@/tests/providers'
+import { mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
 
-// Mock the dependencies
 vi.mock('@/components/openstax-feature-flag', () => ({
-    OpenStaxFeatureFlag: vi.fn(({ defaultContent, optInContent }) => {
-        // This will be controlled by mockOpenStaxEnabled
-        const showOptIn = (globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled
-        return showOptIn ? optInContent : defaultContent
-    }),
-    useOpenStaxFeatureFlag: vi.fn(() => (globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled),
+    OpenStaxFeatureFlag: ({
+        defaultContent,
+        optInContent,
+    }: {
+        defaultContent: React.ReactNode
+        optInContent: React.ReactNode
+    }) => (globalThis.__mockOpenStaxEnabled ? optInContent : defaultContent),
 }))
 
 vi.mock('@/components/study/study-org-selector', () => ({
@@ -41,7 +42,7 @@ const FormWrapper: FC = () => {
 describe('StudyProposalForm', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        ;(globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled = false
+        mockOpenStaxFeatureFlagState(false)
     })
 
     describe('Legacy flow (feature flag disabled)', () => {
@@ -63,7 +64,7 @@ describe('StudyProposalForm', () => {
 
     describe('OpenStax flow (feature flag enabled)', () => {
         beforeEach(() => {
-            ;(globalThis as { __mockOpenStaxEnabled?: boolean }).__mockOpenStaxEnabled = true
+            mockOpenStaxFeatureFlagState(true)
         })
 
         it('renders StudyOrgSelector', () => {
