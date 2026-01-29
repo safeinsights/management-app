@@ -9,17 +9,26 @@ import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
 import { useClickOutside, useDisclosure } from '@mantine/hooks'
 import { CaretRightIcon, GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
-import { useRouter } from 'next/navigation'
-import { useCallback } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useEffect } from 'react'
 import { Protect } from '../auth'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
-    const [opened, { toggle, close }] = useDisclosure()
     const router = useRouter()
+    const pathname = usePathname()
     const { session } = useSession()
+    const isOnProfilePage = pathname === Routes.researcherProfile
+    const [opened, { toggle, close, open }] = useDisclosure(isOnProfilePage)
+
+    useEffect(() => {
+        if (isOnProfilePage) {
+            open()
+        }
+    }, [isOnProfilePage, open])
+
     const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
     const isSiAdmin = session?.user.isSiAdmin || false
 
@@ -28,6 +37,14 @@ export function NavbarProfileMenu() {
         fn()
         close()
     }
+
+    const handleProfileClick = useCallback(
+        (e: React.MouseEvent) => {
+            e.stopPropagation()
+            router.push(Routes.researcherProfile)
+        },
+        [router],
+    )
 
     const handleToggle = useCallback(() => {
         const wasOpened = opened
@@ -50,8 +67,11 @@ export function NavbarProfileMenu() {
                         label="Profile"
                         leftSection={<UserIcon aria-hidden="true" />}
                         c="white"
+                        active={isOnProfilePage}
+                        color="blue.7"
+                        variant="filled"
                         className={styles.navLinkProfileHover}
-                        onClick={closeAndCall(() => router.push(Routes.researcherProfile))}
+                        onClick={handleProfileClick}
                         aria-label="Profile"
                         role="menuitem"
                         component="button"
