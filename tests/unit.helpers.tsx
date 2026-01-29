@@ -427,6 +427,7 @@ export const mockClerkSession = (values: MockSession | null) => {
             updateOrganization: vi.fn(),
         },
         users: {
+            updateUser: vi.fn(),
             updateUserMetadata: vi.fn(),
             getUserList: vi.fn(async (params: { emailAddress?: string[] }) => {
                 if (params.emailAddress && params.emailAddress.length > 0) {
