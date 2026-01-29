@@ -88,14 +88,11 @@ export function StudyRequestProvider({
     }, [form, documentFiles.existingFiles])
 
     // OpenStax step 1 only requires org + language
-    const isStep1Valid = useMemo(() => {
-        const formValues = form.getValues()
-        const result = openStaxStep1ReadinessSchema.safeParse({
-            orgSlug: formValues.orgSlug,
-            language: formValues.language,
-        })
-        return result.success
-    }, [form])
+    const step1Values = form.getValues()
+    const isStep1Valid = openStaxStep1ReadinessSchema.safeParse({
+        orgSlug: step1Values.orgSlug,
+        language: step1Values.language,
+    }).success
 
     const { saveDraft: saveDraftInternal, isSaving } = useSaveDraft({
         studyId,
