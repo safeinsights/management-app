@@ -15,8 +15,6 @@ interface PositionsTableProps {
 }
 
 export function PositionsTable({ positions, editingIndex, form, onEdit, onDelete, onAdd }: PositionsTableProps) {
-    const canDelete = positions.length >= 2
-
     const visiblePositions = positions.map((pos, idx) => ({ pos, idx })).filter(({ idx }) => idx !== editingIndex)
 
     const tableRows = visiblePositions.map(({ pos, idx }) => {
@@ -36,19 +34,16 @@ export function PositionsTable({ positions, editingIndex, form, onEdit, onDelete
                         <PencilSimpleIcon />
                     </ActionIcon>
                 </Table.Td>
-                {canDelete && (
-                    <Table.Td ta="center">
-                        <ActionIcon
-                            variant="subtle"
-                            color="red"
-                            disabled={positions.length < 2}
-                            onClick={() => onDelete(idx)}
-                            aria-label="Delete current position"
-                        >
-                            <TrashIcon />
-                        </ActionIcon>
-                    </Table.Td>
-                )}
+                <Table.Td ta="center">
+                    <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        onClick={() => onDelete(idx)}
+                        aria-label="Delete current position"
+                    >
+                        <TrashIcon />
+                    </ActionIcon>
+                </Table.Td>
             </Table.Tr>
         )
     })
@@ -64,11 +59,9 @@ export function PositionsTable({ positions, editingIndex, form, onEdit, onDelete
                         <Table.Th w={80} ta="center">
                             Edit
                         </Table.Th>
-                        {canDelete && (
-                            <Table.Th w={80} ta="center">
-                                Delete
-                            </Table.Th>
-                        )}
+                        <Table.Th w={80} ta="center">
+                            Delete
+                        </Table.Th>
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{tableRows}</Table.Tbody>

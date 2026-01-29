@@ -74,7 +74,7 @@ export const currentPositionSchema = z.object({
 export type CurrentPositionValues = z.infer<typeof currentPositionSchema>
 
 export const currentPositionsSchema = z.object({
-    positions: z.array(currentPositionSchema).min(1, 'At least one current position is required.'),
+    positions: z.array(currentPositionSchema),
 })
 
 export type CurrentPositionsValues = z.infer<typeof currentPositionsSchema>

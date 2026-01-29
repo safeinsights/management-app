@@ -120,4 +120,65 @@ describe('CurrentPositionsSection', () => {
             expect(refetch).toHaveBeenCalled()
         })
     })
+
+    it('should allow deleting the last position and save empty array', async () => {
+        const user = userEvent.setup()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        ;(updateCurrentPositionsAction as Mock).mockResolvedValue({ success: true })
+
+        // Start with one position
+        renderWithProviders(<CurrentPositionsSection data={createProfileDataWithPositions()} refetch={refetch} />)
+
+        // Table should be visible with delete button
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+        })
+
+        // Click delete
+        const deleteButton = screen.getByRole('button', { name: /delete current position/i })
+        await user.click(deleteButton)
+
+        // Verify action was called with empty array
+        await waitFor(() => {
+            expect(updateCurrentPositionsAction).toHaveBeenCalledWith({ positions: [] })
+        })
+    })
+
+    it('should not show cancel button when no positions exist', async () => {
+        const data = createEmptyProfileData()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+
+        // Form should be visible
+        await waitFor(() => {
+            expect(screen.getByText('Add current position')).toBeDefined()
+        })
+
+        // Cancel button should not be visible when there are no existing positions
+        expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull()
+    })
+
+    it('should show cancel button when editing with existing positions', async () => {
+        const user = userEvent.setup()
+        const data = createProfileDataWithPositions()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+
+        // Table should be visible
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+        })
+
+        // Click edit to open form
+        const editButton = screen.getByRole('button', { name: /edit current position/i })
+        await user.click(editButton)
+
+        // Cancel button should be visible when editing with existing positions
+        await waitFor(() => {
+            expect(screen.getByRole('button', { name: /cancel/i })).toBeDefined()
+        })
+    })
 })

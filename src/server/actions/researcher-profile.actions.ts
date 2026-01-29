@@ -103,7 +103,7 @@ export const updateEducationAction = new Action('updateEducationAction', { perfo
     })
 
 export const updateCurrentPositionsAction = new Action('updateCurrentPositionsAction', { performsMutations: true })
-    .params(z.object({ positions: z.array(currentPositionSchema).min(1) }))
+    .params(z.object({ positions: z.array(currentPositionSchema) }))
     .middleware(async ({ session }) => ({ id: session?.user.id }))
     .requireAbilityTo('update', 'User')
     .handler(async ({ session, params, db }) => {

@@ -114,7 +114,6 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
     }
 
     const handleDelete = (index: number) => {
-        if (form.values.positions.length < 2) return
         const next = form.values.positions.filter((_, i) => i !== index)
         saveMutation.mutate(next)
     }
