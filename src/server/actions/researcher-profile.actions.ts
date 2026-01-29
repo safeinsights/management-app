@@ -10,7 +10,7 @@ import {
     researchDetailsSchema,
 } from '@/schema/researcher-profile'
 
-const toJson = (value: unknown): Json => value as Json
+const toJson = (value: unknown): Json => JSON.stringify(value) as unknown as Json
 
 export const getResearcherProfileAction = new Action('getResearcherProfileAction')
     .middleware(async ({ session }) => ({ id: session?.user.id }))
