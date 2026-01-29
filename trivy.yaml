@@ -1,5 +1,5 @@
 format: 'json'
-exit-code: 0
+exit-code: 1
 debug: false
 severity:
     - HIGH
