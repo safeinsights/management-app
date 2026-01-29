@@ -17,9 +17,7 @@ interface PositionsTableProps {
 export function PositionsTable({ positions, editingIndex, form, onEdit, onDelete, onAdd }: PositionsTableProps) {
     const canDelete = positions.length >= 2
 
-    const visiblePositions = positions
-        .map((pos, idx) => ({ pos, idx }))
-        .filter(({ pos, idx }) => pos.affiliation || pos.position || idx !== editingIndex)
+    const visiblePositions = positions.map((pos, idx) => ({ pos, idx })).filter(({ idx }) => idx !== editingIndex)
 
     const tableRows = visiblePositions.map(({ pos, idx }) => {
         const profileUrlCell = pos.profileUrl ? (

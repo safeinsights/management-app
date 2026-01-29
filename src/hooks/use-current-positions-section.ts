@@ -25,7 +25,7 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
                     return {
                         affiliation: String(obj.affiliation ?? ''),
                         position: String(obj.position ?? ''),
-                        profileUrl: (obj.profileUrl ? String(obj.profileUrl) : undefined) as string | undefined,
+                        profileUrl: obj.profileUrl ? String(obj.profileUrl) : '',
                     }
                 })
                 .filter((p) => p.affiliation || p.position || p.profileUrl)
@@ -44,6 +44,14 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
     useEffect(() => {
         form.setValues(defaults)
         form.resetDirty(defaults)
+
+        // Reset editing state when data loads with existing positions
+        // This prevents the race condition where editingIndex was set to 0
+        // before real data arrived
+        const hasData = defaults.positions.some((p) => p.affiliation || p.position)
+        if (hasData) {
+            setEditingIndex(null)
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [JSON.stringify(defaults.positions)])
 
@@ -105,7 +113,7 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         const cleaned: CurrentPositionValues = {
             affiliation: values.affiliation,
             position: values.position,
-            profileUrl: values.profileUrl?.trim() ? values.profileUrl.trim() : undefined,
+            profileUrl: values.profileUrl?.trim() ?? '',
         }
 
         const next = form.values.positions.map((pos, idx) => (idx === editingIndex ? cleaned : pos))

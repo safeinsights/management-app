@@ -16,6 +16,7 @@ export function CurrentPositionsSection({ data, refetch }: CurrentPositionsSecti
     const {
         form,
         editingIndex,
+        defaults,
         isPending,
         hasExistingPositions,
         showForm,
@@ -39,7 +40,7 @@ export function CurrentPositionsSection({ data, refetch }: CurrentPositionsSecti
 
             {hasExistingPositions && (
                 <PositionsTable
-                    positions={form.values.positions}
+                    positions={defaults.positions}
                     editingIndex={editingIndex}
                     form={form}
                     onEdit={openEdit}

@@ -16,20 +16,7 @@ const httpUrl = (label: string) =>
             message: `Please enter a valid URL (e.g., must start with http:// or https://).`,
         })
 
-const httpUrlOptional = (label: string) =>
-    z
-        .string()
-        .trim()
-        .optional()
-        .refine((v) => !v || v.startsWith('http://') || v.startsWith('https://'), {
-            message: `${label}: please enter a valid URL (must start with http:// or https://).`,
-        })
-        .refine((v) => !v || z.string().url().safeParse(v).success, {
-            message: `${label}: please enter a valid URL.`,
-        })
-
-// Like httpUrlOptional, but for form fields that use empty string as “unset”
-// (e.g., array fields with fixed slots).
+// For form fields that use empty string as "unset" (e.g., array fields with fixed slots).
 const httpUrlOptionalItem = (label: string) =>
     z
         .string()
@@ -81,7 +68,7 @@ export type EducationValues = z.infer<typeof educationSchema>
 export const currentPositionSchema = z.object({
     affiliation: trimmedRequired('Institution or organization affiliation'),
     position: trimmedRequired('Position'),
-    profileUrl: httpUrlOptional('Link to your profile page'),
+    profileUrl: httpUrlOptionalItem('Link to your profile page'),
 })
 
 export type CurrentPositionValues = z.infer<typeof currentPositionSchema>
