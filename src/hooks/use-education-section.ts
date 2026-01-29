@@ -41,7 +41,7 @@ export function useEducationSection(data: ResearcherProfileData | null, refetch:
             setIsEditing(!complete)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
+    }, [data, defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
 
     const saveMutation = useMutation({
         mutationFn: async (values: EducationValues) => updateEducationAction(values),

@@ -33,7 +33,7 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
             setIsEditing(!complete)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [defaults.firstName, defaults.lastName])
+    }, [data, defaults.firstName, defaults.lastName])
 
     const saveMutation = useMutation({
         mutationFn: async (values: PersonalInfoValues) => updatePersonalInfoAction(values),

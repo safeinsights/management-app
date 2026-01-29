@@ -43,7 +43,7 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
         }
         setInterestDraft('')
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
+    }, [data, defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
 
     const saveMutation = useMutation({
         mutationFn: async (values: ResearchDetailsValues) => updateResearchDetailsAction(values),
