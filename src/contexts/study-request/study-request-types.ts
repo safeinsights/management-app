@@ -36,6 +36,7 @@ export interface StudyRequestContextValue {
     form: UseFormReturnType<StudyProposalFormValues>
     existingFiles: ExistingFiles | undefined
     isFormValid: boolean
+    isStep1Valid: boolean
     codeFiles: CodeFileState
     codeFilesLastUpdated: Date | null
     codeSource: 'upload' | 'ide'

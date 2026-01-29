@@ -143,4 +143,10 @@ export const formReadinessSchema = z.object({
     hasAgreementDocument: z.literal(true),
 })
 
+// OpenStax step 1 only requires org + language selection
+export const openStaxStep1ReadinessSchema = z.object({
+    orgSlug: z.string().min(1),
+    language: z.enum(['R', 'PYTHON']),
+})
+
 export type FormReadinessInput = z.infer<typeof formReadinessSchema>
