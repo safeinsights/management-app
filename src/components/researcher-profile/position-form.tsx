@@ -82,9 +82,11 @@ export function PositionForm({
                     </div>
 
                     <Group justify="flex-end" mt="sm">
-                        <Button variant="default" onClick={onCancel}>
-                            Cancel
-                        </Button>
+                        {hasExistingPositions && (
+                            <Button variant="default" onClick={onCancel}>
+                                Cancel
+                            </Button>
+                        )}
                         <Button type="submit" disabled={!currentEditValid || isPending} loading={isPending}>
                             Save changes
                         </Button>
