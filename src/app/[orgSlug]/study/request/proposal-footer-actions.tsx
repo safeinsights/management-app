@@ -15,7 +15,7 @@ interface ProposalFooterActionsProps {
 
 const LegacyFooter: FC<ProposalFooterActionsProps> = ({ isDirty, isSaving, isFormValid, onSave }) => {
     return (
-        <Group mt="xxl" style={{ width: '100%' }}>
+        <Group mt="xs" style={{ width: '100%' }}>
             <Group style={{ marginLeft: 'auto' }}>
                 <Button
                     type="button"
@@ -44,7 +44,7 @@ const LegacyFooter: FC<ProposalFooterActionsProps> = ({ isDirty, isSaving, isFor
 
 const OpenStaxFooter: FC<ProposalFooterActionsProps> = ({ isSaving, isStep1Valid, onSave, onCancel }) => {
     return (
-        <Group mt="xxl" justify="space-between" style={{ width: '100%' }}>
+        <Group mt="xs" justify="space-between" style={{ width: '100%' }}>
             <Button type="button" variant="subtle" size="md" onClick={onCancel} disabled={isSaving}>
                 Cancel
             </Button>

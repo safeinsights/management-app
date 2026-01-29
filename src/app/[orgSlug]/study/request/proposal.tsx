@@ -3,11 +3,13 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
+import { Stack } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
+import { StudyRequestPageHeader } from './page-header'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -58,32 +60,35 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     }
 
     return (
-        <ProxyProvider
-            isDirty={form.isDirty()}
-            onSaveDraft={() =>
-                new Promise<void>((resolve, reject) => {
-                    saveDraft({
-                        onSuccess: () => {
-                            form.resetDirty()
-                            resolve()
-                        },
-                        onError: (error) => reject(error),
-                    })
-                })
-            }
-            isSavingDraft={isSaving}
-            onNavigateAway={() => reset()}
-        >
-            <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
-
-            <ProposalFooterActions
+        <Stack p="xl" gap="xl">
+            <StudyRequestPageHeader orgSlug={submittingOrgSlug} />
+            <ProxyProvider
                 isDirty={form.isDirty()}
-                isSaving={isSaving}
-                isFormValid={isFormValid}
-                isStep1Valid={isStep1Valid}
-                onSave={handleSave}
-                onCancel={handleCancel}
-            />
-        </ProxyProvider>
+                onSaveDraft={() =>
+                    new Promise<void>((resolve, reject) => {
+                        saveDraft({
+                            onSuccess: () => {
+                                form.resetDirty()
+                                resolve()
+                            },
+                            onError: (error) => reject(error),
+                        })
+                    })
+                }
+                isSavingDraft={isSaving}
+                onNavigateAway={() => reset()}
+            >
+                <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
+
+                <ProposalFooterActions
+                    isDirty={form.isDirty()}
+                    isSaving={isSaving}
+                    isFormValid={isFormValid}
+                    isStep1Valid={isStep1Valid}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                />
+            </ProxyProvider>
+        </Stack>
     )
 }
