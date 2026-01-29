@@ -71,7 +71,7 @@ export const JobStatusHelpText: FC<{
                     The code errored out!{' '}
                     {hasEncryptedLogs
                         ? 'Review the error logs before these can be shared with the researcher.'
-                        : 'Unknown reason, no logs were sent.'}
+                        : 'While logs are not available at this time, consider re-submitting an updated study code.'}
                 </Text>
                 {hasEncryptedLogs && (
                     <Group justify="flex-start" align="center">

@@ -76,7 +76,7 @@ describe('View Study Results', () => {
         renderWithProviders(<StudyResults job={job} />)
 
         // Should show no logs message
-        expect(screen.getByText(/Unknown reason, no logs were sent/)).toBeDefined()
+        expect(screen.getByText(/While logs are not available at this time/)).toBeDefined()
 
         // Should NOT show decrypt UI
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
@@ -114,7 +114,7 @@ describe('View Study Results', () => {
         expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
 
         // Should NOT show no logs message
-        expect(screen.queryByText(/Unknown reason, no logs were sent/)).toBeNull()
+        expect(screen.queryByText(/While logs are not available at this time/)).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {
