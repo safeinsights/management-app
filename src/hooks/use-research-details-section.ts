@@ -8,7 +8,7 @@ import { researchDetailsSchema, type ResearchDetailsValues } from '@/schema/rese
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 export function useResearchDetailsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
-    const [isEditing, setIsEditing] = useState(true)
+    const [isEditing, setIsEditing] = useState(false)
     const [interestDraft, setInterestDraft] = useState('')
 
     const defaults: ResearchDetailsValues = useMemo(

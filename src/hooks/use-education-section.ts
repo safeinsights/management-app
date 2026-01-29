@@ -8,7 +8,7 @@ import { educationSchema, type EducationValues } from '@/schema/researcher-profi
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 export function useEducationSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
-    const [isEditing, setIsEditing] = useState(true)
+    const [isEditing, setIsEditing] = useState(false)
 
     const defaults: EducationValues = useMemo(
         () => ({
