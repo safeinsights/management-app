@@ -54,7 +54,8 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         if (data && !hasExistingPositions && editingIndex === null) {
             setEditingIndex(0)
         }
-    }, [data, hasExistingPositions, editingIndex])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when data or hasExistingPositions changes, not editingIndex
+    }, [data, hasExistingPositions])
 
     const saveMutation = useMutation({
         mutationFn: async (positionsToSave: CurrentPositionValues[]) =>
