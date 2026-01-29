@@ -79,8 +79,8 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm" tt="uppercase">
-                {isFeatureFlagEnabled ? 'Step 1B' : 'Step 3 of 5'}
+            <Text fz="sm" fw={700} c="gray.6" pb="sm">
+                {isFeatureFlagEnabled ? 'STEP 1B' : 'STEP 3 OF 5'}
             </Text>
             <Title id="programming-language-title" order={4}>
                 Programming language

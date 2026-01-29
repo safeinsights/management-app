@@ -88,7 +88,7 @@ describe('StudyOrgSelector', () => {
             render(<FormWrapper />)
 
             await waitFor(() => {
-                expect(screen.getByText('Step 1 of 5')).toBeInTheDocument()
+                expect(screen.getByText(/step 1 of 5/i)).toBeInTheDocument()
             })
         })
 
@@ -110,7 +110,7 @@ describe('StudyOrgSelector', () => {
             render(<FormWrapper orgSlug="" />)
 
             await waitFor(() => {
-                expect(screen.getByText('Step 1')).toBeInTheDocument()
+                expect(screen.getByText(/^step 1$/i)).toBeInTheDocument()
             })
         })
 
@@ -118,7 +118,7 @@ describe('StudyOrgSelector', () => {
             render(<FormWrapper orgSlug="test-org" />)
 
             await waitFor(() => {
-                expect(screen.getByText('Step 1A')).toBeInTheDocument()
+                expect(screen.getByText(/step 1a/i)).toBeInTheDocument()
             })
         })
 

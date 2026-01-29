@@ -26,13 +26,13 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
 
     const content = isFeatureFlagEnabled
         ? {
-              step: hasOrgSelected ? 'Step 1A' : 'Step 1',
+              step: hasOrgSelected ? 'STEP 1A' : 'STEP 1',
               title: 'Data organization',
               description:
                   'Select the data organization your study is intended for: This crucial initial step ensures your proposal is routed correctly for review. You can save a draft or cancel at any time during the process.',
           }
         : {
-              step: 'Step 1 of 5',
+              step: 'STEP 1 OF 5',
               title: 'Select data organization',
               description:
                   'To begin your study proposal, please first select the data organization to which you wish to submit. This crucial initial step ensures your proposal is routed correctly for review. Once selected, you will proceed to fill in your study details and upload supporting documents. You can cancel at any time during the process.',
@@ -40,7 +40,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
 
     return (
         <Paper p="xl">
-            <Text fz="sm" fw={700} c="gray.6" pb="sm" tt="uppercase">
+            <Text fz="sm" fw={700} c="gray.6" pb="sm">
                 {content.step}
             </Text>
             <Title order={4}>{content.title}</Title>

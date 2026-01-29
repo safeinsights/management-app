@@ -54,7 +54,7 @@ export default function StudyUploadPage() {
             <Paper>
                 <StudyCodeUpload
                     studyUploadForm={studyUploadForm}
-                    stepIndicator="Step 4 of 5"
+                    stepIndicator="STEP 4 OF 5"
                     title="Study code"
                     orgSlug={study.orgSlug || orgSlug}
                     language={(study.language as Language) || 'PYTHON'}
