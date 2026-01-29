@@ -47,6 +47,15 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
     }, [JSON.stringify(defaults.positions)])
 
+    const hasExistingPositions = defaults.positions.some((p) => p.affiliation || p.position)
+
+    // Auto-open form when there are no existing positions
+    useEffect(() => {
+        if (!hasExistingPositions && editingIndex === null) {
+            setEditingIndex(0)
+        }
+    }, [hasExistingPositions, editingIndex])
+
     const saveMutation = useMutation({
         mutationFn: async (positionsToSave: CurrentPositionValues[]) =>
             updateCurrentPositionsAction({ positions: positionsToSave }),
@@ -109,7 +118,6 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         saveMutation.mutate(next)
     }
 
-    const hasExistingPositions = defaults.positions.some((p) => p.affiliation || p.position)
     const showForm = editingIndex !== null || !hasExistingPositions
     const isAdding = editingIndex !== null && editingIndex >= defaults.positions.length
     const currentEditValid =
