@@ -1,7 +1,7 @@
 'use server'
 
 import { Action, z } from '@/server/actions/action'
-import { updateClerkUserMetadata } from '@/server/clerk'
+import { updateClerkUserName, updateClerkUserMetadata } from '@/server/clerk'
 import type { Json } from '@/database/types'
 import {
     currentPositionSchema,
@@ -59,6 +59,9 @@ export const updatePersonalInfoAction = new Action('updatePersonalInfoAction', {
     .requireAbilityTo('update', 'User')
     .handler(async ({ session, params, db }) => {
         const userId = session.user.id
+
+        // Update Clerk first - if this fails, the database won't be updated
+        await updateClerkUserName(userId, params.firstName, params.lastName)
 
         await db
             .updateTable('user')
