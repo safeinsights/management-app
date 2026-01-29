@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useForm, zodResolver } from '@/common'
-import { Anchor, Button, Group, Paper, Pill, PillsInput, Stack, Text, TextInput, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
-import { updateResearchDetailsAction } from '@/server/actions/researcher-profile.actions'
-import { researchDetailsSchema, type ResearchDetailsValues } from '@/schema/researcher-profile'
+import { Anchor, Button, Group, Paper, Pill, Stack, Text, TextInput } from '@mantine/core'
+import { useResearchDetailsSection } from '@/hooks/use-research-details-section'
+import { SectionHeader } from '@/components/researcher-profile/section-header'
+import { DisplayField } from '@/components/researcher-profile/display-field'
+import { ResearchInterestsInput } from '@/components/researcher-profile/research-interests-input'
 import { FormFieldLabel } from '@/components/form-field-label'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
@@ -15,134 +14,47 @@ interface ResearchDetailsSectionProps {
 }
 
 export function ResearchDetailsSection({ data, refetch }: ResearchDetailsSectionProps) {
-    const [isEditing, setIsEditing] = useState(true)
-    const [interestDraft, setInterestDraft] = useState('')
+    const {
+        form,
+        isEditing,
+        setIsEditing,
+        defaults,
+        isPending,
+        interestDraft,
+        setInterestDraft,
+        addInterest,
+        removeInterest,
+        handleSubmit,
+    } = useResearchDetailsSection(data, refetch)
 
-    const defaults: ResearchDetailsValues = useMemo(
-        () => ({
-            researchInterests: (data?.profile.researchInterests ?? []) as string[],
-            detailedPublicationsUrl: data?.profile.detailedPublicationsUrl ?? '',
-            featuredPublicationsUrls: ((data?.profile.featuredPublicationsUrls ?? []) as string[]).slice(0, 2),
-        }),
-        [
-            data?.profile.researchInterests,
-            data?.profile.detailedPublicationsUrl,
-            data?.profile.featuredPublicationsUrls,
-        ],
-    )
+    const interestPills = (defaults.researchInterests || []).map((item, idx) => (
+        <Pill key={`${item}-${idx}`}>{item}</Pill>
+    ))
 
-    const form = useForm<ResearchDetailsValues>({
-        mode: 'controlled',
-        initialValues: defaults,
-        validate: zodResolver(researchDetailsSchema),
-        validateInputOnBlur: true,
-    })
-
-    useEffect(() => {
-        form.setValues(defaults)
-        form.resetDirty(defaults)
-        const complete = Boolean(defaults.researchInterests?.length) && Boolean(defaults.detailedPublicationsUrl)
-        setIsEditing(!complete)
-        setInterestDraft('')
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [defaults.detailedPublicationsUrl, (defaults.researchInterests || []).join('|')])
-
-    useEffect(() => {
-        form.validate()
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
-    }, [])
-
-    const saveMutation = useMutation({
-        mutationFn: async (values: ResearchDetailsValues) => updateResearchDetailsAction(values),
-        onSuccess: async (res) => {
-            if (res && 'error' in res) {
-                notifications.show({ title: 'Save failed', message: String(res.error), color: 'red' })
-                return
-            }
-            await refetch()
-            setIsEditing(false)
-            notifications.show({ title: 'Saved', message: 'Research details updated', color: 'green' })
-        },
-    })
-
-    const addInterest = () => {
-        const v = interestDraft.trim()
-        if (!v) return
-
-        const existing = form.values.researchInterests || []
-        if (existing.length >= 5) return
-        if (existing.some((x) => x.toLowerCase() === v.toLowerCase())) {
-            setInterestDraft('')
-            return
-        }
-
-        form.setFieldValue('researchInterests', [...existing, v])
-        form.validateField('researchInterests')
-        setInterestDraft('')
-    }
-
-    const removeInterest = (idx: number) => {
-        const next = [...(form.values.researchInterests || [])]
-        next.splice(idx, 1)
-        form.setFieldValue('researchInterests', next)
-        form.validateField('researchInterests')
-    }
-
-    const handleSubmit = (values: ResearchDetailsValues) => {
-        const featured = (values.featuredPublicationsUrls || []).filter((v) => v && v.trim()).slice(0, 2)
-        saveMutation.mutate({
-            ...values,
-            featuredPublicationsUrls: featured,
-        })
-    }
+    const featuredUrls = (defaults.featuredPublicationsUrls || []).filter((u) => u)
+    const hasFeaturedUrls = featuredUrls.length > 0
+    const featuredLinks = featuredUrls.map((u, idx) => (
+        <Anchor key={idx} href={u} target="_blank">
+            {u}
+        </Anchor>
+    ))
 
     return (
         <Paper p="xl" radius="sm">
-            <Group justify="space-between" align="center" mb="md">
-                <Title order={3}>Research details</Title>
-                {!isEditing && (
-                    <Button variant="subtle" onClick={() => setIsEditing(true)}>
-                        Edit
-                    </Button>
-                )}
-            </Group>
+            <SectionHeader title="Research details" isEditing={isEditing} onEdit={() => setIsEditing(true)} />
 
             {isEditing ? (
                 <form onSubmit={form.onSubmit(handleSubmit)}>
                     <Stack gap="md">
                         <div>
                             <FormFieldLabel label="Research interests" required inputId="researchInterests" />
-                            <PillsInput
-                                id="researchInterests"
-                                error={form.errors.researchInterests as unknown as string}
-                            >
-                                <Pill.Group>
-                                    {(form.values.researchInterests || []).map((item, idx) => (
-                                        <Pill
-                                            key={`${item}-${idx}`}
-                                            withRemoveButton
-                                            onRemove={() => removeInterest(idx)}
-                                        >
-                                            {item}
-                                        </Pill>
-                                    ))}
-                                    <PillsInput.Field
-                                        placeholder="Type a research interest and press enter"
-                                        value={interestDraft}
-                                        onChange={(e) => setInterestDraft(e.currentTarget.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault()
-                                                addInterest()
-                                            }
-                                        }}
-                                        disabled={(form.values.researchInterests || []).length >= 5}
-                                    />
-                                </Pill.Group>
-                            </PillsInput>
-                            <Text size="sm" mt={4}>
-                                Include up to five area(s) of research interest.
-                            </Text>
+                            <ResearchInterestsInput
+                                form={form}
+                                draftValue={interestDraft}
+                                onDraftChange={setInterestDraft}
+                                onAdd={addInterest}
+                                onRemove={removeInterest}
+                            />
                         </div>
 
                         <div>
@@ -173,40 +85,18 @@ export function ResearchDetailsSection({ data, refetch }: ResearchDetailsSection
                                 <TextInput
                                     id="featured0"
                                     placeholder="https://first-publication-link"
-                                    value={form.values.featuredPublicationsUrls?.[0] ?? ''}
-                                    onChange={(e) =>
-                                        form.setFieldValue('featuredPublicationsUrls', [
-                                            e.currentTarget.value,
-                                            form.values.featuredPublicationsUrls?.[1] ?? '',
-                                        ])
-                                    }
-                                    error={
-                                        (form.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[0]
-                                    }
+                                    {...form.getInputProps('featuredPublicationsUrls.0')}
                                 />
                                 <TextInput
                                     id="featured1"
                                     placeholder="https://second-publication-link"
-                                    value={form.values.featuredPublicationsUrls?.[1] ?? ''}
-                                    onChange={(e) =>
-                                        form.setFieldValue('featuredPublicationsUrls', [
-                                            form.values.featuredPublicationsUrls?.[0] ?? '',
-                                            e.currentTarget.value,
-                                        ])
-                                    }
-                                    error={
-                                        (form.errors.featuredPublicationsUrls as unknown as string[] | undefined)?.[1]
-                                    }
+                                    {...form.getInputProps('featuredPublicationsUrls.1')}
                                 />
                             </Stack>
                         </div>
 
                         <Group justify="flex-end" mt="xl">
-                            <Button
-                                type="submit"
-                                disabled={!form.isValid() || saveMutation.isPending}
-                                loading={saveMutation.isPending}
-                            >
+                            <Button type="submit" disabled={!form.isValid() || isPending} loading={isPending}>
                                 Save changes
                             </Button>
                         </Group>
@@ -214,38 +104,23 @@ export function ResearchDetailsSection({ data, refetch }: ResearchDetailsSection
                 </form>
             ) : (
                 <Stack gap="sm">
-                    <div>
-                        <Text fw={600} size="sm">
-                            Research interests
-                        </Text>
+                    <DisplayField label="Research interests">
                         <Group gap="xs" mt={6}>
-                            {(defaults.researchInterests || []).map((item, idx) => (
-                                <Pill key={`${item}-${idx}`}>{item}</Pill>
-                            ))}
+                            {interestPills}
                         </Group>
-                    </div>
-                    <div>
-                        <Text fw={600} size="sm">
-                            Detailed publications URL
-                        </Text>
+                    </DisplayField>
+                    <DisplayField label="Detailed publications URL">
                         <Anchor href={defaults.detailedPublicationsUrl} target="_blank">
                             {defaults.detailedPublicationsUrl}
                         </Anchor>
-                    </div>
-                    {defaults.featuredPublicationsUrls?.length ? (
-                        <div>
-                            <Text fw={600} size="sm">
-                                Featured publications URLs
-                            </Text>
+                    </DisplayField>
+                    {hasFeaturedUrls && (
+                        <DisplayField label="Featured publications URLs">
                             <Stack gap={4} mt={4}>
-                                {defaults.featuredPublicationsUrls.map((u, idx) => (
-                                    <Anchor key={idx} href={u} target="_blank">
-                                        {u}
-                                    </Anchor>
-                                ))}
+                                {featuredLinks}
                             </Stack>
-                        </div>
-                    ) : null}
+                        </DisplayField>
+                    )}
                 </Stack>
             )}
         </Paper>

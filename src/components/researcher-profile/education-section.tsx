@@ -1,11 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useForm, zodResolver } from '@/common'
-import { Button, Checkbox, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
-import { notifications } from '@mantine/notifications'
-import { updateEducationAction } from '@/server/actions/researcher-profile.actions'
-import { educationSchema, type EducationValues } from '@/schema/researcher-profile'
+import { Button, Checkbox, Group, Paper, Select, Stack, Text, TextInput } from '@mantine/core'
+import { useEducationSection } from '@/hooks/use-education-section'
+import { SectionHeader } from '@/components/researcher-profile/section-header'
+import { DisplayField } from '@/components/researcher-profile/display-field'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { DEGREE_OPTIONS } from '@/lib/degree-options'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
@@ -16,70 +14,16 @@ interface EducationSectionProps {
 }
 
 export function EducationSection({ data, refetch }: EducationSectionProps) {
-    const [isEditing, setIsEditing] = useState(true)
+    const { form, isEditing, setIsEditing, defaults, isPending, handleSubmit } = useEducationSection(data, refetch)
 
-    const defaults: EducationValues = useMemo(
-        () => ({
-            educationalInstitution: data?.profile.educationInstitution ?? '',
-            degree: data?.profile.educationDegree ?? '',
-            fieldOfStudy: data?.profile.educationFieldOfStudy ?? '',
-            isCurrentlyPursuing: Boolean(data?.profile.educationIsCurrentlyPursuing ?? false),
-        }),
-        [
-            data?.profile.educationInstitution,
-            data?.profile.educationDegree,
-            data?.profile.educationFieldOfStudy,
-            data?.profile.educationIsCurrentlyPursuing,
-        ],
-    )
-
-    const form = useForm<EducationValues>({
-        mode: 'controlled',
-        initialValues: defaults,
-        validate: zodResolver(educationSchema),
-        validateInputOnBlur: true,
-    })
-
-    useEffect(() => {
-        form.setValues(defaults)
-        form.resetDirty(defaults)
-        const complete =
-            Boolean(defaults.educationalInstitution) && Boolean(defaults.degree) && Boolean(defaults.fieldOfStudy)
-        setIsEditing(!complete)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
-    }, [defaults.educationalInstitution, defaults.degree, defaults.fieldOfStudy])
-
-    useEffect(() => {
-        form.validate()
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
-    }, [])
-
-    const saveMutation = useMutation({
-        mutationFn: async (values: EducationValues) => updateEducationAction(values),
-        onSuccess: async (res) => {
-            if (res && 'error' in res) {
-                notifications.show({ title: 'Save failed', message: String(res.error), color: 'red' })
-                return
-            }
-            await refetch()
-            setIsEditing(false)
-            notifications.show({ title: 'Saved', message: 'Education updated', color: 'green' })
-        },
-    })
+    const degreeLabel = defaults.isCurrentlyPursuing ? 'Degree (currently pursuing)' : 'Degree'
 
     return (
         <Paper p="xl" radius="sm">
-            <Group justify="space-between" align="center" mb="md">
-                <Title order={3}>Highest level of education</Title>
-                {!isEditing && (
-                    <Button variant="subtle" onClick={() => setIsEditing(true)}>
-                        Edit
-                    </Button>
-                )}
-            </Group>
+            <SectionHeader title="Highest level of education" isEditing={isEditing} onEdit={() => setIsEditing(true)} />
 
             {isEditing ? (
-                <form onSubmit={form.onSubmit((values) => saveMutation.mutate(values))}>
+                <form onSubmit={form.onSubmit(handleSubmit)}>
                     <Stack gap="md">
                         <div>
                             <FormFieldLabel label="Educational institution" required inputId="educationalInstitution" />
@@ -117,11 +61,7 @@ export function EducationSection({ data, refetch }: EducationSectionProps) {
                         />
 
                         <Group justify="flex-end" mt="xl">
-                            <Button
-                                type="submit"
-                                disabled={!form.isValid() || saveMutation.isPending}
-                                loading={saveMutation.isPending}
-                            >
+                            <Button type="submit" disabled={!form.isValid() || isPending} loading={isPending}>
                                 Save changes
                             </Button>
                         </Group>
@@ -129,25 +69,16 @@ export function EducationSection({ data, refetch }: EducationSectionProps) {
                 </form>
             ) : (
                 <Stack gap="sm">
-                    <div>
-                        <Text fw={600} size="sm">
-                            Educational institution
-                        </Text>
+                    <DisplayField label="Educational institution">
                         <Text>{defaults.educationalInstitution}</Text>
-                    </div>
+                    </DisplayField>
                     <Group grow>
-                        <div>
-                            <Text fw={600} size="sm">
-                                {defaults.isCurrentlyPursuing ? 'Degree (currently pursuing)' : 'Degree'}
-                            </Text>
+                        <DisplayField label={degreeLabel}>
                             <Text>{defaults.degree}</Text>
-                        </div>
-                        <div>
-                            <Text fw={600} size="sm">
-                                Field of study
-                            </Text>
+                        </DisplayField>
+                        <DisplayField label="Field of study">
                             <Text>{defaults.fieldOfStudy}</Text>
-                        </div>
+                        </DisplayField>
                     </Group>
                 </Stack>
             )}

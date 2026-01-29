@@ -1,0 +1,65 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useForm, zodResolver } from '@/common'
+import { notifications } from '@mantine/notifications'
+import { updatePersonalInfoAction } from '@/server/actions/researcher-profile.actions'
+import { personalInfoSchema, type PersonalInfoValues } from '@/schema/researcher-profile'
+import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
+
+export function usePersonalInfoSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
+    const [isEditing, setIsEditing] = useState(true)
+
+    const defaults: PersonalInfoValues = useMemo(
+        () => ({
+            firstName: data?.user.firstName ?? '',
+            lastName: data?.user.lastName ?? '',
+        }),
+        [data?.user.firstName, data?.user.lastName],
+    )
+
+    const form = useForm<PersonalInfoValues>({
+        mode: 'controlled',
+        initialValues: defaults,
+        validate: zodResolver(personalInfoSchema),
+        validateInputOnBlur: true,
+    })
+
+    useEffect(() => {
+        form.setValues(defaults)
+        form.resetDirty(defaults)
+        const complete = Boolean(defaults.firstName) && Boolean(defaults.lastName)
+        setIsEditing(!complete)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
+    }, [defaults.firstName, defaults.lastName])
+
+    useEffect(() => {
+        form.validate()
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- run once
+    }, [])
+
+    const saveMutation = useMutation({
+        mutationFn: async (values: PersonalInfoValues) => updatePersonalInfoAction(values),
+        onSuccess: async () => {
+            await refetch()
+            setIsEditing(false)
+            notifications.show({ title: 'Saved', message: 'Personal information updated', color: 'green' })
+        },
+        onError: (error) => {
+            notifications.show({ title: 'Save failed', message: String(error), color: 'red' })
+        },
+    })
+
+    const handleSubmit = (values: PersonalInfoValues) => {
+        saveMutation.mutate(values)
+    }
+
+    return {
+        form,
+        isEditing,
+        setIsEditing,
+        defaults,
+        isPending: saveMutation.isPending,
+        handleSubmit,
+    }
+}
