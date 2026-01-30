@@ -36,6 +36,7 @@ export const GET = wrapApiOrgAction(async () => {
             'study.title',
             'study.dataSources',
             'study.outputMimeType',
+            'study.researcherId',
             sql<string>`concat(study.container_location, ':', study_job.id )`.as('containerLocation'),
         ])
         .execute()
