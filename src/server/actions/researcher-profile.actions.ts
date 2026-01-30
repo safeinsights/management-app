@@ -1,7 +1,7 @@
 'use server'
 
 import { Action, z } from '@/server/actions/action'
-import { updateClerkUserName, updateClerkUserMetadata } from '@/server/clerk'
+import { updateClerkUserName } from '@/server/clerk'
 import type { Json } from '@/database/types'
 import {
     currentPositionSchema,
@@ -68,9 +68,6 @@ export const updatePersonalInfoAction = new Action('updatePersonalInfoAction', {
             .set({ firstName: params.firstName, lastName: params.lastName })
             .where('id', '=', userId)
             .executeTakeFirstOrThrow()
-
-        // Sync to Clerk metadata so other parts of app see updated `fullName` quickly.
-        await updateClerkUserMetadata(userId)
 
         return { success: true }
     })

@@ -2,11 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { db } from '@/database'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 import { updatePersonalInfoAction } from './researcher-profile.actions'
-import { updateClerkUserName, updateClerkUserMetadata } from '@/server/clerk'
+import { updateClerkUserName } from '@/server/clerk'
 
 vi.mock('@/server/clerk', () => ({
     updateClerkUserName: vi.fn(),
-    updateClerkUserMetadata: vi.fn(),
 }))
 
 describe('researcher-profile.actions', () => {
@@ -43,13 +42,11 @@ describe('researcher-profile.actions', () => {
             const { user } = await mockSessionWithTestData()
 
             vi.mocked(updateClerkUserName).mockResolvedValueOnce(undefined)
-            vi.mocked(updateClerkUserMetadata).mockResolvedValueOnce({} as never)
 
             const result = await updatePersonalInfoAction({ firstName: 'Jane', lastName: 'Smith' })
 
-            // Clerk functions were called in order
+            // Clerk function was called
             expect(updateClerkUserName).toHaveBeenCalledWith(user.id, 'Jane', 'Smith')
-            expect(updateClerkUserMetadata).toHaveBeenCalledWith(user.id)
 
             // DB was updated
             const dbUser = await db
