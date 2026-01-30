@@ -48,6 +48,11 @@ export function usePersonalInfoSection(data: ResearcherProfileData | null, refet
     })
 
     const handleSubmit = (values: PersonalInfoValues) => {
+        if (!form.isDirty()) {
+            // No changes - just close edit mode without API call
+            setIsEditing(false)
+            return
+        }
         saveMutation.mutate(values)
     }
 

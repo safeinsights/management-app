@@ -116,6 +116,10 @@ describe('PersonalInfoSection', () => {
         const editButton = screen.getByRole('button', { name: /edit/i })
         await user.click(editButton)
 
+        const firstNameInput = screen.getByPlaceholderText('Enter your first name')
+        await user.clear(firstNameInput)
+        await user.type(firstNameInput, 'Jane')
+
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await user.click(saveButton)
 
@@ -141,5 +145,30 @@ describe('PersonalInfoSection', () => {
             expect(emailInput.disabled).toBe(true)
             expect(emailInput.value).toBe('john.doe@example.com')
         })
+    })
+
+    it('should close edit mode without API call when no changes are made', async () => {
+        const user = userEvent.setup()
+        const data = createProfileData()
+        const refetch = vi.fn().mockResolvedValue(undefined)
+
+        renderWithProviders(<PersonalInfoSection data={data} refetch={refetch} />)
+
+        const editButton = screen.getByRole('button', { name: /edit/i })
+        await user.click(editButton)
+
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText('Enter your first name')).toBeDefined()
+        })
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await user.click(saveButton)
+
+        await waitFor(() => {
+            expect(screen.getByText('John')).toBeDefined()
+        })
+
+        expect(updatePersonalInfoAction).not.toHaveBeenCalled()
+        expect(refetch).not.toHaveBeenCalled()
     })
 })

@@ -1,6 +1,6 @@
 'use client'
 
-import { Container, Divider, Stack, Text, Title } from '@mantine/core'
+import { Container, Stack, Text, Title } from '@mantine/core'
 import { useResearcherProfile } from '@/hooks/use-researcher-profile'
 import {
     PersonalInfoSection,
@@ -14,7 +14,7 @@ export function ResearcherProfileClientPage() {
 
     return (
         <Container size="lg" py="xl">
-            <Stack gap="sm">
+            <Stack gap="xl">
                 <Title order={1}>Researcher Profile</Title>
                 <Text c="dimmed">
                     Create and manage your researcher profile. Adding professional details helps establish your
@@ -24,15 +24,9 @@ export function ResearcherProfileClientPage() {
 
                 <PersonalInfoSection data={data} refetch={refetch} />
 
-                <Divider my="sm" />
-
                 <EducationSection data={data} refetch={refetch} />
 
-                <Divider my="sm" />
-
                 <CurrentPositionsSection data={data} refetch={refetch} />
-
-                <Divider my="sm" />
 
                 <ResearchDetailsSection data={data} refetch={refetch} />
             </Stack>
