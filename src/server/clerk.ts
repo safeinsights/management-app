@@ -76,6 +76,12 @@ export const updateClerkUserMetadata = async (userId: string) => {
     return metadata
 }
 
+export const updateClerkUserName = async (userId: string, firstName: string, lastName: string) => {
+    const { clerkId } = await db.selectFrom('user').select('clerkId').where('id', '=', userId).executeTakeFirstOrThrow()
+    const client = await clerkClient()
+    await client.users.updateUser(clerkId, { firstName, lastName })
+}
+
 export const syncCurrentClerkUser = async () => {
     const clerkUser = await currentUser()
 

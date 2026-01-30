@@ -130,6 +130,8 @@ export const Routes = {
 
     researcherStudies: '/researcher/studies' as Route,
 
+    researcherProfile: '/researcher/profile' as Route,
+
     reviewerKey: '/reviewer-key' as Route,
 
     // -------------------------------------------------------------------------
