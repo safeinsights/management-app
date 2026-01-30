@@ -3,9 +3,7 @@
 import { StudyOrgSelector } from '@/components/study/study-org-selector'
 import { ProgrammingLanguageSection } from '@/components/study/programming-language-section'
 import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
-import { EditableText } from '@/components/editable-text'
-import { FormFieldLabel } from '@/components/form-field-label'
-import { Paper } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
 import { StudyProposalFormValues } from './step1-schema'
@@ -19,28 +17,20 @@ type StudyProposalFormProps = {
 
 const LegacyStudyProposalForm: FC<StudyProposalFormProps> = ({ studyProposalForm, existingFiles }) => {
     return (
-        <>
+        <Stack gap="xxl">
             <StudyOrgSelector form={studyProposalForm} />
             <RequestStudyDetails studyProposalForm={studyProposalForm} existingFiles={existingFiles} />
             <ProgrammingLanguageSection form={studyProposalForm} />
-        </>
+        </Stack>
     )
 }
 
 const EditableStudyProposalForm: FC<StudyProposalFormProps> = ({ studyProposalForm }) => {
     return (
-        <>
+        <Stack gap="xxl">
             <StudyOrgSelector form={studyProposalForm} />
-            <Paper p="xl">
-                <FormFieldLabel label="Study Description" inputId="description" />
-                <EditableText
-                    id="description"
-                    placeholder="Enter study description..."
-                    {...studyProposalForm.getInputProps('description')}
-                />
-            </Paper>
             <ProgrammingLanguageSection form={studyProposalForm} />
-        </>
+        </Stack>
     )
 }
 

@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Button, Group } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
+import { Stack } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
+import { ProposalFooterActions } from './proposal-footer-actions'
+import { StudyRequestPageHeader } from './page-header'
 import type { DraftStudyData } from '@/contexts/study-request'
 
 interface StudyProposalProps {
@@ -18,7 +20,8 @@ interface StudyProposalProps {
 export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData }) => {
     const router = useRouter()
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
-    const { form, existingFiles, isFormValid, saveDraft, isSaving, reset, initFromDraft } = useStudyRequest()
+    const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
+        useStudyRequest()
 
     useEffect(() => {
         // Only initialize if we have draft data to load
@@ -51,49 +54,41 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
         })
     }
 
-    return (
-        <ProxyProvider
-            isDirty={form.isDirty()}
-            onSaveDraft={() =>
-                new Promise<void>((resolve, reject) => {
-                    saveDraft({
-                        onSuccess: () => {
-                            form.resetDirty()
-                            resolve()
-                        },
-                        onError: (error) => reject(error),
-                    })
-                })
-            }
-            isSavingDraft={isSaving}
-            onNavigateAway={() => reset()}
-        >
-            <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
+    const handleCancel = () => {
+        reset()
+        router.back()
+    }
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="md"
-                        disabled={!form.isDirty() || isSaving}
-                        loading={isSaving}
-                        onClick={() => handleSave(false)}
-                    >
-                        Save as draft
-                    </Button>
-                    <Button
-                        type="button"
-                        size="md"
-                        variant="primary"
-                        disabled={!isFormValid || isSaving}
-                        loading={isSaving}
-                        onClick={() => handleSave(true)}
-                    >
-                        Save and proceed to code upload
-                    </Button>
-                </Group>
-            </Group>
-        </ProxyProvider>
+    return (
+        <Stack p="xl" gap="xl">
+            <StudyRequestPageHeader orgSlug={submittingOrgSlug} />
+            <ProxyProvider
+                isDirty={form.isDirty()}
+                onSaveDraft={() =>
+                    new Promise<void>((resolve, reject) => {
+                        saveDraft({
+                            onSuccess: () => {
+                                form.resetDirty()
+                                resolve()
+                            },
+                            onError: (error) => reject(error),
+                        })
+                    })
+                }
+                isSavingDraft={isSaving}
+                onNavigateAway={() => reset()}
+            >
+                <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
+
+                <ProposalFooterActions
+                    isDirty={form.isDirty()}
+                    isSaving={isSaving}
+                    isFormValid={isFormValid}
+                    isStep1Valid={isStep1Valid}
+                    onSave={handleSave}
+                    onCancel={handleCancel}
+                />
+            </ProxyProvider>
+        </Stack>
     )
 }

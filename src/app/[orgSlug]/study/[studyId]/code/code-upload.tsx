@@ -107,7 +107,7 @@ export function CodeUploadPage({
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    Step 4 of 5
+                    STEP 4 OF 5
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />

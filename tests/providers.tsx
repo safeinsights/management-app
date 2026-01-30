@@ -1,10 +1,12 @@
 import { MantineProvider } from '@mantine/core'
+import { useForm } from '@mantine/form'
 import { theme } from '@/theme'
 import { ModalsProvider } from '@mantine/modals'
 // eslint-disable-next-line no-restricted-imports
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FC, ReactNode } from 'react'
 import { ClerkProvider } from '@clerk/nextjs'
+import { initialFormValues, type StudyProposalFormValues } from '@/contexts/study-request'
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -31,4 +33,14 @@ export const TestingProviders: FC<{ children: ReactNode }> = ({ children }) => {
 
 export const TestingProvidersWrapper = {
     wrapper: TestingProviders,
+}
+
+// Hook to create a test form with default values
+export const useTestStudyProposalForm = (overrides?: Partial<StudyProposalFormValues>) => {
+    return useForm<StudyProposalFormValues>({
+        initialValues: {
+            ...initialFormValues,
+            ...overrides,
+        },
+    })
 }
