@@ -31,7 +31,11 @@ export const studyProposalFormSchema = z
         language: z
             .enum(['R', 'PYTHON'])
             .nullable()
-            .refine((val) => val !== null, { message: 'Programming language is required' }),
+            .superRefine((val, ctx) => {
+                if (val === null) {
+                    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Programming language is required' })
+                }
+            }),
         title: z
             .string()
             .min(5, { message: 'Title must be at least 5 characters long' })

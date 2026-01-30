@@ -5,9 +5,9 @@ import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 // Mock the AWS SDK CodeBuildClient and StartBuildCommand
 vi.mock('@aws-sdk/client-codebuild', () => {
     const mockSend = vi.fn(() => ({ build: { id: 'mock-build-id' } }))
-    const mockCodeBuildClient = vi.fn(() => ({
-        send: mockSend,
-    }))
+    const mockCodeBuildClient = vi.fn(function () {
+        return { send: mockSend }
+    })
     return {
         CodeBuildClient: mockCodeBuildClient,
         StartBuildCommand: vi.fn(), // Mock StartBuildCommand constructor
