@@ -4,6 +4,8 @@ import { mockSessionWithTestData } from '@/tests/unit.helpers'
 import { updatePersonalInfoAction } from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
+// Module-level mock required: using mockClerkSession to mock clerkClient causes timeouts
+// due to async interactions with the Action middleware. Mocking the wrapper directly works.
 vi.mock('@/server/clerk', () => ({
     updateClerkUserName: vi.fn(),
 }))
