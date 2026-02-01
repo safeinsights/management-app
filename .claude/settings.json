@@ -2,18 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx vitest:*)",
-      "Bash(npm run:*)",
       "Bash(npm test:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "Bash(npm view:*)",
-      "Bash(grep:*)",
       "Bash(npx tsc:*)",
       "Bash(npx eslint:*)",
       "Bash(npx prettier:*)",
       "Bash(npx playwright:*)",
-      "Bash(bin/migrate-dev-db:*)",
       "Bash(git add:*)",
-      "Bash(ls:*)",
       "mcp__playwright-test__test_run",
       "mcp__playwright-test__test_debug",
       "mcp__playwright-test__browser_snapshot",
@@ -28,8 +24,7 @@
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
       "mcp__playwright-test__browser_navigate",
-      "WebFetch(domain:github.com)",
-      "Bash(wc:*)"
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   },

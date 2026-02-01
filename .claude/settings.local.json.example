@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bin/migrate-dev-db:*)",
+      "Bash(npm run:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)"
+    ],
+    "deny": []
+  }
+}
