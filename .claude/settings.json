@@ -28,7 +28,12 @@
       "mcp__playwright-test__browser_close",
       "mcp__playwright-test__browser_navigate"
     ],
-    "deny": []
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Write(.env)",
+      "Write(.env.*)"
+    ]
   },
   "enabledMcpjsonServers": [
     "playwright-test"
