@@ -34,19 +34,15 @@
       "WebSearch",
       "WebFetch(domain:clerk.com)",
       "WebFetch(domain:clerk-bapi.redoc.ly)",
-      "mcp__shotter__ui_view",
-      "mcp__shotter__select_device",
       "Bash(npx tsx:*)",
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
-      "mcp__next-devtools__nextjs_docs",
       "mcp__playwright-test__browser_navigate",
       "WebFetch(domain:github.com)",
       "Bash(wc:*)"
     ],
     "deny": []
   },
-  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright-test"
   ]
