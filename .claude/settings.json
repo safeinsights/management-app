@@ -36,7 +36,6 @@
       "WebFetch(domain:clerk-bapi.redoc.ly)",
       "mcp__shotter__ui_view",
       "mcp__shotter__select_device",
-      "Bash(git -C /Users/nas/code/si/management-app log --oneline -20)",
       "Bash(npx tsx:*)",
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",

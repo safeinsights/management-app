@@ -28,3 +28,6 @@ next-env.d.ts
 /.clerk/
 
 volume/
+
+# Claude Code local settings (user-specific, not shared)
+.claude/settings.local.json
