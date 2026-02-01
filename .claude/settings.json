@@ -33,7 +33,6 @@
       "Bash(git mv:*)",
       "WebSearch",
       "WebFetch(domain:clerk.com)",
-      "WebFetch(domain:clerk-bapi.redoc.ly)",
       "Bash(npx tsx:*)",
       "mcp__playwright-test__browser_click",
       "mcp__playwright-test__browser_close",
