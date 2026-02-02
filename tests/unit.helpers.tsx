@@ -141,6 +141,7 @@ export const insertTestStudyData = async ({
         studyId: study.id,
         jobs: [job0, job1, job2],
         jobIds: [job0.id, job1.id, job2.id],
+        researcherId: researcherId,
     }
 }
 
