@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bin/migrate-dev-db:*)",
+      "Bash(npm test:*)",
+      "Bash(npx vitest:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)"
+    ],
+    "deny": []
+  }
+}
