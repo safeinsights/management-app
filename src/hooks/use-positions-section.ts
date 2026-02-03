@@ -13,22 +13,15 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
     const [editingIndex, setEditingIndex] = useState<number | null>(null)
 
     const defaults: PositionsValues = useMemo(() => {
-        const raw = (data?.profile.positions ?? []) as unknown
-        if (Array.isArray(raw)) {
-            const positions = raw
-                .map((p) => {
-                    const obj = p as Record<string, unknown>
-                    return {
-                        affiliation: String(obj.affiliation ?? ''),
-                        position: String(obj.position ?? ''),
-                        profileUrl: obj.profileUrl ? String(obj.profileUrl) : '',
-                    }
-                })
-                .filter((p) => p.affiliation || p.position || p.profileUrl)
-            return { positions: positions.length > 0 ? positions : [emptyPosition] }
-        }
-        return { positions: [emptyPosition] }
-    }, [data?.profile.positions])
+        const positions = (data?.positions ?? [])
+            .map((p) => ({
+                affiliation: p.affiliation,
+                position: p.position,
+                profileUrl: p.profileUrl ?? '',
+            }))
+            .filter((p) => p.affiliation || p.position || p.profileUrl)
+        return { positions: positions.length > 0 ? positions : [emptyPosition] }
+    }, [data?.positions])
 
     const form = useForm<PositionsValues>({
         mode: 'controlled',

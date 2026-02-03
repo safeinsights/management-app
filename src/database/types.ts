@@ -126,9 +126,19 @@ export interface PendingUser {
     orgId: string
 }
 
+export interface ResearcherPosition {
+    affiliation: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    position: string
+    profileUrl: string | null
+    sortOrder: Generated<number>
+    updatedAt: Generated<Timestamp>
+    userId: string
+}
+
 export interface ResearcherProfile {
     createdAt: Generated<Timestamp>
-    positions: Generated<Json>
     detailedPublicationsUrl: string | null
     educationDegree: string | null
     educationFieldOfStudy: string | null
@@ -205,6 +215,7 @@ export interface DB {
     orgBaseImage: OrgBaseImage
     orgUser: OrgUser
     pendingUser: PendingUser
+    researcherPosition: ResearcherPosition
     researcherProfile: ResearcherProfile
     study: Study
     studyJob: StudyJob
@@ -213,5 +224,4 @@ export interface DB {
     userPublicKey: UserPublicKey
 }
 
-// Re-export manual types for convenience
 export type { EnvVar, OrgBaseImageSettings } from './types-manual'

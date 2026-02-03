@@ -2,15 +2,7 @@
 
 import { Action, z } from '@/server/actions/action'
 import { updateClerkUserName } from '@/server/clerk'
-import type { Json } from '@/database/types'
-import {
-    positionSchema,
-    educationSchema,
-    personalInfoSchema,
-    researchDetailsSchema,
-} from '@/schema/researcher-profile'
-
-const toJson = (value: unknown): Json => JSON.stringify(value) as unknown as Json
+import { positionSchema, educationSchema, personalInfoSchema, researchDetailsSchema } from '@/schema/researcher-profile'
 
 export const getResearcherProfileAction = new Action('getResearcherProfileAction')
     .middleware(async ({ session }) => ({ id: session?.user.id }))
@@ -39,7 +31,6 @@ export const getResearcherProfileAction = new Action('getResearcherProfileAction
                 'educationDegree',
                 'educationFieldOfStudy',
                 'educationIsCurrentlyPursuing',
-                'positions',
                 'researchInterests',
                 'detailedPublicationsUrl',
                 'featuredPublicationsUrls',
@@ -47,9 +38,17 @@ export const getResearcherProfileAction = new Action('getResearcherProfileAction
             .where('userId', '=', userId)
             .executeTakeFirstOrThrow()
 
+        const positions = await db
+            .selectFrom('researcherPosition')
+            .select(['id', 'affiliation', 'position', 'profileUrl', 'sortOrder'])
+            .where('userId', '=', userId)
+            .orderBy('sortOrder', 'asc')
+            .execute()
+
         return {
             user,
             profile,
+            positions,
         }
     })
 
@@ -106,20 +105,27 @@ export const updatePositionsAction = new Action('updatePositionsAction', { perfo
     .handler(async ({ session, params, db }) => {
         const userId = session.user.id
 
+        // Ensure profile exists first (positions have FK to profile)
         await db
             .insertInto('researcherProfile')
             .values({ userId })
             .onConflict((oc) => oc.column('userId').doNothing())
             .execute()
 
-        await db
-            .updateTable('researcherProfile')
-            .set({
-                // Stored as JSONB
-                positions: toJson(params.positions),
-            })
-            .where('userId', '=', userId)
-            .executeTakeFirstOrThrow()
+        // Delete existing positions
+        await db.deleteFrom('researcherPosition').where('userId', '=', userId).execute()
+
+        // Insert new positions with sort order
+        if (params.positions.length > 0) {
+            const rows = params.positions.map((p, idx) => ({
+                userId,
+                affiliation: p.affiliation,
+                position: p.position,
+                profileUrl: p.profileUrl || null,
+                sortOrder: idx,
+            }))
+            await db.insertInto('researcherPosition').values(rows).execute()
+        }
 
         return { success: true }
     })

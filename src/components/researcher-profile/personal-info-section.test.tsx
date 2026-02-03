@@ -30,11 +30,11 @@ const createProfileData = (): ResearcherProfileData => ({
         educationDegree: null,
         educationFieldOfStudy: null,
         educationIsCurrentlyPursuing: false,
-        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],
     },
+    positions: [],
 })
 
 describe('PersonalInfoSection', () => {

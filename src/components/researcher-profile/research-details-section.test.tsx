@@ -29,11 +29,11 @@ const createEmptyProfileData = (): ResearcherProfileData => ({
         educationDegree: null,
         educationFieldOfStudy: null,
         educationIsCurrentlyPursuing: false,
-        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],
     },
+    positions: [],
 })
 
 const createProfileDataWithInterests = (interests: string[]): ResearcherProfileData => ({

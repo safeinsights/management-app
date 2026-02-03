@@ -29,19 +29,24 @@ const createEmptyProfileData = (): ResearcherProfileData => ({
         educationDegree: null,
         educationFieldOfStudy: null,
         educationIsCurrentlyPursuing: false,
-        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],
     },
+    positions: [],
 })
 
 const createProfileDataWithPositions = (): ResearcherProfileData => ({
     ...createEmptyProfileData(),
-    profile: {
-        ...createEmptyProfileData().profile,
-        positions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: 'https://mit.edu/prof' }],
-    },
+    positions: [
+        {
+            id: 'pos-1',
+            affiliation: 'MIT',
+            position: 'Professor',
+            profileUrl: 'https://mit.edu/prof',
+            sortOrder: 0,
+        },
+    ],
 })
 
 describe('PositionsSection', () => {

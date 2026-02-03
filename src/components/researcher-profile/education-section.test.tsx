@@ -30,11 +30,11 @@ const createProfileDataWithEducation = (): ResearcherProfileData => ({
         educationDegree: 'Doctor of Philosophy (Ph.D.)',
         educationFieldOfStudy: 'Computer Science',
         educationIsCurrentlyPursuing: false,
-        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],
     },
+    positions: [],
 })
 
 const createProfileDataCurrentlyPursuing = (): ResearcherProfileData => ({
