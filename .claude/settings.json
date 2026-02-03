@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint:*)",
+      "Bash(npm run checks:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm view:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(npx playwright show-report:*)",
+      "Bash(git add:*)",
+      "Bash(git log:*)",
+      "Bash(git mv:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:clerk.com)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "mcp__playwright-test__test_run",
+      "mcp__playwright-test__test_debug",
+      "mcp__playwright-test__browser_snapshot",
+      "mcp__playwright-test__browser_network_requests",
+      "mcp__playwright-test__test_list",
+      "mcp__playwright-test__browser_console_messages",
+      "mcp__playwright-test__browser_evaluate",
+      "mcp__playwright-test__browser_click",
+      "mcp__playwright-test__browser_close",
+      "mcp__playwright-test__browser_navigate"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Write(.env)",
+      "Write(.env.*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "playwright-test"
+  ]
+}
