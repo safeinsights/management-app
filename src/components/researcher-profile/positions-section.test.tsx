@@ -1,12 +1,14 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
-import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
+import {
+    renderWithProviders,
+    userEvent,
+    mockSessionWithTestData,
+    insertTestResearcherProfile,
+    getTestResearcherProfileData,
+    db,
+} from '@/tests/unit.helpers'
 import { PositionsSection } from './positions-section'
-import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
-
-vi.mock('@/server/actions/researcher-profile.actions', () => ({
-    updatePositionsAction: vi.fn(),
-}))
 
 vi.mock('@mantine/notifications', () => ({
     notifications: {
@@ -14,49 +16,18 @@ vi.mock('@mantine/notifications', () => ({
     },
 }))
 
-import { updatePositionsAction } from '@/server/actions/researcher-profile.actions'
-
-const createEmptyProfileData = (): ResearcherProfileData => ({
-    user: {
-        id: 'user-1',
-        firstName: 'Test',
-        lastName: 'User',
-        email: 'test@example.com',
-    },
-    profile: {
-        userId: 'user-1',
-        educationInstitution: null,
-        educationDegree: null,
-        educationFieldOfStudy: null,
-        educationIsCurrentlyPursuing: false,
-        researchInterests: [],
-        detailedPublicationsUrl: null,
-        featuredPublicationsUrls: [],
-    },
-    positions: [],
-})
-
-const createProfileDataWithPositions = (): ResearcherProfileData => ({
-    ...createEmptyProfileData(),
-    positions: [
-        {
-            id: 'pos-1',
-            affiliation: 'MIT',
-            position: 'Professor',
-            profileUrl: 'https://mit.edu/prof',
-            sortOrder: 0,
-        },
-    ],
-})
-
 describe('PositionsSection', () => {
     beforeEach(() => {
         vi.clearAllMocks()
     })
 
     it('should auto-open form when no positions exist', async () => {
-        const data = createEmptyProfileData()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
@@ -70,8 +41,21 @@ describe('PositionsSection', () => {
     })
 
     it('should show table when positions exist', async () => {
-        const data = createProfileDataWithPositions()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                    profileUrl: 'https://mit.edu/prof',
+                },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
@@ -85,21 +69,16 @@ describe('PositionsSection', () => {
         expect(screen.getByText('Professor')).toBeDefined()
     })
 
-    it('should not reopen form after save when editingIndex changes', async () => {
-        // This test verifies the fix for the bug where the useEffect that auto-opens
-        // the form would re-run when editingIndex changed (after save), causing the
-        // form to stay open even after a successful save.
-        //
-        // The fix was to remove editingIndex from the useEffect dependency array,
-        // so it only runs when data or hasExistingPositions changes.
+    it('should save new position to database', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
-        const user = userEvent.setup()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        await insertTestResearcherProfile({ userId: user.id })
 
-        ;(updatePositionsAction as Mock).mockResolvedValue({ success: true })
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
-        // Start with empty positions - form will auto-open
-        renderWithProviders(<PositionsSection data={createEmptyProfileData()} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Form should be auto-opened
         await waitFor(() => {
@@ -110,30 +89,48 @@ describe('PositionsSection', () => {
         const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
         const positionInput = screen.getByPlaceholderText('Ex: Senior Researcher')
 
-        await user.type(affiliationInput, 'MIT')
-        await user.type(positionInput, 'Professor')
+        await userEvents.type(affiliationInput, 'MIT')
+        await userEvents.type(positionInput, 'Professor')
 
         // Click save
         const saveButton = screen.getByRole('button', { name: /save changes/i })
-        await user.click(saveButton)
+        await userEvents.click(saveButton)
 
-        // Wait for the action to be called and refetch to complete
+        // Wait for the action to complete
         await waitFor(() => {
-            expect(updatePositionsAction).toHaveBeenCalledWith({
-                positions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: '' }],
-            })
             expect(refetch).toHaveBeenCalled()
         })
+
+        // Verify DB was updated
+        const positions = await db
+            .selectFrom('researcherPosition')
+            .select(['affiliation', 'position'])
+            .where('userId', '=', user.id)
+            .execute()
+
+        expect(positions).toHaveLength(1)
+        expect(positions[0].affiliation).toBe('MIT')
+        expect(positions[0].position).toBe('Professor')
     })
 
     it('should allow deleting the last position and save empty array', async () => {
-        const user = userEvent.setup()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
-        ;(updatePositionsAction as Mock).mockResolvedValue({ success: true })
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                },
+            ],
+        })
 
-        // Start with one position
-        renderWithProviders(<PositionsSection data={createProfileDataWithPositions()} refetch={refetch} />)
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Table should be visible with delete button
         await waitFor(() => {
@@ -142,17 +139,30 @@ describe('PositionsSection', () => {
 
         // Click delete
         const deleteButton = screen.getByRole('button', { name: /delete current position/i })
-        await user.click(deleteButton)
+        await userEvents.click(deleteButton)
 
-        // Verify action was called with empty array
+        // Wait for the action to complete
         await waitFor(() => {
-            expect(updatePositionsAction).toHaveBeenCalledWith({ positions: [] })
+            expect(refetch).toHaveBeenCalled()
         })
+
+        // Verify DB was updated - position should be deleted
+        const positions = await db
+            .selectFrom('researcherPosition')
+            .select(['id'])
+            .where('userId', '=', user.id)
+            .execute()
+
+        expect(positions).toHaveLength(0)
     })
 
     it('should not show cancel button when no positions exist', async () => {
-        const data = createEmptyProfileData()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
@@ -166,9 +176,21 @@ describe('PositionsSection', () => {
     })
 
     it('should show cancel button when editing with existing positions', async () => {
-        const user = userEvent.setup()
-        const data = createProfileDataWithPositions()
-        const refetch = vi.fn().mockResolvedValue(undefined)
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
@@ -179,7 +201,7 @@ describe('PositionsSection', () => {
 
         // Click edit to open form
         const editButton = screen.getByRole('button', { name: /edit current position/i })
-        await user.click(editButton)
+        await userEvents.click(editButton)
 
         // Cancel button should be visible when editing with existing positions
         await waitFor(() => {
