@@ -24,6 +24,10 @@ import path from 'path'
 import { ReactElement } from 'react'
 import { Mock, vi } from 'vitest'
 
+declare global {
+    var __mockOpenStaxEnabled: boolean | undefined
+}
+
 import userEvent from '@testing-library/user-event'
 import * as RouterMock from 'next-router-mock'
 export { userEvent }
@@ -34,6 +38,11 @@ export { userEvent }
 export const mockPathname = (path: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(RouterMock as any).memoryRouter.setCurrentUrl(path)
+}
+
+// Helper to control OpenStax feature flag mock state.
+export const mockOpenStaxFeatureFlagState = (enabled: boolean) => {
+    globalThis.__mockOpenStaxEnabled = enabled
 }
 
 export { db } from '@/database'

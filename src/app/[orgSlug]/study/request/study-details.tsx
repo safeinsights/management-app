@@ -51,7 +51,7 @@ export const RequestStudyDetails: FC<StudyDetailsProps> = ({ studyProposalForm, 
     return (
         <Paper p="xl">
             <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                Step 2 of 5
+                STEP 2 OF 5
             </Text>
             <Title order={4}>Study Proposal</Title>
             <Divider my="md" />
