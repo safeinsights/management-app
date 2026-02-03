@@ -36,7 +36,7 @@ test('jwt with expired token is rejected', async () => {
 
 test('return study jobs', async () => {
     const org = await insertTestOrg()
-    const { jobIds } = await insertTestStudyData({ org })
+    const { jobIds, researcherId } = await insertTestStudyData({ org })
 
     const resp = await apiHandler.GET()
     const json = await resp.json()
@@ -50,6 +50,7 @@ test('return study jobs', async () => {
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${jobIds[1]}`,
+                researcherId: researcherId,
             }),
             expect.objectContaining({
                 jobId: jobIds[2],
@@ -58,6 +59,7 @@ test('return study jobs', async () => {
                 dataSources: ['all'],
                 outputMimeType: 'text/csv',
                 containerLocation: `test-container:${jobIds[2]}`,
+                researcherId: researcherId,
             }),
         ]),
     })

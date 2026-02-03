@@ -20,6 +20,8 @@ export const orgAdminInviteUserAction = new Action('orgAdminInviteUserAction')
     )
     .requireAbilityTo('invite', 'User')
     .handler(async ({ params: { invite, invitedByUserId }, orgId, db }) => {
+        // clerk normalizes the email to lowercase, do the same here to avoid case-insensitive matching issues
+        invite.email = invite.email.toLowerCase()
         // Check if email belongs to any existing Clerk user (handles both primary and merged emails)
         const clerk = await clerkClient()
         const clerkUsers = await clerk.users.getUserList({ emailAddress: [invite.email] })

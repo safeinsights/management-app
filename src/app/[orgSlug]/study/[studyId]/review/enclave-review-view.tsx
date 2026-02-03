@@ -21,11 +21,11 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
             <OrgBreadcrumbs
                 crumbs={{
                     orgSlug: orgSlug,
-                    current: 'Review submission',
+                    current: 'Study Details',
                 }}
             />
             <Title order={2} size="h4" fw={500}>
-                Review your submission
+                Study Details
             </Title>
             <Divider />
             <Paper bg="white" p="xxl">
