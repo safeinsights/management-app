@@ -38,29 +38,27 @@ export function PositionsSection({ data, refetch }: PositionsSectionProps) {
                 showEditButton={false}
             />
 
-            {hasExistingPositions && (
-                <PositionsTable
-                    positions={defaults.positions}
-                    editingIndex={editingIndex}
-                    form={form}
-                    onEdit={openEdit}
-                    onDelete={handleDelete}
-                    onAdd={openAdd}
-                />
-            )}
+            <PositionsTable
+                isVisible={hasExistingPositions}
+                positions={defaults.positions}
+                editingIndex={editingIndex}
+                form={form}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onAdd={openAdd}
+            />
 
-            {showForm && editingIndex !== null && (
-                <PositionForm
-                    editingIndex={editingIndex}
-                    form={form}
-                    isAdding={isAdding}
-                    hasExistingPositions={hasExistingPositions}
-                    currentEditValid={currentEditValid}
-                    isPending={isPending}
-                    onSubmit={handleSubmit}
-                    onCancel={cancelEdit}
-                />
-            )}
+            <PositionForm
+                isVisible={showForm && editingIndex !== null}
+                editingIndex={editingIndex ?? 0}
+                form={form}
+                isAdding={isAdding}
+                hasExistingPositions={hasExistingPositions}
+                currentEditValid={currentEditValid}
+                isPending={isPending}
+                onSubmit={handleSubmit}
+                onCancel={cancelEdit}
+            />
         </Paper>
     )
 }

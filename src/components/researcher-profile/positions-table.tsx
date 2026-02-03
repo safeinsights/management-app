@@ -6,6 +6,7 @@ import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
 interface PositionsTableProps {
+    isVisible?: boolean
     positions: PositionValues[]
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
@@ -14,7 +15,16 @@ interface PositionsTableProps {
     onAdd: () => void
 }
 
-export function PositionsTable({ positions, editingIndex, form, onEdit, onDelete, onAdd }: PositionsTableProps) {
+export function PositionsTable({
+    isVisible = true,
+    positions,
+    editingIndex,
+    form,
+    onEdit,
+    onDelete,
+    onAdd,
+}: PositionsTableProps) {
+    if (!isVisible) return null
     const visiblePositions = positions.map((pos, idx) => ({ pos, idx })).filter(({ idx }) => idx !== editingIndex)
 
     const tableRows = visiblePositions.map(({ pos, idx }) => {

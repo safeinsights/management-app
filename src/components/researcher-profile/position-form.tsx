@@ -6,6 +6,7 @@ import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
 interface PositionFormProps {
+    isVisible?: boolean
     editingIndex: number
     form: UseFormReturnType<{ positions: PositionValues[] }>
     isAdding: boolean
@@ -17,6 +18,7 @@ interface PositionFormProps {
 }
 
 export function PositionForm({
+    isVisible = true,
     editingIndex,
     form,
     isAdding,
@@ -26,6 +28,7 @@ export function PositionForm({
     onSubmit,
     onCancel,
 }: PositionFormProps) {
+    if (!isVisible) return null
     const formTitle = isAdding || !hasExistingPositions ? 'Add current position' : 'Edit current position'
 
     return (
