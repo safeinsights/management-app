@@ -39,7 +39,7 @@ export const getResearcherProfileAction = new Action('getResearcherProfileAction
                 'educationDegree',
                 'educationFieldOfStudy',
                 'educationIsCurrentlyPursuing',
-                'currentPositions',
+                'positions',
                 'researchInterests',
                 'detailedPublicationsUrl',
                 'featuredPublicationsUrls',
@@ -116,7 +116,7 @@ export const updatePositionsAction = new Action('updatePositionsAction', { perfo
             .updateTable('researcherProfile')
             .set({
                 // Stored as JSONB
-                currentPositions: toJson(params.positions),
+                positions: toJson(params.positions),
             })
             .where('userId', '=', userId)
             .executeTakeFirstOrThrow()

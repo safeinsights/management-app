@@ -30,7 +30,7 @@ const createProfileData = (): ResearcherProfileData => ({
         educationDegree: null,
         educationFieldOfStudy: null,
         educationIsCurrentlyPursuing: false,
-        currentPositions: [],
+        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],

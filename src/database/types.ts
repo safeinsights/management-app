@@ -128,7 +128,7 @@ export interface PendingUser {
 
 export interface ResearcherProfile {
     createdAt: Generated<Timestamp>
-    currentPositions: Generated<Json>
+    positions: Generated<Json>
     detailedPublicationsUrl: string | null
     educationDegree: string | null
     educationFieldOfStudy: string | null

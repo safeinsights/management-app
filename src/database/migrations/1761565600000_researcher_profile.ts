@@ -14,8 +14,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('education_field_of_study', 'text')
         .addColumn('education_is_currently_pursuing', 'boolean', (col) => col.notNull().defaultTo(false))
 
-        // Current institutional positions (array of { affiliation, position, profileUrl? })
-        .addColumn('current_positions', 'jsonb', (col) => col.notNull().defaultTo(sql`'[]'::jsonb`))
+        // Institutional positions (array of { affiliation, position, profileUrl? })
+        .addColumn('positions', 'jsonb', (col) => col.notNull().defaultTo(sql`'[]'::jsonb`))
 
         // Research details
         .addColumn('research_interests', sql`text[]`, (col) => col.notNull().defaultTo(sql`'{}'::text[]`))

@@ -29,7 +29,7 @@ const createEmptyProfileData = (): ResearcherProfileData => ({
         educationDegree: null,
         educationFieldOfStudy: null,
         educationIsCurrentlyPursuing: false,
-        currentPositions: [],
+        positions: [],
         researchInterests: [],
         detailedPublicationsUrl: null,
         featuredPublicationsUrls: [],
@@ -40,7 +40,7 @@ const createProfileDataWithPositions = (): ResearcherProfileData => ({
     ...createEmptyProfileData(),
     profile: {
         ...createEmptyProfileData().profile,
-        currentPositions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: 'https://mit.edu/prof' }],
+        positions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: 'https://mit.edu/prof' }],
     },
 })
 

@@ -13,7 +13,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
     const [editingIndex, setEditingIndex] = useState<number | null>(null)
 
     const defaults: PositionsValues = useMemo(() => {
-        const raw = (data?.profile.currentPositions ?? []) as unknown
+        const raw = (data?.profile.positions ?? []) as unknown
         if (Array.isArray(raw)) {
             const positions = raw
                 .map((p) => {
@@ -28,7 +28,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
             return { positions: positions.length > 0 ? positions : [emptyPosition] }
         }
         return { positions: [emptyPosition] }
-    }, [data?.profile.currentPositions])
+    }, [data?.profile.positions])
 
     const form = useForm<PositionsValues>({
         mode: 'controlled',
