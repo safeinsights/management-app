@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import { renderWithProviders, userEvent } from '@/tests/unit.helpers'
-import { CurrentPositionsSection } from './current-positions-section'
+import { PositionsSection } from './positions-section'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 vi.mock('@/server/actions/researcher-profile.actions', () => ({
-    updateCurrentPositionsAction: vi.fn(),
+    updatePositionsAction: vi.fn(),
 }))
 
 vi.mock('@mantine/notifications', () => ({
@@ -14,7 +14,7 @@ vi.mock('@mantine/notifications', () => ({
     },
 }))
 
-import { updateCurrentPositionsAction } from '@/server/actions/researcher-profile.actions'
+import { updatePositionsAction } from '@/server/actions/researcher-profile.actions'
 
 const createEmptyProfileData = (): ResearcherProfileData => ({
     user: {
@@ -44,7 +44,7 @@ const createProfileDataWithPositions = (): ResearcherProfileData => ({
     },
 })
 
-describe('CurrentPositionsSection', () => {
+describe('PositionsSection', () => {
     beforeEach(() => {
         vi.clearAllMocks()
     })
@@ -53,7 +53,7 @@ describe('CurrentPositionsSection', () => {
         const data = createEmptyProfileData()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Form should be visible because there are no existing positions
         await waitFor(() => {
@@ -68,7 +68,7 @@ describe('CurrentPositionsSection', () => {
         const data = createProfileDataWithPositions()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Table should be visible
         await waitFor(() => {
@@ -91,10 +91,10 @@ describe('CurrentPositionsSection', () => {
         const user = userEvent.setup()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        ;(updateCurrentPositionsAction as Mock).mockResolvedValue({ success: true })
+        ;(updatePositionsAction as Mock).mockResolvedValue({ success: true })
 
         // Start with empty positions - form will auto-open
-        renderWithProviders(<CurrentPositionsSection data={createEmptyProfileData()} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={createEmptyProfileData()} refetch={refetch} />)
 
         // Form should be auto-opened
         await waitFor(() => {
@@ -114,7 +114,7 @@ describe('CurrentPositionsSection', () => {
 
         // Wait for the action to be called and refetch to complete
         await waitFor(() => {
-            expect(updateCurrentPositionsAction).toHaveBeenCalledWith({
+            expect(updatePositionsAction).toHaveBeenCalledWith({
                 positions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: '' }],
             })
             expect(refetch).toHaveBeenCalled()
@@ -125,10 +125,10 @@ describe('CurrentPositionsSection', () => {
         const user = userEvent.setup()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        ;(updateCurrentPositionsAction as Mock).mockResolvedValue({ success: true })
+        ;(updatePositionsAction as Mock).mockResolvedValue({ success: true })
 
         // Start with one position
-        renderWithProviders(<CurrentPositionsSection data={createProfileDataWithPositions()} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={createProfileDataWithPositions()} refetch={refetch} />)
 
         // Table should be visible with delete button
         await waitFor(() => {
@@ -141,7 +141,7 @@ describe('CurrentPositionsSection', () => {
 
         // Verify action was called with empty array
         await waitFor(() => {
-            expect(updateCurrentPositionsAction).toHaveBeenCalledWith({ positions: [] })
+            expect(updatePositionsAction).toHaveBeenCalledWith({ positions: [] })
         })
     })
 
@@ -149,7 +149,7 @@ describe('CurrentPositionsSection', () => {
         const data = createEmptyProfileData()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Form should be visible
         await waitFor(() => {
@@ -165,7 +165,7 @@ describe('CurrentPositionsSection', () => {
         const data = createProfileDataWithPositions()
         const refetch = vi.fn().mockResolvedValue(undefined)
 
-        renderWithProviders(<CurrentPositionsSection data={data} refetch={refetch} />)
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
         // Table should be visible
         await waitFor(() => {

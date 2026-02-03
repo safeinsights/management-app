@@ -4,7 +4,7 @@ import { Action, z } from '@/server/actions/action'
 import { updateClerkUserName } from '@/server/clerk'
 import type { Json } from '@/database/types'
 import {
-    currentPositionSchema,
+    positionSchema,
     educationSchema,
     personalInfoSchema,
     researchDetailsSchema,
@@ -99,8 +99,8 @@ export const updateEducationAction = new Action('updateEducationAction', { perfo
         return { success: true }
     })
 
-export const updateCurrentPositionsAction = new Action('updateCurrentPositionsAction', { performsMutations: true })
-    .params(z.object({ positions: z.array(currentPositionSchema) }))
+export const updatePositionsAction = new Action('updatePositionsAction', { performsMutations: true })
+    .params(z.object({ positions: z.array(positionSchema) }))
     .middleware(async ({ session }) => ({ id: session?.user.id }))
     .requireAbilityTo('update', 'User')
     .handler(async ({ session, params, db }) => {

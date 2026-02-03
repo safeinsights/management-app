@@ -2,12 +2,12 @@
 
 import { Box, Button, Divider, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FormFieldLabel } from '@/components/form-field-label'
-import type { CurrentPositionValues } from '@/schema/researcher-profile'
+import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
 interface PositionFormProps {
     editingIndex: number
-    form: UseFormReturnType<{ positions: CurrentPositionValues[] }>
+    form: UseFormReturnType<{ positions: PositionValues[] }>
     isAdding: boolean
     hasExistingPositions: boolean
     currentEditValid: boolean

@@ -3,20 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useForm, zodResolver } from '@/common'
 import { notifications } from '@mantine/notifications'
-import { updateCurrentPositionsAction } from '@/server/actions/researcher-profile.actions'
-import {
-    currentPositionsSchema,
-    type CurrentPositionsValues,
-    type CurrentPositionValues,
-} from '@/schema/researcher-profile'
+import { updatePositionsAction } from '@/server/actions/researcher-profile.actions'
+import { positionsSchema, type PositionsValues, type PositionValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
-const emptyPosition: CurrentPositionValues = { affiliation: '', position: '', profileUrl: '' }
+const emptyPosition: PositionValues = { affiliation: '', position: '', profileUrl: '' }
 
-export function useCurrentPositionsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
+export function usePositionsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null)
 
-    const defaults: CurrentPositionsValues = useMemo(() => {
+    const defaults: PositionsValues = useMemo(() => {
         const raw = (data?.profile.currentPositions ?? []) as unknown
         if (Array.isArray(raw)) {
             const positions = raw
@@ -34,10 +30,10 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         return { positions: [emptyPosition] }
     }, [data?.profile.currentPositions])
 
-    const form = useForm<CurrentPositionsValues>({
+    const form = useForm<PositionsValues>({
         mode: 'controlled',
         initialValues: defaults,
-        validate: zodResolver(currentPositionsSchema),
+        validate: zodResolver(positionsSchema),
         validateInputOnBlur: true,
     })
 
@@ -58,8 +54,7 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
     }, [data, hasExistingPositions])
 
     const saveMutation = useMutation({
-        mutationFn: async (positionsToSave: CurrentPositionValues[]) =>
-            updateCurrentPositionsAction({ positions: positionsToSave }),
+        mutationFn: async (positionsToSave: PositionValues[]) => updatePositionsAction({ positions: positionsToSave }),
         onSuccess: async () => {
             await refetch()
             setEditingIndex(null)
@@ -103,7 +98,7 @@ export function useCurrentPositionsSection(data: ResearcherProfileData | null, r
         const values = form.values.positions[editingIndex]
         if (!values) return
 
-        const cleaned: CurrentPositionValues = {
+        const cleaned: PositionValues = {
             affiliation: values.affiliation,
             position: values.position,
             profileUrl: values.profileUrl?.trim() ?? '',

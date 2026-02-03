@@ -2,13 +2,13 @@
 
 import { ActionIcon, Anchor, Box, Table } from '@mantine/core'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
-import type { CurrentPositionValues } from '@/schema/researcher-profile'
+import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
 interface PositionsTableProps {
-    positions: CurrentPositionValues[]
+    positions: PositionValues[]
     editingIndex: number | null
-    form: UseFormReturnType<{ positions: CurrentPositionValues[] }>
+    form: UseFormReturnType<{ positions: PositionValues[] }>
     onEdit: (index: number) => void
     onDelete: (index: number) => void
     onAdd: () => void

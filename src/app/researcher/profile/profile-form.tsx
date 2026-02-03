@@ -5,7 +5,7 @@ import { useResearcherProfile } from '@/hooks/use-researcher-profile'
 import {
     PersonalInfoSection,
     EducationSection,
-    CurrentPositionsSection,
+    PositionsSection,
     ResearchDetailsSection,
 } from '@/components/researcher-profile'
 
@@ -26,7 +26,7 @@ export function ResearcherProfileClientPage() {
 
                 <EducationSection data={data} refetch={refetch} />
 
-                <CurrentPositionsSection data={data} refetch={refetch} />
+                <PositionsSection data={data} refetch={refetch} />
 
                 <ResearchDetailsSection data={data} refetch={refetch} />
             </Stack>

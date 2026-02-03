@@ -1,18 +1,18 @@
 'use client'
 
 import { Paper } from '@mantine/core'
-import { useCurrentPositionsSection } from '@/hooks/use-current-positions-section'
+import { usePositionsSection } from '@/hooks/use-positions-section'
 import { SectionHeader } from '@/components/researcher-profile/section-header'
 import { PositionsTable } from '@/components/researcher-profile/positions-table'
 import { PositionForm } from '@/components/researcher-profile/position-form'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
-interface CurrentPositionsSectionProps {
+interface PositionsSectionProps {
     data: ResearcherProfileData | null
     refetch: () => Promise<unknown>
 }
 
-export function CurrentPositionsSection({ data, refetch }: CurrentPositionsSectionProps) {
+export function PositionsSection({ data, refetch }: PositionsSectionProps) {
     const {
         form,
         editingIndex,
@@ -27,7 +27,7 @@ export function CurrentPositionsSection({ data, refetch }: CurrentPositionsSecti
         cancelEdit,
         handleSubmit,
         handleDelete,
-    } = useCurrentPositionsSection(data, refetch)
+    } = usePositionsSection(data, refetch)
 
     return (
         <Paper p="xl" radius="sm">

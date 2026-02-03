@@ -62,22 +62,22 @@ export const educationSchema = z.object({
 export type EducationValues = z.infer<typeof educationSchema>
 
 // -----------------------------------------------------------------------------
-// Current institutional information
+// Institutional information (positions)
 // -----------------------------------------------------------------------------
 
-export const currentPositionSchema = z.object({
+export const positionSchema = z.object({
     affiliation: trimmedRequired('Institution or organization affiliation'),
     position: trimmedRequired('Position'),
     profileUrl: httpUrlOptionalItem('Link to your profile page'),
 })
 
-export type CurrentPositionValues = z.infer<typeof currentPositionSchema>
+export type PositionValues = z.infer<typeof positionSchema>
 
-export const currentPositionsSchema = z.object({
-    positions: z.array(currentPositionSchema),
+export const positionsSchema = z.object({
+    positions: z.array(positionSchema),
 })
 
-export type CurrentPositionsValues = z.infer<typeof currentPositionsSchema>
+export type PositionsValues = z.infer<typeof positionsSchema>
 
 // -----------------------------------------------------------------------------
 // Research details
