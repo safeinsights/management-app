@@ -10,9 +10,10 @@ import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 interface PositionsSectionProps {
     data: ResearcherProfileData | null
     refetch: () => Promise<unknown>
+    readOnly?: boolean
 }
 
-export function PositionsSection({ data, refetch }: PositionsSectionProps) {
+export function PositionsSection({ data, refetch, readOnly = false }: PositionsSectionProps) {
     const {
         form,
         editingIndex,
@@ -46,13 +47,14 @@ export function PositionsSection({ data, refetch }: PositionsSectionProps) {
                 editingIndex={editingIndex}
                 form={form}
                 canDelete={canDelete}
+                readOnly={readOnly}
                 onEdit={openEdit}
                 onDelete={handleDelete}
                 onAdd={openAdd}
             />
 
             <PositionForm
-                isVisible={showForm && editingIndex !== null}
+                isVisible={!readOnly && showForm && editingIndex !== null}
                 editingIndex={editingIndex ?? 0}
                 form={form}
                 isAdding={isAdding}

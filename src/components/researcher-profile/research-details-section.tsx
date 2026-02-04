@@ -13,6 +13,7 @@ import type { UseFormReturnType } from '@mantine/form'
 interface ResearchDetailsSectionProps {
     data: ResearcherProfileData | null
     refetch: () => Promise<unknown>
+    readOnly?: boolean
 }
 
 interface ResearchDetailsEditFormProps {
@@ -132,7 +133,7 @@ function ResearchDetailsDisplay({ defaults }: ResearchDetailsDisplayProps) {
     )
 }
 
-export function ResearchDetailsSection({ data, refetch }: ResearchDetailsSectionProps) {
+export function ResearchDetailsSection({ data, refetch, readOnly = false }: ResearchDetailsSectionProps) {
     const {
         form,
         isEditing,
@@ -146,11 +147,18 @@ export function ResearchDetailsSection({ data, refetch }: ResearchDetailsSection
         handleSubmit,
     } = useResearchDetailsSection(data, refetch)
 
+    const showEditForm = !readOnly && isEditing
+
     return (
         <Paper p="xl" radius="sm">
-            <SectionHeader title="Research details" isEditing={isEditing} onEdit={() => setIsEditing(true)} />
+            <SectionHeader
+                title="Research details"
+                isEditing={isEditing}
+                onEdit={() => setIsEditing(true)}
+                showEditButton={!readOnly}
+            />
 
-            {isEditing ? (
+            {showEditForm ? (
                 <ResearchDetailsEditForm
                     form={form}
                     interestDraft={interestDraft}

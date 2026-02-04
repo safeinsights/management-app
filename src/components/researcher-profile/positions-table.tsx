@@ -5,12 +5,29 @@ import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
+interface AddPositionLinkProps {
+    isVisible: boolean
+    onAdd: () => void
+}
+
+function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
+    if (!isVisible) return null
+    return (
+        <Box mt="md">
+            <Anchor component="button" onClick={onAdd}>
+                + Add another current position
+            </Anchor>
+        </Box>
+    )
+}
+
 interface PositionsTableProps {
     isVisible?: boolean
     positions: PositionValues[]
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
     canDelete: boolean
+    readOnly?: boolean
     onEdit: (index: number) => void
     onDelete: (index: number) => void
     onAdd: () => void
@@ -22,6 +39,7 @@ export function PositionsTable({
     editingIndex,
     form,
     canDelete,
+    readOnly = false,
     onEdit,
     onDelete,
     onAdd,
@@ -41,12 +59,14 @@ export function PositionsTable({
                 <Table.Td>{pos.affiliation}</Table.Td>
                 <Table.Td>{pos.position}</Table.Td>
                 <Table.Td>{profileUrlCell}</Table.Td>
-                <Table.Td ta="center">
-                    <ActionIcon variant="subtle" onClick={() => onEdit(idx)} aria-label="Edit current position">
-                        <PencilSimpleIcon />
-                    </ActionIcon>
-                </Table.Td>
-                {canDelete && (
+                {!readOnly && (
+                    <Table.Td ta="center">
+                        <ActionIcon variant="subtle" onClick={() => onEdit(idx)} aria-label="Edit current position">
+                            <PencilSimpleIcon />
+                        </ActionIcon>
+                    </Table.Td>
+                )}
+                {!readOnly && canDelete && (
                     <Table.Td ta="center">
                         <ActionIcon
                             variant="subtle"
@@ -70,10 +90,12 @@ export function PositionsTable({
                         <Table.Th>Institutional affiliation</Table.Th>
                         <Table.Th>Position</Table.Th>
                         <Table.Th>Profile page</Table.Th>
-                        <Table.Th w={80} ta="center">
-                            Edit
-                        </Table.Th>
-                        {canDelete && (
+                        {!readOnly && (
+                            <Table.Th w={80} ta="center">
+                                Edit
+                            </Table.Th>
+                        )}
+                        {!readOnly && canDelete && (
                             <Table.Th w={80} ta="center">
                                 Delete
                             </Table.Th>
@@ -83,11 +105,7 @@ export function PositionsTable({
                 <Table.Tbody>{tableRows}</Table.Tbody>
             </Table>
 
-            <Box mt="md">
-                <Anchor component="button" onClick={onAdd}>
-                    + Add another current position
-                </Anchor>
-            </Box>
+            <AddPositionLink isVisible={!readOnly} onAdd={onAdd} />
         </>
     )
 }

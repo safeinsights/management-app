@@ -243,4 +243,69 @@ describe('PositionsSection', () => {
             expect(screen.getByRole('button', { name: /cancel/i })).toBeDefined()
         })
     })
+
+    it('should hide edit and delete columns in read-only mode', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                },
+                {
+                    affiliation: 'Stanford',
+                    position: 'Researcher',
+                },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
+
+        // Table should be visible with position data
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+            expect(screen.getByText('Stanford')).toBeDefined()
+        })
+
+        // Edit column header should not be visible
+        expect(screen.queryByText('Edit')).toBeNull()
+        // Delete column header should not be visible
+        expect(screen.queryByText('Delete')).toBeNull()
+        // Edit buttons should not be visible
+        expect(screen.queryByRole('button', { name: /edit current position/i })).toBeNull()
+        // Delete buttons should not be visible
+        expect(screen.queryByRole('button', { name: /delete current position/i })).toBeNull()
+    })
+
+    it('should hide add position link in read-only mode', async () => {
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} readOnly />)
+
+        // Table should be visible
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+        })
+
+        // "+ Add another current position" link should not be visible
+        expect(screen.queryByText('+ Add another current position')).toBeNull()
+    })
 })

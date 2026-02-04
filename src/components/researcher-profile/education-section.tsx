@@ -13,6 +13,7 @@ import type { UseFormReturnType } from '@mantine/form'
 interface EducationSectionProps {
     data: ResearcherProfileData | null
     refetch: () => Promise<unknown>
+    readOnly?: boolean
 }
 
 interface EducationEditFormProps {
@@ -94,14 +95,21 @@ function EducationDisplay({ defaults }: EducationDisplayProps) {
     )
 }
 
-export function EducationSection({ data, refetch }: EducationSectionProps) {
+export function EducationSection({ data, refetch, readOnly = false }: EducationSectionProps) {
     const { form, isEditing, setIsEditing, defaults, isPending, handleSubmit } = useEducationSection(data, refetch)
+
+    const showEditForm = !readOnly && isEditing
 
     return (
         <Paper p="xl" radius="sm">
-            <SectionHeader title="Highest level of education" isEditing={isEditing} onEdit={() => setIsEditing(true)} />
+            <SectionHeader
+                title="Highest level of education"
+                isEditing={isEditing}
+                onEdit={() => setIsEditing(true)}
+                showEditButton={!readOnly}
+            />
 
-            {isEditing ? (
+            {showEditForm ? (
                 <EducationEditForm form={form} isPending={isPending} onSubmit={handleSubmit} />
             ) : (
                 <EducationDisplay defaults={defaults} />

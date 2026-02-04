@@ -12,6 +12,7 @@ import type { UseFormReturnType } from '@mantine/form'
 interface PersonalInfoSectionProps {
     data: ResearcherProfileData | null
     refetch: () => Promise<unknown>
+    readOnly?: boolean
 }
 
 interface PersonalInfoEditFormProps {
@@ -77,18 +78,25 @@ function PersonalInfoDisplay({ firstName, lastName, email }: PersonalInfoDisplay
     )
 }
 
-export function PersonalInfoSection({ data, refetch }: PersonalInfoSectionProps) {
+export function PersonalInfoSection({ data, refetch, readOnly = false }: PersonalInfoSectionProps) {
     const { form, isEditing, setIsEditing, isPending, handleSubmit } = usePersonalInfoSection(data, refetch)
 
     const email = data?.user.email ?? ''
     const firstName = data?.user.firstName ?? ''
     const lastName = data?.user.lastName ?? ''
 
+    const showEditForm = !readOnly && isEditing
+
     return (
         <Paper p="xl" radius="sm">
-            <SectionHeader title="Personal information" isEditing={isEditing} onEdit={() => setIsEditing(true)} />
+            <SectionHeader
+                title="Personal information"
+                isEditing={isEditing}
+                onEdit={() => setIsEditing(true)}
+                showEditButton={!readOnly}
+            />
 
-            {isEditing ? (
+            {showEditForm ? (
                 <PersonalInfoEditForm form={form} email={email} isPending={isPending} onSubmit={handleSubmit} />
             ) : (
                 <PersonalInfoDisplay firstName={firstName} lastName={lastName} email={email} />
