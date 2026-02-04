@@ -25,7 +25,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
     await db.schema.createIndex('researcher_profile_user_id_idx').on('researcher_profile').column('user_id').execute()
 
-    // Normalized researcher_position table (replaces JSONB positions column)
+    // Normalized researcher_position table
     await db.schema
         .createTable('researcher_position')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
