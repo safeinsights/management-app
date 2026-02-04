@@ -11,9 +11,6 @@ import {
 import { PositionsSection } from './positions-section'
 
 describe('PositionsSection', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
 
     it('should auto-open form when no positions exist', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
