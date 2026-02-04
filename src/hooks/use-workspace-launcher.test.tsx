@@ -11,13 +11,6 @@ vi.mock('@/server/actions/workspaces.actions', () => ({
     getWorkspaceUrlAction: vi.fn(),
 }))
 
-// Mock mantine notifications
-vi.mock('@mantine/notifications', () => ({
-    notifications: {
-        show: vi.fn(),
-    },
-}))
-
 // Mock window.open
 const mockWindowOpen = vi.fn()
 Object.defineProperty(window, 'open', {

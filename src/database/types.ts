@@ -126,6 +126,30 @@ export interface PendingUser {
     orgId: string
 }
 
+export interface ResearcherPosition {
+    affiliation: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    position: string
+    profileUrl: string | null
+    sortOrder: Generated<number>
+    updatedAt: Generated<Timestamp>
+    userId: string
+}
+
+export interface ResearcherProfile {
+    createdAt: Generated<Timestamp>
+    detailedPublicationsUrl: string | null
+    educationDegree: string | null
+    educationFieldOfStudy: string | null
+    educationInstitution: string | null
+    educationIsCurrentlyPursuing: Generated<boolean>
+    featuredPublicationsUrls: Generated<string[]>
+    researchInterests: Generated<string[]>
+    updatedAt: Generated<Timestamp>
+    userId: string
+}
+
 export interface Study {
     agreementDocPath: string | null
     approvedAt: Timestamp | null
@@ -191,6 +215,8 @@ export interface DB {
     orgBaseImage: OrgBaseImage
     orgUser: OrgUser
     pendingUser: PendingUser
+    researcherPosition: ResearcherPosition
+    researcherProfile: ResearcherProfile
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile

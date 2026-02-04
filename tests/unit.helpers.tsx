@@ -437,6 +437,7 @@ export const mockClerkSession = (values: MockSession | null) => {
             updateOrganization: vi.fn(),
         },
         users: {
+            updateUser: vi.fn(),
             updateUserMetadata: vi.fn(),
             getUserList: vi.fn(async (params: { emailAddress?: string[] }) => {
                 if (params.emailAddress && params.emailAddress.length > 0) {
@@ -572,3 +573,124 @@ export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) =
 
 // Re-export actionResult for backwards compatibility in tests
 export { actionResult } from '@/lib/utils'
+
+export type InsertTestResearcherProfileOptions = {
+    userId: string
+    education?: {
+        institution?: string
+        degree?: string
+        fieldOfStudy?: string
+        isCurrentlyPursuing?: boolean
+    }
+    positions?: Array<{
+        affiliation: string
+        position: string
+        profileUrl?: string
+    }>
+    researchDetails?: {
+        interests?: string[]
+        detailedPublicationsUrl?: string
+        featuredPublicationsUrls?: string[]
+    }
+}
+
+export const insertTestResearcherProfile = async (options: InsertTestResearcherProfileOptions) => {
+    await db
+        .insertInto('researcherProfile')
+        .values({
+            userId: options.userId,
+            educationInstitution: options.education?.institution ?? null,
+            educationDegree: options.education?.degree ?? null,
+            educationFieldOfStudy: options.education?.fieldOfStudy ?? null,
+            educationIsCurrentlyPursuing: options.education?.isCurrentlyPursuing ?? false,
+            researchInterests: options.researchDetails?.interests ?? [],
+            detailedPublicationsUrl: options.researchDetails?.detailedPublicationsUrl ?? null,
+            featuredPublicationsUrls: options.researchDetails?.featuredPublicationsUrls ?? [],
+        })
+        .onConflict((oc) =>
+            oc.column('userId').doUpdateSet({
+                educationInstitution: options.education?.institution ?? null,
+                educationDegree: options.education?.degree ?? null,
+                educationFieldOfStudy: options.education?.fieldOfStudy ?? null,
+                educationIsCurrentlyPursuing: options.education?.isCurrentlyPursuing ?? false,
+                researchInterests: options.researchDetails?.interests ?? [],
+                detailedPublicationsUrl: options.researchDetails?.detailedPublicationsUrl ?? null,
+                featuredPublicationsUrls: options.researchDetails?.featuredPublicationsUrls ?? [],
+            }),
+        )
+        .execute()
+
+    const profile = await db
+        .selectFrom('researcherProfile')
+        .selectAll('researcherProfile')
+        .where('userId', '=', options.userId)
+        .executeTakeFirstOrThrow()
+
+    await db.deleteFrom('researcherPosition').where('userId', '=', options.userId).execute()
+
+    let positions: Array<{
+        id: string
+        affiliation: string
+        position: string
+        profileUrl: string | null
+        sortOrder: number
+    }> = []
+
+    if (options.positions && options.positions.length > 0) {
+        const rows = options.positions.map((p, idx) => ({
+            userId: options.userId,
+            affiliation: p.affiliation,
+            position: p.position,
+            profileUrl: p.profileUrl ?? null,
+            sortOrder: idx,
+        }))
+        await db.insertInto('researcherPosition').values(rows).execute()
+
+        positions = await db
+            .selectFrom('researcherPosition')
+            .select(['id', 'affiliation', 'position', 'profileUrl', 'sortOrder'])
+            .where('userId', '=', options.userId)
+            .orderBy('sortOrder', 'asc')
+            .execute()
+    }
+
+    return { profile, positions }
+}
+
+export const getTestResearcherProfileData = async (userId: string) => {
+    const user = await db
+        .selectFrom('user')
+        .select(['id', 'firstName', 'lastName', 'email'])
+        .where('id', '=', userId)
+        .executeTakeFirstOrThrow()
+
+    await db
+        .insertInto('researcherProfile')
+        .values({ userId })
+        .onConflict((oc) => oc.column('userId').doNothing())
+        .execute()
+
+    const profile = await db
+        .selectFrom('researcherProfile')
+        .select([
+            'userId',
+            'educationInstitution',
+            'educationDegree',
+            'educationFieldOfStudy',
+            'educationIsCurrentlyPursuing',
+            'researchInterests',
+            'detailedPublicationsUrl',
+            'featuredPublicationsUrls',
+        ])
+        .where('userId', '=', userId)
+        .executeTakeFirstOrThrow()
+
+    const positions = await db
+        .selectFrom('researcherPosition')
+        .select(['id', 'affiliation', 'position', 'profileUrl', 'sortOrder'])
+        .where('userId', '=', userId)
+        .orderBy('sortOrder', 'asc')
+        .execute()
+
+    return { user, profile, positions }
+}
