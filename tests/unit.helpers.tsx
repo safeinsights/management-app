@@ -595,7 +595,6 @@ export type InsertTestResearcherProfileOptions = {
 }
 
 export const insertTestResearcherProfile = async (options: InsertTestResearcherProfileOptions) => {
-    // Insert or update researcherProfile
     await db
         .insertInto('researcherProfile')
         .values({
@@ -627,7 +626,6 @@ export const insertTestResearcherProfile = async (options: InsertTestResearcherP
         .where('userId', '=', options.userId)
         .executeTakeFirstOrThrow()
 
-    // Delete existing positions and insert new ones
     await db.deleteFrom('researcherPosition').where('userId', '=', options.userId).execute()
 
     let positions: Array<{
@@ -666,7 +664,6 @@ export const getTestResearcherProfileData = async (userId: string) => {
         .where('id', '=', userId)
         .executeTakeFirstOrThrow()
 
-    // Ensure profile exists
     await db
         .insertInto('researcherProfile')
         .values({ userId })

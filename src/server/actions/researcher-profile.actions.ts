@@ -112,10 +112,8 @@ export const updatePositionsAction = new Action('updatePositionsAction', { perfo
             .onConflict((oc) => oc.column('userId').doNothing())
             .execute()
 
-        // Delete existing positions
         await db.deleteFrom('researcherPosition').where('userId', '=', userId).execute()
 
-        // Insert new positions with sort order
         if (params.positions.length > 0) {
             const rows = params.positions.map((p, idx) => ({
                 userId,
