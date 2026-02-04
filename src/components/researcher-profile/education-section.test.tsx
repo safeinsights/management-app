@@ -12,9 +12,6 @@ import { EducationSection } from './education-section'
 import { notifications } from '@mantine/notifications'
 
 describe('EducationSection', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
 
     it('should display education data in view mode', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
