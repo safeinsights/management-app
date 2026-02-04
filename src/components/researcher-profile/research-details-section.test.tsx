@@ -11,9 +11,6 @@ import {
 import { ResearchDetailsSection } from './research-details-section'
 
 describe('ResearchDetailsSection', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
 
     describe('research interests pills', () => {
         it('should add interest pill on Enter key', async () => {
