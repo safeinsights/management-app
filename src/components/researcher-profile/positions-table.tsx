@@ -10,6 +10,7 @@ interface PositionsTableProps {
     positions: PositionValues[]
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
+    canDelete: boolean
     onEdit: (index: number) => void
     onDelete: (index: number) => void
     onAdd: () => void
@@ -20,6 +21,7 @@ export function PositionsTable({
     positions,
     editingIndex,
     form,
+    canDelete,
     onEdit,
     onDelete,
     onAdd,
@@ -44,16 +46,18 @@ export function PositionsTable({
                         <PencilSimpleIcon />
                     </ActionIcon>
                 </Table.Td>
-                <Table.Td ta="center">
-                    <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        onClick={() => onDelete(idx)}
-                        aria-label="Delete current position"
-                    >
-                        <TrashIcon />
-                    </ActionIcon>
-                </Table.Td>
+                {canDelete && (
+                    <Table.Td ta="center">
+                        <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            onClick={() => onDelete(idx)}
+                            aria-label="Delete current position"
+                        >
+                            <TrashIcon />
+                        </ActionIcon>
+                    </Table.Td>
+                )}
             </Table.Tr>
         )
     })
@@ -69,9 +73,11 @@ export function PositionsTable({
                         <Table.Th w={80} ta="center">
                             Edit
                         </Table.Th>
-                        <Table.Th w={80} ta="center">
-                            Delete
-                        </Table.Th>
+                        {canDelete && (
+                            <Table.Th w={80} ta="center">
+                                Delete
+                            </Table.Th>
+                        )}
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{tableRows}</Table.Tbody>

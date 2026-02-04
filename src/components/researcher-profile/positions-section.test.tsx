@@ -107,8 +107,7 @@ describe('PositionsSection', () => {
         expect(positions[0].position).toBe('Professor')
     })
 
-    it('should allow deleting the last position and save empty array', async () => {
-        const userEvents = userEvent.setup()
+    it('should hide delete button when only one position exists', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
         await insertTestResearcherProfile({
@@ -126,28 +125,70 @@ describe('PositionsSection', () => {
 
         renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
 
-        // Table should be visible with delete button
+        // Table should be visible
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click delete
-        const deleteButton = screen.getByRole('button', { name: /delete current position/i })
-        await userEvents.click(deleteButton)
+        // Delete button should not be visible when only one position exists
+        expect(screen.queryByRole('button', { name: /delete current position/i })).toBeNull()
+        // Delete column header should not be visible either
+        expect(screen.queryByText('Delete')).toBeNull()
+    })
+
+    it('should show delete button and allow deletion when 2+ positions exist', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                {
+                    affiliation: 'MIT',
+                    position: 'Professor',
+                },
+                {
+                    affiliation: 'Stanford',
+                    position: 'Researcher',
+                },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+
+        // Table should be visible with both positions
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+            expect(screen.getByText('Stanford')).toBeDefined()
+        })
+
+        // Delete column header should be visible
+        expect(screen.getByText('Delete')).toBeDefined()
+
+        // Delete buttons should be visible (2 positions = 2 delete buttons)
+        const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
+        expect(deleteButtons).toHaveLength(2)
+
+        // Click delete on the first position (MIT)
+        await userEvents.click(deleteButtons[0])
 
         // Wait for the action to complete
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB was updated - position should be deleted
+        // Verify DB was updated - only one position should remain
         const positions = await db
             .selectFrom('researcherPosition')
-            .select(['id'])
+            .select(['affiliation'])
             .where('userId', '=', user.id)
             .execute()
 
-        expect(positions).toHaveLength(0)
+        expect(positions).toHaveLength(1)
+        expect(positions[0].affiliation).toBe('Stanford')
     })
 
     it('should not show cancel button when no positions exist', async () => {

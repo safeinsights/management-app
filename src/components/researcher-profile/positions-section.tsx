@@ -29,6 +29,8 @@ export function PositionsSection({ data, refetch }: PositionsSectionProps) {
         handleDelete,
     } = usePositionsSection(data, refetch)
 
+    const canDelete = defaults.positions.length >= 2
+
     return (
         <Paper p="xl" radius="sm">
             <SectionHeader
@@ -43,6 +45,7 @@ export function PositionsSection({ data, refetch }: PositionsSectionProps) {
                 positions={defaults.positions}
                 editingIndex={editingIndex}
                 form={form}
+                canDelete={canDelete}
                 onEdit={openEdit}
                 onDelete={handleDelete}
                 onAdd={openAdd}
