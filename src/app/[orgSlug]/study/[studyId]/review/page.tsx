@@ -31,8 +31,12 @@ export default async function StudyReviewPage(props: {
     // - DRAFT studies: LabReviewView (researcher reviewing before submission)
     // - Submitted studies (enclave org): EnclaveReviewView (enclave reviewing submitted code)
     if (study.status === 'DRAFT') {
-        const labOrgSlug = study.submittedByOrgSlug || orgSlug
-        return <LabReviewView orgSlug={labOrgSlug} study={study} />
+        if (!study.submittedByOrgSlug) {
+            return (
+                <AlertNotFound title="Study was not found" message="Draft study is missing submitting organization" />
+            )
+        }
+        return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
     }
 
     if (currentOrg.type === 'enclave') {
