@@ -12,9 +12,6 @@ import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
 
     it('should display user data in view mode', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
