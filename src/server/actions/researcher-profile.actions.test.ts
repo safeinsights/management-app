@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
 import { mockSessionWithTestData } from '@/tests/unit.helpers'
 import { updatePersonalInfoAction } from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
 describe('researcher-profile.actions', () => {
-
     describe('updatePersonalInfoAction', () => {
         it('should not update DB if Clerk update fails', async () => {
             const { user } = await mockSessionWithTestData()

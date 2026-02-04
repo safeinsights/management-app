@@ -1,7 +1,3 @@
-// Static curated list of academic degrees for the Researcher Profile.
-// NOTE: This is intentionally a simple list to start (per UX notes + Iris validation).
-// Add/adjust options as needed; always include 'Other'.
-
 export const DEGREE_OPTIONS: string[] = [
     'High school diploma',
     'Associate degree',

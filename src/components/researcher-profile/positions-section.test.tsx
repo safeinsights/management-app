@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import {
     renderWithProviders,
@@ -11,7 +11,6 @@ import {
 import { PositionsSection } from './positions-section'
 
 describe('PositionsSection', () => {
-
     it('should auto-open form when no positions exist', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 

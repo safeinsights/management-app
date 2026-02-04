@@ -5,7 +5,6 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .createTable('researcher_profile')
-        // One profile per user
         .addColumn('user_id', 'uuid', (col) => col.primaryKey().references('user.id').onDelete('cascade'))
 
         // Highest level of education

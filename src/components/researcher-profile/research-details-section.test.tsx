@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import {
     renderWithProviders,
@@ -11,7 +11,6 @@ import {
 import { ResearchDetailsSection } from './research-details-section'
 
 describe('ResearchDetailsSection', () => {
-
     describe('research interests pills', () => {
         it('should add interest pill on Enter key', async () => {
             const userEvents = userEvent.setup()

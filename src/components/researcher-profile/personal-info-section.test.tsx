@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import {
     renderWithProviders,
@@ -12,7 +12,6 @@ import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
-
     it('should display user data in view mode', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
