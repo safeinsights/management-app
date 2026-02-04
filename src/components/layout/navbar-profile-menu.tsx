@@ -29,7 +29,11 @@ export function NavbarProfileMenu() {
         }
     }, [isOnProfilePage, open])
 
-    const menuRef = useClickOutside<HTMLDivElement>(() => opened && close())
+    const menuRef = useClickOutside<HTMLDivElement>(() => {
+        if (opened && !isOnProfilePage) {
+            close()
+        }
+    })
     const isSiAdmin = session?.user.isSiAdmin || false
 
     const closeAndCall = (fn: () => void) => (e: React.MouseEvent) => {

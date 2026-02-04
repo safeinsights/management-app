@@ -224,4 +224,5 @@ export interface DB {
     userPublicKey: UserPublicKey
 }
 
+// Re-export manual types for convenience
 export type { EnvVar, OrgBaseImageSettings } from './types-manual'
