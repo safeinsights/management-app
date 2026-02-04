@@ -42,6 +42,14 @@ export function NavbarProfileMenu() {
         close()
     }
 
+    const handleSettingsClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        openUserProfile()
+        if (!isOnProfilePage) {
+            close()
+        }
+    }
+
     const handleProfileClick = useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation()
@@ -87,7 +95,7 @@ export function NavbarProfileMenu() {
                     leftSection={<GearIcon aria-hidden="true" />}
                     c="white"
                     className={styles.navLinkProfileHover}
-                    onClick={closeAndCall(() => openUserProfile())}
+                    onClick={handleSettingsClick}
                     aria-label="Settings"
                     role="menuitem"
                     component="button"
