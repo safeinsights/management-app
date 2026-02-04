@@ -5,9 +5,6 @@ import { updatePersonalInfoAction } from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
 describe('researcher-profile.actions', () => {
-    beforeEach(() => {
-        vi.clearAllMocks()
-    })
 
     describe('updatePersonalInfoAction', () => {
         it('should not update DB if Clerk update fails', async () => {
