@@ -12,12 +12,14 @@ type StudyActionLinkProps = {
 export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
     // Use study.orgSlug for user scope tables, otherwise use the prop
     const slug = study.orgSlug || orgSlug
+    // For draft studies, use the submitting lab's org slug
+    const draftSlug = study.submittedByOrgSlug || orgSlug
 
     if (audience === 'researcher') {
         if (study.status === 'DRAFT') {
             return (
                 <Link
-                    href={Routes.studyEdit({ orgSlug: slug, studyId: study.id })}
+                    href={Routes.studyEdit({ orgSlug: draftSlug, studyId: study.id })}
                     aria-label={`Edit draft study ${study.title}`}
                 >
                     Edit

@@ -101,7 +101,8 @@ export const fetchStudiesForCurrentResearcherUserAction = new Action('fetchStudi
         return fetchStudyQuery(db)
             .where((eb) => eb.or([eb('study.status', '!=', 'DRAFT'), eb('study.researcherId', '=', userId)])) // Only show: non-draft studies OR drafts where user is the researcher
             .innerJoin('org', 'org.id', 'study.orgId')
-            .select(['org.name as orgName', 'org.slug as orgSlug'])
+            .innerJoin('org as submittingOrg', 'submittingOrg.id', 'study.submittedByOrgId')
+            .select(['org.name as orgName', 'org.slug as orgSlug', 'submittingOrg.slug as submittedByOrgSlug'])
             .execute()
     })
 
