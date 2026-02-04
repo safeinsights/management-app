@@ -3,14 +3,15 @@
 import { UserAvatar } from '@/components/user-avatar'
 import { UserName } from '@/components/user-name'
 import { useSession } from '@/hooks/session'
+import { useProfileMenuDisclosure } from '@/hooks/use-profile-menu-disclosure'
 import { Routes } from '@/lib/routes'
 import { AuthRole } from '@/lib/types'
 import { useClerk } from '@clerk/nextjs'
 import { AppShellSection, Collapse, NavLink } from '@mantine/core'
-import { useClickOutside, useDisclosure } from '@mantine/hooks'
+import { useClickOutside } from '@mantine/hooks'
 import { CaretRightIcon, GearIcon, GlobeIcon, LockIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react/dist/ssr'
-import { usePathname, useRouter } from 'next/navigation'
-import { useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useCallback } from 'react'
 import { Protect } from '../auth'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
@@ -18,23 +19,18 @@ import styles from './navbar-items.module.css'
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
     const router = useRouter()
-    const pathname = usePathname()
     const { session } = useSession()
-    const isOnProfilePage = pathname === Routes.researcherProfile
-    const [opened, { toggle, close, open }] = useDisclosure(isOnProfilePage)
 
-    useEffect(() => {
-        if (isOnProfilePage) {
-            open()
-        }
-    }, [isOnProfilePage, open])
+    const { opened, toggle, close, pathname, handleClickOutside, closeForNavigation } = useProfileMenuDisclosure()
 
-    const menuRef = useClickOutside<HTMLDivElement>(() => {
-        if (opened && !isOnProfilePage) {
-            close()
-        }
-    })
+    const menuRef = useClickOutside<HTMLDivElement>(handleClickOutside)
     const isSiAdmin = session?.user.isSiAdmin || false
+
+    const navigateTo = (route: string) => (e: React.MouseEvent) => {
+        e.stopPropagation()
+        router.push(route as Parameters<typeof router.push>[0])
+        closeForNavigation(route)
+    }
 
     const closeAndCall = (fn: () => void) => (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -45,18 +41,8 @@ export function NavbarProfileMenu() {
     const handleSettingsClick = (e: React.MouseEvent) => {
         e.stopPropagation()
         openUserProfile()
-        if (!isOnProfilePage) {
-            close()
-        }
+        handleClickOutside()
     }
-
-    const handleProfileClick = useCallback(
-        (e: React.MouseEvent) => {
-            e.stopPropagation()
-            router.push(Routes.researcherProfile)
-        },
-        [router],
-    )
 
     const handleToggle = useCallback(() => {
         const wasOpened = opened
@@ -79,11 +65,11 @@ export function NavbarProfileMenu() {
                         label="Profile"
                         leftSection={<UserIcon aria-hidden="true" />}
                         c="white"
-                        active={isOnProfilePage}
+                        active={pathname === Routes.researcherProfile}
                         color="blue.7"
                         variant="filled"
                         className={styles.navLinkProfileHover}
-                        onClick={handleProfileClick}
+                        onClick={navigateTo(Routes.researcherProfile)}
                         aria-label="Profile"
                         role="menuitem"
                         component="button"
@@ -105,8 +91,11 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="Reviewer Key"
                         leftSection={<LockIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => router.push(Routes.reviewerKey))}
+                        onClick={navigateTo(Routes.reviewerKey)}
                         c="white"
+                        active={pathname === Routes.reviewerKey}
+                        color="blue.7"
+                        variant="filled"
                         className={styles.navLinkProfileHover}
                         aria-label="Reviewer Key"
                         role="menuitem"
@@ -118,8 +107,11 @@ export function NavbarProfileMenu() {
                     <NavLink
                         label="SI Admin"
                         leftSection={<GlobeIcon aria-hidden="true" />}
-                        onClick={closeAndCall(() => router.push(Routes.adminSafeinsights))}
+                        onClick={navigateTo(Routes.adminSafeinsights)}
                         c="white"
+                        active={pathname === Routes.adminSafeinsights}
+                        color="blue.7"
+                        variant="filled"
                         className={styles.navLinkProfileHover}
                         aria-label="SI Admin"
                         role="menuitem"
