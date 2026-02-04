@@ -9,19 +9,12 @@ import {
     db,
 } from '@/tests/unit.helpers'
 import { PersonalInfoSection } from './personal-info-section'
-
-vi.mock('@mantine/notifications', () => ({
-    notifications: {
-        show: vi.fn(),
-    },
-}))
+import { notifications } from '@mantine/notifications'
 
 // Keep Clerk mock - it's an external service
 vi.mock('@/server/clerk', () => ({
     updateClerkUserName: vi.fn().mockResolvedValue(undefined),
 }))
-
-import { notifications } from '@mantine/notifications'
 
 describe('PersonalInfoSection', () => {
     beforeEach(() => {

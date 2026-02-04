@@ -10,12 +10,6 @@ import {
 } from '@/tests/unit.helpers'
 import { ResearchDetailsSection } from './research-details-section'
 
-vi.mock('@mantine/notifications', () => ({
-    notifications: {
-        show: vi.fn(),
-    },
-}))
-
 describe('ResearchDetailsSection', () => {
     beforeEach(() => {
         vi.clearAllMocks()

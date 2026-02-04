@@ -9,10 +9,6 @@ vi.mock('@/server/actions/workspaces.actions', () => ({
     listWorkspaceFilesAction: vi.fn(),
 }))
 
-vi.mock('@mantine/notifications', () => ({
-    notifications: { show: vi.fn() },
-}))
-
 import { listWorkspaceFilesAction } from '@/server/actions/workspaces.actions'
 
 const createWrapper = () => {

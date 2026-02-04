@@ -6,13 +6,6 @@ import { notifications } from '@mantine/notifications'
 import { memoryRouter } from 'next-router-mock'
 import { Routes } from '@/lib/routes'
 
-// Local mock for notifications since it's not in vitest.setup.ts
-vi.mock('@mantine/notifications', () => ({
-    notifications: {
-        show: vi.fn(),
-    },
-}))
-
 describe('RecoveryCodeSignIn', () => {
     it('successfully signs in with a recovery code and redirects to dashboard', async () => {
         const mockAttemptSecondFactor = vi.fn().mockResolvedValue({

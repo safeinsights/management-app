@@ -57,6 +57,15 @@ beforeAll(async () => {
     vi.mock('@clerk/nextjs')
     vi.mock('@clerk/nextjs/server')
 
+    vi.mock('@mantine/notifications', () => ({
+        notifications: {
+            show: vi.fn(),
+            hide: vi.fn(),
+        },
+        showNotification: vi.fn(),
+        Notifications: () => null,
+    }))
+
     testTransaction.start()
 })
 

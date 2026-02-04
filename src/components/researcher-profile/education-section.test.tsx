@@ -9,13 +9,6 @@ import {
     db,
 } from '@/tests/unit.helpers'
 import { EducationSection } from './education-section'
-
-vi.mock('@mantine/notifications', () => ({
-    notifications: {
-        show: vi.fn(),
-    },
-}))
-
 import { notifications } from '@mantine/notifications'
 
 describe('EducationSection', () => {
