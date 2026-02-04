@@ -11,11 +11,6 @@ import {
 import { PersonalInfoSection } from './personal-info-section'
 import { notifications } from '@mantine/notifications'
 
-// Keep Clerk mock - it's an external service
-vi.mock('@/server/clerk', () => ({
-    updateClerkUserName: vi.fn().mockResolvedValue(undefined),
-}))
-
 describe('PersonalInfoSection', () => {
     beforeEach(() => {
         vi.clearAllMocks()

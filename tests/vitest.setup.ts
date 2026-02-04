@@ -19,6 +19,11 @@ expect.extend(matchers)
 const Headers = new Map()
 
 beforeAll(async () => {
+    // Defense layer: clear Clerk credentials to prevent real API calls if mocks fail
+    delete process.env.CLERK_SECRET_KEY
+    delete process.env.CLERK_PUBLISHABLE_KEY
+    delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     vi.mock('next/router', () => require('next-router-mock'))
     vi.mock('next/server', async (importOriginal) => ({
@@ -54,8 +59,17 @@ beforeAll(async () => {
     vi.mock('next/cache')
     vi.mock('next/headers', async () => ({ headers: async () => Headers }))
 
+    // Clerk SDK mocks - configured via mockClerkSession() in unit.helpers.tsx
     vi.mock('@clerk/nextjs')
     vi.mock('@clerk/nextjs/server')
+
+    // Partial mock: only mock Clerk mutation functions, keep read functions real
+    vi.mock('@/server/clerk', async (importOriginal) => ({
+        ...(await importOriginal()),
+        updateClerkUserName: vi.fn(),
+        updateClerkUserMetadata: vi.fn(),
+        findOrCreateClerkOrganization: vi.fn(),
+    }))
 
     vi.mock('@mantine/notifications', () => ({
         notifications: {
