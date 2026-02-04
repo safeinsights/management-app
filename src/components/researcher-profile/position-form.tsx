@@ -79,7 +79,7 @@ export function PositionForm({
                         </Text>
                         <TextInput
                             id="profileUrl"
-                            placeholder="https://university.edu/student/yourname"
+                            placeholder="https://university.edu/faculty/yourname"
                             {...form.getInputProps(`positions.${editingIndex}.profileUrl`)}
                         />
                     </div>
