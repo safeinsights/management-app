@@ -19,6 +19,7 @@ export type StudyRow = {
     // User actions return these
     orgName?: string
     orgSlug?: string
+    submittedByOrgSlug?: string
 }
 
 export type StudiesTableProps = {

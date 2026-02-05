@@ -14,10 +14,12 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
     const slug = study.orgSlug || orgSlug
 
     if (audience === 'researcher') {
+        // Researchers always access studies via their lab's org slug
+        const labSlug = study.submittedByOrgSlug || orgSlug
         if (study.status === 'DRAFT') {
             return (
                 <Link
-                    href={Routes.studyEdit({ orgSlug: slug, studyId: study.id })}
+                    href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
                     aria-label={`Edit draft study ${study.title}`}
                 >
                     Edit
@@ -26,7 +28,7 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
         }
         return (
             <Link
-                href={Routes.studyView({ orgSlug: slug, studyId: study.id })}
+                href={Routes.studyView({ orgSlug: labSlug, studyId: study.id })}
                 aria-label={`View details for study ${study.title}`}
                 fw={isHighlighted ? 600 : undefined}
             >
