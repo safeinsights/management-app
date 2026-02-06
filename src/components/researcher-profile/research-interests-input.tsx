@@ -37,7 +37,9 @@ export function ResearchInterestsInput({
                     <PillsInput.Field
                         placeholder={isAtLimit ? '' : 'Type a research interest and press enter'}
                         value={draftValue}
-                        onChange={(e) => onDraftChange(e.currentTarget.value)}
+                        onChange={(e) => {
+                            if (!isAtLimit) onDraftChange(e.currentTarget.value)
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault()
@@ -47,13 +49,14 @@ export function ResearchInterestsInput({
                                 onRemove(interests.length - 1)
                             }
                         }}
-                        disabled={isAtLimit}
                     />
                 </Pill.Group>
             </PillsInput>
-            <Text size="sm" mt={4}>
-                Include up to five area(s) of research interest.
-            </Text>
+            {!isAtLimit && (
+                <Text size="sm" mt={4}>
+                    Include up to five area(s) of research interest.
+                </Text>
+            )}
         </>
     )
 }

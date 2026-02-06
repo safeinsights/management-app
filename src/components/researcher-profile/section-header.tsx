@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Group, Title } from '@mantine/core'
+import { Button, Divider, Group, Title } from '@mantine/core'
 
 interface SectionHeaderProps {
     title: string
@@ -10,20 +10,19 @@ interface SectionHeaderProps {
 }
 
 export function SectionHeader({ title, isEditing, onEdit, showEditButton = true }: SectionHeaderProps) {
+    const editButton = showEditButton && !isEditing && (
+        <Button variant="subtle" onClick={onEdit}>
+            Edit
+        </Button>
+    )
+
     return (
-        <Group
-            justify="space-between"
-            align="center"
-            mb="md"
-            pb="sm"
-            style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}
-        >
-            <Title order={3}>{title}</Title>
-            {showEditButton && !isEditing && (
-                <Button variant="subtle" onClick={onEdit}>
-                    Edit
-                </Button>
-            )}
-        </Group>
+        <>
+            <Group justify="space-between" align="center">
+                <Title order={3}>{title}</Title>
+                {editButton}
+            </Group>
+            <Divider my="md" />
+        </>
     )
 }
