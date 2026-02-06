@@ -222,12 +222,26 @@ export const insertTestStudyJobData = async ({
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
     language,
+    title,
+    piName,
+    dataSources,
+    researchQuestions,
+    projectSummary,
+    impact,
+    additionalNotes,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
     language?: Language
+    title?: string
+    piName?: string
+    dataSources?: string[]
+    researchQuestions?: string | null
+    projectSummary?: string | null
+    impact?: string | null
+    additionalNotes?: string | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -242,13 +256,17 @@ export const insertTestStudyJobData = async ({
             orgId: org.id,
             submittedByOrgId: org.id,
             containerLocation: 'test-container',
-            title: 'my 1st study',
+            title: title ?? 'my 1st study',
             researcherId: researcherId,
-            piName: 'test',
+            piName: piName ?? 'test',
             status: studyStatus,
-            dataSources: ['all'],
+            dataSources: dataSources ?? ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
+            researchQuestions: researchQuestions ?? null,
+            projectSummary: projectSummary ?? null,
+            impact: impact ?? null,
+            additionalNotes: additionalNotes ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()
