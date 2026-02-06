@@ -21,7 +21,7 @@ function ProposalField({ label, value }: { label: string; value?: string | null 
         <>
             <Divider />
             <Stack gap={4}>
-                <Text fw="bold" size="sm">
+                <Text fw={600} size="sm">
                     {label}
                 </Text>
                 <Text size="sm">{value}</Text>
@@ -37,7 +37,7 @@ function DataSourcesField({ dataSources }: { dataSources: string[] }) {
         <>
             <Divider />
             <Stack gap={4}>
-                <Text fw="bold" size="sm">
+                <Text fw={600} size="sm">
                     Dataset(s) of interest
                 </Text>
                 <Text size="sm">{dataSources.join(', ')}</Text>
@@ -51,11 +51,11 @@ function ResearcherField({ study, orgSlug }: { study: SelectedStudy; orgSlug: st
         <>
             <Divider />
             <Stack gap={4}>
-                <Text fw="bold" size="sm">
+                <Text fw={600} size="sm">
                     Researcher
                 </Text>
                 <ResearcherProfilePopover userId={study.researcherId} studyId={study.id} orgSlug={orgSlug}>
-                    <Text size="sm" c="blue.7" td="underline" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    <Text size="sm" c="blue.7" td="underline" display="inline-block" style={{ cursor: 'pointer' }}>
                         {study.createdBy}
                     </Text>
                 </ResearcherProfilePopover>

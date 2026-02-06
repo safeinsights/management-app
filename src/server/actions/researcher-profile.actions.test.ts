@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
-import { updatePersonalInfoAction } from './researcher-profile.actions'
+import { isActionError } from '@/lib/errors'
+import {
+    mockSessionWithTestData,
+    insertTestStudyJobData,
+    insertTestResearcherProfile,
+    faker,
+} from '@/tests/unit.helpers'
+import { updatePersonalInfoAction, getResearcherProfileByUserIdAction } from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
 describe('researcher-profile.actions', () => {
@@ -50,6 +56,64 @@ describe('researcher-profile.actions', () => {
             expect(dbUser.firstName).toBe('Jane')
             expect(dbUser.lastName).toBe('Smith')
             expect(result).toEqual({ success: true })
+        })
+    })
+
+    describe('getResearcherProfileByUserIdAction', () => {
+        it('returns user, profile, and positions data for valid userId', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                education: { institution: 'MIT', degree: 'Ph.D.', fieldOfStudy: 'CS' },
+                positions: [{ affiliation: 'MIT', position: 'Professor' }],
+                researchDetails: { interests: ['AI', 'ML'] },
+            })
+
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+
+            expect(result).not.toBeNull()
+            expect(isActionError(result)).toBe(false)
+            expect(result).toMatchObject({
+                user: {
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                },
+                profile: {
+                    userId: user.id,
+                    educationDegree: 'Ph.D.',
+                    researchInterests: ['AI', 'ML'],
+                },
+                positions: [
+                    expect.objectContaining({
+                        affiliation: 'MIT',
+                        position: 'Professor',
+                    }),
+                ],
+            })
+        })
+
+        it('returns null when user does not exist', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const result = await getResearcherProfileByUserIdAction({
+                userId: faker.string.uuid(),
+                studyId: study.id,
+            })
+
+            expect(result).toBeNull()
+        })
+
+        it('returns null when profile does not exist', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+
+            expect(result).toBeNull()
         })
     })
 })
