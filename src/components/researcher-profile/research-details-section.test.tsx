@@ -54,10 +54,10 @@ describe('ResearchDetailsSection', () => {
             await userEvents.click(editButton)
 
             await waitFor(() => {
-                const input = screen.getByPlaceholderText(
-                    'Type a research interest and press enter',
-                ) as HTMLInputElement
-                expect(input.disabled).toBe(true)
+                const pillsInput = document.getElementById('researchInterests') as HTMLInputElement
+                expect(pillsInput).toBeTruthy()
+                expect(pillsInput.disabled).toBe(true)
+                expect(pillsInput.placeholder).toBe('')
             })
         })
 

@@ -21,6 +21,7 @@ export function ResearchInterestsInput({
 }: ResearchInterestsInputProps) {
     const interests = form.values.researchInterests || []
     const maxItems = 5
+    const isAtLimit = interests.length >= maxItems
 
     const interestPills = interests.map((item, idx) => (
         <Pill key={form.key(`researchInterests.${idx}`)} withRemoveButton onRemove={() => onRemove(idx)}>
@@ -34,7 +35,7 @@ export function ResearchInterestsInput({
                 <Pill.Group>
                     {interestPills}
                     <PillsInput.Field
-                        placeholder="Type a research interest and press enter"
+                        placeholder={isAtLimit ? '' : 'Type a research interest and press enter'}
                         value={draftValue}
                         onChange={(e) => onDraftChange(e.currentTarget.value)}
                         onKeyDown={(e) => {
@@ -42,8 +43,11 @@ export function ResearchInterestsInput({
                                 e.preventDefault()
                                 onAdd()
                             }
+                            if (e.key === 'Backspace' && !draftValue && interests.length > 0) {
+                                onRemove(interests.length - 1)
+                            }
                         }}
-                        disabled={interests.length >= maxItems}
+                        disabled={isAtLimit}
                     />
                 </Pill.Group>
             </PillsInput>

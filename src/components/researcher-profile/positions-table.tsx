@@ -84,7 +84,7 @@ export function PositionsTable({
 
     return (
         <>
-            <Table withTableBorder withColumnBorders>
+            <Table withRowBorders horizontalSpacing="md" verticalSpacing="sm">
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th>Institutional affiliation</Table.Th>
