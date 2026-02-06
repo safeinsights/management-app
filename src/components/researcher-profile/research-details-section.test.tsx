@@ -96,6 +96,41 @@ describe('ResearchDetailsSection', () => {
             expect(screen.getByText('Data Science')).toBeDefined()
         })
 
+        it('should remove last interest pill on Backspace when input is empty', async () => {
+            const userEvents = userEvent.setup()
+            const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                researchDetails: {
+                    interests: ['Machine Learning', 'Data Science'],
+                    detailedPublicationsUrl: 'https://scholar.google.com/user',
+                },
+            })
+
+            const data = await getTestResearcherProfileData(user.id)
+            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+            const editButton = screen.getByRole('button', { name: /edit/i })
+            await userEvents.click(editButton)
+
+            await waitFor(() => {
+                expect(screen.getByText('Machine Learning')).toBeDefined()
+                expect(screen.getByText('Data Science')).toBeDefined()
+            })
+
+            const input = screen.getByPlaceholderText('Type a research interest and press enter')
+            await userEvents.click(input)
+            await userEvents.keyboard('{Backspace}')
+
+            await waitFor(() => {
+                expect(screen.queryByText('Data Science')).toBeNull()
+            })
+            expect(screen.getByText('Machine Learning')).toBeDefined()
+        })
+
         it('should prevent duplicate interests (case-insensitive)', async () => {
             const userEvents = userEvent.setup()
             const { user } = await mockSessionWithTestData({ orgType: 'lab' })
