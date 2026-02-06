@@ -18,7 +18,7 @@ export function SectionHeader({ title, isEditing, onEdit, showEditButton = true 
 
     return (
         <>
-            <Group justify="space-between" align="center">
+            <Group justify="space-between" align="center" mih={36}>
                 <Title order={3}>{title}</Title>
                 {editButton}
             </Group>
