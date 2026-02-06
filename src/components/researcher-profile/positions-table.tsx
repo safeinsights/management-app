@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Anchor, Box, Table } from '@mantine/core'
+import { ActionIcon, Anchor, Box, Divider, Table } from '@mantine/core'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
@@ -104,6 +104,7 @@ export function PositionsTable({
                 </Table.Thead>
                 <Table.Tbody>{tableRows}</Table.Tbody>
             </Table>
+            <Divider />
 
             <AddPositionLink isVisible={!readOnly} onAdd={onAdd} />
         </>
