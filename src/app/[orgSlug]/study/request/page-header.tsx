@@ -1,9 +1,9 @@
 'use client'
 
 import { FC } from 'react'
-import { Title } from '@mantine/core'
-import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
+import { Step1Header as LegacyStep1Header } from './legacy/step1-header'
+import { Step1Header as OpenStaxStep1Header } from './openstax/step1-header'
 
 interface StudyRequestPageHeaderProps {
     orgSlug: string
@@ -12,18 +12,8 @@ interface StudyRequestPageHeaderProps {
 export const StudyRequestPageHeader: FC<StudyRequestPageHeaderProps> = ({ orgSlug }) => {
     return (
         <OpenStaxFeatureFlag
-            defaultContent={
-                <>
-                    <ResearcherBreadcrumbs crumbs={{ orgSlug, current: 'Propose a study' }} />
-                    <Title order={1}>Propose a study</Title>
-                </>
-            }
-            optInContent={
-                <>
-                    <ResearcherBreadcrumbs crumbs={{ orgSlug, current: 'Request data use' }} />
-                    <Title order={1}>Request data use</Title>
-                </>
-            }
+            defaultContent={<LegacyStep1Header orgSlug={orgSlug} />}
+            optInContent={<OpenStaxStep1Header orgSlug={orgSlug} />}
         />
     )
 }

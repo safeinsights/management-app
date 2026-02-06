@@ -6,6 +6,7 @@ import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
@@ -22,6 +23,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
         useStudyRequest()
+    const isOpenStaxFlow = useOpenStaxFeatureFlag()
 
     useEffect(() => {
         // Only initialize if we have draft data to load
@@ -37,7 +39,10 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
                 if (proceed) {
-                    router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
+                    const nextRoute = isOpenStaxFlow
+                        ? Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId })
+                        : Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId })
+                    router.push(nextRoute)
                 } else {
                     if (!studyId) {
                         router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }), {
