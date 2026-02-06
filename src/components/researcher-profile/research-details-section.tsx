@@ -111,7 +111,7 @@ function ResearchDetailsDisplay({ defaults }: ResearchDetailsDisplayProps) {
     ))
 
     return (
-        <Stack gap="sm">
+        <Stack gap="md">
             <DisplayField label="Research interests">
                 <Group gap="xs" mt={6}>
                     {interestPills}

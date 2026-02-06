@@ -54,11 +54,91 @@ describe('ResearchDetailsSection', () => {
             await userEvents.click(editButton)
 
             await waitFor(() => {
-                const input = screen.getByPlaceholderText(
-                    'Type a research interest and press enter',
-                ) as HTMLInputElement
-                expect(input.disabled).toBe(true)
+                const pillsInput = document.getElementById('researchInterests') as HTMLInputElement
+                expect(pillsInput).toBeTruthy()
+                expect(pillsInput.disabled).toBe(false)
+                expect(pillsInput.placeholder).toBe('')
             })
+
+            // Helper text should be hidden at the limit
+            expect(screen.queryByText(/include up to five/i)).toBeNull()
+
+            // Typing + Enter should not add a 6th pill
+            const input = document.getElementById('researchInterests') as HTMLInputElement
+            await userEvents.type(input, 'Robotics{Enter}')
+
+            await waitFor(() => {
+                expect(screen.queryByText('Robotics')).toBeNull()
+            })
+        })
+
+        it('should block typing in input when at 5-pill limit', async () => {
+            const userEvents = userEvent.setup()
+            const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                researchDetails: {
+                    interests: ['AI', 'ML', 'Data Science', 'NLP', 'Computer Vision'],
+                    detailedPublicationsUrl: 'https://scholar.google.com/user',
+                },
+            })
+
+            const data = await getTestResearcherProfileData(user.id)
+            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+            const editButton = screen.getByRole('button', { name: /edit/i })
+            await userEvents.click(editButton)
+
+            const input = await waitFor(() => {
+                const el = document.getElementById('researchInterests') as HTMLInputElement
+                expect(el).toBeTruthy()
+                return el
+            })
+
+            await userEvents.type(input, 'Robotics')
+
+            expect(input.value).toBe('')
+        })
+
+        it('should allow backspace removal when at 5-pill limit', async () => {
+            const userEvents = userEvent.setup()
+            const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                researchDetails: {
+                    interests: ['AI', 'ML', 'Data Science', 'NLP', 'Computer Vision'],
+                    detailedPublicationsUrl: 'https://scholar.google.com/user',
+                },
+            })
+
+            const data = await getTestResearcherProfileData(user.id)
+            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+            const editButton = screen.getByRole('button', { name: /edit/i })
+            await userEvents.click(editButton)
+
+            await waitFor(() => {
+                expect(screen.getByText('Computer Vision')).toBeDefined()
+            })
+
+            // Focus the input and press Backspace to remove the last pill
+            const input = document.getElementById('researchInterests') as HTMLInputElement
+            await userEvents.click(input)
+            await userEvents.keyboard('{Backspace}')
+
+            await waitFor(() => {
+                expect(screen.queryByText('Computer Vision')).toBeNull()
+            })
+
+            // Other pills remain
+            expect(screen.getByText('AI')).toBeDefined()
+            expect(screen.getByText('NLP')).toBeDefined()
         })
 
         it('should remove interest pill when clicking remove button', async () => {
@@ -94,6 +174,41 @@ describe('ResearchDetailsSection', () => {
                 expect(screen.queryByText('Machine Learning')).toBeNull()
             })
             expect(screen.getByText('Data Science')).toBeDefined()
+        })
+
+        it('should remove last interest pill on Backspace when input is empty', async () => {
+            const userEvents = userEvent.setup()
+            const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                researchDetails: {
+                    interests: ['Machine Learning', 'Data Science'],
+                    detailedPublicationsUrl: 'https://scholar.google.com/user',
+                },
+            })
+
+            const data = await getTestResearcherProfileData(user.id)
+            const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+            renderWithProviders(<ResearchDetailsSection data={data} refetch={refetch} />)
+
+            const editButton = screen.getByRole('button', { name: /edit/i })
+            await userEvents.click(editButton)
+
+            await waitFor(() => {
+                expect(screen.getByText('Machine Learning')).toBeDefined()
+                expect(screen.getByText('Data Science')).toBeDefined()
+            })
+
+            const input = screen.getByPlaceholderText('Type a research interest and press enter')
+            await userEvents.click(input)
+            await userEvents.keyboard('{Backspace}')
+
+            await waitFor(() => {
+                expect(screen.queryByText('Data Science')).toBeNull()
+            })
+            expect(screen.getByText('Machine Learning')).toBeDefined()
         })
 
         it('should prevent duplicate interests (case-insensitive)', async () => {

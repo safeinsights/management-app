@@ -79,7 +79,7 @@ function EducationDisplay({ defaults }: EducationDisplayProps) {
     const degreeLabel = defaults.isCurrentlyPursuing ? 'Degree (currently pursuing)' : 'Degree'
 
     return (
-        <Stack gap="sm">
+        <Stack gap="md">
             <DisplayField label="Educational institution">
                 <Text>{defaults.educationalInstitution}</Text>
             </DisplayField>

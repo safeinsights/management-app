@@ -62,7 +62,7 @@ function PersonalInfoEditForm({ form, email, isPending, onSubmit }: PersonalInfo
 
 function PersonalInfoDisplay({ firstName, lastName, email }: PersonalInfoDisplayProps) {
     return (
-        <Stack gap="sm">
+        <Stack gap="md">
             <Group grow>
                 <DisplayField label="First name">
                     <Text>{firstName}</Text>

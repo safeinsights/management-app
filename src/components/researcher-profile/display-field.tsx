@@ -11,7 +11,7 @@ interface DisplayFieldProps {
 export function DisplayField({ label, children }: DisplayFieldProps) {
     return (
         <div>
-            <Text fw={600} size="sm">
+            <Text fw={600} size="sm" mb={4}>
                 {label}
             </Text>
             {children}

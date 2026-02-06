@@ -35,6 +35,7 @@ export function useResearchDetailsSection(data: ResearcherProfileData | null, re
     })
 
     useEffect(() => {
+        if (isEditing) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         if (data) {
