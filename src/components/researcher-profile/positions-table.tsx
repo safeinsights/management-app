@@ -61,8 +61,13 @@ export function PositionsTable({
                 <Table.Td>{profileUrlCell}</Table.Td>
                 {!readOnly && (
                     <Table.Td ta="center">
-                        <ActionIcon variant="subtle" onClick={() => onEdit(idx)} aria-label="Edit current position">
-                            <PencilSimpleIcon />
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            onClick={() => onEdit(idx)}
+                            aria-label="Edit current position"
+                        >
+                            <PencilSimpleIcon weight="fill" />
                         </ActionIcon>
                     </Table.Td>
                 )}
@@ -70,11 +75,11 @@ export function PositionsTable({
                     <Table.Td ta="center">
                         <ActionIcon
                             variant="subtle"
-                            color="red"
+                            color="gray"
                             onClick={() => onDelete(idx)}
                             aria-label="Delete current position"
                         >
-                            <TrashIcon />
+                            <TrashIcon weight="fill" />
                         </ActionIcon>
                     </Table.Td>
                 )}
