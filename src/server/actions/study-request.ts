@@ -272,6 +272,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.orgId',
                 'study.submittedByOrgId',
                 'org.slug as orgSlug',
+                'org.name as orgName',
             ])
             .where('study.id', '=', studyId)
             .where('study.status', '=', 'DRAFT')

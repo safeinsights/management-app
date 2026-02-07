@@ -4,11 +4,11 @@ import { FC } from 'react'
 import { Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
-interface Step1HeaderProps {
+interface OpenStaxProposalHeaderProps {
     orgSlug: string
 }
 
-export const Step1Header: FC<Step1HeaderProps> = ({ orgSlug }) => {
+export const OpenStaxProposalHeader: FC<OpenStaxProposalHeaderProps> = ({ orgSlug }) => {
     return (
         <>
             <ResearcherBreadcrumbs crumbs={{ orgSlug, current: 'Request data use' }} />

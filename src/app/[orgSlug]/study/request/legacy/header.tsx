@@ -4,11 +4,11 @@ import { FC } from 'react'
 import { Title } from '@mantine/core'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 
-interface Step1HeaderProps {
+interface LegacyProposalHeaderProps {
     orgSlug: string
 }
 
-export const Step1Header: FC<Step1HeaderProps> = ({ orgSlug }) => {
+export const LegacyProposalHeader: FC<LegacyProposalHeaderProps> = ({ orgSlug }) => {
     return (
         <>
             <ResearcherBreadcrumbs crumbs={{ orgSlug, current: 'Propose a study' }} />
