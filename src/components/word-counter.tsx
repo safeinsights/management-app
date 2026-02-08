@@ -2,15 +2,15 @@
 
 import { FC } from 'react'
 import { Text } from '@mantine/core'
-import { countWords } from '@/lib/word-count'
 
 interface WordCounterProps {
-    value: string
+    /** Current word count */
+    wordCount: number
+    /** Maximum number of words allowed */
     maxWords: number
 }
 
-export const WordCounter: FC<WordCounterProps> = ({ value, maxWords }) => {
-    const wordCount = countWords(value)
+export const WordCounter: FC<WordCounterProps> = ({ wordCount, maxWords }) => {
     const isOverLimit = wordCount > maxWords
 
     return (

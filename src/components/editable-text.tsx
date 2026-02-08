@@ -34,6 +34,8 @@ export interface EditableTextProps {
     minHeight?: number | string
     /** Maximum height of the editor (enables scrolling) */
     maxHeight?: number | string
+    /** Allow user to manually resize the editor vertically */
+    resizable?: boolean
     /** HTML id attribute for the editor */
     id?: string
     /** Accessible label for the editor */
@@ -80,6 +82,7 @@ export const EditableText: FC<EditableTextProps> = ({
     readOnly = false,
     minHeight = 100,
     maxHeight,
+    resizable = true,
     id,
     'aria-label': ariaLabel,
 }) => {
@@ -99,11 +102,12 @@ export const EditableText: FC<EditableTextProps> = ({
                 <Box
                     style={{
                         position: 'relative',
-                        border: '1px solid var(--mantine-color-gray-4)',
+                        border: `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
                         borderRadius: 'var(--mantine-radius-sm)',
                         minHeight,
                         maxHeight,
-                        overflow: maxHeight ? 'auto' : undefined,
+                        overflow: maxHeight || resizable ? 'auto' : undefined,
+                        resize: resizable ? 'vertical' : undefined,
                         backgroundColor: disabled ? 'var(--mantine-color-gray-1)' : undefined,
                     }}
                 >
@@ -142,7 +146,7 @@ export const EditableText: FC<EditableTextProps> = ({
                     {isEditable && <FloatingToolbar />}
                 </Box>
             </LexicalComposer>
-            {error && (
+            {error && typeof error !== 'boolean' && (
                 <Box mt="xs">
                     <InputError error={error} />
                 </Box>
