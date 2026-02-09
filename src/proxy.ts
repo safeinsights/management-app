@@ -2,7 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest, NextResponse } from 'next/server'
 import log from '@/lib/logger'
 import { marshalSession } from './server/session'
-import { type UserSession, BLANK_SESSION, isOrgAdmin, type Org } from './lib/types'
+import { type UserSession, BLANK_SESSION, isOrgAdmin, getLabOrg, type Org } from './lib/types'
 import { omit } from 'remeda'
 import { setSentryFromSession } from '@/lib/sentry'
 import { extractOrgSlugFromPath } from '@/lib/paths'
@@ -11,6 +11,7 @@ import * as Sentry from '@sentry/nextjs'
 const isSIAdminRoute = createRouteMatcher(['/admin/safeinsights(.*)'])
 const isOrgAdminRoute = createRouteMatcher(['/[orgSlug]/admin/(.*)'])
 const isOrgRoute = createRouteMatcher(['/[orgSlug]'])
+const isResearcherRoute = createRouteMatcher(['/researcher(.*)'])
 
 const ANON_ROUTES: Array<string> = [
     '/about',
@@ -75,6 +76,10 @@ export const proxy = clerkMiddleware(async (auth, req) => {
 
     if (isSIAdminRoute(req) && !session.user.isSiAdmin) {
         return redirectToDashboard(req, 'si admin', session)
+    }
+
+    if (isResearcherRoute(req) && !getLabOrg(session)) {
+        return redirectToDashboard(req, 'researcher', session)
     }
 
     if (isOrgAdminRoute(req) && !isAdmin && currentOrgSlug) {
