@@ -712,3 +712,39 @@ export const getTestResearcherProfileData = async (userId: string) => {
 
     return { user, profile, positions }
 }
+
+type CreateMockUserSessionOptions = {
+    user: {
+        id: string
+        clerkId: string
+        isSiAdmin?: boolean
+    }
+    orgs: Array<{
+        id: string
+        slug: string
+        type: 'enclave' | 'lab'
+        isAdmin?: boolean
+    }>
+}
+
+export const createMockUserSession = (options: CreateMockUserSessionOptions) => {
+    const orgsRecord: Record<string, { id: string; slug: string; type: 'enclave' | 'lab'; isAdmin: boolean }> = {}
+
+    for (const org of options.orgs) {
+        orgsRecord[org.slug] = {
+            id: org.id,
+            slug: org.slug,
+            type: org.type,
+            isAdmin: org.isAdmin ?? false,
+        }
+    }
+
+    return {
+        user: {
+            id: options.user.id,
+            clerkUserId: options.user.clerkId,
+            isSiAdmin: options.user.isSiAdmin ?? false,
+        },
+        orgs: orgsRecord,
+    }
+}

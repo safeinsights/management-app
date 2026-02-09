@@ -31,6 +31,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
     })
 
     useEffect(() => {
+        if (editingIndex !== null) return
         form.setValues(defaults)
         form.resetDirty(defaults)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- tie to computed defaults
