@@ -13,21 +13,31 @@ interface ResearcherProfilePopoverProps {
     children: ReactNode
 }
 
+const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
+    if (!value) return null
+    return (
+        <Text size="xs" c="dimmed">
+            {value}
+        </Text>
+    )
+}
+
+const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
+    if (!value) return null
+    return (
+        <Text size="xs" c="dimmed">
+            {value}
+        </Text>
+    )
+}
+
 const PopoverPosition: FC<{ affiliation?: string | null; position?: string | null }> = ({ affiliation, position }) => {
     if (!affiliation && !position) return null
 
     return (
         <>
-            {affiliation && (
-                <Text size="xs" c="dimmed">
-                    {affiliation}
-                </Text>
-            )}
-            {position && (
-                <Text size="xs" c="dimmed">
-                    {position}
-                </Text>
-            )}
+            <PopoverAffiliation value={affiliation} />
+            <PopoverPositionTitle value={position} />
         </>
     )
 }
@@ -54,6 +64,24 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
     return <Group gap={4}>{pills}</Group>
 }
 
+const PopoverProfileLink: FC<{ url?: string | null }> = ({ url }) => {
+    if (!url) return null
+    return (
+        <Anchor href={url} target="_blank" size="xs">
+            Profile page
+        </Anchor>
+    )
+}
+
+const PopoverPublicationsLink: FC<{ url?: string | null }> = ({ url }) => {
+    if (!url) return null
+    return (
+        <Anchor href={url} target="_blank" size="xs">
+            Publications
+        </Anchor>
+    )
+}
+
 const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | null }> = ({
     profileUrl,
     publicationsUrl,
@@ -62,16 +90,8 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
 
     return (
         <>
-            {profileUrl && (
-                <Anchor href={profileUrl} target="_blank" size="xs">
-                    Profile page
-                </Anchor>
-            )}
-            {publicationsUrl && (
-                <Anchor href={publicationsUrl} target="_blank" size="xs">
-                    Publications
-                </Anchor>
-            )}
+            <PopoverProfileLink url={profileUrl} />
+            <PopoverPublicationsLink url={publicationsUrl} />
         </>
     )
 }

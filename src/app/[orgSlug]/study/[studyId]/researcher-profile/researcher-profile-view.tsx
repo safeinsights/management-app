@@ -1,6 +1,6 @@
 'use client'
 
-import { Stack, Title } from '@mantine/core'
+import { Group, Stack, Title } from '@mantine/core'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { PersonalInfoSection } from '@/components/researcher-profile/personal-info-section'
@@ -21,13 +21,11 @@ const noop = async () => {}
 export function ResearcherProfileView({ orgSlug, studyId, profileData }: ResearcherProfileViewProps) {
     return (
         <Stack px="xl" gap="xl">
-            <Link
-                href={Routes.studyReview({ orgSlug, studyId })}
-                c="blue.7"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-                <ArrowLeft size={16} />
-                Back to study proposal
+            <Link href={Routes.studyReview({ orgSlug, studyId })} c="blue.7">
+                <Group gap={4} display="inline-flex">
+                    <ArrowLeft size={16} />
+                    Back to study proposal
+                </Group>
             </Link>
 
             <Title order={2} size="h4" fw={500}>
