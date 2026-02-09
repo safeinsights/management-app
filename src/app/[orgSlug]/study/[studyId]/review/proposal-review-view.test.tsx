@@ -40,7 +40,7 @@ vi.mock('@/components/study/study-approval-status', () => ({
 }))
 
 vi.mock('@/components/page-breadcrumbs', () => ({
-    OrgBreadcrumbs: () => <div data-testid="org-breadcrumbs" />,
+    PageBreadcrumbs: () => <div data-testid="page-breadcrumbs" />,
 }))
 
 describe('ProposalReviewView', () => {

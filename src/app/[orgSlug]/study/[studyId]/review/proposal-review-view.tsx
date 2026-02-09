@@ -1,6 +1,6 @@
 'use client'
 
-import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
+import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
@@ -31,12 +31,12 @@ function ProposalField({ label, value }: { label: string; value?: string | null 
     )
 }
 
-function LexicalProposalField({ label, value }: { label: string; value?: string | null }) {
+function LexicalProposalField({ label, value, subtle = true }: { label: string; value?: string | null; subtle?: boolean }) {
     if (!value) return null
 
     return (
         <>
-            <Divider />
+            <Divider color={subtle ? 'gray.1' : undefined} />
             <Stack gap={4}>
                 <Text fw={600} size="sm">
                     {label}
@@ -53,23 +53,18 @@ function DataSourcesField({ dataSources }: { dataSources: string[] }) {
     if (!dataSources.length) return null
 
     return (
-        <>
-            <Divider />
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
-                    Dataset(s) of interest
-                </Text>
-                <Text size="sm">{dataSources.join(', ')}</Text>
-            </Stack>
-        </>
+        <Stack gap={4}>
+            <Text fw={600} size="sm">
+                Dataset(s) of interest
+            </Text>
+            <Text size="sm">{dataSources.join(', ')}</Text>
+        </Stack>
     )
 }
 
-function ResearcherField({ study, orgSlug }: { study: SelectedStudy; orgSlug: string }) {
+function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
     return (
-        <>
-            <Divider />
-            <Stack gap={4}>
+        <Stack gap={4} mt={mt}>
                 <Text fw={600} size="sm">
                     Researcher
                 </Text>
@@ -86,49 +81,47 @@ function ResearcherField({ study, orgSlug }: { study: SelectedStudy; orgSlug: st
                 >
                     View full profile
                 </Link>
-            </Stack>
-        </>
+        </Stack>
     )
 }
 
 export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) {
     return (
         <Stack px="xl" gap="xl">
-            <OrgBreadcrumbs
-                crumbs={{
-                    orgSlug,
-                    current: 'Study request',
-                }}
+            <PageBreadcrumbs
+                crumbs={[['Dashboard', Routes.orgDashboard({ orgSlug })], ['Data use request / Review study proposal']]}
             />
 
-            <Stack gap="xs">
-                <Text size="sm" c="dimmed" tt="uppercase" fw={600}>
-                    Step 1
-                </Text>
-                <Title order={2} size="h4" fw={500}>
-                    Review study proposal
-                </Title>
-                <Text size="sm" c="dimmed">
-                    You have a new data use request. You may review and approve or reject it.
-                </Text>
-            </Stack>
+            <Title order={2}>Study request</Title>
 
             <Paper bg="white" p="xxl">
                 <Stack gap="md">
-                    <Group justify="space-between" align="center">
-                        <Title order={4} size="xl">
-                            {study.title}
-                        </Title>
+                    <Text fz="xs" fw={700} c="gray.6">
+                        STEP 1
+                    </Text>
+                    <Title order={4}>Review study proposal</Title>
+                    <Divider />
+                    <Text size="sm">
+                        You have a new data use request. You may review and approve or reject it.
+                    </Text>
+
+                    <Group justify="space-between" align="flex-start" mt="md">
+                        <Stack gap={4}>
+                            <Text fw={600} size="sm">
+                                Study title
+                            </Text>
+                            <Text size="sm">{study.title}</Text>
+                        </Stack>
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
 
                     <DataSourcesField dataSources={study.dataSources} />
-                    <LexicalProposalField label="Research question(s)" value={study.researchQuestions} />
+                    <LexicalProposalField label="Research question(s)" value={study.researchQuestions} subtle={false} />
                     <LexicalProposalField label="Project summary" value={study.projectSummary} />
                     <LexicalProposalField label="Impact" value={study.impact} />
                     <LexicalProposalField label="Additional notes" value={study.additionalNotes} />
                     <ProposalField label="Principal Investigator" value={study.piName} />
-                    <ResearcherField study={study} orgSlug={orgSlug} />
+                    <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
             </Paper>
 
