@@ -63,6 +63,7 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
                 isPending={isPending}
                 onSubmit={handleSubmit}
                 onCancel={cancelEdit}
+                onAdd={openAdd}
             />
         </Paper>
     )

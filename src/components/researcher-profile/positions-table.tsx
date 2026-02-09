@@ -111,7 +111,7 @@ export function PositionsTable({
             </Table>
             <Divider />
 
-            <AddPositionLink isVisible={!readOnly} onAdd={onAdd} />
+            <AddPositionLink isVisible={!readOnly && editingIndex === null} onAdd={onAdd} />
         </>
     )
 }

@@ -1,9 +1,29 @@
 'use client'
 
-import { Box, Button, Divider, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Box, Button, Divider, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FormFieldLabel } from '@/components/form-field-label'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
+
+interface AddPositionLinkProps {
+    isVisible: boolean
+    onAdd: () => void
+}
+
+function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
+    if (!isVisible) return null
+    return (
+        <>
+            <Divider />
+            <Box>
+                <Anchor component="button" onClick={onAdd}>
+                    + Add another current position
+                </Anchor>
+            </Box>
+            <Divider />
+        </>
+    )
+}
 
 interface PositionFormProps {
     isVisible?: boolean
@@ -15,6 +35,7 @@ interface PositionFormProps {
     isPending: boolean
     onSubmit: () => void
     onCancel: () => void
+    onAdd: () => void
 }
 
 export function PositionForm({
@@ -27,6 +48,7 @@ export function PositionForm({
     isPending,
     onSubmit,
     onCancel,
+    onAdd,
 }: PositionFormProps) {
     if (!isVisible) return null
     const formTitle = isAdding || !hasExistingPositions ? 'Add current position' : 'Edit current position'
@@ -83,6 +105,8 @@ export function PositionForm({
                             {...form.getInputProps(`positions.${editingIndex}.profileUrl`)}
                         />
                     </div>
+
+                    <AddPositionLink isVisible={hasExistingPositions} onAdd={onAdd} />
 
                     <Group justify="flex-end" mt="sm">
                         {hasExistingPositions && (
