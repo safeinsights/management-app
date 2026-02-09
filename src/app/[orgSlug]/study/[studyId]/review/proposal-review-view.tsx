@@ -3,6 +3,7 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
+import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -25,6 +26,24 @@ function ProposalField({ label, value }: { label: string; value?: string | null 
                     {label}
                 </Text>
                 <Text size="sm">{value}</Text>
+            </Stack>
+        </>
+    )
+}
+
+function LexicalProposalField({ label, value }: { label: string; value?: string | null }) {
+    if (!value) return null
+
+    return (
+        <>
+            <Divider />
+            <Stack gap={4}>
+                <Text fw={600} size="sm">
+                    {label}
+                </Text>
+                <Text size="sm" component="div">
+                    <ReadOnlyLexicalContent value={value} />
+                </Text>
             </Stack>
         </>
     )
@@ -104,10 +123,10 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     </Group>
 
                     <DataSourcesField dataSources={study.dataSources} />
-                    <ProposalField label="Research question(s)" value={study.researchQuestions} />
-                    <ProposalField label="Project summary" value={study.projectSummary} />
-                    <ProposalField label="Impact" value={study.impact} />
-                    <ProposalField label="Additional notes" value={study.additionalNotes} />
+                    <LexicalProposalField label="Research question(s)" value={study.researchQuestions} />
+                    <LexicalProposalField label="Project summary" value={study.projectSummary} />
+                    <LexicalProposalField label="Impact" value={study.impact} />
+                    <LexicalProposalField label="Additional notes" value={study.additionalNotes} />
                     <ProposalField label="Principal Investigator" value={study.piName} />
                     <ResearcherField study={study} orgSlug={orgSlug} />
                 </Stack>

@@ -9,6 +9,22 @@ import {
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProposalReviewView } from './proposal-review-view'
 
+vi.mock('@/components/readonly-lexical-content', () => ({
+    ReadOnlyLexicalContent: ({ value }: { value: string }) => {
+        try {
+            const parsed = JSON.parse(value)
+            const text = parsed.root.children
+                .map((node: { children: { text: string }[] }) =>
+                    node.children.map((c: { text: string }) => c.text).join(''),
+                )
+                .join('\n')
+            return <div>{text}</div>
+        } catch {
+            return <div>{value}</div>
+        }
+    },
+}))
+
 vi.mock('./proposal-review-buttons', () => ({
     ProposalReviewButtons: () => <div data-testid="proposal-review-buttons" />,
 }))
@@ -96,5 +112,32 @@ describe('ProposalReviewView', () => {
     it('renders "View full profile" link', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
         expect(screen.getByText('View full profile')).toBeInTheDocument()
+    })
+
+    it('renders Lexical JSON content as text', async () => {
+        const lexicalJson = JSON.stringify({
+            root: {
+                children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Lexical formatted question' }] }],
+                type: 'root',
+                direction: null,
+                format: '',
+                indent: 0,
+                version: 1,
+            },
+        })
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        const { study: dbStudy } = await insertTestStudyJobData({
+            org,
+            researcherId: user.id,
+            studyStatus: 'PENDING-REVIEW',
+            researchQuestions: lexicalJson,
+            piName: 'Dr. Jones',
+        })
+        const lexicalStudy = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+
+        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={lexicalStudy} />)
+
+        expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
+        expect(screen.getByText('Dr. Jones')).toBeInTheDocument()
     })
 })
