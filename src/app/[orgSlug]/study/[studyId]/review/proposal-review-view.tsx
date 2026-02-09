@@ -3,9 +3,10 @@
 import { PageBreadcrumbs } from '@/components/page-breadcrumbs'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
+
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
-import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
+import { Info } from '@phosphor-icons/react'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { ProposalReviewButtons } from './proposal-review-buttons'
@@ -15,23 +16,15 @@ type ProposalReviewViewProps = {
     study: SelectedStudy
 }
 
-function ProposalField({ label, value }: { label: string; value?: string | null }) {
-    if (!value) return null
-
-    return (
-        <>
-            <Divider />
-            <Stack gap={4}>
-                <Text fw={600} size="sm">
-                    {label}
-                </Text>
-                <Text size="sm">{value}</Text>
-            </Stack>
-        </>
-    )
-}
-
-function LexicalProposalField({ label, value, subtle = true }: { label: string; value?: string | null; subtle?: boolean }) {
+function LexicalProposalField({
+    label,
+    value,
+    subtle = true,
+}: {
+    label: string
+    value?: string | null
+    subtle?: boolean
+}) {
     if (!value) return null
 
     return (
@@ -62,25 +55,36 @@ function DataSourcesField({ dataSources }: { dataSources: string[] }) {
     )
 }
 
+// TODO: Show info icon + hover popover when PI profile system is implemented
+// TODO: Click info icon to open PI profile page
+function PIField({ study }: { study: SelectedStudy }) {
+    if (!study.piName) return null
+
+    return (
+        <>
+            <Divider />
+            <Stack gap={4}>
+                <Text fw={600} size="sm">
+                    Principal Investigator
+                </Text>
+                <Text size="sm">{study.piName}</Text>
+            </Stack>
+        </>
+    )
+}
+
 function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug: string; mt?: string }) {
     return (
         <Stack gap={4} mt={mt}>
-                <Text fw={600} size="sm">
-                    Researcher
-                </Text>
-                <ResearcherProfilePopover userId={study.researcherId} studyId={study.id} orgSlug={orgSlug}>
-                    <Text size="sm" c="blue.7" td="underline" display="inline-block" style={{ cursor: 'pointer' }}>
-                        {study.createdBy}
-                    </Text>
-                </ResearcherProfilePopover>
-                <Link
-                    href={Routes.researcherProfileView({ orgSlug, studyId: study.id })}
-                    target="_blank"
-                    size="xs"
-                    c="blue.7"
-                >
-                    View full profile
-                </Link>
+            <Text fw={600} size="sm">
+                Researcher
+            </Text>
+            <ResearcherProfilePopover userId={study.researcherId} studyId={study.id} orgSlug={orgSlug}>
+                <Group gap={6} style={{ cursor: 'pointer' }}>
+                    <Text size="sm">{study.createdBy}</Text>
+                    <Info weight="fill" size={16} color="gray" />
+                </Group>
+            </ResearcherProfilePopover>
         </Stack>
     )
 }
@@ -101,9 +105,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     </Text>
                     <Title order={4}>Review study proposal</Title>
                     <Divider />
-                    <Text size="sm">
-                        You have a new data use request. You may review and approve or reject it.
-                    </Text>
+                    <Text size="sm">You have a new data use request. You may review and approve or reject it.</Text>
 
                     <Group justify="space-between" align="flex-start" mt="md">
                         <Stack gap={4}>
@@ -120,7 +122,7 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     <LexicalProposalField label="Project summary" value={study.projectSummary} />
                     <LexicalProposalField label="Impact" value={study.impact} />
                     <LexicalProposalField label="Additional notes" value={study.additionalNotes} />
-                    <ProposalField label="Principal Investigator" value={study.piName} />
+                    <PIField study={study} />
                     <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
             </Paper>
