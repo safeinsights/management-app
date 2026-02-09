@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto'
 import { db } from '@/database'
 import logger from '@/lib/logger'
 import { NotFoundError, throwNotFound } from '@/lib/errors'
@@ -6,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { createEncryptedLogBlob } from '@/server/encryption/encrypt-log'
 import { getOrgPublicKeys } from '@/server/db/queries'
 import { storeStudyEncryptedLogFile } from '@/server/storage'
+import { getConfigValue } from '@/server/config'
 
 const schema = z.object({
     jobId: z.string(),
@@ -13,7 +15,22 @@ const schema = z.object({
     plaintextLog: z.string().optional(),
 })
 
+function secretsMatch(a: string, b: string): boolean {
+    const bufA = Buffer.from(a)
+    const bufB = Buffer.from(b)
+    if (bufA.length !== bufB.length) return false
+    return timingSafeEqual(bufA, bufB)
+}
+
 export async function POST(req: Request) {
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    const expectedSecret = await getConfigValue('CODE_PUSH_WEBHOOK_SECRET', false)
+
+    if (!token || !expectedSecret || !secretsMatch(token, expectedSecret)) {
+        return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+    }
+
     let rawBody: unknown
 
     try {

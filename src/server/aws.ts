@@ -9,7 +9,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
-import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV } from './config'
+import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
 import { pathForStudyJobCode } from '@/lib/paths'
 import { strToAscii } from '@/lib/string'
@@ -182,6 +182,10 @@ export async function triggerBuildImageForJob(
         new StartBuildCommand({
             projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
             environmentVariablesOverride: [
+                {
+                    name: 'WEBHOOK_SECRET',
+                    value: await getConfigValue('CODE_PUSH_WEBHOOK_SECRET'),
+                },
                 {
                     name: 'ON_START_PAYLOAD',
                     value: JSON.stringify({

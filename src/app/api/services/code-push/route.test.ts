@@ -3,6 +3,10 @@ import * as apiHandler from './route'
 import { db } from '@/database'
 import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpers'
 
+const TEST_SECRET = 'test-webhook-secret-value'
+
+process.env.CODE_PUSH_WEBHOOK_SECRET = TEST_SECRET
+
 vi.mock('@/lib/logger', () => {
     const error = vi.fn()
     return {
@@ -35,6 +39,14 @@ function countMatching(rows: { status: string }[], status: string) {
     return rows.filter((r) => r.status === status).length
 }
 
+function authedRequest(body: object) {
+    return new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${TEST_SECRET}` },
+        body: JSON.stringify(body),
+    })
+}
+
 test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
@@ -43,22 +55,14 @@ test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', 
     let rows = await getStatusRows(jobId)
     const baseline = countMatching(rows, 'JOB-PACKAGING')
 
-    const req1 = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
-    })
-    const resp1 = await apiHandler.POST(req1)
+    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-PACKAGING' }))
     expect(resp1.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
     const afterFirst = countMatching(rows, 'JOB-PACKAGING')
     expect(afterFirst).toBeGreaterThan(baseline)
 
-    const req2 = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-PACKAGING' }),
-    })
-    const resp2 = await apiHandler.POST(req2)
+    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-PACKAGING' }))
     expect(resp2.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
@@ -74,11 +78,7 @@ test('code-push persists JOB-READY', async () => {
     let rows = await getStatusRows(jobId)
     const baseline = countMatching(rows, 'JOB-READY')
 
-    const req = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-READY' }),
-    })
-    const resp = await apiHandler.POST(req)
+    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-READY' }))
     expect(resp.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
@@ -93,22 +93,14 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status', as
     let rows = await getStatusRows(jobId)
     const baseline = countMatching(rows, 'JOB-ERRORED')
 
-    const req1 = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
-    })
-    const resp1 = await apiHandler.POST(req1)
+    const resp1 = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
     expect(resp1.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
     const afterFirstErr = countMatching(rows, 'JOB-ERRORED')
     expect(afterFirstErr).toBeGreaterThan(baseline)
 
-    const req2 = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId, status: 'JOB-ERRORED' }),
-    })
-    const resp2 = await apiHandler.POST(req2)
+    const resp2 = await apiHandler.POST(authedRequest({ jobId, status: 'JOB-ERRORED' }))
     expect(resp2.ok).toBe(true)
 
     rows = await getStatusRows(jobId)
@@ -117,12 +109,7 @@ test('code-push persists JOB-ERRORED once and is idempotent for same status', as
 })
 
 test('logs error with context on invalid payload', async () => {
-    const badReq = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId: 'job-invalid', status: 'INVALID_STATUS' }),
-    })
-
-    const resp = await apiHandler.POST(badReq)
+    const resp = await apiHandler.POST(authedRequest({ jobId: 'job-invalid', status: 'INVALID_STATUS' }))
     expect(resp.ok).toBe(false)
     expect(resp.status).toBe(400)
 
@@ -143,12 +130,7 @@ test('logs error with context on invalid payload', async () => {
 
 test('returns 404 job-not-found for unknown jobId', async () => {
     const badJobId = '00000000-0000-0000-0000-000000000000'
-    const req = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({ jobId: badJobId, status: 'JOB-PACKAGING' }),
-    })
-
-    const resp = await apiHandler.POST(req)
+    const resp = await apiHandler.POST(authedRequest({ jobId: badJobId, status: 'JOB-PACKAGING' }))
     expect(resp.ok).toBe(false)
     expect(resp.status).toBe(404)
 
@@ -161,17 +143,38 @@ test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
 
-    const req = new Request('http://localhost/api/services/code-push', {
-        method: 'POST',
-        body: JSON.stringify({
+    const resp = await apiHandler.POST(
+        authedRequest({
             jobId,
             status: 'JOB-ERRORED',
             plaintextLog: 'Build failed during code packaging/scanning.',
         }),
-    })
-    const resp = await apiHandler.POST(req)
+    )
     expect(resp.ok).toBe(true)
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
     expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
+})
+
+test('returns 401 when Authorization header is missing', async () => {
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        body: JSON.stringify({ jobId: 'any-id', status: 'JOB-PACKAGING' }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.status).toBe(401)
+    const body = await resp.json()
+    expect(body).toEqual({ error: 'unauthorized' })
+})
+
+test('returns 401 when Authorization token is wrong', async () => {
+    const req = new Request('http://localhost/api/services/code-push', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer wrong-secret' },
+        body: JSON.stringify({ jobId: 'any-id', status: 'JOB-PACKAGING' }),
+    })
+    const resp = await apiHandler.POST(req)
+    expect(resp.status).toBe(401)
+    const body = await resp.json()
+    expect(body).toEqual({ error: 'unauthorized' })
 })
