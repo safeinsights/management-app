@@ -4,7 +4,7 @@ import { Paper } from '@mantine/core'
 import { usePositionsSection } from '@/hooks/use-positions-section'
 import { SectionHeader } from '@/components/researcher-profile/section-header'
 import { PositionsTable } from '@/components/researcher-profile/positions-table'
-import { PositionForm } from '@/components/researcher-profile/position-form'
+import { PositionForm, PositionFormActions } from '@/components/researcher-profile/position-form'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 interface PositionsSectionProps {
@@ -31,6 +31,29 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
     } = usePositionsSection(data, refetch)
 
     const canDelete = defaults.positions.length >= 2
+    const isFormVisible = !readOnly && showForm && editingIndex !== null
+
+    const formFieldsElement = isFormVisible ? (
+        <PositionForm
+            editingIndex={editingIndex}
+            form={form}
+            isAdding={isAdding}
+            hasExistingPositions={hasExistingPositions}
+            onSubmit={handleSubmit}
+        />
+    ) : null
+
+    const formActionsElement = (
+        <PositionFormActions
+            isVisible={isFormVisible}
+            hasExistingPositions={hasExistingPositions}
+            isAdding={isAdding}
+            currentEditValid={currentEditValid}
+            isPending={isPending}
+            onCancel={cancelEdit}
+            onAdd={openAdd}
+        />
+    )
 
     return (
         <Paper p="xl" radius="sm">
@@ -41,30 +64,23 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
                 showEditButton={false}
             />
 
-            <PositionsTable
-                isVisible={hasExistingPositions}
-                positions={defaults.positions}
-                editingIndex={editingIndex}
-                form={form}
-                canDelete={canDelete}
-                readOnly={readOnly}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-                onAdd={openAdd}
-            />
+            {hasExistingPositions ? (
+                <PositionsTable
+                    positions={defaults.positions}
+                    editingIndex={editingIndex}
+                    form={form}
+                    canDelete={canDelete}
+                    readOnly={readOnly}
+                    formSlot={formFieldsElement}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    onAdd={openAdd}
+                />
+            ) : (
+                formFieldsElement
+            )}
 
-            <PositionForm
-                isVisible={!readOnly && showForm && editingIndex !== null}
-                editingIndex={editingIndex ?? 0}
-                form={form}
-                isAdding={isAdding}
-                hasExistingPositions={hasExistingPositions}
-                currentEditValid={currentEditValid}
-                isPending={isPending}
-                onSubmit={handleSubmit}
-                onCancel={cancelEdit}
-                onAdd={openAdd}
-            />
+            {formActionsElement}
         </Paper>
     )
 }

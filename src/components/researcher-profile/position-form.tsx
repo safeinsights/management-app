@@ -1,66 +1,29 @@
 'use client'
 
-import { Anchor, Box, Button, Divider, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Anchor, Box, Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FormFieldLabel } from '@/components/form-field-label'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
-interface AddPositionLinkProps {
-    isVisible: boolean
-    onAdd: () => void
-}
-
-function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
-    if (!isVisible) return null
-    return (
-        <>
-            <Divider />
-            <Box>
-                <Anchor component="button" onClick={onAdd}>
-                    + Add another current position
-                </Anchor>
-            </Box>
-            <Divider />
-        </>
-    )
-}
-
 interface PositionFormProps {
-    isVisible?: boolean
     editingIndex: number
     form: UseFormReturnType<{ positions: PositionValues[] }>
     isAdding: boolean
     hasExistingPositions: boolean
-    currentEditValid: boolean
-    isPending: boolean
     onSubmit: () => void
-    onCancel: () => void
-    onAdd: () => void
 }
 
-export function PositionForm({
-    isVisible = true,
-    editingIndex,
-    form,
-    isAdding,
-    hasExistingPositions,
-    currentEditValid,
-    isPending,
-    onSubmit,
-    onCancel,
-    onAdd,
-}: PositionFormProps) {
-    if (!isVisible) return null
+export function PositionForm({ editingIndex, form, isAdding, hasExistingPositions, onSubmit }: PositionFormProps) {
     const formTitle = isAdding || !hasExistingPositions ? 'Add current position' : 'Edit current position'
 
     return (
-        <Box mt={hasExistingPositions ? 'lg' : undefined}>
-            {hasExistingPositions && <Divider my="md" />}
+        <>
             <Title order={5} mb="sm">
                 {formTitle}
             </Title>
 
             <form
+                id="position-form"
                 onSubmit={(e) => {
                     e.preventDefault()
                     onSubmit()
@@ -105,21 +68,58 @@ export function PositionForm({
                             {...form.getInputProps(`positions.${editingIndex}.profileUrl`)}
                         />
                     </div>
-
-                    <AddPositionLink isVisible={hasExistingPositions} onAdd={onAdd} />
-
-                    <Group justify="flex-end" mt="sm">
-                        {hasExistingPositions && (
-                            <Button variant="default" onClick={onCancel}>
-                                Cancel
-                            </Button>
-                        )}
-                        <Button type="submit" disabled={!currentEditValid || isPending} loading={isPending}>
-                            Save changes
-                        </Button>
-                    </Group>
                 </Stack>
             </form>
-        </Box>
+        </>
+    )
+}
+
+interface PositionFormActionsProps {
+    isVisible: boolean
+    hasExistingPositions: boolean
+    isAdding: boolean
+    currentEditValid: boolean
+    isPending: boolean
+    onCancel: () => void
+    onAdd: () => void
+}
+
+export function PositionFormActions({
+    isVisible,
+    hasExistingPositions,
+    isAdding,
+    currentEditValid,
+    isPending,
+    onCancel,
+    onAdd,
+}: PositionFormActionsProps) {
+    if (!isVisible) return null
+
+    return (
+        <>
+            {hasExistingPositions && !isAdding && (
+                <Box>
+                    <Anchor component="button" onClick={onAdd}>
+                        + Add another current position
+                    </Anchor>
+                </Box>
+            )}
+
+            <Group justify="flex-end" mt="sm">
+                {hasExistingPositions && (
+                    <Button variant="default" onClick={onCancel}>
+                        Cancel
+                    </Button>
+                )}
+                <Button
+                    type="submit"
+                    form="position-form"
+                    disabled={!currentEditValid || isPending}
+                    loading={isPending}
+                >
+                    Save changes
+                </Button>
+            </Group>
+        </>
     )
 }

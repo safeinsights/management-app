@@ -28,6 +28,7 @@ interface PositionsTableProps {
     form: UseFormReturnType<{ positions: PositionValues[] }>
     canDelete: boolean
     readOnly?: boolean
+    formSlot?: React.ReactNode
     onEdit: (index: number) => void
     onDelete: (index: number) => void
     onAdd: () => void
@@ -40,14 +41,26 @@ export function PositionsTable({
     form,
     canDelete,
     readOnly = false,
+    formSlot,
     onEdit,
     onDelete,
     onAdd,
 }: PositionsTableProps) {
     if (!isVisible) return null
-    const visiblePositions = positions.map((pos, idx) => ({ pos, idx })).filter(({ idx }) => idx !== editingIndex)
 
-    const tableRows = visiblePositions.map(({ pos, idx }) => {
+    const columnCount = 3 + (!readOnly ? 1 : 0) + (!readOnly && canDelete ? 1 : 0)
+
+    const tableRows = positions.map((pos, idx) => {
+        if (idx === editingIndex) {
+            return (
+                <Table.Tr key={form.key(`positions.${idx}`)}>
+                    <Table.Td colSpan={columnCount} p="lg">
+                        {formSlot}
+                    </Table.Td>
+                </Table.Tr>
+            )
+        }
+
         const profileUrlCell = pos.profileUrl ? (
             <Anchor href={pos.profileUrl} target="_blank">
                 {pos.profileUrl}
@@ -86,6 +99,17 @@ export function PositionsTable({
             </Table.Tr>
         )
     })
+
+    const isAddingNew = editingIndex !== null && editingIndex >= positions.length
+    if (isAddingNew && formSlot) {
+        tableRows.push(
+            <Table.Tr key="new-position-form">
+                <Table.Td colSpan={columnCount} p="lg">
+                    {formSlot}
+                </Table.Td>
+            </Table.Tr>,
+        )
+    }
 
     return (
         <>
