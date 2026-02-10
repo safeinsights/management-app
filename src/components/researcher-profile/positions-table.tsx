@@ -21,8 +21,55 @@ function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
     )
 }
 
+interface PositionRowProps {
+    position: PositionValues
+    showEdit: boolean
+    showDelete: boolean
+    onEdit: () => void
+    onDelete: () => void
+}
+
+function PositionRow({ position, showEdit, showDelete, onEdit, onDelete }: PositionRowProps) {
+    const profileUrlCell = position.profileUrl ? (
+        <Anchor href={position.profileUrl} target="_blank">
+            {position.profileUrl}
+        </Anchor>
+    ) : null
+
+    return (
+        <Table.Tr>
+            <Table.Td>{position.affiliation}</Table.Td>
+            <Table.Td>{position.position}</Table.Td>
+            <Table.Td>{profileUrlCell}</Table.Td>
+            {showEdit && (
+                <Table.Td ta="center">
+                    <ActionIcon variant="subtle" color="gray" onClick={onEdit} aria-label="Edit current position">
+                        <PencilSimpleIcon weight="fill" />
+                    </ActionIcon>
+                </Table.Td>
+            )}
+            {showDelete && (
+                <Table.Td ta="center">
+                    <ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="Delete current position">
+                        <TrashIcon weight="fill" />
+                    </ActionIcon>
+                </Table.Td>
+            )}
+        </Table.Tr>
+    )
+}
+
+function FormRow({ columnCount, formSlot }: { columnCount: number; formSlot: React.ReactNode }) {
+    return (
+        <Table.Tr>
+            <Table.Td colSpan={columnCount} p="lg">
+                {formSlot}
+            </Table.Td>
+        </Table.Tr>
+    )
+}
+
 interface PositionsTableProps {
-    isVisible?: boolean
     positions: PositionValues[]
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
@@ -35,7 +82,6 @@ interface PositionsTableProps {
 }
 
 export function PositionsTable({
-    isVisible = true,
     positions,
     editingIndex,
     form,
@@ -46,69 +92,29 @@ export function PositionsTable({
     onDelete,
     onAdd,
 }: PositionsTableProps) {
-    if (!isVisible) return null
-
-    const columnCount = 3 + (!readOnly ? 1 : 0) + (!readOnly && canDelete ? 1 : 0)
+    const showEdit = !readOnly
+    const showDelete = !readOnly && canDelete
+    const columnCount = 3 + (showEdit ? 1 : 0) + (showDelete ? 1 : 0)
 
     const tableRows = positions.map((pos, idx) => {
         if (idx === editingIndex) {
-            return (
-                <Table.Tr key={form.key(`positions.${idx}`)}>
-                    <Table.Td colSpan={columnCount} p="lg">
-                        {formSlot}
-                    </Table.Td>
-                </Table.Tr>
-            )
+            return <FormRow key={form.key(`positions.${idx}`)} columnCount={columnCount} formSlot={formSlot} />
         }
-
-        const profileUrlCell = pos.profileUrl ? (
-            <Anchor href={pos.profileUrl} target="_blank">
-                {pos.profileUrl}
-            </Anchor>
-        ) : null
-
         return (
-            <Table.Tr key={form.key(`positions.${idx}`)}>
-                <Table.Td>{pos.affiliation}</Table.Td>
-                <Table.Td>{pos.position}</Table.Td>
-                <Table.Td>{profileUrlCell}</Table.Td>
-                {!readOnly && (
-                    <Table.Td ta="center">
-                        <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            onClick={() => onEdit(idx)}
-                            aria-label="Edit current position"
-                        >
-                            <PencilSimpleIcon weight="fill" />
-                        </ActionIcon>
-                    </Table.Td>
-                )}
-                {!readOnly && canDelete && (
-                    <Table.Td ta="center">
-                        <ActionIcon
-                            variant="subtle"
-                            color="gray"
-                            onClick={() => onDelete(idx)}
-                            aria-label="Delete current position"
-                        >
-                            <TrashIcon weight="fill" />
-                        </ActionIcon>
-                    </Table.Td>
-                )}
-            </Table.Tr>
+            <PositionRow
+                key={form.key(`positions.${idx}`)}
+                position={pos}
+                showEdit={showEdit}
+                showDelete={showDelete}
+                onEdit={() => onEdit(idx)}
+                onDelete={() => onDelete(idx)}
+            />
         )
     })
 
     const isAddingNew = editingIndex !== null && editingIndex >= positions.length
     if (isAddingNew && formSlot) {
-        tableRows.push(
-            <Table.Tr key="new-position-form">
-                <Table.Td colSpan={columnCount} p="lg">
-                    {formSlot}
-                </Table.Td>
-            </Table.Tr>,
-        )
+        tableRows.push(<FormRow key="new-position-form" columnCount={columnCount} formSlot={formSlot} />)
     }
 
     return (
@@ -119,12 +125,12 @@ export function PositionsTable({
                         <Table.Th>Institutional affiliation</Table.Th>
                         <Table.Th>Position</Table.Th>
                         <Table.Th>Profile page</Table.Th>
-                        {!readOnly && (
+                        {showEdit && (
                             <Table.Th w={80} ta="center">
                                 Edit
                             </Table.Th>
                         )}
-                        {!readOnly && canDelete && (
+                        {showDelete && (
                             <Table.Th w={80} ta="center">
                                 Delete
                             </Table.Th>
