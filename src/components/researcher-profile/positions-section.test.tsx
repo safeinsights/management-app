@@ -103,6 +103,58 @@ describe('PositionsSection', () => {
         expect(positions[0].position).toBe('Professor')
     })
 
+    it('should add a second position via add link and save to DB', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [{ affiliation: 'MIT', position: 'Professor' }],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+        })
+
+        const addLink = screen.getByText('+ Add another current position')
+        await userEvents.click(addLink)
+
+        await waitFor(() => {
+            expect(screen.getByText('Add current position')).toBeDefined()
+        })
+
+        const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
+        const positionInput = screen.getByPlaceholderText('Ex: Senior Researcher')
+
+        await userEvents.type(affiliationInput, 'Stanford')
+        await userEvents.type(positionInput, 'Researcher')
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        await userEvents.click(saveButton)
+
+        await waitFor(() => {
+            expect(refetch).toHaveBeenCalled()
+        })
+
+        const positions = await db
+            .selectFrom('researcherPosition')
+            .select(['affiliation', 'position'])
+            .where('userId', '=', user.id)
+            .orderBy('affiliation', 'asc')
+            .execute()
+
+        expect(positions).toHaveLength(2)
+        expect(positions[0].affiliation).toBe('MIT')
+        expect(positions[0].position).toBe('Professor')
+        expect(positions[1].affiliation).toBe('Stanford')
+        expect(positions[1].position).toBe('Researcher')
+    })
+
     it('should hide delete button when only one position exists', async () => {
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
