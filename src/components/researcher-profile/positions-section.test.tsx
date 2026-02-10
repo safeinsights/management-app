@@ -82,11 +82,9 @@ describe('PositionsSection', () => {
         await userEvents.type(affiliationInput, 'MIT')
         await userEvents.type(positionInput, 'Professor')
 
-        // Click save
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
 
-        // Wait for the action to complete
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
@@ -478,7 +476,6 @@ describe('PositionsSection', () => {
         const remainingEditButton = screen.getByRole('button', { name: /edit current position/i })
         expect(remainingEditButton).toHaveAttribute('data-disabled')
 
-        // Delete buttons should be data-disabled
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         for (const btn of deleteButtons) {
             expect(btn).toHaveAttribute('data-disabled')
