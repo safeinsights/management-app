@@ -1,4 +1,5 @@
-.actionIcon:disabled {
+.actionIcon:disabled,
+.actionIcon[data-disabled] {
     background-color: transparent;
     opacity: 0.3;
 }

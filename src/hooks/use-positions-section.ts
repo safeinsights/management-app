@@ -107,7 +107,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         saveMutation.mutate(next)
     }
 
-    const showForm = editingIndex !== null || !hasExistingPositions
+    const canDelete = defaults.positions.length >= 2
     const isAdding = editingIndex !== null && editingIndex >= defaults.positions.length
     const currentEditValid =
         editingIndex !== null &&
@@ -120,7 +120,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         defaults,
         isPending: saveMutation.isPending,
         hasExistingPositions,
-        showForm,
+        canDelete,
         isAdding,
         currentEditValid,
         openEdit,

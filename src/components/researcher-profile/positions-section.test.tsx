@@ -422,14 +422,14 @@ describe('PositionsSection', () => {
         // Add link should not be visible while editing
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
-        // The remaining edit button (for Stanford) should be disabled
+        // The remaining edit button (for Stanford) should be data-disabled
         const remainingEditButton = screen.getByRole('button', { name: /edit current position/i })
-        expect(remainingEditButton).toBeDisabled()
+        expect(remainingEditButton).toHaveAttribute('data-disabled')
 
-        // Delete buttons should be disabled
+        // Delete buttons should be data-disabled
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         for (const btn of deleteButtons) {
-            expect(btn).toBeDisabled()
+            expect(btn).toHaveAttribute('data-disabled')
         }
     })
 
@@ -464,16 +464,16 @@ describe('PositionsSection', () => {
         // Add link should not be visible while adding
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
-        // Edit buttons should be disabled
+        // Edit buttons should be data-disabled
         const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
         for (const btn of editButtons) {
-            expect(btn).toBeDisabled()
+            expect(btn).toHaveAttribute('data-disabled')
         }
 
-        // Delete buttons should be disabled
+        // Delete buttons should be data-disabled
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         for (const btn of deleteButtons) {
-            expect(btn).toBeDisabled()
+            expect(btn).toHaveAttribute('data-disabled')
         }
     })
 
@@ -514,12 +514,12 @@ describe('PositionsSection', () => {
 
         const editButtonsAfter = screen.getAllByRole('button', { name: /edit current position/i })
         for (const btn of editButtonsAfter) {
-            expect(btn).not.toBeDisabled()
+            expect(btn).not.toHaveAttribute('data-disabled')
         }
 
         const deleteButtonsAfter = screen.getAllByRole('button', { name: /delete current position/i })
         for (const btn of deleteButtonsAfter) {
-            expect(btn).not.toBeDisabled()
+            expect(btn).not.toHaveAttribute('data-disabled')
         }
     })
 

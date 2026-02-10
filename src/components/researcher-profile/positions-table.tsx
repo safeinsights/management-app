@@ -2,6 +2,7 @@
 
 import { ActionIcon, Anchor, Box, Divider, Table } from '@mantine/core'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import { InfoTooltip } from '@/components/tooltip'
 import classes from './positions-table.module.css'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
@@ -15,11 +16,6 @@ function AddPositionLink({ isVisible, onAdd }: { isVisible: boolean; onAdd: () =
             </Anchor>
         </Box>
     )
-}
-
-function Spacer({ isVisible }: { isVisible: boolean }) {
-    if (!isVisible) return null
-    return <Box h="md" />
 }
 
 function ActionHeaderCell({ isVisible, label }: { isVisible: boolean; label: string }) {
@@ -47,16 +43,18 @@ function ActionCell({
     if (!isVisible) return null
     return (
         <Table.Td ta="center">
-            <ActionIcon
-                className={classes.actionIcon}
-                variant="subtle"
-                color="gray"
-                disabled={disabled}
-                onClick={onClick}
-                aria-label={label}
-            >
-                {children}
-            </ActionIcon>
+            <InfoTooltip label="Save or cancel changes first" withArrow disabled={!disabled}>
+                <ActionIcon
+                    className={classes.actionIcon}
+                    variant="subtle"
+                    color="gray"
+                    data-disabled={disabled || undefined}
+                    onClick={disabled ? (e: React.MouseEvent) => e.preventDefault() : onClick}
+                    aria-label={label}
+                >
+                    {children}
+                </ActionIcon>
+            </InfoTooltip>
         </Table.Td>
     )
 }
@@ -175,7 +173,6 @@ export function PositionsTable({
             <Divider />
 
             <AddPositionLink isVisible={!readOnly && !actionsDisabled} onAdd={onAdd} />
-            <Spacer isVisible={!readOnly && actionsDisabled} />
         </>
     )
 }
