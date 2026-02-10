@@ -33,15 +33,16 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
     const canDelete = defaults.positions.length >= 2
     const isFormVisible = !readOnly && showForm && editingIndex !== null
 
-    const formFieldsElement = isFormVisible ? (
+    const formFieldsElement = (
         <PositionForm
-            editingIndex={editingIndex}
+            isVisible={isFormVisible}
+            editingIndex={editingIndex ?? 0}
             form={form}
             isAdding={isAdding}
             hasExistingPositions={hasExistingPositions}
             onSubmit={handleSubmit}
         />
-    ) : null
+    )
 
     const formActionsElement = (
         <PositionFormActions
