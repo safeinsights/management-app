@@ -2,6 +2,7 @@
 
 import { ActionIcon, Anchor, Box, Divider, Table } from '@mantine/core'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
+import classes from './positions-table.module.css'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
@@ -46,7 +47,14 @@ function ActionCell({
     if (!isVisible) return null
     return (
         <Table.Td ta="center">
-            <ActionIcon variant="subtle" color="gray" disabled={disabled} onClick={onClick} aria-label={label}>
+            <ActionIcon
+                className={classes.actionIcon}
+                variant="subtle"
+                color="gray"
+                disabled={disabled}
+                onClick={onClick}
+                aria-label={label}
+            >
                 {children}
             </ActionIcon>
         </Table.Td>
