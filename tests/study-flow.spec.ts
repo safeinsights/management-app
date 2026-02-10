@@ -261,7 +261,7 @@ function extractStudyIdFromUrl(page: Page): string {
 }
 
 async function waitForJobReady(page: Page, studyId: string, authToken: string): Promise<string> {
-    const baseUrl = 'http://localhost:4000'
+    const baseUrl = 'http://127.0.0.1:4000'
     for (let i = 0; i < 30; i++) {
         const response = await page.request.get(`${baseUrl}/api/studies/ready`, {
             headers: { Authorization: authToken },
