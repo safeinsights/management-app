@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import { triggerBuildImageForJob } from './aws'
 import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 
+vi.mock('./config', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./config')>()
+    return { ...actual, getConfigValue: () => Promise.resolve('mock-webhook-secret') }
+})
+
 // Mock the AWS SDK CodeBuildClient and StartBuildCommand
 vi.mock('@aws-sdk/client-codebuild', () => {
     const mockSend = vi.fn(() => ({ build: { id: 'mock-build-id' } }))
@@ -52,6 +57,10 @@ describe('triggerBuildImageForJob', () => {
 
         // Assert environment variables
         const expectedEnvVars = [
+            {
+                name: 'WEBHOOK_SECRET',
+                value: 'mock-webhook-secret',
+            },
             {
                 name: 'ON_START_PAYLOAD',
                 value: JSON.stringify({
