@@ -40,14 +40,14 @@ function countMatching(rows: { status: string }[], status: string) {
 }
 
 function authedRequest(body: object) {
-    return new Request('http://localhost/api/services/code-push', {
+    return new Request('http://localhost/api/services/containerizer', {
         method: 'POST',
         headers: { Authorization: `Bearer ${TEST_SECRET}` },
         body: JSON.stringify(body),
     })
 }
 
-test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', async () => {
+test('containerizer inserts JOB-PACKAGING once and is idempotent for same payload', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -70,7 +70,7 @@ test('code-push inserts JOB-PACKAGING once and is idempotent for same payload', 
     expect(afterSecond).toBe(afterFirst)
 })
 
-test('code-push persists JOB-READY', async () => {
+test('containerizer persists JOB-READY', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -85,7 +85,7 @@ test('code-push persists JOB-READY', async () => {
     expect(countMatching(rows, 'JOB-READY')).toBeGreaterThan(baseline)
 })
 
-test('code-push persists JOB-ERRORED once and is idempotent for same status', async () => {
+test('containerizer persists JOB-ERRORED once and is idempotent for same status', async () => {
     const { org, user } = await mockSessionWithTestData()
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -120,10 +120,10 @@ test('logs error with context on invalid payload', async () => {
 
     const [message, err, context] = calls[calls.length - 1]
 
-    expect(message).toBe('Error handling /api/services/code-push POST')
+    expect(message).toBe('Error handling /api/services/containerizer POST')
     expect(err).toBeInstanceOf(Error)
     expect(context).toMatchObject({
-        route: '/api/services/code-push',
+        route: '/api/services/containerizer',
         body: { jobId: 'job-invalid', status: 'INVALID_STATUS' },
     })
 })
@@ -138,7 +138,7 @@ test('returns 404 job-not-found for unknown jobId', async () => {
     expect(body).toEqual({ error: 'job-not-found' })
 })
 
-test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
+test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () => {
     const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
     const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
     const jobId = jobIds[0]
@@ -157,7 +157,7 @@ test('code-push encrypts and stores plaintextLog on JOB-ERRORED', async () => {
 })
 
 test('returns 401 when Authorization header is missing', async () => {
-    const req = new Request('http://localhost/api/services/code-push', {
+    const req = new Request('http://localhost/api/services/containerizer', {
         method: 'POST',
         body: JSON.stringify({ jobId: 'any-id', status: 'JOB-PACKAGING' }),
     })
@@ -168,7 +168,7 @@ test('returns 401 when Authorization header is missing', async () => {
 })
 
 test('returns 401 when Authorization token is wrong', async () => {
-    const req = new Request('http://localhost/api/services/code-push', {
+    const req = new Request('http://localhost/api/services/containerizer', {
         method: 'POST',
         headers: { Authorization: 'Bearer wrong-secret' },
         body: JSON.stringify({ jobId: 'any-id', status: 'JOB-PACKAGING' }),

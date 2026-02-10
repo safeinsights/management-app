@@ -69,7 +69,7 @@ export async function POST(req: Request) {
                 }
             } catch (encryptionError) {
                 logger.error('Failed to encrypt and store error log', encryptionError, {
-                    route: '/api/services/code-push',
+                    route: '/api/services/containerizer',
                     jobId: job.jobId,
                     studyId: job.studyId,
                     orgId: job.orgId,
@@ -101,8 +101,8 @@ export async function POST(req: Request) {
         return new NextResponse('ok', { status: 200 })
     } catch (error) {
         if (error instanceof ZodError) {
-            logger.error('Error handling /api/services/code-push POST', error, {
-                route: '/api/services/code-push',
+            logger.error('Error handling /api/services/containerizer POST', error, {
+                route: '/api/services/containerizer',
                 body: rawBody ?? null,
             })
 
@@ -116,16 +116,16 @@ export async function POST(req: Request) {
         }
 
         if (error instanceof NotFoundError) {
-            logger.error('Error handling /api/services/code-push POST', error, {
-                route: '/api/services/code-push',
+            logger.error('Error handling /api/services/containerizer POST', error, {
+                route: '/api/services/containerizer',
                 body: rawBody ?? null,
             })
 
             return NextResponse.json({ error: 'job-not-found' }, { status: 404 })
         }
 
-        logger.error('Error handling /api/services/code-push POST', error, {
-            route: '/api/services/code-push',
+        logger.error('Error handling /api/services/containerizer POST', error, {
+            route: '/api/services/containerizer',
             body: rawBody ?? null,
         })
 
