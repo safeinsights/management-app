@@ -79,8 +79,14 @@ function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug
             <Text fw={600} size="sm">
                 Researcher
             </Text>
-            <ResearcherProfilePopover userId={study.researcherId} studyId={study.id} orgSlug={orgSlug}>
-                <Group gap={6} style={{ cursor: 'pointer' }}>
+            <ResearcherProfilePopover
+                userId={study.researcherId}
+                studyId={study.id}
+                orgSlug={orgSlug}
+                position="right"
+                offset={10}
+            >
+                <Group gap={6} style={{ cursor: 'pointer', display: 'inline-flex' }}>
                     <Text size="sm">{study.createdBy}</Text>
                     <Info weight="fill" size={16} color="gray" />
                 </Group>

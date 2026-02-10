@@ -1,7 +1,7 @@
 'use client'
 
 import { type FC, type ReactNode } from 'react'
-import { Anchor, Group, HoverCard, Pill, Skeleton, Stack, Text } from '@mantine/core'
+import { Anchor, Group, HoverCard, Pill, Skeleton, Stack, Text, type FloatingPosition } from '@mantine/core'
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Link } from '@/components/links'
 import { Routes } from '@/lib/routes'
@@ -11,6 +11,9 @@ interface ResearcherProfilePopoverProps {
     studyId: string
     orgSlug: string
     children: ReactNode
+    position?: FloatingPosition
+    withArrow?: boolean
+    offset?: number
 }
 
 const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
@@ -134,9 +137,17 @@ const PopoverContent: FC<{ userId: string; studyId: string; orgSlug: string }> =
     )
 }
 
-export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({ userId, studyId, orgSlug, children }) => {
+export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
+    userId,
+    studyId,
+    orgSlug,
+    children,
+    position,
+    withArrow = true,
+    offset,
+}) => {
     return (
-        <HoverCard width={300} shadow="md" openDelay={300}>
+        <HoverCard width={300} shadow="md" openDelay={300} position={position} withArrow={withArrow} offset={offset}>
             <HoverCard.Target>{children}</HoverCard.Target>
             <HoverCard.Dropdown>
                 <PopoverContent userId={userId} studyId={studyId} orgSlug={orgSlug} />

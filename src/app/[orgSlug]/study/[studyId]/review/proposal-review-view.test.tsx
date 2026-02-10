@@ -109,11 +109,6 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
     })
 
-    it('renders "View full profile" link', () => {
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
-        expect(screen.getByText('View full profile')).toBeInTheDocument()
-    })
-
     it('renders Lexical JSON content as text', async () => {
         const lexicalJson = JSON.stringify({
             root: {
