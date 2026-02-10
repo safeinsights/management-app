@@ -5,7 +5,7 @@ import { insertTestStudyData, mockSessionWithTestData } from '@/tests/unit.helpe
 
 const TEST_SECRET = 'test-webhook-secret-value'
 
-process.env.CODE_PUSH_WEBHOOK_SECRET = TEST_SECRET
+process.env.CONTAINERIZER_WEBHOOK_SECRET = TEST_SECRET
 
 vi.mock('@/lib/logger', () => {
     const error = vi.fn()
