@@ -7,11 +7,6 @@ import { updatePositionsAction } from '@/server/actions/researcher-profile.actio
 import { positionsSchema, type PositionsValues, type PositionValues } from '@/schema/researcher-profile'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
-type SaveMutationVars = {
-    positions: PositionValues[]
-    deleteWhileAdding?: { formIndex: number; newEditingIndex: number }
-}
-
 const emptyPosition: PositionValues = { affiliation: '', position: '', profileUrl: '' }
 
 export function usePositionsSection(data: ResearcherProfileData | null, refetch: () => Promise<unknown>) {
@@ -53,15 +48,10 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
     }, [data, hasExistingPositions])
 
     const saveMutation = useMutation({
-        mutationFn: async (vars: SaveMutationVars) => updatePositionsAction({ positions: vars.positions }),
-        onSuccess: async (_data, vars) => {
+        mutationFn: async (positions: PositionValues[]) => updatePositionsAction({ positions }),
+        onSuccess: async () => {
             await refetch()
-            if (vars.deleteWhileAdding) {
-                form.removeListItem('positions', vars.deleteWhileAdding.formIndex)
-                setEditingIndex(vars.deleteWhileAdding.newEditingIndex)
-            } else {
-                setEditingIndex(null)
-            }
+            setEditingIndex(null)
             notifications.show({ title: 'Saved', message: 'Current institutional information updated', color: 'green' })
         },
         onError: (error) => {
@@ -109,20 +99,12 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         }
 
         const next = form.values.positions.map((pos, idx) => (idx === editingIndex ? cleaned : pos))
-        saveMutation.mutate({ positions: next })
+        saveMutation.mutate(next)
     }
 
     const handleDelete = (index: number) => {
-        if (isAdding && editingIndex !== null) {
-            const next = defaults.positions.filter((_, i) => i !== index)
-            saveMutation.mutate({
-                positions: next,
-                deleteWhileAdding: { formIndex: index, newEditingIndex: editingIndex - 1 },
-            })
-        } else {
-            const next = form.values.positions.filter((_, i) => i !== index)
-            saveMutation.mutate({ positions: next })
-        }
+        const next = form.values.positions.filter((_, i) => i !== index)
+        saveMutation.mutate(next)
     }
 
     const showForm = editingIndex !== null || !hasExistingPositions

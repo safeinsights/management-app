@@ -1,6 +1,6 @@
 'use client'
 
-import { Anchor, Box, Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { Button, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { FormFieldLabel } from '@/components/form-field-label'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
@@ -86,22 +86,9 @@ export function PositionForm({
 interface PositionFormActionsProps {
     isVisible: boolean
     hasExistingPositions: boolean
-    isAdding: boolean
     currentEditValid: boolean
     isPending: boolean
     onCancel: () => void
-    onAdd: () => void
-}
-
-function AddAnotherLink({ isVisible, onAdd }: { isVisible: boolean; onAdd: () => void }) {
-    if (!isVisible) return null
-    return (
-        <Box>
-            <Anchor component="button" onClick={onAdd}>
-                + Add another current position
-            </Anchor>
-        </Box>
-    )
 }
 
 function CancelButton({ isVisible, onCancel }: { isVisible: boolean; onCancel: () => void }) {
@@ -116,29 +103,18 @@ function CancelButton({ isVisible, onCancel }: { isVisible: boolean; onCancel: (
 export function PositionFormActions({
     isVisible,
     hasExistingPositions,
-    isAdding,
     currentEditValid,
     isPending,
     onCancel,
-    onAdd,
 }: PositionFormActionsProps) {
     if (!isVisible) return null
 
     return (
-        <>
-            <AddAnotherLink isVisible={hasExistingPositions && !isAdding} onAdd={onAdd} />
-
-            <Group justify="flex-end" mt="sm">
-                <CancelButton isVisible={hasExistingPositions} onCancel={onCancel} />
-                <Button
-                    type="submit"
-                    form="position-form"
-                    disabled={!currentEditValid || isPending}
-                    loading={isPending}
-                >
-                    Save changes
-                </Button>
-            </Group>
-        </>
+        <Group justify="flex-end" mt="sm">
+            <CancelButton isVisible={hasExistingPositions} onCancel={onCancel} />
+            <Button type="submit" form="position-form" disabled={!currentEditValid || isPending} loading={isPending}>
+                Save changes
+            </Button>
+        </Group>
     )
 }

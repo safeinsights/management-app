@@ -389,7 +389,7 @@ describe('PositionsSection', () => {
         expect(positions[0].position).toBe('Professor')
     })
 
-    it('should hide add link in table footer when editing', async () => {
+    it('should disable edit, delete, and add buttons when editing a position', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
@@ -419,18 +419,30 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // Only the form actions link remains; the table footer link is hidden while editing
-        const addLinks = screen.getAllByText('+ Add another current position')
-        expect(addLinks).toHaveLength(1)
+        // Add link should be hidden while editing
+        expect(screen.queryByText('+ Add another current position')).toBeNull()
+
+        // The remaining edit button (for Stanford) should be disabled
+        const remainingEditButton = screen.getByRole('button', { name: /edit current position/i })
+        expect(remainingEditButton).toBeDisabled()
+
+        // Delete buttons should be disabled
+        const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
+        for (const btn of deleteButtons) {
+            expect(btn).toBeDisabled()
+        }
     })
 
-    it('should hide add link in form actions when adding new position', async () => {
+    it('should disable edit, delete, and add buttons when adding a new position', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
 
         await insertTestResearcherProfile({
             userId: user.id,
-            positions: [{ affiliation: 'MIT', position: 'Professor' }],
+            positions: [
+                { affiliation: 'MIT', position: 'Professor' },
+                { affiliation: 'Stanford', position: 'Researcher' },
+            ],
         })
 
         const data = await getTestResearcherProfileData(user.id)
@@ -442,13 +454,6 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        const editButton = screen.getByRole('button', { name: /edit current position/i })
-        await userEvents.click(editButton)
-
-        await waitFor(() => {
-            expect(screen.getByText('Edit current position')).toBeDefined()
-        })
-
         const addLink = screen.getByText('+ Add another current position')
         await userEvents.click(addLink)
 
@@ -456,7 +461,66 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
+        // Add link should be hidden while adding
         expect(screen.queryByText('+ Add another current position')).toBeNull()
+
+        // Edit buttons should be disabled
+        const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
+        for (const btn of editButtons) {
+            expect(btn).toBeDisabled()
+        }
+
+        // Delete buttons should be disabled
+        const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
+        for (const btn of deleteButtons) {
+            expect(btn).toBeDisabled()
+        }
+    })
+
+    it('should re-enable buttons after canceling edit', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                { affiliation: 'MIT', position: 'Professor' },
+                { affiliation: 'Stanford', position: 'Researcher' },
+            ],
+        })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('MIT')).toBeDefined()
+        })
+
+        const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
+        await userEvents.click(editButtons[0])
+
+        await waitFor(() => {
+            expect(screen.getByText('Edit current position')).toBeDefined()
+        })
+
+        const cancelButton = screen.getByRole('button', { name: /cancel/i })
+        await userEvents.click(cancelButton)
+
+        await waitFor(() => {
+            expect(screen.getByText('+ Add another current position')).toBeDefined()
+        })
+
+        const editButtonsAfter = screen.getAllByRole('button', { name: /edit current position/i })
+        for (const btn of editButtonsAfter) {
+            expect(btn).not.toBeDisabled()
+        }
+
+        const deleteButtonsAfter = screen.getAllByRole('button', { name: /delete current position/i })
+        for (const btn of deleteButtonsAfter) {
+            expect(btn).not.toBeDisabled()
+        }
     })
 
     it('should restore original values when canceling an edit', async () => {
@@ -494,62 +558,6 @@ describe('PositionsSection', () => {
         expect(screen.queryByText('Edit current position')).toBeNull()
     })
 
-    it('should delete a position while adding a new one', async () => {
-        const userEvents = userEvent.setup()
-        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
-
-        await insertTestResearcherProfile({
-            userId: user.id,
-            positions: [
-                { affiliation: 'MIT', position: 'Professor' },
-                { affiliation: 'Stanford', position: 'Researcher' },
-            ],
-        })
-
-        const data = await getTestResearcherProfileData(user.id)
-        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
-
-        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
-
-        await waitFor(() => {
-            expect(screen.getByText('MIT')).toBeDefined()
-            expect(screen.getByText('Stanford')).toBeDefined()
-        })
-
-        const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
-        await userEvents.click(editButtons[0])
-
-        await waitFor(() => {
-            expect(screen.getByText('Edit current position')).toBeDefined()
-        })
-
-        const addLink = screen.getByText('+ Add another current position')
-        await userEvents.click(addLink)
-
-        await waitFor(() => {
-            expect(screen.getByText('Add current position')).toBeDefined()
-        })
-
-        const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
-        await userEvents.click(deleteButtons[0])
-
-        await waitFor(() => {
-            expect(refetch).toHaveBeenCalled()
-        })
-
-        const positions = await db
-            .selectFrom('researcherPosition')
-            .select(['affiliation'])
-            .where('userId', '=', user.id)
-            .execute()
-
-        expect(positions).toHaveLength(1)
-        expect(positions[0].affiliation).toBe('Stanford')
-
-        // Data prop is static in tests so refetch doesn't re-render, but form stays open
-        expect(screen.getByRole('button', { name: /save changes/i })).toBeDefined()
-    })
-
     it('should remove empty row when canceling after clicking add', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
@@ -566,13 +574,6 @@ describe('PositionsSection', () => {
 
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
-        })
-
-        const editButton = screen.getByRole('button', { name: /edit current position/i })
-        await userEvents.click(editButton)
-
-        await waitFor(() => {
-            expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
         const addLink = screen.getByText('+ Add another current position')

@@ -32,11 +32,13 @@ function ActionHeaderCell({ isVisible, label }: { isVisible: boolean; label: str
 
 function ActionCell({
     isVisible,
+    disabled,
     onClick,
     label,
     children,
 }: {
     isVisible: boolean
+    disabled?: boolean
     onClick: () => void
     label: string
     children: React.ReactNode
@@ -44,7 +46,7 @@ function ActionCell({
     if (!isVisible) return null
     return (
         <Table.Td ta="center">
-            <ActionIcon variant="subtle" color="gray" onClick={onClick} aria-label={label}>
+            <ActionIcon variant="subtle" color="gray" disabled={disabled} onClick={onClick} aria-label={label}>
                 {children}
             </ActionIcon>
         </Table.Td>
@@ -55,11 +57,12 @@ interface PositionRowProps {
     position: PositionValues
     showEdit: boolean
     showDelete: boolean
+    actionsDisabled: boolean
     onEdit: () => void
     onDelete: () => void
 }
 
-function PositionRow({ position, showEdit, showDelete, onEdit, onDelete }: PositionRowProps) {
+function PositionRow({ position, showEdit, showDelete, actionsDisabled, onEdit, onDelete }: PositionRowProps) {
     const profileUrlCell = position.profileUrl ? (
         <Anchor href={position.profileUrl} target="_blank">
             {position.profileUrl}
@@ -71,10 +74,15 @@ function PositionRow({ position, showEdit, showDelete, onEdit, onDelete }: Posit
             <Table.Td>{position.affiliation}</Table.Td>
             <Table.Td>{position.position}</Table.Td>
             <Table.Td>{profileUrlCell}</Table.Td>
-            <ActionCell isVisible={showEdit} onClick={onEdit} label="Edit current position">
+            <ActionCell isVisible={showEdit} disabled={actionsDisabled} onClick={onEdit} label="Edit current position">
                 <PencilSimpleIcon weight="fill" />
             </ActionCell>
-            <ActionCell isVisible={showDelete} onClick={onDelete} label="Delete current position">
+            <ActionCell
+                isVisible={showDelete}
+                disabled={actionsDisabled}
+                onClick={onDelete}
+                label="Delete current position"
+            >
                 <TrashIcon weight="fill" />
             </ActionCell>
         </Table.Tr>
@@ -96,6 +104,7 @@ interface PositionsTableProps {
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
     canDelete: boolean
+    actionsDisabled: boolean
     readOnly?: boolean
     formSlot?: React.ReactNode
     onEdit: (index: number) => void
@@ -108,6 +117,7 @@ export function PositionsTable({
     editingIndex,
     form,
     canDelete,
+    actionsDisabled,
     readOnly = false,
     formSlot,
     onEdit,
@@ -128,6 +138,7 @@ export function PositionsTable({
                 position={pos}
                 showEdit={showEdit}
                 showDelete={showDelete}
+                actionsDisabled={actionsDisabled}
                 onEdit={() => onEdit(idx)}
                 onDelete={() => onDelete(idx)}
             />
@@ -155,7 +166,7 @@ export function PositionsTable({
             </Table>
             <Divider />
 
-            <AddPositionLink isVisible={!readOnly && editingIndex === null} onAdd={onAdd} />
+            <AddPositionLink isVisible={!readOnly && !actionsDisabled} onAdd={onAdd} />
         </>
     )
 }

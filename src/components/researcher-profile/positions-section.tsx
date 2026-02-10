@@ -48,13 +48,13 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
         <PositionFormActions
             isVisible={isFormVisible}
             hasExistingPositions={hasExistingPositions}
-            isAdding={isAdding}
             currentEditValid={currentEditValid}
             isPending={isPending}
             onCancel={cancelEdit}
-            onAdd={openAdd}
         />
     )
+
+    const actionsDisabled = editingIndex !== null
 
     const positionsContent = hasExistingPositions ? (
         <PositionsTable
@@ -62,6 +62,7 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
             editingIndex={editingIndex}
             form={form}
             canDelete={canDelete}
+            actionsDisabled={actionsDisabled}
             readOnly={readOnly}
             formSlot={formFieldsElement}
             onEdit={openEdit}
