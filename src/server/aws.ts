@@ -184,7 +184,7 @@ export async function triggerBuildImageForJob(
             environmentVariablesOverride: [
                 {
                     name: 'WEBHOOK_SECRET',
-                    value: await getConfigValue('CODE_PUSH_WEBHOOK_SECRET'),
+                    value: await getConfigValue('CONTAINERIZER_WEBHOOK_SECRET'),
                 },
                 {
                     name: 'ON_START_PAYLOAD',
