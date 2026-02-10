@@ -56,6 +56,22 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
         />
     )
 
+    const positionsContent = hasExistingPositions ? (
+        <PositionsTable
+            positions={defaults.positions}
+            editingIndex={editingIndex}
+            form={form}
+            canDelete={canDelete}
+            readOnly={readOnly}
+            formSlot={formFieldsElement}
+            onEdit={openEdit}
+            onDelete={handleDelete}
+            onAdd={openAdd}
+        />
+    ) : (
+        formFieldsElement
+    )
+
     return (
         <Paper p="xl" radius="sm">
             <SectionHeader
@@ -65,21 +81,7 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
                 showEditButton={false}
             />
 
-            {hasExistingPositions ? (
-                <PositionsTable
-                    positions={defaults.positions}
-                    editingIndex={editingIndex}
-                    form={form}
-                    canDelete={canDelete}
-                    readOnly={readOnly}
-                    formSlot={formFieldsElement}
-                    onEdit={openEdit}
-                    onDelete={handleDelete}
-                    onAdd={openAdd}
-                />
-            ) : (
-                formFieldsElement
-            )}
+            {positionsContent}
 
             {formActionsElement}
         </Paper>

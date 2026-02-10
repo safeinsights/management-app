@@ -21,6 +21,36 @@ function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
     )
 }
 
+function ActionHeaderCell({ isVisible, label }: { isVisible: boolean; label: string }) {
+    if (!isVisible) return null
+    return (
+        <Table.Th w={80} ta="center">
+            {label}
+        </Table.Th>
+    )
+}
+
+function ActionCell({
+    isVisible,
+    onClick,
+    label,
+    children,
+}: {
+    isVisible: boolean
+    onClick: () => void
+    label: string
+    children: React.ReactNode
+}) {
+    if (!isVisible) return null
+    return (
+        <Table.Td ta="center">
+            <ActionIcon variant="subtle" color="gray" onClick={onClick} aria-label={label}>
+                {children}
+            </ActionIcon>
+        </Table.Td>
+    )
+}
+
 interface PositionRowProps {
     position: PositionValues
     showEdit: boolean
@@ -41,20 +71,12 @@ function PositionRow({ position, showEdit, showDelete, onEdit, onDelete }: Posit
             <Table.Td>{position.affiliation}</Table.Td>
             <Table.Td>{position.position}</Table.Td>
             <Table.Td>{profileUrlCell}</Table.Td>
-            {showEdit && (
-                <Table.Td ta="center">
-                    <ActionIcon variant="subtle" color="gray" onClick={onEdit} aria-label="Edit current position">
-                        <PencilSimpleIcon weight="fill" />
-                    </ActionIcon>
-                </Table.Td>
-            )}
-            {showDelete && (
-                <Table.Td ta="center">
-                    <ActionIcon variant="subtle" color="gray" onClick={onDelete} aria-label="Delete current position">
-                        <TrashIcon weight="fill" />
-                    </ActionIcon>
-                </Table.Td>
-            )}
+            <ActionCell isVisible={showEdit} onClick={onEdit} label="Edit current position">
+                <PencilSimpleIcon weight="fill" />
+            </ActionCell>
+            <ActionCell isVisible={showDelete} onClick={onDelete} label="Delete current position">
+                <TrashIcon weight="fill" />
+            </ActionCell>
         </Table.Tr>
     )
 }
@@ -125,16 +147,8 @@ export function PositionsTable({
                         <Table.Th>Institutional affiliation</Table.Th>
                         <Table.Th>Position</Table.Th>
                         <Table.Th>Profile page</Table.Th>
-                        {showEdit && (
-                            <Table.Th w={80} ta="center">
-                                Edit
-                            </Table.Th>
-                        )}
-                        {showDelete && (
-                            <Table.Th w={80} ta="center">
-                                Delete
-                            </Table.Th>
-                        )}
+                        <ActionHeaderCell isVisible={showEdit} label="Edit" />
+                        <ActionHeaderCell isVisible={showDelete} label="Delete" />
                     </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>{tableRows}</Table.Tbody>

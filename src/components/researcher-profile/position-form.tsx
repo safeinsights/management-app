@@ -14,7 +14,14 @@ interface PositionFormProps {
     onSubmit: () => void
 }
 
-export function PositionForm({ isVisible, editingIndex, form, isAdding, hasExistingPositions, onSubmit }: PositionFormProps) {
+export function PositionForm({
+    isVisible,
+    editingIndex,
+    form,
+    isAdding,
+    hasExistingPositions,
+    onSubmit,
+}: PositionFormProps) {
     if (!isVisible) return null
     const formTitle = isAdding || !hasExistingPositions ? 'Add current position' : 'Edit current position'
 
@@ -86,6 +93,26 @@ interface PositionFormActionsProps {
     onAdd: () => void
 }
 
+function AddAnotherLink({ isVisible, onAdd }: { isVisible: boolean; onAdd: () => void }) {
+    if (!isVisible) return null
+    return (
+        <Box>
+            <Anchor component="button" onClick={onAdd}>
+                + Add another current position
+            </Anchor>
+        </Box>
+    )
+}
+
+function CancelButton({ isVisible, onCancel }: { isVisible: boolean; onCancel: () => void }) {
+    if (!isVisible) return null
+    return (
+        <Button variant="default" onClick={onCancel}>
+            Cancel
+        </Button>
+    )
+}
+
 export function PositionFormActions({
     isVisible,
     hasExistingPositions,
@@ -99,20 +126,10 @@ export function PositionFormActions({
 
     return (
         <>
-            {hasExistingPositions && !isAdding && (
-                <Box>
-                    <Anchor component="button" onClick={onAdd}>
-                        + Add another current position
-                    </Anchor>
-                </Box>
-            )}
+            <AddAnotherLink isVisible={hasExistingPositions && !isAdding} onAdd={onAdd} />
 
             <Group justify="flex-end" mt="sm">
-                {hasExistingPositions && (
-                    <Button variant="default" onClick={onCancel}>
-                        Cancel
-                    </Button>
-                )}
+                <CancelButton isVisible={hasExistingPositions} onCancel={onCancel} />
                 <Button
                     type="submit"
                     form="position-form"

@@ -327,26 +327,21 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Stanford')).toBeDefined()
         })
 
-        // Click edit on the second position (Stanford)
         const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
         await userEvents.click(editButtons[1])
 
-        // Form should show "Edit current position" title
         await waitFor(() => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // MIT and Harvard rows should still be visible
         expect(screen.getByText('MIT')).toBeDefined()
         expect(screen.getByText('Harvard')).toBeDefined()
 
-        // Stanford text should not appear in a regular table cell (it's replaced by the form)
         const mitCell = screen.getByText('MIT').closest('td')
         const harvardCell = screen.getByText('Harvard').closest('td')
         expect(mitCell).toBeDefined()
         expect(harvardCell).toBeDefined()
 
-        // The form inputs should contain the Stanford values instead
         const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
         expect(affiliationInput).toHaveValue('Stanford')
     })
@@ -369,16 +364,13 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click edit
         const editButton = screen.getByRole('button', { name: /edit current position/i })
         await userEvents.click(editButton)
 
-        // Change affiliation from MIT to Harvard
         const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
         await userEvents.clear(affiliationInput)
         await userEvents.type(affiliationInput, 'Harvard')
 
-        // Click save
         const saveButton = screen.getByRole('button', { name: /save changes/i })
         await userEvents.click(saveButton)
 
@@ -386,7 +378,6 @@ describe('PositionsSection', () => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB has "Harvard" not "MIT"
         const positions = await db
             .selectFrom('researcherPosition')
             .select(['affiliation', 'position'])
@@ -419,10 +410,8 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Add link should be visible before editing
         expect(screen.getByText('+ Add another current position')).toBeDefined()
 
-        // Click edit on first position
         const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
         await userEvents.click(editButtons[0])
 
@@ -430,12 +419,7 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // The table footer add link should be hidden when editing
-        // (the form actions area may show one, but the table footer one is gone)
-        // With editingIndex !== null, table footer link is hidden
-        // Form actions shows it only when !isAdding (editing existing), so one link remains in form actions
-        // But the table footer link (controlled by editingIndex === null) should be gone
-        // Since both links have the same text, we check that only one exists (the form actions one)
+        // Only the form actions link remains; the table footer link is hidden while editing
         const addLinks = screen.getAllByText('+ Add another current position')
         expect(addLinks).toHaveLength(1)
     })
@@ -458,7 +442,6 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click edit to open form
         const editButton = screen.getByRole('button', { name: /edit current position/i })
         await userEvents.click(editButton)
 
@@ -466,17 +449,13 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // Click "+ Add another current position" link (in form actions area)
         const addLink = screen.getByText('+ Add another current position')
         await userEvents.click(addLink)
 
-        // Should now show "Add current position" form title
         await waitFor(() => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // The add link should be completely hidden (isAdding=true hides form actions link,
-        // and editingIndex !== null hides table footer link)
         expect(screen.queryByText('+ Add another current position')).toBeNull()
     })
 
@@ -498,20 +477,16 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click edit
         const editButton = screen.getByRole('button', { name: /edit current position/i })
         await userEvents.click(editButton)
 
-        // Change affiliation to Harvard
         const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
         await userEvents.clear(affiliationInput)
         await userEvents.type(affiliationInput, 'Harvard')
 
-        // Click cancel
         const cancelButton = screen.getByRole('button', { name: /cancel/i })
         await userEvents.click(cancelButton)
 
-        // Form should close, original "MIT" should be visible in table
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
@@ -541,7 +516,6 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Stanford')).toBeDefined()
         })
 
-        // Click edit on first position
         const editButtons = screen.getAllByRole('button', { name: /edit current position/i })
         await userEvents.click(editButtons[0])
 
@@ -549,7 +523,6 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // Click "+ Add another current position" to start adding
         const addLink = screen.getByText('+ Add another current position')
         await userEvents.click(addLink)
 
@@ -557,16 +530,13 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Delete the first existing position (MIT) while in adding mode
         const deleteButtons = screen.getAllByRole('button', { name: /delete current position/i })
         await userEvents.click(deleteButtons[0])
 
-        // Wait for the action to complete
         await waitFor(() => {
             expect(refetch).toHaveBeenCalled()
         })
 
-        // Verify DB: MIT deleted, Stanford remains
         const positions = await db
             .selectFrom('researcherPosition')
             .select(['affiliation'])
@@ -576,9 +546,7 @@ describe('PositionsSection', () => {
         expect(positions).toHaveLength(1)
         expect(positions[0].affiliation).toBe('Stanford')
 
-        // The form should still be open (editingIndex is non-null)
-        // In the real app, refetch would update data and show "Add current position"
-        // In the test, data prop is static so it shows as editing mode
+        // Data prop is static in tests so refetch doesn't re-render, but form stays open
         expect(screen.getByRole('button', { name: /save changes/i })).toBeDefined()
     })
 
@@ -600,7 +568,6 @@ describe('PositionsSection', () => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
 
-        // Click edit, then click add to start adding a new position
         const editButton = screen.getByRole('button', { name: /edit current position/i })
         await userEvents.click(editButton)
 
@@ -615,19 +582,16 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Click cancel
         const cancelButton = screen.getByRole('button', { name: /cancel/i })
         await userEvents.click(cancelButton)
 
-        // Form should close, only MIT row should be visible
         await waitFor(() => {
             expect(screen.getByText('MIT')).toBeDefined()
         })
         expect(screen.queryByText('Add current position')).toBeNull()
 
-        // Only one data row should exist (MIT)
         const rows = screen.getAllByRole('row')
-        // 1 header row + 1 data row = 2 total
+        // 1 header + 1 data row
         expect(rows).toHaveLength(2)
     })
 })
