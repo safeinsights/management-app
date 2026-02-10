@@ -5,6 +5,7 @@ set -e
 export ASSETS_PREFIX=/
 export PORT=4000
 export NEXT_PUBLIC_CLERK_DOMAIN=localhost:4000
+export HOSTNAME=0.0.0.0
 export CODER_FILES=./coder-files
 
 LOG=$1
