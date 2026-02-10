@@ -5,12 +5,7 @@ import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
 
-interface AddPositionLinkProps {
-    isVisible: boolean
-    onAdd: () => void
-}
-
-function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
+function AddPositionLink({ isVisible, onAdd }: { isVisible: boolean; onAdd: () => void }) {
     if (!isVisible) return null
     return (
         <Box mt="md">
@@ -19,6 +14,11 @@ function AddPositionLink({ isVisible, onAdd }: AddPositionLinkProps) {
             </Anchor>
         </Box>
     )
+}
+
+function Spacer({ isVisible }: { isVisible: boolean }) {
+    if (!isVisible) return null
+    return <Box h="md" />
 }
 
 function ActionHeaderCell({ isVisible, label }: { isVisible: boolean; label: string }) {
@@ -167,6 +167,7 @@ export function PositionsTable({
             <Divider />
 
             <AddPositionLink isVisible={!readOnly && !actionsDisabled} onAdd={onAdd} />
+            <Spacer isVisible={!readOnly && actionsDisabled} />
         </>
     )
 }

@@ -419,7 +419,7 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Edit current position')).toBeDefined()
         })
 
-        // Add link should be hidden while editing
+        // Add link should not be visible while editing
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
         // The remaining edit button (for Stanford) should be disabled
@@ -461,7 +461,7 @@ describe('PositionsSection', () => {
             expect(screen.getByText('Add current position')).toBeDefined()
         })
 
-        // Add link should be hidden while adding
+        // Add link should not be visible while adding
         expect(screen.queryByText('+ Add another current position')).toBeNull()
 
         // Edit buttons should be disabled
