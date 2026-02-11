@@ -5,6 +5,7 @@ import { usePersonalInfoSection } from '@/hooks/use-personal-info-section'
 import { SectionHeader } from '@/components/researcher-profile/section-header'
 import { DisplayField } from '@/components/researcher-profile/display-field'
 import { FormFieldLabel } from '@/components/form-field-label'
+import { InfoTooltip } from '@/components/tooltip'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 import type { PersonalInfoValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
@@ -48,7 +49,9 @@ function PersonalInfoEditForm({ form, email, isPending, onSubmit }: PersonalInfo
 
             <Box mt="md">
                 <FormFieldLabel label="Email address" required inputId="email" />
-                <TextInput id="email" value={email} placeholder="you@university.edu" disabled />
+                <InfoTooltip label="Email address cannot be edited" withArrow>
+                    <TextInput id="email" value={email} placeholder="you@university.edu" disabled />
+                </InfoTooltip>
             </Box>
 
             <Group justify="flex-end" mt="xl">
