@@ -67,6 +67,7 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
                 onAdd={openAdd}
             />
 
+            {/* Shown only when no positions exist; otherwise the form renders inside PositionsTable */}
             <PositionForm
                 isVisible={!hasExistingPositions && isFormVisible}
                 editingIndex={editingIndex ?? 0}
