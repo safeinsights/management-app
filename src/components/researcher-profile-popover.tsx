@@ -14,6 +14,7 @@ interface ResearcherProfilePopoverProps {
     position?: FloatingPosition
     withArrow?: boolean
     offset?: number
+    arrowSize?: number
 }
 
 const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
@@ -145,9 +146,18 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
     position,
     withArrow = true,
     offset,
+    arrowSize,
 }) => {
     return (
-        <HoverCard width={300} shadow="md" openDelay={300} position={position} withArrow={withArrow} offset={offset}>
+        <HoverCard
+            width={300}
+            shadow="md"
+            openDelay={300}
+            position={position}
+            withArrow={withArrow}
+            offset={offset}
+            arrowSize={arrowSize}
+        >
             <HoverCard.Target>{children}</HoverCard.Target>
             <HoverCard.Dropdown>
                 <PopoverContent userId={userId} studyId={studyId} orgSlug={orgSlug} />
