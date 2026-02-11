@@ -113,7 +113,7 @@ test.describe('Organization Admin', () => {
         // Upload starter code file from tests/assets
         const __filename = fileURLToPath(import.meta.url)
         const __dirname = path.dirname(__filename)
-        const starterPath = path.join(__dirname, 'assets', 'starter-code.r')
+        const starterPath = path.join(__dirname, 'assets', 'main.r')
 
         const fileInput = page.locator('input[type="file"]').first()
         await fileInput.setInputFiles(starterPath)
@@ -126,7 +126,7 @@ test.describe('Organization Admin', () => {
         // Wait for the new row to appear in the table
         const row = page.getByRole('row', { name: new RegExp(baseImageName) })
         await expect(row).toBeVisible()
-        await expect(row.getByText('starter-code.r')).toBeVisible()
+        await expect(row.getByText('main.r')).toBeVisible()
 
         // Click the Edit action for this row (first button: view starter code, second: edit)
         const actionButtons = row.locator('button')
@@ -146,6 +146,6 @@ test.describe('Organization Admin', () => {
 
         // Ensure the row is still present and the starter code filename is rendered
         await expect(row).toBeVisible()
-        await expect(row.getByText('starter-code.r')).toBeVisible()
+        await expect(row.getByText('main.r')).toBeVisible()
     })
 })
