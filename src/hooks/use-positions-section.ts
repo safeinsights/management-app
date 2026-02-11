@@ -109,10 +109,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
 
     const canDelete = defaults.positions.length >= 2
     const isAdding = editingIndex !== null && editingIndex >= defaults.positions.length
-    const currentEditValid =
-        editingIndex !== null &&
-        Boolean(form.values.positions[editingIndex]?.affiliation) &&
-        Boolean(form.values.positions[editingIndex]?.position)
+    const currentEditValid = editingIndex !== null && form.isValid()
 
     return {
         form,

@@ -607,6 +607,36 @@ describe('PositionsSection', () => {
         expect(screen.queryByText('Edit current position')).toBeNull()
     })
 
+    it('should disable save button when profile URL is invalid', async () => {
+        const userEvents = userEvent.setup()
+        const { user } = await mockSessionWithTestData({ orgType: 'lab' })
+
+        await insertTestResearcherProfile({ userId: user.id })
+
+        const data = await getTestResearcherProfileData(user.id)
+        const refetch = vi.fn(async () => getTestResearcherProfileData(user.id))
+
+        renderWithProviders(<PositionsSection data={data} refetch={refetch} />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Add current position')).toBeDefined()
+        })
+
+        const affiliationInput = screen.getByPlaceholderText('Ex: University of California, Berkeley')
+        const positionInput = screen.getByPlaceholderText('Ex: Senior Researcher')
+        const profileUrlInput = screen.getByPlaceholderText('https://university.edu/faculty/yourname')
+
+        await userEvents.type(affiliationInput, 'MIT')
+        await userEvents.type(positionInput, 'Professor')
+        await userEvents.type(profileUrlInput, 'not-a-valid-url')
+
+        // Trigger validation by blurring the field
+        await userEvents.tab()
+
+        const saveButton = screen.getByRole('button', { name: /save changes/i })
+        expect(saveButton).toBeDisabled()
+    })
+
     it('should remove empty row when canceling after clicking add', async () => {
         const userEvents = userEvent.setup()
         const { user } = await mockSessionWithTestData({ orgType: 'lab' })
