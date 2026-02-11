@@ -14,9 +14,7 @@ import { ResearcherProfilePopover } from './researcher-profile-popover'
 const renderAndHover = async (userId: string, studyId: string, orgSlug: string) => {
     const user = userEvent.setup()
     renderWithProviders(
-        <ResearcherProfilePopover userId={userId} studyId={studyId} orgSlug={orgSlug}>
-            <button>Hover target</button>
-        </ResearcherProfilePopover>,
+        <ResearcherProfilePopover userId={userId} studyId={studyId} orgSlug={orgSlug} name="Hover target" />,
     )
     await user.hover(screen.getByText('Hover target'))
     return user
@@ -28,9 +26,7 @@ describe('ResearcherProfilePopover', () => {
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
         renderWithProviders(
-            <ResearcherProfilePopover userId={user.id} studyId={study.id} orgSlug="test-org">
-                <button>Hover target</button>
-            </ResearcherProfilePopover>,
+            <ResearcherProfilePopover userId={user.id} studyId={study.id} orgSlug="test-org" name="Hover target" />,
         )
 
         expect(screen.getByText('Hover target')).toBeInTheDocument()

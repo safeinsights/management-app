@@ -6,7 +6,6 @@ import { ResearcherProfilePopover } from '@/components/researcher-profile-popove
 
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
 import { Routes } from '@/lib/routes'
-import { Info } from '@phosphor-icons/react'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
 import { ProposalReviewButtons } from './proposal-review-buttons'
@@ -83,15 +82,11 @@ function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug
                 userId={study.researcherId}
                 studyId={study.id}
                 orgSlug={orgSlug}
+                name={study.createdBy}
                 position="right"
-                offset={14}
+                offset={8}
                 arrowSize={12}
-            >
-                <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }}>
-                    <Text size="sm">{study.createdBy}</Text>
-                    <Info weight="fill" size={16} color="gray" />
-                </Group>
-            </ResearcherProfilePopover>
+            />
         </Stack>
     )
 }
