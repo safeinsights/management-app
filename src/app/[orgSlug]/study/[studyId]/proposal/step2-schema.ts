@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { extractTextFromLexical, countWordsFromLexical } from '@/lib/word-count'
 
 const WORD_LIMIT_ERROR = 'Word limit exceeded. Please shorten your text.'
+const REQUIRED_FIELD_ERROR = 'This field is required.'
 
 function maxWordsRefine(maxWords: number) {
     return {
@@ -20,25 +21,25 @@ function maxWordsLexicalRefine(maxWords: number) {
 export const step2FormSchema = z.object({
     title: z
         .string()
-        .min(1, { message: 'Study title is required' })
+        .min(1, { message: REQUIRED_FIELD_ERROR })
         .refine(maxWordsRefine(20).check, { message: maxWordsRefine(20).message }),
-    datasets: z.array(z.string()).min(1, { message: 'At least one dataset is required' }),
+    datasets: z.array(z.string()).min(1, { message: REQUIRED_FIELD_ERROR }),
     researchQuestions: z
         .string()
         .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: 'This field is required',
+            message: REQUIRED_FIELD_ERROR,
         })
         .refine(maxWordsLexicalRefine(500).check, { message: maxWordsLexicalRefine(500).message }),
     projectSummary: z
         .string()
         .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: 'This field is required',
+            message: REQUIRED_FIELD_ERROR,
         })
         .refine(maxWordsLexicalRefine(1000).check, { message: maxWordsLexicalRefine(1000).message }),
     impact: z
         .string()
         .refine((val) => extractTextFromLexical(val).trim().length > 0, {
-            message: 'This field is required',
+            message: REQUIRED_FIELD_ERROR,
         })
         .refine(maxWordsLexicalRefine(500).check, { message: maxWordsLexicalRefine(500).message }),
     additionalNotes: z
@@ -46,6 +47,7 @@ export const step2FormSchema = z.object({
         .refine((val) => !val || countWordsFromLexical(val) <= 300, { message: WORD_LIMIT_ERROR })
         .optional()
         .default(''),
+    piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
 })
 
 export type Step2FormValues = z.infer<typeof step2FormSchema>
@@ -57,4 +59,5 @@ export const initialStep2Values: Step2FormValues = {
     projectSummary: '',
     impact: '',
     additionalNotes: '',
+    piName: '',
 }

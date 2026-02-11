@@ -2,6 +2,7 @@
 
 import { Stack } from '@mantine/core'
 import { getDraftStudyAction } from '@/server/actions/study-request'
+import { getUsersForOrgId } from '@/server/db/queries'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { Step2Form } from './step2-form'
@@ -23,15 +24,18 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
 
     // TODO: Fetch datasets for the org
 
+    const labMembers = await getUsersForOrgId(result.submittedByOrgId)
+    const memberOptions = labMembers.map((m) => ({ value: m.fullName, label: m.fullName }))
+
     return (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={orgSlug} />
             <Step2Form
                 orgName={displayOrgName(result.orgName)}
                 datasets={[]}
-                initialValues={{
-                    title: result.title || '',
-                }}
+                members={memberOptions}
+                researcherName={result.researcherName}
+                draftData={result}
             />
         </Stack>
     )

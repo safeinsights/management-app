@@ -259,6 +259,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
         const study = await db
             .selectFrom('study')
             .innerJoin('org', 'org.id', 'study.orgId')
+            .innerJoin('user', 'user.id', 'study.researcherId')
             .select([
                 'study.id',
                 'study.title',
@@ -273,6 +274,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.submittedByOrgId',
                 'org.slug as orgSlug',
                 'org.name as orgName',
+                'user.fullName as researcherName',
             ])
             .where('study.id', '=', studyId)
             .where('study.status', '=', 'DRAFT')
