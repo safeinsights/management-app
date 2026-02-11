@@ -198,7 +198,7 @@ const PopoverContent: FC<{
     return (
         <Stack gap="xl">
             <Group justify="space-between" align="center" wrap="nowrap">
-                <Text fw={700} size="md">
+                <Text fw={700} size="md" mt="xs">
                     {fullName}
                 </Text>
                 <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
@@ -265,7 +265,7 @@ export const ResearcherProfilePopover: FC<ResearcherProfilePopoverProps> = ({
             <Popover.Target>
                 <PopoverAnchor name={name} onMouseEnter={open} />
             </Popover.Target>
-            <Popover.Dropdown onMouseLeave={(e) => e.stopPropagation()}>
+            <Popover.Dropdown onMouseLeave={(e) => e.stopPropagation()} p="lg">
                 <PopoverContent userId={userId} studyId={studyId} orgSlug={orgSlug} onClose={close} />
             </Popover.Dropdown>
         </Popover>
