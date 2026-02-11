@@ -92,6 +92,26 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
     )
 }
 
+const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, label }) => {
+    if (!url) return null
+
+    return (
+        <Badge
+            component="a"
+            href={url}
+            target="_blank"
+            variant="light"
+            color="blue"
+            rightSection={<ArrowSquareOut size={12} />}
+            style={{ cursor: 'pointer' }}
+            tt="none"
+            size="md"
+        >
+            {label}
+        </Badge>
+    )
+}
+
 const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | null }> = ({
     profileUrl,
     publicationsUrl,
@@ -105,36 +125,8 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
                 Professional links
             </Text>
             <Group gap="xs">
-                {profileUrl && (
-                    <Badge
-                        component="a"
-                        href={profileUrl}
-                        target="_blank"
-                        variant="light"
-                        color="blue"
-                        rightSection={<ArrowSquareOut size={12} />}
-                        style={{ cursor: 'pointer' }}
-                        tt="none"
-                        size="md"
-                    >
-                        University
-                    </Badge>
-                )}
-                {publicationsUrl && (
-                    <Badge
-                        component="a"
-                        href={publicationsUrl}
-                        target="_blank"
-                        variant="light"
-                        color="blue"
-                        rightSection={<ArrowSquareOut size={12} />}
-                        style={{ cursor: 'pointer' }}
-                        tt="none"
-                        size="md"
-                    >
-                        Publication list
-                    </Badge>
-                )}
+                <PopoverLinkBadge url={profileUrl} label="University" />
+                <PopoverLinkBadge url={publicationsUrl} label="Publication list" />
             </Group>
         </Stack>
     )
