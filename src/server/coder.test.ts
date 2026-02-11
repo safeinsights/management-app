@@ -29,6 +29,15 @@ vi.mock('./storage', () => ({
     }),
 }))
 
+vi.mock('@/lib/logger', () => ({
+    default: {
+        error: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        debug: vi.fn(),
+    },
+}))
+
 vi.mock('node:fs/promises', () => ({
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),

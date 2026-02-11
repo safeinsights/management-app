@@ -1,6 +1,6 @@
 'use client'
 
-import { ActionIcon, Anchor, Box, Table } from '@mantine/core'
+import { ActionIcon, Anchor, Box, Divider, Table } from '@mantine/core'
 import { PencilSimpleIcon, TrashIcon } from '@phosphor-icons/react/dist/ssr'
 import type { PositionValues } from '@/schema/researcher-profile'
 import type { UseFormReturnType } from '@mantine/form'
@@ -61,8 +61,13 @@ export function PositionsTable({
                 <Table.Td>{profileUrlCell}</Table.Td>
                 {!readOnly && (
                     <Table.Td ta="center">
-                        <ActionIcon variant="subtle" onClick={() => onEdit(idx)} aria-label="Edit current position">
-                            <PencilSimpleIcon />
+                        <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            onClick={() => onEdit(idx)}
+                            aria-label="Edit current position"
+                        >
+                            <PencilSimpleIcon weight="fill" />
                         </ActionIcon>
                     </Table.Td>
                 )}
@@ -70,11 +75,11 @@ export function PositionsTable({
                     <Table.Td ta="center">
                         <ActionIcon
                             variant="subtle"
-                            color="red"
+                            color="gray"
                             onClick={() => onDelete(idx)}
                             aria-label="Delete current position"
                         >
-                            <TrashIcon />
+                            <TrashIcon weight="fill" />
                         </ActionIcon>
                     </Table.Td>
                 )}
@@ -84,7 +89,7 @@ export function PositionsTable({
 
     return (
         <>
-            <Table withTableBorder withColumnBorders>
+            <Table withRowBorders horizontalSpacing="md" verticalSpacing="sm">
                 <Table.Thead>
                     <Table.Tr>
                         <Table.Th>Institutional affiliation</Table.Th>
@@ -104,6 +109,7 @@ export function PositionsTable({
                 </Table.Thead>
                 <Table.Tbody>{tableRows}</Table.Tbody>
             </Table>
+            <Divider />
 
             <AddPositionLink isVisible={!readOnly} onAdd={onAdd} />
         </>

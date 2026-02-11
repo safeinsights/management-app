@@ -67,7 +67,10 @@ export async function collectV8CodeCoverageAsync(options: CollectV8CodeCoverageO
         stopCoveragePromises.push(stopCssCoveragePromise)
     }
     const coverageReports = await Promise.all(stopCoveragePromises)
-    await addCoverageReport(coverageReports.flat(), test.info())
+    const coverageData = coverageReports.flat()
+    if (coverageData.length > 0) {
+        await addCoverageReport(coverageData, test.info())
+    }
 }
 
 class StudyFeatures {
