@@ -7,7 +7,7 @@ import { PersonalInfoSection } from '@/components/researcher-profile/personal-in
 import { EducationSection } from '@/components/researcher-profile/education-section'
 import { PositionsSection } from '@/components/researcher-profile/positions-section'
 import { ResearchDetailsSection } from '@/components/researcher-profile/research-details-section'
-import { ArrowLeft } from '@phosphor-icons/react'
+import { ArrowLeftIcon } from '@phosphor-icons/react'
 import type { ResearcherProfileData } from '@/hooks/use-researcher-profile'
 
 interface ResearcherProfileViewProps {
@@ -23,7 +23,7 @@ export function ResearcherProfileView({ orgSlug, studyId, profileData }: Researc
         <Stack px="xl" gap="xl">
             <Link href={Routes.studyReview({ orgSlug, studyId })} c="blue.7">
                 <Group gap={4} display="inline-flex">
-                    <ArrowLeft size={16} />
+                    <ArrowLeftIcon size={16} />
                     Back to study proposal
                 </Group>
             </Link>

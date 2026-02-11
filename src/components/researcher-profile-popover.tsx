@@ -17,13 +17,13 @@ import {
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import {
-    ArrowSquareOut,
-    BookOpen,
-    Certificate,
-    ChalkboardTeacher,
-    Info,
-    SuitcaseSimple,
-    XCircle,
+    ArrowSquareOutIcon,
+    BookOpenIcon,
+    CertificateIcon,
+    ChalkboardTeacherIcon,
+    InfoIcon,
+    SuitcaseSimpleIcon,
+    XCircleIcon,
 } from '@phosphor-icons/react'
 import { useResearcherPopoverProfile } from '@/hooks/use-researcher-popover-profile'
 import { Routes } from '@/lib/routes'
@@ -43,7 +43,7 @@ const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <ChalkboardTeacher size={20} color="var(--mantine-color-gray-6)" />
+            <ChalkboardTeacherIcon size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {value}
             </Text>
@@ -55,7 +55,7 @@ const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <SuitcaseSimple size={20} color="var(--mantine-color-gray-6)" />
+            <SuitcaseSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {value}
             </Text>
@@ -68,7 +68,7 @@ const PopoverEducation: FC<{ degree?: string | null }> = ({ degree }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <Certificate size={20} color="var(--mantine-color-gray-6)" />
+            <CertificateIcon size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {degree}
             </Text>
@@ -87,7 +87,7 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <BookOpen size={20} color="var(--mantine-color-gray-6)" />
+            <BookOpenIcon size={20} color="var(--mantine-color-gray-6)" />
             <Group gap={4}>{pills}</Group>
         </Group>
     )
@@ -103,7 +103,7 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             target="_blank"
             variant="light"
             color="gray"
-            rightSection={<ArrowSquareOut size={14} />}
+            rightSection={<ArrowSquareOutIcon size={14} />}
             style={{
                 cursor: 'pointer',
                 backgroundColor: 'var(--mantine-color-gray-1)',
@@ -122,11 +122,7 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
     )
 }
 
-const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string }> = ({
-    count,
-    orgSlug,
-    studyId,
-}) => {
+const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string }> = ({ count, orgSlug, studyId }) => {
     if (count <= 1) return null
 
     return (
@@ -206,7 +202,7 @@ const PopoverContent: FC<{
                     {fullName}
                 </Text>
                 <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
-                    <XCircle size={24} weight="fill" />
+                    <XCircleIcon size={24} weight="fill" />
                 </ActionIcon>
             </Group>
 
@@ -233,7 +229,7 @@ const PopoverAnchor = forwardRef<HTMLDivElement, { onMouseEnter: () => void; nam
         <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }} onMouseEnter={onMouseEnter} wrap="nowrap">
             <Text size="sm">{name}</Text>
             <div ref={ref} {...others}>
-                <Info weight="fill" size={16} color="gray" />
+                <InfoIcon weight="fill" size={16} color="gray" />
             </div>
         </Group>
     ),
