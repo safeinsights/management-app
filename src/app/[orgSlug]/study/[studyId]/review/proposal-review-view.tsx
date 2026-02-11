@@ -86,7 +86,7 @@ function ResearcherField({ study, orgSlug, mt }: { study: SelectedStudy; orgSlug
                 position="right"
                 offset={10}
             >
-                <Group gap={6} style={{ cursor: 'pointer', display: 'inline-flex' }}>
+                <Group gap={6} w="fit-content" style={{ cursor: 'pointer' }}>
                     <Text size="sm">{study.createdBy}</Text>
                     <Info weight="fill" size={16} color="gray" />
                 </Group>
