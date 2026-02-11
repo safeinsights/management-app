@@ -182,7 +182,6 @@ const PopoverContent: FC<{
                 href={Routes.researcherProfileView({ orgSlug, studyId })}
                 target="_blank"
                 variant="filled"
-                color="blue.7"
                 size="md"
                 fullWidth
                 radius="sm"
