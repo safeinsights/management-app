@@ -3,6 +3,7 @@
 import { forwardRef, type FC } from 'react'
 import {
     ActionIcon,
+    Anchor,
     Badge,
     Button,
     Divider,
@@ -42,7 +43,7 @@ const PopoverAffiliation: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <ChalkboardTeacher size={20} />
+            <ChalkboardTeacher size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {value}
             </Text>
@@ -54,7 +55,7 @@ const PopoverPositionTitle: FC<{ value?: string | null }> = ({ value }) => {
     if (!value) return null
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <SuitcaseSimple size={20} />
+            <SuitcaseSimple size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {value}
             </Text>
@@ -67,7 +68,7 @@ const PopoverEducation: FC<{ degree?: string | null }> = ({ degree }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <Certificate size={20} />
+            <Certificate size={20} color="var(--mantine-color-gray-6)" />
             <Text size="sm" fw={600}>
                 {degree}
             </Text>
@@ -86,7 +87,7 @@ const ResearchInterestsPills: FC<{ interests: string[] }> = ({ interests }) => {
 
     return (
         <Group gap="xs" align="center" wrap="nowrap">
-            <BookOpen size={20} />
+            <BookOpen size={20} color="var(--mantine-color-gray-6)" />
             <Group gap={4}>{pills}</Group>
         </Group>
     )
@@ -101,14 +102,37 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             href={url}
             target="_blank"
             variant="light"
-            color="blue"
-            rightSection={<ArrowSquareOut size={12} />}
-            style={{ cursor: 'pointer' }}
+            color="gray"
+            rightSection={<ArrowSquareOut size={14} />}
+            style={{
+                cursor: 'pointer',
+                backgroundColor: 'var(--mantine-color-gray-1)',
+                color: 'var(--mantine-color-gray-7)',
+            }}
             tt="none"
-            size="md"
+            size="lg"
+            radius="xs"
+            h={32}
+            px="md"
         >
-            {label}
+            <Text fw={600} size="sm">
+                {label}
+            </Text>
         </Badge>
+    )
+}
+
+const MoreAffiliationsLink: FC<{ count: number; orgSlug: string; studyId: string }> = ({
+    count,
+    orgSlug,
+    studyId,
+}) => {
+    if (count <= 1) return null
+
+    return (
+        <Anchor href={Routes.researcherProfileView({ orgSlug, studyId })} target="_blank" size="sm" fw={600}>
+            + {count - 1} more current affiliation
+        </Anchor>
     )
 }
 
@@ -119,15 +143,17 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
     if (!profileUrl && !publicationsUrl) return null
 
     return (
-        <Stack gap="xs">
+        <Stack gap="lg" mt={-8}>
             <Divider />
-            <Text size="sm" fw={600} c="dimmed">
-                Professional links
-            </Text>
-            <Group gap="xs">
-                <PopoverLinkBadge url={profileUrl} label="University" />
-                <PopoverLinkBadge url={publicationsUrl} label="Publication list" />
-            </Group>
+            <Stack gap="md">
+                <Text size="sm" fw={700} c="black">
+                    Professional links
+                </Text>
+                <Group gap="md">
+                    <PopoverLinkBadge url={profileUrl} label="University" />
+                    <PopoverLinkBadge url={publicationsUrl} label="Publication list" />
+                </Group>
+            </Stack>
         </Stack>
     )
 }
@@ -154,22 +180,42 @@ const PopoverContent: FC<{
         return <Text size="sm">Profile not available</Text>
     }
 
+    const moreAffiliationsLink =
+        data.positions.length > 1 ? (
+            <MoreAffiliationsLink count={data.positions.length} orgSlug={orgSlug} studyId={studyId} />
+        ) : null
+
+    const viewFullProfileButton = (
+        <Button
+            component="a"
+            href={Routes.researcherProfileView({ orgSlug, studyId })}
+            target="_blank"
+            variant="filled"
+            size="md"
+            fullWidth
+            radius="sm"
+        >
+            View full profile
+        </Button>
+    )
+
     return (
-        <Stack gap="md">
+        <Stack gap="xl">
             <Group justify="space-between" align="center" wrap="nowrap">
                 <Text fw={700} size="md">
                     {fullName}
                 </Text>
-                <ActionIcon variant="transparent" color="gray" onClick={onClose} size="sm">
+                <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
                     <XCircle size={24} weight="fill" />
                 </ActionIcon>
             </Group>
 
             <Stack gap="lg">
                 <PopoverAffiliation value={firstPosition?.affiliation} />
-                <PopoverEducation degree={data.profile.educationDegree} />
                 <PopoverPositionTitle value={firstPosition?.position} />
+                <PopoverEducation degree={data.profile.educationDegree} />
                 <ResearchInterestsPills interests={data.profile.researchInterests} />
+                {moreAffiliationsLink}
             </Stack>
 
             <PopoverLinks
@@ -177,17 +223,7 @@ const PopoverContent: FC<{
                 publicationsUrl={data.profile.detailedPublicationsUrl}
             />
 
-            <Button
-                component="a"
-                href={Routes.researcherProfileView({ orgSlug, studyId })}
-                target="_blank"
-                variant="filled"
-                size="md"
-                fullWidth
-                radius="sm"
-            >
-                View full profile
-            </Button>
+            {viewFullProfileButton}
         </Stack>
     )
 }
