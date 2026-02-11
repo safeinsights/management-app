@@ -142,7 +142,7 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
         <Stack gap="lg" mt={-8}>
             <Divider />
             <Stack gap="md">
-                <Text size="sm" fw={700} c="black">
+                <Text size="sm" fw={600}>
                     Professional links
                 </Text>
                 <Group gap="md">
