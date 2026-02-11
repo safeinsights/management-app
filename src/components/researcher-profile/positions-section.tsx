@@ -31,8 +31,9 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
     } = usePositionsSection(data, refetch)
 
     const isFormVisible = !readOnly && editingIndex !== null
+    const actionsDisabled = editingIndex !== null
 
-    const formFieldsElement = (
+    const formFields = (
         <PositionForm
             isVisible={isFormVisible}
             editingIndex={editingIndex ?? 0}
@@ -41,35 +42,6 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
             hasExistingPositions={hasExistingPositions}
             onSubmit={handleSubmit}
         />
-    )
-
-    const formActionsElement = (
-        <PositionFormActions
-            isVisible={isFormVisible}
-            hasExistingPositions={hasExistingPositions}
-            currentEditValid={currentEditValid}
-            isPending={isPending}
-            onCancel={cancelEdit}
-        />
-    )
-
-    const actionsDisabled = editingIndex !== null
-
-    const positionsContent = hasExistingPositions ? (
-        <PositionsTable
-            positions={defaults.positions}
-            editingIndex={editingIndex}
-            form={form}
-            canDelete={canDelete}
-            actionsDisabled={actionsDisabled}
-            readOnly={readOnly}
-            formSlot={formFieldsElement}
-            onEdit={openEdit}
-            onDelete={handleDelete}
-            onAdd={openAdd}
-        />
-    ) : (
-        formFieldsElement
     )
 
     return (
@@ -81,9 +53,36 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
                 showEditButton={false}
             />
 
-            {positionsContent}
+            <PositionsTable
+                isVisible={hasExistingPositions}
+                positions={defaults.positions}
+                editingIndex={editingIndex}
+                form={form}
+                canDelete={canDelete}
+                actionsDisabled={actionsDisabled}
+                readOnly={readOnly}
+                formSlot={formFields}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                onAdd={openAdd}
+            />
 
-            {formActionsElement}
+            <PositionForm
+                isVisible={!hasExistingPositions && isFormVisible}
+                editingIndex={editingIndex ?? 0}
+                form={form}
+                isAdding={isAdding}
+                hasExistingPositions={hasExistingPositions}
+                onSubmit={handleSubmit}
+            />
+
+            <PositionFormActions
+                isVisible={isFormVisible}
+                hasExistingPositions={hasExistingPositions}
+                currentEditValid={currentEditValid}
+                isPending={isPending}
+                onCancel={cancelEdit}
+            />
         </Paper>
     )
 }

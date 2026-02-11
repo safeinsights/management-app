@@ -106,6 +106,7 @@ function FormRow({ columnCount, formSlot }: { columnCount: number; formSlot: Rea
 }
 
 interface PositionsTableProps {
+    isVisible: boolean
     positions: PositionValues[]
     editingIndex: number | null
     form: UseFormReturnType<{ positions: PositionValues[] }>
@@ -119,6 +120,7 @@ interface PositionsTableProps {
 }
 
 export function PositionsTable({
+    isVisible,
     positions,
     editingIndex,
     form,
@@ -130,6 +132,8 @@ export function PositionsTable({
     onDelete,
     onAdd,
 }: PositionsTableProps) {
+    if (!isVisible) return null
+
     const showEdit = !readOnly
     const showDelete = !readOnly && canDelete
     const columnCount = 3 + (showEdit ? 1 : 0) + (showDelete ? 1 : 0)
