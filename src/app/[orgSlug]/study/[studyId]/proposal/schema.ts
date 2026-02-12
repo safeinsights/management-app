@@ -18,7 +18,7 @@ function maxWordsLexicalRefine(maxWords: number) {
     }
 }
 
-export const step2FormSchema = z.object({
+export const proposalFormSchema = z.object({
     title: z
         .string()
         .min(1, { message: REQUIRED_FIELD_ERROR })
@@ -50,9 +50,9 @@ export const step2FormSchema = z.object({
     piName: z.string().min(1, { message: REQUIRED_FIELD_ERROR }),
 })
 
-export type Step2FormValues = z.infer<typeof step2FormSchema>
+export type ProposalFormValues = z.infer<typeof proposalFormSchema>
 
-export const initialStep2Values: Step2FormValues = {
+export const initialProposalValues: ProposalFormValues = {
     title: '',
     datasets: [],
     researchQuestions: '',

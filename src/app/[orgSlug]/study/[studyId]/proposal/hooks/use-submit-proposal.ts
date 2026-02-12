@@ -3,12 +3,12 @@ import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
-import { type Step2FormValues } from '../step2-schema'
+import { type ProposalFormValues } from '../schema'
 
 interface UseSubmitProposalOptions {
     studyId: string
-    form: UseFormReturnType<Step2FormValues>
-    buildStudyInfo: (values: Step2FormValues) => Record<string, unknown>
+    form: UseFormReturnType<ProposalFormValues>
+    buildStudyInfo: (values: ProposalFormValues) => Record<string, unknown>
 }
 
 export function useSubmitProposal({ studyId, form, buildStudyInfo }: UseSubmitProposalOptions) {

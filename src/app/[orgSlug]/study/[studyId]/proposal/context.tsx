@@ -3,13 +3,13 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { useForm, zodResolver } from '@/common'
-import { step2FormSchema, initialStep2Values, type Step2FormValues } from './step2-schema'
+import { proposalFormSchema, initialProposalValues, type ProposalFormValues } from './schema'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
 
-interface Step2ContextValue {
+interface ProposalContextValue {
     studyId: string
-    form: UseFormReturnType<Step2FormValues>
+    form: UseFormReturnType<ProposalFormValues>
     saveDraft: () => Promise<void>
     submitProposal: () => Promise<void>
     isSaving: boolean
@@ -17,28 +17,28 @@ interface Step2ContextValue {
     isSubmitted: boolean
 }
 
-const Step2Context = createContext<Step2ContextValue | null>(null)
+const ProposalContext = createContext<ProposalContextValue | null>(null)
 
-export function useStep2(): Step2ContextValue {
-    const context = useContext(Step2Context)
+export function useProposal(): ProposalContextValue {
+    const context = useContext(ProposalContext)
     if (!context) {
-        throw new Error('useStep2 must be used within Step2Provider')
+        throw new Error('useProposal must be used within ProposalProvider')
     }
     return context
 }
 
-export type DraftStudyData = Partial<Step2FormValues>
+export type DraftStudyData = Partial<ProposalFormValues>
 
-interface Step2ProviderProps {
+interface ProposalProviderProps {
     children: ReactNode
     studyId: string
     draftData?: DraftStudyData
 }
 
-export function Step2Provider({ children, studyId, draftData }: Step2ProviderProps) {
-    const form = useForm<Step2FormValues>({
-        validate: zodResolver(step2FormSchema),
-        initialValues: { ...initialStep2Values, ...draftData },
+export function ProposalProvider({ children, studyId, draftData }: ProposalProviderProps) {
+    const form = useForm<ProposalFormValues>({
+        validate: zodResolver(proposalFormSchema),
+        initialValues: { ...initialProposalValues, ...draftData },
         validateInputOnChange: true,
     })
 
@@ -58,5 +58,5 @@ export function Step2Provider({ children, studyId, draftData }: Step2ProviderPro
         [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting, isSubmitted],
     )
 
-    return <Step2Context.Provider value={value}>{children}</Step2Context.Provider>
+    return <ProposalContext.Provider value={value}>{children}</ProposalContext.Provider>
 }

@@ -3,9 +3,9 @@ import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
-import { type Step2FormValues } from '../step2-schema'
+import { type ProposalFormValues } from '../schema'
 
-function buildStudyInfo(values: Step2FormValues) {
+function buildStudyInfo(values: ProposalFormValues) {
     return {
         title: values.title || undefined,
         piName: values.piName || undefined,
@@ -19,7 +19,7 @@ function buildStudyInfo(values: Step2FormValues) {
 
 interface UseSaveDraftOptions {
     studyId: string
-    form: UseFormReturnType<Step2FormValues>
+    form: UseFormReturnType<ProposalFormValues>
 }
 
 export function useSaveDraft({ studyId, form }: UseSaveDraftOptions) {

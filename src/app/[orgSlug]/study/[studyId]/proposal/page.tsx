@@ -5,8 +5,8 @@ import { getDraftStudyAction } from '@/server/actions/study-request'
 import { getUsersForOrgId } from '@/server/db/queries'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
-import { Step2Form } from './step2-form'
-import { Step2Provider } from './step2-context'
+import { ProposalForm } from './form'
+import { ProposalProvider } from './context'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { displayOrgName } from '@/lib/string'
 
@@ -31,7 +31,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
     return (
         <Stack p="xl" gap="xl">
             <StudyRequestPageHeader orgSlug={orgSlug} />
-            <Step2Provider
+            <ProposalProvider
                 studyId={studyId}
                 draftData={{
                     title: result.title,
@@ -43,13 +43,13 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     additionalNotes: result.additionalNotes ?? undefined,
                 }}
             >
-                <Step2Form
+                <ProposalForm
                     orgName={displayOrgName(result.orgName)}
                     datasets={[]}
                     members={memberOptions}
                     researcherName={result.researcherName}
                 />
-            </Step2Provider>
+            </ProposalProvider>
         </Stack>
     )
 }

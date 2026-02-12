@@ -2,10 +2,10 @@
 
 import { FC } from 'react'
 import { Button, Group } from '@mantine/core'
-import { useStep2 } from './step2-context'
+import { useProposal } from './context'
 
-export const Step2Footer: FC = () => {
-    const { form, saveDraft, submitProposal, isSaving, isSubmitting } = useStep2()
+export const ProposalFooter: FC = () => {
+    const { form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
 
     const isBusy = isSaving || isSubmitting
     const isFormValid = form.isValid()

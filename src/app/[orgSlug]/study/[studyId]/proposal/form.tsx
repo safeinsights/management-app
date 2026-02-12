@@ -11,16 +11,16 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
 import { countWords, countWordsFromLexical } from '@/lib/word-count'
 import { Routes } from '@/lib/routes'
-import { type Step2FormValues } from './step2-schema'
-import { useStep2 } from './step2-context'
-import { Step2Footer } from './step2-footer'
+import { type ProposalFormValues } from './schema'
+import { useProposal } from './context'
+import { ProposalFooter } from './footer'
 
 const DATA_CATALOG_URL = 'https://kb.safeinsights.org/data-catalog'
 const MAX_TITLE_WORDS = 20
 
 interface EditableTextField {
     label: string
-    id: keyof Step2FormValues
+    id: keyof ProposalFormValues
     description: string
     placeholder: string
     maxWords: number
@@ -75,20 +75,20 @@ export interface MemberOption {
     label: string
 }
 
-interface Step2FormProps {
+interface ProposalFormProps {
     datasets?: DatasetOption[]
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
 }
 
-export const Step2Form: FC<Step2FormProps> = ({
+export const ProposalForm: FC<ProposalFormProps> = ({
     datasets = [],
     members = [],
     orgName = '',
     researcherName = '',
 }) => {
-    const { form, saveDraft, isSaving, isSubmitted } = useStep2()
+    const { form, saveDraft, isSaving, isSubmitted } = useProposal()
 
     const titleWordCount = countWords(form.values.title)
 
@@ -242,7 +242,7 @@ export const Step2Form: FC<Step2FormProps> = ({
                     </Stack>
                 </Paper>
 
-                <Step2Footer />
+                <ProposalFooter />
             </Stack>
         </ProxyProvider>
     )
