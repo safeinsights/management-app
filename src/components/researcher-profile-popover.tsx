@@ -213,11 +213,6 @@ const PopoverContent: FC<{
         return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
-    const moreAffiliationsLink =
-        data.positions.length > 1 ? (
-            <MoreAffiliationsLink count={data.positions.length} orgSlug={orgSlug} studyId={studyId} />
-        ) : null
-
     const viewFullProfileButton = (
         <Button
             component="a"
@@ -241,7 +236,7 @@ const PopoverContent: FC<{
                 <PopoverPositionTitle value={firstPosition?.position} />
                 <PopoverEducation degree={profile.educationDegree} />
                 <ResearchInterestsPills interests={profile.researchInterests} />
-                {moreAffiliationsLink}
+                <MoreAffiliationsLink count={data.positions.length} orgSlug={orgSlug} studyId={studyId} />
             </Stack>
 
             <PopoverLinks profileUrl={firstPosition?.profileUrl} publicationsUrl={profile.detailedPublicationsUrl} />
