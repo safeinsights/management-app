@@ -5,7 +5,7 @@ import { ProgrammingLanguageSection } from '@/components/study/programming-langu
 import { Stack } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
-import { StudyProposalFormValues } from '../step1-schema'
+import { StudyProposalFormValues } from '../form-schemas'
 import { RequestStudyDetails } from '../study-details'
 import type { ExistingFilePaths } from '../study-details'
 

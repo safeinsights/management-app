@@ -15,7 +15,7 @@ import { onStudyCreated } from '@/server/events'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
-import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/step1-schema'
+import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -157,6 +157,11 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
             'descriptionDocPath',
             'irbDocPath',
             'agreementDocPath',
+            'datasets',
+            'researchQuestions',
+            'projectSummary',
+            'impact',
+            'additionalNotes',
         ] as const
         const updateValues = Object.fromEntries(
             updatable.filter((k) => studyInfo[k] !== undefined).map((k) => [k, studyInfo[k]]),
@@ -272,6 +277,11 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'study.researcherId',
                 'study.orgId',
                 'study.submittedByOrgId',
+                'study.researchQuestions',
+                'study.projectSummary',
+                'study.impact',
+                'study.additionalNotes',
+                'study.datasets',
                 'org.slug as orgSlug',
                 'org.name as orgName',
                 'user.fullName as researcherName',

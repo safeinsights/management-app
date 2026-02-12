@@ -1,4 +1,4 @@
-import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/step1-schema'
+import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import { useQuery } from '@/common'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { PROPOSAL_GRID_SPAN } from '@/lib/constants'
