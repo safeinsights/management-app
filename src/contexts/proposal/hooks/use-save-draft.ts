@@ -3,7 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
-import { type ProposalFormValues } from '../schema'
+import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 function buildStudyInfo(values: ProposalFormValues) {
     return {

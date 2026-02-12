@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { Button, Group } from '@mantine/core'
-import { useProposal } from './context'
+import { useProposal } from '@/contexts/proposal'
 
 export const ProposalFooter: FC = () => {
     const { form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()

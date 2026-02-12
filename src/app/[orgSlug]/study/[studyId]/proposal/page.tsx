@@ -6,7 +6,7 @@ import { getUsersForOrgId } from '@/server/db/queries'
 import { notFound, redirect } from 'next/navigation'
 import { Routes } from '@/lib/routes'
 import { ProposalForm } from './form'
-import { ProposalProvider } from './context'
+import { ProposalProvider } from '@/contexts/proposal'
 import { StudyRequestPageHeader } from '../../request/page-header'
 import { displayOrgName } from '@/lib/string'
 

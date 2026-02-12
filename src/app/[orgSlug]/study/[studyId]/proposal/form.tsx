@@ -12,7 +12,7 @@ import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-mul
 import { countWords, countWordsFromLexical } from '@/lib/word-count'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from './schema'
-import { useProposal } from './context'
+import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 
 const DATA_CATALOG_URL = 'https://kb.safeinsights.org/data-catalog'
