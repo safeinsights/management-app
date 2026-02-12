@@ -2,8 +2,7 @@
 
 import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
-import { useForm, zodResolver } from '@/common'
-import { ArrowSquareOutIcon } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon, CheckCircleIcon } from '@phosphor-icons/react'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
@@ -12,7 +11,9 @@ import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
 import { countWords, countWordsFromLexical } from '@/lib/word-count'
 import { Routes } from '@/lib/routes'
-import { step2FormSchema, initialStep2Values, type Step2FormValues } from './step2-schema'
+import { type Step2FormValues } from './step2-schema'
+import { useStep2 } from './step2-context'
+import { Step2Footer } from './step2-footer'
 
 const DATA_CATALOG_URL = 'https://kb.safeinsights.org/data-catalog'
 const MAX_TITLE_WORDS = 20
@@ -74,21 +75,11 @@ export interface MemberOption {
     label: string
 }
 
-export type DraftStudyData = Partial<Step2FormValues>
-
 interface Step2FormProps {
     datasets?: DatasetOption[]
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
-    draftData?: DraftStudyData
-}
-
-function buildInitialValues(draft?: DraftStudyData): Step2FormValues {
-    return {
-        ...initialStep2Values,
-        ...draft,
-    }
 }
 
 export const Step2Form: FC<Step2FormProps> = ({
@@ -96,18 +87,28 @@ export const Step2Form: FC<Step2FormProps> = ({
     members = [],
     orgName = '',
     researcherName = '',
-    draftData,
 }) => {
-    const form = useForm<Step2FormValues>({
-        validate: zodResolver(step2FormSchema),
-        initialValues: buildInitialValues(draftData),
-        validateInputOnChange: true,
-    })
+    const { form, saveDraft, isSaving, isSubmitted } = useStep2()
 
     const titleWordCount = countWords(form.values.title)
 
+    if (isSubmitted) {
+        return (
+            <Paper p="xl">
+                <Stack align="center" gap="md" py="xl">
+                    <CheckCircleIcon size={48} weight="fill" color="var(--mantine-color-green-6)" />
+                    <Title order={3}>Study proposal submitted</Title>
+                    <Text c="dimmed" ta="center" maw={480}>
+                        Your proposal has been successfully submitted for review. You will be notified once a decision
+                        has been made.
+                    </Text>
+                </Stack>
+            </Paper>
+        )
+    }
+
     return (
-        <ProxyProvider isDirty={form.isDirty()}>
+        <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
             <Stack gap="xxl">
                 <Paper p="xl">
                     <Text fz="sm" fw={700} c="gray.6" pb="sm">
@@ -240,6 +241,8 @@ export const Step2Form: FC<Step2FormProps> = ({
                         </Box>
                     </Stack>
                 </Paper>
+
+                <Step2Footer />
             </Stack>
         </ProxyProvider>
     )
