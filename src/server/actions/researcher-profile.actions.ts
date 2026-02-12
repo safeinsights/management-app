@@ -190,7 +190,7 @@ export const getResearcherProfileByUserIdAction = new Action('getResearcherProfi
             .where('userId', '=', userId)
             .executeTakeFirst()
 
-        if (!profile) return null
+        if (!profile) return { user, profile: null, positions: [] }
 
         const positions = await db
             .selectFrom('researcherPosition')

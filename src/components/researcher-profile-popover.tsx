@@ -21,6 +21,7 @@ import {
     BookOpenIcon,
     CertificateIcon,
     ChalkboardTeacherIcon,
+    EnvelopeSimpleIcon,
     InfoIcon,
     SuitcaseSimpleIcon,
     XCircleIcon,
@@ -154,6 +155,36 @@ const PopoverLinks: FC<{ profileUrl?: string | null; publicationsUrl?: string | 
     )
 }
 
+const PopoverHeader: FC<{ fullName: string; onClose: () => void }> = ({ fullName, onClose }) => (
+    <Group justify="space-between" align="center" wrap="nowrap">
+        <Text fw={700} size="md" mt="xs">
+            {fullName}
+        </Text>
+        <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
+            <XCircleIcon size={24} weight="fill" />
+        </ActionIcon>
+    </Group>
+)
+
+const MinimalPopoverContent: FC<{ fullName: string; email: string; onClose: () => void }> = ({
+    fullName,
+    email,
+    onClose,
+}) => (
+    <Stack gap="xl">
+        <PopoverHeader fullName={fullName} onClose={onClose} />
+        <Group gap="xs" align="center" wrap="nowrap">
+            <EnvelopeSimpleIcon size={20} color="var(--mantine-color-gray-6)" />
+            <Text size="sm" fw={600}>
+                {email}
+            </Text>
+        </Group>
+        <Text size="sm" c="dimmed">
+            This user has no detailed profile information
+        </Text>
+    </Stack>
+)
+
 const PopoverContent: FC<{
     userId: string
     studyId: string
@@ -174,6 +205,12 @@ const PopoverContent: FC<{
 
     if (!data) {
         return <Text size="sm">Profile not available</Text>
+    }
+
+    const { profile } = data
+
+    if (!profile) {
+        return <MinimalPopoverContent fullName={fullName} email={data.user.email ?? ''} onClose={onClose} />
     }
 
     const moreAffiliationsLink =
@@ -197,27 +234,17 @@ const PopoverContent: FC<{
 
     return (
         <Stack gap="xl">
-            <Group justify="space-between" align="center" wrap="nowrap">
-                <Text fw={700} size="md" mt="xs">
-                    {fullName}
-                </Text>
-                <ActionIcon variant="transparent" color="gray.5" onClick={onClose} size="sm">
-                    <XCircleIcon size={24} weight="fill" />
-                </ActionIcon>
-            </Group>
+            <PopoverHeader fullName={fullName} onClose={onClose} />
 
             <Stack gap="lg">
                 <PopoverAffiliation value={firstPosition?.affiliation} />
                 <PopoverPositionTitle value={firstPosition?.position} />
-                <PopoverEducation degree={data.profile.educationDegree} />
-                <ResearchInterestsPills interests={data.profile.researchInterests} />
+                <PopoverEducation degree={profile.educationDegree} />
+                <ResearchInterestsPills interests={profile.researchInterests} />
                 {moreAffiliationsLink}
             </Stack>
 
-            <PopoverLinks
-                profileUrl={firstPosition?.profileUrl}
-                publicationsUrl={data.profile.detailedPublicationsUrl}
-            />
+            <PopoverLinks profileUrl={firstPosition?.profileUrl} publicationsUrl={profile.detailedPublicationsUrl} />
 
             {viewFullProfileButton}
         </Stack>

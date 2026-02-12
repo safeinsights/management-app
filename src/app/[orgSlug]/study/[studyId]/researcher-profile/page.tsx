@@ -30,7 +30,7 @@ export default async function ResearcherProfilePage(props: {
         studyId: study.id,
     })
 
-    if (isActionError(profileData) || !profileData) {
+    if (isActionError(profileData) || !profileData || !profileData.profile) {
         return <AlertNotFound title="Researcher profile not found" message="No profile data available" />
     }
 

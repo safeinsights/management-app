@@ -107,13 +107,17 @@ describe('researcher-profile.actions', () => {
             expect(result).toBeNull()
         })
 
-        it('returns null when profile does not exist', async () => {
+        it('returns user with null profile when profile does not exist', async () => {
             const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
             const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
 
-            expect(result).toBeNull()
+            expect(result).toMatchObject({
+                user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email },
+                profile: null,
+                positions: [],
+            })
         })
     })
 })

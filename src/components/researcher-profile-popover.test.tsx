@@ -56,7 +56,21 @@ describe('ResearcherProfilePopover', () => {
         expect(screen.getByText('View full profile')).toBeInTheDocument()
     })
 
-    it('shows "Profile not available" when no data', async () => {
+    it('shows minimal popover with name and email when user has no profile', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await renderAndHover(user.id, study.id, 'test-org')
+
+        await waitFor(() => {
+            expect(screen.getByText(`${user.firstName} ${user.lastName}`)).toBeInTheDocument()
+        })
+        expect(screen.getByText(user.email!)).toBeInTheDocument()
+        expect(screen.getByText('This user has no detailed profile information')).toBeInTheDocument()
+        expect(screen.queryByText('View full profile')).not.toBeInTheDocument()
+    })
+
+    it('shows "Profile not available" when user does not exist', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
 
