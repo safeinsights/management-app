@@ -32,6 +32,8 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
 
     const canDelete = defaults.positions.length >= 2
 
+    if (readOnly && !hasExistingPositions) return null
+
     return (
         <Paper p="xl" radius="sm">
             <SectionHeader
