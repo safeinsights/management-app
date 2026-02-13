@@ -1,29 +1,51 @@
 'use client'
 
 import { FC } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { Button, Group } from '@mantine/core'
+import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
+import { Routes } from '@/lib/routes'
 
 export const ProposalFooter: FC = () => {
-    const { form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
+    const router = useRouter()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
+    const { studyId, form, saveDraft, submitProposal, isSaving, isSubmitting } = useProposal()
 
     const isBusy = isSaving || isSubmitting
-    const isFormValid = form.isValid()
+
+    const handlePrevious = async () => {
+        await saveDraft()
+        router.push(Routes.studyEdit({ orgSlug, studyId }))
+    }
 
     return (
-        <Group justify="flex-end">
-            <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={saveDraft}>
-                Save as draft
-            </Button>
+        <Group mt="xs" justify="space-between" style={{ width: '100%' }}>
             <Button
+                type="button"
+                variant="subtle"
                 size="md"
-                variant="primary"
-                disabled={!isFormValid || isBusy}
-                loading={isSubmitting}
-                onClick={submitProposal}
+                leftSection={<CaretLeftIcon />}
+                disabled={isBusy}
+                loading={isSaving}
+                onClick={handlePrevious}
             >
-                Submit study proposal
+                Previous
             </Button>
+            <Group>
+                <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={saveDraft}>
+                    Save as draft
+                </Button>
+                <Button
+                    size="md"
+                    variant="primary"
+                    disabled={!form.isValid() || isBusy}
+                    loading={isSubmitting}
+                    onClick={submitProposal}
+                >
+                    Submit study proposal
+                </Button>
+            </Group>
         </Group>
     )
 }

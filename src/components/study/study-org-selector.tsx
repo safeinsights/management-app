@@ -7,11 +7,15 @@ import { useUser } from '@clerk/nextjs'
 import { Divider, Grid, Paper, Select, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
+import { useParams } from 'next/navigation'
 
-type Props = { form: UseFormReturnType<StudyProposalFormValues> }
+type Props = {
+    form: UseFormReturnType<StudyProposalFormValues>
+}
 
 export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { user, isLoaded } = useUser()
+    const { studyId } = useParams<{ studyId?: string }>()
     const isFeatureFlagEnabled = useOpenStaxFeatureFlag()
 
     const { data: orgs = [], isLoading } = useQuery({
@@ -23,6 +27,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
     const { titleSpan, inputSpan } = PROPOSAL_GRID_SPAN
 
     const hasOrgSelected = !!form.values.orgSlug
+    const isExistingDraft = isFeatureFlagEnabled && !!studyId
 
     const content = isFeatureFlagEnabled
         ? {
@@ -58,7 +63,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             key={form.key('orgSlug')}
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             placeholder="Select a data organization"
-                            disabled={isLoading}
+                            disabled={isExistingDraft || isLoading}
                             {...form.getInputProps('orgSlug')}
                         />
                     </Grid.Col>
