@@ -30,6 +30,8 @@ export interface EditableTextProps {
     disabled?: boolean
     /** Make content read-only */
     readOnly?: boolean
+    /** Remove border and padding for inline display */
+    borderless?: boolean
     /** Minimum height of the editor */
     minHeight?: number | string
     /** Maximum height of the editor (enables scrolling) */
@@ -80,6 +82,7 @@ export const EditableText: FC<EditableTextProps> = ({
     placeholder = 'Enter text...',
     disabled = false,
     readOnly = false,
+    borderless = false,
     minHeight = 100,
     maxHeight,
     resizable = true,
@@ -102,12 +105,12 @@ export const EditableText: FC<EditableTextProps> = ({
                 <Box
                     style={{
                         position: 'relative',
-                        border: `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        minHeight,
+                        border: borderless ? 'none' : `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
+                        borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
+                        minHeight: borderless ? undefined : minHeight,
                         maxHeight,
                         overflow: maxHeight || resizable ? 'auto' : undefined,
-                        resize: resizable ? 'vertical' : undefined,
+                        resize: borderless ? undefined : resizable ? 'vertical' : undefined,
                         backgroundColor: disabled ? 'var(--mantine-color-gray-1)' : undefined,
                     }}
                 >
@@ -118,8 +121,8 @@ export const EditableText: FC<EditableTextProps> = ({
                                 aria-label={ariaLabel}
                                 style={{
                                     outline: 'none',
-                                    padding: 'var(--mantine-spacing-sm)',
-                                    minHeight,
+                                    padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
+                                    minHeight: borderless ? undefined : minHeight,
                                 }}
                                 onFocus={onFocus}
                                 onBlur={onBlur}

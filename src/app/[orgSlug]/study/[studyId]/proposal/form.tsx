@@ -227,7 +227,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                <ProposalFooter />
+                <ProposalFooter researcherName={researcherName} />
             </Stack>
         </ProxyProvider>
     )
