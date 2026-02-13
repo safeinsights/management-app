@@ -14,7 +14,6 @@ interface ProposalContextValue {
     submitProposal: () => Promise<void>
     isSaving: boolean
     isSubmitting: boolean
-    isSubmitted: boolean
 }
 
 const ProposalContext = createContext<ProposalContextValue | null>(null)
@@ -43,7 +42,7 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
     })
 
     const { saveDraft, isSaving, buildStudyInfo } = useSaveDraft({ studyId, form })
-    const { submitProposal, isSubmitting, isSubmitted } = useSubmitProposal({ studyId, form, buildStudyInfo })
+    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, buildStudyInfo })
 
     const value = useMemo(
         () => ({
@@ -53,9 +52,8 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
             submitProposal,
             isSaving,
             isSubmitting,
-            isSubmitted,
         }),
-        [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting, isSubmitted],
+        [studyId, form, saveDraft, submitProposal, isSaving, isSubmitting],
     )
 
     return <ProposalContext.Provider value={value}>{children}</ProposalContext.Provider>

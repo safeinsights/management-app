@@ -2,7 +2,7 @@
 
 import { FC } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
-import { ArrowSquareOutIcon, CheckCircleIcon } from '@phosphor-icons/react'
+import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormFieldLabel } from '@/components/form-field-label'
 import { InputError } from '@/components/errors'
 import { WordCounter } from '@/components/word-counter'
@@ -88,24 +88,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
     orgName = '',
     researcherName = '',
 }) => {
-    const { form, saveDraft, isSaving, isSubmitted } = useProposal()
+    const { form, saveDraft, isSaving } = useProposal()
 
     const titleWordCount = countWords(form.values.title)
-
-    if (isSubmitted) {
-        return (
-            <Paper p="xl">
-                <Stack align="center" gap="md" py="xl">
-                    <CheckCircleIcon size={48} weight="fill" color="var(--mantine-color-green-6)" />
-                    <Title order={3}>Study proposal submitted</Title>
-                    <Text c="dimmed" ta="center" maw={480}>
-                        Your proposal has been successfully submitted for review. You will be notified once a decision
-                        has been made.
-                    </Text>
-                </Stack>
-            </Paper>
-        )
-    }
 
     return (
         <ProxyProvider isDirty={form.isDirty()} onSaveDraft={saveDraft} isSavingDraft={isSaving}>
@@ -144,7 +129,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                         </Box>
 
                         <Box>
-                            <FormFieldLabel label="Dataset(s) of interest" required inputId="datasets" />
+                            <FormFieldLabel label="Dataset(s) of interest" inputId="datasets" />
                             <Text size="sm" c="dimmed" mb="xs">
                                 Select one or more datasets relevant to your study.
                             </Text>

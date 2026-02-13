@@ -106,6 +106,8 @@ export const Routes = {
 
     studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
 
+    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
+
     // -------------------------------------------------------------------------
     // Account Routes (Simple routes - no parameters)
     // -------------------------------------------------------------------------

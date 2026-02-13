@@ -1,8 +1,10 @@
 import { useCallback, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { type UseFormReturnType } from '@mantine/form'
 import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
+import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
 interface UseSubmitProposalOptions {
@@ -12,8 +14,9 @@ interface UseSubmitProposalOptions {
 }
 
 export function useSubmitProposal({ studyId, form, buildStudyInfo }: UseSubmitProposalOptions) {
+    const router = useRouter()
+    const { orgSlug } = useParams<{ orgSlug: string }>()
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [isSubmitted, setIsSubmitted] = useState(false)
 
     const submitProposal = useCallback(async () => {
         const validation = form.validate()
@@ -24,17 +27,16 @@ export function useSubmitProposal({ studyId, form, buildStudyInfo }: UseSubmitPr
             actionResult(await onUpdateDraftStudyAction({ studyId, studyInfo: buildStudyInfo(form.getValues()) }))
             actionResult(await finalizeStudySubmissionAction({ studyId }))
             form.resetDirty()
-            setIsSubmitted(true)
+            router.push(Routes.studySubmitted({ orgSlug, studyId }))
         } catch (error) {
             notifications.show({
                 title: 'Failed to submit proposal',
                 message: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
                 color: 'red',
             })
-        } finally {
             setIsSubmitting(false)
         }
-    }, [studyId, form, buildStudyInfo])
+    }, [studyId, form, buildStudyInfo, router, orgSlug])
 
-    return { submitProposal, isSubmitting, isSubmitted }
+    return { submitProposal, isSubmitting }
 }
