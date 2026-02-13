@@ -147,6 +147,10 @@ export function ResearchDetailsSection({ data, refetch, readOnly = false }: Rese
         handleSubmit,
     } = useResearchDetailsSection(data, refetch)
 
+    const hasData = Boolean(defaults.researchInterests?.length) || Boolean(defaults.detailedPublicationsUrl)
+
+    if (readOnly && !hasData) return null
+
     const showEditForm = !readOnly && isEditing
 
     return (

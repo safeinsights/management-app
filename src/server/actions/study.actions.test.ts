@@ -1,5 +1,5 @@
 import logger from '@/lib/logger'
-import { onStudyApproved } from '@/server/events'
+import { onStudyApproved, onStudyRejected } from '@/server/events'
 import {
     db,
     insertTestOrg,
@@ -16,10 +16,12 @@ import {
     doesTestImageExistForStudyAction,
     fetchStudiesForOrgAction,
     getStudyAction,
+    rejectStudyProposalAction,
 } from './study.actions'
 
 vi.mock('@/server/events', () => ({
     onStudyApproved: vi.fn(),
+    onStudyRejected: vi.fn(),
 }))
 
 describe('Study Actions', () => {
@@ -31,6 +33,16 @@ describe('Study Actions', () => {
         const job = await latestJobForStudy(study.id)
 
         expect(job.statusChanges.find((sc) => sc.status == 'JOB-READY')).toBeTruthy()
+
+        const updatedStudy = await db
+            .selectFrom('study')
+            .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+            .where('id', '=', study.id)
+            .executeTakeFirstOrThrow()
+        expect(updatedStudy.status).toBe('APPROVED')
+        expect(updatedStudy.approvedAt).toBeTruthy()
+        expect(updatedStudy.rejectedAt).toBeNull()
+        expect(updatedStudy.reviewerId).toBe(user.id)
     })
 
     it('successfully approves a python language study proposal', async () => {
@@ -103,6 +115,107 @@ describe('Study Actions', () => {
         const result = await getStudyAction({ studyId })
         expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
         expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('cannot view Study'))
+    })
+
+    describe('rejectStudyProposalAction', () => {
+        it('rejects a study with a job', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({
+                org,
+                researcherId: user.id,
+                studyStatus: 'PENDING-REVIEW',
+            })
+
+            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('REJECTED')
+            expect(updatedStudy.rejectedAt).toBeTruthy()
+            expect(updatedStudy.approvedAt).toBeNull()
+            expect(updatedStudy.reviewerId).toBe(user.id)
+
+            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            const job = await latestJobForStudy(study.id)
+            expect(job.statusChanges.find((sc) => sc.status === 'CODE-REJECTED')).toBeTruthy()
+        })
+    })
+
+    describe('proposal-only studies (no job)', () => {
+        async function insertProposalOnlyStudy(org: { id: string }, researcherId: string) {
+            return db
+                .insertInto('study')
+                .values({
+                    orgId: org.id,
+                    submittedByOrgId: org.id,
+                    containerLocation: 'test-container',
+                    title: 'proposal-only study',
+                    researcherId,
+                    piName: 'test',
+                    status: 'PENDING-REVIEW',
+                    dataSources: ['all'],
+                    outputMimeType: 'application/zip',
+                    language: 'R',
+                })
+                .returningAll()
+                .executeTakeFirstOrThrow()
+        }
+
+        it('approves a proposal-only study without crashing', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const study = await insertProposalOnlyStudy(org, user.id)
+
+            await approveStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('APPROVED')
+            expect(updatedStudy.approvedAt).toBeTruthy()
+            expect(updatedStudy.rejectedAt).toBeNull()
+            expect(updatedStudy.reviewerId).toBe(user.id)
+            expect(onStudyApproved).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            const jobStatusChanges = await db
+                .selectFrom('jobStatusChange')
+                .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+                .where('studyJob.studyId', '=', study.id)
+                .select('jobStatusChange.id')
+                .execute()
+            expect(jobStatusChanges).toHaveLength(0)
+        })
+
+        it('rejects a proposal-only study without crashing', async () => {
+            const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
+            const study = await insertProposalOnlyStudy(org, user.id)
+
+            await rejectStudyProposalAction({ studyId: study.id, orgSlug: org.slug })
+
+            const updatedStudy = await db
+                .selectFrom('study')
+                .select(['status', 'approvedAt', 'rejectedAt', 'reviewerId'])
+                .where('id', '=', study.id)
+                .executeTakeFirstOrThrow()
+            expect(updatedStudy.status).toBe('REJECTED')
+            expect(updatedStudy.rejectedAt).toBeTruthy()
+            expect(updatedStudy.approvedAt).toBeNull()
+            expect(updatedStudy.reviewerId).toBe(user.id)
+            expect(onStudyRejected).toHaveBeenCalledWith({ studyId: study.id, userId: user.id })
+
+            const jobStatusChanges = await db
+                .selectFrom('jobStatusChange')
+                .innerJoin('studyJob', 'studyJob.id', 'jobStatusChange.studyJobId')
+                .where('studyJob.studyId', '=', study.id)
+                .select('jobStatusChange.id')
+                .execute()
+            expect(jobStatusChanges).toHaveLength(0)
+        })
     })
 
     describe('doesTestImageExistForStudyAction', () => {

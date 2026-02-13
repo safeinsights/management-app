@@ -98,6 +98,11 @@ function EducationDisplay({ defaults }: EducationDisplayProps) {
 export function EducationSection({ data, refetch, readOnly = false }: EducationSectionProps) {
     const { form, isEditing, setIsEditing, defaults, isPending, handleSubmit } = useEducationSection(data, refetch)
 
+    const hasData =
+        Boolean(defaults.educationalInstitution) || Boolean(defaults.degree) || Boolean(defaults.fieldOfStudy)
+
+    if (readOnly && !hasData) return null
+
     const showEditForm = !readOnly && isEditing
 
     return (
