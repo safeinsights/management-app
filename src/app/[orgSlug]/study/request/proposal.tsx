@@ -83,10 +83,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 isSavingDraft={isSaving}
                 onNavigateAway={() => reset()}
             >
-                <StudyProposalForm
-                    studyProposalForm={form}
-                    studyDetails={isOpenStaxFlow ? undefined : { existingFiles }}
-                />
+                <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
 
                 <ProposalFooterActions
                     isSaving={isSaving}
