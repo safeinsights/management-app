@@ -5,7 +5,7 @@ import { onUpdateDraftStudyAction } from '@/server/actions/study-request'
 import { actionResult } from '@/lib/utils'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 
-function buildStudyInfo(values: ProposalFormValues) {
+export function buildStudyInfo(values: ProposalFormValues) {
     return {
         title: values.title || undefined,
         piName: values.piName || undefined,
@@ -46,5 +46,5 @@ export function useSaveDraft({ studyId, form }: UseSaveDraftOptions) {
         }
     }, [studyId, form])
 
-    return { saveDraft, isSaving, buildStudyInfo }
+    return { saveDraft, isSaving }
 }

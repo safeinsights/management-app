@@ -45,8 +45,8 @@ export function ProposalProvider({ children, studyId, draftData }: ProposalProvi
         validateInputOnChange: true,
     })
 
-    const { saveDraft, isSaving, buildStudyInfo } = useSaveDraft({ studyId, form })
-    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form, buildStudyInfo })
+    const { saveDraft, isSaving } = useSaveDraft({ studyId, form })
+    const { submitProposal, isSubmitting } = useSubmitProposal({ studyId, form })
 
     const value = useMemo(
         () => ({

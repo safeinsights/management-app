@@ -6,14 +6,14 @@ import { onUpdateDraftStudyAction, finalizeStudySubmissionAction } from '@/serve
 import { actionResult } from '@/lib/utils'
 import { Routes } from '@/lib/routes'
 import { type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import { buildStudyInfo } from './use-save-draft'
 
 interface UseSubmitProposalOptions {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    buildStudyInfo: (values: ProposalFormValues) => Record<string, unknown>
 }
 
-export function useSubmitProposal({ studyId, form, buildStudyInfo }: UseSubmitProposalOptions) {
+export function useSubmitProposal({ studyId, form }: UseSubmitProposalOptions) {
     const router = useRouter()
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -36,7 +36,7 @@ export function useSubmitProposal({ studyId, form, buildStudyInfo }: UseSubmitPr
             })
             setIsSubmitting(false)
         }
-    }, [studyId, form, buildStudyInfo, router, orgSlug])
+    }, [studyId, form, router, orgSlug])
 
     return { submitProposal, isSubmitting }
 }

@@ -4,18 +4,7 @@ import { FC } from 'react'
 import { Box, Divider, Stack, Text } from '@mantine/core'
 import { EditableText } from '@/components/editable-text'
 import { useProposal } from '@/contexts/proposal'
-
-interface ReviewSection {
-    label: string
-    id: 'researchQuestions' | 'projectSummary' | 'impact' | 'additionalNotes'
-}
-
-const sections: ReviewSection[] = [
-    { label: 'Research questions', id: 'researchQuestions' },
-    { label: 'Project summary', id: 'projectSummary' },
-    { label: 'Impact', id: 'impact' },
-    { label: 'Additional notes', id: 'additionalNotes' },
-]
+import { editableTextFields } from './field-config'
 
 interface ReviewerPreviewProps {
     researcherName: string
@@ -47,13 +36,13 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName }) =>
 
             <Divider />
 
-            {sections.map((section) => (
-                <Box key={section.id}>
+            {editableTextFields.map((field) => (
+                <Box key={field.id}>
                     <Text size="sm" fw={600} mb="xs">
-                        {section.label}
+                        {field.label}
                     </Text>
-                    {values[section.id] ? (
-                        <EditableText value={values[section.id] as string} readOnly borderless resizable={false} />
+                    {values[field.id] ? (
+                        <EditableText value={values[field.id] as string} readOnly borderless resizable={false} />
                     ) : (
                         <Text size="md" fw={400} fs="italic">
                             Not provided
