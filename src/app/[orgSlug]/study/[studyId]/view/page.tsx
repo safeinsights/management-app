@@ -11,7 +11,7 @@ import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 
-// TEMP FIX: Prevents error on viewing studies created with the new flow (no code)
+// TEMP FIX: Prevents error on viewing studies created with the new flow (no code = no job)
 async function getLatestJob(studyId: string): Promise<LatestJobForStudy | null> {
     try {
         return await latestJobForStudy(studyId)

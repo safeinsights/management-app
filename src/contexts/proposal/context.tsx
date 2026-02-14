@@ -3,7 +3,11 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { type UseFormReturnType } from '@mantine/form'
 import { useForm, zodResolver } from '@/common'
-import { proposalFormSchema, initialProposalValues, type ProposalFormValues } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+import {
+    proposalFormSchema,
+    initialProposalValues,
+    type ProposalFormValues,
+} from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
 import { useSaveDraft } from './hooks/use-save-draft'
 import { useSubmitProposal } from './hooks/use-submit-proposal'
 

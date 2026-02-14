@@ -1,5 +1,3 @@
-'use server'
-
 import { Button, Paper, Stack, Text, Title } from '@mantine/core'
 import { CheckCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { Link } from '@/components/links'

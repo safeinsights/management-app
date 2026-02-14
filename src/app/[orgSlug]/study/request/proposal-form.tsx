@@ -1,23 +1,26 @@
 'use client'
 
-import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
-import { UseFormReturnType } from '@mantine/form'
 import { FC } from 'react'
+import { Stack } from '@mantine/core'
+import { UseFormReturnType } from '@mantine/form'
+import { StudyOrgSelector } from '@/components/study/study-org-selector'
+import { ProgrammingLanguageSection } from '@/components/study/programming-language-section'
 import { StudyProposalFormValues } from './form-schemas'
-import type { ExistingFilePaths } from './study-details'
-import { Step1Form as LegacyStep1Form } from './legacy/step1-form'
-import { Step1Form as OpenStaxStep1Form } from './openstax/step1-form'
+import { RequestStudyDetails, type ExistingFilePaths } from './study-details'
 
 type StudyProposalFormProps = {
     studyProposalForm: UseFormReturnType<StudyProposalFormValues>
-    existingFiles?: ExistingFilePaths
+    studyDetails?: { existingFiles?: ExistingFilePaths }
 }
 
-export const StudyProposalForm: FC<StudyProposalFormProps> = (props) => {
+export const StudyProposalForm: FC<StudyProposalFormProps> = ({ studyProposalForm, studyDetails }) => {
     return (
-        <OpenStaxFeatureFlag
-            defaultContent={<LegacyStep1Form {...props} />}
-            optInContent={<OpenStaxStep1Form {...props} />}
-        />
+        <Stack gap="xxl">
+            <StudyOrgSelector form={studyProposalForm} />
+            {studyDetails && (
+                <RequestStudyDetails studyProposalForm={studyProposalForm} existingFiles={studyDetails.existingFiles} />
+            )}
+            <ProgrammingLanguageSection form={studyProposalForm} />
+        </Stack>
     )
 }

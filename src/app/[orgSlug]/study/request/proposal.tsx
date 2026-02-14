@@ -83,15 +83,18 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 isSavingDraft={isSaving}
                 onNavigateAway={() => reset()}
             >
-                <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
+                <StudyProposalForm
+                    studyProposalForm={form}
+                    studyDetails={isOpenStaxFlow ? undefined : { existingFiles }}
+                />
 
                 <ProposalFooterActions
-                    isDirty={form.isDirty()}
                     isSaving={isSaving}
-                    isFormValid={isFormValid}
-                    isStep1Valid={isStep1Valid}
+                    isValid={isOpenStaxFlow ? isStep1Valid : isFormValid}
                     onSave={handleSave}
-                    onCancel={handleCancel}
+                    saveDraft={isOpenStaxFlow ? undefined : { isDirty: form.isDirty() }}
+                    onCancel={isOpenStaxFlow ? handleCancel : undefined}
+                    proceedLabel={isOpenStaxFlow ? 'Proceed to Step 2' : 'Save and proceed to code upload'}
                 />
             </ProxyProvider>
         </Stack>

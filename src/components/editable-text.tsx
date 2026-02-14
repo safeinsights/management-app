@@ -105,7 +105,9 @@ export const EditableText: FC<EditableTextProps> = ({
                 <Box
                     style={{
                         position: 'relative',
-                        border: borderless ? 'none' : `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
+                        border: borderless
+                            ? 'none'
+                            : `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
                         borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
                         minHeight: borderless ? undefined : minHeight,
                         maxHeight,
