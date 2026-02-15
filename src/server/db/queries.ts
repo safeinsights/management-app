@@ -184,6 +184,11 @@ export const getUserById = async (userId: string) => {
 export const orgIdFromSlug = async ({ db, params: { orgSlug } }: { db: DBExecutor; params: { orgSlug: string } }) =>
     await db.selectFrom('org').select(['id as orgId', 'type as orgType']).where('slug', '=', orgSlug).executeTakeFirst()
 
+export const getOrgNameFromId = async (orgId: string) => {
+    const result = await Action.db.selectFrom('org').select('name').where('id', '=', orgId).executeTakeFirstOrThrow()
+    return result.name
+}
+
 export const getOrgInfoForUserId = async (userId: string) => {
     const orgs = await Action.db
         .selectFrom('orgUser')

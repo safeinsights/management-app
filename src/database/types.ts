@@ -151,21 +151,26 @@ export interface ResearcherProfile {
 }
 
 export interface Study {
+    additionalNotes: string | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
     containerLocation: string
     createdAt: Generated<Timestamp>
+    datasets: string[] | null
     dataSources: Generated<string[]>
     descriptionDocPath: string | null
     id: Generated<string>
+    impact: string | null
     irbDocPath: string | null
     irbProtocols: string | null
     language: Generated<Language>
     orgId: string
     outputMimeType: string | null
     piName: string
+    projectSummary: string | null
     rejectedAt: Timestamp | null
     researcherId: string
+    researchQuestions: string | null
     reviewerId: string | null
     status: Generated<StudyStatus>
     submittedByOrgId: string

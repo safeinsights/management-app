@@ -136,7 +136,15 @@ export const studyProposalApiSchema = z.object({
     additionalCodeFilePaths: z.array(z.string()),
 })
 
-export const draftStudyApiSchema = studyProposalApiSchema.partial()
+export const step2ProposalApiSchema = z.object({
+    datasets: z.array(z.string()),
+    researchQuestions: z.string(),
+    projectSummary: z.string(),
+    impact: z.string(),
+    additionalNotes: z.string(),
+})
+
+export const draftStudyApiSchema = studyProposalApiSchema.extend(step2ProposalApiSchema.shape).partial()
 
 export const formReadinessSchema = z.object({
     orgSlug: z.string().min(1),
