@@ -6,9 +6,7 @@ function lexicalText(text: string): string {
 }
 
 function words(count: number): string {
-    return Array(count)
-        .fill('word')
-        .join(' ')
+    return Array(count).fill('word').join(' ')
 }
 
 const validProposalData = {

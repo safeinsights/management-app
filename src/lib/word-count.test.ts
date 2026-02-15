@@ -56,7 +56,10 @@ describe('extractTextFromLexical', () => {
         const json = JSON.stringify({
             root: {
                 type: 'root',
-                children: [{ type: 'text', text: 'First' }, { type: 'text', text: 'second' }],
+                children: [
+                    { type: 'text', text: 'First' },
+                    { type: 'text', text: 'second' },
+                ],
             },
         })
         expect(extractTextFromLexical(json)).toBe('First second')
