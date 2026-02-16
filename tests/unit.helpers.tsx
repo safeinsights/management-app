@@ -224,7 +224,6 @@ export const insertTestStudyJobData = async ({
     language,
     title,
     piName,
-    dataSources,
     researchQuestions,
     projectSummary,
     impact,
@@ -238,7 +237,6 @@ export const insertTestStudyJobData = async ({
     language?: Language
     title?: string
     piName?: string
-    dataSources?: string[]
     datasets?: string[] | null
     researchQuestions?: string | null
     projectSummary?: string | null
@@ -262,7 +260,7 @@ export const insertTestStudyJobData = async ({
             researcherId: researcherId,
             piName: piName ?? 'test',
             status: studyStatus,
-            dataSources: dataSources ?? ['all'],
+            dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
             datasets: datasets ?? null,
