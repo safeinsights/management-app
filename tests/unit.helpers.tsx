@@ -229,6 +229,7 @@ export const insertTestStudyJobData = async ({
     projectSummary,
     impact,
     additionalNotes,
+    datasets,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
@@ -238,6 +239,7 @@ export const insertTestStudyJobData = async ({
     title?: string
     piName?: string
     dataSources?: string[]
+    datasets?: string[] | null
     researchQuestions?: string | null
     projectSummary?: string | null
     impact?: string | null
@@ -263,6 +265,7 @@ export const insertTestStudyJobData = async ({
             dataSources: dataSources ?? ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
+            datasets: datasets ?? null,
             researchQuestions: researchQuestions ?? null,
             projectSummary: projectSummary ?? null,
             impact: impact ?? null,

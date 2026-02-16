@@ -44,6 +44,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.rejectedAt',
             'study.containerLocation',
             'study.createdAt',
+            'study.datasets',
             'study.dataSources',
             'study.irbProtocols',
             'study.orgId',

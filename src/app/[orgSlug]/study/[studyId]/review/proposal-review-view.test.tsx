@@ -54,7 +54,7 @@ describe('ProposalReviewView', () => {
             studyStatus: 'PENDING-REVIEW',
             title: 'Test Study Title',
             piName: 'Dr. Smith',
-            dataSources: ['Dataset A', 'Dataset B'],
+            datasets: ['Dataset A', 'Dataset B'],
             researchQuestions: 'What is the effect of X on Y?',
             projectSummary: 'This study examines the relationship between X and Y.',
             impact: 'This could improve treatment outcomes.',
@@ -77,7 +77,7 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('This study examines the relationship between X and Y.')).toBeInTheDocument()
         expect(screen.getByText('Impact')).toBeInTheDocument()
         expect(screen.getByText('This could improve treatment outcomes.')).toBeInTheDocument()
-        expect(screen.getByText('Additional notes')).toBeInTheDocument()
+        expect(screen.getByText('Additional notes or requests')).toBeInTheDocument()
         expect(screen.getByText('Funding secured from NIH.')).toBeInTheDocument()
         expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('ProposalReviewView', () => {
         expect(screen.queryByText('Research question(s)')).not.toBeInTheDocument()
         expect(screen.queryByText('Project summary')).not.toBeInTheDocument()
         expect(screen.queryByText('Impact')).not.toBeInTheDocument()
-        expect(screen.queryByText('Additional notes')).not.toBeInTheDocument()
+        expect(screen.queryByText('Additional notes or requests')).not.toBeInTheDocument()
         expect(screen.queryByText('Principal Investigator')).not.toBeInTheDocument()
     })
 

@@ -41,15 +41,15 @@ function LexicalProposalField({
     )
 }
 
-function DataSourcesField({ dataSources }: { dataSources: string[] }) {
-    if (!dataSources.length) return null
+function DatasetsField({ datasets }: { datasets: string[] }) {
+    if (!datasets.length) return null
 
     return (
         <Stack gap={4}>
             <Text fw={600} size="sm">
                 Dataset(s) of interest
             </Text>
-            <Text size="sm">{dataSources.join(', ')}</Text>
+            <Text size="sm">{datasets.join(', ')}</Text>
         </Stack>
     )
 }
@@ -119,11 +119,11 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                         <StudyApprovalStatus status={study.status} date={study.approvedAt ?? study.rejectedAt} />
                     </Group>
 
-                    <DataSourcesField dataSources={study.dataSources} />
+                    <DatasetsField datasets={study.datasets ?? []} />
                     <LexicalProposalField label="Research question(s)" value={study.researchQuestions} subtle={false} />
                     <LexicalProposalField label="Project summary" value={study.projectSummary} />
                     <LexicalProposalField label="Impact" value={study.impact} />
-                    <LexicalProposalField label="Additional notes" value={study.additionalNotes} />
+                    <LexicalProposalField label="Additional notes or requests" value={study.additionalNotes} />
                     <PIField study={study} />
                     <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>
