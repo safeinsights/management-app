@@ -105,11 +105,9 @@ const PopoverLinkBadge: FC<{ url?: string | null; label: string }> = ({ url, lab
             variant="light"
             color="gray"
             rightSection={<ArrowSquareOutIcon size={14} />}
-            style={{
-                cursor: 'pointer',
-                backgroundColor: 'var(--mantine-color-gray-1)',
-                color: 'var(--mantine-color-gray-7)',
-            }}
+            bg="gray.1"
+            c="gray.7"
+            style={{ cursor: 'pointer' }}
             tt="none"
             size="lg"
             radius="xs"
