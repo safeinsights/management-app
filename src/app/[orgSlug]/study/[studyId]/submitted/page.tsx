@@ -33,11 +33,22 @@ export default async function StudySubmittedRoute(props: { params: Promise<{ stu
                         {displayOrgName(orgName)} will follow up with feedback, follow-up questions, or a decision.
                         Please check your dashboard for notifications and status updates.
                     </Text>
-                    <Button component={Link} href={Routes.studyView({ orgSlug, studyId })} variant="outline" mt="md">
+                    <Button
+                        component={Link}
+                        href={Routes.studyView({ orgSlug, studyId })}
+                        variant="outline"
+                        mt="md"
+                        size="md"
+                    >
                         View submitted study proposal
                     </Button>
                 </Stack>
             </Paper>
+            <Stack gap="sm" align="flex-end">
+                <Button component={Link} href={Routes.orgDashboard({ orgSlug })} size="md">
+                    Go to dashboard
+                </Button>
+            </Stack>
         </Stack>
     )
 }
