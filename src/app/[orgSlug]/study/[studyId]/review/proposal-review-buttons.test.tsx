@@ -57,12 +57,6 @@ describe('ProposalReviewButtons', () => {
         mockReportMutationError.mockReturnValue(vi.fn())
     })
 
-    it('renders Approve and Reject buttons for a pending study', () => {
-        renderWithProviders(<ProposalReviewButtons study={study} orgSlug="test-org" />)
-        expect(screen.getByRole('button', { name: 'Approve request' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Reject request' })).toBeInTheDocument()
-    })
-
     it('calls approveStudyProposalAction on approve click', async () => {
         mockApproveAction.mockResolvedValue(undefined)
         const user = userEvent.setup()
@@ -98,6 +92,19 @@ describe('ProposalReviewButtons', () => {
 
         const approveButton = screen.getByRole('button', { name: 'Approve request' })
         await user.click(approveButton)
+
+        await waitFor(() => {
+            expect(memoryRouter.asPath).toBe('/test-org/dashboard')
+        })
+    })
+
+    it('redirects to org dashboard on successful rejection', async () => {
+        const user = userEvent.setup()
+        mockRejectAction.mockResolvedValueOnce(undefined)
+        renderWithProviders(<ProposalReviewButtons study={study} orgSlug="test-org" />)
+
+        const rejectButton = screen.getByRole('button', { name: 'Reject request' })
+        await user.click(rejectButton)
 
         await waitFor(() => {
             expect(memoryRouter.asPath).toBe('/test-org/dashboard')

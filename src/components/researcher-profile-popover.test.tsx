@@ -21,17 +21,6 @@ const renderAndHover = async (userId: string, studyId: string, orgSlug: string) 
 }
 
 describe('ResearcherProfilePopover', () => {
-    it('renders the hover target', async () => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
-        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
-
-        renderWithProviders(
-            <ResearcherProfilePopover userId={user.id} studyId={study.id} orgSlug="test-org" name="Hover target" />,
-        )
-
-        expect(screen.getByText('Hover target')).toBeInTheDocument()
-    })
-
     it('renders profile data after hover', async () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
         const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
@@ -79,6 +68,45 @@ describe('ResearcherProfilePopover', () => {
         await waitFor(() => {
             expect(screen.getByText('Profile not available')).toBeInTheDocument()
         })
+    })
+
+    it('shows "+ N more" link when researcher has multiple affiliations', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [
+                { affiliation: 'MIT', position: 'Professor' },
+                { affiliation: 'Stanford', position: 'Researcher' },
+                { affiliation: 'Harvard', position: 'Lecturer' },
+            ],
+        })
+
+        await renderAndHover(user.id, study.id, 'test-org')
+
+        await waitFor(() => {
+            expect(screen.getByText('+ 2 more current affiliation')).toBeInTheDocument()
+        })
+    })
+
+    it('renders professional links when URLs are present', async () => {
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'test-org', orgType: 'enclave' })
+        const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+        await insertTestResearcherProfile({
+            userId: user.id,
+            positions: [{ affiliation: 'MIT', position: 'Professor', profileUrl: 'https://mit.edu/profile' }],
+            researchDetails: { detailedPublicationsUrl: 'https://scholar.google.com/user' },
+        })
+
+        await renderAndHover(user.id, study.id, 'test-org')
+
+        await waitFor(() => {
+            expect(screen.getByText('Professional links')).toBeInTheDocument()
+        })
+        expect(screen.getByText('University')).toBeInTheDocument()
+        expect(screen.getByText('Publication list')).toBeInTheDocument()
     })
 
     it('renders "View full profile" link with correct href', async () => {

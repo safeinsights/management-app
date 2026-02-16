@@ -63,11 +63,6 @@ describe('ProposalReviewView', () => {
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     })
 
-    it('renders study title', () => {
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
-        expect(screen.getByText('Test Study Title')).toBeInTheDocument()
-    })
-
     it('renders proposal fields', () => {
         renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
 
@@ -81,6 +76,8 @@ describe('ProposalReviewView', () => {
         expect(screen.getByText('Funding secured from NIH.')).toBeInTheDocument()
         expect(screen.getByText('Principal Investigator')).toBeInTheDocument()
         expect(screen.getByText('Dr. Smith')).toBeInTheDocument()
+        expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
+        expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
     })
 
     it('hides fields when values are null', async () => {
@@ -100,13 +97,6 @@ describe('ProposalReviewView', () => {
         expect(screen.queryByText('Impact')).not.toBeInTheDocument()
         expect(screen.queryByText('Additional notes or requests')).not.toBeInTheDocument()
         expect(screen.queryByText('Principal Investigator')).not.toBeInTheDocument()
-    })
-
-    it('renders data sources', () => {
-        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={study} />)
-
-        expect(screen.getByText('Dataset(s) of interest')).toBeInTheDocument()
-        expect(screen.getByText('Dataset A, Dataset B')).toBeInTheDocument()
     })
 
     it('renders Lexical JSON content as text', async () => {
