@@ -156,6 +156,7 @@ export interface Study {
     approvedAt: Timestamp | null
     containerLocation: string
     createdAt: Generated<Timestamp>
+    datasets: string[] | null
     dataSources: Generated<string[]>
     descriptionDocPath: string | null
     id: Generated<string>

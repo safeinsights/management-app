@@ -1,4 +1,4 @@
-import { type Kysely } from 'kysely'
+import { type Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
@@ -7,6 +7,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('project_summary', 'text')
         .addColumn('impact', 'text')
         .addColumn('additional_notes', 'text')
+        .addColumn('datasets', sql`text[]`)
         .execute()
 }
 
@@ -17,5 +18,6 @@ export async function down(db: Kysely<unknown>): Promise<void> {
         .dropColumn('project_summary')
         .dropColumn('impact')
         .dropColumn('additional_notes')
+        .dropColumn('datasets')
         .execute()
 }

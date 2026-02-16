@@ -18,11 +18,7 @@ describe('ResearcherProfileView', () => {
         const profileData = await getTestResearcherProfileData(user.id)
 
         renderWithProviders(
-            <ResearcherProfileView
-                orgSlug={org.slug}
-                studyId={faker.string.uuid()}
-                profileData={profileData}
-            />,
+            <ResearcherProfileView orgSlug={org.slug} studyId={faker.string.uuid()} profileData={profileData} />,
         )
 
         expect(screen.getByText('Personal information')).toBeDefined()
