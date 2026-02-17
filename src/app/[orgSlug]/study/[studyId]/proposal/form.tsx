@@ -10,13 +10,11 @@ import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
 import { countWords, countWordsFromLexical } from '@/lib/word-count'
-import { Routes } from '@/lib/routes'
+import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
 import { editableTextFields } from './field-config'
-
-const DATA_CATALOG_URL = 'https://kb.safeinsights.org/data-catalog'
 
 export interface MemberOption {
     value: string
@@ -84,12 +82,20 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                             <Group align="center" gap="md">
                                 <Box w="50%">
                                     <DatasetMultiSelect
+                                        id="datasets"
                                         options={datasets}
                                         value={form.values.datasets}
                                         onChange={(val) => form.setFieldValue('datasets', val)}
                                     />
                                 </Box>
-                                <Anchor href={DATA_CATALOG_URL} target="_blank" size="sm" c="blue.7" fw={600}>
+                                <Anchor
+                                    href={ExternalLinks.dataCatalog}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    size="sm"
+                                    c="blue.7"
+                                    fw={600}
+                                >
                                     <Group gap={4} wrap="nowrap">
                                         Explore data catalog
                                         <ArrowSquareOutIcon size={16} weight="bold" />
@@ -164,7 +170,14 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                         disabled
                                     />
                                 </Box>
-                                <Anchor href={Routes.researcherProfile} target="_blank" size="sm" c="blue.7" fw={600}>
+                                <Anchor
+                                    href={Routes.researcherProfile}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    size="sm"
+                                    c="blue.7"
+                                    fw={600}
+                                >
                                     <Group gap={4} wrap="nowrap">
                                         View profile
                                         <ArrowSquareOutIcon size={16} weight="bold" />

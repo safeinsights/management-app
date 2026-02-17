@@ -14,8 +14,8 @@ import { useSubmitProposal } from './hooks/use-submit-proposal'
 interface ProposalContextValue {
     studyId: string
     form: UseFormReturnType<ProposalFormValues>
-    saveDraft: () => Promise<void>
-    submitProposal: () => Promise<void>
+    saveDraft: () => Promise<boolean>
+    submitProposal: () => void
     isSaving: boolean
     isSubmitting: boolean
 }

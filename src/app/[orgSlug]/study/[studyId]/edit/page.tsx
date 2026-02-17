@@ -28,7 +28,9 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
         .executeTakeFirst()
 
     if (!study || study.status !== 'DRAFT') {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
+        return (
+            <AlertNotFound title="Study was not found" message="Only studies that are in DRAFT status can be edited." />
+        )
     }
 
     return (

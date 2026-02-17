@@ -27,7 +27,7 @@ describe('buildStudyInfo', () => {
         })
     })
 
-    it('converts empty strings to undefined', () => {
+    it('converts empty strings to undefined (except title which defaults to Untitled Draft)', () => {
         const formValues: ProposalFormValues = {
             title: '',
             datasets: [],
@@ -40,7 +40,7 @@ describe('buildStudyInfo', () => {
 
         const result = buildStudyInfo(formValues)
 
-        expect(result.title).toBeUndefined()
+        expect(result.title).toBe('Untitled Draft')
         expect(result.piName).toBeUndefined()
         expect(result.researchQuestions).toBeUndefined()
         expect(result.projectSummary).toBeUndefined()

@@ -9,6 +9,7 @@ export interface DatasetOption {
 }
 
 interface DatasetMultiSelectProps {
+    id: string
     options: DatasetOption[]
     value: string[]
     onChange: (value: string[]) => void
@@ -17,6 +18,7 @@ interface DatasetMultiSelectProps {
 }
 
 export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
+    id,
     options,
     value,
     onChange,
@@ -73,6 +75,7 @@ export const DatasetMultiSelect: FC<DatasetMultiSelectProps> = ({
                         {pills}
                         <Combobox.EventsTarget>
                             <PillsInput.Field
+                                id={id}
                                 onFocus={() => combobox.openDropdown()}
                                 onBlur={() => combobox.closeDropdown()}
                                 value={search}

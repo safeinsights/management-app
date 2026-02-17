@@ -3,6 +3,7 @@
 import { FC } from 'react'
 import { Box, Divider, Stack, Text } from '@mantine/core'
 import { EditableText } from '@/components/editable-text'
+import { extractTextFromLexical } from '@/lib/word-count'
 import { useProposal } from '@/contexts/proposal'
 import { editableTextFields } from './field-config'
 
@@ -36,20 +37,25 @@ export const ReviewerPreview: FC<ReviewerPreviewProps> = ({ researcherName }) =>
 
             <Divider />
 
-            {editableTextFields.map((field) => (
-                <Box key={field.id}>
-                    <Text size="sm" fw={600} mb="xs">
-                        {field.label}
-                    </Text>
-                    {values[field.id] ? (
-                        <EditableText value={values[field.id] as string} readOnly borderless resizable={false} />
-                    ) : (
-                        <Text size="md" fw={400} fs="italic">
-                            Not provided
+            {editableTextFields.map((field) => {
+                const fieldValue = values[field.id] as string
+                const hasContent = extractTextFromLexical(fieldValue).trim().length > 0
+
+                return (
+                    <Box key={field.id}>
+                        <Text size="sm" fw={600} mb="xs">
+                            {field.label}
                         </Text>
-                    )}
-                </Box>
-            ))}
+                        {hasContent ? (
+                            <EditableText value={fieldValue} readOnly borderless resizable={false} />
+                        ) : (
+                            <Text size="md" fw={400} fs="italic">
+                                Not provided
+                            </Text>
+                        )}
+                    </Box>
+                )
+            })}
 
             <Divider />
 

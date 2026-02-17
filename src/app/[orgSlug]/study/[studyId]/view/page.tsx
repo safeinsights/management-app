@@ -10,13 +10,17 @@ import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { NotFoundError } from '@/lib/errors'
 
 // TEMP FIX: Prevents error on viewing studies created with the new flow (no code = no job)
+// Targeted catch for NotFoundError (the specific error executeTakeFirstOrThrow produces when no job row exists)
+// Any other error should be rethrown
 async function getLatestJob(studyId: string): Promise<LatestJobForStudy | null> {
     try {
         return await latestJobForStudy(studyId)
-    } catch {
-        return null
+    } catch (error) {
+        if (error instanceof NotFoundError) return null
+        throw error
     }
 }
 

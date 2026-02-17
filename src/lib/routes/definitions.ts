@@ -149,6 +149,15 @@ export const Routes = {
 } as const
 
 // ============================================================================
+// External Links (not Next.js routes)
+// ============================================================================
+
+export const ExternalLinks = {
+    dataCatalog: 'https://kb.safeinsights.org/data-catalog',
+    resourceCenter: 'https://kb.safeinsights.org/resource-center',
+} as const
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 

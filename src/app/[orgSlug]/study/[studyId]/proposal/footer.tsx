@@ -22,8 +22,8 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
     const isBusy = isSaving || isSubmitting
 
     const handlePrevious = async () => {
-        await saveDraft()
-        router.push(Routes.studyEdit({ orgSlug, studyId }))
+        const saved = await saveDraft()
+        if (saved) router.push(Routes.studyEdit({ orgSlug, studyId }))
     }
 
     return (

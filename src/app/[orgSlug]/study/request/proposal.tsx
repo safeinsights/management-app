@@ -70,13 +70,13 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             <ProxyProvider
                 isDirty={form.isDirty()}
                 onSaveDraft={() =>
-                    new Promise<void>((resolve, reject) => {
+                    new Promise<boolean>((resolve) => {
                         saveDraft({
                             onSuccess: () => {
                                 form.resetDirty()
-                                resolve()
+                                resolve(true)
                             },
-                            onError: (error) => reject(error),
+                            onError: () => resolve(false),
                         })
                     })
                 }
