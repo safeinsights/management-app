@@ -83,19 +83,17 @@ export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
         }
     })
 
-export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
-    .merge(newEnvVarFieldsSchema)
-    .superRefine((data, ctx) => {
-        if (data.newEnvKey && data.newEnvValue) {
-            const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
-            if (isDuplicate) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Variable name already exists',
-                    path: ['newEnvKey'],
-                })
-            }
+export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema.merge(newEnvVarFieldsSchema).superRefine((data, ctx) => {
+    if (data.newEnvKey && data.newEnvValue) {
+        const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
+        if (isDuplicate) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Variable name already exists',
+                path: ['newEnvKey'],
+            })
         }
-    })
+    }
+})
 
 export const orgCodeEnvSchema = createOrgCodeEnvSchema

@@ -36,15 +36,15 @@
         "update-all-packages": "npx npm-check-updates -u"
     },
     "dependencies": {
-        "@aws-sdk/client-codebuild": "^3.981.0",
-        "@aws-sdk/client-ecr": "^3.981.0",
-        "@aws-sdk/client-s3": "^3.980.0",
-        "@aws-sdk/client-secrets-manager": "^3.981.0",
-        "@aws-sdk/client-sts": "^3.981.0",
-        "@aws-sdk/credential-provider-ini": "^3.972.3",
-        "@aws-sdk/lib-storage": "^3.980.0",
-        "@aws-sdk/s3-presigned-post": "^3.981.0",
-        "@aws-sdk/s3-request-presigner": "^3.981.0",
+        "@aws-sdk/client-codebuild": "^3.992.0",
+        "@aws-sdk/client-ecr": "^3.992.0",
+        "@aws-sdk/client-s3": "^3.992.0",
+        "@aws-sdk/client-secrets-manager": "^3.992.0",
+        "@aws-sdk/client-sts": "^3.992.0",
+        "@aws-sdk/credential-provider-ini": "^3.972.8",
+        "@aws-sdk/lib-storage": "^3.992.0",
+        "@aws-sdk/s3-presigned-post": "^3.992.0",
+        "@aws-sdk/s3-request-presigner": "^3.992.0",
         "@casl/ability": "^6.8.0",
         "@clerk/nextjs": "^6.37.0",
         "@faker-js/faker": "^10.2.0",
@@ -109,10 +109,12 @@
         "@vitejs/plugin-react": "^5.1.2",
         "aws-sdk-client-mock": "^4.1.0",
         "dotenv": "*",
-        "eslint": "^9.39.2",
-        "eslint-config-next": "16.1.6",
+        "eslint": "^9.0.0",
         "eslint-config-prettier": "*",
+        "eslint-import-resolver-typescript": "^4.4.4",
+        "eslint-plugin-import": "^2.32.0",
         "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^7.0.1",
         "globals": "^17.2.0",
         "happy-dom": "*",
         "husky": "^9.1.7",
@@ -126,12 +128,13 @@
         "prettier": "*",
         "prompts": "^2.4.2",
         "tsx": "4.21.0",
-        "typescript-eslint": "^8.54.0",
+        "typescript-eslint": "^8.14.0",
         "vite-tsconfig-paths": "^6.0.5",
         "vitest": "*",
         "vitest-monocart-coverage": "^4.0.1"
     },
     "overrides": {
-        "@types/react": "19.2.10"
+        "@types/react": "19.2.10",
+        "fast-xml-parser": ">=5.3.6"
     }
 }

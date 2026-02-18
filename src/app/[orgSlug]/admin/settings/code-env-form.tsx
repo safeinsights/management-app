@@ -128,9 +128,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
             return await createOrgCodeEnvAction({ orgSlug, ...createValues })
         },
         onSuccess: () => {
-            reportSuccess(
-                isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully',
-            )
+            reportSuccess(isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully')
             onCompleteAction()
         },
         onError: reportMutationError(
