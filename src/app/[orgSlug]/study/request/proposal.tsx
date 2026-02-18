@@ -23,7 +23,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
         useStudyRequest()
-    const isOpenStaxFlow = useOpenStaxFeatureFlag()
+    const isOpenStaxFlow: boolean = useOpenStaxFeatureFlag()
     const [isProceeding, setIsProceeding] = useState(false)
 
     useEffect(() => {
