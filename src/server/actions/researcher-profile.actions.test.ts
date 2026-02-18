@@ -1,10 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
+import logger from '@/lib/logger'
 import { isActionError } from '@/lib/errors'
 import {
     mockSessionWithTestData,
     insertTestStudyJobData,
     insertTestResearcherProfile,
+    insertTestOrg,
+    insertTestUser,
+    mockClerkSession,
     faker,
 } from '@/tests/unit.helpers'
 import { updatePersonalInfoAction, getResearcherProfileByUserIdAction } from './researcher-profile.actions'
@@ -118,6 +122,24 @@ describe('researcher-profile.actions', () => {
                 profile: null,
                 positions: [],
             })
+        })
+
+        it('denies access for a user from a different org', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const otherOrg = await insertTestOrg()
+            const { user: otherUser } = await insertTestUser({ org: otherOrg })
+            mockClerkSession({
+                clerkUserId: otherUser.clerkId,
+                orgSlug: otherOrg.slug,
+                userId: otherUser.id,
+                orgId: otherOrg.id,
+            })
+
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
         })
     })
 })

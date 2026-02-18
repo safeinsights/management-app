@@ -37,7 +37,12 @@ vi.mock('@/components/researcher-profile-popover', () => ({
 }))
 
 vi.mock('@/components/study/study-approval-status', () => ({
-    default: () => <div data-testid="study-approval-status" />,
+    default: ({ status, date }: { status: string; date?: Date | null }) =>
+        date ? (
+            <div data-testid="study-approval-status">
+                {status} on {date.toISOString()}
+            </div>
+        ) : null,
 }))
 
 vi.mock('@/components/page-breadcrumbs', () => ({
@@ -125,5 +130,21 @@ describe('ProposalReviewView', () => {
 
         expect(screen.getByText('Lexical formatted question')).toBeInTheDocument()
         expect(screen.getByText('Dr. Jones')).toBeInTheDocument()
+    })
+
+    it('shows approval status when study is APPROVED', () => {
+        const approvedStudy = { ...study, status: 'APPROVED' as const, approvedAt: new Date('2025-06-15') }
+
+        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={approvedStudy} />)
+
+        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('APPROVED')
+    })
+
+    it('shows rejection status when study is REJECTED', () => {
+        const rejectedStudy = { ...study, status: 'REJECTED' as const, rejectedAt: new Date('2025-06-15') }
+
+        renderWithProviders(<ProposalReviewView orgSlug="test-org" study={rejectedStudy} />)
+
+        expect(screen.getByTestId('study-approval-status')).toHaveTextContent('REJECTED')
     })
 })
