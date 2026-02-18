@@ -48,7 +48,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
     }, [data, hasExistingPositions])
 
     const saveMutation = useMutation({
-        mutationFn: async (positionsToSave: PositionValues[]) => updatePositionsAction({ positions: positionsToSave }),
+        mutationFn: async (positions: PositionValues[]) => updatePositionsAction({ positions }),
         onSuccess: async () => {
             await refetch()
             setEditingIndex(null)
@@ -107,12 +107,9 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         saveMutation.mutate(next)
     }
 
-    const showForm = editingIndex !== null || !hasExistingPositions
+    const canDelete = defaults.positions.length >= 2
     const isAdding = editingIndex !== null && editingIndex >= defaults.positions.length
-    const currentEditValid =
-        editingIndex !== null &&
-        Boolean(form.values.positions[editingIndex]?.affiliation) &&
-        Boolean(form.values.positions[editingIndex]?.position)
+    const currentEditValid = editingIndex !== null && form.isValid()
 
     return {
         form,
@@ -120,7 +117,7 @@ export function usePositionsSection(data: ResearcherProfileData | null, refetch:
         defaults,
         isPending: saveMutation.isPending,
         hasExistingPositions,
-        showForm,
+        canDelete,
         isAdding,
         currentEditValid,
         openEdit,

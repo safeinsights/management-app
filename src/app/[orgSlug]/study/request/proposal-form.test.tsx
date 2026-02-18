@@ -6,13 +6,7 @@ import { TestingProviders, useTestStudyProposalForm } from '@/tests/providers'
 import { mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
 
 vi.mock('@/components/openstax-feature-flag', () => ({
-    OpenStaxFeatureFlag: ({
-        defaultContent,
-        optInContent,
-    }: {
-        defaultContent: React.ReactNode
-        optInContent: React.ReactNode
-    }) => (globalThis.__mockOpenStaxEnabled ? optInContent : defaultContent),
+    useOpenStaxFeatureFlag: () => globalThis.__mockOpenStaxEnabled,
 }))
 
 vi.mock('@/components/study/study-org-selector', () => ({

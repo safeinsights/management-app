@@ -19,6 +19,7 @@
 export { makeRoute } from './builder'
 export {
     Routes,
+    ExternalLinks,
     OrgParams,
     StudyParams,
     NoParams,

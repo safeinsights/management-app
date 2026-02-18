@@ -1,5 +1,6 @@
 import { useSession } from '@/hooks/session'
 import { orgInitialsTitle } from '@/lib/string'
+import { ExternalLinks } from '@/lib/routes'
 import { ActionSuccessType, isEnclaveOrg } from '@/lib/types'
 import { fetchUsersOrgsWithStatsAction } from '@/server/actions/org.actions'
 import { Divider, Stack, Title } from '@mantine/core'
@@ -25,7 +26,7 @@ const EnclaveLinks: React.FC<Props> = ({ org }) => {
             <NavbarLink
                 icon={<BookOpenIcon />}
                 isVisible={true}
-                url={'https://kb.safeinsights.org/resource-center'}
+                url={ExternalLinks.resourceCenter}
                 label={'Resource Center'}
                 newTab
             />
@@ -45,7 +46,7 @@ const LabLinks: React.FC<Props> = ({ org }) => {
             <NavbarLink
                 icon={<BooksIcon />}
                 isVisible={true}
-                url={'https://kb.safeinsights.org/data-catalog'}
+                url={ExternalLinks.dataCatalog}
                 label={'Data Catalog'}
                 newTab
             />

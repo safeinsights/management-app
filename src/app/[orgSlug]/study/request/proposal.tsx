@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
 import ProxyProvider from '@/components/proxy-provider'
 import { Routes } from '@/lib/routes'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { useStudyRequest } from '@/contexts/study-request'
 import { StudyProposalForm } from './proposal-form'
 import { ProposalFooterActions } from './proposal-footer-actions'
@@ -22,6 +23,8 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { orgSlug: submittingOrgSlug } = useParams<{ orgSlug: string }>()
     const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
         useStudyRequest()
+    const isOpenStaxFlow: boolean = useOpenStaxFeatureFlag()
+    const [isProceeding, setIsProceeding] = useState(false)
 
     useEffect(() => {
         // Only initialize if we have draft data to load
@@ -33,11 +36,15 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     }, [draftData?.id, submittingOrgSlug])
 
     const handleSave = (proceed: boolean) => {
+        if (proceed) setIsProceeding(true)
         saveDraft({
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
                 if (proceed) {
-                    router.push(Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId }))
+                    const nextRoute = isOpenStaxFlow
+                        ? Routes.studyProposal({ orgSlug: submittingOrgSlug, studyId: newStudyId })
+                        : Routes.studyCode({ orgSlug: submittingOrgSlug, studyId: newStudyId })
+                    router.push(nextRoute)
                 } else {
                     if (!studyId) {
                         router.replace(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId: newStudyId }), {
@@ -51,6 +58,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                     })
                 }
             },
+            onError: () => setIsProceeding(false),
         })
     }
 
@@ -65,13 +73,13 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
             <ProxyProvider
                 isDirty={form.isDirty()}
                 onSaveDraft={() =>
-                    new Promise<void>((resolve, reject) => {
+                    new Promise<boolean>((resolve) => {
                         saveDraft({
                             onSuccess: () => {
                                 form.resetDirty()
-                                resolve()
+                                resolve(true)
                             },
-                            onError: (error) => reject(error),
+                            onError: () => resolve(false),
                         })
                     })
                 }
@@ -81,12 +89,12 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
 
                 <ProposalFooterActions
-                    isDirty={form.isDirty()}
-                    isSaving={isSaving}
-                    isFormValid={isFormValid}
-                    isStep1Valid={isStep1Valid}
+                    isSaving={isSaving || isProceeding}
+                    isValid={isOpenStaxFlow ? isStep1Valid : isFormValid}
                     onSave={handleSave}
-                    onCancel={handleCancel}
+                    saveDraft={isOpenStaxFlow ? undefined : { isDirty: form.isDirty() }}
+                    onCancel={isOpenStaxFlow ? handleCancel : undefined}
+                    proceedLabel={isOpenStaxFlow ? 'Proceed to Step 2' : 'Save and proceed to code upload'}
                 />
             </ProxyProvider>
         </Stack>
