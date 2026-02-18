@@ -39,6 +39,7 @@ const codeEnvFieldsSchema = z.object({
         .regex(pathnameRegex, 'Must be a valid file path (e.g. data/sample.csv)')
         .optional()
         .or(z.literal('')),
+    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)

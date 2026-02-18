@@ -51,6 +51,7 @@ const createOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
+    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -105,6 +106,7 @@ const updateOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
+    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
@@ -250,6 +252,6 @@ export const getSampleDataUploadUrlAction = new Action('getSampleDataUploadUrlAc
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug, codeEnvId } }) => {
-        const prefix = `sample-data/${orgSlug}/${codeEnvId}`
+        const prefix = pathForSampleData({ orgSlug, codeEnvId })
         return await signedUrlForSampleDataUpload(prefix)
     })

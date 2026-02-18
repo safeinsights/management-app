@@ -1,12 +1,12 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Table, Button, Group, ActionIcon, Tooltip, Flex } from '@mantine/core'
+import { Stack, Title, Divider, Paper, Text, Button, Group, ActionIcon, Tooltip, Collapse, Grid, GridCol, Badge, Box } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
 import { CodeEnvForm } from './code-env-form'
-import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
+import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlassIcon, CaretDownIcon } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
@@ -22,11 +22,75 @@ import { OrgCodeEnvSettings } from '@/database/types'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
+const SAMPLE_DATA_FORMAT_LABELS: Record<string, string> = {
+    parquet: 'Parquet',
+    avro: 'Avro',
+    pg_backup: 'Postgresql Backup',
+    csv: 'CSV',
+}
+
+const LABEL_SPAN = { base: 12, sm: 3 }
+const VALUE_SPAN = { base: 12, sm: 9 }
+
+const DetailRow: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+    <Grid align="flex-start">
+        <GridCol span={LABEL_SPAN}>
+            <Text fw="bold" c="dimmed" size="sm">
+                {label}
+            </Text>
+        </GridCol>
+        <GridCol span={VALUE_SPAN}>
+            <Text size="sm" component="div">
+                {children}
+            </Text>
+        </GridCol>
+    </Grid>
+)
+
+const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isLoadingCode: boolean }> = ({
+    image,
+    onViewCode,
+    isLoadingCode,
+}) => {
+    const envVars =
+        ((image.settings as OrgCodeEnvSettings)?.environment || []).map((v) => `${v.name}=${v.value}`).join(', ') || '-'
+
+    return (
+        <Box p="md" bg="gray.0">
+            <Stack gap="xs">
+                <DetailRow label="URL">{image.url}</DetailRow>
+                <DetailRow label="Command Line">{image.cmdLine}</DetailRow>
+                <DetailRow label="Starter Code">
+                    <Group gap="sm">
+                        <span>{basename(image.starterCodePath)}</span>
+                        <Tooltip label="View Starter Code" withArrow>
+                            <ActionIcon
+                                size="sm"
+                                variant="subtle"
+                                color="blue"
+                                onClick={onViewCode}
+                                loading={isLoadingCode}
+                            >
+                                <FileMagnifyingGlassIcon />
+                            </ActionIcon>
+                        </Tooltip>
+                    </Group>
+                </DetailRow>
+                <DetailRow label="Sample Data">{image.sampleDataPath || '-'}</DetailRow>
+                <DetailRow label="File Format">{SAMPLE_DATA_FORMAT_LABELS[image.sampleDataFormat as string] || '-'}</DetailRow>
+                <DetailRow label="Env Vars">{envVars}</DetailRow>
+                <DetailRow label="Created At">{new Date(image.createdAt).toISOString()}</DetailRow>
+            </Stack>
+        </Box>
+    )
+}
+
 const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, canDelete }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
+    const [detailOpened, { toggle: toggleDetail }] = useDisclosure(false)
     const [starterCode, setStarterCode] = useState<string | null>(null)
     const [isLoadingCode, setIsLoadingCode] = useState(false)
 
@@ -80,51 +144,33 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
     }
 
     return (
-        <Table.Tr>
-            <Table.Td>
-                <Group gap="xs" wrap="nowrap">
-                    <Text>{image.name}</Text>
+        <Box style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+            <Group justify="space-between" p="sm" wrap="nowrap">
+                <Group gap="sm" wrap="nowrap">
+                    <ActionIcon size="sm" variant="subtle" onClick={toggleDetail}>
+                        <CaretDownIcon
+                            style={{
+                                transform: detailOpened ? 'rotate(0deg)' : 'rotate(-90deg)',
+                                transition: 'transform 200ms',
+                            }}
+                        />
+                    </ActionIcon>
+                    <Text fw={500}>{image.name}</Text>
+                    <Badge
+                        variant="light"
+                        size="sm"
+                        style={{ cursor: 'pointer' }}
+                        onClick={handleViewCode}
+                    >
+                        {image.language}
+                    </Badge>
+                    {image.isTesting && (
+                        <Badge variant="light" size="sm" color="orange">
+                            Testing
+                        </Badge>
+                    )}
                 </Group>
-            </Table.Td>
-            <Table.Td>{image.language}</Table.Td>
-            <Table.Td>{image.url}</Table.Td>
-            <Table.Td>{image.cmdLine}</Table.Td>
-            <Table.Td>
-                <Flex align="center" gap="sm">
-                    <span>{basename(image.starterCodePath)}</span>
-                    <Tooltip label="View Starter Code" withArrow>
-                        <ActionIcon
-                            size="sm"
-                            variant="subtle"
-                            color="blue"
-                            onClick={handleViewCode}
-                            loading={isLoadingCode}
-                        >
-                            <FileMagnifyingGlassIcon />
-                        </ActionIcon>
-                    </Tooltip>
-                </Flex>
-            </Table.Td>
-            <Table.Td>{image.sampleDataPath || '-'}</Table.Td>
-            <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
-            <Table.Td>
-                <Text
-                    size="sm"
-                    style={{
-                        maxWidth: 100,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
-                    {((image.settings as OrgCodeEnvSettings)?.environment || [])
-                        .map((v) => `${v.name}=${v.value}`)
-                        .join(', ') || '-'}
-                </Text>
-            </Table.Td>
-            <Table.Td>{new Date(image.createdAt).toISOString()}</Table.Td>
-            <Table.Td>
-                <Group gap={4} justify="center" wrap="nowrap">
+                <Group gap={4} wrap="nowrap">
                     <Tooltip label="Edit" withArrow>
                         <ActionIcon size="sm" variant="subtle" color="green" onClick={openEditModal}>
                             <PencilIcon />
@@ -132,27 +178,32 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                     </Tooltip>
                     <DeleteCodeEnv />
                 </Group>
-                <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment">
-                    <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
-                </AppModal>
-                <AppModal
-                    isOpen={codeViewerOpened}
-                    onClose={closeCodeViewer}
-                    title={`Starter Code: ${basename(image.starterCodePath)}`}
-                    size="xl"
-                >
-                    {starterCode ? (
-                        <CodeViewer
-                            code={starterCode}
-                            language={image.language.toLowerCase() as 'python' | 'r'}
-                            fileName={basename(image.starterCodePath)}
-                        />
-                    ) : (
-                        <LoadingMessage message="Loading starter code..." />
-                    )}
-                </AppModal>
-            </Table.Td>
-        </Table.Tr>
+            </Group>
+
+            <Collapse in={detailOpened}>
+                <CodeEnvDetailPanel image={image} onViewCode={handleViewCode} isLoadingCode={isLoadingCode} />
+            </Collapse>
+
+            <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment">
+                <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
+            </AppModal>
+            <AppModal
+                isOpen={codeViewerOpened}
+                onClose={closeCodeViewer}
+                title={`Starter Code: ${basename(image.starterCodePath)}`}
+                size="xl"
+            >
+                {starterCode ? (
+                    <CodeViewer
+                        code={starterCode}
+                        language={image.language.toLowerCase() as 'python' | 'r'}
+                        fileName={basename(image.starterCodePath)}
+                    />
+                ) : (
+                    <LoadingMessage message="Loading starter code..." />
+                )}
+            </AppModal>
+        </Box>
     )
 }
 
@@ -165,40 +216,14 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
         )
     }
 
-    // Count non-testing images per language
-    const nonTestImageCountByLanguage = images.reduce(
-        (acc, img) => {
-            if (!img.isTesting) {
-                acc[img.language] = (acc[img.language] || 0) + 1
-            }
-            return acc
-        },
-        {} as Record<string, number>,
-    )
+    const canDelete = images.length > 1
 
     return (
-        <Table striped highlightOnHover withTableBorder withColumnBorders>
-            <Table.Thead>
-                <Table.Tr>
-                    <Table.Th>Name</Table.Th>
-                    <Table.Th>Language</Table.Th>
-                    <Table.Th>URL</Table.Th>
-                    <Table.Th>Command Line</Table.Th>
-                    <Table.Th>Starter Code</Table.Th>
-                    <Table.Th>Sample Data</Table.Th>
-                    <Table.Th>Is Testing</Table.Th>
-                    <Table.Th>Env Vars</Table.Th>
-                    <Table.Th>Created At</Table.Th>
-                    <Table.Th>Actions</Table.Th>
-                </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-                {images.map((image, key) => {
-                    const canDelete = image.isTesting || (nonTestImageCountByLanguage[image.language] || 0) > 1
-                    return <CodeEnvRow key={key} image={image} canDelete={canDelete} />
-                })}
-            </Table.Tbody>
-        </Table>
+        <Stack gap={0}>
+            {images.map((image, key) => (
+                <CodeEnvRow key={key} image={image} canDelete={canDelete} />
+            ))}
+        </Stack>
     )
 }
 

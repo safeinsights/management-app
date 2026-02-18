@@ -103,6 +103,7 @@ export interface OrgCodeEnv {
     language: Language
     name: string
     orgId: string
+    sampleDataFormat: string | null
     sampleDataPath: string | null
     sampleDataStoragePath: string | null
     settings: Generated<OrgCodeEnvSettings>

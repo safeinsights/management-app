@@ -40,6 +40,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             isTesting: image?.isTesting || false,
             starterCode: undefined,
             sampleDataPath: image?.sampleDataPath || '',
+            sampleDataFormat: (image?.sampleDataFormat as 'parquet' | 'avro' | 'pg_backup' | 'csv' | null) || null,
             settings: {
                 environment: image?.settings?.environment || [],
             },

@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Group, ActionIcon, Box } from '@mantine/core'
+import { Button, Checkbox, Divider, FileInput, Flex, Radio, Select, Stack, TextInput, Text, Title, Group, ActionIcon, Box } from '@mantine/core'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
@@ -53,7 +53,23 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <TextInput label="Name" placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
+                <Group align="flex-start" wrap="nowrap" >
+                    <TextInput
+                        label="Name"
+                        placeholder="e.g., R 4.2.0 Code Environment"
+                        {...form.getInputProps('name')}
+                        style={{ flex: 1 }}
+                    />
+                    <Box>
+                        <Text size="sm" fw={500} mb={7}>
+                            Is testing image
+                        </Text>
+                        <Checkbox
+                            {...form.getInputProps('isTesting', { type: 'checkbox' })}
+                        />
+                        <Text c="dimmed" size="sm">Only admins can use testing images</Text>
+                    </Box>
+                </Group>
                 <TextInput
                     label="Command Line"
                     placeholder="Rscript %f"
@@ -90,29 +106,23 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         Current file: {basename(image.starterCodePath)}
                     </Text>
                 )}
-                <Checkbox
-                    label="Is Testing Image"
-                    description="Only admins will be able to select testing images"
-                    {...form.getInputProps('isTesting', { type: 'checkbox' })}
-                    mt="sm"
-                />
-
-                <Box mt="md">
-                    <Text fw={500} size="sm" mb={4}>
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
                         Sample Data
-                    </Text>
+                    </Title>
                     <Text size="xs" c="dimmed" mb="sm">
-                        Optional files available to researchers when they launch an IDE
+                        Files available to researchers when they develop in Coder
                     </Text>
                     <Stack gap="xs">
                         <TextInput
-                            label="Sample Data Path"
+                            label="Data Path"
                             description="Directory path where files appear in the workspace (e.g. data/)"
                             placeholder="data/"
                             {...form.getInputProps('sampleDataPath')}
                         />
                         <FileInput
-                            label="Sample Data Files"
+                            label="Files"
                             description={
                                 isEditMode
                                     ? 'Upload new files to replace the existing sample data (optional)'
@@ -123,13 +133,25 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             value={sampleDataFiles}
                             onChange={setSampleDataFiles}
                         />
+                        <Radio.Group
+                            label="File Format"
+                            {...form.getInputProps('sampleDataFormat')}
+                        >
+                            <Flex gap="md" mt="xs">
+                                <Radio value="parquet" label="Parquet" />
+                                <Radio value="avro" label="Avro" />
+                                <Radio value="pg_backup" label="Postgresql Backup" />
+                                <Radio value="csv" label="CSV" />
+                            </Flex>
+                        </Radio.Group>
                     </Stack>
                 </Box>
 
-                <Box mt="md">
-                    <Text fw={500} size="sm" mb={4}>
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
                         Environment Variables
-                    </Text>
+                    </Title>
                     <Text size="xs" c="dimmed" mb="sm">
                         Define environment variables available to the container
                     </Text>
