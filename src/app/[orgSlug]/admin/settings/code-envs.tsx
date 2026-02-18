@@ -105,6 +105,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                     </Tooltip>
                 </Flex>
             </Table.Td>
+            <Table.Td>{image.sampleDataPath || '-'}</Table.Td>
             <Table.Td>{image.isTesting ? 'Yes' : 'No'}</Table.Td>
             <Table.Td>
                 <Text
@@ -184,6 +185,7 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
                     <Table.Th>URL</Table.Th>
                     <Table.Th>Command Line</Table.Th>
                     <Table.Th>Starter Code</Table.Th>
+                    <Table.Th>Sample Data</Table.Th>
                     <Table.Th>Is Testing</Table.Th>
                     <Table.Th>Env Vars</Table.Th>
                     <Table.Th>Created At</Table.Th>

@@ -25,6 +25,9 @@ export const pathForStarterCode = ({
     fileName,
 }: MinimalOrgInfo & { codeEnvId: string; fileName: string }) => `starter-code/${orgSlug}/${codeEnvId}/${fileName}`
 
+export const pathForSampleData = ({ orgSlug, codeEnvId }: MinimalOrgInfo & { codeEnvId: string }) =>
+    `sample-data/${orgSlug}/${codeEnvId}`
+
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
 

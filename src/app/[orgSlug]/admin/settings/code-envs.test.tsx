@@ -23,6 +23,7 @@ vi.mock('@/server/aws', async () => {
         ...actual,
         storeS3File: vi.fn().mockResolvedValue(undefined),
         deleteS3File: vi.fn().mockResolvedValue(undefined),
+        deleteFolderContents: vi.fn().mockResolvedValue(undefined),
     }
 })
 
@@ -238,6 +239,6 @@ describe('CodeEnvs', async () => {
 
         expect(screen.getByText('Env Vars')).toBeInTheDocument()
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
-        expect(screen.getByText('-')).toBeInTheDocument()
+        expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
     })
 })

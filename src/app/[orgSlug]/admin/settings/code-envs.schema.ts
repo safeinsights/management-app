@@ -22,6 +22,9 @@ const codeEnvSettingsSchema = z.object({
         }, 'Environment variable names must be unique'),
 })
 
+// Valid pathname: alphanumeric, hyphens, underscores, dots, forward slashes
+const pathnameRegex = /^[A-Za-z0-9_\-./]+$/
+
 // Base schema with common fields
 const codeEnvFieldsSchema = z.object({
     name: z.string().nonempty(),
@@ -30,6 +33,12 @@ const codeEnvFieldsSchema = z.object({
     url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.default({ environment: [] }),
+    sampleDataPath: z
+        .string()
+        .max(250)
+        .regex(pathnameRegex, 'Must be a valid file path (e.g. data/sample.csv)')
+        .optional()
+        .or(z.literal('')),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)
@@ -53,6 +62,7 @@ export const createOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
         .refine((file) => file && file.size < MAX_FILE_SIZE, {
             message: `starter code file size must be less than ${MAX_FILE_SIZE_STR}`,
         }),
+    sampleDataUploaded: z.boolean().optional(),
 })
 
 export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
@@ -63,6 +73,7 @@ export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
         })
         .optional()
         .or(z.undefined()),
+    sampleDataUploaded: z.boolean().optional(),
 })
 
 // Form schemas with UI-only fields for new env var input

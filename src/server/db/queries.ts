@@ -264,7 +264,13 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
-        .select(['orgCodeEnv.url', 'orgCodeEnv.settings', 'orgCodeEnv.starterCodePath'])
+        .select([
+            'orgCodeEnv.url',
+            'orgCodeEnv.settings',
+            'orgCodeEnv.starterCodePath',
+            'orgCodeEnv.sampleDataStoragePath',
+            'orgCodeEnv.sampleDataPath',
+        ])
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
 

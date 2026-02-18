@@ -177,7 +177,15 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
 
-    // Create parent directory if needed and then write file
     await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
     await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
+
+    if (codeEnv.sampleDataStoragePath && codeEnv.sampleDataPath) {
+        logger.info(`Initializing workspace with sample data for study ${studyId} ...`)
+        const sampleData = await fetchFileContents(codeEnv.sampleDataStoragePath)
+        const sampleTargetPath = path.join(coderBaseFilePath, studyId, codeEnv.sampleDataPath)
+        logger.info(`Writing sample data to ${sampleTargetPath} for study ${studyId}`)
+        await fs.mkdir(path.dirname(sampleTargetPath), { recursive: true })
+        await fs.writeFile(sampleTargetPath, Buffer.from(await sampleData.arrayBuffer()))
+    }
 }

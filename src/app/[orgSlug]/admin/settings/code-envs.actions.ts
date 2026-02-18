@@ -6,8 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { storeS3File, deleteS3File } from '@/server/aws'
-import { pathForStarterCode } from '@/lib/paths'
+import { storeS3File, deleteS3File, deleteFolderContents, signedUrlForSampleDataUpload } from '@/server/aws'
+import { pathForStarterCode, pathForSampleData } from '@/lib/paths'
 import { fetchFileContents } from '@/server/storage'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
@@ -23,7 +23,7 @@ const codeEnvFromOrgAndId = async ({
     const codeEnv = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'org.id as orgId']) // orgId is needed for permissions check
+        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'orgCodeEnv.sampleDataStoragePath', 'org.id as orgId'])
         .where('org.slug', '=', orgSlug)
         .where('orgCodeEnv.id', '=', imageId)
         .executeTakeFirstOrThrow()
@@ -49,6 +49,8 @@ const createOrgCodeEnvSchema = z.object({
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
+    sampleDataPath: z.string().optional(),
+    sampleDataUploaded: z.boolean().optional(),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -56,7 +58,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, starterCode, ...fieldValues } = params
+        const { orgSlug, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
 
         const id = uuidv7()
 
@@ -67,6 +69,11 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
         })
         await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
+        let sampleDataStoragePath: string | null = null
+        if (sampleDataUploaded && sampleDataPath) {
+            sampleDataStoragePath = pathForSampleData({ orgSlug, codeEnvId: id })
+        }
+
         const newCodeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
@@ -75,6 +82,8 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 ...fieldValues,
                 settings: fieldValues.settings,
                 starterCodePath,
+                sampleDataPath: sampleDataPath || null,
+                sampleDataStoragePath,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -94,14 +103,16 @@ const updateOrgCodeEnvSchema = z.object({
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
+    sampleDataPath: z.string().optional(),
+    sampleDataUploaded: z.boolean().optional(),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params, starterCodePath, db }) => {
-        const { orgSlug, imageId, starterCode, ...fieldValues } = params
+    .handler(async ({ params, starterCodePath, sampleDataStoragePath, db }) => {
+        const { orgSlug, imageId, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
 
         if (starterCode && starterCode.size > 0) {
             const newStarterCodePath = pathForStarterCode({
@@ -114,12 +125,22 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             starterCodePath = newStarterCodePath
         }
 
+        let newSampleDataStoragePath = sampleDataStoragePath
+        if (sampleDataUploaded && sampleDataPath) {
+            newSampleDataStoragePath = pathForSampleData({ orgSlug, codeEnvId: imageId })
+            if (sampleDataStoragePath) {
+                await deleteFolderContents(sampleDataStoragePath)
+            }
+        }
+
         const updatedCodeEnv = await db
             .updateTable('orgCodeEnv')
             .set({
                 ...fieldValues,
                 settings: fieldValues.settings,
                 starterCodePath,
+                sampleDataPath: sampleDataPath || null,
+                sampleDataStoragePath: newSampleDataStoragePath,
             })
             .where('id', '=', imageId)
             .returningAll()
@@ -161,6 +182,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .select([
                 'orgCodeEnv.id',
                 'orgCodeEnv.starterCodePath',
+                'orgCodeEnv.sampleDataStoragePath',
                 'orgCodeEnv.language',
                 'orgCodeEnv.isTesting',
                 'orgCodeEnv.orgId',
@@ -191,6 +213,9 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         }
 
         await deleteS3File(codeEnv.starterCodePath)
+        if (codeEnv.sampleDataStoragePath) {
+            await deleteFolderContents(codeEnv.sampleDataStoragePath)
+        }
 
         await db
             .deleteFrom('orgCodeEnv')
@@ -213,4 +238,18 @@ export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
         const blob = await fetchFileContents(codeEnv.starterCodePath)
         const content = await blob.text()
         return { content, path: codeEnv.starterCodePath }
+    })
+
+const getSampleDataUploadUrlSchema = z.object({
+    orgSlug: z.string(),
+    codeEnvId: z.string(),
+})
+
+export const getSampleDataUploadUrlAction = new Action('getSampleDataUploadUrlAction')
+    .params(getSampleDataUploadUrlSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ params: { orgSlug, codeEnvId } }) => {
+        const prefix = `sample-data/${orgSlug}/${codeEnvId}`
+        return await signedUrlForSampleDataUpload(prefix)
     })
