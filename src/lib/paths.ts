@@ -1,4 +1,4 @@
-import type { MinimalJobInfo, MinimalOrgInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
+import type { MinimalCodeEnvInfo, MinimalJobInfo, MinimalStudyInfo, StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from './utils'
 
 export const pathForStudy = (parts: MinimalStudyInfo) => `studies/${parts.orgSlug}/${parts.studyId}`
@@ -19,14 +19,12 @@ export const pathForStudyDocuments = (parts: MinimalStudyInfo, docType: StudyDoc
 export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: StudyDocumentType, fileName: string) =>
     `${pathForStudyDocuments(parts, docType)}/${sanitizeFileName(fileName)}`
 
-export const pathForStarterCode = ({
-    orgSlug,
-    codeEnvId,
-    fileName,
-}: MinimalOrgInfo & { codeEnvId: string; fileName: string }) => `starter-code/${orgSlug}/${codeEnvId}/${fileName}`
+const pathForCodeEnv = (parts: MinimalCodeEnvInfo) => `code-env/${parts.orgSlug}/${parts.codeEnvId}`
 
-export const pathForSampleData = ({ orgSlug, codeEnvId }: MinimalOrgInfo & { codeEnvId: string }) =>
-    `sample-data/${orgSlug}/${codeEnvId}`
+export const pathForStarterCode = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
+    `${pathForCodeEnv(parts)}/starter-code/${parts.fileName}`
+
+export const pathForSampleData = (parts: MinimalCodeEnvInfo) => `${pathForCodeEnv(parts)}/sample-data`
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`

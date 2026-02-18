@@ -145,6 +145,12 @@ export const minimalJobInfoSchema = minimalStudyInfoSchema.extend({
 
 export type MinimalJobInfo = z.infer<typeof minimalJobInfoSchema>
 
+export const minimalCodeEnvInfoSchema = minimalOrgInfoSchema.extend({
+    codeEnvId: z.string(),
+})
+
+export type MinimalCodeEnvInfo = z.infer<typeof minimalCodeEnvInfoSchema>
+
 export type AllStatus = StudyJobStatus | StudyStatus
 
 export const JOB_FINAL_STATUSES: StudyJobStatus[] = ['CODE-REJECTED', 'JOB-ERRORED', 'FILES-APPROVED', 'FILES-REJECTED']
