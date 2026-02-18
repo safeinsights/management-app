@@ -1,6 +1,21 @@
 'use client'
 
-import { Button, Checkbox, Divider, FileInput, Flex, Radio, Select, Stack, TextInput, Text, Title, Group, ActionIcon, Box } from '@mantine/core'
+import {
+    Button,
+    Checkbox,
+    Divider,
+    FileInput,
+    Flex,
+    Radio,
+    Select,
+    Stack,
+    TextInput,
+    Text,
+    Title,
+    Group,
+    ActionIcon,
+    Box,
+} from '@mantine/core'
 import { ActionSuccessType, SAMPLE_DATA_FORMATS } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
@@ -53,7 +68,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <Group align="flex-start" wrap="nowrap" >
+                <Group align="flex-start" wrap="nowrap">
                     <TextInput
                         label="Name"
                         placeholder="e.g., R 4.2.0 Code Environment"
@@ -64,10 +79,10 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                         <Text size="sm" fw={500} mb={7}>
                             Is testing image
                         </Text>
-                        <Checkbox
-                            {...form.getInputProps('isTesting', { type: 'checkbox' })}
-                        />
-                        <Text c="dimmed" size="sm">Only admins can use testing images</Text>
+                        <Checkbox {...form.getInputProps('isTesting', { type: 'checkbox' })} />
+                        <Text c="dimmed" size="sm">
+                            Only admins can use testing images
+                        </Text>
                     </Box>
                 </Group>
                 <TextInput
@@ -133,10 +148,7 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             value={sampleDataFiles}
                             onChange={setSampleDataFiles}
                         />
-                        <Radio.Group
-                            label="File Format"
-                            {...form.getInputProps('sampleDataFormat')}
-                        >
+                        <Radio.Group label="File Format" {...form.getInputProps('sampleDataFormat')}>
                             <Flex gap="md" mt="xs">
                                 {Object.entries(SAMPLE_DATA_FORMATS).map(([value, label]) => (
                                     <Radio key={value} value={value} label={label} />

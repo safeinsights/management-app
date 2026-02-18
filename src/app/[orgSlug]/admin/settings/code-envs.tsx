@@ -1,12 +1,33 @@
 'use client'
 
-import { Stack, Title, Divider, Paper, Text, Button, Group, ActionIcon, Tooltip, Collapse, Grid, GridCol, Badge, Box } from '@mantine/core'
+import {
+    Stack,
+    Title,
+    Divider,
+    Paper,
+    Text,
+    Button,
+    Group,
+    ActionIcon,
+    Tooltip,
+    Collapse,
+    Grid,
+    GridCol,
+    Badge,
+    Box,
+} from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
 import { CodeEnvForm } from './code-env-form'
-import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlassIcon, CaretDownIcon } from '@phosphor-icons/react/dist/ssr'
+import {
+    TrashIcon,
+    PlusCircleIcon,
+    PencilIcon,
+    FileMagnifyingGlassIcon,
+    CaretDownIcon,
+} from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
@@ -70,7 +91,9 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                     </Group>
                 </DetailRow>
                 <DetailRow label="Sample Data">{image.sampleDataPath || '-'}</DetailRow>
-                <DetailRow label="File Format">{SAMPLE_DATA_FORMATS[image.sampleDataFormat as SampleDataFormat] || '-'}</DetailRow>
+                <DetailRow label="File Format">
+                    {SAMPLE_DATA_FORMATS[image.sampleDataFormat as SampleDataFormat] || '-'}
+                </DetailRow>
                 <DetailRow label="Env Vars">{envVars}</DetailRow>
                 <DetailRow label="Created At">{new Date(image.createdAt).toISOString()}</DetailRow>
             </Stack>
@@ -149,12 +172,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                         />
                     </ActionIcon>
                     <Text fw={500}>{image.name}</Text>
-                    <Badge
-                        variant="light"
-                        size="sm"
-                        style={{ cursor: 'pointer' }}
-                        onClick={handleViewCode}
-                    >
+                    <Badge variant="light" size="sm" style={{ cursor: 'pointer' }} onClick={handleViewCode}>
                         {image.language}
                     </Badge>
                     {image.isTesting && (

@@ -9,9 +9,5 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-    await db.schema
-        .alterTable('org_code_env')
-        .dropColumn('sample_data_path')
-        .dropColumn('sample_data_format')
-        .execute()
+    await db.schema.alterTable('org_code_env').dropColumn('sample_data_path').dropColumn('sample_data_format').execute()
 }

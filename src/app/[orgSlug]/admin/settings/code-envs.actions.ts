@@ -53,7 +53,10 @@ const createOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z.enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]).nullable().optional(),
+    sampleDataFormat: z
+        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+        .nullable()
+        .optional(),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -102,7 +105,10 @@ const updateOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z.enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]).nullable().optional(),
+    sampleDataFormat: z
+        .enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]])
+        .nullable()
+        .optional(),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
