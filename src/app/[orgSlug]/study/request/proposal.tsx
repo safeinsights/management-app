@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { notifications } from '@mantine/notifications'
 import { Stack } from '@mantine/core'
@@ -24,6 +24,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     const { form, existingFiles, isFormValid, isStep1Valid, saveDraft, isSaving, reset, initFromDraft } =
         useStudyRequest()
     const isOpenStaxFlow = useOpenStaxFeatureFlag()
+    const [isProceeding, setIsProceeding] = useState(false)
 
     useEffect(() => {
         // Only initialize if we have draft data to load
@@ -35,6 +36,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
     }, [draftData?.id, submittingOrgSlug])
 
     const handleSave = (proceed: boolean) => {
+        if (proceed) setIsProceeding(true)
         saveDraft({
             onSuccess: ({ studyId: newStudyId }) => {
                 form.resetDirty()
@@ -56,6 +58,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                     })
                 }
             },
+            onError: () => setIsProceeding(false),
         })
     }
 
@@ -86,7 +89,7 @@ export const StudyProposal: React.FC<StudyProposalProps> = ({ studyId, draftData
                 <StudyProposalForm studyProposalForm={form} existingFiles={existingFiles} />
 
                 <ProposalFooterActions
-                    isSaving={isSaving}
+                    isSaving={isSaving || isProceeding}
                     isValid={isOpenStaxFlow ? isStep1Valid : isFormValid}
                     onSave={handleSave}
                     saveDraft={isOpenStaxFlow ? undefined : { isDirty: form.isDirty() }}
