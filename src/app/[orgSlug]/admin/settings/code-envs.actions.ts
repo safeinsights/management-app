@@ -8,6 +8,7 @@ import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
 import { storeS3File, deleteS3File, deleteFolderContents, signedUrlForSampleDataUpload } from '@/server/aws'
 import { pathForStarterCode, pathForSampleData } from '@/lib/paths'
+import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import type { DB } from '@/database/types'
@@ -79,7 +80,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 ...fieldValues,
                 settings: fieldValues.settings,
                 starterCodePath,
-                sampleDataPath: sampleDataPath || null,
+                sampleDataPath: sampleDataPath ? sanitizeFileName(sampleDataPath) : null,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -132,7 +133,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 ...fieldValues,
                 settings: fieldValues.settings,
                 starterCodePath,
-                sampleDataPath: sampleDataPath || null,
+                sampleDataPath: sampleDataPath ? sanitizeFileName(sampleDataPath) : null,
             })
             .where('id', '=', imageId)
             .returningAll()
