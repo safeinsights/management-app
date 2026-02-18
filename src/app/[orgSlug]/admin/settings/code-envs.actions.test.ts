@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import { mockSessionWithTestData, actionResult, insertTestBaseImage } from '@/tests/unit.helpers'
+import { mockSessionWithTestData, actionResult, insertTestCodeEnv } from '@/tests/unit.helpers'
 import {
-    createOrgBaseImageAction,
-    deleteOrgBaseImageAction,
-    fetchOrgBaseImagesAction,
-    updateOrgBaseImageAction,
-} from './base-images.actions'
+    createOrgCodeEnvAction,
+    deleteOrgCodeEnvAction,
+    fetchOrgCodeEnvsAction,
+    updateOrgCodeEnvAction,
+} from './code-envs.actions'
 import { db } from '@/database'
 import { isActionError } from '@/lib/errors'
-import { OrgBaseImageSettings } from '@/database/types'
+import { OrgCodeEnvSettings } from '@/database/types'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -19,15 +19,14 @@ vi.mock('@/server/aws', async () => {
     }
 })
 
-describe('Base Images Actions', () => {
-    it('createOrgBaseImageAction creates a base image', async () => {
+describe('Code Environment Actions', () => {
+    it('createOrgCodeEnvAction creates a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Create a mock File for starterCode
         const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
 
         const result = actionResult(
-            await createOrgBaseImageAction({
+            await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image',
                 cmdLine: 'test command',
@@ -45,10 +44,10 @@ describe('Base Images Actions', () => {
         expect(result.starterCodePath).toBeDefined()
     })
 
-    it('deleteOrgBaseImageAction deletes a base image', async () => {
+    it('deleteOrgCodeEnvAction deletes a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image to Delete',
@@ -61,16 +60,16 @@ describe('Base Images Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: baseImage.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: codeEnv.id })
 
-        const deletedImage = await db.selectFrom('orgBaseImage').where('id', '=', baseImage.id).executeTakeFirst()
+        const deletedImage = await db.selectFrom('orgCodeEnv').where('id', '=', codeEnv.id).executeTakeFirst()
         expect(deletedImage).toBeUndefined()
     })
 
-    it('fetchOrgBaseImagesAction fetches base images', async () => {
+    it('fetchOrgCodeEnvsAction fetches code environments', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         await db
-            .insertInto('orgBaseImage')
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image to Fetch',
@@ -82,15 +81,15 @@ describe('Base Images Actions', () => {
             })
             .execute()
 
-        const result = actionResult(await fetchOrgBaseImagesAction({ orgSlug: org.slug }))
+        const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
         expect(result).toHaveLength(1)
         expect(result[0].name).toEqual('Test Image to Fetch')
     })
 
-    it('updateOrgBaseImageAction updates a base image without changing starter code', async () => {
+    it('updateOrgCodeEnvAction updates a code environment without changing starter code', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image to Update',
@@ -104,9 +103,9 @@ describe('Base Images Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(
-            await updateOrgBaseImageAction({
+            await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: baseImage.id,
+                imageId: codeEnv.id,
                 name: 'Updated Test Image',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -125,10 +124,10 @@ describe('Base Images Actions', () => {
         expect(result.starterCodePath).toEqual('test/path/to/starter.py') // Should remain unchanged
     })
 
-    it('updateOrgBaseImageAction updates a base image with new starter code file', async () => {
+    it('updateOrgCodeEnvAction updates a code environment with new starter code file', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image to Update',
@@ -144,9 +143,9 @@ describe('Base Images Actions', () => {
         const mockNewFile = new File(['new content'], 'new-starter.py', { type: 'text/plain' })
 
         const result = actionResult(
-            await updateOrgBaseImageAction({
+            await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: baseImage.id,
+                imageId: codeEnv.id,
                 name: 'Updated Test Image',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -160,14 +159,14 @@ describe('Base Images Actions', () => {
         expect(result).toBeDefined()
         expect(result.name).toEqual('Updated Test Image')
         expect(result.starterCodePath).toBeDefined()
-        expect(result.starterCodePath).toContain('new-starter.py') // Should have new file path
+        expect(result.starterCodePath).toContain('new-starter.py')
     })
 
-    it('updateOrgBaseImageAction denies update for non-admin org member', async () => {
+    it('updateOrgCodeEnvAction denies update for non-admin org member', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false })
 
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Non-admin cannot update',
@@ -180,9 +179,9 @@ describe('Base Images Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        const result = await updateOrgBaseImageAction({
+        const result = await updateOrgCodeEnvAction({
             orgSlug: org.slug,
-            imageId: baseImage.id,
+            imageId: codeEnv.id,
             name: 'Attempted Update',
             cmdLine: 'updated command',
             language: 'PYTHON',
@@ -194,11 +193,11 @@ describe('Base Images Actions', () => {
         expect(isActionError(result)).toBe(true)
     })
 
-    it('updateOrgBaseImageAction allows SI admin to update even if not org admin', async () => {
+    it('updateOrgCodeEnvAction allows SI admin to update even if not org admin', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: false, isSiAdmin: true })
 
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'SI admin can update',
@@ -212,9 +211,9 @@ describe('Base Images Actions', () => {
             .executeTakeFirstOrThrow()
 
         const result = actionResult(
-            await updateOrgBaseImageAction({
+            await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: baseImage.id,
+                imageId: codeEnv.id,
                 name: 'Updated by SI admin',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -232,93 +231,81 @@ describe('Base Images Actions', () => {
         expect(result.isTesting).toEqual(true)
     })
 
-    it('deleteOrgBaseImageAction prevents deletion of last non-testing image per language', async () => {
+    it('deleteOrgCodeEnvAction prevents deletion of last non-testing code environment per language', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Create the only non-testing R image
-        const rImage = await insertTestBaseImage({
+        const rImage = await insertTestCodeEnv({
             orgId: org.id,
             name: 'Only R Image',
             language: 'R',
             isTesting: false,
         })
 
-        // Create another Python image to ensure we have multiple languages
-        await insertTestBaseImage({
+        await insertTestCodeEnv({
             orgId: org.id,
             name: 'Python Image',
             language: 'PYTHON',
             isTesting: false,
         })
 
-        // Try to delete the only R image - should fail
-        const result = await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: rImage.id })
+        const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: rImage.id })
 
-        // Check that result has an error
         expect(isActionError(result)).toBe(true)
         if (isActionError(result)) {
-            expect(result.error).toContain('Cannot delete the last non-testing R base image')
+            expect(result.error).toContain('Cannot delete the last non-testing R code environment')
         }
 
-        // Verify image was not deleted
-        const stillExists = await db.selectFrom('orgBaseImage').where('id', '=', rImage.id).executeTakeFirst()
+        const stillExists = await db.selectFrom('orgCodeEnv').where('id', '=', rImage.id).executeTakeFirst()
         expect(stillExists).toBeDefined()
     })
 
-    it('deleteOrgBaseImageAction allows deletion when multiple non-testing images exist for language', async () => {
+    it('deleteOrgCodeEnvAction allows deletion when multiple non-testing code environments exist for language', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Create two non-testing R images
-        const rImage1 = await insertTestBaseImage({
+        const rImage1 = await insertTestCodeEnv({
             orgId: org.id,
             name: 'R Image 1',
             language: 'R',
             isTesting: false,
         })
 
-        await insertTestBaseImage({
+        await insertTestCodeEnv({
             orgId: org.id,
             name: 'R Image 2',
             language: 'R',
             isTesting: false,
         })
 
-        // Should be able to delete one of them
-        await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: rImage1.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: rImage1.id })
 
-        // Verify image was deleted
-        const deleted = await db.selectFrom('orgBaseImage').where('id', '=', rImage1.id).executeTakeFirst()
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', rImage1.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
     })
 
-    it('deleteOrgBaseImageAction allows deletion of testing images regardless of count', async () => {
+    it('deleteOrgCodeEnvAction allows deletion of testing code environments regardless of count', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        // Create the only non-testing R image
-        await insertTestBaseImage({
+        await insertTestCodeEnv({
             orgId: org.id,
             name: 'Production R Image',
             language: 'R',
             isTesting: false,
         })
 
-        // Create a testing R image
-        const testingImage = await insertTestBaseImage({
+        const testingImage = await insertTestCodeEnv({
             orgId: org.id,
             name: 'Testing R Image',
             language: 'R',
             isTesting: true,
         })
 
-        // Should be able to delete the testing image even though it's the same language
-        await deleteOrgBaseImageAction({ orgSlug: org.slug, imageId: testingImage.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: testingImage.id })
 
-        // Verify testing image was deleted
-        const deleted = await db.selectFrom('orgBaseImage').where('id', '=', testingImage.id).executeTakeFirst()
+        const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', testingImage.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
     })
 
-    it('createOrgBaseImageAction creates a base image with environment variables', async () => {
+    it('createOrgCodeEnvAction creates a code environment with environment variables', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
@@ -328,7 +315,7 @@ describe('Base Images Actions', () => {
         ]
 
         const result = actionResult(
-            await createOrgBaseImageAction({
+            await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image with Env',
                 cmdLine: 'test command',
@@ -341,17 +328,16 @@ describe('Base Images Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect((result.settings as OrgBaseImageSettings).environment).toEqual(environment)
+        expect((result.settings as OrgCodeEnvSettings).environment).toEqual(environment)
     })
 
-    it('createOrgBaseImageAction defaults settings.environment to empty array', async () => {
+    it('createOrgCodeEnvAction defaults settings.environment to empty array', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
         const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
 
-        // Intentionally omitting settings to test default behavior
         const result = actionResult(
-            await createOrgBaseImageAction({
+            await createOrgCodeEnvAction({
                 orgSlug: org.slug,
                 name: 'Test Image without Env',
                 cmdLine: 'test command',
@@ -364,13 +350,13 @@ describe('Base Images Actions', () => {
         )
 
         expect(result).toBeDefined()
-        expect((result.settings as OrgBaseImageSettings).environment).toEqual([])
+        expect((result.settings as OrgCodeEnvSettings).environment).toEqual([])
     })
 
-    it('updateOrgBaseImageAction updates environment variables', async () => {
+    it('updateOrgCodeEnvAction updates environment variables', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-        const baseImage = await db
-            .insertInto('orgBaseImage')
+        const codeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image',
@@ -390,9 +376,9 @@ describe('Base Images Actions', () => {
         ]
 
         const result = actionResult(
-            await updateOrgBaseImageAction({
+            await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: baseImage.id,
+                imageId: codeEnv.id,
                 name: 'Test Image',
                 cmdLine: 'test command',
                 language: 'R',
@@ -402,13 +388,13 @@ describe('Base Images Actions', () => {
             }),
         )
         expect(result).toBeDefined()
-        expect((result.settings as OrgBaseImageSettings).environment).toEqual(newEnvironment)
+        expect((result.settings as OrgCodeEnvSettings).environment).toEqual(newEnvironment)
     })
 
-    it('updateOrgBaseImageAction allows org admin to update a base image', async () => {
+    it('updateOrgCodeEnvAction allows org admin to update a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        const baseImage = await insertTestBaseImage({
+        const codeEnv = await insertTestCodeEnv({
             orgId: org.id,
             name: 'Original Name',
             language: 'R',
@@ -416,9 +402,9 @@ describe('Base Images Actions', () => {
         })
 
         const result = actionResult(
-            await updateOrgBaseImageAction({
+            await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: baseImage.id,
+                imageId: codeEnv.id,
                 name: 'Admin Updated Name',
                 cmdLine: 'admin updated command',
                 language: 'PYTHON',
@@ -434,17 +420,17 @@ describe('Base Images Actions', () => {
         expect(result.language).toEqual('PYTHON')
         expect(result.url).toEqual('admin-updated-url')
         expect(result.isTesting).toEqual(true)
-        expect((result.settings as OrgBaseImageSettings).environment).toEqual([
+        expect((result.settings as OrgCodeEnvSettings).environment).toEqual([
             { name: 'ADMIN_VAR', value: 'admin_value' },
         ])
     })
 
-    it('fetchOrgBaseImagesAction returns environment variables', async () => {
+    it('fetchOrgCodeEnvsAction returns environment variables', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
         const environment = [{ name: 'TESTVAR', value: 'test_value' }]
 
         await db
-            .insertInto('orgBaseImage')
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: org.id,
                 name: 'Test Image with Env',
@@ -457,8 +443,8 @@ describe('Base Images Actions', () => {
             })
             .execute()
 
-        const result = actionResult(await fetchOrgBaseImagesAction({ orgSlug: org.slug }))
+        const result = actionResult(await fetchOrgCodeEnvsAction({ orgSlug: org.slug }))
         expect(result).toHaveLength(1)
-        expect((result[0].settings as OrgBaseImageSettings).environment).toEqual(environment)
+        expect((result[0].settings as OrgCodeEnvSettings).environment).toEqual(environment)
     })
 })

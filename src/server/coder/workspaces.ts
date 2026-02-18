@@ -12,7 +12,7 @@ import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
 import { CoderWorkspace, CoderWorkspaceEvent } from './types'
 import { getCoderUser, getOrCreateCoderUser } from './users'
 import { generateWorkspaceName } from './utils'
-import { fetchLatestBaseImageForStudyId } from '../db/queries'
+import { fetchLatestCodeEnvForStudyId } from '../db/queries'
 import { fetchFileContents } from '../storage'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
@@ -79,7 +79,7 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
     const user = await getOrCreateCoderUser(studyId)
     const workspaceName = generateWorkspaceName(studyId)
 
-    const baseImage = await fetchLatestBaseImageForStudyId(studyId)
+    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
 
     try {
         const workspaceData = await coderFetch<CoderWorkspace>(coderWorkspaceDataPath(user.username, workspaceName), {
@@ -97,8 +97,8 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
-                containerImage: baseImage.url,
-                environment: baseImage.settings?.environment || [],
+                containerImage: codeEnv.url,
+                environment: codeEnv.settings?.environment || [],
             })
         }
         throw error
@@ -167,12 +167,12 @@ export async function createUserAndWorkspace(
 
 const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     const coderBaseFilePath = await getConfigValue('CODER_FILES')
-    const baseImage = await fetchLatestBaseImageForStudyId(studyId)
+    const codeEnv = await fetchLatestCodeEnvForStudyId(studyId)
 
     logger.info(`Initializing workspace with starter code for study ${studyId} ...`)
 
-    const fileData = await fetchFileContents(baseImage.starterCodePath)
-    const fileName = basename(baseImage.starterCodePath)
+    const fileData = await fetchFileContents(codeEnv.starterCodePath)
+    const fileName = basename(codeEnv.starterCodePath)
     const targetFilePath = path.join(coderBaseFilePath, studyId, fileName)
 
     logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)

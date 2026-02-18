@@ -288,7 +288,7 @@ async function setupSiUser(clerk: ClerkClient, clerkUserId: string, config: Test
 }
 
 async function setupOrganizations() {
-    console.log('\n🏗️  Setting up organizations and base images...')
+    console.log('\n🏗️  Setting up organizations and code environments...')
 
     const pubKeyStr = readTestSupportFile('public_key.pem')
 
@@ -317,14 +317,14 @@ async function setupOrganizations() {
             console.log(`🔐 openstax already has publicKey configured`)
         }
 
-        const existingImages = await db.selectFrom('orgBaseImage').where('orgId', '=', org.id).execute()
+        const existingImages = await db.selectFrom('orgCodeEnv').where('orgId', '=', org.id).execute()
         if (existingImages.length === 0) {
             await db
-                .insertInto('orgBaseImage')
+                .insertInto('orgCodeEnv')
                 .values([
                     {
                         orgId: org.id,
-                        name: 'R Base Image',
+                        name: 'R Code Environment',
                         language: 'R',
                         url: 'public.ecr.aws/docker/library/r-base:latest',
                         cmdLine: 'Rscript main.r',
@@ -333,7 +333,7 @@ async function setupOrganizations() {
                     },
                     {
                         orgId: org.id,
-                        name: 'Python Base Image',
+                        name: 'Python Code Environment',
                         language: 'PYTHON',
                         url: 'public.ecr.aws/docker/library/python:latest',
                         cmdLine: 'python main.py',
@@ -342,9 +342,9 @@ async function setupOrganizations() {
                     },
                 ])
                 .execute()
-            console.log(`📦 Created base images for openstax`)
+            console.log(`📦 Created code environments for openstax`)
         } else {
-            console.log(`📦 Base images already exist for openstax`)
+            console.log(`📦 Code environments already exist for openstax`)
         }
     }
 
@@ -372,14 +372,14 @@ async function setupOrganizations() {
         console.log(`🏢 single-lang-r-enclave org already exists`)
     }
 
-    const existingSingleLangImages = await db.selectFrom('orgBaseImage').where('orgId', '=', singleLangOrg.id).execute()
+    const existingSingleLangImages = await db.selectFrom('orgCodeEnv').where('orgId', '=', singleLangOrg.id).execute()
 
     if (existingSingleLangImages.length === 0) {
         await db
-            .insertInto('orgBaseImage')
+            .insertInto('orgCodeEnv')
             .values({
                 orgId: singleLangOrg.id,
-                name: 'R Base Image (Single-Lang)',
+                name: 'R Code Environment (Single-Lang)',
                 language: 'R',
                 url: 'public.ecr.aws/docker/library/r-base:latest',
                 cmdLine: 'Rscript main.r',
@@ -387,9 +387,9 @@ async function setupOrganizations() {
                 isTesting: false,
             })
             .execute()
-        console.log(`📦 Created base image for single-lang-r-enclave`)
+        console.log(`📦 Created code environment for single-lang-r-enclave`)
     } else {
-        console.log(`📦 Base image already exists for single-lang-r-enclave`)
+        console.log(`📦 Code environment already exists for single-lang-r-enclave`)
     }
 
     let reviewerAdminOrg = await db

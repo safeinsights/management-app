@@ -8,6 +8,6 @@ export type EnvVar = {
     value: string
 }
 
-export type OrgBaseImageSettings = {
+export type OrgCodeEnvSettings = {
     environment: EnvVar[]
 }

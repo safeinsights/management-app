@@ -5,9 +5,9 @@ import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
 import { useDisclosure } from '@mantine/hooks'
 import { AppModal } from '@/components/modal'
-import { BaseImageForm } from './base-image-form'
+import { CodeEnvForm } from './code-env-form'
 import { TrashIcon, PlusCircleIcon, PencilIcon, FileMagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr'
-import { deleteOrgBaseImageAction, fetchOrgBaseImagesAction, fetchStarterCodeAction } from './base-images.actions'
+import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
 import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
@@ -18,11 +18,11 @@ import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
-import { OrgBaseImageSettings } from '@/database/types'
+import { OrgCodeEnvSettings } from '@/database/types'
 
-type BaseImage = ActionSuccessType<typeof fetchOrgBaseImagesAction>[number]
+type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
 
-const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ image, canDelete }) => {
+const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, canDelete }) => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
@@ -31,19 +31,19 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
     const [isLoadingCode, setIsLoadingCode] = useState(false)
 
     const deleteMutation = useMutation({
-        mutationFn: deleteOrgBaseImageAction,
+        mutationFn: deleteOrgCodeEnvAction,
         onSuccess: () => {
             queryClient.invalidateQueries({
-                queryKey: ['orgBaseImages', orgSlug],
+                queryKey: ['orgCodeEnvs', orgSlug],
             })
-            reportSuccess('Base image was deleted successfully')
+            reportSuccess('Code environment was deleted successfully')
         },
-        onError: reportMutationError('Failed to delete base image'),
+        onError: reportMutationError('Failed to delete code environment'),
     })
 
     const handleEditComplete = () => {
         closeEditModal()
-        queryClient.invalidateQueries({ queryKey: ['orgBaseImages', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
     const handleViewCode = async () => {
@@ -66,13 +66,13 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
         }
     }
 
-    const DeleteBaseImg = () => {
+    const DeleteCodeEnv = () => {
         if (!canDelete) return null
 
         return (
             <SuretyGuard
                 onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
-                message="Are you sure you want to delete this base image? This cannot be undone."
+                message="Are you sure you want to delete this code environment? This cannot be undone."
             >
                 <TrashIcon />
             </SuretyGuard>
@@ -116,7 +116,7 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                         whiteSpace: 'nowrap',
                     }}
                 >
-                    {((image.settings as OrgBaseImageSettings)?.environment || [])
+                    {((image.settings as OrgCodeEnvSettings)?.environment || [])
                         .map((v) => `${v.name}=${v.value}`)
                         .join(', ') || '-'}
                 </Text>
@@ -129,10 +129,10 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
                             <PencilIcon />
                         </ActionIcon>
                     </Tooltip>
-                    <DeleteBaseImg />
+                    <DeleteCodeEnv />
                 </Group>
-                <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Base Image">
-                    <BaseImageForm image={image} onCompleteAction={handleEditComplete} />
+                <AppModal isOpen={editModalOpened} onClose={closeEditModal} title="Edit Code Environment">
+                    <CodeEnvForm image={image} onCompleteAction={handleEditComplete} />
                 </AppModal>
                 <AppModal
                     isOpen={codeViewerOpened}
@@ -155,11 +155,11 @@ const BaseImageRow: React.FC<{ image: BaseImage; canDelete: boolean }> = ({ imag
     )
 }
 
-const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
+const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
     if (!images.length) {
         return (
             <Text fz="sm" c="dimmed" ta="center" p="md">
-                No base images available.
+                No code environments available.
             </Text>
         )
     }
@@ -192,17 +192,15 @@ const BaseImagesTable: React.FC<{ images: BaseImage[] }> = ({ images }) => {
             </Table.Thead>
             <Table.Tbody>
                 {images.map((image, key) => {
-                    // Testing images can always be deleted
-                    // Non-testing images can only be deleted if there are multiple non-testing images for that language
                     const canDelete = image.isTesting || (nonTestImageCountByLanguage[image.language] || 0) > 1
-                    return <BaseImageRow key={key} image={image} canDelete={canDelete} />
+                    return <CodeEnvRow key={key} image={image} canDelete={canDelete} />
                 })}
             </Table.Tbody>
         </Table>
     )
 }
 
-export const BaseImages: React.FC = () => {
+export const CodeEnvs: React.FC = () => {
     const { orgSlug } = useParams<{ orgSlug: string }>()
 
     const queryClient = useQueryClient()
@@ -210,19 +208,19 @@ export const BaseImages: React.FC = () => {
     const [addModalOpened, { open: openAddModal, close: closeAddModal }] = useDisclosure(false)
 
     const {
-        data: baseImages,
+        data: codeEnvs,
         isLoading,
         isError,
         error,
         refetch,
     } = useQuery({
-        queryKey: ['orgBaseImages', orgSlug],
-        queryFn: async () => await fetchOrgBaseImagesAction({ orgSlug }),
+        queryKey: ['orgCodeEnvs', orgSlug],
+        queryFn: async () => await fetchOrgCodeEnvsAction({ orgSlug }),
     })
 
     const handleFormComplete = () => {
         closeAddModal()
-        queryClient.invalidateQueries({ queryKey: ['orgBaseImages', orgSlug] })
+        queryClient.invalidateQueries({ queryKey: ['orgCodeEnvs', orgSlug] })
     }
 
     return (
@@ -230,30 +228,30 @@ export const BaseImages: React.FC = () => {
             <Stack>
                 <Group justify="space-between" align="center">
                     <Title order={3} size="lg">
-                        Base Research Container Images
+                        Code Environments
                     </Title>
                     <Button leftSection={<PlusCircleIcon size={16} />} onClick={openAddModal}>
-                        Add Image
+                        Add Code Environment
                     </Button>
                 </Group>
                 <Divider c="dimmed" />
 
-                {isLoading && <LoadingMessage message="Loading base images" />}
+                {isLoading && <LoadingMessage message="Loading code environments" />}
 
                 {isError && (
                     <ErrorPanel
-                        title={`Failed to load base images: ${error?.message || 'Unknown error'}`}
+                        title={`Failed to load code environments: ${error?.message || 'Unknown error'}`}
                         onContinue={refetch}
                     >
                         Retry
                     </ErrorPanel>
                 )}
 
-                {!isLoading && !isError && <BaseImagesTable images={baseImages || []} />}
+                {!isLoading && !isError && <CodeEnvsTable images={codeEnvs || []} />}
             </Stack>
 
-            <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add New Base Image">
-                <BaseImageForm onCompleteAction={handleFormComplete} />
+            <AppModal isOpen={addModalOpened} onClose={closeAddModal} title="Add Code Environment">
+                <CodeEnvForm onCompleteAction={handleFormComplete} />
             </AppModal>
         </Paper>
     )

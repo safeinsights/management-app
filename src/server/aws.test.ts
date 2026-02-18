@@ -37,7 +37,7 @@ describe('triggerBuildImageForJob', () => {
     it('should trigger a CodeBuild job with correct parameters', async () => {
         const mockJobInfo = {
             studyJobId: 'job-123',
-            baseImageURL: 'docker.io/my-base-image:latest',
+            codeEnvURL: 'docker.io/my-base-image:latest',
             codeEntryPointFileName: 'main.R',
             containerLocation: 'a-bad-url',
             cmdLine: 'Rscript %f --arg1 value1',
@@ -84,7 +84,7 @@ describe('triggerBuildImageForJob', () => {
             },
             { name: 'STUDY_JOB_ID', value: mockJobInfo.studyJobId },
             { name: 'S3_PATH', value: 'studies/org-xyz/study-abc/jobs/job-123/code' },
-            { name: 'DOCKER_BASE_IMAGE_LOCATION', value: mockJobInfo.baseImageURL },
+            { name: 'DOCKER_BASE_IMAGE_LOCATION', value: mockJobInfo.codeEnvURL },
             { name: 'DOCKER_CMD_LINE', value: 'Rscript main.R --arg1 value1' }, // %f replaced
             { name: 'DOCKER_CODE_LOCATION', value: `a-bad-url:job-123` },
         ]

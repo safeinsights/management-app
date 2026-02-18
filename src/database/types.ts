@@ -4,7 +4,7 @@
  */
 
 import type { ColumnType } from 'kysely'
-import type { OrgBaseImageSettings } from './types-manual'
+import type { OrgCodeEnvSettings } from './types-manual'
 
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
@@ -95,7 +95,7 @@ export interface Org {
     updatedAt: Generated<Timestamp>
 }
 
-export interface OrgBaseImage {
+export interface OrgCodeEnv {
     cmdLine: string
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -103,7 +103,7 @@ export interface OrgBaseImage {
     language: Language
     name: string
     orgId: string
-    settings: Generated<OrgBaseImageSettings>
+    settings: Generated<OrgCodeEnvSettings>
     starterCodePath: string
     url: string
 }
@@ -212,7 +212,7 @@ export interface DB {
     audit: Audit
     jobStatusChange: JobStatusChange
     org: Org
-    orgBaseImage: OrgBaseImage
+    orgCodeEnv: OrgCodeEnv
     orgUser: OrgUser
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition
@@ -225,4 +225,4 @@ export interface DB {
 }
 
 // Re-export manual types for convenience
-export type { EnvVar, OrgBaseImageSettings } from './types-manual'
+export type { EnvVar, OrgCodeEnvSettings } from './types-manual'

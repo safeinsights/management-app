@@ -10,8 +10,8 @@ npx kysely-codegen \
   --camel-case \
   --dialect postgres \
   --out-file $TYPES \
-  --overrides='{"columns":{"org_base_image.settings":"Generated<OrgBaseImageSettings>"}}' \
-  --custom-imports='{"OrgBaseImageSettings":"./types-manual#OrgBaseImageSettings"}'
+  --overrides='{"columns":{"org_code_env.settings":"Generated<OrgCodeEnvSettings>"}}' \
+  --custom-imports='{"OrgCodeEnvSettings":"./types-manual#OrgCodeEnvSettings"}'
 
 # run seeds after generating types above so the seed files see the updated DB state
 npx kysely seed:run
@@ -20,14 +20,14 @@ npx kysely seed:run
 # inspiration from https://github.com/RobinBlomberg/kysely-codegen/issues/273
 # kysely-codegen ovverides and custom-imports used above seem ineffectual even
 # though tho https://github.com/RobinBlomberg/kysely-codegen/pull/274 should have added it
-awk '/import type { ColumnType } from "kysely"/ {print; print "import type { OrgBaseImageSettings } from \"./types-manual\";"; next}1' $TYPES > ${TYPES}.tmp
+awk '/import type { ColumnType } from "kysely"/ {print; print "import type { OrgCodeEnvSettings } from \"./types-manual\";"; next}1' $TYPES > ${TYPES}.tmp
 mv ${TYPES}.tmp $TYPES
 
 # Re-export manual types at the end of the file for convenience
 if ! grep -q "export type { EnvVar" $TYPES; then
   echo "" >> $TYPES
   echo "// Re-export manual types for convenience" >> $TYPES
-  echo "export type { EnvVar, OrgBaseImageSettings } from './types-manual'" >> $TYPES
+  echo "export type { EnvVar, OrgCodeEnvSettings } from './types-manual'" >> $TYPES
 fi
 
 npx prettier --write $TYPES

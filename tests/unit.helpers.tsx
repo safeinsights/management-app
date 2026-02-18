@@ -540,7 +540,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
-export type InsertTestBaseImageOptions = {
+export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string
     language?: Language
@@ -551,15 +551,15 @@ export type InsertTestBaseImageOptions = {
     environment?: Array<{ name: string; value: string }>
 }
 
-export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
+export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
     const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
     const fileExtension = language === 'R' ? 'R' : 'py'
 
     return await db
-        .insertInto('orgBaseImage')
+        .insertInto('orgCodeEnv')
         .values({
             orgId: options.orgId,
-            name: options.name || `${language} ${faker.system.semver()} Base Image`,
+            name: options.name || `${language} ${faker.system.semver()} Code Environment`,
             language,
             cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,

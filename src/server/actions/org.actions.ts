@@ -141,10 +141,10 @@ export const getStudyCapableEnclaveOrgsAction = new Action('getStudyCapableEncla
             .where((eb) =>
                 eb.exists(
                     eb
-                        .selectFrom('orgBaseImage')
-                        .select('orgBaseImage.id')
-                        .whereRef('orgBaseImage.orgId', '=', 'org.id')
-                        .where('orgBaseImage.isTesting', '=', false),
+                        .selectFrom('orgCodeEnv')
+                        .select('orgCodeEnv.id')
+                        .whereRef('orgCodeEnv.orgId', '=', 'org.id')
+                        .where('orgCodeEnv.isTesting', '=', false),
                 ),
             )
             .where('org.type', '=', 'enclave')
@@ -168,13 +168,13 @@ export const getLanguagesForOrgAction = new Action('getLanguagesForOrgAction')
             .executeTakeFirstOrThrow()
 
         const rows = await db
-            .selectFrom('orgBaseImage')
-            .select(['orgBaseImage.language', 'orgBaseImage.starterCodePath'])
-            .where('orgBaseImage.orgId', '=', org.id)
-            .where('orgBaseImage.isTesting', '=', false)
-            .distinctOn('orgBaseImage.language')
-            .orderBy('orgBaseImage.language')
-            .orderBy('orgBaseImage.createdAt', 'desc')
+            .selectFrom('orgCodeEnv')
+            .select(['orgCodeEnv.language', 'orgCodeEnv.starterCodePath'])
+            .where('orgCodeEnv.orgId', '=', org.id)
+            .where('orgCodeEnv.isTesting', '=', false)
+            .distinctOn('orgCodeEnv.language')
+            .orderBy('orgCodeEnv.language')
+            .orderBy('orgCodeEnv.createdAt', 'desc')
             .execute()
 
         const languages = await Promise.all(
@@ -200,12 +200,12 @@ export const getStarterCodeUrlAction = new Action('getStarterCodeUrlAction')
         const org = await db.selectFrom('org').select(['id']).where('slug', '=', orgSlug).executeTakeFirstOrThrow()
 
         const row = await db
-            .selectFrom('orgBaseImage')
-            .select(['orgBaseImage.starterCodePath'])
-            .where('orgBaseImage.orgId', '=', org.id)
-            .where('orgBaseImage.language', '=', language as Language)
-            .where('orgBaseImage.isTesting', '=', false)
-            .orderBy('orgBaseImage.createdAt', 'desc')
+            .selectFrom('orgCodeEnv')
+            .select(['orgCodeEnv.starterCodePath'])
+            .where('orgCodeEnv.orgId', '=', org.id)
+            .where('orgCodeEnv.language', '=', language as Language)
+            .where('orgCodeEnv.isTesting', '=', false)
+            .orderBy('orgCodeEnv.createdAt', 'desc')
             .executeTakeFirst()
 
         if (!row?.starterCodePath) {

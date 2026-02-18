@@ -21,9 +21,9 @@ export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: Study
 
 export const pathForStarterCode = ({
     orgSlug,
-    baseImageId,
+    codeEnvId,
     fileName,
-}: MinimalOrgInfo & { baseImageId: string; fileName: string }) => `starter-code/${orgSlug}/${baseImageId}/${fileName}`
+}: MinimalOrgInfo & { codeEnvId: string; fileName: string }) => `starter-code/${orgSlug}/${codeEnvId}/${fileName}`
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`
