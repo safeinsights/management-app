@@ -9,7 +9,7 @@ import {
     shaHash,
 } from './coder'
 import { getConfigValue } from './config'
-import { getStudyAndOrgDisplayInfo, siUser, fetchLatestBaseImageForStudyId } from './db/queries'
+import { getStudyAndOrgDisplayInfo, siUser, fetchLatestCodeEnvForStudyId } from './db/queries'
 import { fetchFileContents } from './storage'
 
 // Mock external dependencies
@@ -20,7 +20,7 @@ vi.mock('./config', () => ({
 vi.mock('./db/queries', () => ({
     getStudyAndOrgDisplayInfo: vi.fn(),
     siUser: vi.fn(),
-    fetchLatestBaseImageForStudyId: vi.fn(),
+    fetchLatestCodeEnvForStudyId: vi.fn(),
 }))
 
 vi.mock('./storage', () => ({
@@ -49,7 +49,7 @@ global.fetch = vi.fn()
 const getConfigValueMock = getConfigValue as unknown as Mock
 const getStudyAndOrgDisplayInfoMock = getStudyAndOrgDisplayInfo as unknown as Mock
 const siUserMock = siUser as unknown as Mock
-const fetchLatestBaseImageForStudyIdMock = fetchLatestBaseImageForStudyId as unknown as Mock
+const fetchLatestCodeEnvForStudyIdMock = fetchLatestCodeEnvForStudyId as unknown as Mock
 const fetchFileContentsMock = fetchFileContents as unknown as Mock
 
 const mockUsersEmailQueryResponse = { users: [{ id: 'user123', name: 'John Doe', email: 'john@example.com' }] }
@@ -235,7 +235,7 @@ describe('createUserAndWorkspace', () => {
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
-        fetchLatestBaseImageForStudyIdMock.mockResolvedValue({
+        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodePath: 'starter-code/test-org/main.R',
@@ -276,7 +276,7 @@ describe('createUserAndWorkspace', () => {
             researcherEmail: 'john@example.com',
             researcherId: 'user123',
         })
-        fetchLatestBaseImageForStudyIdMock.mockResolvedValue({
+        fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
             url: 'test-image:latest',
             settings: {},
             starterCodePath: 'starter-code/test-org/main.R',

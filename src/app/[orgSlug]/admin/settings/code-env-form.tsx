@@ -5,21 +5,21 @@ import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Group, ActionIcon, Box } from '@mantine/core'
 import { useParams } from 'next/navigation'
-import { createOrgBaseImageAction, updateOrgBaseImageAction } from './base-images.actions'
+import { createOrgCodeEnvAction, updateOrgCodeEnvAction } from './code-envs.actions'
 import {
-    createOrgBaseImageSchema,
-    editOrgBaseImageSchema,
-    createOrgBaseImageFormSchema,
-    editOrgBaseImageFormSchema,
-} from './base-images.schema'
+    createOrgCodeEnvSchema,
+    editOrgCodeEnvSchema,
+    createOrgCodeEnvFormSchema,
+    editOrgCodeEnvFormSchema,
+} from './code-envs.schema'
 import { ActionSuccessType } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { Language, EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
 
-type BaseImage = ActionSuccessType<typeof createOrgBaseImageAction>
-type CreateFormValues = z.infer<typeof createOrgBaseImageSchema>
-type EditFormValues = z.infer<typeof editOrgBaseImageSchema>
+type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
+type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
+type EditFormValues = z.infer<typeof editOrgCodeEnvSchema>
 
 interface EnvVarLineProps {
     envVar: EnvVar
@@ -51,20 +51,20 @@ function EnvVarLine({ envVar, onNameChange, onValueChange, onRemove }: EnvVarLin
     )
 }
 
-interface BaseImageFormProps {
-    image?: BaseImage
+interface CodeEnvFormProps {
+    image?: CodeEnv
     onCompleteAction: () => void
 }
 
-type CreateFormSchema = z.infer<typeof createOrgBaseImageFormSchema>
-type EditFormSchema = z.infer<typeof editOrgBaseImageFormSchema>
+type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
+type EditFormSchema = z.infer<typeof editOrgCodeEnvFormSchema>
 type FormValues = CreateFormSchema | EditFormSchema
 
-export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
+export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
     const isEditMode = !!image
 
-    const formSchema = isEditMode ? editOrgBaseImageFormSchema : createOrgBaseImageFormSchema
+    const formSchema = isEditMode ? editOrgCodeEnvFormSchema : createOrgCodeEnvFormSchema
 
     const form = useForm<FormValues>({
         initialValues: {
@@ -119,37 +119,39 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
         )
     }
 
-    const { mutate: saveBaseImage, isPending } = useMutation({
+    const { mutate: saveCodeEnv, isPending } = useMutation({
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
             if (isEditMode) {
-                return await updateOrgBaseImageAction({ orgSlug, imageId: image.id, ...values })
+                return await updateOrgCodeEnvAction({ orgSlug, imageId: image.id, ...values })
             }
-            // In create mode, starterCode is required (validated by schema)
             const createValues = values as CreateFormValues
-            return await createOrgBaseImageAction({ orgSlug, ...createValues })
+            return await createOrgCodeEnvAction({ orgSlug, ...createValues })
         },
         onSuccess: () => {
-            reportSuccess(isEditMode ? 'Base image updated successfully' : 'Base image added successfully')
+            reportSuccess(
+                isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully',
+            )
             onCompleteAction()
         },
-        onError: reportMutationError(isEditMode ? 'Failed to update base image' : 'Failed to add base image'),
+        onError: reportMutationError(
+            isEditMode ? 'Failed to update code environment' : 'Failed to add code environment',
+        ),
     })
 
     const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
-        // Include pending env var if user typed one but didn't click add
         if (newEnvKey && newEnvValue) {
             values.settings = {
                 ...values.settings,
                 environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
             }
         }
-        saveBaseImage(values as CreateFormValues | EditFormValues)
+        saveCodeEnv(values as CreateFormValues | EditFormValues)
     })
 
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <TextInput label="Name" placeholder="e.g., R 4.2.0 Base Image" {...form.getInputProps('name')} />
+                <TextInput label="Name" placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
                 <TextInput
                     label="Command Line"
                     placeholder="Rscript %f"
@@ -167,7 +169,7 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                     {...form.getInputProps('language')}
                 />
                 <TextInput
-                    label="URL to base image"
+                    label="URL to code environment"
                     placeholder="e.g., harbor.safeinsights.org/openstax/r-base:2025-05-15"
                     {...form.getInputProps('url')}
                 />
@@ -227,7 +229,7 @@ export function BaseImageForm({ image, onCompleteAction }: BaseImageFormProps) {
                 </Box>
 
                 <Button type="submit" loading={isPending} mt="md">
-                    {isEditMode ? 'Update Image' : 'Save Image'}
+                    {isEditMode ? 'Update Code Environment' : 'Save Code Environment'}
                 </Button>
             </Stack>
         </form>

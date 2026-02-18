@@ -170,7 +170,7 @@ export async function fetchS3File(Key: string) {
 
 export async function triggerBuildImageForJob(
     info: MinimalJobInfo & {
-        baseImageURL: string
+        codeEnvURL: string
         codeEntryPointFileName: string
         cmdLine: string
         containerLocation: string
@@ -210,7 +210,7 @@ export async function triggerBuildImageForJob(
                 { name: 'STUDY_JOB_ID', value: info.studyJobId },
                 { name: 'S3_PATH', value: pathForStudyJobCode(info) },
                 { name: 'DOCKER_CMD_LINE', value: cmd },
-                { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.baseImageURL },
+                { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.codeEnvURL },
                 { name: 'DOCKER_CODE_LOCATION', value: `${info.containerLocation}:${info.studyJobId}` },
             ],
         }),

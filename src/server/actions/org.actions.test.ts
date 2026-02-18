@@ -5,7 +5,7 @@ import {
     mockSessionWithTestData,
     insertTestOrg,
     insertTestUser,
-    insertTestBaseImage,
+    insertTestCodeEnv,
     faker,
     actionResult,
 } from '@/tests/unit.helpers'
@@ -242,23 +242,23 @@ describe('Org Actions', () => {
     })
 
     describe('getStudyCapableEnclaveOrgsAction', () => {
-        it('returns orgs with supportedLanguages from non-testing base images', async () => {
+        it('returns orgs with supportedLanguages from non-testing code environments', async () => {
             const testOrg = await insertTestOrg({
                 slug: `lang-test-${faker.string.uuid()}`,
                 name: 'Language Test Org',
                 type: 'enclave',
             })
 
-            // Add a non-testing R base image
-            await insertTestBaseImage({
+            // Add a non-testing R code environment
+            await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'R Production Image',
                 language: 'R',
                 isTesting: false,
             })
 
-            // Add a testing Python base image (should not appear in supportedLanguages)
-            await insertTestBaseImage({
+            // Add a testing Python code environment (should not appear in supportedLanguages)
+            await insertTestCodeEnv({
                 orgId: testOrg.id,
                 name: 'Python Testing Image',
                 language: 'PYTHON',

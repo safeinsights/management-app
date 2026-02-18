@@ -13,23 +13,22 @@ import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 
-// Common middleware to fetch base image with org validation
-const baseImageFromOrgAndId = async ({
+const codeEnvFromOrgAndId = async ({
     params: { orgSlug, imageId },
     db,
 }: {
     params: { orgSlug: string; imageId: string }
     db: Kysely<DB>
 }) => {
-    const baseImage = await db
-        .selectFrom('orgBaseImage')
-        .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
-        .select(['orgBaseImage.id', 'orgBaseImage.starterCodePath', 'org.id as orgId']) // orgId is needed for permissions check
+    const codeEnv = await db
+        .selectFrom('orgCodeEnv')
+        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
+        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'org.id as orgId']) // orgId is needed for permissions check
         .where('org.slug', '=', orgSlug)
-        .where('orgBaseImage.id', '=', imageId)
+        .where('orgCodeEnv.id', '=', imageId)
         .executeTakeFirstOrThrow()
 
-    return { baseImage, orgId: baseImage.orgId }
+    return { codeEnv, orgId: codeEnv.orgId }
 }
 
 const envVarSchema = z.object({
@@ -37,11 +36,11 @@ const envVarSchema = z.object({
     value: z.string(),
 })
 
-const baseImageSettingsSchema = z.object({
+const codeEnvSettingsSchema = z.object({
     environment: z.array(envVarSchema).optional().default([]),
 })
 
-const createOrgBaseImageSchema = z.object({
+const createOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     name: z.string(),
     language: z.enum(['R', 'PYTHON']),
@@ -49,30 +48,27 @@ const createOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File),
     isTesting: z.boolean().default(false),
-    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
+    settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
 })
 
-export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', { performsMutations: true })
-    .params(createOrgBaseImageSchema)
+export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
+    .params(createOrgCodeEnvSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
         const { orgSlug, starterCode, ...fieldValues } = params
 
-        // Generate UUID before insert
         const id = uuidv7()
 
-        // Create the path with the ID and upload
         const starterCodePath = pathForStarterCode({
             orgSlug,
-            baseImageId: id,
+            codeEnvId: id,
             fileName: starterCode.name,
         })
         await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
-        // Insert with the pre-generated ID and path
-        const newBaseImage = await db
-            .insertInto('orgBaseImage')
+        const newCodeEnv = await db
+            .insertInto('orgCodeEnv')
             .values({
                 id,
                 orgId,
@@ -85,10 +81,10 @@ export const createOrgBaseImageAction = new Action('createOrgBaseImageAction', {
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        return newBaseImage
+        return newCodeEnv
     })
 
-const updateOrgBaseImageSchema = z.object({
+const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     imageId: z.string(),
     name: z.string(),
@@ -97,21 +93,20 @@ const updateOrgBaseImageSchema = z.object({
     url: z.string(),
     starterCode: z.instanceof(File).optional(),
     isTesting: z.boolean().default(false),
-    settings: baseImageSettingsSchema.optional().default({ environment: [] }),
+    settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
 })
 
-export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', { performsMutations: true })
-    .params(updateOrgBaseImageSchema)
-    .middleware(async (args) => ({ ...(await baseImageFromOrgAndId(args)).baseImage }))
+export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
+    .params(updateOrgCodeEnvSchema)
+    .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, starterCodePath, db }) => {
         const { orgSlug, imageId, starterCode, ...fieldValues } = params
 
-        // If a new starter code file is provided, upload it and delete the old one
         if (starterCode && starterCode.size > 0) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
-                baseImageId: imageId,
+                codeEnvId: imageId,
                 fileName: starterCode.name,
             })
             await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
@@ -119,8 +114,8 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
             starterCodePath = newStarterCodePath
         }
 
-        const updatedBaseImage = await db
-            .updateTable('orgBaseImage')
+        const updatedCodeEnv = await db
+            .updateTable('orgCodeEnv')
             .set({
                 ...fieldValues,
                 settings: fieldValues.settings,
@@ -132,77 +127,75 @@ export const updateOrgBaseImageAction = new Action('updateOrgBaseImageAction', {
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        return updatedBaseImage
+        return updatedCodeEnv
     })
 
-const fetchOrgBaseImagesSchema = z.object({
+const fetchOrgCodeEnvsSchema = z.object({
     orgSlug: z.string(),
 })
 
-export const fetchOrgBaseImagesAction = new Action('fetchOrgBaseImagesAction')
-    .params(fetchOrgBaseImagesSchema)
+export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
+    .params(fetchOrgCodeEnvsSchema)
     .middleware(orgIdFromSlug)
     .requireAbilityTo('view', 'Org')
     .handler(async ({ orgId, db }) => {
         return await db
-            .selectFrom('orgBaseImage')
-            .selectAll('orgBaseImage')
-            .where('orgBaseImage.orgId', '=', orgId)
+            .selectFrom('orgCodeEnv')
+            .selectAll('orgCodeEnv')
+            .where('orgCodeEnv.orgId', '=', orgId)
             .orderBy('createdAt', 'desc')
             .execute()
     })
 
-const deleteOrgBaseImageSchema = z.object({
+const deleteOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
     imageId: z.string(),
 })
 
-export const deleteOrgBaseImageAction = new Action('deleteOrgBaseImageAction', { performsMutations: true })
-    .params(deleteOrgBaseImageSchema)
+export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { performsMutations: true })
+    .params(deleteOrgCodeEnvSchema)
     .middleware(async ({ params: { orgSlug, imageId }, db }) => {
-        const baseImage = await db
-            .selectFrom('orgBaseImage')
-            .innerJoin('org', 'org.id', 'orgBaseImage.orgId')
+        const codeEnv = await db
+            .selectFrom('orgCodeEnv')
+            .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
             .select([
-                'orgBaseImage.id',
-                'orgBaseImage.starterCodePath',
-                'orgBaseImage.language',
-                'orgBaseImage.isTesting',
-                'orgBaseImage.orgId',
+                'orgCodeEnv.id',
+                'orgCodeEnv.starterCodePath',
+                'orgCodeEnv.language',
+                'orgCodeEnv.isTesting',
+                'orgCodeEnv.orgId',
             ])
             .where('org.slug', '=', orgSlug)
-            .where('orgBaseImage.id', '=', imageId)
+            .where('orgCodeEnv.id', '=', imageId)
             .executeTakeFirstOrThrow()
 
-        return baseImage
+        return codeEnv
     })
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params: { orgSlug }, db, ...baseImage }) => {
-        // If deleting a non-testing image, ensure there's at least one other non-testing image for that language
-        if (!baseImage.isTesting) {
-            const nonTestingImagesForLanguage = await db
-                .selectFrom('orgBaseImage')
+    .handler(async ({ params: { orgSlug }, db, ...codeEnv }) => {
+        if (!codeEnv.isTesting) {
+            const nonTestingForLanguage = await db
+                .selectFrom('orgCodeEnv')
                 .select(({ fn }) => [fn.count<number>('id').as('count')])
-                .where('orgId', '=', baseImage.orgId)
-                .where('language', '=', baseImage.language)
+                .where('orgId', '=', codeEnv.orgId)
+                .where('language', '=', codeEnv.language)
                 .where('isTesting', '=', false)
-                .where('id', '!=', baseImage.id) // Exclude the image being deleted
+                .where('id', '!=', codeEnv.id)
                 .executeTakeFirstOrThrow()
 
-            // Convert count to number for comparison (Kysely may return it as string)
-            if (Number(nonTestingImagesForLanguage.count) === 0) {
+            if (Number(nonTestingForLanguage.count) === 0) {
                 throw new Error(
-                    `Cannot delete the last non-testing ${baseImage.language} base image. At least one non-testing image must exist for each language.`,
+                    `Cannot delete the last non-testing ${codeEnv.language} code environment. At least one non-testing code environment must exist for each language.`,
                 )
             }
         }
 
-        await deleteS3File(baseImage.starterCodePath)
+        await deleteS3File(codeEnv.starterCodePath)
 
         await db
-            .deleteFrom('orgBaseImage')
-            .where('orgBaseImage.id', '=', baseImage.id)
-            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete base image with id ${baseImage.id}`))
+            .deleteFrom('orgCodeEnv')
+            .where('orgCodeEnv.id', '=', codeEnv.id)
+            .executeTakeFirstOrThrow(throwNotFound(`Failed to delete code environment with id ${codeEnv.id}`))
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
     })
@@ -214,10 +207,10 @@ const fetchStarterCodeSchema = z.object({
 
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     .params(fetchStarterCodeSchema)
-    .middleware(baseImageFromOrgAndId)
+    .middleware(codeEnvFromOrgAndId)
     .requireAbilityTo('view', 'Org')
-    .handler(async ({ baseImage }) => {
-        const blob = await fetchFileContents(baseImage.starterCodePath)
+    .handler(async ({ codeEnv }) => {
+        const blob = await fetchFileContents(codeEnv.starterCodePath)
         const content = await blob.text()
-        return { content, path: baseImage.starterCodePath }
+        return { content, path: codeEnv.starterCodePath }
     })

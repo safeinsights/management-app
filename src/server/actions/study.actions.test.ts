@@ -37,7 +37,7 @@ describe('Study Actions', () => {
         const { user, org } = await mockSessionWithTestData({ orgType: 'enclave' })
 
         await db
-            .insertInto('orgBaseImage')
+            .insertInto('orgCodeEnv')
             .values({
                 name: 'Python Base',
                 language: 'PYTHON',
@@ -110,7 +110,7 @@ describe('Study Actions', () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
             await db
-                .insertInto('orgBaseImage')
+                .insertInto('orgCodeEnv')
                 .values({
                     name: 'Test R Image',
                     language: 'R',
@@ -140,7 +140,7 @@ describe('Study Actions', () => {
             const { org } = await mockSessionWithTestData({ orgType: 'enclave' })
             const { study } = await insertTestStudyJobData({ org, studyStatus: 'PENDING-REVIEW' })
             await db
-                .insertInto('orgBaseImage')
+                .insertInto('orgCodeEnv')
                 .values({
                     name: 'Non-Test R Image',
                     language: 'R',
@@ -163,7 +163,7 @@ describe('Study Actions', () => {
 
             const otherOrg = await insertTestOrg()
             await db
-                .insertInto('orgBaseImage')
+                .insertInto('orgCodeEnv')
                 .values({
                     name: 'Other Org Test Image',
                     language: 'R',

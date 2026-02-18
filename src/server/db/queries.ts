@@ -254,18 +254,18 @@ export async function getStudyJobFileOfType(
     return file
 }
 
-export async function fetchLatestBaseImageForStudyId(studyId: string) {
+export async function fetchLatestCodeEnvForStudyId(studyId: string) {
     return await Action.db
         .selectFrom('study')
-        .innerJoin('orgBaseImage', (join) =>
-            join.onRef('orgBaseImage.orgId', '=', 'study.orgId').onRef('orgBaseImage.language', '=', 'study.language'),
+        .innerJoin('orgCodeEnv', (join) =>
+            join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
         )
         .where('study.id', '=', studyId)
-        .where('orgBaseImage.isTesting', '=', false)
-        .orderBy('orgBaseImage.createdAt', 'desc')
+        .where('orgCodeEnv.isTesting', '=', false)
+        .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
-        .select(['orgBaseImage.url', 'orgBaseImage.settings', 'orgBaseImage.starterCodePath'])
-        .executeTakeFirstOrThrow(() => new Error(`no base image found for studyId: ${studyId}`))
+        .select(['orgCodeEnv.url', 'orgCodeEnv.settings', 'orgCodeEnv.starterCodePath'])
+        .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }
 
 /**

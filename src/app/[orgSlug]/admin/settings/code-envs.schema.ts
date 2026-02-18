@@ -12,8 +12,7 @@ const envVarSchema = z.object({
     value: z.string().nonempty('Value is required'),
 })
 
-// Schema for base image settings
-const baseImageSettingsSchema = z.object({
+const codeEnvSettingsSchema = z.object({
     environment: z
         .array(envVarSchema)
         .default([])
@@ -24,13 +23,13 @@ const baseImageSettingsSchema = z.object({
 })
 
 // Base schema with common fields
-const baseImageFieldsSchema = z.object({
+const codeEnvFieldsSchema = z.object({
     name: z.string().nonempty(),
     cmdLine: z.string().nonempty(),
     language: z.enum(['R', 'PYTHON'], { message: 'Language must be R or PYTHON' }),
     url: z.string().nonempty(), //  not url() because docker FROM doesn't have a scheme so isn't a truely valid url
     isTesting: z.boolean().default(false),
-    settings: baseImageSettingsSchema.default({ environment: [] }),
+    settings: codeEnvSettingsSchema.default({ environment: [] }),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)
@@ -47,8 +46,7 @@ const newEnvVarFieldsSchema = z.object({
         .transform((val) => val.trim()),
 })
 
-// Schema for creating a new base image (starterCode required)
-export const createOrgBaseImageSchema = baseImageFieldsSchema.extend({
+export const createOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
     starterCode: z
         .instanceof(File)
         .refine((file) => file && file.size > 0, { message: 'Starter code must be set' })
@@ -57,8 +55,7 @@ export const createOrgBaseImageSchema = baseImageFieldsSchema.extend({
         }),
 })
 
-// Schema for editing a base image (starterCode optional - only validate size if a file is provided)
-export const editOrgBaseImageSchema = baseImageFieldsSchema.extend({
+export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
     starterCode: z
         .instanceof(File)
         .refine((file) => file.size < MAX_FILE_SIZE, {
@@ -71,10 +68,9 @@ export const editOrgBaseImageSchema = baseImageFieldsSchema.extend({
 // Form schemas with UI-only fields for new env var input
 // Includes validation to prevent duplicate environment variable names when adding new ones
 // Note: newEnvKey and newEnvValue are already trimmed by the schema transform
-export const createOrgBaseImageFormSchema = createOrgBaseImageSchema
+export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine((data, ctx) => {
-        // Check if pending env var would create a duplicate (values are already trimmed)
         if (data.newEnvKey && data.newEnvValue) {
             const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
             if (isDuplicate) {
@@ -87,10 +83,9 @@ export const createOrgBaseImageFormSchema = createOrgBaseImageSchema
         }
     })
 
-export const editOrgBaseImageFormSchema = editOrgBaseImageSchema
+export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
     .merge(newEnvVarFieldsSchema)
     .superRefine((data, ctx) => {
-        // Check if pending env var would create a duplicate (values are already trimmed)
         if (data.newEnvKey && data.newEnvValue) {
             const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
             if (isDuplicate) {
@@ -103,5 +98,4 @@ export const editOrgBaseImageFormSchema = editOrgBaseImageSchema
         }
     })
 
-// Legacy export for backwards compatibility
-export const orgBaseImageSchema = createOrgBaseImageSchema
+export const orgCodeEnvSchema = createOrgCodeEnvSchema
