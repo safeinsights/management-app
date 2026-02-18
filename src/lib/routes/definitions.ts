@@ -104,6 +104,10 @@ export const Routes = {
 
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
+    studyProposal: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/proposal`, StudyParams),
+
+    studySubmitted: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/submitted`, StudyParams),
+
     // -------------------------------------------------------------------------
     // Account Routes (Simple routes - no parameters)
     // -------------------------------------------------------------------------
@@ -142,6 +146,15 @@ export const Routes = {
     adminTeam: makeRoute(({ orgSlug }) => `/${orgSlug}/admin/team`, OrgParams),
 
     adminSafeinsights: '/admin/safeinsights' as Route,
+} as const
+
+// ============================================================================
+// External Links (not Next.js routes)
+// ============================================================================
+
+export const ExternalLinks = {
+    dataCatalog: 'https://kb.safeinsights.org/data-catalog',
+    resourceCenter: 'https://kb.safeinsights.org/resource-center',
 } as const
 
 // ============================================================================
