@@ -28,7 +28,13 @@ interface ProposalFormProps {
     researcherName?: string
 }
 
-const ProposalTextField: FC<{ field: EditableTextField; value: string; error: string | undefined; onChange: (val: string) => void; onBlur: () => void }> = ({ field, value, error, onChange, onBlur }) => {
+const ProposalTextField: FC<{
+    field: EditableTextField
+    value: string
+    error: string | undefined
+    onChange: (val: string) => void
+    onBlur: () => void
+}> = ({ field, value, error, onChange, onBlur }) => {
     const [wordCount, setWordCount] = useState(0)
 
     return (
