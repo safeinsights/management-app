@@ -8,6 +8,7 @@ import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
 import { storeS3File, deleteS3File, deleteFolderContents, signedUrlForSampleDataUpload } from '@/server/aws'
 import { pathForStarterCode, pathForSampleData } from '@/lib/paths'
+import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
@@ -23,7 +24,7 @@ const codeEnvFromOrgAndId = async ({
     const codeEnv = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'orgCodeEnv.sampleDataStoragePath', 'org.id as orgId'])
+        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'orgCodeEnv.sampleDataPath', 'org.id as orgId'])
         .where('org.slug', '=', orgSlug)
         .where('orgCodeEnv.id', '=', imageId)
         .executeTakeFirstOrThrow()
@@ -51,7 +52,7 @@ const createOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
+    sampleDataFormat: z.enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]).nullable().optional(),
 })
 
 export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { performsMutations: true })
@@ -70,11 +71,6 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
         })
         await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
-        let sampleDataStoragePath: string | null = null
-        if (sampleDataUploaded && sampleDataPath) {
-            sampleDataStoragePath = pathForSampleData({ orgSlug, codeEnvId: id })
-        }
-
         const newCodeEnv = await db
             .insertInto('orgCodeEnv')
             .values({
@@ -84,7 +80,6 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
                 settings: fieldValues.settings,
                 starterCodePath,
                 sampleDataPath: sampleDataPath || null,
-                sampleDataStoragePath,
             })
             .returningAll()
             .executeTakeFirstOrThrow()
@@ -106,14 +101,14 @@ const updateOrgCodeEnvSchema = z.object({
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
     sampleDataUploaded: z.boolean().optional(),
-    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
+    sampleDataFormat: z.enum(Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]).nullable().optional(),
 })
 
 export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { performsMutations: true })
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params, starterCodePath, sampleDataStoragePath, db }) => {
+    .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, db }) => {
         const { orgSlug, imageId, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
 
         if (starterCode && starterCode.size > 0) {
@@ -127,12 +122,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             starterCodePath = newStarterCodePath
         }
 
-        let newSampleDataStoragePath = sampleDataStoragePath
-        if (sampleDataUploaded && sampleDataPath) {
-            newSampleDataStoragePath = pathForSampleData({ orgSlug, codeEnvId: imageId })
-            if (sampleDataStoragePath) {
-                await deleteFolderContents(sampleDataStoragePath)
-            }
+        if (sampleDataUploaded && sampleDataPath && existingSampleDataPath) {
+            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
         }
 
         const updatedCodeEnv = await db
@@ -142,7 +133,6 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 settings: fieldValues.settings,
                 starterCodePath,
                 sampleDataPath: sampleDataPath || null,
-                sampleDataStoragePath: newSampleDataStoragePath,
             })
             .where('id', '=', imageId)
             .returningAll()
@@ -184,7 +174,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
             .select([
                 'orgCodeEnv.id',
                 'orgCodeEnv.starterCodePath',
-                'orgCodeEnv.sampleDataStoragePath',
+                'orgCodeEnv.sampleDataPath',
                 'orgCodeEnv.language',
                 'orgCodeEnv.isTesting',
                 'orgCodeEnv.orgId',
@@ -215,8 +205,8 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         }
 
         await deleteS3File(codeEnv.starterCodePath)
-        if (codeEnv.sampleDataStoragePath) {
-            await deleteFolderContents(codeEnv.sampleDataStoragePath)
+        if (codeEnv.sampleDataPath) {
+            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: codeEnv.id }))
         }
 
         await db

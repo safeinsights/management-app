@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
+
+const sampleDataFormatKeys = Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]
 
 const MAX_FILE_SIZE = 10 * 1024 // 10MB
 const MAX_FILE_SIZE_STR = '10KB'
@@ -39,7 +42,7 @@ const codeEnvFieldsSchema = z.object({
         .regex(pathnameRegex, 'Must be a valid file path (e.g. data/sample.csv)')
         .optional()
         .or(z.literal('')),
-    sampleDataFormat: z.enum(['parquet', 'avro', 'pg_backup', 'csv']).nullable().optional(),
+    sampleDataFormat: z.enum(sampleDataFormatKeys).nullable().optional(),
 })
 
 // Schema for new env var input fields (used only in UI form, not for submission)

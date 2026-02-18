@@ -236,6 +236,8 @@ describe('createUserAndWorkspace', () => {
             researcherId: 'user123',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodePath: 'starter-code/test-org/main.R',
@@ -277,6 +279,8 @@ describe('createUserAndWorkspace', () => {
             researcherId: 'user123',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            slug: 'test-org',
             url: 'test-image:latest',
             settings: {},
             starterCodePath: 'starter-code/test-org/main.R',

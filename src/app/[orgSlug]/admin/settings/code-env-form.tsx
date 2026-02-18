@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Checkbox, Divider, FileInput, Flex, Radio, Select, Stack, TextInput, Text, Title, Group, ActionIcon, Box } from '@mantine/core'
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, SAMPLE_DATA_FORMATS } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
@@ -138,10 +138,9 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                             {...form.getInputProps('sampleDataFormat')}
                         >
                             <Flex gap="md" mt="xs">
-                                <Radio value="parquet" label="Parquet" />
-                                <Radio value="avro" label="Avro" />
-                                <Radio value="pg_backup" label="Postgresql Backup" />
-                                <Radio value="csv" label="CSV" />
+                                {Object.entries(SAMPLE_DATA_FORMATS).map(([value, label]) => (
+                                    <Radio key={value} value={value} label={label} />
+                                ))}
                             </Flex>
                         </Radio.Group>
                     </Stack>

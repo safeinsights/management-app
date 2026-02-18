@@ -4,6 +4,7 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
+    pathForSampleData,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
 import { getConfigValue } from '../config'
@@ -180,9 +181,10 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
     await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
 
-    if (codeEnv.sampleDataStoragePath && codeEnv.sampleDataPath) {
+    if (codeEnv.sampleDataPath) {
+        const sampleDataStoragePath = `${pathForSampleData({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id })}/${codeEnv.sampleDataPath}`
         logger.info(`Initializing workspace with sample data for study ${studyId} ...`)
-        const sampleData = await fetchFileContents(codeEnv.sampleDataStoragePath)
+        const sampleData = await fetchFileContents(sampleDataStoragePath)
         const sampleTargetPath = path.join(coderBaseFilePath, studyId, codeEnv.sampleDataPath)
         logger.info(`Writing sample data to ${sampleTargetPath} for study ${studyId}`)
         await fs.mkdir(path.dirname(sampleTargetPath), { recursive: true })

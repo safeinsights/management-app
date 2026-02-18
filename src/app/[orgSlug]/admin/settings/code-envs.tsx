@@ -13,7 +13,7 @@ import { reportMutationError, reportError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { ErrorPanel } from '@/components/panel'
 import { LoadingMessage } from '@/components/loading'
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { useState } from 'react'
@@ -21,13 +21,6 @@ import { isActionError } from '@/lib/errors'
 import { OrgCodeEnvSettings } from '@/database/types'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
-
-const SAMPLE_DATA_FORMAT_LABELS: Record<string, string> = {
-    parquet: 'Parquet',
-    avro: 'Avro',
-    pg_backup: 'Postgresql Backup',
-    csv: 'CSV',
-}
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -77,7 +70,7 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                     </Group>
                 </DetailRow>
                 <DetailRow label="Sample Data">{image.sampleDataPath || '-'}</DetailRow>
-                <DetailRow label="File Format">{SAMPLE_DATA_FORMAT_LABELS[image.sampleDataFormat as string] || '-'}</DetailRow>
+                <DetailRow label="File Format">{SAMPLE_DATA_FORMATS[image.sampleDataFormat as SampleDataFormat] || '-'}</DetailRow>
                 <DetailRow label="Env Vars">{envVars}</DetailRow>
                 <DetailRow label="Created At">{new Date(image.createdAt).toISOString()}</DetailRow>
             </Stack>

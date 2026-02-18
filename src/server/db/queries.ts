@@ -260,16 +260,18 @@ export async function fetchLatestCodeEnvForStudyId(studyId: string) {
         .innerJoin('orgCodeEnv', (join) =>
             join.onRef('orgCodeEnv.orgId', '=', 'study.orgId').onRef('orgCodeEnv.language', '=', 'study.language'),
         )
+        .innerJoin('org', 'org.id', 'study.orgId')
         .where('study.id', '=', studyId)
         .where('orgCodeEnv.isTesting', '=', false)
         .orderBy('orgCodeEnv.createdAt', 'desc')
         .limit(1)
         .select([
+            'orgCodeEnv.id',
             'orgCodeEnv.url',
             'orgCodeEnv.settings',
             'orgCodeEnv.starterCodePath',
-            'orgCodeEnv.sampleDataStoragePath',
             'orgCodeEnv.sampleDataPath',
+            'org.slug',
         ])
         .executeTakeFirstOrThrow(() => new Error(`no code environment found for studyId: ${studyId}`))
 }

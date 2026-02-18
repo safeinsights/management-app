@@ -12,7 +12,7 @@ import {
     createOrgCodeEnvFormSchema,
     editOrgCodeEnvFormSchema,
 } from './code-envs.schema'
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, type SampleDataFormat } from '@/lib/types'
 import { Language } from '@/database/types'
 import { uploadFiles, type FileUpload } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
@@ -40,7 +40,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             isTesting: image?.isTesting || false,
             starterCode: undefined,
             sampleDataPath: image?.sampleDataPath || '',
-            sampleDataFormat: (image?.sampleDataFormat as 'parquet' | 'avro' | 'pg_backup' | 'csv' | null) || null,
+            sampleDataFormat: (image?.sampleDataFormat as SampleDataFormat | null) || null,
             settings: {
                 environment: image?.settings?.environment || [],
             },
