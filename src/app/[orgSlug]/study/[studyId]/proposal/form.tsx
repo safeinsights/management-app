@@ -151,7 +151,7 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                         value={form.values[field.id] as string}
                         error={form.errors[field.id] as string | undefined}
                         onChange={(val) => form.setFieldValue(field.id, val)}
-                        onBlur={() => form.validateField(field.id)}
+                        onBlur={() => form.isDirty(field.id) && form.validateField(field.id)}
                     />
                 ))}
 

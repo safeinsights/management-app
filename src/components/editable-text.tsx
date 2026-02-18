@@ -7,7 +7,7 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
-import { EditorState, SerializedEditorState } from 'lexical'
+import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
 import { FC, ReactNode, useEffect, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
@@ -81,6 +81,12 @@ function WordCountPlugin({ onWordCount }: { onWordCount: (count: number) => void
     const [editor] = useLexicalComposerContext()
 
     useEffect(() => {
+        // Get initial word count on mount
+        editor.getEditorState().read(() => {
+            onWordCount(countWords($getRoot().getTextContent()))
+        })
+
+        // Update word count on content change
         return editor.registerTextContentListener((textContent) => {
             onWordCount(countWords(textContent))
         })
@@ -164,7 +170,7 @@ export const EditableText: FC<EditableTextProps> = ({
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin />
-                    <OnChangePlugin onChange={handleChange} />
+                    <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
                     {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     {isEditable && <FloatingToolbar />}
                 </Box>
