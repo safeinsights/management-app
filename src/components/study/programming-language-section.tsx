@@ -66,7 +66,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         >
                             <Group gap="xl">
                                 {languages.map((opt) => (
-                                    <Radio key={opt.value} {...opt} />
+                                    <Radio key={opt.value} value={opt.value} label={opt.label} />
                                 ))}
                             </Group>
                         </Radio.Group>
