@@ -151,7 +151,7 @@ export interface ResearcherProfile {
 }
 
 export interface Study {
-    additionalNotes: string | null
+    additionalNotes: Json | null
     agreementDocPath: string | null
     approvedAt: Timestamp | null
     containerLocation: string
@@ -160,17 +160,17 @@ export interface Study {
     dataSources: Generated<string[]>
     descriptionDocPath: string | null
     id: Generated<string>
-    impact: string | null
+    impact: Json | null
     irbDocPath: string | null
     irbProtocols: string | null
     language: Generated<Language>
     orgId: string
     outputMimeType: string | null
     piName: string
-    projectSummary: string | null
+    projectSummary: Json | null
     rejectedAt: Timestamp | null
     researcherId: string
-    researchQuestions: string | null
+    researchQuestions: Json | null
     reviewerId: string | null
     status: Generated<StudyStatus>
     submittedByOrgId: string
