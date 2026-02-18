@@ -1,6 +1,6 @@
 'use client'
 
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { Anchor, Box, Divider, Group, Paper, Select, Stack, Text, TextInput, Title } from '@mantine/core'
 import { ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { FormFieldLabel } from '@/components/form-field-label'
@@ -9,12 +9,12 @@ import { WordCounter } from '@/components/word-counter'
 import { EditableText } from '@/components/editable-text'
 import ProxyProvider from '@/components/proxy-provider'
 import { DatasetMultiSelect, type DatasetOption } from '@/components/dataset-multi-select'
-import { countWords, countWordsFromLexical } from '@/lib/word-count'
+import { countWords } from '@/lib/word-count'
 import { Routes, ExternalLinks } from '@/lib/routes'
 import { WORD_LIMITS } from './schema'
 import { useProposal } from '@/contexts/proposal'
 import { ProposalFooter } from './footer'
-import { editableTextFields } from './field-config'
+import { editableTextFields, type EditableTextField } from './field-config'
 
 export interface MemberOption {
     value: string
@@ -26,6 +26,37 @@ interface ProposalFormProps {
     members?: MemberOption[]
     orgName?: string
     researcherName?: string
+}
+
+const ProposalTextField: FC<{ field: EditableTextField; value: string; error: string | undefined; onChange: (val: string) => void; onBlur: () => void }> = ({ field, value, error, onChange, onBlur }) => {
+    const [wordCount, setWordCount] = useState(0)
+
+    return (
+        <Paper p="xl">
+            <Stack gap="xxl">
+                <Box>
+                    <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
+                    <Text size="sm" c="dimmed" mb="xs">
+                        {field.description}
+                    </Text>
+                    <EditableText
+                        id={field.id}
+                        aria-label={field.label}
+                        placeholder={field.placeholder}
+                        value={value}
+                        onChange={onChange}
+                        onBlur={onBlur}
+                        onWordCount={setWordCount}
+                        error={!!error}
+                    />
+                    <Group justify={error ? 'space-between' : 'flex-end'} mt={4}>
+                        {error && <InputError error={error} />}
+                        <WordCounter wordCount={wordCount} maxWords={field.maxWords} />
+                    </Group>
+                </Box>
+            </Stack>
+        </Paper>
+    )
 }
 
 export const ProposalForm: FC<ProposalFormProps> = ({
@@ -107,35 +138,16 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                     </Stack>
                 </Paper>
 
-                {editableTextFields.map((field) => {
-                    const wordCount = countWordsFromLexical(form.values[field.id] as string)
-
-                    return (
-                        <Paper p="xl" key={field.id}>
-                            <Stack gap="xxl">
-                                <Box>
-                                    <FormFieldLabel label={field.label} required={field.required} inputId={field.id} />
-                                    <Text size="sm" c="dimmed" mb="xs">
-                                        {field.description}
-                                    </Text>
-                                    <EditableText
-                                        id={field.id}
-                                        aria-label={field.label}
-                                        placeholder={field.placeholder}
-                                        value={form.values[field.id] as string}
-                                        onChange={(val) => form.setFieldValue(field.id, val)}
-                                        onBlur={() => form.validateField(field.id)}
-                                        error={!!form.errors[field.id]}
-                                    />
-                                    <Group justify={form.errors[field.id] ? 'space-between' : 'flex-end'} mt={4}>
-                                        {form.errors[field.id] && <InputError error={form.errors[field.id]} />}
-                                        <WordCounter wordCount={wordCount} maxWords={field.maxWords} />
-                                    </Group>
-                                </Box>
-                            </Stack>
-                        </Paper>
-                    )
-                })}
+                {editableTextFields.map((field) => (
+                    <ProposalTextField
+                        key={field.id}
+                        field={field}
+                        value={form.values[field.id] as string}
+                        error={form.errors[field.id] as string | undefined}
+                        onChange={(val) => form.setFieldValue(field.id, val)}
+                        onBlur={() => form.validateField(field.id)}
+                    />
+                ))}
 
                 <Paper p="xl">
                     <Stack gap="xxl">

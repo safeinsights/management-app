@@ -9,6 +9,7 @@ import {
     onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
 } from '@/server/actions/study-request'
+import { lexicalJson } from '@/lib/word-count'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -211,10 +212,10 @@ describe('Request Study Actions', () => {
                 title: 'Impact of Highlighting on Learning',
                 piName: 'Dr. Research Lead',
                 datasets: ['openstax-calculus', 'openstax-physics'],
-                researchQuestions: 'How does highlighting affect retention?',
-                projectSummary: 'This study examines highlighting patterns.',
-                impact: 'Findings will inform textbook design.',
-                additionalNotes: 'Timeline is Q1 2025.',
+                researchQuestions: lexicalJson('How does highlighting affect retention?'),
+                projectSummary: lexicalJson('This study examines highlighting patterns.'),
+                impact: lexicalJson('Findings will inform textbook design.'),
+                additionalNotes: lexicalJson('Timeline is Q1 2025.'),
             }
 
             actionResult(
@@ -233,10 +234,10 @@ describe('Request Study Actions', () => {
             expect(study?.title).toEqual(proposalFields.title)
             expect(study?.piName).toEqual(proposalFields.piName)
             expect(study?.datasets).toEqual(proposalFields.datasets)
-            expect(study?.researchQuestions).toEqual(proposalFields.researchQuestions)
-            expect(study?.projectSummary).toEqual(proposalFields.projectSummary)
-            expect(study?.impact).toEqual(proposalFields.impact)
-            expect(study?.additionalNotes).toEqual(proposalFields.additionalNotes)
+            expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
+            expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
+            expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))
+            expect(study?.additionalNotes).toEqual(JSON.parse(proposalFields.additionalNotes))
             expect(study?.status).toEqual('DRAFT')
 
             // Step 3: Finalize submission (no code upload in OpenStax flow)

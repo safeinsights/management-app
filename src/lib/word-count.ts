@@ -48,3 +48,15 @@ function extractTextFromLexicalNode(node: unknown): string {
 
     return ''
 }
+
+/**
+ * Create Lexical JSON from plain text (for testing)
+ */
+export function lexicalJson(text: string): string {
+    return JSON.stringify({
+        root: {
+            type: 'root',
+            children: [{ type: 'paragraph', children: [{ type: 'text', text }] }],
+        },
+    })
+}

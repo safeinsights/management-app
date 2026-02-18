@@ -35,10 +35,10 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
                     title: result.title,
                     piName: result.piName,
                     datasets: result.datasets ?? undefined,
-                    researchQuestions: result.researchQuestions ?? undefined,
-                    projectSummary: result.projectSummary ?? undefined,
-                    impact: result.impact ?? undefined,
-                    additionalNotes: result.additionalNotes ?? undefined,
+                    researchQuestions: result.researchQuestions ? JSON.stringify(result.researchQuestions) : undefined,
+                    projectSummary: result.projectSummary ? JSON.stringify(result.projectSummary) : undefined,
+                    impact: result.impact ? JSON.stringify(result.impact) : undefined,
+                    additionalNotes: result.additionalNotes ? JSON.stringify(result.additionalNotes) : undefined,
                 }}
             >
                 <ProposalForm

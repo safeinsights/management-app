@@ -6,10 +6,12 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { EditorState, SerializedEditorState } from 'lexical'
-import { FC, ReactNode, useState } from 'react'
+import { FC, ReactNode, useEffect, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
+import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { FloatingToolbar } from './editable-text/toolbar'
 
@@ -42,6 +44,8 @@ export interface EditableTextProps {
     id?: string
     /** Accessible label for the editor */
     'aria-label'?: string
+    /** Callback fired when word count changes */
+    onWordCount?: (count: number) => void
 }
 
 const theme = {
@@ -73,6 +77,18 @@ function createInitialConfig(value: string | undefined, disabled: boolean, readO
     }
 }
 
+function WordCountPlugin({ onWordCount }: { onWordCount: (count: number) => void }) {
+    const [editor] = useLexicalComposerContext()
+
+    useEffect(() => {
+        return editor.registerTextContentListener((textContent) => {
+            onWordCount(countWords(textContent))
+        })
+    }, [editor, onWordCount])
+
+    return null
+}
+
 export const EditableText: FC<EditableTextProps> = ({
     value,
     onChange,
@@ -88,6 +104,7 @@ export const EditableText: FC<EditableTextProps> = ({
     resizable = true,
     id,
     'aria-label': ariaLabel,
+    onWordCount,
 }) => {
     // Use useState with lazy initializer - computed once on mount
     // Lexical manages its own state after initialization
@@ -148,6 +165,7 @@ export const EditableText: FC<EditableTextProps> = ({
                     />
                     <HistoryPlugin />
                     <OnChangePlugin onChange={handleChange} />
+                    {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     {isEditable && <FloatingToolbar />}
                 </Box>
             </LexicalComposer>
