@@ -64,9 +64,7 @@ export const StudyOrgSelector: React.FC<Props> = ({ form }) => {
                             data={orgs.map((o) => ({ value: o.slug, label: o.name }))}
                             placeholder="Select a data organization"
                             disabled={isExistingDraft || isLoading}
-                            value={form.values.orgSlug}
-                            onChange={(value) => form.setFieldValue('orgSlug', value ?? '')}
-                            error={form.errors.orgSlug}
+                            {...form.getInputProps('orgSlug')}
                         />
                     </Grid.Col>
                 </Grid>

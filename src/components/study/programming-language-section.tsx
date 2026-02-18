@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
@@ -13,7 +13,9 @@ import { useOpenStaxFeatureFlag } from '../openstax-feature-flag'
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
-    const selectedOrgSlug = form.values.orgSlug
+    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.values.orgSlug)
+    form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
+
     const isFeatureFlagEnabled = useOpenStaxFeatureFlag()
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
