@@ -1,6 +1,6 @@
 import { db } from '@/database'
 
-import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -238,10 +238,10 @@ export const insertTestStudyJobData = async ({
     title?: string
     piName?: string
     datasets?: string[] | null
-    researchQuestions?: string | null
-    projectSummary?: string | null
-    impact?: string | null
-    additionalNotes?: string | null
+    researchQuestions?: Json | null
+    projectSummary?: Json | null
+    impact?: Json | null
+    additionalNotes?: Json | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()

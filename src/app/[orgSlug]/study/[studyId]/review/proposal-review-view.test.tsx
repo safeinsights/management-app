@@ -13,6 +13,7 @@ vi.mock('@/components/readonly-lexical-content', () => ({
     ReadOnlyLexicalContent: ({ value }: { value: string }) => {
         try {
             const parsed = JSON.parse(value)
+            if (typeof parsed === 'string') return <div>{parsed}</div>
             const text = parsed.root.children
                 .map((node: { children: { text: string }[] }) =>
                     node.children.map((c: { text: string }) => c.text).join(''),
@@ -55,10 +56,10 @@ describe('ProposalReviewView', () => {
             title: 'Test Study Title',
             piName: 'Dr. Smith',
             datasets: ['Dataset A', 'Dataset B'],
-            researchQuestions: 'What is the effect of X on Y?',
-            projectSummary: 'This study examines the relationship between X and Y.',
-            impact: 'This could improve treatment outcomes.',
-            additionalNotes: 'Funding secured from NIH.',
+            researchQuestions: JSON.stringify('What is the effect of X on Y?'),
+            projectSummary: JSON.stringify('This study examines the relationship between X and Y.'),
+            impact: JSON.stringify('This could improve treatment outcomes.'),
+            additionalNotes: JSON.stringify('Funding secured from NIH.'),
         })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
     })

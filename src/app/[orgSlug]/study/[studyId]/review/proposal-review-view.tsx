@@ -5,6 +5,7 @@ import StudyApprovalStatus from '@/components/study/study-approval-status'
 import { ResearcherProfilePopover } from '@/components/researcher-profile-popover'
 
 import { ReadOnlyLexicalContent } from '@/components/readonly-lexical-content'
+import type { Json } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -13,6 +14,11 @@ import { ProposalReviewButtons } from './proposal-review-buttons'
 type ProposalReviewViewProps = {
     orgSlug: string
     study: SelectedStudy
+}
+
+function stringifyJson(value: Json | null | undefined): string | null {
+    if (value == null) return null
+    return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
 function LexicalProposalField({
@@ -120,10 +126,17 @@ export function ProposalReviewView({ orgSlug, study }: ProposalReviewViewProps) 
                     </Group>
 
                     <DatasetsField datasets={study.datasets ?? []} />
-                    <LexicalProposalField label="Research question(s)" value={study.researchQuestions} subtle={false} />
-                    <LexicalProposalField label="Project summary" value={study.projectSummary} />
-                    <LexicalProposalField label="Impact" value={study.impact} />
-                    <LexicalProposalField label="Additional notes or requests" value={study.additionalNotes} />
+                    <LexicalProposalField
+                        label="Research question(s)"
+                        value={stringifyJson(study.researchQuestions)}
+                        subtle={false}
+                    />
+                    <LexicalProposalField label="Project summary" value={stringifyJson(study.projectSummary)} />
+                    <LexicalProposalField label="Impact" value={stringifyJson(study.impact)} />
+                    <LexicalProposalField
+                        label="Additional notes or requests"
+                        value={stringifyJson(study.additionalNotes)}
+                    />
                     <PIField study={study} />
                     <ResearcherField study={study} orgSlug={orgSlug} mt="md" />
                 </Stack>

@@ -3,10 +3,10 @@ import { type Kysely, sql } from 'kysely'
 export async function up(db: Kysely<unknown>): Promise<void> {
     await db.schema
         .alterTable('study')
-        .addColumn('research_questions', 'text')
-        .addColumn('project_summary', 'text')
-        .addColumn('impact', 'text')
-        .addColumn('additional_notes', 'text')
+        .addColumn('research_questions', 'jsonb')
+        .addColumn('project_summary', 'jsonb')
+        .addColumn('impact', 'jsonb')
+        .addColumn('additional_notes', 'jsonb')
         .addColumn('datasets', sql`text[]`)
         .execute()
 }
