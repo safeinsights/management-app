@@ -95,11 +95,20 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
+            const environment = codeEnv.settings?.environment || []
+            environment.push({
+                name: 'SAMPLE_DATA_PATH', value: pathForSampleData({
+                    orgSlug: codeEnv.slug,
+                    codeEnvId: codeEnv.id,
+                    sampleDataPath: codeEnv.sampleDataPath,
+                })
+            })
+
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
                 containerImage: codeEnv.url,
-                environment: codeEnv.settings?.environment || [],
+                environment,
             })
         }
         throw error
@@ -180,18 +189,4 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
     await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
-
-    if (codeEnv.sampleDataPath) {
-        const sampleDataStoragePath = pathForSampleData({
-            orgSlug: codeEnv.slug,
-            codeEnvId: codeEnv.id,
-            sampleDataPath: codeEnv.sampleDataPath,
-        })
-        logger.info(`Initializing workspace with sample data for study ${studyId} ...`)
-        const sampleData = await fetchFileContents(sampleDataStoragePath)
-        const sampleTargetPath = path.join(coderBaseFilePath, studyId, codeEnv.sampleDataPath)
-        logger.info(`Writing sample data to ${sampleTargetPath} for study ${studyId}`)
-        await fs.mkdir(path.dirname(sampleTargetPath), { recursive: true })
-        await fs.writeFile(sampleTargetPath, Buffer.from(await sampleData.arrayBuffer()))
-    }
 }
