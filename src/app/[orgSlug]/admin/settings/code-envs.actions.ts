@@ -115,10 +115,11 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
+    // existingSampleDataPath comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
     .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, db }) => {
         const { orgSlug, imageId, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
 
-        if (starterCode && starterCode.size > 0) {
+        if (starterCode?.size) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
                 codeEnvId: imageId,
@@ -131,7 +132,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
 
-        if (sampleDataUploaded && sampleDataPath && existingSampleDataPath) {
+        if (sampleDataUploaded && existingSampleDataPath) {
             await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
         } else if (sanitizedSampleDataPath && existingSampleDataPath && sanitizedSampleDataPath !== existingSampleDataPath) {
             const codeEnvInfo = { orgSlug, codeEnvId: imageId }
@@ -220,9 +221,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
         }
 
         await deleteS3File(codeEnv.starterCodePath)
-        if (codeEnv.sampleDataPath) {
-            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: codeEnv.id }))
-        }
+        await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: codeEnv.id }))
 
         await db
             .deleteFrom('orgCodeEnv')
