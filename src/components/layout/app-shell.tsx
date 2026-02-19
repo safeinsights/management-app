@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { ReactNode } from 'react'
 import { SafeInsightsLogo } from './svg/si-logo'
 
+import { useClearCacheOnUserChange } from '@/hooks/use-clear-cache-on-user-change'
 import { RequireMFA } from '../require-mfa'
 import { RequireUser } from '../require-user'
 
@@ -29,6 +30,7 @@ import { Routes } from '@/lib/routes'
 type Props = { children: ReactNode }
 
 export function AppShell({ children }: Props) {
+    useClearCacheOnUserChange()
     const theme = useMantineTheme()
 
     const isDesktop = useMediaQuery(
