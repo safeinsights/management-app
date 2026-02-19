@@ -17,6 +17,10 @@ import { CodeEnvs } from './code-envs'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
 
+vi.mock('@/hooks/upload', () => ({
+    uploadFiles: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
@@ -24,6 +28,7 @@ vi.mock('@/server/aws', async () => {
         storeS3File: vi.fn().mockResolvedValue(undefined),
         deleteS3File: vi.fn().mockResolvedValue(undefined),
         deleteFolderContents: vi.fn().mockResolvedValue(undefined),
+        createSignedUploadUrl: vi.fn().mockResolvedValue({ url: 'https://s3.example.com', fields: { key: 'test' } }),
     }
 })
 
