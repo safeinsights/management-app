@@ -118,16 +118,7 @@ export async function signedUrlForFile(Key: string) {
     })
 }
 
-export const signedUrlForStudyUpload = async (path: string) => {
-    return await createPresignedPost(getS3BrowserClient(), {
-        Bucket: s3BucketName(),
-        Expires: 3600,
-        Conditions: [['starts-with', '$key', path]],
-        Key: path + '/${filename}', // single quotes are intentional, S3 will replace ${filename} with the filename
-    })
-}
-
-export const signedUrlForSampleDataUpload = async (path: string) => {
+export const createSignedUploadUrl = async (path: string) => {
     return await createPresignedPost(getS3BrowserClient(), {
         Bucket: s3BucketName(),
         Expires: 3600,

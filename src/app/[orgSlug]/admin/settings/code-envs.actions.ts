@@ -6,8 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { storeS3File, deleteS3File, deleteFolderContents, moveS3File, signedUrlForSampleDataUpload } from '@/server/aws'
-import { pathForStarterCode, pathForSampleData } from '@/lib/paths'
+import { deleteS3File, deleteFolderContents, moveS3File, createSignedUploadUrl } from '@/server/aws'
+import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
@@ -48,7 +48,7 @@ const createOrgCodeEnvSchema = z.object({
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
-    starterCode: z.instanceof(File),
+    starterCodeFileName: z.string(),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
@@ -64,16 +64,15 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
     .middleware(orgIdFromSlug)
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params, orgId, db }) => {
-        const { orgSlug, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
+        const { orgSlug, starterCodeFileName, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
 
         const id = uuidv7()
 
         const starterCodePath = pathForStarterCode({
             orgSlug,
             codeEnvId: id,
-            fileName: starterCode.name,
+            fileName: starterCodeFileName,
         })
-        await storeS3File({ orgSlug }, starterCode.stream(), starterCodePath)
 
         const newCodeEnv = await db
             .insertInto('orgCodeEnv')
@@ -100,7 +99,8 @@ const updateOrgCodeEnvSchema = z.object({
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
     url: z.string(),
-    starterCode: z.instanceof(File).optional(),
+    starterCodeFileName: z.string().optional(),
+    starterCodeUploaded: z.boolean().optional(),
     isTesting: z.boolean().default(false),
     settings: codeEnvSettingsSchema.optional().default({ environment: [] }),
     sampleDataPath: z.string().optional(),
@@ -117,16 +117,23 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .requireAbilityTo('update', 'Org')
     // existingSampleDataPath comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
     .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, db }) => {
-        const { orgSlug, imageId, starterCode, sampleDataPath, sampleDataUploaded, ...fieldValues } = params
+        const {
+            orgSlug,
+            imageId,
+            starterCodeFileName,
+            starterCodeUploaded,
+            sampleDataPath,
+            sampleDataUploaded,
+            ...fieldValues
+        } = params
 
-        if (starterCode?.size) {
+        if (starterCodeUploaded && starterCodeFileName) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
                 codeEnvId: imageId,
-                fileName: starterCode.name,
+                fileName: starterCodeFileName,
             })
-            await storeS3File({ orgSlug }, starterCode.stream(), newStarterCodePath)
-            await deleteS3File(starterCodePath)
+            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId: imageId }))
             starterCodePath = newStarterCodePath
         }
 
@@ -134,7 +141,11 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         if (sampleDataUploaded && existingSampleDataPath) {
             await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
-        } else if (sanitizedSampleDataPath && existingSampleDataPath && sanitizedSampleDataPath !== existingSampleDataPath) {
+        } else if (
+            sanitizedSampleDataPath &&
+            existingSampleDataPath &&
+            sanitizedSampleDataPath !== existingSampleDataPath
+        ) {
             const codeEnvInfo = { orgSlug, codeEnvId: imageId }
             await moveS3File(
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
@@ -257,5 +268,19 @@ export const getSampleDataUploadUrlAction = new Action('getSampleDataUploadUrlAc
     .requireAbilityTo('update', 'Org')
     .handler(async ({ params: { orgSlug, codeEnvId } }) => {
         const prefix = pathForSampleData({ orgSlug, codeEnvId })
-        return await signedUrlForSampleDataUpload(prefix)
+        return await createSignedUploadUrl(prefix)
+    })
+
+const getStarterCodeUploadUrlSchema = z.object({
+    orgSlug: z.string(),
+    codeEnvId: z.string(),
+})
+
+export const getStarterCodeUploadUrlAction = new Action('getStarterCodeUploadUrlAction')
+    .params(getStarterCodeUploadUrlSchema)
+    .middleware(orgIdFromSlug)
+    .requireAbilityTo('update', 'Org')
+    .handler(async ({ params: { orgSlug, codeEnvId } }) => {
+        const prefix = pathForStarterCodePrefix({ orgSlug, codeEnvId })
+        return await createSignedUploadUrl(prefix)
     })

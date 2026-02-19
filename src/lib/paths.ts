@@ -21,8 +21,10 @@ export const pathForStudyDocumentFile = (parts: MinimalStudyInfo, docType: Study
 
 const pathForCodeEnv = (parts: MinimalCodeEnvInfo) => `code-env/${parts.orgSlug}/${parts.codeEnvId}`
 
+export const pathForStarterCodePrefix = (parts: MinimalCodeEnvInfo) => `${pathForCodeEnv(parts)}/starter-code`
+
 export const pathForStarterCode = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
-    `${pathForCodeEnv(parts)}/starter-code/${parts.fileName}`
+    `${pathForStarterCodePrefix(parts)}/${parts.fileName}`
 
 export const pathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string }) => {
     const base = `${pathForCodeEnv(parts)}/sample-data`

@@ -5,7 +5,12 @@ import { useForm, useMutation, z, zodResolver } from '@/common'
 import { reportMutationError } from '@/components/errors'
 import { reportSuccess } from '@/components/notices'
 import { useParams } from 'next/navigation'
-import { createOrgCodeEnvAction, updateOrgCodeEnvAction, getSampleDataUploadUrlAction } from './code-envs.actions'
+import {
+    createOrgCodeEnvAction,
+    updateOrgCodeEnvAction,
+    getSampleDataUploadUrlAction,
+    getStarterCodeUploadUrlAction,
+} from './code-envs.actions'
 import {
     createOrgCodeEnvSchema,
     editOrgCodeEnvSchema,
@@ -99,29 +104,56 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         return true
     }
 
+    const uploadStarterCode = async (codeEnvId: string, file: File) => {
+        const uploadUrlResult = await getStarterCodeUploadUrlAction({ orgSlug, codeEnvId })
+        if (isActionError(uploadUrlResult)) {
+            throw new Error('Failed to get starter code upload URL')
+        }
+
+        await uploadFiles([[file, uploadUrlResult]])
+    }
+
     const { mutate: saveCodeEnv, isPending } = useMutation({
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
             if (isEditMode) {
+                const { starterCode, ...rest } = values as EditFormValues
+                const starterCodeFileName = starterCode?.name
+                let starterCodeUploaded = false
+
+                if (starterCode) {
+                    await uploadStarterCode(image.id, starterCode)
+                    starterCodeUploaded = true
+                }
+
                 const sampleDataUploaded = await uploadSampleData(image.id)
+
                 return await updateOrgCodeEnvAction({
                     orgSlug,
                     imageId: image.id,
-                    ...values,
+                    ...rest,
+                    starterCodeFileName,
+                    starterCodeUploaded,
                     sampleDataUploaded,
                 })
             }
 
-            const createValues = values as CreateFormValues
-            const result = await createOrgCodeEnvAction({ orgSlug, ...createValues })
+            const { starterCode, ...rest } = values as CreateFormValues
+
+            const result = await createOrgCodeEnvAction({
+                orgSlug,
+                ...rest,
+                starterCodeFileName: starterCode.name,
+            })
             if (isActionError(result)) return result
+
+            await uploadStarterCode(result.id, starterCode)
 
             if (sampleDataFiles.length > 0 && values.sampleDataPath) {
                 const sampleDataUploaded = await uploadSampleData(result.id)
                 return await updateOrgCodeEnvAction({
                     orgSlug,
                     imageId: result.id,
-                    ...values,
-                    starterCode: undefined,
+                    ...rest,
                     sampleDataUploaded,
                 })
             }
