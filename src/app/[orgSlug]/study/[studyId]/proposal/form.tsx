@@ -170,7 +170,9 @@ export const ProposalForm: FC<ProposalFormProps> = ({
                                     searchable
                                     data={members}
                                     value={members.find((m) => m.label === form.values.piName)?.value ?? null}
-                                    onChange={(id) => form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')}
+                                    onChange={(id) =>
+                                        form.setFieldValue('piName', members.find((m) => m.value === id)?.label ?? '')
+                                    }
                                     error={!!form.errors.piName}
                                 />
                             </Box>
