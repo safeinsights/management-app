@@ -1,10 +1,9 @@
 'use client'
 
 import { theme } from '@/theme'
-import { useAuth } from '@clerk/nextjs'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
-import { useEffect, useRef, type FC, type ReactNode } from 'react'
+import { useEffect, type FC, type ReactNode } from 'react'
 // Since QueryClientProvider relies on useContext under the hood, we have to put 'use client' on top
 // reference: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr
 //
@@ -46,17 +45,6 @@ export function getQueryClient() {
 
 export const Providers: FC<Props> = ({ children }) => {
     const queryClient = getQueryClient()
-    const { userId } = useAuth()
-    const prevUserIdRef = useRef(userId)
-
-    // Clear the React Query cache when the user signs out so the next user
-    // doesn't see stale data (e.g. org membership) from the previous session.
-    useEffect(() => {
-        if (prevUserIdRef.current && prevUserIdRef.current !== userId) {
-            getQueryClient().clear()
-        }
-        prevUserIdRef.current = userId
-    }, [userId])
 
     useEffect(() => {
         window.isReactHydrated = true

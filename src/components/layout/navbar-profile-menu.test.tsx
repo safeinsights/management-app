@@ -11,15 +11,23 @@ import {
 } from '@/tests/unit.helpers'
 import { cleanup, render, act } from '@testing-library/react'
 import { AppShell } from '@mantine/core'
+import { useClearCacheOnUserChange } from '@/hooks/use-clear-cache-on-user-change'
 import { getQueryClient, Providers } from './providers'
 import { NavbarProfileMenu } from './navbar-profile-menu'
+
+function CacheClearerWrapper({ children }: { children: React.ReactNode }) {
+    useClearCacheOnUserChange()
+    return <>{children}</>
+}
 
 function createTree() {
     return (
         <Providers>
-            <AppShell>
-                <NavbarProfileMenu />
-            </AppShell>
+            <CacheClearerWrapper>
+                <AppShell>
+                    <NavbarProfileMenu />
+                </AppShell>
+            </CacheClearerWrapper>
         </Providers>
     )
 }
