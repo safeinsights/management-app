@@ -24,7 +24,7 @@ export default async function StudyProposalRoute(props: { params: Promise<{ stud
     // TODO: Fetch datasets for the org
 
     const labMembers = await getUsersForOrgId(result.submittedByOrgId)
-    const memberOptions = labMembers.map((m) => ({ value: m.fullName, label: m.fullName }))
+    const memberOptions = labMembers.map((m) => ({ value: m.id, label: m.fullName }))
 
     return (
         <Stack p="xl" gap="xl">
