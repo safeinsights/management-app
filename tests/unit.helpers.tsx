@@ -76,6 +76,18 @@ export function renderWithProviders(ui: ReactElement, options?: Parameters<typeo
     )
 }
 
+export function mockSignOutBehavior() {
+    let userId: string | null = 'user_mock123'
+
+    ;(useAuth as Mock).mockImplementation(() => ({ userId, isLoaded: true }))
+    ;(useClerk as Mock).mockReturnValue({
+        signOut: vi.fn(() => {
+            userId = null
+        }),
+        openUserProfile: vi.fn(),
+    })
+}
+
 export * from './common.helpers'
 
 export const insertTestStudyData = async ({
