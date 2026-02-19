@@ -1,7 +1,17 @@
 import { describe, it, expect, vi } from 'vitest'
 import { db } from '@/database'
-import { mockSessionWithTestData } from '@/tests/unit.helpers'
-import { updatePersonalInfoAction } from './researcher-profile.actions'
+import logger from '@/lib/logger'
+import { isActionError } from '@/lib/errors'
+import {
+    mockSessionWithTestData,
+    insertTestStudyJobData,
+    insertTestResearcherProfile,
+    insertTestOrg,
+    insertTestUser,
+    mockClerkSession,
+    faker,
+} from '@/tests/unit.helpers'
+import { updatePersonalInfoAction, getResearcherProfileByUserIdAction } from './researcher-profile.actions'
 import { updateClerkUserName } from '@/server/clerk'
 
 describe('researcher-profile.actions', () => {
@@ -50,6 +60,86 @@ describe('researcher-profile.actions', () => {
             expect(dbUser.firstName).toBe('Jane')
             expect(dbUser.lastName).toBe('Smith')
             expect(result).toEqual({ success: true })
+        })
+    })
+
+    describe('getResearcherProfileByUserIdAction', () => {
+        it('returns user, profile, and positions data for valid userId', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            await insertTestResearcherProfile({
+                userId: user.id,
+                education: { institution: 'MIT', degree: 'Ph.D.', fieldOfStudy: 'CS' },
+                positions: [{ affiliation: 'MIT', position: 'Professor' }],
+                researchDetails: { interests: ['AI', 'ML'] },
+            })
+
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+
+            expect(result).not.toBeNull()
+            expect(isActionError(result)).toBe(false)
+            expect(result).toMatchObject({
+                user: {
+                    id: user.id,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                },
+                profile: {
+                    userId: user.id,
+                    educationDegree: 'Ph.D.',
+                    researchInterests: ['AI', 'ML'],
+                },
+                positions: [
+                    expect.objectContaining({
+                        affiliation: 'MIT',
+                        position: 'Professor',
+                    }),
+                ],
+            })
+        })
+
+        it('returns null when user does not exist', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const result = await getResearcherProfileByUserIdAction({
+                userId: faker.string.uuid(),
+                studyId: study.id,
+            })
+
+            expect(result).toBeNull()
+        })
+
+        it('returns user with null profile when profile does not exist', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+
+            expect(result).toMatchObject({
+                user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email },
+                profile: null,
+                positions: [],
+            })
+        })
+
+        it('denies access for a user from a different org', async () => {
+            const { org, user } = await mockSessionWithTestData({ isAdmin: true, orgType: 'enclave' })
+            const { study } = await insertTestStudyJobData({ org, researcherId: user.id })
+
+            const otherOrg = await insertTestOrg()
+            const { user: otherUser } = await insertTestUser({ org: otherOrg })
+            mockClerkSession({
+                clerkUserId: otherUser.clerkId,
+                orgSlug: otherOrg.slug,
+                userId: otherUser.id,
+                orgId: otherOrg.id,
+            })
+
+            vi.spyOn(logger, 'error').mockImplementation(() => undefined)
+            const result = await getResearcherProfileByUserIdAction({ userId: user.id, studyId: study.id })
+            expect(result).toEqual({ error: expect.objectContaining({ permission_denied: expect.any(String) }) })
         })
     })
 })
