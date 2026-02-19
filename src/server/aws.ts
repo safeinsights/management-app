@@ -12,7 +12,8 @@ import { CodeBuildClient, StartBuildCommand } from '@aws-sdk/client-codebuild'
 import { Upload } from '@aws-sdk/lib-storage'
 import { AWS_ACCOUNT_ENVIRONMENT, ENVIRONMENT_ID, TEST_ENV, getConfigValue } from './config'
 import { fromIni } from '@aws-sdk/credential-provider-ini'
-import { pathForStudyJobCode } from '@/lib/paths'
+import { pathForSampleData, pathForStudyJobCode } from '@/lib/paths'
+import type { MinimalCodeEnvInfo } from '@/lib/types'
 import { strToAscii } from '@/lib/string'
 import { Readable } from 'stream'
 import { createHash } from 'crypto'
@@ -54,6 +55,9 @@ export const s3BucketName = () => {
     }
     return process.env.BUCKET_NAME
 }
+
+export const completePathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string }) =>
+    `s3://${s3BucketName()}/${pathForSampleData(parts)}`
 
 export async function codeBuildRepositoryUrl(info: MinimalStudyInfo) {
     return process.env.CODE_BUILD_REPOSITORY_DOMAIN + `/${info.orgSlug}/code-builds/${ENVIRONMENT_ID}`

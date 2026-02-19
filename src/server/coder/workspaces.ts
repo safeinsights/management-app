@@ -4,9 +4,9 @@ import {
     coderWorkspaceCreatePath,
     coderWorkspaceDataPath,
     coderWorkspacePath,
-    pathForSampleData,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
+import { completePathForSampleData } from '../aws'
 import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
@@ -97,13 +97,13 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
             const environment = codeEnv.settings?.environment || []
             environment.push({
-                name: 'SAMPLE_DATA_PATH', value: pathForSampleData({
+                name: 'SAMPLE_DATA_PATH',
+                value: completePathForSampleData({
                     orgSlug: codeEnv.slug,
                     codeEnvId: codeEnv.id,
-                    sampleDataPath: codeEnv.sampleDataPath,
-                })
+                    sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+                }),
             })
-
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
