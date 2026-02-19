@@ -24,7 +24,10 @@ const pathForCodeEnv = (parts: MinimalCodeEnvInfo) => `code-env/${parts.orgSlug}
 export const pathForStarterCode = (parts: MinimalCodeEnvInfo & { fileName: string }) =>
     `${pathForCodeEnv(parts)}/starter-code/${parts.fileName}`
 
-export const pathForSampleData = (parts: MinimalCodeEnvInfo) => `${pathForCodeEnv(parts)}/sample-data`
+export const pathForSampleData = (parts: MinimalCodeEnvInfo & { sampleDataPath?: string }) => {
+    const base = `${pathForCodeEnv(parts)}/sample-data`
+    return parts.sampleDataPath ? `${base}/${parts.sampleDataPath}` : base
+}
 
 export const resultsDownloadURL = (job: { id: string; resultsPath: string }) =>
     `/dl/results/${job.id}/${job.resultsPath}`

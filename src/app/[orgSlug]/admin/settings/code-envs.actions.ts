@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { storeS3File, deleteS3File, deleteFolderContents, signedUrlForSampleDataUpload } from '@/server/aws'
+import { storeS3File, deleteS3File, deleteFolderContents, moveS3File, signedUrlForSampleDataUpload } from '@/server/aws'
 import { pathForStarterCode, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
@@ -129,8 +129,16 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             starterCodePath = newStarterCodePath
         }
 
+        const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
+
         if (sampleDataUploaded && sampleDataPath && existingSampleDataPath) {
             await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
+        } else if (sanitizedSampleDataPath && existingSampleDataPath && sanitizedSampleDataPath !== existingSampleDataPath) {
+            const codeEnvInfo = { orgSlug, codeEnvId: imageId }
+            await moveS3File(
+                pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
+                pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
+            )
         }
 
         const updatedCodeEnv = await db
@@ -139,7 +147,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 ...fieldValues,
                 settings: fieldValues.settings,
                 starterCodePath,
-                sampleDataPath: sampleDataPath ? sanitizeFileName(sampleDataPath) : null,
+                sampleDataPath: sanitizedSampleDataPath,
             })
             .where('id', '=', imageId)
             .returningAll()

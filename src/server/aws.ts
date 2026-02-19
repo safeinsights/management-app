@@ -1,5 +1,6 @@
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts'
 import {
+    CopyObjectCommand,
     DeleteObjectCommand,
     DeleteObjectsCommand,
     GetObjectCommand,
@@ -169,6 +170,12 @@ export const deleteFolderContents = async (folderPath: string) => {
     })
 
     await getS3Client().send(deleteCommand)
+}
+
+export const moveS3File = async (oldKey: string, newKey: string) => {
+    const Bucket = s3BucketName()
+    await getS3Client().send(new CopyObjectCommand({ Bucket, CopySource: `${Bucket}/${oldKey}`, Key: newKey }))
+    await getS3Client().send(new DeleteObjectCommand({ Bucket, Key: oldKey }))
 }
 
 export async function fetchS3File(Key: string) {

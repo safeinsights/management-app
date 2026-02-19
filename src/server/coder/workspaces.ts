@@ -182,7 +182,7 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
     await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
 
     if (codeEnv.sampleDataPath) {
-        const sampleDataStoragePath = `${pathForSampleData({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id })}/${codeEnv.sampleDataPath}`
+        const sampleDataStoragePath = pathForSampleData({ orgSlug: codeEnv.slug, codeEnvId: codeEnv.id, sampleDataPath: codeEnv.sampleDataPath })
         logger.info(`Initializing workspace with sample data for study ${studyId} ...`)
         const sampleData = await fetchFileContents(sampleDataStoragePath)
         const sampleTargetPath = path.join(coderBaseFilePath, studyId, codeEnv.sampleDataPath)
