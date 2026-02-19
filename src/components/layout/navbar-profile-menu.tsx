@@ -15,6 +15,7 @@ import { useCallback } from 'react'
 import { Protect } from '../auth'
 import { RefWrapper } from './nav-ref-wrapper'
 import styles from './navbar-items.module.css'
+import { getQueryClient } from './providers'
 
 export function NavbarProfileMenu() {
     const { signOut, openUserProfile } = useClerk()
@@ -36,6 +37,11 @@ export function NavbarProfileMenu() {
         e.stopPropagation()
         fn()
         close()
+    }
+
+    const handleSignOut = () => {
+        getQueryClient().clear()
+        signOut()
     }
 
     const handleSettingsClick = (e: React.MouseEvent) => {
@@ -122,7 +128,7 @@ export function NavbarProfileMenu() {
                 <NavLink
                     label="Sign Out"
                     leftSection={<SignOutIcon aria-hidden="true" />}
-                    onClick={closeAndCall(() => signOut())}
+                    onClick={closeAndCall(handleSignOut)}
                     c="white"
                     className={styles.navLinkProfileHover}
                     aria-label="Sign Out"
