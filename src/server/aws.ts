@@ -163,10 +163,25 @@ export const deleteFolderContents = async (folderPath: string) => {
     await getS3Client().send(deleteCommand)
 }
 
-export const moveS3File = async (oldKey: string, newKey: string) => {
+export const moveFolderContents = async (oldPrefix: string, newPrefix: string) => {
     const Bucket = s3BucketName()
-    await getS3Client().send(new CopyObjectCommand({ Bucket, CopySource: `${Bucket}/${oldKey}`, Key: newKey }))
-    await getS3Client().send(new DeleteObjectCommand({ Bucket, Key: oldKey }))
+    const listedObjects = await getS3Client().send(new ListObjectsV2Command({ Bucket, Prefix: oldPrefix }))
+
+    if (!listedObjects.Contents?.length) return
+
+    for (const obj of listedObjects.Contents) {
+        if (!obj.Key) continue
+        const suffix = obj.Key.slice(oldPrefix.length)
+        const newKey = newPrefix + suffix
+        await getS3Client().send(new CopyObjectCommand({ Bucket, CopySource: `${Bucket}/${obj.Key}`, Key: newKey }))
+    }
+
+    await getS3Client().send(
+        new DeleteObjectsCommand({
+            Bucket,
+            Delete: { Objects: listedObjects.Contents.map(({ Key }) => ({ Key })) },
+        }),
+    )
 }
 
 export async function fetchS3File(Key: string) {

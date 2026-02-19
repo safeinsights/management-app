@@ -19,7 +19,7 @@ import {
 } from './code-envs.schema'
 import { ActionSuccessType, type SampleDataFormat } from '@/lib/types'
 import { Language } from '@/database/types'
-import { uploadFiles, type FileUpload } from '@/hooks/upload'
+import { uploadFiles } from '@/hooks/upload'
 import { isActionError } from '@/lib/errors'
 
 type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
@@ -28,6 +28,20 @@ type EditFormValues = z.infer<typeof editOrgCodeEnvSchema>
 type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
 type EditFormSchema = z.infer<typeof editOrgCodeEnvFormSchema>
 type FormValues = CreateFormSchema | EditFormSchema
+
+async function uploadStarterCode(orgSlug: string, codeEnvId: string, file: File) {
+    const presignedUrl = await getStarterCodeUploadUrlAction({ orgSlug, codeEnvId })
+    if (isActionError(presignedUrl)) throw new Error('Failed to get starter code upload URL')
+    await uploadFiles([[file, presignedUrl]])
+}
+
+async function uploadSampleData(codeEnvId: string, files: File[]): Promise<boolean> {
+    if (files.length === 0) return false
+    const presignedUrl = await getSampleDataUploadUrlAction({ codeEnvId })
+    if (isActionError(presignedUrl)) throw new Error('Failed to get sample data upload URL')
+    await uploadFiles(files.map((file) => [file, presignedUrl]))
+    return true
+}
 
 export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () => void) {
     const { orgSlug } = useParams<{ orgSlug: string }>()
@@ -91,73 +105,47 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         )
     }
 
-    const uploadSampleData = async (codeEnvId: string): Promise<boolean> => {
-        if (sampleDataFiles.length === 0) return false
+    const handleCreate = async (values: CreateFormValues) => {
+        const { starterCode, ...rest } = values
 
-        const uploadUrlResult = await getSampleDataUploadUrlAction({ orgSlug, codeEnvId })
-        if (isActionError(uploadUrlResult)) {
-            throw new Error('Failed to get sample data upload URL')
+        const result = await createOrgCodeEnvAction({
+            orgSlug,
+            ...rest,
+            starterCodeFileName: starterCode.name,
+        })
+        if (isActionError(result)) return result
+
+        await uploadStarterCode(orgSlug, result.id, starterCode)
+
+        if (values.sampleDataPath) {
+            await uploadSampleData(result.id, sampleDataFiles)
         }
-
-        const fileUploads: FileUpload[] = sampleDataFiles.map((file) => [file, uploadUrlResult])
-        await uploadFiles(fileUploads)
-        return true
+        return result
     }
 
-    const uploadStarterCode = async (codeEnvId: string, file: File) => {
-        const uploadUrlResult = await getStarterCodeUploadUrlAction({ orgSlug, codeEnvId })
-        if (isActionError(uploadUrlResult)) {
-            throw new Error('Failed to get starter code upload URL')
+    const handleEdit = async (values: EditFormValues) => {
+        const { starterCode, ...rest } = values
+        const starterCodeUploaded = !!starterCode
+
+        if (starterCode) {
+            await uploadStarterCode(orgSlug, image!.id, starterCode)
         }
 
-        await uploadFiles([[file, uploadUrlResult]])
+        const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
+
+        return await updateOrgCodeEnvAction({
+            orgSlug,
+            imageId: image!.id,
+            ...rest,
+            starterCodeFileName: starterCode?.name,
+            starterCodeUploaded,
+            sampleDataUploaded,
+        })
     }
 
     const { mutate: saveCodeEnv, isPending } = useMutation({
         mutationFn: async (values: CreateFormValues | EditFormValues) => {
-            if (isEditMode) {
-                const { starterCode, ...rest } = values as EditFormValues
-                const starterCodeFileName = starterCode?.name
-                let starterCodeUploaded = false
-
-                if (starterCode) {
-                    await uploadStarterCode(image.id, starterCode)
-                    starterCodeUploaded = true
-                }
-
-                const sampleDataUploaded = await uploadSampleData(image.id)
-
-                return await updateOrgCodeEnvAction({
-                    orgSlug,
-                    imageId: image.id,
-                    ...rest,
-                    starterCodeFileName,
-                    starterCodeUploaded,
-                    sampleDataUploaded,
-                })
-            }
-
-            const { starterCode, ...rest } = values as CreateFormValues
-
-            const result = await createOrgCodeEnvAction({
-                orgSlug,
-                ...rest,
-                starterCodeFileName: starterCode.name,
-            })
-            if (isActionError(result)) return result
-
-            await uploadStarterCode(result.id, starterCode)
-
-            if (sampleDataFiles.length > 0 && values.sampleDataPath) {
-                const sampleDataUploaded = await uploadSampleData(result.id)
-                return await updateOrgCodeEnvAction({
-                    orgSlug,
-                    imageId: result.id,
-                    ...rest,
-                    sampleDataUploaded,
-                })
-            }
-            return result
+            return isEditMode ? handleEdit(values as EditFormValues) : handleCreate(values as CreateFormValues)
         },
         onSuccess: () => {
             reportSuccess(isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully')

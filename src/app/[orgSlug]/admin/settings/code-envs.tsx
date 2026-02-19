@@ -90,7 +90,7 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                         </Tooltip>
                     </Group>
                 </DetailRow>
-                <DetailRow label="Sample Data">{image.sampleDataPath || '-'}</DetailRow>
+                <DetailRow label="Sample Data Path">{image.sampleDataPath || '-'}</DetailRow>
                 <DetailRow label="File Format">
                     {SAMPLE_DATA_FORMATS[image.sampleDataFormat as SampleDataFormat] || '-'}
                 </DetailRow>

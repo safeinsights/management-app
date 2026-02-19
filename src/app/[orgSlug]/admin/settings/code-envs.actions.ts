@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { deleteS3File, deleteFolderContents, moveS3File, createSignedUploadUrl } from '@/server/aws'
+import { deleteS3File, deleteFolderContents, moveFolderContents, createSignedUploadUrl } from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
@@ -147,7 +147,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
             sanitizedSampleDataPath !== existingSampleDataPath
         ) {
             const codeEnvInfo = { orgSlug, codeEnvId: imageId }
-            await moveS3File(
+            await moveFolderContents(
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
             )
@@ -258,16 +258,30 @@ export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')
     })
 
 const getSampleDataUploadUrlSchema = z.object({
-    orgSlug: z.string(),
     codeEnvId: z.string(),
 })
 
+const codeEnvFromId = async ({ params: { codeEnvId }, db }: { params: { codeEnvId: string }; db: Kysely<DB> }) => {
+    const codeEnv = await db
+        .selectFrom('orgCodeEnv')
+        .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
+        .select(['orgCodeEnv.id', 'orgCodeEnv.sampleDataPath', 'org.slug as orgSlug', 'org.id as orgId'])
+        .where('orgCodeEnv.id', '=', codeEnvId)
+        .executeTakeFirstOrThrow()
+
+    return { codeEnv, orgId: codeEnv.orgId }
+}
+
 export const getSampleDataUploadUrlAction = new Action('getSampleDataUploadUrlAction')
     .params(getSampleDataUploadUrlSchema)
-    .middleware(orgIdFromSlug)
+    .middleware(codeEnvFromId)
     .requireAbilityTo('update', 'Org')
-    .handler(async ({ params: { orgSlug, codeEnvId } }) => {
-        const prefix = pathForSampleData({ orgSlug, codeEnvId })
+    .handler(async ({ codeEnv }) => {
+        const prefix = pathForSampleData({
+            orgSlug: codeEnv.orgSlug,
+            codeEnvId: codeEnv.id,
+            sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+        })
         return await createSignedUploadUrl(prefix)
     })
 
