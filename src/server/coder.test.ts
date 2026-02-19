@@ -173,7 +173,7 @@ describe('createUserAndWorkspace', () => {
     const ORIGINAL_ENV = process.env
 
     beforeEach(() => {
-        process.env = { ...ORIGINAL_ENV }
+        process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
     })
