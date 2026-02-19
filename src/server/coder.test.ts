@@ -265,7 +265,10 @@ describe('createUserAndWorkspace', () => {
                 name: 'environment',
                 value: JSON.stringify([
                     { name: 'VAR1', value: 'value1' },
-                    { name: 'SAMPLE_DATA_PATH', value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data` },
+                    {
+                        name: 'SAMPLE_DATA_PATH',
+                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+                    },
                 ]),
             },
         ])
