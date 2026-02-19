@@ -32,9 +32,29 @@ function createTree() {
     )
 }
 
-describe('NavbarProfileMenu', () => {
+function seedCache(queryClient: ReturnType<typeof getQueryClient>) {
+    queryClient.setQueryData(['orgs-with-stats'], [{ slug: 'org', type: 'lab', name: 'Org' }])
+    queryClient.setQueryData(['user-researcher-studies'], [{ id: '1', title: 'Study' }])
+    queryClient.setQueryData(['notifications'], [{ id: 'n1', message: 'Hello' }])
+}
+
+function expectCacheCleared(queryClient: ReturnType<typeof getQueryClient>) {
+    expect(queryClient.getQueryData(['orgs-with-stats'])).toBeUndefined()
+    expect(queryClient.getQueryData(['user-researcher-studies'])).toBeUndefined()
+    expect(queryClient.getQueryData(['notifications'])).toBeUndefined()
+}
+
+function expectCacheIntact(queryClient: ReturnType<typeof getQueryClient>) {
+    expect(queryClient.getQueryData(['orgs-with-stats'])).toBeDefined()
+    expect(queryClient.getQueryData(['user-researcher-studies'])).toBeDefined()
+    expect(queryClient.getQueryData(['notifications'])).toBeDefined()
+}
+
+describe('NavbarProfileMenu – cache clearing on user change', () => {
+    let mockController: ReturnType<typeof mockSignOutBehavior>
+
     beforeEach(() => {
-        mockSignOutBehavior()
+        mockController = mockSignOutBehavior()
     })
 
     afterEach(() => {
@@ -48,47 +68,66 @@ describe('NavbarProfileMenu', () => {
         const signOutButton = screen.getByRole('menuitem', { name: 'Sign Out' })
         await userEvent.click(signOutButton)
 
-        // Simulate Clerk's context update: userId is now null, force re-render
         await act(() => {
             rerender(createTree())
         })
     }
 
-    it('clears researcher org cache on sign-out', async () => {
+    it('clears all query data on sign-out', async () => {
         const queryClient = getQueryClient()
-        queryClient.setQueryData(['orgs-with-stats'], [{ slug: 'lab-org', type: 'lab', name: 'Lab Org' }])
+        seedCache(queryClient)
 
         const { rerender } = render(createTree())
         await signOutAndRerender(rerender)
 
         await waitFor(() => {
-            expect(queryClient.getQueryData(['orgs-with-stats'])).toBeUndefined()
+            expectCacheCleared(queryClient)
         })
     })
 
-    it('clears reviewer org cache on sign-out', async () => {
+    it('does not clear cache on re-render with the same user', async () => {
         const queryClient = getQueryClient()
-        queryClient.setQueryData(['orgs-with-stats'], [{ slug: 'enclave-org', type: 'enclave', name: 'Enclave Org' }])
-
         const { rerender } = render(createTree())
-        await signOutAndRerender(rerender)
 
-        await waitFor(() => {
-            expect(queryClient.getQueryData(['orgs-with-stats'])).toBeUndefined()
+        seedCache(queryClient)
+
+        await act(() => {
+            rerender(createTree())
         })
+
+        expectCacheIntact(queryClient)
     })
 
-    it('clears all query data on sign-out, not just orgs', async () => {
+    it('does not clear cache when signing in (null → userId)', async () => {
+        mockController = mockSignOutBehavior(null)
         const queryClient = getQueryClient()
-        queryClient.setQueryData(['orgs-with-stats'], [{ slug: 'org', type: 'lab', name: 'Org' }])
-        queryClient.setQueryData(['user-researcher-studies'], [{ id: '1', title: 'Study' }])
-
         const { rerender } = render(createTree())
-        await signOutAndRerender(rerender)
+
+        seedCache(queryClient)
+
+        // Simulate sign-in: userId transitions from null to a real user
+        mockController.setUserId('user_new456')
+        await act(() => {
+            rerender(createTree())
+        })
+
+        expectCacheIntact(queryClient)
+    })
+
+    it('clears cache when switching between different users', async () => {
+        const queryClient = getQueryClient()
+        const { rerender } = render(createTree())
+
+        seedCache(queryClient)
+
+        // Simulate direct user switch: user_mock123 → user_other789
+        mockController.setUserId('user_other789')
+        await act(() => {
+            rerender(createTree())
+        })
 
         await waitFor(() => {
-            expect(queryClient.getQueryData(['orgs-with-stats'])).toBeUndefined()
-            expect(queryClient.getQueryData(['user-researcher-studies'])).toBeUndefined()
+            expectCacheCleared(queryClient)
         })
     })
 })
