@@ -126,24 +126,23 @@ test.describe('Organization Admin', () => {
         await expect(page.getByText(codeEnvName)).toBeVisible()
 
         // Find the code environment row and click its Edit button
-        // The paragraph with the name is nested 3 levels deep in the row container
         const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
-        const editButton = codeEnvRow.locator('button').nth(1)
-        await editButton.click()
+        await codeEnvRow.locator('button').nth(1).click()
 
         // Edit modal should open
-        await expect(page.getByRole('heading', { name: /edit code environment/i })).toBeVisible()
+        const editDialog = page.getByRole('dialog', { name: /edit code environment/i })
+        await expect(editDialog).toBeVisible()
 
-        // Upload an updated starter code file (reuse the same file path for simplicity)
-        const editFileInput = page.locator('input[type="file"]').first()
-        await editFileInput.setInputFiles(starterPath)
+        // Edit a text field to verify the update flow works
+        const updatedName = `${codeEnvName} Updated`
+        await editDialog.getByLabel(/name/i).fill(updatedName)
 
         // Submit the update
-        await page.getByRole('button', { name: /update code environment/i }).click()
+        await editDialog.getByRole('button', { name: /update code environment/i }).click()
 
-        await expect(page.getByRole('dialog', { name: /edit code environment/i })).toBeHidden({ timeout: 10000 })
+        await expect(editDialog).toBeHidden({ timeout: 10000 })
 
-        // Ensure the code environment is still present
-        await expect(page.getByText(codeEnvName)).toBeVisible()
+        // Ensure the updated code environment name is present
+        await expect(page.getByText(updatedName)).toBeVisible()
     })
 })
