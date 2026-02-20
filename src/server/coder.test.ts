@@ -173,7 +173,7 @@ describe('createUserAndWorkspace', () => {
     const ORIGINAL_ENV = process.env
 
     beforeEach(() => {
-        process.env = { ...ORIGINAL_ENV }
+        process.env = { ...ORIGINAL_ENV, BUCKET_NAME: 'test-bucket' }
         vi.resetAllMocks()
         global.fetch = vi.fn()
     })
@@ -236,6 +236,8 @@ describe('createUserAndWorkspace', () => {
             researcherId: 'user123',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            slug: 'test-org',
             url: 'test-image:latest',
             settings: { environment: [{ name: 'VAR1', value: 'value1' }] },
             starterCodePath: 'starter-code/test-org/main.R',
@@ -259,7 +261,16 @@ describe('createUserAndWorkspace', () => {
         expect(requestBody.rich_parameter_values).toEqual([
             { name: 'study_id', value: 'study123' },
             { name: 'container_image', value: 'test-image:latest' },
-            { name: 'environment', value: JSON.stringify([{ name: 'VAR1', value: 'value1' }]) },
+            {
+                name: 'environment',
+                value: JSON.stringify([
+                    { name: 'VAR1', value: 'value1' },
+                    {
+                        name: 'SAMPLE_DATA_PATH',
+                        value: `s3://${process.env.BUCKET_NAME}/code-env/test-org/env-123/sample-data`,
+                    },
+                ]),
+            },
         ])
     })
 
@@ -277,6 +288,8 @@ describe('createUserAndWorkspace', () => {
             researcherId: 'user123',
         })
         fetchLatestCodeEnvForStudyIdMock.mockResolvedValue({
+            id: 'env-123',
+            slug: 'test-org',
             url: 'test-image:latest',
             settings: {},
             starterCodePath: 'starter-code/test-org/main.R',

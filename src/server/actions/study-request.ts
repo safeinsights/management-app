@@ -8,7 +8,7 @@ import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJ
 import { StudyDocumentType } from '@/lib/types'
 import { sanitizeFileName } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
-import { codeBuildRepositoryUrl, deleteFolderContents, signedUrlForStudyUpload, storeS3File } from '@/server/aws'
+import { codeBuildRepositoryUrl, deleteFolderContents, createSignedUploadUrl, storeS3File } from '@/server/aws'
 import { CODER_DISABLED, getConfigValue } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
@@ -79,7 +79,7 @@ async function addStudyJob(
     })
 
     // s3 signed urls for client to upload
-    const urlForCodeUpload = await signedUrlForStudyUpload(studyJobCodePath)
+    const urlForCodeUpload = await createSignedUploadUrl(studyJobCodePath)
 
     return {
         studyJobId: studyJob.id,
@@ -125,13 +125,13 @@ export const onSaveDraftStudyAction = new Action('onSaveDraftStudyAction', { per
 
         return {
             studyId,
-            urlForAgreementUpload: await signedUrlForStudyUpload(
+            urlForAgreementUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
             ),
-            urlForIrbUpload: await signedUrlForStudyUpload(
+            urlForIrbUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
             ),
-            urlForDescriptionUpload: await signedUrlForStudyUpload(
+            urlForDescriptionUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
             ),
         }
@@ -174,13 +174,13 @@ export const onUpdateDraftStudyAction = new Action('onUpdateDraftStudyAction', {
 
         return {
             studyId,
-            urlForAgreementUpload: await signedUrlForStudyUpload(
+            urlForAgreementUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.AGREEMENT),
             ),
-            urlForIrbUpload: await signedUrlForStudyUpload(
+            urlForIrbUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.IRB),
             ),
-            urlForDescriptionUpload: await signedUrlForStudyUpload(
+            urlForDescriptionUpload: await createSignedUploadUrl(
                 pathForStudyDocuments({ studyId, orgSlug }, StudyDocumentType.DESCRIPTION),
             ),
         }

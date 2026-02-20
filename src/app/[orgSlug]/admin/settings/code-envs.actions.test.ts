@@ -14,16 +14,14 @@ vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
         ...actual,
-        storeS3File: vi.fn().mockResolvedValue(undefined),
         deleteS3File: vi.fn().mockResolvedValue(undefined),
+        deleteFolderContents: vi.fn().mockResolvedValue(undefined),
     }
 })
 
 describe('Code Environment Actions', () => {
     it('createOrgCodeEnvAction creates a code environment', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
-
-        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
 
         const result = actionResult(
             await createOrgCodeEnvAction({
@@ -32,7 +30,7 @@ describe('Code Environment Actions', () => {
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
-                starterCode: mockFile,
+                starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
             }),
@@ -140,8 +138,6 @@ describe('Code Environment Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        const mockNewFile = new File(['new content'], 'new-starter.py', { type: 'text/plain' })
-
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
@@ -151,7 +147,8 @@ describe('Code Environment Actions', () => {
                 language: 'PYTHON',
                 url: 'updated-url',
                 isTesting: true,
-                starterCode: mockNewFile,
+                starterCodeFileName: 'new-starter.py',
+                starterCodeUploaded: true,
                 settings: { environment: [] },
             }),
         )
@@ -308,7 +305,6 @@ describe('Code Environment Actions', () => {
     it('createOrgCodeEnvAction creates a code environment with environment variables', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
         const environment = [
             { name: 'MY_VAR', value: 'my_value' },
             { name: 'APIKEY', value: 'secret123' },
@@ -321,7 +317,7 @@ describe('Code Environment Actions', () => {
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
-                starterCode: mockFile,
+                starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment },
             }),
@@ -334,8 +330,6 @@ describe('Code Environment Actions', () => {
     it('createOrgCodeEnvAction defaults settings.environment to empty array', async () => {
         const { org } = await mockSessionWithTestData({ isAdmin: true })
 
-        const mockFile = new File(['test content'], 'test.py', { type: 'text/plain' })
-
         const result = actionResult(
             await createOrgCodeEnvAction({
                 orgSlug: org.slug,
@@ -343,7 +337,7 @@ describe('Code Environment Actions', () => {
                 cmdLine: 'test command',
                 language: 'R',
                 url: 'test-url',
-                starterCode: mockFile,
+                starterCodeFileName: 'test.py',
                 isTesting: true,
                 settings: { environment: [] },
             }),

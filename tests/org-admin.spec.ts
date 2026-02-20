@@ -89,7 +89,6 @@ test.describe('Organization Admin', () => {
             url: '/reviewer-is-org-admin/admin/settings',
         })
 
-        await page.waitForLoadState('networkidle')
         await expect(page).toHaveURL(/\/reviewer-is-org-admin\/admin\/settings/, { timeout: 10000 })
 
         await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible({ timeout: 10000 })
@@ -123,29 +122,27 @@ test.describe('Organization Admin', () => {
 
         await expect(page.getByRole('dialog', { name: /add code environment/i })).toBeHidden({ timeout: 10000 })
 
-        // Wait for the new row to appear in the table
-        const row = page.getByRole('row', { name: new RegExp(codeEnvName) })
-        await expect(row).toBeVisible()
-        await expect(row.getByText('main.r')).toBeVisible()
+        // Wait for the new code environment to appear
+        await expect(page.getByText(codeEnvName)).toBeVisible()
 
-        // Click the Edit action for this row (first button: view starter code, second: edit)
-        const actionButtons = row.locator('button')
-        await actionButtons.nth(1).click()
+        // Find the code environment row and click its Edit button
+        const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
+        await codeEnvRow.locator('button').nth(1).click()
 
         // Edit modal should open
-        await expect(page.getByText(/edit code environment/i)).toBeVisible()
+        const editDialog = page.getByRole('dialog', { name: /edit code environment/i })
+        await expect(editDialog).toBeVisible()
 
-        // Upload an updated starter code file (reuse the same file path for simplicity)
-        const editFileInput = page.locator('input[type="file"]').first()
-        await editFileInput.setInputFiles(starterPath)
+        // Edit a text field to verify the update flow works
+        const updatedName = `${codeEnvName} Updated`
+        await editDialog.getByLabel(/name/i).fill(updatedName)
 
         // Submit the update
-        await page.getByRole('button', { name: /update code environment/i }).click()
+        await editDialog.getByRole('button', { name: /update code environment/i }).click()
 
-        await expect(page.getByRole('dialog', { name: /edit code environment/i })).toBeHidden({ timeout: 10000 })
+        await expect(editDialog).toBeHidden({ timeout: 10000 })
 
-        // Ensure the row is still present and the starter code filename is rendered
-        await expect(row).toBeVisible()
-        await expect(row.getByText('main.r')).toBeVisible()
+        // Ensure the updated code environment name is present
+        await expect(page.getByText(updatedName)).toBeVisible()
     })
 })

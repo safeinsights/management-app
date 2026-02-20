@@ -17,12 +17,18 @@ import { CodeEnvs } from './code-envs'
 import { Org } from '@/database/types'
 import userEvent from '@testing-library/user-event'
 
+vi.mock('@/hooks/upload', () => ({
+    uploadFiles: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
         ...actual,
         storeS3File: vi.fn().mockResolvedValue(undefined),
         deleteS3File: vi.fn().mockResolvedValue(undefined),
+        deleteFolderContents: vi.fn().mockResolvedValue(undefined),
+        createSignedUploadUrl: vi.fn().mockResolvedValue({ url: 'https://s3.example.com', fields: { key: 'test' } }),
     }
 })
 
@@ -83,17 +89,36 @@ describe('CodeEnvs', async () => {
         })
     })
 
-    it('allows deletion of testing images regardless of count', async () => {
+    it('hides delete when there is only one code environment', async () => {
         await insertTestCodeEnv({
             orgId: org.id,
-            name: 'Production Image',
+            name: 'Only Image',
+            language: 'R',
+            isTesting: false,
+        })
+
+        renderWithProviders(<CodeEnvs />)
+
+        await waitFor(() => {
+            expect(screen.getByText('Only Image')).toBeInTheDocument()
+        })
+
+        const trashButtons = screen.getAllByRole('button', { name: '' }).filter((btn) => btn.querySelector('svg'))
+        const hasSuretyGuard = trashButtons.some((btn) => btn.closest('[data-variant="filled"]'))
+        expect(hasSuretyGuard).toBe(false)
+    })
+
+    it('shows delete on all rows when there are multiple code environments', async () => {
+        await insertTestCodeEnv({
+            orgId: org.id,
+            name: 'R Image',
             language: 'R',
             isTesting: false,
         })
 
         await insertTestCodeEnv({
             orgId: org.id,
-            name: 'Testing Image',
+            name: 'Python Image',
             language: 'PYTHON',
             isTesting: true,
         })
@@ -101,113 +126,8 @@ describe('CodeEnvs', async () => {
         renderWithProviders(<CodeEnvs />)
 
         await waitFor(() => {
-            expect(screen.getByText('Production Image')).toBeInTheDocument()
-            expect(screen.getByText('Testing Image')).toBeInTheDocument()
-        })
-
-        const deleteButtons = screen.getAllByRole('button', { name: '' }).filter((btn) => btn.querySelector('svg'))
-
-        expect(deleteButtons.length).toBeGreaterThanOrEqual(1)
-    })
-
-    it('prevents deletion of the last non-testing image', async () => {
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'Only Production Image',
-            language: 'R',
-            isTesting: false,
-        })
-
-        renderWithProviders(<CodeEnvs />)
-
-        await waitFor(() => {
-            expect(screen.getByText('Only Production Image')).toBeInTheDocument()
-        })
-
-        const actionIcons = screen.getAllByRole('button', { name: '' })
-        const potentialDeleteButtons = actionIcons.filter((btn) => {
-            const actionIcon = btn.closest('.mantine-ActionIcon-root')
-            return actionIcon?.getAttribute('data-variant') === 'subtle'
-        })
-
-        expect(potentialDeleteButtons.length).toBeGreaterThanOrEqual(1)
-    })
-
-    it('allows deletion of non-testing images when there are multiple', async () => {
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'Production Image 1',
-            language: 'R',
-            isTesting: false,
-        })
-
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'Production Image 2',
-            language: 'PYTHON',
-            isTesting: false,
-        })
-
-        renderWithProviders(<CodeEnvs />)
-
-        await waitFor(() => {
-            expect(screen.getByText('Production Image 1')).toBeInTheDocument()
-            expect(screen.getByText('Production Image 2')).toBeInTheDocument()
-        })
-
-        const actionIcons = screen.getAllByRole('button', { name: '' })
-        expect(actionIcons.length).toBeGreaterThanOrEqual(4)
-    })
-
-    it('prevents deletion of the last non-testing image per language', async () => {
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'Only R Image',
-            language: 'R',
-            isTesting: false,
-        })
-
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'Only Python Image',
-            language: 'PYTHON',
-            isTesting: false,
-        })
-
-        renderWithProviders(<CodeEnvs />)
-
-        await waitFor(() => {
-            expect(screen.getByText('Only R Image')).toBeInTheDocument()
-            expect(screen.getByText('Only Python Image')).toBeInTheDocument()
-        })
-
-        const actionIcons = screen.getAllByRole('button', { name: '' })
-        const editButtons = actionIcons.filter((btn) => {
-            return btn.closest('[data-variant="subtle"]') !== null
-        })
-        expect(editButtons.length).toBeGreaterThanOrEqual(2)
-    })
-
-    it('allows deletion when there are multiple non-testing images for the same language', async () => {
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'R Image 1',
-            language: 'R',
-            isTesting: false,
-        })
-
-        await insertTestCodeEnv({
-            orgId: org.id,
-            name: 'R Image 2',
-            language: 'R',
-            isTesting: false,
-        })
-
-        renderWithProviders(<CodeEnvs />)
-
-        await waitFor(() => {
-            expect(screen.getByText('R Image 1')).toBeInTheDocument()
-            expect(screen.getByText('R Image 2')).toBeInTheDocument()
+            expect(screen.getByText('R Image')).toBeInTheDocument()
+            expect(screen.getByText('Python Image')).toBeInTheDocument()
         })
 
         const actionIcons = screen.getAllByRole('button', { name: '' })
@@ -236,8 +156,8 @@ describe('CodeEnvs', async () => {
             expect(screen.getByText('Image without Env Vars')).toBeInTheDocument()
         })
 
-        expect(screen.getByText('Env Vars')).toBeInTheDocument()
+        expect(screen.getAllByText('Env Vars').length).toBeGreaterThanOrEqual(1)
         expect(screen.getByText('VAR1=value1')).toBeInTheDocument()
-        expect(screen.getByText('-')).toBeInTheDocument()
+        expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
     })
 })
