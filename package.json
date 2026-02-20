@@ -38,11 +38,11 @@
     "dependencies": {
         "@aws-sdk/client-codebuild": "^3.981.0",
         "@aws-sdk/client-ecr": "^3.981.0",
-        "@aws-sdk/client-s3": "^3.980.0",
+        "@aws-sdk/client-s3": "^3.981.0",
         "@aws-sdk/client-secrets-manager": "^3.981.0",
         "@aws-sdk/client-sts": "^3.981.0",
-        "@aws-sdk/credential-provider-ini": "^3.972.3",
-        "@aws-sdk/lib-storage": "^3.980.0",
+        "@aws-sdk/credential-provider-ini": "^3.981.0",
+        "@aws-sdk/lib-storage": "^3.981.0",
         "@aws-sdk/s3-presigned-post": "^3.981.0",
         "@aws-sdk/s3-request-presigner": "^3.981.0",
         "@casl/ability": "^6.8.0",
@@ -133,7 +133,6 @@
     },
     "overrides": {
         "@types/react": "19.2.10",
-        "fast-xml-parser": "5.3.6",
         "minimatch": "^10.2.1"
     }
 }
