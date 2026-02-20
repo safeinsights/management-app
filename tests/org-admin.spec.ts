@@ -125,9 +125,10 @@ test.describe('Organization Admin', () => {
         // Wait for the new code environment to appear
         await expect(page.getByText(codeEnvName)).toBeVisible()
 
-        // Find the code environment container and click its Edit button
-        const codeEnvBox = page.locator('div').filter({ hasText: codeEnvName })
-        const editButton = codeEnvBox.getByRole('button', { name: /edit/i })
+        // Find the code environment row and click its Edit button
+        // The paragraph with the name is nested 3 levels deep in the row container
+        const codeEnvRow = page.getByText(codeEnvName, { exact: true }).locator('xpath=../../..')
+        const editButton = codeEnvRow.locator('button').nth(1)
         await editButton.click()
 
         // Edit modal should open
