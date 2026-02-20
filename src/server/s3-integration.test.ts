@@ -1,5 +1,5 @@
-// Exercises S3 operations (checksums, presigned URLs, batch deletes) to ensure
-// compatibility when migrating from MinIO to SeaweedFS.
+// Exercises S3 operations (checksums, presigned URLs, batch deletes) against
+// the SeaweedFS S3-compatible API. MinIO was previously used but removed (unmaintained).
 
 import { describe, it, expect, afterAll } from 'vitest'
 import { DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command, type S3Client } from '@aws-sdk/client-s3'

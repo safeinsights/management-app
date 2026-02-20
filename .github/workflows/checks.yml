@@ -64,15 +64,6 @@ jobs:
                     POSTGRES_DB: si_test
                     POSTGRES_PASSWORD: si
                 options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
-            minio:
-                image: minio/minio:edge-cicd
-                ports:
-                    - 9198:9000
-                volumes:
-                    - minio-data:/data
-                env:
-                    MINIO_ROOT_USER: si-local-minio
-                    MINIO_ROOT_PASSWORD: si-local-minio
         permissions:
             pull-requests: write
             contents: write
@@ -89,12 +80,10 @@ jobs:
             CLERK_REVIEWER_PASSWORD: ${{ secrets.CLERK_REVIEWER_PASSWORD }}
             CLERK_ADMIN_EMAIL: ${{ secrets.CLERK_ADMIN_EMAIL }}
             CLERK_ADMIN_PASSWORD: ${{ secrets.CLERK_ADMIN_PASSWORD }}
-            S3_ENDPOINT: 'http://localhost:9198'
-            S3_BROWSER_ENDPOINT: 'http://localhost:9198'
-            MINIO_ROOT_USER: 'si-local-minio'
-            MINIO_ROOT_PASSWORD: 'si-local-minio'
-            AWS_ACCESS_KEY_ID: 'si-local-minio'
-            AWS_SECRET_ACCESS_KEY: 'si-local-minio'
+            S3_ENDPOINT: 'http://localhost:8333'
+            S3_BROWSER_ENDPOINT: 'http://localhost:8333'
+            AWS_ACCESS_KEY_ID: 'si-local-s3'
+            AWS_SECRET_ACCESS_KEY: 'si-local-s3'
             BUCKET_NAME: 'mgmt-app-local'
             AWS_REGION: 'us-east-1'
             PORT: '4000'
@@ -111,21 +100,30 @@ jobs:
                   key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
                   path: |
                       ~/.npm
-                      ~/.cache
                       ${{ github.workspace }}/.next/cache
                       # Generate a new cache whenever packages or source files change.
                   restore-keys: |
                       ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
-            - name: Download mc CLI
-              if: steps.cache-all-the-things.outputs.cache-hit != 'true'
+            - name: Start SeaweedFS
               run: |
-                  curl --create-dirs -o ~/.cache/mc  https://dl.min.io/client/mc/release/linux-amd64/mc
-                  chmod +x ~/.cache/mc
-            - name: provision minio
-              run: |
-                  ~/.cache/mc alias set siminio http://localhost:9198 si-local-minio si-local-minio
-                  ~/.cache/mc mb siminio/mgmt-app-local
+                  docker run -d --name seaweedfs \
+                    -p 8333:8333 \
+                    -e AWS_ACCESS_KEY_ID=si-local-s3 \
+                    -e AWS_SECRET_ACCESS_KEY=si-local-s3 \
+                    chrislusf/seaweedfs:latest \
+                    server -s3 -dir=/data
+                  for i in $(seq 1 30); do
+                    status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8333/ 2>/dev/null)
+                    if [[ "$status" == "200" || "$status" == "403" ]]; then
+                      echo "SeaweedFS S3 is ready (HTTP $status)"
+                      break
+                    fi
+                    echo "Waiting... ($i/30, status=$status)"
+                    sleep 2
+                  done
+            - name: Create S3 bucket
+              run: aws --endpoint-url http://localhost:8333 s3 mb s3://mgmt-app-local
             - name: npm install
               run: npm ci
             - name: provision db
