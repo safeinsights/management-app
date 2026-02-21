@@ -110,6 +110,7 @@ jobs:
               id: seaweed-version
               run: |
                   VERSION=$(curl -s https://api.github.com/repos/seaweedfs/seaweedfs/releases/latest | jq -r '.tag_name')
+                  echo "SeaweedFS latest: $VERSION"
                   echo "version=$VERSION" >> $GITHUB_OUTPUT
 
             - name: Cache SeaweedFS binary
