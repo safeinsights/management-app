@@ -105,22 +105,39 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
 
+            - name: Get SeaweedFS latest version
+              id: seaweed-version
+              run: |
+                  VERSION=$(curl -s https://api.github.com/repos/seaweedfs/seaweedfs/releases/latest | jq -r '.tag_name')
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+            - name: Cache SeaweedFS binary
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/seaweedfs
+                  key: seaweedfs-${{ runner.os }}-${{ steps.seaweed-version.outputs.version }}
+
             - name: Start SeaweedFS
               run: |
-                  docker run -d --name seaweedfs \
-                    -p 8333:8333 \
-                    -e AWS_ACCESS_KEY_ID=si-local-s3 \
-                    -e AWS_SECRET_ACCESS_KEY=si-local-s3 \
-                    chrislusf/seaweedfs:latest \
-                    server -s3 -dir=/data
+                  mkdir -p ~/.cache/seaweedfs
+                  cd ~/.cache/seaweedfs
+                  if [ ! -f weed ]; then
+                    curl -L -o linux_amd64.tar.gz \
+                      "https://github.com/seaweedfs/seaweedfs/releases/download/${{ steps.seaweed-version.outputs.version }}/linux_amd64.tar.gz"
+                    tar -xzf linux_amd64.tar.gz
+                    chmod +x weed
+                    rm linux_amd64.tar.gz
+                  fi
+                  AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 \
+                    ./weed server -s3 -dir=/tmp/seaweed-data >/tmp/seaweed.log 2>&1 &
                   for i in $(seq 1 30); do
-                    status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8333/ 2>/dev/null)
+                    status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8333/ 2>/dev/null || true)
                     if [[ "$status" == "200" || "$status" == "403" ]]; then
                       echo "SeaweedFS S3 is ready (HTTP $status)"
                       break
                     fi
                     echo "Waiting... ($i/30, status=$status)"
-                    sleep 2
+                    sleep 1
                   done
             - name: Create S3 bucket
               run: aws --endpoint-url http://localhost:8333 s3 mb s3://mgmt-app-local
