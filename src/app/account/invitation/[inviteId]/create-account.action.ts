@@ -2,6 +2,7 @@
 
 import { Action, ActionFailure, z } from '@/server/actions/action'
 import { updateClerkUserMetadata } from '@/server/clerk'
+import { getReviewerPublicKey } from '@/server/db/queries'
 import { onUserAcceptInvite } from '@/server/events'
 import { clerkClient } from '@clerk/nextjs/server'
 
@@ -142,7 +143,18 @@ export const onJoinTeamAccountAction = new Action('onJoinTeamAccountAction')
             .where('claimedByUserId', 'is', null)
             .executeTakeFirst()
 
-        return siUser
+        // The client-side RequireReviewerKey guard depends on Clerk's useUser() metadata,
+        // which may be stale right after this server-side update. We check here so callers
+        // can redirect to the key generation page immediately.
+        const org = await db
+            .selectFrom('org')
+            .select('org.type')
+            .where('org.id', '=', invite.orgId)
+            .executeTakeFirstOrThrow()
+
+        const needsReviewerKey = org.type === 'enclave' && !(await getReviewerPublicKey(siUser.id))
+
+        return { ...siUser, needsReviewerKey }
     })
 
 export const onCreateAccountAction = new Action('onCreateAccountAction')

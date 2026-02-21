@@ -139,6 +139,67 @@ describe('Create Account Actions', () => {
         )
     })
 
+    it('onJoinTeamAccountAction returns needsReviewerKey true for enclave org without existing key', async () => {
+        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+        const { user } = await insertTestUser({ org: labOrg })
+
+        const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: enclaveOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsReviewerKey).toBe(true)
+    })
+
+    it('onJoinTeamAccountAction returns needsReviewerKey false for enclave org with existing key', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const enclaveOrg = await insertTestOrg({ slug: faker.string.alpha(10) })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: enclaveOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsReviewerKey).toBe(false)
+    })
+
+    it('onJoinTeamAccountAction returns needsReviewerKey false for lab org', async () => {
+        const { user } = await insertTestUser({ org })
+
+        const labOrg = await insertTestOrg({ slug: faker.string.alpha(10), type: 'lab' })
+
+        const invite = await db
+            .insertInto('pendingUser')
+            .values({
+                orgId: labOrg.id,
+                email: user.email!,
+                isAdmin: false,
+                invitedByUserId: invitingUser.user.id,
+            })
+            .returningAll()
+            .executeTakeFirstOrThrow()
+
+        const result = actionResult(await onJoinTeamAccountAction({ inviteId: invite.id }))
+        expect(result.needsReviewerKey).toBe(false)
+    })
+
     it('onRevokeInviteAction removes invite', async () => {
         const { user } = await insertTestUser({ org })
 

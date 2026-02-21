@@ -74,15 +74,19 @@ export const RequestMFA: FC<{ mfa: MFAState }> = ({ mfa }) => {
                         const inviteId = searchParams.get('invite_id')
                         if (inviteId) {
                             try {
-                                actionResult(
+                                const joinResult = actionResult(
                                     await onJoinTeamAccountAction({
                                         inviteId,
                                         loggedInEmail: signInAttempt?.identifier || undefined,
                                     }),
                                 )
 
-                                const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
-                                redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
+                                if (joinResult?.needsReviewerKey) {
+                                    redirectUrl = Routes.accountKeys as Route
+                                } else {
+                                    const { slug } = actionResult(await getOrgInfoForInviteAction({ inviteId }))
+                                    redirectUrl = Routes.orgDashboard({ orgSlug: slug }) as Route
+                                }
 
                                 const email = signInAttempt?.identifier || 'your account'
                                 notifications.show({
