@@ -48,7 +48,7 @@ For developing locally without docker compose, you will need to:
 
 2. Install SeaweedFS: `brew install seaweedfs` and provision it using:
     - Start server: `./bin/local-seaweedfs`
-    - Create bucket (_only needed once_): `aws --endpoint-url http://localhost:8333 s3 mb s3://mgmt-app-local`
+    - Create bucket (_only needed once_): `aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local`
 
 3. Install dependencies:
 

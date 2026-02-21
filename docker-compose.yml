@@ -88,7 +88,7 @@ services:
             - CLERK_ADMIN_PASSWORD=$CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
             - S3_ENDPOINT=http://seaweedfs:8333
-            - S3_BROWSER_ENDPOINT=http://localhost:8333
+            - S3_BROWSER_ENDPOINT=http://127.0.0.1:8333
             - AWS_ACCESS_KEY_ID=si-local-s3
             - AWS_SECRET_ACCESS_KEY=si-local-s3
             - BUCKET_NAME=mgmt-app-local
