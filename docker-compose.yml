@@ -33,35 +33,39 @@ services:
             PASSWORD_bma: mgmntpass
             PORT_bma: 5432
             ENGINE_bma: postgres@dbgate-plugin-postgres
-    minio:
-        image: minio/minio:latest
+    seaweedfs:
+        image: chrislusf/seaweedfs
         ports:
-            - '9198:9198'
-            - '9199:9199'
+            - '8333:8333'
         volumes:
-            - minio-data:/data
+            - seaweedfs-data:/data
         environment:
-            MINIO_ROOT_USER: si-local-minio
-            MINIO_ROOT_PASSWORD: si-local-minio
-        command: server --console-address :9199 --address :9198 /data
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+        command: server -s3 -dir=/data
         restart: unless-stopped
         networks:
             - mgmnt-app
         healthcheck:
-            test: ['CMD', 'curl', '-f', 'http://localhost:9198/minio/health/live']
-            interval: 30s
-            timeout: 20s
-            retries: 3
+            test: ['CMD-SHELL', 'nc -w 1 127.0.0.1 8333 < /dev/null']
+            interval: 15s
+            timeout: 10s
+            retries: 5
+            start_period: 15s
     create-buckets:
-        image: minio/mc
+        image: amazon/aws-cli
         depends_on:
-            minio:
+            seaweedfs:
                 condition: service_healthy
-        restart: no # will fail if ran before
+        restart: 'no'
+        environment:
+            AWS_ACCESS_KEY_ID: si-local-s3
+            AWS_SECRET_ACCESS_KEY: si-local-s3
+            AWS_DEFAULT_REGION: us-east-1
         entrypoint: >
             /bin/sh -c "
-            /usr/bin/mc alias set siminio http://minio:9198 si-local-minio si-local-minio;
-            /usr/bin/mc mb siminio/mgmt-app-local;
+            aws --endpoint-url http://seaweedfs:8333 s3 mb s3://mgmt-app-local;
+            exit 0;
             "
         networks:
             - mgmnt-app
@@ -83,12 +87,10 @@ services:
             - CLERK_ADMIN_EMAIL=$CLERK_ADMIN_EMAIL
             - CLERK_ADMIN_PASSWORD=$CLERK_ADMIN_PASSWORD
             - DATABASE_URL=postgres://mgmnt:mgmntpass@postgres:5432/mgmnt_dev
-            - S3_ENDPOINT=http://minio:9198
-            - S3_BROWSER_ENDPOINT=http://localhost:9198
-            - MINIO_ROOT_USER=si-local-minio
-            - MINIO_ROOT_PASSWORD=si-local-minio
-            - AWS_ACCESS_KEY_ID=si-local-minio
-            - AWS_SECRET_ACCESS_KEY=si-local-minio
+            - S3_ENDPOINT=http://seaweedfs:8333
+            - S3_BROWSER_ENDPOINT=http://127.0.0.1:8333
+            - AWS_ACCESS_KEY_ID=si-local-s3
+            - AWS_SECRET_ACCESS_KEY=si-local-s3
             - BUCKET_NAME=mgmt-app-local
             - AWS_ACCOUNT_ID=000000000000
             - AWS_REGION=us-east-1
@@ -115,4 +117,4 @@ volumes:
     pgdata:
     node_modules:
     dbgate-data:
-    minio-data:
+    seaweedfs-data:

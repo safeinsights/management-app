@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
