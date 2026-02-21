@@ -121,31 +121,37 @@ jobs:
 
             - name: Start SeaweedFS
               run: |
-                  mkdir -p ~/.cache/seaweedfs
+                  set -euo pipefail
+                  mkdir -p ~/.cache/seaweedfs /tmp/seaweed-data
                   cd ~/.cache/seaweedfs
-                  if [ ! -f weed ]; then
+                  if [ ! -x ./weed ]; then
                     curl -L -o linux_amd64.tar.gz \
                       "https://github.com/seaweedfs/seaweedfs/releases/download/${{ steps.seaweed-version.outputs.version }}/linux_amd64.tar.gz"
                     tar -xzf linux_amd64.tar.gz
                     chmod +x weed
                     rm linux_amd64.tar.gz
                   fi
+
                   echo "SeaweedFS $(./weed version 2>&1 || true)"
-                  mkdir -p /tmp/seaweed-data
                   ./weed server -s3 -dir=/tmp/seaweed-data >/tmp/seaweed.log 2>&1 &
                   WEED_PID=$!
+                  is_ready() {
+                    status=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8333/ 2>/dev/null || true)
+                    [[ "$status" == "200" || "$status" == "403" ]]
+                  }
+
                   for i in $(seq 1 30); do
-                    if ! kill -0 $WEED_PID 2>/dev/null; then
+                    if ! kill -0 "$WEED_PID" 2>/dev/null; then
                       echo "SeaweedFS process died!"
                       exit 1
                     fi
-                    status=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8333/ 2>/dev/null || true)
-                    if [[ "$status" == "200" || "$status" == "403" ]]; then
+                    if is_ready; then
                       echo "SeaweedFS S3 is ready (HTTP $status after ${i}s)"
                       break
                     fi
                     sleep 1
                   done
+
                   if [[ "$status" != "200" && "$status" != "403" ]]; then
                     echo "SeaweedFS failed to start within 30s."
                     exit 1
