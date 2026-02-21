@@ -131,8 +131,7 @@ jobs:
                   fi
                   echo "SeaweedFS $(./weed version 2>&1 || true)"
                   mkdir -p /tmp/seaweed-data
-                  AWS_ACCESS_KEY_ID=si-local-s3 AWS_SECRET_ACCESS_KEY=si-local-s3 \
-                    ./weed server -s3 -dir=/tmp/seaweed-data >/tmp/seaweed.log 2>&1 &
+                  ./weed server -s3 -dir=/tmp/seaweed-data >/tmp/seaweed.log 2>&1 &
                   WEED_PID=$!
                   for i in $(seq 1 30); do
                     if ! kill -0 $WEED_PID 2>/dev/null; then
