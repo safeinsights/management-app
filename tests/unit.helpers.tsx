@@ -302,6 +302,28 @@ export const insertTestStudyJobData = async ({
     }
 }
 
+export const insertTestStudyOnly = async ({ orgSlug }: { orgSlug: string }) => {
+    const org = await insertTestOrg({ slug: orgSlug })
+    const { user } = await insertTestUser({ org })
+    const study = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            submittedByOrgId: org.id,
+            containerLocation: 'test-container',
+            title: 'study without job',
+            researcherId: user.id,
+            piName: 'test',
+            status: 'APPROVED',
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+            language: 'R',
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+    return { org, user, study }
+}
+
 export const insertTestStudyJobUsers = async ({
     org,
     useRealKeys = false,

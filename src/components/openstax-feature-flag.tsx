@@ -1,9 +1,13 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
+import { Alert } from '@mantine/core'
 import { OPENSTAX_ORG_SLUGS } from '@/lib/constants'
 import { useSession } from '@/hooks/session'
 import { useSpyMode } from './spy-mode-context'
+import { isOpenStaxOrg } from './openstax-only'
+
+export const isFeatureFlagOrg = (orgSlug: string): boolean => isOpenStaxOrg(orgSlug)
 
 // Returns a boolean indicating whether the user is in spy mode and belongs to an OpenStax organization.
 // Use for inline conditional rendering of content.
@@ -31,4 +35,16 @@ interface OpenStaxFeatureFlagProps {
 export const OpenStaxFeatureFlag: FC<OpenStaxFeatureFlagProps> = ({ defaultContent, optInContent }) => {
     const isOpenStaxOptIn = useOpenStaxFeatureFlag()
     return isOpenStaxOptIn ? optInContent : defaultContent
+}
+
+export const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = ({ isNewFlow, message }) => {
+    const { isSpyMode } = useSpyMode()
+
+    if (!isNewFlow || isSpyMode) return null
+
+    return (
+        <Alert variant="filled" color="red" title="Action Required">
+            {message ?? 'This page is not available in the current view. Enable spy mode to continue.'}
+        </Alert>
+    )
 }
