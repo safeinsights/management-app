@@ -150,7 +150,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
         try {
             const result = await fetchStarterCodeAction({
                 orgSlug,
-                imageId: image.id,
+                codeEnvId: image.id,
             })
             if (isActionError(result)) {
                 reportError(result)
@@ -170,7 +170,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
 
         return (
             <SuretyGuard
-                onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
+                onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
                 message="Are you sure you want to delete this code environment? This cannot be undone."
             >
                 <TrashIcon />
@@ -251,8 +251,8 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
 
     return (
         <Stack gap={0}>
-            {images.map((image, key) => (
-                <CodeEnvRow key={key} image={image} canDelete={canDelete} />
+            {images.map((image) => (
+                <CodeEnvRow key={image.id} image={image} canDelete={canDelete} />
             ))}
         </Stack>
     )

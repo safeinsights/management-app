@@ -135,7 +135,7 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
 
         return await updateOrgCodeEnvAction({
             orgSlug,
-            imageId: image!.id,
+            codeEnvId: image!.id,
             ...rest,
             starterCodeFileName: starterCode?.name,
             starterCodeUploaded,

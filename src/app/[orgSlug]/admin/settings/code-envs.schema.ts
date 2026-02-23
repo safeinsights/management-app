@@ -3,8 +3,8 @@ import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 
 const sampleDataFormatKeys = Object.keys(SAMPLE_DATA_FORMATS) as [SampleDataFormat, ...SampleDataFormat[]]
 
-const MAX_FILE_SIZE = 10 * 1024 // 10MB
-const MAX_FILE_SIZE_STR = '10KB'
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+const MAX_FILE_SIZE_STR = '10MB'
 
 // Valid env var key: starts with letter or underscore, followed by alphanumeric or underscore
 export const envVarKeyRegex = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -80,25 +80,10 @@ export const editOrgCodeEnvSchema = codeEnvFieldsSchema.extend({
     sampleDataUploaded: z.boolean().optional(),
 })
 
-// Form schemas with UI-only fields for new env var input
-// Includes validation to prevent duplicate environment variable names when adding new ones
-// Note: newEnvKey and newEnvValue are already trimmed by the schema transform
-export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
-    .merge(newEnvVarFieldsSchema)
-    .superRefine((data, ctx) => {
-        if (data.newEnvKey && data.newEnvValue) {
-            const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
-            if (isDuplicate) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Variable name already exists',
-                    path: ['newEnvKey'],
-                })
-            }
-        }
-    })
-
-export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema.merge(newEnvVarFieldsSchema).superRefine((data, ctx) => {
+const rejectDuplicateEnvVarName = (
+    data: { newEnvKey: string; newEnvValue: string; settings: { environment: { name: string }[] } },
+    ctx: z.RefinementCtx,
+) => {
     if (data.newEnvKey && data.newEnvValue) {
         const isDuplicate = data.settings.environment.some((v) => v.name === data.newEnvKey)
         if (isDuplicate) {
@@ -109,6 +94,14 @@ export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema.merge(newEnvVarFiel
             })
         }
     }
-})
+}
+
+export const createOrgCodeEnvFormSchema = createOrgCodeEnvSchema
+    .merge(newEnvVarFieldsSchema)
+    .superRefine(rejectDuplicateEnvVarName)
+
+export const editOrgCodeEnvFormSchema = editOrgCodeEnvSchema
+    .merge(newEnvVarFieldsSchema)
+    .superRefine(rejectDuplicateEnvVarName)
 
 export const orgCodeEnvSchema = createOrgCodeEnvSchema

@@ -51,6 +51,7 @@ export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCA
 export type StudyJobStatus =
     | 'CODE-APPROVED'
     | 'CODE-REJECTED'
+    | 'CODE-SCANNED'
     | 'CODE-SUBMITTED'
     | 'FILES-APPROVED'
     | 'FILES-REJECTED'
@@ -160,7 +161,6 @@ export interface Scan {
     id: Generated<string>
     results: string | null
     status: ScanStatus
-    updatedAt: Generated<Timestamp>
 }
 
 export interface Study {

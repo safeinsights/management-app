@@ -13,7 +13,12 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .addColumn('status', sql`scan_status`, (col) => col.notNull())
         .addColumn('results', 'text')
         .addColumn('created_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
-        .addColumn('updated_at', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+        .execute()
+
+    await db.schema
+        .createIndex('idx_scan_code_env_created')
+        .on('scan')
+        .columns(['code_env_id', 'created_at desc'])
         .execute()
 }
 

@@ -24,10 +24,10 @@ import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 
 const codeEnvFromOrgAndId = async ({
-    params: { orgSlug, imageId },
+    params: { orgSlug, codeEnvId },
     db,
 }: {
-    params: { orgSlug: string; imageId: string }
+    params: { orgSlug: string; codeEnvId: string }
     db: Kysely<DB>
 }) => {
     const codeEnv = await db
@@ -41,7 +41,7 @@ const codeEnvFromOrgAndId = async ({
             'org.id as orgId',
         ])
         .where('org.slug', '=', orgSlug)
-        .where('orgCodeEnv.id', '=', imageId)
+        .where('orgCodeEnv.id', '=', codeEnvId)
         .executeTakeFirstOrThrow()
 
     return { codeEnv, orgId: codeEnv.orgId }
@@ -116,7 +116,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
 const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
     name: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
@@ -141,7 +141,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, url: existingUrl, db }) => {
         const {
             orgSlug,
-            imageId,
+            codeEnvId,
             starterCodeFileName,
             starterCodeUploaded,
             sampleDataPath,
@@ -152,23 +152,23 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
         if (starterCodeUploaded && starterCodeFileName) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
-                codeEnvId: imageId,
+                codeEnvId,
                 fileName: starterCodeFileName,
             })
-            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId: imageId }))
+            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId }))
             starterCodePath = newStarterCodePath
         }
 
         const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
 
         if (sampleDataUploaded && existingSampleDataPath) {
-            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
+            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
         } else if (
             sanitizedSampleDataPath &&
             existingSampleDataPath &&
             sanitizedSampleDataPath !== existingSampleDataPath
         ) {
-            const codeEnvInfo = { orgSlug, codeEnvId: imageId }
+            const codeEnvInfo = { orgSlug, codeEnvId }
             await moveFolderContents(
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
@@ -183,7 +183,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 starterCodePath,
                 sampleDataPath: sanitizedSampleDataPath,
             })
-            .where('id', '=', imageId)
+            .where('id', '=', codeEnvId)
             .returningAll()
             .executeTakeFirstOrThrow()
 
@@ -228,12 +228,12 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
 
 const deleteOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
 })
 
 export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { performsMutations: true })
     .params(deleteOrgCodeEnvSchema)
-    .middleware(async ({ params: { orgSlug, imageId }, db }) => {
+    .middleware(async ({ params: { orgSlug, codeEnvId }, db }) => {
         const codeEnv = await db
             .selectFrom('orgCodeEnv')
             .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
@@ -246,7 +246,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 'orgCodeEnv.orgId',
             ])
             .where('org.slug', '=', orgSlug)
-            .where('orgCodeEnv.id', '=', imageId)
+            .where('orgCodeEnv.id', '=', codeEnvId)
             .executeTakeFirstOrThrow()
 
         return codeEnv
@@ -283,7 +283,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
 
 const fetchStarterCodeSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
 })
 
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')

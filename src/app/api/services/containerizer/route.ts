@@ -1,42 +1,23 @@
-import { timingSafeEqual } from 'crypto'
 import { db } from '@/database'
 import logger from '@/lib/logger'
-import { NotFoundError, throwNotFound } from '@/lib/errors'
-import { z, ZodError } from 'zod'
-import { NextResponse } from 'next/server'
+import { throwNotFound } from '@/lib/errors'
+import { z } from 'zod'
 import { createEncryptedLogBlob } from '@/server/encryption/encrypt-log'
 import { getOrgPublicKeys } from '@/server/db/queries'
 import { storeStudyEncryptedLogFile } from '@/server/storage'
-import { getConfigValue } from '@/server/config'
+import { createWebhookHandler } from '../webhook-handler'
 
 const schema = z.object({
     jobId: z.string(),
-    status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
+    status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED', 'CODE-SCANNED']),
     plaintextLog: z.string().optional(),
 })
 
-function secretsMatch(a: string, b: string): boolean {
-    const bufA = Buffer.from(a)
-    const bufB = Buffer.from(b)
-    if (bufA.length !== bufB.length) return false
-    return timingSafeEqual(bufA, bufB)
-}
-
-export async function POST(req: Request) {
-    const authHeader = req.headers.get('Authorization')
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-    const expectedSecret = await getConfigValue('CODEBUILD_WEBHOOK_SECRET', false)
-
-    if (!token || !expectedSecret || !secretsMatch(token, expectedSecret)) {
-        return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-    }
-
-    let rawBody: unknown
-
-    try {
-        rawBody = await req.json()
-        const body = schema.parse(rawBody)
-
+export const POST = createWebhookHandler({
+    route: '/api/services/containerizer',
+    schema,
+    entityNotFoundMessage: 'job-not-found',
+    handler: async (body) => {
         const job = await db
             .selectFrom('studyJob')
             .innerJoin('study', 'study.id', 'studyJob.studyId')
@@ -51,10 +32,10 @@ export async function POST(req: Request) {
             ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
 
-        // If build failed and plaintext log provided, try to encrypt and store it.
-        // Encryption failure should not block saving the JOB-ERRORED status - we log
-        // the error but continue so the job at least shows as errored in the UI.
-        if (body.status === 'JOB-ERRORED' && body.plaintextLog) {
+        // Encrypt and store plaintext log when provided (on build failure or scan completion).
+        // Encryption failure should not block saving the status — we log the error but continue
+        // so the job at least reflects its current state in the UI.
+        if ((body.status === 'JOB-ERRORED' || body.status === 'CODE-SCANNED') && body.plaintextLog) {
             try {
                 const recipients = await getOrgPublicKeys(job.orgId)
                 if (recipients.length > 0) {
@@ -77,7 +58,6 @@ export async function POST(req: Request) {
             }
         }
 
-        // Idempotency: avoid inserting duplicate consecutive statuses.
         const last = await db
             .selectFrom('jobStatusChange')
             .select(['status'])
@@ -91,44 +71,11 @@ export async function POST(req: Request) {
             await db
                 .insertInto('jobStatusChange')
                 .values({
-                    userId: job.researcherId, // this is called from the packaging lambda so we don't have a user.  Assume the researcher uploaded the code
+                    userId: job.researcherId,
                     studyJobId: job.jobId,
                     status: body.status,
                 })
                 .execute()
         }
-
-        return new NextResponse('ok', { status: 200 })
-    } catch (error) {
-        if (error instanceof ZodError) {
-            logger.error('Error handling /api/services/containerizer POST', error, {
-                route: '/api/services/containerizer',
-                body: rawBody ?? null,
-            })
-
-            return NextResponse.json(
-                {
-                    error: 'invalid-payload',
-                    issues: error.issues,
-                },
-                { status: 400 },
-            )
-        }
-
-        if (error instanceof NotFoundError) {
-            logger.error('Error handling /api/services/containerizer POST', error, {
-                route: '/api/services/containerizer',
-                body: rawBody ?? null,
-            })
-
-            return NextResponse.json({ error: 'job-not-found' }, { status: 404 })
-        }
-
-        logger.error('Error handling /api/services/containerizer POST', error, {
-            route: '/api/services/containerizer',
-            body: rawBody ?? null,
-        })
-
-        return NextResponse.json({ error: 'internal-error' }, { status: 500 })
-    }
-}
+    },
+})
