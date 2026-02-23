@@ -46,7 +46,7 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
 
     const { mutate: joinTeam, isPending: isJoining } = useMutation({
         mutationFn: async () => actionResult(await onJoinTeamAccountAction({ inviteId })),
-        onSuccess: async () => {
+        onSuccess: async (result) => {
             setIsDisabled(true) // disable button after successful join
 
             // forces Clerk to regenerate the JWT session token with the latest user metadata
@@ -60,7 +60,11 @@ const AddTeam: FC<InviteProps> = ({ params }) => {
             // short delay to ensure the token is propagated before navigation
             await new Promise((resolve) => setTimeout(resolve, 500))
 
-            router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
+            if (result?.needsReviewerKey) {
+                router.push(Routes.accountKeys)
+            } else {
+                router.push(Routes.orgDashboard({ orgSlug: org!.slug }))
+            }
         },
         onError: (error) => {
             reportError(error, 'Unable to join team')
