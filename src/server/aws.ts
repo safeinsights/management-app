@@ -225,6 +225,25 @@ export async function triggerBuildImageForJob(
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
 }
 
+export async function triggerScanForStudyJob(info: MinimalJobInfo) {
+    const codebuild = new CodeBuildClient({})
+    const result = await codebuild.send(
+        new StartBuildCommand({
+            projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+            environmentVariablesOverride: objToEnvVars({
+                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
+                ON_START_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SUBMITTED' }),
+                ON_SUCCESS_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                ON_FAILURE_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+                SCAN_MODE: 'source',
+                STUDY_JOB_ID: info.studyJobId,
+                S3_PATH: pathForStudyJobCode(info),
+            }),
+        }),
+    )
+    if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)
+}
+
 export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl: string }) {
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(
