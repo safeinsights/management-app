@@ -6,6 +6,7 @@ import {
     coderWorkspacePath,
 } from '@/lib/paths'
 import logger from '@/lib/logger'
+import { completePathForSampleData } from '../aws'
 import { getConfigValue } from '../config'
 import { CoderApiError, coderFetch } from './client'
 import { getCoderOrganizationId, getCoderTemplateId } from './organizations'
@@ -94,11 +95,20 @@ async function getOrCreateCoderWorkspace(studyId: string): Promise<CoderWorkspac
         return workspaceData
     } catch (error) {
         if (error instanceof CoderApiError && (error.status === 404 || error.status === 400)) {
+            const environment = codeEnv.settings?.environment || []
+            environment.push({
+                name: 'SAMPLE_DATA_PATH',
+                value: completePathForSampleData({
+                    orgSlug: codeEnv.slug,
+                    codeEnvId: codeEnv.id,
+                    sampleDataPath: codeEnv.sampleDataPath ?? undefined,
+                }),
+            })
             return await createCoderWorkspace({
                 studyId,
                 username: user.username,
                 containerImage: codeEnv.url,
-                environment: codeEnv.settings?.environment || [],
+                environment,
             })
         }
         throw error
@@ -177,7 +187,6 @@ const initializeWorkspaceCodeFiles = async (studyId: string): Promise<void> => {
 
     logger.info(`Writing ${fileName} to ${targetFilePath} for study ${studyId}`)
 
-    // Create parent directory if needed and then write file
     await fs.mkdir(path.dirname(targetFilePath), { recursive: true })
     await fs.writeFile(targetFilePath, Buffer.from(await fileData.arrayBuffer()))
 }

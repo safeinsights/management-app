@@ -1,25 +1,29 @@
 'use client'
 
-import { useForm, useMutation, z, zodResolver } from '@/common'
-import { reportMutationError } from '@/components/errors'
-import { reportSuccess } from '@/components/notices'
-import { Button, Checkbox, FileInput, Select, Stack, TextInput, Text, Group, ActionIcon, Box } from '@mantine/core'
-import { useParams } from 'next/navigation'
-import { createOrgCodeEnvAction, updateOrgCodeEnvAction } from './code-envs.actions'
 import {
-    createOrgCodeEnvSchema,
-    editOrgCodeEnvSchema,
-    createOrgCodeEnvFormSchema,
-    editOrgCodeEnvFormSchema,
-} from './code-envs.schema'
-import { ActionSuccessType } from '@/lib/types'
+    Button,
+    Checkbox,
+    Divider,
+    FileInput,
+    Flex,
+    Radio,
+    Select,
+    Stack,
+    TextInput,
+    Text,
+    Title,
+    Group,
+    ActionIcon,
+    Box,
+} from '@mantine/core'
+import { ActionSuccessType, SAMPLE_DATA_FORMATS } from '@/lib/types'
 import { basename } from '@/lib/paths'
-import { Language, EnvVar } from '@/database/types'
+import { EnvVar } from '@/database/types'
 import { TrashIcon, PlusCircleIcon } from '@phosphor-icons/react/dist/ssr'
+import { createOrgCodeEnvAction } from './code-envs.actions'
+import { useCodeEnvForm } from './use-code-env-form'
 
 type CodeEnv = ActionSuccessType<typeof createOrgCodeEnvAction>
-type CreateFormValues = z.infer<typeof createOrgCodeEnvSchema>
-type EditFormValues = z.infer<typeof editOrgCodeEnvSchema>
 
 interface EnvVarLineProps {
     envVar: EnvVar
@@ -56,100 +60,31 @@ interface CodeEnvFormProps {
     onCompleteAction: () => void
 }
 
-type CreateFormSchema = z.infer<typeof createOrgCodeEnvFormSchema>
-type EditFormSchema = z.infer<typeof editOrgCodeEnvFormSchema>
-type FormValues = CreateFormSchema | EditFormSchema
-
 export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
-    const { orgSlug } = useParams<{ orgSlug: string }>()
-    const isEditMode = !!image
-
-    const formSchema = isEditMode ? editOrgCodeEnvFormSchema : createOrgCodeEnvFormSchema
-
-    const form = useForm<FormValues>({
-        initialValues: {
-            name: image?.name || '',
-            cmdLine: image?.cmdLine || '',
-            language: (image?.language || 'R') as Language,
-            url: image?.url || '',
-            isTesting: image?.isTesting || false,
-            starterCode: undefined,
-            settings: {
-                environment: image?.settings?.environment || [],
-            },
-            newEnvKey: '',
-            newEnvValue: '',
-        },
-        validate: zodResolver(formSchema),
-    })
-
-    const addEnvVar = () => {
-        if (!form.values.newEnvKey || !form.values.newEnvValue) return
-
-        form.setValues({
-            ...form.values,
-            settings: {
-                ...form.values.settings,
-                environment: [
-                    ...form.values.settings.environment,
-                    { name: form.values.newEnvKey, value: form.values.newEnvValue },
-                ],
-            },
-            newEnvKey: '',
-            newEnvValue: '',
-        })
-    }
-
-    const updateEnvVarName = (index: number, name: string) => {
-        const updated = [...form.values.settings.environment]
-        updated[index] = { ...updated[index], name }
-        form.setFieldValue('settings.environment', updated)
-    }
-
-    const updateEnvVarValue = (index: number, value: string) => {
-        const updated = [...form.values.settings.environment]
-        updated[index] = { ...updated[index], value }
-        form.setFieldValue('settings.environment', updated)
-    }
-
-    const removeEnvVar = (index: number) => {
-        form.setFieldValue(
-            'settings.environment',
-            form.values.settings.environment.filter((_, i) => i !== index),
-        )
-    }
-
-    const { mutate: saveCodeEnv, isPending } = useMutation({
-        mutationFn: async (values: CreateFormValues | EditFormValues) => {
-            if (isEditMode) {
-                return await updateOrgCodeEnvAction({ orgSlug, imageId: image.id, ...values })
-            }
-            const createValues = values as CreateFormValues
-            return await createOrgCodeEnvAction({ orgSlug, ...createValues })
-        },
-        onSuccess: () => {
-            reportSuccess(isEditMode ? 'Code environment updated successfully' : 'Code environment added successfully')
-            onCompleteAction()
-        },
-        onError: reportMutationError(
-            isEditMode ? 'Failed to update code environment' : 'Failed to add code environment',
-        ),
-    })
-
-    const onSubmit = form.onSubmit(({ newEnvKey, newEnvValue, ...values }) => {
-        if (newEnvKey && newEnvValue) {
-            values.settings = {
-                ...values.settings,
-                environment: [...values.settings.environment, { name: newEnvKey, value: newEnvValue }],
-            }
-        }
-        saveCodeEnv(values as CreateFormValues | EditFormValues)
-    })
+    const { form, isEditMode, isPending, onSubmit, sampleDataFiles, setSampleDataFiles, envVarActions } =
+        useCodeEnvForm(image, onCompleteAction)
+    const { addEnvVar, updateEnvVarName, updateEnvVarValue, removeEnvVar } = envVarActions
 
     return (
         <form onSubmit={onSubmit}>
             <Stack>
-                <TextInput label="Name" placeholder="e.g., R 4.2.0 Code Environment" {...form.getInputProps('name')} />
+                <Group align="flex-start" wrap="nowrap">
+                    <TextInput
+                        label="Name"
+                        placeholder="e.g., R 4.2.0 Code Environment"
+                        {...form.getInputProps('name')}
+                        style={{ flex: 1 }}
+                    />
+                    <Box>
+                        <Text size="sm" fw={500} mb={7}>
+                            Is testing image
+                        </Text>
+                        <Checkbox {...form.getInputProps('isTesting', { type: 'checkbox' })} />
+                        <Text c="dimmed" size="sm">
+                            Only admins can use testing images
+                        </Text>
+                    </Box>
+                </Group>
                 <TextInput
                     label="Command Line"
                     placeholder="Rscript %f"
@@ -181,22 +116,53 @@ export function CodeEnvForm({ image, onCompleteAction }: CodeEnvFormProps) {
                     placeholder="Select a file"
                     {...form.getInputProps('starterCode')}
                 />
-                {isEditMode && image.starterCodePath && (
+                {isEditMode && image?.starterCodePath && (
                     <Text size="sm" c="dimmed">
                         Current file: {basename(image.starterCodePath)}
                     </Text>
                 )}
-                <Checkbox
-                    label="Is Testing Image"
-                    description="Only admins will be able to select testing images"
-                    {...form.getInputProps('isTesting', { type: 'checkbox' })}
-                    mt="sm"
-                />
-
-                <Box mt="md">
-                    <Text fw={500} size="sm" mb={4}>
-                        Environment Variables
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
+                        Sample Data
+                    </Title>
+                    <Text size="xs" c="dimmed" mb="sm">
+                        Files available to researchers when they develop in Coder
                     </Text>
+                    <Stack gap="xs">
+                        <TextInput
+                            label="Data Path"
+                            description="Directory path where files appear in the workspace (e.g. data/)"
+                            placeholder="data/"
+                            {...form.getInputProps('sampleDataPath')}
+                        />
+                        <FileInput
+                            label="Files"
+                            description={
+                                isEditMode
+                                    ? 'Upload new files to replace the existing sample data (optional)'
+                                    : 'Upload sample data files for researchers (optional)'
+                            }
+                            placeholder="Select files"
+                            multiple
+                            value={sampleDataFiles}
+                            onChange={setSampleDataFiles}
+                        />
+                        <Radio.Group label="File Format" {...form.getInputProps('sampleDataFormat')}>
+                            <Flex gap="md" mt="xs">
+                                {Object.entries(SAMPLE_DATA_FORMATS).map(([value, label]) => (
+                                    <Radio key={value} value={value} label={label} />
+                                ))}
+                            </Flex>
+                        </Radio.Group>
+                    </Stack>
+                </Box>
+
+                <Divider />
+                <Box>
+                    <Title order={5} mb={4}>
+                        Environment Variables
+                    </Title>
                     <Text size="xs" c="dimmed" mb="sm">
                         Define environment variables available to the container
                     </Text>
