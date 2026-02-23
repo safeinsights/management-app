@@ -137,8 +137,8 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
-    // existingSampleDataPath comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
-    .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, url: existingUrl, db }) => {
+    // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
+    .handler(async ({ params, starterCodePath, sampleDataPath: prevSampleDataPath, url: prevUrl, db }) => {
         const {
             orgSlug,
             codeEnvId,
@@ -161,16 +161,16 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
 
-        if (sampleDataUploaded && existingSampleDataPath) {
+        if (sampleDataUploaded && prevSampleDataPath) {
             await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
         } else if (
             sanitizedSampleDataPath &&
-            existingSampleDataPath &&
-            sanitizedSampleDataPath !== existingSampleDataPath
+            prevSampleDataPath &&
+            sanitizedSampleDataPath !== prevSampleDataPath
         ) {
             const codeEnvInfo = { orgSlug, codeEnvId }
             await moveFolderContents(
-                pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
+                pathForSampleData({ ...codeEnvInfo, sampleDataPath: prevSampleDataPath }),
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
             )
         }
@@ -189,7 +189,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        if (!SIMULATE_CODE_BUILD && updatedCodeEnv.url !== existingUrl) {
+        if (!SIMULATE_CODE_BUILD && updatedCodeEnv.url !== prevUrl) {
             await db.insertInto('codeScan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
