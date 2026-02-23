@@ -28,7 +28,7 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
         }
         return (
             <Link
-                href={Routes.studyView({ orgSlug: labSlug, studyId: study.id })}
+                href={Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })}
                 aria-label={`View details for study ${study.title}`}
                 fw={isHighlighted ? 600 : undefined}
             >
@@ -37,10 +37,10 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
         )
     }
 
-    // Reviewer always goes to studyReview
+    // Reviewer goes through agreements before the review page
     return (
         <Link
-            href={Routes.studyReview({ orgSlug: slug, studyId: study.id })}
+            href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })}
             c="blue.7"
             fw={isHighlighted ? 600 : undefined}
         >

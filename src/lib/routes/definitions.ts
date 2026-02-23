@@ -104,6 +104,8 @@ export const Routes = {
 
     studyResubmit: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/resubmit`, StudyParams),
 
+    studyAgreements: makeRoute(({ orgSlug, studyId }) => `/${orgSlug}/study/${studyId}/agreements`, StudyParams),
+
     // -------------------------------------------------------------------------
     // Account Routes (Simple routes - no parameters)
     // -------------------------------------------------------------------------
