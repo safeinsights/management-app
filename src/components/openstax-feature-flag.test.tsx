@@ -1,12 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, renderHook } from '@testing-library/react'
 import { renderWithProviders } from '@/tests/unit.helpers'
-import {
-    FeatureFlagRequiredAlert,
-    OpenStaxFeatureFlag,
-    useOpenStaxFeatureFlag,
-    isFeatureFlagOrg,
-} from './openstax-feature-flag'
+import { FeatureFlagRequiredAlert, OpenStaxFeatureFlag, useOpenStaxFeatureFlag } from './openstax-feature-flag'
 import { FC } from 'react'
 
 // Mock the dependencies
@@ -134,20 +129,6 @@ describe('OpenStaxFeatureFlag', () => {
 
             expect(screen.getByTestId('optin')).toBeInTheDocument()
             expect(screen.queryByTestId('default')).not.toBeInTheDocument()
-        })
-    })
-
-    describe('isFeatureFlagOrg', () => {
-        it('returns true for openstax', () => {
-            expect(isFeatureFlagOrg('openstax')).toBe(true)
-        })
-
-        it('returns true for openstax-lab', () => {
-            expect(isFeatureFlagOrg('openstax-lab')).toBe(true)
-        })
-
-        it('returns false for other orgs', () => {
-            expect(isFeatureFlagOrg('other-org')).toBe(false)
         })
     })
 

@@ -5,9 +5,6 @@ import { Alert } from '@mantine/core'
 import { OPENSTAX_ORG_SLUGS } from '@/lib/constants'
 import { useSession } from '@/hooks/session'
 import { useSpyMode } from './spy-mode-context'
-import { isOpenStaxOrg } from './openstax-only'
-
-export const isFeatureFlagOrg = (orgSlug: string): boolean => isOpenStaxOrg(orgSlug)
 
 // Returns a boolean indicating whether the user is in spy mode and belongs to an OpenStax organization.
 // Use for inline conditional rendering of content.

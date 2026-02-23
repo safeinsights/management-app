@@ -15,15 +15,11 @@ vi.mock('@/components/page-breadcrumbs', () => ({
     OrgBreadcrumbs: () => <div data-testid="org-breadcrumbs" />,
 }))
 
-vi.mock('@/components/openstax-feature-flag', async (importOriginal) => {
-    const original = await importOriginal<typeof import('@/components/openstax-feature-flag')>()
-    return {
-        ...original,
-        FeatureFlagRequiredAlert: ({ message }: { message?: string }) => (
-            <div data-testid="feature-flag-alert">{message}</div>
-        ),
-    }
-})
+vi.mock('@/components/openstax-feature-flag', () => ({
+    FeatureFlagRequiredAlert: ({ message }: { message?: string }) => (
+        <div data-testid="feature-flag-alert">{message}</div>
+    ),
+}))
 
 vi.mock('@/components/study/study-code-details', () => ({
     StudyCodeDetails: () => <div data-testid="study-code-details" />,

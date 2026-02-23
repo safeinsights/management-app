@@ -1,5 +1,6 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
-import { isFeatureFlagOrg, FeatureFlagRequiredAlert } from '@/components/openstax-feature-flag'
+import { isFeatureFlagOrg } from '@/lib/org'
+import { FeatureFlagRequiredAlert } from '@/components/openstax-feature-flag'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { StudyDetails } from '@/components/study/study-details'
 import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
