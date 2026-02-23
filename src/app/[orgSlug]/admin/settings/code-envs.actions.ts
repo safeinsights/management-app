@@ -6,11 +6,19 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { deleteS3File, deleteFolderContents, moveFolderContents, createSignedUploadUrl } from '@/server/aws'
+import {
+    deleteS3File,
+    deleteFolderContents,
+    moveFolderContents,
+    createSignedUploadUrl,
+    triggerScanForCodeEnv,
+} from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
+import { SIMULATE_IMAGE_BUILD } from '@/server/config'
+import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
@@ -25,7 +33,13 @@ const codeEnvFromOrgAndId = async ({
     const codeEnv = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'orgCodeEnv.sampleDataPath', 'org.id as orgId'])
+        .select([
+            'orgCodeEnv.id',
+            'orgCodeEnv.starterCodePath',
+            'orgCodeEnv.sampleDataPath',
+            'orgCodeEnv.url',
+            'org.id as orgId',
+        ])
         .where('org.slug', '=', orgSlug)
         .where('orgCodeEnv.id', '=', imageId)
         .executeTakeFirstOrThrow()
@@ -89,6 +103,14 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
+        if (!SIMULATE_IMAGE_BUILD) {
+            await db.insertInto('scan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+
+            triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
+                logger.error('Failed to trigger scan for new code env', err, { codeEnvId: newCodeEnv.id }),
+            )
+        }
+
         return newCodeEnv
     })
 
@@ -116,7 +138,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
     // existingSampleDataPath comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
-    .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, db }) => {
+    .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, url: existingUrl, db }) => {
         const {
             orgSlug,
             imageId,
@@ -167,6 +189,14 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
+        if (!SIMULATE_IMAGE_BUILD && updatedCodeEnv.url !== existingUrl) {
+            await db.insertInto('scan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+
+            triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
+                logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
+            )
+        }
+
         return updatedCodeEnv
     })
 
@@ -182,6 +212,15 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
         return await db
             .selectFrom('orgCodeEnv')
             .selectAll('orgCodeEnv')
+            .select((eb) => [
+                eb
+                    .selectFrom('scan')
+                    .select('scan.status')
+                    .whereRef('scan.codeEnvId', '=', 'orgCodeEnv.id')
+                    .orderBy('scan.createdAt', 'desc')
+                    .limit(1)
+                    .as('latestScanStatus'),
+            ])
             .where('orgCodeEnv.orgId', '=', orgId)
             .orderBy('createdAt', 'desc')
             .execute()

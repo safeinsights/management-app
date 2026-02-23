@@ -25,7 +25,7 @@ describe('triggerBuildImageForJob', () => {
     beforeEach(() => {
         process.env = {
             ...originalEnv,
-            CODE_BUILD_PROJECT_NAME: 'TestCodeBuildProject',
+            CONTAINERIZER_PROJECT_NAME: 'TestCodeBuildProject',
             ENVIRONMENT_ID: 'test',
         }
     })

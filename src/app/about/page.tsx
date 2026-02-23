@@ -45,7 +45,11 @@ export default function AboutPage() {
 
                 <Divider my="md" />
 
-                <Stat title="Containerizer" value={process.env.CODE_BUILD_PROJECT_NAME || 'none'} />
+                <Stat title="Containerizer" value={process.env.CONTAINERIZER_PROJECT_NAME || 'none'} />
+
+                <Divider my="md" />
+
+                <Stat title="Scanner" value={process.env.SCANNER_PROJECT_NAME || 'none'} />
 
                 <Divider my="md" />
 

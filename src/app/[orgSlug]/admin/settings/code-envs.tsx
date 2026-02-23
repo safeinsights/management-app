@@ -39,9 +39,28 @@ import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
-import { OrgCodeEnvSettings } from '@/database/types'
+import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
+
+const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
+    'SCAN-PENDING': { color: 'gray', label: 'Scan Pending' },
+    'SCAN-RUNNING': { color: 'blue', label: 'Scanning...' },
+    'SCAN-COMPLETE': { color: 'green', label: 'Scan Complete' },
+    'SCAN-FAILED': { color: 'red', label: 'Scan Failed' },
+}
+
+const ScanStatusBadge: React.FC<{ status: string | null }> = ({ status }) => {
+    if (!status) return null
+    const config = SCAN_BADGE_CONFIG[status as ScanStatus]
+    if (!config) return null
+
+    return (
+        <Badge variant="light" size="sm" color={config.color}>
+            {config.label}
+        </Badge>
+    )
+}
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -180,6 +199,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                             Testing
                         </Badge>
                     )}
+                    <ScanStatusBadge status={image.latestScanStatus} />
                 </Group>
                 <Group gap={4} wrap="nowrap">
                     <Tooltip label="Edit" withArrow>

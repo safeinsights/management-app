@@ -25,7 +25,7 @@ function secretsMatch(a: string, b: string): boolean {
 export async function POST(req: Request) {
     const authHeader = req.headers.get('Authorization')
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-    const expectedSecret = await getConfigValue('CONTAINERIZER_WEBHOOK_SECRET', false)
+    const expectedSecret = await getConfigValue('CODEBUILD_WEBHOOK_SECRET', false)
 
     if (!token || !expectedSecret || !secretsMatch(token, expectedSecret)) {
         return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
