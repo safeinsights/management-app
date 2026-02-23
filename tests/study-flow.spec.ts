@@ -218,8 +218,8 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
 
     // agreements page is now the first stop — proceed through it if present
     const proceedButton = page.getByRole('button', { name: /Proceed to Step/i })
-    if (await proceedButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await proceedButton.click()
+    if (await proceedButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), proceedButton.click()])
     }
 
     await expect(
