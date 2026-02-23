@@ -7,7 +7,7 @@ import { ActionSuccessType } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
 import { triggerBuildImageForJob } from '../aws'
-import { SIMULATE_IMAGE_BUILD } from '../config'
+import { SIMULATE_CODE_BUILD } from '../config'
 import { Action, z } from './action'
 
 // NOT exported, for internal use by actions in this file
@@ -188,7 +188,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             let status: StudyJobStatus = 'CODE-APPROVED'
 
             // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-            if (SIMULATE_IMAGE_BUILD) {
+            if (SIMULATE_CODE_BUILD) {
                 status = 'JOB-READY'
             } else {
                 // TODO: the code environment should be chosen by the user (if admin) when they create the study

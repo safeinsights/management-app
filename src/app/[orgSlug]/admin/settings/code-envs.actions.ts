@@ -17,7 +17,7 @@ import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from 
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
-import { SIMULATE_IMAGE_BUILD } from '@/server/config'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
 import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
@@ -103,7 +103,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        if (!SIMULATE_IMAGE_BUILD) {
+        if (!SIMULATE_CODE_BUILD) {
             await db.insertInto('scan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
@@ -189,7 +189,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        if (!SIMULATE_IMAGE_BUILD && updatedCodeEnv.url !== existingUrl) {
+        if (!SIMULATE_CODE_BUILD && updatedCodeEnv.url !== existingUrl) {
             await db.insertInto('scan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>

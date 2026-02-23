@@ -15,7 +15,7 @@ import {
     storeS3File,
     triggerScanForStudyJob,
 } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_IMAGE_BUILD } from '@/server/config'
+import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { onStudyCreated } from '@/server/events'
 import logger from '@/lib/logger'
@@ -25,7 +25,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
-    if (SIMULATE_IMAGE_BUILD) return
+    if (SIMULATE_CODE_BUILD) return
     triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
         logger.error('Failed to trigger code scan', err, { studyJobId }),
     )

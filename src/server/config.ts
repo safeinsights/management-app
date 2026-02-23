@@ -8,8 +8,8 @@ export const TEST_ENV = !!(process.env.CI || process.env.NODE_ENV === 'test')
 
 export const getUploadTmpDirectory = () => process.env.UPLOAD_TMP_DIRECTORY || '/tmp'
 
-export const SIMULATE_IMAGE_BUILD =
-    process.env.SIMULATE_IMAGE_BUILD === 't' || (process.env.SIMULATE_IMAGE_BUILD != 'f' && DEV_ENV)
+export const SIMULATE_CODE_BUILD =
+    process.env.SIMULATE_CODE_BUILD === 't' || (process.env.SIMULATE_CODE_BUILD != 'f' && DEV_ENV)
 
 export const ENCLAVE_AWS_ACCOUNT_NUMBERS = [
     '337909745635', // prod
