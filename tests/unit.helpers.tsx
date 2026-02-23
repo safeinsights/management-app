@@ -1,6 +1,6 @@
 import { db } from '@/database'
 
-import type { Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -222,12 +222,26 @@ export const insertTestStudyJobData = async ({
     studyStatus = 'APPROVED',
     jobStatus = 'JOB-READY',
     language,
+    title,
+    piName,
+    researchQuestions,
+    projectSummary,
+    impact,
+    additionalNotes,
+    datasets,
 }: {
     org?: MinimalTestOrg
     researcherId?: string
     studyStatus?: StudyStatus
     jobStatus?: StudyJobStatus
     language?: Language
+    title?: string
+    piName?: string
+    datasets?: string[] | null
+    researchQuestions?: Json | null
+    projectSummary?: Json | null
+    impact?: Json | null
+    additionalNotes?: Json | null
 } = {}) => {
     if (!org) {
         org = await insertTestOrg()
@@ -242,13 +256,18 @@ export const insertTestStudyJobData = async ({
             orgId: org.id,
             submittedByOrgId: org.id,
             containerLocation: 'test-container',
-            title: 'my 1st study',
+            title: title ?? 'my 1st study',
             researcherId: researcherId,
-            piName: 'test',
+            piName: piName ?? 'test',
             status: studyStatus,
             dataSources: ['all'],
             outputMimeType: 'application/zip',
             language: language || 'R',
+            datasets: datasets ?? null,
+            researchQuestions: researchQuestions ?? null,
+            projectSummary: projectSummary ?? null,
+            impact: impact ?? null,
+            additionalNotes: additionalNotes ?? null,
         })
         .returningAll()
         .executeTakeFirstOrThrow()

@@ -6,10 +6,12 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
 import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin'
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
-import { EditorState, SerializedEditorState } from 'lexical'
-import { FC, ReactNode, useState } from 'react'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { $getRoot, EditorState, SerializedEditorState } from 'lexical'
+import { FC, ReactNode, useEffect, useState } from 'react'
 import { Box } from '@mantine/core'
 import { InputError } from '@/components/errors'
+import { countWords } from '@/lib/word-count'
 import logger from '@/lib/logger'
 import { FloatingToolbar } from './editable-text/toolbar'
 
@@ -30,14 +32,20 @@ export interface EditableTextProps {
     disabled?: boolean
     /** Make content read-only */
     readOnly?: boolean
+    /** Remove border and padding for inline display */
+    borderless?: boolean
     /** Minimum height of the editor */
     minHeight?: number | string
     /** Maximum height of the editor (enables scrolling) */
     maxHeight?: number | string
+    /** Allow user to manually resize the editor vertically */
+    resizable?: boolean
     /** HTML id attribute for the editor */
     id?: string
     /** Accessible label for the editor */
     'aria-label'?: string
+    /** Callback fired when word count changes */
+    onWordCount?: (count: number) => void
 }
 
 const theme = {
@@ -69,6 +77,24 @@ function createInitialConfig(value: string | undefined, disabled: boolean, readO
     }
 }
 
+function WordCountPlugin({ onWordCount }: { onWordCount: (count: number) => void }) {
+    const [editor] = useLexicalComposerContext()
+
+    useEffect(() => {
+        // Get initial word count on mount
+        editor.getEditorState().read(() => {
+            onWordCount(countWords($getRoot().getTextContent()))
+        })
+
+        // Update word count on content change
+        return editor.registerTextContentListener((textContent) => {
+            onWordCount(countWords(textContent))
+        })
+    }, [editor, onWordCount])
+
+    return null
+}
+
 export const EditableText: FC<EditableTextProps> = ({
     value,
     onChange,
@@ -78,10 +104,13 @@ export const EditableText: FC<EditableTextProps> = ({
     placeholder = 'Enter text...',
     disabled = false,
     readOnly = false,
+    borderless = false,
     minHeight = 100,
     maxHeight,
+    resizable = true,
     id,
     'aria-label': ariaLabel,
+    onWordCount,
 }) => {
     // Use useState with lazy initializer - computed once on mount
     // Lexical manages its own state after initialization
@@ -99,11 +128,14 @@ export const EditableText: FC<EditableTextProps> = ({
                 <Box
                     style={{
                         position: 'relative',
-                        border: '1px solid var(--mantine-color-gray-4)',
-                        borderRadius: 'var(--mantine-radius-sm)',
-                        minHeight,
+                        border: borderless
+                            ? 'none'
+                            : `1px solid var(${error ? '--mantine-color-red-filled' : '--mantine-color-gray-4'})`,
+                        borderRadius: borderless ? undefined : 'var(--mantine-radius-sm)',
+                        minHeight: borderless ? undefined : minHeight,
                         maxHeight,
-                        overflow: maxHeight ? 'auto' : undefined,
+                        overflow: maxHeight || resizable ? 'auto' : undefined,
+                        resize: borderless ? undefined : resizable ? 'vertical' : undefined,
                         backgroundColor: disabled ? 'var(--mantine-color-gray-1)' : undefined,
                     }}
                 >
@@ -114,8 +146,8 @@ export const EditableText: FC<EditableTextProps> = ({
                                 aria-label={ariaLabel}
                                 style={{
                                     outline: 'none',
-                                    padding: 'var(--mantine-spacing-sm)',
-                                    minHeight,
+                                    padding: borderless ? 0 : 'var(--mantine-spacing-sm)',
+                                    minHeight: borderless ? undefined : minHeight,
                                 }}
                                 onFocus={onFocus}
                                 onBlur={onBlur}
@@ -138,11 +170,12 @@ export const EditableText: FC<EditableTextProps> = ({
                         ErrorBoundary={LexicalErrorBoundary}
                     />
                     <HistoryPlugin />
-                    <OnChangePlugin onChange={handleChange} />
+                    <OnChangePlugin onChange={handleChange} ignoreSelectionChange />
+                    {onWordCount && <WordCountPlugin onWordCount={onWordCount} />}
                     {isEditable && <FloatingToolbar />}
                 </Box>
             </LexicalComposer>
-            {error && (
+            {error && typeof error !== 'boolean' && (
                 <Box mt="xs">
                     <InputError error={error} />
                 </Box>

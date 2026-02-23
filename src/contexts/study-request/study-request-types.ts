@@ -1,7 +1,7 @@
 import type { UseFormReturnType } from '@mantine/form'
 import type { Language } from '@/database/types'
 import type { CodeFileState, DocumentFileState } from '@/contexts/shared/file-types'
-import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/step1-schema'
+import type { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 
 export type { StudyProposalFormValues }
 

@@ -8,7 +8,7 @@ import {
     formReadinessSchema,
     openStaxStep1ReadinessSchema,
     type StudyProposalFormValues,
-} from '@/app/[orgSlug]/study/request/step1-schema'
+} from '@/app/[orgSlug]/study/request/form-schemas'
 import {
     type StudyRequestContextValue,
     type DraftStudyData,

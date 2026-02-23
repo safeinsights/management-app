@@ -2,71 +2,63 @@
 
 import { FC } from 'react'
 import { Button, Group } from '@mantine/core'
-import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 
-interface ProposalFooterActionsProps {
-    isDirty: boolean
+interface Step1FooterProps {
     isSaving: boolean
-    isFormValid: boolean
-    isStep1Valid: boolean
+    isValid: boolean
     onSave: (proceed: boolean) => void
-    onCancel: () => void
+    proceedLabel: string
+    saveDraft?: { isDirty: boolean }
+    onCancel?: () => void
 }
 
-const LegacyFooter: FC<ProposalFooterActionsProps> = ({ isDirty, isSaving, isFormValid, onSave }) => {
+const Step1Footer: FC<Step1FooterProps> = ({ isSaving, isValid, onSave, proceedLabel, saveDraft, onCancel }) => {
+    const showCancel = !!onCancel
+
     return (
-        <Group mt="xs" style={{ width: '100%' }}>
-            <Group style={{ marginLeft: 'auto' }}>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="md"
-                    disabled={!isDirty || isSaving}
-                    loading={isSaving}
-                    onClick={() => onSave(false)}
-                >
-                    Save as draft
+        <Group mt="xs" justify={showCancel ? 'space-between' : 'flex-end'} style={{ width: '100%' }}>
+            {showCancel && (
+                <Button type="button" variant="subtle" size="md" onClick={onCancel} disabled={isSaving}>
+                    Cancel
                 </Button>
+            )}
+            <Group>
+                {saveDraft && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="md"
+                        disabled={!saveDraft.isDirty || isSaving}
+                        loading={isSaving}
+                        onClick={() => onSave(false)}
+                    >
+                        Save as draft
+                    </Button>
+                )}
                 <Button
                     type="button"
                     size="md"
                     variant="primary"
-                    disabled={!isFormValid || isSaving}
+                    disabled={!isValid || isSaving}
                     loading={isSaving}
                     onClick={() => onSave(true)}
                 >
-                    Save and proceed to code upload
+                    {proceedLabel}
                 </Button>
             </Group>
         </Group>
     )
 }
 
-const OpenStaxFooter: FC<ProposalFooterActionsProps> = ({ isSaving, isStep1Valid, onSave, onCancel }) => {
-    return (
-        <Group mt="xs" justify="space-between" style={{ width: '100%' }}>
-            <Button type="button" variant="subtle" size="md" onClick={onCancel} disabled={isSaving}>
-                Cancel
-            </Button>
-            <Button
-                type="button"
-                size="md"
-                variant="primary"
-                disabled={!isStep1Valid || isSaving}
-                loading={isSaving}
-                onClick={() => onSave(true)}
-            >
-                Proceed to Step 2
-            </Button>
-        </Group>
-    )
+interface ProposalFooterActionsProps {
+    isSaving: boolean
+    isValid: boolean
+    onSave: (proceed: boolean) => void
+    saveDraft?: { isDirty: boolean }
+    onCancel?: () => void
+    proceedLabel: string
 }
 
 export const ProposalFooterActions: FC<ProposalFooterActionsProps> = (props) => {
-    return (
-        <OpenStaxFeatureFlag
-            defaultContent={<LegacyFooter {...props} />}
-            optInContent={<OpenStaxFooter {...props} />}
-        />
-    )
+    return <Step1Footer {...props} />
 }

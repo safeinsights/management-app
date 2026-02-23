@@ -6,8 +6,10 @@ import {
     onDeleteStudyAction,
     onSaveDraftStudyAction,
     onSubmitDraftStudyAction,
+    onUpdateDraftStudyAction,
     finalizeStudySubmissionAction,
 } from '@/server/actions/study-request'
+import { lexicalJson } from '@/lib/word-count'
 
 vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
@@ -174,5 +176,80 @@ describe('Request Study Actions', () => {
         expect(study).toBeUndefined()
 
         expect(aws.deleteFolderContents).toHaveBeenCalledWith(`studies/${org.slug}/${studyId}`)
+    })
+
+    describe('OpenStax Proposal Flow (Step 2)', () => {
+        it('creates draft with step 1 fields, updates with proposal fields, and submits', async () => {
+            const enclave = await insertTestOrg({ type: 'enclave', slug: 'test-openstax-flow' })
+            const lab = await insertTestOrg({ slug: `${enclave.slug}-lab`, type: 'lab' })
+            await mockSessionWithTestData({ orgSlug: lab.slug, orgType: 'lab' })
+
+            // Step 1: Create draft with org and language only (OpenStax step 1)
+            const draftResult = actionResult(
+                await onSaveDraftStudyAction({
+                    orgSlug: enclave.slug,
+                    studyInfo: {
+                        language: 'PYTHON' as const,
+                    },
+                    submittingOrgSlug: lab.slug,
+                }),
+            )
+
+            expect(draftResult.studyId).toBeDefined()
+
+            // Verify draft created with default title
+            let study = await db
+                .selectFrom('study')
+                .selectAll('study')
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirst()
+            expect(study?.status).toEqual('DRAFT')
+            expect(study?.language).toEqual('PYTHON')
+            expect(study?.title).toEqual('Untitled Draft')
+
+            // Step 2: Update with proposal fields
+            const proposalFields = {
+                title: 'Impact of Highlighting on Learning',
+                piName: 'Dr. Research Lead',
+                datasets: ['openstax-calculus', 'openstax-physics'],
+                researchQuestions: lexicalJson('How does highlighting affect retention?'),
+                projectSummary: lexicalJson('This study examines highlighting patterns.'),
+                impact: lexicalJson('Findings will inform textbook design.'),
+                additionalNotes: lexicalJson('Timeline is Q1 2025.'),
+            }
+
+            actionResult(
+                await onUpdateDraftStudyAction({
+                    studyId: draftResult.studyId,
+                    studyInfo: proposalFields,
+                }),
+            )
+
+            // Verify proposal fields saved
+            study = await db
+                .selectFrom('study')
+                .selectAll('study')
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirst()
+            expect(study?.title).toEqual(proposalFields.title)
+            expect(study?.piName).toEqual(proposalFields.piName)
+            expect(study?.datasets).toEqual(proposalFields.datasets)
+            expect(study?.researchQuestions).toEqual(JSON.parse(proposalFields.researchQuestions))
+            expect(study?.projectSummary).toEqual(JSON.parse(proposalFields.projectSummary))
+            expect(study?.impact).toEqual(JSON.parse(proposalFields.impact))
+            expect(study?.additionalNotes).toEqual(JSON.parse(proposalFields.additionalNotes))
+            expect(study?.status).toEqual('DRAFT')
+
+            // Step 3: Finalize submission (no code upload in OpenStax flow)
+            actionResult(await finalizeStudySubmissionAction({ studyId: draftResult.studyId }))
+
+            // Verify final state
+            study = await db
+                .selectFrom('study')
+                .selectAll('study')
+                .where('id', '=', draftResult.studyId)
+                .executeTakeFirst()
+            expect(study?.status).toEqual('PENDING-REVIEW')
+        })
     })
 })

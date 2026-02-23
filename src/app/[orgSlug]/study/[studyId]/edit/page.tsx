@@ -1,6 +1,4 @@
 import { db } from '@/database'
-import { Form } from './form'
-import { Paper, Container } from '@mantine/core'
 import { AlertNotFound } from '@/components/errors'
 import { StudyProposal } from '../../request/proposal'
 
@@ -29,41 +27,25 @@ export default async function StudyEditPage(props: { params: Promise<{ studyId: 
         .where('study.id', '=', studyId)
         .executeTakeFirst()
 
-    if (!study) {
-        return <AlertNotFound title="Study was not found" message="no such study exists" />
-    }
-
-    // Draft studies use the full proposal form
-    if (study.status === 'DRAFT') {
+    if (!study || study.status !== 'DRAFT') {
         return (
-            <StudyProposal
-                studyId={studyId}
-                draftData={{
-                    id: studyId,
-                    title: study.title,
-                    piName: study.piName,
-                    language: study.language,
-                    orgSlug: study.orgSlug,
-                    descriptionDocPath: study.descriptionDocPath,
-                    irbDocPath: study.irbDocPath,
-                    agreementDocPath: study.agreementDocPath,
-                }}
-            />
+            <AlertNotFound title="Study was not found" message="Only studies that are in DRAFT status can be edited." />
         )
     }
 
     return (
-        <Container w="80%">
-            <Paper shadow="xs" p="xl">
-                <Form
-                    studyId={study.id}
-                    study={{
-                        ...study,
-                        highlights: study.dataSources?.includes('highlights'),
-                        eventCapture: study.dataSources?.includes('eventCapture'),
-                    }}
-                />
-            </Paper>
-        </Container>
+        <StudyProposal
+            studyId={studyId}
+            draftData={{
+                id: studyId,
+                title: study.title,
+                piName: study.piName,
+                language: study.language,
+                orgSlug: study.orgSlug,
+                descriptionDocPath: study.descriptionDocPath,
+                irbDocPath: study.irbDocPath,
+                agreementDocPath: study.agreementDocPath,
+            }}
+        />
     )
 }

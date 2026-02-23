@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@/common'
 import { ErrorAlert, InputError } from '@/components/errors'
 import { getLanguagesForOrgAction } from '@/server/actions/org.actions'
-import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/step1-schema'
+import { StudyProposalFormValues } from '@/app/[orgSlug]/study/request/form-schemas'
 import { Divider, Grid, Group, Paper, Radio, Stack, Text, Title } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
 import { Language } from '@/database/types'
@@ -13,7 +13,9 @@ import { useOpenStaxFeatureFlag } from '../openstax-feature-flag'
 type Props = { form: UseFormReturnType<StudyProposalFormValues> }
 
 export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
-    const selectedOrgSlug = form.values.orgSlug
+    const [selectedOrgSlug, setSelectedOrgSlug] = useState(form.values.orgSlug)
+    form.watch('orgSlug', ({ value }) => setSelectedOrgSlug(value))
+
     const isFeatureFlagEnabled = useOpenStaxFeatureFlag()
     const { data, isLoading } = useQuery({
         queryKey: ['languages-for-org', selectedOrgSlug],
@@ -66,7 +68,7 @@ export const ProgrammingLanguageSection: React.FC<Props> = ({ form }) => {
                         >
                             <Group gap="xl">
                                 {languages.map((opt) => (
-                                    <Radio key={opt.value} {...opt} />
+                                    <Radio key={opt.value} value={opt.value} label={opt.label} />
                                 ))}
                             </Group>
                         </Radio.Group>
