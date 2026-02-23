@@ -191,17 +191,17 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             if (SIMULATE_IMAGE_BUILD) {
                 status = 'JOB-READY'
             } else {
-                // TODO: the base image should be chosen by the user (if admin) when they create the study
-                // but for now we just use the latest base image for the org and language
+                // TODO: the code environment should be chosen by the user (if admin) when they create the study
+                // but for now we just use the latest code environment for the org and language
                 const image = await db
-                    .selectFrom('orgBaseImage')
+                    .selectFrom('orgCodeEnv')
                     .where('language', '=', job.language)
                     .where('orgId', '=', study.orgId)
                     .where('isTesting', '=', useTestImage || false)
-                    .orderBy('orgBaseImage.createdAt', 'desc')
+                    .orderBy('orgCodeEnv.createdAt', 'desc')
                     .select(['url', 'cmdLine'])
                     .executeTakeFirstOrThrow(
-                        throwNotFound(`no base image found for org ${orgSlug} and language ${job.language}`),
+                        throwNotFound(`no code environment found for org ${orgSlug} and language ${job.language}`),
                     )
 
                 const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
@@ -213,7 +213,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                     containerLocation: study.containerLocation,
                     codeEntryPointFileName: mainCode.name,
                     cmdLine: image.cmdLine,
-                    baseImageURL: image.url,
+                    codeEnvURL: image.url,
                 })
             }
 
@@ -291,7 +291,7 @@ export const doesTestImageExistForStudyAction = new Action('doesTestImageExistFo
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ latestJob, db }) => {
         const testImage = await db
-            .selectFrom('orgBaseImage')
+            .selectFrom('orgCodeEnv')
             .select('id')
             .where('orgId', '=', latestJob.orgId)
             .where('language', '=', latestJob.language)
