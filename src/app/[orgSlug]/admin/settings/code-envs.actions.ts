@@ -18,6 +18,7 @@ import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
 import { SIMULATE_CODE_BUILD } from '@/server/config'
+import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
 import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
@@ -103,7 +104,9 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        if (!SIMULATE_CODE_BUILD) {
+        if (SIMULATE_CODE_BUILD) {
+            await insertFakeCodeScan(newCodeEnv.id, db)
+        } else {
             await db.insertInto('codeScan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
@@ -163,11 +166,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         if (sampleDataUploaded && prevSampleDataPath) {
             await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
-        } else if (
-            sanitizedSampleDataPath &&
-            prevSampleDataPath &&
-            sanitizedSampleDataPath !== prevSampleDataPath
-        ) {
+        } else if (sanitizedSampleDataPath && prevSampleDataPath && sanitizedSampleDataPath !== prevSampleDataPath) {
             const codeEnvInfo = { orgSlug, codeEnvId }
             await moveFolderContents(
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: prevSampleDataPath }),
@@ -189,12 +188,19 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
-        if (!SIMULATE_CODE_BUILD && updatedCodeEnv.url !== prevUrl) {
-            await db.insertInto('codeScan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+        if (updatedCodeEnv.url !== prevUrl) {
+            if (SIMULATE_CODE_BUILD) {
+                await insertFakeCodeScan(updatedCodeEnv.id, db)
+            } else {
+                await db
+                    .insertInto('codeScan')
+                    .values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' })
+                    .execute()
 
-            triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
-                logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
-            )
+                triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
+                    logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
+                )
+            }
         }
 
         return updatedCodeEnv
@@ -220,6 +226,13 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
                     .orderBy('codeScan.createdAt', 'desc')
                     .limit(1)
                     .as('latestScanStatus'),
+                eb
+                    .selectFrom('codeScan')
+                    .select('codeScan.results')
+                    .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                    .orderBy('codeScan.createdAt', 'desc')
+                    .limit(1)
+                    .as('latestScanResults'),
             ])
             .where('orgCodeEnv.orgId', '=', orgId)
             .orderBy('createdAt', 'desc')

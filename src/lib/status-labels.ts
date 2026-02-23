@@ -23,8 +23,8 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     },
     'CODE-SUBMITTED': {
         stage: 'Proposal',
-        label: 'Needs Review',
-        tooltip: 'This proposal is now ready for review. Open the study for more details.',
+        label: 'Code Scanning',
+        tooltip: 'The code is being scanned.',
     },
     'CODE-SCANNED': {
         stage: 'Proposal',
