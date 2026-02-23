@@ -104,7 +104,7 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
         if (!SIMULATE_CODE_BUILD) {
-            await db.insertInto('scan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+            await db.insertInto('codeScan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
                 logger.error('Failed to trigger scan for new code env', err, { codeEnvId: newCodeEnv.id }),
@@ -190,7 +190,7 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
         if (!SIMULATE_CODE_BUILD && updatedCodeEnv.url !== existingUrl) {
-            await db.insertInto('scan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+            await db.insertInto('codeScan').values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' }).execute()
 
             triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
                 logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
@@ -214,10 +214,10 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
             .selectAll('orgCodeEnv')
             .select((eb) => [
                 eb
-                    .selectFrom('scan')
-                    .select('scan.status')
-                    .whereRef('scan.codeEnvId', '=', 'orgCodeEnv.id')
-                    .orderBy('scan.createdAt', 'desc')
+                    .selectFrom('codeScan')
+                    .select('codeScan.status')
+                    .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                    .orderBy('codeScan.createdAt', 'desc')
                     .limit(1)
                     .as('latestScanStatus'),
             ])

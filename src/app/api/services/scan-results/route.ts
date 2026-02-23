@@ -21,7 +21,7 @@ export const POST = createWebhookHandler({
             .executeTakeFirstOrThrow(throwNotFound('code environment'))
 
         const last = await db
-            .selectFrom('scan')
+            .selectFrom('codeScan')
             .select(['status'])
             .where('codeEnvId', '=', body.codeEnvId)
             .orderBy('createdAt', 'desc')
@@ -31,7 +31,7 @@ export const POST = createWebhookHandler({
 
         if (!last || last.status !== body.status) {
             await db
-                .insertInto('scan')
+                .insertInto('codeScan')
                 .values({
                     codeEnvId: body.codeEnvId,
                     status: body.status,

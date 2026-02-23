@@ -77,6 +77,14 @@ export interface Audit {
     userId: string
 }
 
+export interface CodeScan {
+    codeEnvId: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    results: string | null
+    status: ScanStatus
+}
+
 export interface JobStatusChange {
     createdAt: Generated<Timestamp>
     id: Generated<string>
@@ -155,14 +163,6 @@ export interface ResearcherProfile {
     userId: string
 }
 
-export interface Scan {
-    codeEnvId: string
-    createdAt: Generated<Timestamp>
-    id: Generated<string>
-    results: string | null
-    status: ScanStatus
-}
-
 export interface Study {
     additionalNotes: Json | null
     agreementDocPath: string | null
@@ -228,6 +228,7 @@ export interface UserPublicKey {
 
 export interface DB {
     audit: Audit
+    codeScan: CodeScan
     jobStatusChange: JobStatusChange
     org: Org
     orgCodeEnv: OrgCodeEnv
@@ -235,7 +236,6 @@ export interface DB {
     pendingUser: PendingUser
     researcherPosition: ResearcherPosition
     researcherProfile: ResearcherProfile
-    scan: Scan
     study: Study
     studyJob: StudyJob
     studyJobFile: StudyJobFile

@@ -27,7 +27,7 @@ function authedRequest(body: object) {
 
 async function getScanRows(codeEnvId: string) {
     return await db
-        .selectFrom('scan')
+        .selectFrom('codeScan')
         .select(['status', 'results', 'createdAt'])
         .where('codeEnvId', '=', codeEnvId)
         .orderBy('createdAt', 'desc')

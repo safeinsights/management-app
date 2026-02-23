@@ -7,7 +7,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 
     await db.schema
-        .createTable('scan')
+        .createTable('code_scan')
         .addColumn('id', 'uuid', (col) => col.primaryKey().defaultTo(sql`v7uuid()`))
         .addColumn('code_env_id', 'uuid', (col) => col.notNull().references('org_code_env.id').onDelete('cascade'))
         .addColumn('status', sql`scan_status`, (col) => col.notNull())
@@ -16,13 +16,13 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         .execute()
 
     await db.schema
-        .createIndex('idx_scan_code_env_created')
-        .on('scan')
+        .createIndex('idx_code_scan_code_env_created')
+        .on('code_scan')
         .columns(['code_env_id', 'created_at desc'])
         .execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-    await db.schema.dropTable('scan').execute()
+    await db.schema.dropTable('code_scan').execute()
     await db.schema.dropType('scan_status').execute()
 }
