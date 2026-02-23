@@ -1,6 +1,6 @@
 import { Stack, Title, Paper, Divider, Group, Text } from '@mantine/core'
 import { UseFormReturnType } from '@mantine/form'
-import { StudyProposalFormValues } from './step1-schema'
+import { StudyProposalFormValues } from './form-schemas'
 import { Routes } from '@/lib/routes'
 import { Link } from '@/components/links'
 

@@ -44,6 +44,7 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.rejectedAt',
             'study.containerLocation',
             'study.createdAt',
+            'study.datasets',
             'study.dataSources',
             'study.irbProtocols',
             'study.orgId',
@@ -52,6 +53,10 @@ function fetchStudyQuery(db: DBExecutor) {
             'study.piName',
             'study.reviewerId',
             'study.researcherId',
+            'study.researchQuestions',
+            'study.projectSummary',
+            'study.impact',
+            'study.additionalNotes',
             'study.status',
             'study.title',
             'researcher.fullName as createdBy',
@@ -170,55 +175,63 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         // nothing to do if already approved
         if (study.status == 'APPROVED') return
 
-        // will throw if not found
-        const latestJob = await latestJobForStudy(studyId)
+        const latestJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
 
-        let status: StudyJobStatus = 'CODE-APPROVED'
+        if (latestJob) {
+            const job = await latestJobForStudy(studyId)
 
-        // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
-        if (SIMULATE_IMAGE_BUILD) {
-            status = 'JOB-READY'
-        } else {
-            // TODO: the base image should be chosen by the user (if admin) when they create the study
-            // but for now we just use the latest base image for the org and language
-            const image = await db
-                .selectFrom('orgBaseImage')
-                .where('language', '=', latestJob.language)
-                .where('orgId', '=', study.orgId)
-                .where('isTesting', '=', useTestImage || false)
-                .orderBy('orgBaseImage.createdAt', 'desc')
-                .select(['url', 'cmdLine'])
-                .executeTakeFirstOrThrow(
-                    throwNotFound(`no base image found for org ${orgSlug} and language ${latestJob.language}`),
-                )
+            let status: StudyJobStatus = 'CODE-APPROVED'
 
-            const mainCode = await getStudyJobFileOfType(latestJob.id, 'MAIN-CODE')
+            // if we're not connected to AWS codebuild, then containers will never build so just mark it ready
+            if (SIMULATE_IMAGE_BUILD) {
+                status = 'JOB-READY'
+            } else {
+                // TODO: the base image should be chosen by the user (if admin) when they create the study
+                // but for now we just use the latest base image for the org and language
+                const image = await db
+                    .selectFrom('orgBaseImage')
+                    .where('language', '=', job.language)
+                    .where('orgId', '=', study.orgId)
+                    .where('isTesting', '=', useTestImage || false)
+                    .orderBy('orgBaseImage.createdAt', 'desc')
+                    .select(['url', 'cmdLine'])
+                    .executeTakeFirstOrThrow(
+                        throwNotFound(`no base image found for org ${orgSlug} and language ${job.language}`),
+                    )
 
-            await triggerBuildImageForJob({
-                studyJobId: latestJob.id,
-                studyId,
-                orgSlug: orgSlug,
-                containerLocation: study.containerLocation,
-                codeEntryPointFileName: mainCode.name,
-                cmdLine: image.cmdLine,
-                baseImageURL: image.url,
-            })
+                const mainCode = await getStudyJobFileOfType(job.id, 'MAIN-CODE')
+
+                await triggerBuildImageForJob({
+                    studyJobId: job.id,
+                    studyId,
+                    orgSlug: orgSlug,
+                    containerLocation: study.containerLocation,
+                    codeEntryPointFileName: mainCode.name,
+                    cmdLine: image.cmdLine,
+                    baseImageURL: image.url,
+                })
+            }
+
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    userId,
+                    status,
+                    studyJobId: job.id,
+                })
+                .executeTakeFirstOrThrow()
         }
 
         await db
             .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: session.user.id })
+            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
             .where('id', '=', studyId)
             .execute()
-
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId,
-                status,
-                studyJobId: latestJob.id,
-            })
-            .executeTakeFirstOrThrow()
 
         onStudyApproved({ studyId, userId })
     })
@@ -248,15 +261,23 @@ export const rejectStudyProposalAction = new Action('rejectStudyProposalAction',
             .where('id', '=', studyId)
             .execute()
 
-        const latestJob = await latestJobForStudy(studyId)
-        await db
-            .insertInto('jobStatusChange')
-            .values({
-                userId: userId,
-                status: 'CODE-REJECTED',
-                studyJobId: latestJob.id,
-            })
-            .executeTakeFirstOrThrow()
+        const latestJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (latestJob) {
+            await db
+                .insertInto('jobStatusChange')
+                .values({
+                    userId,
+                    status: 'CODE-REJECTED',
+                    studyJobId: latestJob.id,
+                })
+                .executeTakeFirstOrThrow()
+        }
 
         onStudyRejected({ studyId, userId })
     })

@@ -14,7 +14,7 @@ const ProxyContext = createContext<ProxyInstance>([undefined, () => {}])
 
 type ProxyProviderProps = {
     isDirty: boolean
-    onSaveDraft?: () => Promise<void>
+    onSaveDraft?: () => Promise<boolean | void>
     isSavingDraft?: boolean
     onNavigateAway?: () => void
 }
@@ -122,7 +122,8 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
 
     const handleSaveDraft = async () => {
         if (onSaveDraft) {
-            await onSaveDraft()
+            const result = await onSaveDraft()
+            if (result === false) return
         }
         navigateAway()
     }

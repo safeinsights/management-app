@@ -44,6 +44,8 @@ export function PositionsSection({ data, refetch, readOnly = false }: PositionsS
         />
     )
 
+    if (readOnly && !hasExistingPositions) return null
+
     return (
         <Paper p="xl" radius="sm">
             <SectionHeader
