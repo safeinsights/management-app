@@ -144,5 +144,17 @@ test.describe('Organization Admin', () => {
 
         // Ensure the updated code environment name is present
         await expect(page.getByText(updatedName)).toBeVisible()
+
+        // Expand the detail panel by clicking the caret toggle
+        const updatedRow = page.getByText(updatedName, { exact: true }).locator('xpath=../../..')
+        await updatedRow.getByRole('button').first().click()
+
+        // Click the "View Starter Code" icon button within this row's detail panel
+        await updatedRow.getByLabel(/view starter code/i).click()
+
+        // Verify the code viewer modal opens with the file content
+        const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
+        await expect(codeViewerDialog).toBeVisible({ timeout: 10000 })
+        await expect(codeViewerDialog.locator('code')).toContainText('initialize_container')
     })
 })

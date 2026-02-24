@@ -127,13 +127,9 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
         const { starterCode, ...rest } = values
         const starterCodeUploaded = !!starterCode
 
-        if (starterCode) {
-            await uploadStarterCode(orgSlug, image!.id, starterCode)
-        }
-
         const sampleDataUploaded = await uploadSampleData(image!.id, sampleDataFiles)
 
-        return await updateOrgCodeEnvAction({
+        const result = await updateOrgCodeEnvAction({
             orgSlug,
             codeEnvId: image!.id,
             ...rest,
@@ -141,6 +137,12 @@ export function useCodeEnvForm(image: CodeEnv | undefined, onCompleteAction: () 
             starterCodeUploaded,
             sampleDataUploaded,
         })
+
+        if (starterCode && !isActionError(result)) {
+            await uploadStarterCode(orgSlug, image!.id, starterCode)
+        }
+
+        return result
     }
 
     const { mutate: saveCodeEnv, isPending } = useMutation({
