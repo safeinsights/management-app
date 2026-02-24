@@ -320,6 +320,28 @@ export const insertTestStudyJobData = async ({
     }
 }
 
+export const insertTestStudyOnly = async ({ orgSlug }: { orgSlug: string }) => {
+    const org = await insertTestOrg({ slug: orgSlug })
+    const { user } = await insertTestUser({ org })
+    const study = await db
+        .insertInto('study')
+        .values({
+            orgId: org.id,
+            submittedByOrgId: org.id,
+            containerLocation: 'test-container',
+            title: 'study without job',
+            researcherId: user.id,
+            piName: 'test',
+            status: 'APPROVED',
+            dataSources: ['all'],
+            outputMimeType: 'application/zip',
+            language: 'R',
+        })
+        .returningAll()
+        .executeTakeFirstOrThrow()
+    return { org, user, study }
+}
+
 export const insertTestStudyJobUsers = async ({
     org,
     useRealKeys = false,
@@ -577,7 +599,7 @@ export async function mockSessionWithTestData(options: MockSessionWithTestDataOp
     return { session, org, user, orgUser, ...mocks }
 }
 
-export type InsertTestBaseImageOptions = {
+export type InsertTestCodeEnvOptions = {
     orgId: string
     name?: string
     language?: Language
@@ -588,15 +610,15 @@ export type InsertTestBaseImageOptions = {
     environment?: Array<{ name: string; value: string }>
 }
 
-export const insertTestBaseImage = async (options: InsertTestBaseImageOptions) => {
+export const insertTestCodeEnv = async (options: InsertTestCodeEnvOptions) => {
     const language = options.language || faker.helpers.arrayElement(['R', 'PYTHON'] as const)
     const fileExtension = language === 'R' ? 'R' : 'py'
 
     return await db
-        .insertInto('orgBaseImage')
+        .insertInto('orgCodeEnv')
         .values({
             orgId: options.orgId,
-            name: options.name || `${language} ${faker.system.semver()} Base Image`,
+            name: options.name || `${language} ${faker.system.semver()} Code Environment`,
             language,
             cmdLine: options.cmdLine || (language === 'R' ? 'Rscript %f' : 'python %f'),
             url: options.url || `http://example.com/${language.toLowerCase()}-base-${faker.string.alphanumeric(6)}`,

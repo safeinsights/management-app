@@ -216,6 +216,12 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
         await page.goto(href, { waitUntil: 'domcontentloaded' })
     }
 
+    // agreements page is now the first stop — proceed through it if present
+    const proceedButton = page.getByRole('button', { name: /Proceed to Step/i })
+    if (await proceedButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), proceedButton.click()])
+    }
+
     await expect(
         page.getByRole('heading', { name: /Study Details|Review your submission|Review submission/i }),
     ).toBeVisible({ timeout: 10000 })
