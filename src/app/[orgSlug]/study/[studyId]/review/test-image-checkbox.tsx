@@ -35,7 +35,7 @@ export const TestImageCheckbox: React.FC<TestImageCheckboxProps> = ({ studyId, c
             checked={checked}
             style={{ marginLeft: 'auto' }}
             onChange={(event) => onChange(event.currentTarget.checked)}
-            label="Run this code against test base image"
+            label="Run this code against test code environment"
         />
     )
 }

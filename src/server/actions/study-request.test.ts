@@ -15,7 +15,7 @@ vi.mock('@/server/aws', async () => {
     const actual = await vi.importActual('@/server/aws')
     return {
         ...actual,
-        signedUrlForStudyUpload: vi.fn().mockResolvedValue('test-signed-url'),
+        createSignedUploadUrl: vi.fn().mockResolvedValue('test-signed-url'),
         deleteFolderContents: vi.fn(),
     }
 })
