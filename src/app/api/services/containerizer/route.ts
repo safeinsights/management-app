@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import type { FileType } from '@/database/types'
 import logger from '@/lib/logger'
 import { throwNotFound } from '@/lib/errors'
 import { z } from 'zod'
@@ -36,6 +37,8 @@ export const POST = createWebhookHandler({
         // Encryption failure should not block saving the status — we log the error but continue
         // so the job at least reflects its current state in the UI.
         if ((body.status === 'JOB-ERRORED' || body.status === 'CODE-SCANNED') && body.plaintextLog) {
+            const logFileType: FileType =
+                body.status === 'JOB-ERRORED' ? 'ENCRYPTED-PACKAGING-ERROR-LOG' : 'ENCRYPTED-SECURITY-SCAN-LOG'
             try {
                 const recipients = await getOrgPublicKeys(job.orgId)
                 if (recipients.length > 0) {
@@ -46,6 +49,7 @@ export const POST = createWebhookHandler({
                     await storeStudyEncryptedLogFile(
                         { orgSlug: job.orgSlug, studyId: job.studyId, studyJobId: job.jobId },
                         encryptedFile,
+                        logFileType,
                     )
                 }
             } catch (encryptionError) {

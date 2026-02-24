@@ -1,6 +1,7 @@
 'use server'
 
 import { ActionFailure } from '@/lib/errors'
+import { isApprovedLogType, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFile, minimalJobInfoSchema } from '@/lib/types'
 import { getStudyJobInfo, latestJobForStudy } from '@/server/db/queries'
 import { onStudyFilesApproved } from '@/server/events'
@@ -20,9 +21,13 @@ export const approveStudyJobFilesAction = new Action('approveStudyJobFilesAction
                     contents: z.instanceof(ArrayBuffer),
                     sourceId: z.string(),
                     fileType: z.enum([
-                        'APPROVED-LOG',
+                        'APPROVED-CODE-RUN-LOG',
+                        'APPROVED-SECURITY-SCAN-LOG',
+                        'APPROVED-PACKAGING-ERROR-LOG',
                         'APPROVED-RESULT',
-                        'ENCRYPTED-LOG',
+                        'ENCRYPTED-CODE-RUN-LOG',
+                        'ENCRYPTED-SECURITY-SCAN-LOG',
+                        'ENCRYPTED-PACKAGING-ERROR-LOG',
                         'ENCRYPTED-RESULT',
                         'MAIN-CODE',
                         'SUPPLEMENTAL-CODE',
@@ -117,7 +122,7 @@ export const fetchApprovedJobFilesAction = new Action('fetchApprovedJobFilesActi
 
     .handler(async ({ studyJob }) => {
         const approvedJobFiles = studyJob.files.filter(
-            (jobFile) => jobFile.fileType === 'APPROVED-LOG' || jobFile.fileType === 'APPROVED-RESULT',
+            (jobFile) => isApprovedLogType(jobFile.fileType) || jobFile.fileType === 'APPROVED-RESULT',
         )
 
         const jobFiles: JobFile[] = []
@@ -149,7 +154,7 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
     .handler(async ({ studyJob }) => {
         const encryptedFiles = studyJob.files.filter(
-            (file) => file.fileType === 'ENCRYPTED-LOG' || file.fileType === 'ENCRYPTED-RESULT',
+            (file) => isEncryptedLogType(file.fileType) || file.fileType === 'ENCRYPTED-RESULT',
         )
 
         const encryptedJobFiles = []

@@ -37,7 +37,7 @@ describe('JobResultsStatusMessage', () => {
     describe('Approved and Errored states', () => {
         it('shows error message with logs when approved, errored, and logs are available', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
-            const files = createMockFiles(['APPROVED-LOG', 'APPROVED-RESULT'])
+            const files = createMockFiles(['APPROVED-CODE-RUN-LOG', 'APPROVED-RESULT'])
 
             renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
@@ -70,7 +70,7 @@ describe('JobResultsStatusMessage', () => {
 
         it('detects encrypted logs as available logs', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED'])
-            const files = createMockFiles(['ENCRYPTED-LOG'])
+            const files = createMockFiles(['ENCRYPTED-PACKAGING-ERROR-LOG'])
 
             renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 
@@ -211,7 +211,7 @@ describe('JobResultsStatusMessage', () => {
     describe('Multiple status combinations', () => {
         it('prioritizes error state when both approved and errored', () => {
             const job = createMockJob(['FILES-APPROVED', 'JOB-ERRORED', 'RUN-COMPLETE'])
-            const files = createMockFiles(['APPROVED-LOG'])
+            const files = createMockFiles(['APPROVED-CODE-RUN-LOG'])
 
             renderWithProviders(<JobResultsStatusMessage job={job} files={files} submittingOrgSlug="test-org" />)
 

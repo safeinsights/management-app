@@ -19,14 +19,6 @@ export type AuditEventType =
 
 export type AuditRecordType = 'STUDY' | 'USER'
 
-export type FileType =
-    | 'APPROVED-LOG'
-    | 'APPROVED-RESULT'
-    | 'ENCRYPTED-LOG'
-    | 'ENCRYPTED-RESULT'
-    | 'MAIN-CODE'
-    | 'SUPPLEMENTAL-CODE'
-
 export type Generated<T> =
     T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S, I | undefined, U> : ColumnType<T, T | undefined, T>
 
@@ -47,6 +39,18 @@ export type Language = 'PYTHON' | 'R'
 export type OrgType = 'enclave' | 'lab'
 
 export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
+
+export type StudyJobFileType =
+    | 'APPROVED-CODE-RUN-LOG'
+    | 'APPROVED-PACKAGING-ERROR-LOG'
+    | 'APPROVED-RESULT'
+    | 'APPROVED-SECURITY-SCAN-LOG'
+    | 'ENCRYPTED-CODE-RUN-LOG'
+    | 'ENCRYPTED-PACKAGING-ERROR-LOG'
+    | 'ENCRYPTED-RESULT'
+    | 'ENCRYPTED-SECURITY-SCAN-LOG'
+    | 'MAIN-CODE'
+    | 'SUPPLEMENTAL-CODE'
 
 export type StudyJobStatus =
     | 'CODE-APPROVED'
@@ -198,7 +202,7 @@ export interface StudyJob {
 
 export interface StudyJobFile {
     createdAt: Generated<Timestamp>
-    fileType: FileType
+    fileType: StudyJobFileType
     id: Generated<string>
     name: string
     path: string
@@ -242,6 +246,8 @@ export interface DB {
     user: User
     userPublicKey: UserPublicKey
 }
+
+export type FileType = StudyJobFileType
 
 // Re-export manual types for convenience
 export type { EnvVar, OrgCodeEnvSettings } from './types-manual'

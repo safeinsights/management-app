@@ -153,7 +153,7 @@ test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () =
     expect(resp.ok).toBe(true)
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
-    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
 })
 
 test('containerizer persists CODE-SCANNED', async () => {
@@ -186,7 +186,7 @@ test('containerizer encrypts and stores plaintextLog on CODE-SCANNED', async () 
     expect(resp.ok).toBe(true)
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
-    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')).toBe(true)
 })
 
 test('returns 401 when Authorization header is missing', async () => {

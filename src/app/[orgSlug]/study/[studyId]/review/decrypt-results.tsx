@@ -1,7 +1,7 @@
 import { reportMutationError } from '@/components/errors'
 import { ViewFile } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
-import { FileType } from '@/database/types'
+import { approvedTypeForFile, isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFileInfo } from '@/lib/types'
 import { fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
@@ -22,12 +22,6 @@ interface StudyResultsFormValues {
 type Props = {
     job: NonNullable<LatestJobForStudy>
     onApproval: (decryptedResults: JobFileInfo[]) => void
-}
-
-function approvedTypeForFile(fileType: FileType): FileType {
-    if (fileType === 'ENCRYPTED-RESULT') return 'APPROVED-RESULT'
-    if (fileType === 'ENCRYPTED-LOG') return 'APPROVED-LOG'
-    throw new Error(`Unknown file type ${fileType}`)
 }
 
 export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
@@ -113,7 +107,7 @@ export const DecryptResults: FC<Props> = ({ job, onApproval }) => {
     if (isApproved) return null
 
     // If errored but no encrypted logs available, don't render decryption form here - missing logs message is shown on the main results page
-    const hasEncryptedLogs = job.files?.some((f) => f.fileType === 'ENCRYPTED-LOG') ?? false
+    const hasEncryptedLogs = job.files?.some((f) => isEncryptedLogType(f.fileType)) ?? false
     if (isErrored && !hasEncryptedLogs) return null
 
     return (

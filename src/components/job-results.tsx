@@ -5,6 +5,7 @@ import { Anchor, AnchorProps, Group, LoadingOverlay, Stack, Text, useMantineThem
 import { ArrowSquareOutIcon, DownloadSimpleIcon } from '@phosphor-icons/react/dist/ssr'
 import { useQuery } from '@/common'
 import { ErrorAlert } from '@/components/errors'
+import { isApprovedLogType, logLabel } from '@/lib/file-type-helpers'
 import { fetchApprovedJobFilesAction } from '@/server/actions/study-job.actions'
 import { JobFile } from '@/lib/types'
 import { LatestJobForStudy } from '@/server/db/queries'
@@ -76,7 +77,7 @@ export const JobResults: FC<{ job: LatestJobForStudy }> = ({ job }) => {
 
         approvedFiles?.forEach((f) => {
             if (f.fileType === 'APPROVED-RESULT') res.push(f)
-            else if (f.fileType === 'APPROVED-LOG') logs.push(f)
+            else if (isApprovedLogType(f.fileType)) logs.push(f)
         })
 
         return { resultsFiles: res, logFiles: logs }
@@ -106,7 +107,7 @@ export const ViewFile: FC<{ file: JobFile }> = ({ file }) => {
     const theme = useMantineTheme()
     return (
         <Group gap="xs">
-            <Text fw={650}>{file.fileType === 'APPROVED-RESULT' ? 'Results:' : 'Logs:'}</Text>
+            <Text fw={650}>{logLabel(file.fileType)}:</Text>
             <ViewResultsLink content={file.contents} />
             <span
                 style={{

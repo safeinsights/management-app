@@ -23,6 +23,12 @@ npx kysely seed:run
 awk '/import type { ColumnType } from "kysely"/ {print; print "import type { OrgCodeEnvSettings } from \"./types-manual\";"; next}1' $TYPES > ${TYPES}.tmp
 mv ${TYPES}.tmp $TYPES
 
+# Add FileType alias for backwards compatibility with the renamed study_job_file_type enum
+if ! grep -q "export type FileType" $TYPES; then
+  echo "" >> $TYPES
+  echo "export type FileType = StudyJobFileType" >> $TYPES
+fi
+
 # Re-export manual types at the end of the file for convenience
 if ! grep -q "export type { EnvVar" $TYPES; then
   echo "" >> $TYPES

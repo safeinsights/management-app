@@ -3,6 +3,7 @@
 import { CopyingInput } from '@/components/copying-input'
 import { JobResults } from '@/components/job-results'
 import { useJobStatus } from '@/hooks/use-job-results-status'
+import { isEncryptedLogType } from '@/lib/file-type-helpers'
 import { JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -17,7 +18,7 @@ export const StudyResults: FC<{
 }> = ({ job }) => {
     const [decryptedResults, setDecryptedResults] = useState<JobFileInfo[]>()
 
-    const hasEncryptedLogs = job?.files?.some((f) => f.fileType === 'ENCRYPTED-LOG') ?? false
+    const hasEncryptedLogs = job?.files?.some((f) => isEncryptedLogType(f.fileType)) ?? false
 
     // Empty state, no results yet
     if (!job?.statusChanges.find((sc) => ALLOWED_STATUS.includes(sc.status))) {

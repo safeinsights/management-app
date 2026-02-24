@@ -32,7 +32,7 @@ describe('Study Job Actions', () => {
 
         await db
             .insertInto('studyJobFile')
-            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-LOG' })
+            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'APPROVED-CODE-RUN-LOG' })
             .executeTakeFirstOrThrow()
 
         const result = actionResult(await fetchApprovedJobFilesAction({ studyJobId: job.id }))
@@ -46,7 +46,7 @@ describe('Study Job Actions', () => {
         const { job } = await insertTestStudyJobData({ org })
         await db
             .insertInto('studyJobFile')
-            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-LOG' })
+            .values({ path: 'bad/path', name: 'test.csv', studyJobId: job.id, fileType: 'ENCRYPTED-CODE-RUN-LOG' })
             .executeTakeFirstOrThrow()
 
         const result = actionResult(
@@ -57,6 +57,6 @@ describe('Study Job Actions', () => {
         )
 
         expect(result).toHaveLength(1)
-        expect(result[0].fileType).toBe('ENCRYPTED-LOG')
+        expect(result[0].fileType).toBe('ENCRYPTED-CODE-RUN-LOG')
     })
 })
