@@ -122,6 +122,7 @@ const CodeEnvDetailPanel: React.FC<{ image: CodeEnv; onViewCode: () => void; isL
                                 color="blue"
                                 onClick={onViewCode}
                                 loading={isLoadingCode}
+                                aria-label="View Starter Code"
                             >
                                 <FileMagnifyingGlassIcon />
                             </ActionIcon>
