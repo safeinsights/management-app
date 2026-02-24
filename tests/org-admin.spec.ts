@@ -155,6 +155,6 @@ test.describe('Organization Admin', () => {
         // Verify the code viewer modal opens with the file content
         const codeViewerDialog = page.getByRole('dialog', { name: /starter code/i })
         await expect(codeViewerDialog).toBeVisible({ timeout: 10000 })
-        await expect(codeViewerDialog.locator('code')).toContainText('initialize_container')
+        await expect(codeViewerDialog.locator('code')).toContainText('initialize()')
     })
 })

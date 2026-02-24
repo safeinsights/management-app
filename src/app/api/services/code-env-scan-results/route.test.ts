@@ -18,7 +18,7 @@ vi.mock('@/lib/logger', () => ({
 }))
 
 function authedRequest(body: object) {
-    return new Request('http://localhost/api/services/scan-results', {
+    return new Request('http://localhost/api/services/code-env-scan-results', {
         method: 'POST',
         headers: { Authorization: `Bearer ${TEST_SECRET}` },
         body: JSON.stringify(body),
@@ -35,7 +35,7 @@ async function getScanRows(codeEnvId: string) {
 }
 
 test('returns 401 when Authorization header is missing', async () => {
-    const req = new Request('http://localhost/api/services/scan-results', {
+    const req = new Request('http://localhost/api/services/code-env-scan-results', {
         method: 'POST',
         body: JSON.stringify({ codeEnvId: 'any', status: 'SCAN-RUNNING' }),
     })
@@ -46,7 +46,7 @@ test('returns 401 when Authorization header is missing', async () => {
 })
 
 test('returns 401 when token is wrong', async () => {
-    const req = new Request('http://localhost/api/services/scan-results', {
+    const req = new Request('http://localhost/api/services/code-env-scan-results', {
         method: 'POST',
         headers: { Authorization: 'Bearer wrong-secret' },
         body: JSON.stringify({ codeEnvId: 'any', status: 'SCAN-RUNNING' }),

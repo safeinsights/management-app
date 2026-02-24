@@ -12,6 +12,10 @@ vi.mock('@/server/actions/org.actions', () => ({
     getOrgFromSlugAction: vi.fn(),
 }))
 
+vi.mock('@/components/spy-mode-context', () => ({
+    useSpyMode: () => ({ isSpyMode: false, toggleSpyMode: vi.fn() }),
+}))
+
 const mockStudies = [
     {
         id: '11111111-1111-4111-8111-111111111111',
