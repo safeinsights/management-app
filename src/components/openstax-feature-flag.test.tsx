@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, renderHook } from '@testing-library/react'
-import { OpenStaxFeatureFlag, useOpenStaxFeatureFlag } from './openstax-feature-flag'
+import { renderWithProviders } from '@/tests/unit.helpers'
+import { FeatureFlagRequiredAlert, OpenStaxFeatureFlag, useOpenStaxFeatureFlag } from './openstax-feature-flag'
 import { FC } from 'react'
 
 // Mock the dependencies
@@ -128,6 +129,41 @@ describe('OpenStaxFeatureFlag', () => {
 
             expect(screen.getByTestId('optin')).toBeInTheDocument()
             expect(screen.queryByTestId('default')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('FeatureFlagRequiredAlert', () => {
+        it('renders default message when isNewFlow is true and spy mode is off', () => {
+            mockUseSpyMode.mockReturnValue({ isSpyMode: false })
+
+            renderWithProviders(<FeatureFlagRequiredAlert isNewFlow />)
+
+            expect(screen.getByText('Action Required')).toBeInTheDocument()
+            expect(screen.getByText(/enable spy mode to continue/i)).toBeInTheDocument()
+        })
+
+        it('renders custom message when provided', () => {
+            mockUseSpyMode.mockReturnValue({ isSpyMode: false })
+
+            renderWithProviders(<FeatureFlagRequiredAlert isNewFlow message="Custom alert text" />)
+
+            expect(screen.getByText('Custom alert text')).toBeInTheDocument()
+        })
+
+        it('renders nothing when isNewFlow is true and spy mode is on', () => {
+            mockUseSpyMode.mockReturnValue({ isSpyMode: true })
+
+            const { container } = render(<FeatureFlagRequiredAlert isNewFlow />)
+
+            expect(container).toBeEmptyDOMElement()
+        })
+
+        it('renders nothing when isNewFlow is false and spy mode is off', () => {
+            mockUseSpyMode.mockReturnValue({ isSpyMode: false })
+
+            const { container } = render(<FeatureFlagRequiredAlert isNewFlow={false} />)
+
+            expect(container).toBeEmptyDOMElement()
         })
     })
 })

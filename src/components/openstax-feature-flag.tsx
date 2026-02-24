@@ -1,6 +1,7 @@
 'use client'
 
 import { FC, ReactNode } from 'react'
+import { Alert } from '@mantine/core'
 import { OPENSTAX_ORG_SLUGS } from '@/lib/constants'
 import { useSession } from '@/hooks/session'
 import { useSpyMode } from './spy-mode-context'
@@ -31,4 +32,16 @@ interface OpenStaxFeatureFlagProps {
 export const OpenStaxFeatureFlag: FC<OpenStaxFeatureFlagProps> = ({ defaultContent, optInContent }) => {
     const isOpenStaxOptIn = useOpenStaxFeatureFlag()
     return isOpenStaxOptIn ? optInContent : defaultContent
+}
+
+export const FeatureFlagRequiredAlert: FC<{ isNewFlow: boolean; message?: string }> = ({ isNewFlow, message }) => {
+    const { isSpyMode } = useSpyMode()
+
+    if (!isNewFlow || isSpyMode) return null
+
+    return (
+        <Alert variant="filled" color="red" title="Action Required">
+            {message ?? 'This page is not available in the current view. Enable spy mode to continue.'}
+        </Alert>
+    )
 }
