@@ -1,5 +1,7 @@
 import { capitalize } from 'remeda'
 import { z } from 'zod'
+import { WORD_LIMITS, maxWordsRefine } from '@/app/[orgSlug]/study/[studyId]/proposal/schema'
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_FILE_SIZE_STR = '10MB'
 
@@ -38,8 +40,8 @@ export const studyProposalFormSchema = z
             }),
         title: z
             .string()
-            .min(5, { message: 'Title must be at least 5 characters long' })
-            .max(50, { message: 'Word limit is 50 characters' }),
+            .min(1, { message: 'Title is required' })
+            .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
         piName: z.string().max(100, { message: 'Word limit is 100 characters' }).trim(),
         description: z.string().optional(),
         descriptionDocument: validateDocumentFile('description'),
@@ -125,8 +127,8 @@ export type ResubmitProposalFormValues = Omit<
 export const studyProposalApiSchema = z.object({
     title: z
         .string()
-        .min(5, { message: 'Title must be at least 5 characters long' })
-        .max(50, { message: 'Title must be less than 50 characters long' }),
+        .min(1, { message: 'Title is required' })
+        .refine(maxWordsRefine(WORD_LIMITS.title).check, { message: maxWordsRefine(WORD_LIMITS.title).message }),
     piName: z.string().max(100).trim(),
     language: z.enum(['R', 'PYTHON']),
     descriptionDocPath: z.string(),
@@ -149,7 +151,7 @@ export const draftStudyApiSchema = studyProposalApiSchema.extend(step2ProposalAp
 export const formReadinessSchema = z.object({
     orgSlug: z.string().min(1),
     language: z.enum(['R', 'PYTHON']),
-    title: z.string().min(5),
+    title: z.string().min(1).refine(maxWordsRefine(WORD_LIMITS.title).check),
     hasDescriptionDocument: z.literal(true),
     hasIrbDocument: z.literal(true),
     hasAgreementDocument: z.literal(true),

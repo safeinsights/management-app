@@ -7,6 +7,7 @@ import { AppModal } from '@/components/modal'
 import { CaretLeftIcon } from '@phosphor-icons/react'
 import { useProposal } from '@/contexts/proposal'
 import { Routes } from '@/lib/routes'
+import { hasLexicalContent } from '@/lib/word-count'
 import { ReviewerPreview } from './reviewer-preview'
 
 interface ProposalFooterProps {
@@ -20,6 +21,12 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
     const [isReviewerModalOpen, setIsReviewerModalOpen] = useState(false)
 
     const isBusy = isSaving || isSubmitting
+    // lexical fields store JSON even when empty, so we extract the
+    // text to determine if there's real content. title is excluded
+    // because it's always pre-populated as "Untitled draft".
+    const { researchQuestions, projectSummary, impact, additionalNotes, datasets, piName } = form.values
+    const hasContent =
+        hasLexicalContent(researchQuestions, projectSummary, impact, additionalNotes) || datasets.length > 0 || !!piName
 
     const handlePrevious = async () => {
         const saved = await saveDraft()
@@ -41,10 +48,21 @@ export const ProposalFooter: FC<ProposalFooterProps> = ({ researcherName }) => {
                     Previous
                 </Button>
                 <Group>
-                    <Button variant="outline" size="md" disabled={isBusy} onClick={() => setIsReviewerModalOpen(true)}>
+                    <Button
+                        variant="outline"
+                        size="md"
+                        disabled={!hasContent || isBusy}
+                        onClick={() => setIsReviewerModalOpen(true)}
+                    >
                         View as reviewer
                     </Button>
-                    <Button variant="outline" size="md" disabled={isBusy} loading={isSaving} onClick={saveDraft}>
+                    <Button
+                        variant="outline"
+                        size="md"
+                        disabled={!form.isDirty() || isBusy}
+                        loading={isSaving}
+                        onClick={saveDraft}
+                    >
                         Save as draft
                     </Button>
                     <Button

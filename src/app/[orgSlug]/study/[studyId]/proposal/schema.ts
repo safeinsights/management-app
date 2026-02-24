@@ -12,7 +12,7 @@ export const WORD_LIMITS = {
     additionalNotes: 300,
 } as const
 
-function maxWordsRefine(maxWords: number) {
+export function maxWordsRefine(maxWords: number) {
     return {
         check: (val: string) => val.trim().split(/\s+/).filter(Boolean).length <= maxWords,
         message: WORD_LIMIT_ERROR,

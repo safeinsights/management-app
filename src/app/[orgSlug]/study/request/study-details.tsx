@@ -69,7 +69,7 @@ export const RequestStudyDetails: FC<StudyDetailsProps> = ({ studyProposalForm, 
                             key={studyProposalForm.key('title')}
                             id={studyProposalForm.key('title')}
                             aria-label="Study Title"
-                            placeholder="Enter a title (max. 50 characters)"
+                            placeholder="Enter a title (max. 20 words)"
                             {...studyProposalForm.getInputProps('title')}
                             autoFocus
                         />

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countWords, countWordsFromLexical, extractTextFromLexical } from './word-count'
+import { countWords, countWordsFromLexical, extractTextFromLexical, hasLexicalContent, lexicalJson } from './word-count'
 
 describe('countWords', () => {
     it('returns 0 for empty string', () => {
@@ -131,5 +131,35 @@ describe('countWordsFromLexical', () => {
             root: { type: 'text', text: '  extra   spaces   between   words  ' },
         })
         expect(countWordsFromLexical(json)).toBe(4)
+    })
+})
+
+describe('hasLexicalContent', () => {
+    it('returns false when all fields are undefined', () => {
+        expect(hasLexicalContent(undefined, undefined)).toBe(false)
+    })
+
+    it('returns false when all fields are empty strings', () => {
+        expect(hasLexicalContent('', '')).toBe(false)
+    })
+
+    it('returns false for lexical JSON with whitespace-only content', () => {
+        expect(hasLexicalContent(lexicalJson('   '), lexicalJson('\n\t'))).toBe(false)
+    })
+
+    it('returns false for lexical JSON with empty text', () => {
+        expect(hasLexicalContent(lexicalJson(''))).toBe(false)
+    })
+
+    it('returns true for non-empty fields', () => {
+        expect(hasLexicalContent(lexicalJson('Hello'), lexicalJson('Actual content'))).toBe(true)
+    })
+
+    it('returns true with a mix of empty and non-empty fields', () => {
+        expect(hasLexicalContent(undefined, '', lexicalJson('   '), lexicalJson('Actual content'))).toBe(true)
+    })
+
+    it('returns false with no arguments', () => {
+        expect(hasLexicalContent()).toBe(false)
     })
 })
