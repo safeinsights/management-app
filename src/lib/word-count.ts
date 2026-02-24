@@ -50,6 +50,13 @@ function extractTextFromLexicalNode(node: unknown): string {
 }
 
 /**
+ * Check if any of the fields have non-empty lexical content
+ */
+export function hasLexicalContent(...fields: (string | undefined)[]): boolean {
+    return fields.some((field) => !!extractTextFromLexical(field).trim())
+}
+
+/**
  * Create Lexical JSON from plain text (for testing)
  */
 export function lexicalJson(text: string): string {
