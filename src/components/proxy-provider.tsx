@@ -73,7 +73,12 @@ const ProxyProvider: FC<PropsWithChildren<ProxyProviderProps>> = ({
             const link = target.closest('a')
 
             // Skip links that open in a new tab or are marked to skip
-            if (link && link.tagName === 'A' && !link.hasAttribute('data-skip-navigation') && link.target !== '_blank') {
+            if (
+                link &&
+                link.tagName === 'A' &&
+                !link.hasAttribute('data-skip-navigation') &&
+                link.target !== '_blank'
+            ) {
                 const href = link.getAttribute('href')
                 if (href) {
                     const isExternal = href.startsWith('http') && !href.startsWith(window.location.origin)
