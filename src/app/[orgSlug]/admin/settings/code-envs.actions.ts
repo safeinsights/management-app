@@ -6,28 +6,43 @@ import { revalidatePath } from 'next/cache'
 import { Action } from '@/server/actions/action'
 import { orgIdFromSlug } from '@/server/db/queries'
 import { throwNotFound } from '@/lib/errors'
-import { deleteS3File, deleteFolderContents, moveFolderContents, createSignedUploadUrl } from '@/server/aws'
+import {
+    deleteS3File,
+    deleteFolderContents,
+    moveFolderContents,
+    createSignedUploadUrl,
+    triggerScanForCodeEnv,
+} from '@/server/aws'
 import { pathForStarterCode, pathForStarterCodePrefix, pathForSampleData } from '@/lib/paths'
 import { sanitizeFileName } from '@/lib/utils'
 import { SAMPLE_DATA_FORMATS, type SampleDataFormat } from '@/lib/types'
 import { fetchFileContents } from '@/server/storage'
+import { SIMULATE_CODE_BUILD } from '@/server/config'
+import { insertFakeCodeScan } from '@/server/actions/simulate-scan'
+import logger from '@/lib/logger'
 import type { DB } from '@/database/types'
 import type { Kysely } from 'kysely'
 import { Routes } from '@/lib/routes'
 
 const codeEnvFromOrgAndId = async ({
-    params: { orgSlug, imageId },
+    params: { orgSlug, codeEnvId },
     db,
 }: {
-    params: { orgSlug: string; imageId: string }
+    params: { orgSlug: string; codeEnvId: string }
     db: Kysely<DB>
 }) => {
     const codeEnv = await db
         .selectFrom('orgCodeEnv')
         .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
-        .select(['orgCodeEnv.id', 'orgCodeEnv.starterCodePath', 'orgCodeEnv.sampleDataPath', 'org.id as orgId'])
+        .select([
+            'orgCodeEnv.id',
+            'orgCodeEnv.starterCodePath',
+            'orgCodeEnv.sampleDataPath',
+            'orgCodeEnv.url',
+            'org.id as orgId',
+        ])
         .where('org.slug', '=', orgSlug)
-        .where('orgCodeEnv.id', '=', imageId)
+        .where('orgCodeEnv.id', '=', codeEnvId)
         .executeTakeFirstOrThrow()
 
     return { codeEnv, orgId: codeEnv.orgId }
@@ -89,12 +104,22 @@ export const createOrgCodeEnvAction = new Action('createOrgCodeEnvAction', { per
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
 
+        if (SIMULATE_CODE_BUILD) {
+            await insertFakeCodeScan(newCodeEnv.id, db)
+        } else {
+            await db.insertInto('codeScan').values({ codeEnvId: newCodeEnv.id, status: 'SCAN-PENDING' }).execute()
+
+            triggerScanForCodeEnv({ codeEnvId: newCodeEnv.id, imageUrl: newCodeEnv.url }).catch((err) =>
+                logger.error('Failed to trigger scan for new code env', err, { codeEnvId: newCodeEnv.id }),
+            )
+        }
+
         return newCodeEnv
     })
 
 const updateOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
     name: z.string(),
     language: z.enum(['R', 'PYTHON']),
     cmdLine: z.string(),
@@ -115,11 +140,11 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
     .params(updateOrgCodeEnvSchema)
     .middleware(async (args) => ({ ...(await codeEnvFromOrgAndId(args)).codeEnv }))
     .requireAbilityTo('update', 'Org')
-    // existingSampleDataPath comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
-    .handler(async ({ params, starterCodePath, sampleDataPath: existingSampleDataPath, db }) => {
+    // other parms comes from the DB query in middleware (codeEnvFromOrgAndId), not from client params
+    .handler(async ({ params, starterCodePath, sampleDataPath: prevSampleDataPath, url: prevUrl, db }) => {
         const {
             orgSlug,
-            imageId,
+            codeEnvId,
             starterCodeFileName,
             starterCodeUploaded,
             sampleDataPath,
@@ -130,25 +155,21 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
         if (starterCodeUploaded && starterCodeFileName) {
             const newStarterCodePath = pathForStarterCode({
                 orgSlug,
-                codeEnvId: imageId,
+                codeEnvId,
                 fileName: starterCodeFileName,
             })
-            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId: imageId }))
+            await deleteFolderContents(pathForStarterCodePrefix({ orgSlug, codeEnvId }))
             starterCodePath = newStarterCodePath
         }
 
         const sanitizedSampleDataPath = sampleDataPath ? sanitizeFileName(sampleDataPath) : null
 
-        if (sampleDataUploaded && existingSampleDataPath) {
-            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId: imageId }))
-        } else if (
-            sanitizedSampleDataPath &&
-            existingSampleDataPath &&
-            sanitizedSampleDataPath !== existingSampleDataPath
-        ) {
-            const codeEnvInfo = { orgSlug, codeEnvId: imageId }
+        if (sampleDataUploaded && prevSampleDataPath) {
+            await deleteFolderContents(pathForSampleData({ orgSlug, codeEnvId }))
+        } else if (sanitizedSampleDataPath && prevSampleDataPath && sanitizedSampleDataPath !== prevSampleDataPath) {
+            const codeEnvInfo = { orgSlug, codeEnvId }
             await moveFolderContents(
-                pathForSampleData({ ...codeEnvInfo, sampleDataPath: existingSampleDataPath }),
+                pathForSampleData({ ...codeEnvInfo, sampleDataPath: prevSampleDataPath }),
                 pathForSampleData({ ...codeEnvInfo, sampleDataPath: sanitizedSampleDataPath }),
             )
         }
@@ -161,11 +182,26 @@ export const updateOrgCodeEnvAction = new Action('updateOrgCodeEnvAction', { per
                 starterCodePath,
                 sampleDataPath: sanitizedSampleDataPath,
             })
-            .where('id', '=', imageId)
+            .where('id', '=', codeEnvId)
             .returningAll()
             .executeTakeFirstOrThrow()
 
         revalidatePath(Routes.adminSettings({ orgSlug }))
+
+        if (updatedCodeEnv.url !== prevUrl) {
+            if (SIMULATE_CODE_BUILD) {
+                await insertFakeCodeScan(updatedCodeEnv.id, db)
+            } else {
+                await db
+                    .insertInto('codeScan')
+                    .values({ codeEnvId: updatedCodeEnv.id, status: 'SCAN-PENDING' })
+                    .execute()
+
+                triggerScanForCodeEnv({ codeEnvId: updatedCodeEnv.id, imageUrl: updatedCodeEnv.url }).catch((err) =>
+                    logger.error('Failed to trigger scan for updated code env', err, { codeEnvId: updatedCodeEnv.id }),
+                )
+            }
+        }
 
         return updatedCodeEnv
     })
@@ -182,6 +218,22 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
         return await db
             .selectFrom('orgCodeEnv')
             .selectAll('orgCodeEnv')
+            .select((eb) => [
+                eb
+                    .selectFrom('codeScan')
+                    .select('codeScan.status')
+                    .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                    .orderBy('codeScan.createdAt', 'desc')
+                    .limit(1)
+                    .as('latestScanStatus'),
+                eb
+                    .selectFrom('codeScan')
+                    .select('codeScan.results')
+                    .whereRef('codeScan.codeEnvId', '=', 'orgCodeEnv.id')
+                    .orderBy('codeScan.createdAt', 'desc')
+                    .limit(1)
+                    .as('latestScanResults'),
+            ])
             .where('orgCodeEnv.orgId', '=', orgId)
             .orderBy('createdAt', 'desc')
             .execute()
@@ -189,12 +241,12 @@ export const fetchOrgCodeEnvsAction = new Action('fetchOrgCodeEnvsAction')
 
 const deleteOrgCodeEnvSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
 })
 
 export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { performsMutations: true })
     .params(deleteOrgCodeEnvSchema)
-    .middleware(async ({ params: { orgSlug, imageId }, db }) => {
+    .middleware(async ({ params: { orgSlug, codeEnvId }, db }) => {
         const codeEnv = await db
             .selectFrom('orgCodeEnv')
             .innerJoin('org', 'org.id', 'orgCodeEnv.orgId')
@@ -207,7 +259,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
                 'orgCodeEnv.orgId',
             ])
             .where('org.slug', '=', orgSlug)
-            .where('orgCodeEnv.id', '=', imageId)
+            .where('orgCodeEnv.id', '=', codeEnvId)
             .executeTakeFirstOrThrow()
 
         return codeEnv
@@ -244,7 +296,7 @@ export const deleteOrgCodeEnvAction = new Action('deleteOrgCodeEnvAction', { per
 
 const fetchStarterCodeSchema = z.object({
     orgSlug: z.string(),
-    imageId: z.string(),
+    codeEnvId: z.string(),
 })
 
 export const fetchStarterCodeAction = new Action('fetchStarterCodeAction')

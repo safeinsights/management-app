@@ -15,6 +15,7 @@ import {
     GridCol,
     Badge,
     Box,
+    Code,
 } from '@mantine/core'
 import { useQuery, useQueryClient, useMutation } from '@/common'
 import { useParams } from 'next/navigation'
@@ -27,6 +28,8 @@ import {
     PencilIcon,
     FileMagnifyingGlassIcon,
     CaretDownIcon,
+    CheckCircleIcon,
+    WarningCircleIcon,
 } from '@phosphor-icons/react/dist/ssr'
 import { deleteOrgCodeEnvAction, fetchOrgCodeEnvsAction, fetchStarterCodeAction } from './code-envs.actions'
 import { SuretyGuard } from '@/components/surety-guard'
@@ -39,9 +42,44 @@ import { basename } from '@/lib/paths'
 import { CodeViewer } from '@/components/code-viewer'
 import { useState } from 'react'
 import { isActionError } from '@/lib/errors'
-import { OrgCodeEnvSettings } from '@/database/types'
+import type { OrgCodeEnvSettings, ScanStatus } from '@/database/types'
 
 type CodeEnv = ActionSuccessType<typeof fetchOrgCodeEnvsAction>[number]
+
+const SCAN_BADGE_CONFIG: Record<ScanStatus, { color: string; label: string }> = {
+    'SCAN-PENDING': { color: 'dark', label: 'Scan Pending' },
+    'SCAN-RUNNING': { color: 'blue', label: 'Scanning...' },
+    'SCAN-COMPLETE': { color: 'teal', label: 'Scan Passed' },
+    'SCAN-FAILED': { color: 'red', label: 'Scan Failed' },
+}
+
+const SCAN_BADGE_ICONS: Partial<Record<ScanStatus, React.ReactNode>> = {
+    'SCAN-COMPLETE': <CheckCircleIcon size={14} weight="fill" />,
+    'SCAN-FAILED': <WarningCircleIcon size={14} weight="fill" />,
+}
+
+const CLICKABLE_SCAN_STATUSES: ScanStatus[] = ['SCAN-COMPLETE', 'SCAN-FAILED']
+
+const ScanStatusBadge: React.FC<{ status: string | null; onClick?: () => void }> = ({ status, onClick }) => {
+    if (!status) return null
+    const config = SCAN_BADGE_CONFIG[status as ScanStatus]
+    if (!config) return null
+
+    const isClickable = CLICKABLE_SCAN_STATUSES.includes(status as ScanStatus)
+
+    return (
+        <Badge
+            variant="light"
+            size="sm"
+            color={config.color}
+            leftSection={SCAN_BADGE_ICONS[status as ScanStatus]}
+            style={isClickable ? { cursor: 'pointer' } : undefined}
+            onClick={isClickable ? onClick : undefined}
+        >
+            {config.label}
+        </Badge>
+    )
+}
 
 const LABEL_SPAN = { base: 12, sm: 3 }
 const VALUE_SPAN = { base: 12, sm: 9 }
@@ -106,6 +144,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
     const queryClient = useQueryClient()
     const [editModalOpened, { open: openEditModal, close: closeEditModal }] = useDisclosure(false)
     const [codeViewerOpened, { open: openCodeViewer, close: closeCodeViewer }] = useDisclosure(false)
+    const [scanResultsOpened, { open: openScanResults, close: closeScanResults }] = useDisclosure(false)
     const [detailOpened, { toggle: toggleDetail }] = useDisclosure(false)
     const [starterCode, setStarterCode] = useState<string | null>(null)
     const [isLoadingCode, setIsLoadingCode] = useState(false)
@@ -131,7 +170,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
         try {
             const result = await fetchStarterCodeAction({
                 orgSlug,
-                imageId: image.id,
+                codeEnvId: image.id,
             })
             if (isActionError(result)) {
                 reportError(result)
@@ -151,7 +190,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
 
         return (
             <SuretyGuard
-                onConfirmed={() => deleteMutation.mutate({ imageId: image.id, orgSlug })}
+                onConfirmed={() => deleteMutation.mutate({ codeEnvId: image.id, orgSlug })}
                 message="Are you sure you want to delete this code environment? This cannot be undone."
             >
                 <TrashIcon />
@@ -180,6 +219,7 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                             Testing
                         </Badge>
                     )}
+                    <ScanStatusBadge status={image.latestScanStatus} onClick={openScanResults} />
                 </Group>
                 <Group gap={4} wrap="nowrap">
                     <Tooltip label="Edit" withArrow>
@@ -214,6 +254,9 @@ const CodeEnvRow: React.FC<{ image: CodeEnv; canDelete: boolean }> = ({ image, c
                     <LoadingMessage message="Loading starter code..." />
                 )}
             </AppModal>
+            <AppModal isOpen={scanResultsOpened} onClose={closeScanResults} title="Latest Results" size="xl">
+                <Code block>{image.latestScanResults || 'No results available.'}</Code>
+            </AppModal>
         </Box>
     )
 }
@@ -231,8 +274,8 @@ const CodeEnvsTable: React.FC<{ images: CodeEnv[] }> = ({ images }) => {
 
     return (
         <Stack gap={0}>
-            {images.map((image, key) => (
-                <CodeEnvRow key={key} image={image} canDelete={canDelete} />
+            {images.map((image) => (
+                <CodeEnvRow key={image.id} image={image} canDelete={canDelete} />
             ))}
         </Stack>
     )

@@ -23,8 +23,13 @@ export const REVIEWER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> = {
     },
     'CODE-SUBMITTED': {
         stage: 'Proposal',
+        label: 'Code Scanning',
+        tooltip: 'The code is being scanned.',
+    },
+    'CODE-SCANNED': {
+        stage: 'Proposal',
         label: 'Needs Review',
-        tooltip: 'This proposal is now ready for review. Open the study for more details.',
+        tooltip: 'Code has been scanned and is ready for review. Open the study for more details.',
     },
     APPROVED: {
         stage: 'Proposal',
@@ -105,6 +110,11 @@ export const RESEARCHER_STATUS_LABELS: Partial<Record<AllStatus, StatusLabel>> =
         tooltip: "Your proposal is being reviewed. You'll receive an email once a decision is made.",
     },
     'CODE-SUBMITTED': {
+        stage: 'Proposal',
+        label: 'Under Review',
+        tooltip: "Your proposal is being reviewed. You'll receive an email once a decision is made.",
+    },
+    'CODE-SCANNED': {
         stage: 'Proposal',
         label: 'Under Review',
         tooltip: "Your proposal is being reviewed. You'll receive an email once a decision is made.",

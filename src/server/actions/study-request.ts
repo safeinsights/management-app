@@ -6,16 +6,39 @@ import { DB } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { pathForStudy, pathForStudyDocuments, pathForStudyJobCode, pathForStudyJobCodeFile } from '@/lib/paths'
 import { StudyDocumentType } from '@/lib/types'
-import { sanitizeFileName } from '@/lib/utils'
+import { sanitizeFileName, sleep } from '@/lib/utils'
 import { Action, z } from '@/server/actions/action'
-import { codeBuildRepositoryUrl, deleteFolderContents, createSignedUploadUrl, storeS3File } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue } from '@/server/config'
+import {
+    codeBuildRepositoryUrl,
+    deleteFolderContents,
+    createSignedUploadUrl,
+    storeS3File,
+    triggerScanForStudyJob,
+} from '@/server/aws'
+import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
-import { onStudyCreated } from '@/server/events'
+import { db as database } from '@/database'
+import { deferred, onStudyCreated } from '@/server/events'
+import logger from '@/lib/logger'
 import { Kysely } from 'kysely'
 import { revalidatePath } from 'next/cache'
 import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
+
+const simulateJobScan = deferred(async (studyJobId: string) => {
+    await sleep({ 30: 'seconds' })
+    await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
+})
+
+function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
+    if (SIMULATE_CODE_BUILD) {
+        simulateJobScan(studyJobId)
+        return
+    }
+    triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
+        logger.error('Failed to trigger code scan', err, { studyJobId }),
+    )
+}
 
 async function addStudyJob(
     db: Kysely<DB>,
@@ -252,6 +275,17 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
 
         onStudyCreated({ userId, studyId })
 
+        const latestJob = await db
+            .selectFrom('studyJob')
+            .select('id')
+            .where('studyId', '=', studyId)
+            .orderBy('createdAt', 'desc')
+            .executeTakeFirst()
+
+        if (latestJob) {
+            triggerCodeScan(latestJob.id, orgSlug, studyId)
+        }
+
         revalidatePath(`/${orgSlug}/dashboard`)
 
         return { studyId }
@@ -373,6 +407,8 @@ export const addJobToStudyAction = new Action('addJobToStudyAction', { performsM
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
 
+        triggerCodeScan(studyJobId, orgSlug, studyId)
+
         return { studyJobId, urlForCodeUpload }
     })
 
@@ -420,6 +456,8 @@ export const submitStudyFromIDEAction = new Action('submitStudyFromIDEAction', {
 
         revalidatePath('/dashboard')
         revalidatePath(`/${orgSlug}/study/${studyId}/review`)
+
+        triggerCodeScan(studyJobId, orgSlug, studyId)
 
         return { studyJobId }
     })

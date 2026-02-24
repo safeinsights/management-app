@@ -58,7 +58,7 @@ describe('Code Environment Actions', () => {
             .returningAll()
             .executeTakeFirstOrThrow()
 
-        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: codeEnv.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: codeEnv.id })
 
         const deletedImage = await db.selectFrom('orgCodeEnv').where('id', '=', codeEnv.id).executeTakeFirst()
         expect(deletedImage).toBeUndefined()
@@ -103,7 +103,7 @@ describe('Code Environment Actions', () => {
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: codeEnv.id,
+                codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -141,7 +141,7 @@ describe('Code Environment Actions', () => {
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: codeEnv.id,
+                codeEnvId: codeEnv.id,
                 name: 'Updated Test Image',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -178,7 +178,7 @@ describe('Code Environment Actions', () => {
 
         const result = await updateOrgCodeEnvAction({
             orgSlug: org.slug,
-            imageId: codeEnv.id,
+            codeEnvId: codeEnv.id,
             name: 'Attempted Update',
             cmdLine: 'updated command',
             language: 'PYTHON',
@@ -210,7 +210,7 @@ describe('Code Environment Actions', () => {
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: codeEnv.id,
+                codeEnvId: codeEnv.id,
                 name: 'Updated by SI admin',
                 cmdLine: 'updated command',
                 language: 'PYTHON',
@@ -245,7 +245,7 @@ describe('Code Environment Actions', () => {
             isTesting: false,
         })
 
-        const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: rImage.id })
+        const result = await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: rImage.id })
 
         expect(isActionError(result)).toBe(true)
         if (isActionError(result)) {
@@ -273,7 +273,7 @@ describe('Code Environment Actions', () => {
             isTesting: false,
         })
 
-        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: rImage1.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: rImage1.id })
 
         const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', rImage1.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
@@ -296,7 +296,7 @@ describe('Code Environment Actions', () => {
             isTesting: true,
         })
 
-        await deleteOrgCodeEnvAction({ orgSlug: org.slug, imageId: testingImage.id })
+        await deleteOrgCodeEnvAction({ orgSlug: org.slug, codeEnvId: testingImage.id })
 
         const deleted = await db.selectFrom('orgCodeEnv').where('id', '=', testingImage.id).executeTakeFirst()
         expect(deleted).toBeUndefined()
@@ -372,7 +372,7 @@ describe('Code Environment Actions', () => {
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: codeEnv.id,
+                codeEnvId: codeEnv.id,
                 name: 'Test Image',
                 cmdLine: 'test command',
                 language: 'R',
@@ -398,7 +398,7 @@ describe('Code Environment Actions', () => {
         const result = actionResult(
             await updateOrgCodeEnvAction({
                 orgSlug: org.slug,
-                imageId: codeEnv.id,
+                codeEnvId: codeEnv.id,
                 name: 'Admin Updated Name',
                 cmdLine: 'admin updated command',
                 language: 'PYTHON',

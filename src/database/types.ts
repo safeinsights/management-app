@@ -3,8 +3,8 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from 'kysely'
 import type { OrgCodeEnvSettings } from './types-manual'
+import type { ColumnType } from 'kysely'
 
 export type AuditEventType =
     | 'ACCEPTED_INVITE'
@@ -46,9 +46,12 @@ export type Language = 'PYTHON' | 'R'
 
 export type OrgType = 'enclave' | 'lab'
 
+export type ScanStatus = 'SCAN-COMPLETE' | 'SCAN-FAILED' | 'SCAN-PENDING' | 'SCAN-RUNNING'
+
 export type StudyJobStatus =
     | 'CODE-APPROVED'
     | 'CODE-REJECTED'
+    | 'CODE-SCANNED'
     | 'CODE-SUBMITTED'
     | 'FILES-APPROVED'
     | 'FILES-REJECTED'
@@ -72,6 +75,14 @@ export interface Audit {
     recordId: string
     recordType: AuditRecordType
     userId: string
+}
+
+export interface CodeScan {
+    codeEnvId: string
+    createdAt: Generated<Timestamp>
+    id: Generated<string>
+    results: string | null
+    status: ScanStatus
 }
 
 export interface JobStatusChange {
@@ -217,6 +228,7 @@ export interface UserPublicKey {
 
 export interface DB {
     audit: Audit
+    codeScan: CodeScan
     jobStatusChange: JobStatusChange
     org: Org
     orgCodeEnv: OrgCodeEnv

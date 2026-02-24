@@ -194,6 +194,8 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
+const objToEnvVars = (obj: Record<string, string>) => Object.entries(obj).map(([name, value]) => ({ name, value }))
+
 export async function triggerBuildImageForJob(
     info: MinimalJobInfo & {
         codeEnvURL: string
@@ -206,40 +208,57 @@ export async function triggerBuildImageForJob(
     const codebuild = new CodeBuildClient({})
     const result = await codebuild.send(
         new StartBuildCommand({
-            projectName: process.env.CODE_BUILD_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: [
-                {
-                    name: 'WEBHOOK_SECRET',
-                    value: await getConfigValue('CONTAINERIZER_WEBHOOK_SECRET'),
-                },
-                {
-                    name: 'ON_START_PAYLOAD',
-                    value: JSON.stringify({
-                        jobId: info.studyJobId,
-                        status: 'JOB-PACKAGING',
-                    }),
-                },
-                {
-                    name: 'ON_SUCCESS_PAYLOAD',
-                    value: JSON.stringify({
-                        jobId: info.studyJobId,
-                        status: 'JOB-READY',
-                    }),
-                },
-                {
-                    name: 'ON_FAILURE_PAYLOAD',
-                    value: JSON.stringify({
-                        jobId: info.studyJobId,
-                        status: 'JOB-ERRORED',
-                    }),
-                },
-                { name: 'STUDY_JOB_ID', value: info.studyJobId },
-                { name: 'S3_PATH', value: pathForStudyJobCode(info) },
-                { name: 'DOCKER_CMD_LINE', value: cmd },
-                { name: 'DOCKER_BASE_IMAGE_LOCATION', value: info.codeEnvURL },
-                { name: 'DOCKER_CODE_LOCATION', value: `${info.containerLocation}:${info.studyJobId}` },
-            ],
+            projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
+            environmentVariablesOverride: objToEnvVars({
+                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
+                ON_START_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-PACKAGING' }),
+                ON_SUCCESS_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-READY' }),
+                ON_FAILURE_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+                STUDY_JOB_ID: info.studyJobId,
+                S3_PATH: pathForStudyJobCode(info),
+                DOCKER_CMD_LINE: cmd,
+                DOCKER_BASE_IMAGE_LOCATION: info.codeEnvURL,
+                DOCKER_CODE_LOCATION: `${info.containerLocation}:${info.studyJobId}`,
+            }),
         }),
     )
     if (!result.build) throw new Error(`failed to start packaging. requestID: ${result.$metadata.requestId}`)
+}
+
+export async function triggerScanForStudyJob(info: MinimalJobInfo) {
+    const codebuild = new CodeBuildClient({})
+    const result = await codebuild.send(
+        new StartBuildCommand({
+            projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+            environmentVariablesOverride: objToEnvVars({
+                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
+                ON_START_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SUBMITTED' }),
+                ON_SUCCESS_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
+                ON_FAILURE_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+                SCAN_MODE: 'source',
+                STUDY_JOB_ID: info.studyJobId,
+                S3_PATH: pathForStudyJobCode(info),
+            }),
+        }),
+    )
+    if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)
+}
+
+export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl: string }) {
+    const codebuild = new CodeBuildClient({})
+    const result = await codebuild.send(
+        new StartBuildCommand({
+            projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
+            environmentVariablesOverride: objToEnvVars({
+                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
+                ON_START_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-RUNNING' }),
+                ON_SUCCESS_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-COMPLETE' }),
+                ON_FAILURE_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-FAILED' }),
+                SCAN_MODE: 'image',
+                CODE_ENV_ID: info.codeEnvId,
+                DOCKER_IMAGE_URL: info.imageUrl,
+            }),
+        }),
+    )
+    if (!result.build) throw new Error(`failed to start scan. requestID: ${result.$metadata.requestId}`)
 }

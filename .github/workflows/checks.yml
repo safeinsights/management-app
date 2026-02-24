@@ -79,7 +79,7 @@ jobs:
             pages: write
         env:
             DATABASE_URL: 'postgres://si:si@localhost:5432/si_test'
-            SIMULATE_IMAGE_BUILD: 't'
+            SIMULATE_CODE_BUILD: 't'
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
             CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
             CLERK_RESEARCHER_EMAIL: ${{ secrets.CLERK_RESEARCHER_EMAIL }}

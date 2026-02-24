@@ -191,7 +191,7 @@ describe('useCodeEnvForm', () => {
             expect(updateOrgCodeEnvAction).toHaveBeenCalledWith(
                 expect.objectContaining({
                     orgSlug: TEST_ORG_SLUG,
-                    imageId: mockCodeEnv.id,
+                    codeEnvId: mockCodeEnv.id,
                     starterCodeFileName: 'updated.py',
                     starterCodeUploaded: true,
                 }),
