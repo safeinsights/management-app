@@ -11,7 +11,7 @@ import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { getDraftStudyAction } from '@/server/actions/study-request'
-import { StudyJobCodeFilesValues } from '@/schema/study-proposal'
+import { StudyJobCodeFilesValues } from '@/app/[orgSlug]/study/request/form-schemas'
 
 export default function StudyUploadPage() {
     const router = useRouter()
