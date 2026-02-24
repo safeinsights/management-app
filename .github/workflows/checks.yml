@@ -105,57 +105,27 @@ jobs:
                       # Generate a new cache whenever packages or source files change.
                   restore-keys: |
                       ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
-
-            - name: Get SeaweedFS latest version
-              id: seaweed-version
-              run: |
-                  VERSION=$(curl -s https://api.github.com/repos/seaweedfs/seaweedfs/releases/latest | jq -r '.tag_name')
-                  echo "SeaweedFS latest: $VERSION"
-                  echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-            - name: Cache SeaweedFS binary
-              uses: actions/cache@v4
-              with:
-                  path: ~/.cache/seaweedfs
-                  key: seaweedfs-${{ runner.os }}-${{ steps.seaweed-version.outputs.version }}
-
             - name: Start SeaweedFS
               run: |
-                  set -euo pipefail
-                  mkdir -p ~/.cache/seaweedfs /tmp/seaweed-data
-                  cd ~/.cache/seaweedfs
-                  if [ ! -x ./weed ]; then
-                    curl -L -o linux_amd64.tar.gz \
-                      "https://github.com/seaweedfs/seaweedfs/releases/download/${{ steps.seaweed-version.outputs.version }}/linux_amd64.tar.gz"
-                    tar -xzf linux_amd64.tar.gz
-                    chmod +x weed
-                    rm linux_amd64.tar.gz
-                  fi
-
-                  echo "SeaweedFS $(./weed version 2>&1 || true)"
-                  ./weed server -s3 -dir=/tmp/seaweed-data >/tmp/seaweed.log 2>&1 &
-                  WEED_PID=$!
-                  is_ready() {
-                    status=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8333/ 2>/dev/null || true)
-                    [[ "$status" == "200" || "$status" == "403" ]]
-                  }
+                  docker run -d \
+                    --name seaweedfs \
+                    -p 8333:8333 \
+                    chrislusf/seaweedfs:latest \
+                    server -s3 -dir=/data
 
                   for i in $(seq 1 30); do
-                    if ! kill -0 "$WEED_PID" 2>/dev/null; then
-                      echo "SeaweedFS process died!"
-                      exit 1
-                    fi
-                    if is_ready; then
-                      echo "SeaweedFS S3 is ready (HTTP $status after ${i}s)"
+                    status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8333/ 2>/dev/null || true)
+                    if [ "$status" = "200" ] || [ "$status" = "403" ]; then
+                      echo "SeaweedFS S3 ready (HTTP $status after ${i}s)"
                       break
+                    fi
+                    if [ "$i" = "30" ]; then
+                      echo "SeaweedFS failed to start within 30s"
+                      docker logs seaweedfs
+                      exit 1
                     fi
                     sleep 1
                   done
-
-                  if [[ "$status" != "200" && "$status" != "403" ]]; then
-                    echo "SeaweedFS failed to start within 30s."
-                    exit 1
-                  fi
             - name: Create S3 bucket
               run: aws --endpoint-url http://127.0.0.1:8333 s3 mb s3://mgmt-app-local
             - name: npm install
@@ -188,7 +158,7 @@ jobs:
               run: if [ -f server_output.log ]; then cat server_output.log; fi
               if: always()
             - name: Display SeaweedFS log
-              run: if [ -f /tmp/seaweed.log ]; then cat /tmp/seaweed.log; fi
+              run: docker logs seaweedfs 2>&1 || true
               if: failure()
             - name: Delete any test users created
               run: npx tsx ./bin/delete-clerk-test-users.ts
