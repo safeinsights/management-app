@@ -12,7 +12,7 @@ import {
     storeS3File,
     deleteFolderContents,
     signedUrlForFile,
-    signedUrlForStudyUpload,
+    createSignedUploadUrl,
 } from './aws'
 import { Readable } from 'stream'
 
@@ -112,7 +112,7 @@ describe('S3 integration', () => {
     it('generates a presigned POST policy', async () => {
         const path = `${TEST_PREFIX}presigned-post/`
 
-        const result = await signedUrlForStudyUpload(path)
+        const result = await createSignedUploadUrl(path)
 
         expect(result.url).toMatch(/^https?:\/\//)
         expect(result.fields).toBeDefined()
