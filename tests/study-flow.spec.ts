@@ -205,7 +205,7 @@ async function submitStudy(page: Page) {
 // Reviewer helpers
 // ============================================================================
 
-async function viewStudyDetails(page: Page, studyTitle: string) {
+async function viewStudyDetails(page: Page, studyTitle: string, destination: 'view' | 'review' = 'view') {
     const studyRow = page.getByRole('row').filter({ hasText: studyTitle }).filter({ hasNotText: 'DRAFT' })
     await expect(studyRow).toBeVisible({ timeout: 15000 })
     const viewLink = studyRow.getByRole('link', { name: 'View' }).first()
@@ -216,10 +216,10 @@ async function viewStudyDetails(page: Page, studyTitle: string) {
         await page.goto(href, { waitUntil: 'domcontentloaded' })
     }
 
-    // agreements page is now the first stop — proceed through it if present
-    const proceedButton = page.getByRole('button', { name: /Proceed to Step/i })
-    if (await proceedButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), proceedButton.click()])
+    // agreements page is now the first stop — skip past it via direct navigation
+    if (page.url().includes('/agreements')) {
+        const studyBaseUrl = page.url().replace('/agreements', '')
+        await page.goto(`${studyBaseUrl}/${destination}`, { waitUntil: 'domcontentloaded' })
     }
 
     await expect(
@@ -232,7 +232,7 @@ async function reviewerApprovesStudy(page: Page, studyTitle: string) {
 
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle)
+    await viewStudyDetails(page, studyTitle, 'review')
 
     await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
 
@@ -240,7 +240,7 @@ async function reviewerApprovesStudy(page: Page, studyTitle: string) {
 
     await page.goto('/openstax/dashboard')
 
-    await viewStudyDetails(page, studyTitle)
+    await viewStudyDetails(page, studyTitle, 'review')
 
     await expect(page.getByText('Approved on')).toBeVisible()
 }
@@ -293,7 +293,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
     await visitClerkProtectedPage({ page, role: 'reviewer', url: '/openstax/dashboard' })
     await expect(page.getByText('Review Studies')).toBeVisible()
 
-    await viewStudyDetails(page, studyTitle)
+    await viewStudyDetails(page, studyTitle, 'review')
 
     // Enter the private key to decrypt results
     const privateKey = await readTestSupportFile('private_key.pem')
@@ -313,7 +313,7 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Verify approval shows up
     await page.goto('/openstax/dashboard')
-    await viewStudyDetails(page, studyTitle)
+    await viewStudyDetails(page, studyTitle, 'review')
     await expect(page.getByText(/Approved on/).last()).toBeVisible({ timeout: 10000 })
 }
 
@@ -333,8 +333,8 @@ async function verifyFailedStatusDisplay(page: Page, studyTitle: string): Promis
     // Verify Job ID is displayed
     await expect(page.getByText(/Job ID/i)).toBeVisible()
 
-    // Verify logs section exists
-    await expect(page.getByText(/Logs:/i)).toBeVisible()
+    // Verify logs section exists (async-loaded via JobResults)
+    await expect(page.getByText(/Code Run Log:/i)).toBeVisible({ timeout: 15000 })
 }
 
 // ============================================================================

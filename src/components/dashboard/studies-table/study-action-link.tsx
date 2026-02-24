@@ -25,7 +25,10 @@ function ResearcherLink({
 
     if (study.status === 'DRAFT') {
         return (
-            <Link href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })} aria-label={`Edit draft study ${study.title}`}>
+            <Link
+                href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
+                aria-label={`Edit draft study ${study.title}`}
+            >
                 Edit
             </Link>
         )
@@ -58,7 +61,11 @@ function ReviewerLink({
 
     if (!isNewFlow) {
         return (
-            <Link href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })} c="blue.7" fw={isHighlighted ? 600 : undefined}>
+            <Link
+                href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })}
+                c="blue.7"
+                fw={isHighlighted ? 600 : undefined}
+            >
                 View
             </Link>
         )
@@ -78,10 +85,8 @@ function ReviewerLink({
     )
 }
 
-
 export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
     const isNewFlow = useOpenStaxFeatureFlag()
-console.log({ isNewFlow })
     if (audience === 'researcher') {
         return <ResearcherLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} isNewFlow={isNewFlow} />
     }
