@@ -1,10 +1,10 @@
-import { DebugRequest } from './request'
+import { DebugRequest, extractJobId } from './request'
 
 const req = new DebugRequest()
-req.program.requiredOption('-j, --jobId <jobId>', 'jobId to get status for')
+req.program.requiredOption('-j, --jobId <jobId>', 'jobId or URL containing a jobId')
 req.parse()
 
-const { _, jobId } = req.program.opts()
+const jobId = extractJobId(req.program.opts().jobId)
 
 req.path = `job/${jobId}/status`
 req.method = 'GET'

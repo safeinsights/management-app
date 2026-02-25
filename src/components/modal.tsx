@@ -20,6 +20,8 @@ export function AppModal({
     centered = true,
     closeOnClickOutside = true,
     trapFocus = true,
+    styles,
+    ...rest
 }: AppModalProps) {
     const theme = useMantineTheme()
 
@@ -36,9 +38,11 @@ export function AppModal({
                 header: {
                     padding: '0px 40px',
                     backgroundColor: theme.colors.grey[10],
+                    ...styles?.header,
                 },
                 body: {
                     padding: '40px',
+                    ...styles?.body,
                 },
                 close: {
                     backgroundColor: theme.colors.charcoal[4],
@@ -48,12 +52,15 @@ export function AppModal({
                     width: '16px',
                     minHeight: '16px',
                     minWidth: '16px',
+                    ...styles?.close,
                 },
                 title: {
                     fontSize: '20px',
                     fontWeight: 600,
+                    ...styles?.title,
                 },
             }}
+            {...rest}
         >
             {children}
         </Modal>
