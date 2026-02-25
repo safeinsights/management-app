@@ -18,10 +18,6 @@ vi.mock('@/components/study/study-code-details', () => ({
     StudyCodeDetails: () => <div data-testid="study-code-details" />,
 }))
 
-vi.mock('@/components/study/study-details', () => ({
-    StudyDetails: () => <div data-testid="study-details" />,
-}))
-
 vi.mock('./job-results-status-message', () => ({
     JobResultsStatusMessage: () => <div data-testid="job-results-status-message" />,
 }))
@@ -31,7 +27,7 @@ describe('CodeOnlyView', () => {
 
     const setupStudy = async (orgSlug: string) => {
         const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'lab' })
-        const { study: dbStudy, job } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         const latestJob = await latestJobForStudy(dbStudy.id)
         return { org, orgSlug, job: latestJob! }
@@ -43,14 +39,6 @@ describe('CodeOnlyView', () => {
         renderWithProviders(<CodeOnlyView orgSlug={orgSlug} study={study} job={job} />)
 
         expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
-    })
-
-    it('does NOT render Study Proposal section', async () => {
-        const { orgSlug, job } = await setupStudy('openstax')
-
-        renderWithProviders(<CodeOnlyView orgSlug={orgSlug} study={study} job={job} />)
-
-        expect(screen.queryByTestId('study-details')).not.toBeInTheDocument()
     })
 
     it('renders JobResultsStatusMessage', async () => {
