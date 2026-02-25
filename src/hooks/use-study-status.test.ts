@@ -21,7 +21,7 @@ describe('useStudyStatus', () => {
             expect(result).toEqual({
                 stage: 'Proposal',
                 label: 'Under Review',
-                tooltip: "Your proposal is being reviewed. You'll receive an email once a decision is made.",
+                tooltip: "Your study proposal is being reviewed. You'll receive an email once a decision is made.",
             })
         })
 
@@ -65,13 +65,12 @@ describe('useStudyStatus', () => {
         })
     })
 
-    describe('error status filtering for researchers', () => {
-        it('filters out JOB-ERRORED status for researchers when files have not been reviewed', () => {
+    describe('error status handling for researchers', () => {
+        it('shows JOB-ERRORED status for researchers immediately, without waiting for file review', () => {
             const params = createTestParams('APPROVED', 'researcher', [{ status: 'JOB-ERRORED' }])
             const result = useStudyStatus(params)
 
-            // Should fall back to study status since JOB-ERRORED is filtered out
-            expect(result?.label).toBe('Approved')
+            expect(result?.label).toBe('Errored')
         })
 
         it('shows JOB-ERRORED status for researchers when files have been approved and job has errored', () => {
@@ -128,7 +127,7 @@ describe('useStudyStatus', () => {
             const result = useStudyStatus(params)
 
             // Should prioritize based on the status keys order
-            expect(result?.label).toBe('Approved')
+            expect(result?.label).toBe('Ready')
         })
     })
 
