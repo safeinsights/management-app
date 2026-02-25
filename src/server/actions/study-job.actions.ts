@@ -169,3 +169,32 @@ export const fetchEncryptedJobFilesAction = new Action('fetchEncryptedJobFilesAc
 
         return encryptedJobFiles
     })
+
+export const fetchEncryptedScanLogsAction = new Action('fetchEncryptedScanLogsAction')
+    .params(
+        z.object({
+            jobId: z.string(),
+            orgSlug: z.string(),
+        }),
+    )
+    .middleware(async ({ params: { jobId } }) => {
+        const studyJob = await getStudyJobInfo(jobId)
+        return { studyJob, orgId: studyJob.orgId }
+    })
+    .requireAbilityTo('view', 'StudyJob')
+
+    .handler(async ({ studyJob }) => {
+        const scanLogFiles = studyJob.files.filter((file) => file.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG')
+
+        const encryptedScanLogs = []
+        for (const file of scanLogFiles) {
+            const blob = await fetchFileContents(file.path)
+            encryptedScanLogs.push({
+                fileType: file.fileType,
+                sourceId: file.id,
+                blob: blob,
+            })
+        }
+
+        return encryptedScanLogs
+    })

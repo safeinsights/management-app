@@ -7,6 +7,7 @@ import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
 import { NotFoundError } from '@/lib/errors'
 import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import StudyApprovalStatus from '@/components/study/study-approval-status'
+import { SecurityScanPanel } from './security-scan-panel'
 import { StudyResults } from './study-results'
 import { StudyReviewButtons } from './study-review-buttons'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -67,6 +68,7 @@ export async function EnclaveReviewView({ orgSlug, study }: EnclaveReviewViewPro
                     <StudyDetails studyId={study.id} />
                 </Stack>
             </Paper>
+            <SecurityScanPanel job={job} />
             <Paper bg="white" p="xxl">
                 <Stack>
                     <Group justify="space-between" align="center">
