@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, afterEach, afterAll, vi, Mock, expect } from 'vi
 import { testTransaction } from 'pg-transactional-tests'
 import { createTempDir } from '@/tests/unit.helpers'
 import fs from 'fs'
-import { ClerkProvider, useClerk } from '@clerk/nextjs'
+import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/nextjs'
 import { cleanup } from '@testing-library/react'
 
 import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers'
@@ -89,6 +89,8 @@ beforeEach(async () => {
     testTransaction.start()
     tmpDir = await createTempDir()
     process.env.UPLOAD_TMP_DIRECTORY = tmpDir
+    ;(useAuth as Mock).mockReturnValue({ userId: null, isLoaded: true })
+    ;(useUser as Mock).mockReturnValue({ user: null, isLoaded: false, isSignedIn: false })
     ;(useClerk as Mock).mockImplementation(() => ({
         signOut: vi.fn(),
         openUserProfile: vi.fn(),
