@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { Button, Group, Paper, Stack, Text, Title, Divider, Alert, useMantineTheme } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
@@ -72,7 +73,7 @@ export function CodeUploadPage({
     }
 
     const handleBackToPrevious = () => {
-        router.push(previousHref)
+        router.push(previousHref as Route)
     }
 
     const handleBackToUpload = () => {
