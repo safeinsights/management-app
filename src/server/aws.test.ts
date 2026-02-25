@@ -61,6 +61,7 @@ describe('triggerBuildImageForJob', () => {
                 name: 'WEBHOOK_SECRET',
                 value: 'mock-webhook-secret',
             },
+            { name: 'WEBHOOK_ENDPOINT', value: '/api/services/containerizer' },
             {
                 name: 'ON_START_PAYLOAD',
                 value: JSON.stringify({
@@ -134,6 +135,7 @@ describe('triggerScanForStudyJob', () => {
 
         const expectedEnvVars = [
             { name: 'WEBHOOK_SECRET', value: 'mock-webhook-secret' },
+            { name: 'WEBHOOK_ENDPOINT', value: '/api/services/job-scan-results' },
             {
                 name: 'ON_START_PAYLOAD',
                 value: JSON.stringify({ jobId: mockJobInfo.studyJobId, status: 'CODE-SUBMITTED' }),

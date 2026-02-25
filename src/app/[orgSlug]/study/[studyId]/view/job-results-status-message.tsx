@@ -2,6 +2,7 @@
 
 import { CopyingInput } from '@/components/copying-input'
 import { useJobStatus } from '@/hooks/use-job-results-status'
+import { isLogType } from '@/lib/file-type-helpers'
 import { LatestJobForStudy } from '@/server/db/queries'
 import { Group, Stack, Text } from '@mantine/core'
 import { FC, ReactNode } from 'react'
@@ -24,7 +25,7 @@ export const JobResultsStatusMessage: FC<JobResultsStatusMessageProps> = ({ job,
 
     if (isApproved) {
         if (isErrored) {
-            const hasLogs = files.some((file) => file.fileType.endsWith('-LOG'))
+            const hasLogs = files.some((file) => isLogType(file.fileType))
 
             if (hasLogs) {
                 message = 'The code errored. Review error logs and consider re-submitting an updated study code.'

@@ -10,7 +10,7 @@ const schema = z.object({
 })
 
 export const POST = createWebhookHandler({
-    route: '/api/services/scan-results',
+    route: '/api/services/code-env-scan-results',
     schema,
     entityNotFoundMessage: 'code-env-not-found',
     handler: async (body) => {

@@ -99,7 +99,7 @@ describe('View Study Results', () => {
                 studyJobId: job.id,
                 name: 'encrypted-logs.zip',
                 path: `test-org/${study.id}/${job.id}/results/encrypted-logs.zip`,
-                fileType: 'ENCRYPTED-LOG',
+                fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG',
             })
             .execute()
 

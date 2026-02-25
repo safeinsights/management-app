@@ -1,4 +1,5 @@
 import { Link } from '@/components/links'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { Routes } from '@/lib/routes'
 import { Audience, StudyRow } from './types'
 
@@ -9,29 +10,62 @@ type StudyActionLinkProps = {
     isHighlighted: boolean
 }
 
-export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
-    // Use study.orgSlug for user scope tables, otherwise use the prop
+function ResearcherLink({
+    study,
+    orgSlug,
+    isHighlighted,
+    isNewFlow,
+}: {
+    study: StudyRow
+    orgSlug: string
+    isHighlighted: boolean
+    isNewFlow: boolean
+}) {
+    const labSlug = study.submittedByOrgSlug || orgSlug
+
+    if (study.status === 'DRAFT') {
+        return (
+            <Link
+                href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
+                aria-label={`Edit draft study ${study.title}`}
+            >
+                Edit
+            </Link>
+        )
+    }
+
+    const href =
+        isNewFlow && study.status === 'APPROVED'
+            ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
+            : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
+
+    return (
+        <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
+            View
+        </Link>
+    )
+}
+
+function ReviewerLink({
+    study,
+    orgSlug,
+    isHighlighted,
+    isNewFlow,
+}: {
+    study: StudyRow
+    orgSlug: string
+    isHighlighted: boolean
+    isNewFlow: boolean
+}) {
     const slug = study.orgSlug || orgSlug
 
-    if (audience === 'researcher') {
-        // Researchers always access studies via their lab's org slug
-        const labSlug = study.submittedByOrgSlug || orgSlug
-        if (study.status === 'DRAFT') {
-            return (
-                <Link
-                    href={Routes.studyEdit({ orgSlug: labSlug, studyId: study.id })}
-                    aria-label={`Edit draft study ${study.title}`}
-                >
-                    Edit
-                </Link>
-            )
-        }
-        const href =
-            study.status === 'APPROVED'
-                ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
-                : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
+    if (isNewFlow) {
         return (
-            <Link href={href} aria-label={`View details for study ${study.title}`} fw={isHighlighted ? 600 : undefined}>
+            <Link
+                href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })}
+                c="blue.7"
+                fw={isHighlighted ? 600 : undefined}
+            >
                 View
             </Link>
         )
@@ -49,4 +83,13 @@ export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: Stu
             View
         </Link>
     )
+}
+
+export function StudyActionLink({ study, audience, orgSlug, isHighlighted }: StudyActionLinkProps) {
+    const isNewFlow = useOpenStaxFeatureFlag()
+    if (audience === 'researcher') {
+        return <ResearcherLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} isNewFlow={isNewFlow} />
+    }
+
+    return <ReviewerLink study={study} orgSlug={orgSlug} isHighlighted={isHighlighted} isNewFlow={isNewFlow} />
 }

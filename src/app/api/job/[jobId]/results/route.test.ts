@@ -79,7 +79,7 @@ test('uploading logs', async () => {
 
     expect(sr).toMatchObject({
         path: expect.any(String),
-        fileType: 'ENCRYPTED-LOG',
+        fileType: 'ENCRYPTED-CODE-RUN-LOG',
     })
 
     const contents = await fetchFileContents(sr.path)

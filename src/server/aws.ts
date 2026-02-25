@@ -194,7 +194,13 @@ export async function fetchS3File(Key: string) {
     return result.Body as Readable
 }
 
-const objToEnvVars = (obj: Record<string, string>) => Object.entries(obj).map(([name, value]) => ({ name, value }))
+async function buildCodeBuildEnvVars(webhookEndpoint: string, vars: Record<string, string | object>) {
+    return Object.entries({
+        WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
+        WEBHOOK_ENDPOINT: webhookEndpoint,
+        ...vars,
+    }).map(([name, value]) => ({ name, value: typeof value === 'object' ? JSON.stringify(value) : value }))
+}
 
 export async function triggerBuildImageForJob(
     info: MinimalJobInfo & {
@@ -209,11 +215,10 @@ export async function triggerBuildImageForJob(
     const result = await codebuild.send(
         new StartBuildCommand({
             projectName: process.env.CONTAINERIZER_PROJECT_NAME || `MgmntAppContainerizer-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: objToEnvVars({
-                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
-                ON_START_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-PACKAGING' }),
-                ON_SUCCESS_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-READY' }),
-                ON_FAILURE_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+            environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/containerizer', {
+                ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-PACKAGING' },
+                ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-READY' },
+                ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
                 STUDY_JOB_ID: info.studyJobId,
                 S3_PATH: pathForStudyJobCode(info),
                 DOCKER_CMD_LINE: cmd,
@@ -230,11 +235,10 @@ export async function triggerScanForStudyJob(info: MinimalJobInfo) {
     const result = await codebuild.send(
         new StartBuildCommand({
             projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: objToEnvVars({
-                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
-                ON_START_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SUBMITTED' }),
-                ON_SUCCESS_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'CODE-SCANNED' }),
-                ON_FAILURE_PAYLOAD: JSON.stringify({ jobId: info.studyJobId, status: 'JOB-ERRORED' }),
+            environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/job-scan-results', {
+                ON_START_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SUBMITTED' },
+                ON_SUCCESS_PAYLOAD: { jobId: info.studyJobId, status: 'CODE-SCANNED' },
+                ON_FAILURE_PAYLOAD: { jobId: info.studyJobId, status: 'JOB-ERRORED' },
                 SCAN_MODE: 'source',
                 STUDY_JOB_ID: info.studyJobId,
                 S3_PATH: pathForStudyJobCode(info),
@@ -249,11 +253,10 @@ export async function triggerScanForCodeEnv(info: { codeEnvId: string; imageUrl:
     const result = await codebuild.send(
         new StartBuildCommand({
             projectName: process.env.SCANNER_PROJECT_NAME || `MgmntAppScanner-${ENVIRONMENT_ID}`,
-            environmentVariablesOverride: objToEnvVars({
-                WEBHOOK_SECRET: await getConfigValue('CODEBUILD_WEBHOOK_SECRET'),
-                ON_START_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-RUNNING' }),
-                ON_SUCCESS_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-COMPLETE' }),
-                ON_FAILURE_PAYLOAD: JSON.stringify({ codeEnvId: info.codeEnvId, status: 'SCAN-FAILED' }),
+            environmentVariablesOverride: await buildCodeBuildEnvVars('/api/services/code-env-scan-results', {
+                ON_START_PAYLOAD: { codeEnvId: info.codeEnvId, status: 'SCAN-RUNNING' },
+                ON_SUCCESS_PAYLOAD: { codeEnvId: info.codeEnvId, status: 'SCAN-COMPLETE' },
+                ON_FAILURE_PAYLOAD: { codeEnvId: info.codeEnvId, status: 'SCAN-FAILED' },
                 SCAN_MODE: 'image',
                 CODE_ENV_ID: info.codeEnvId,
                 DOCKER_IMAGE_URL: info.imageUrl,

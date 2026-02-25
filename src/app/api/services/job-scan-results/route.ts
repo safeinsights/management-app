@@ -1,4 +1,5 @@
 import { db } from '@/database'
+import type { FileType } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
 import { z } from 'zod'
 import { createWebhookHandler } from '../webhook-handler'
@@ -6,12 +7,17 @@ import { encryptAndStoreLog } from '../encrypt-and-store-log'
 
 const schema = z.object({
     jobId: z.string(),
-    status: z.enum(['JOB-PACKAGING', 'JOB-READY', 'JOB-ERRORED']),
+    status: z.enum(['CODE-SUBMITTED', 'CODE-SCANNED', 'JOB-ERRORED']),
     plaintextLog: z.string().optional(),
 })
 
+const LOG_FILE_TYPE: Partial<Record<string, FileType>> = {
+    'JOB-ERRORED': 'ENCRYPTED-PACKAGING-ERROR-LOG',
+    'CODE-SCANNED': 'ENCRYPTED-SECURITY-SCAN-LOG',
+}
+
 export const POST = createWebhookHandler({
-    route: '/api/services/containerizer',
+    route: '/api/services/job-scan-results',
     schema,
     entityNotFoundMessage: 'job-not-found',
     handler: async (body) => {
@@ -29,11 +35,12 @@ export const POST = createWebhookHandler({
             ])
             .executeTakeFirstOrThrow(throwNotFound('job'))
 
-        if (body.status === 'JOB-ERRORED' && body.plaintextLog) {
+        const logFileType = LOG_FILE_TYPE[body.status]
+        if (logFileType && body.plaintextLog) {
             await encryptAndStoreLog({
-                route: '/api/services/containerizer',
+                route: '/api/services/job-scan-results',
                 plaintextLog: body.plaintextLog,
-                fileType: 'ENCRYPTED-PACKAGING-ERROR-LOG',
+                fileType: logFileType,
                 job,
             })
         }

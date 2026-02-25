@@ -1,14 +1,35 @@
-source("libraries/env.R")
-source("libraries/common.R")
+source("libraries/openstax.R")
+source("libraries/safeinsights_common.R")
 
-initialize_container()
+###############################################################################
+# Initialize Research Container
+# DO NOT TOUCH
+initialize()
+###############################################################################
+# Researcher: Insert query code here
 
-results <- run_query("
-  SELECT COUNT(DISTINCT session_id) AS unique_session_count
-  FROM event_log
-  WHERE created_at >= '2024-01-01' AND created_at < '2024-01-02'
+# OpenStax Tutor Example: Count unique tasked_id for date range
+results <- query_tutor("
+  SELECT COUNT(*) as unique_tasked_count
+  FROM tutor_data
+  WHERE created_at >= '2023-02-02' AND created_at <= '2023-02-03'
 ")
 
-write.csv(results, "results.csv", row.names = FALSE)
+# OpenStax Tutor Exercises Example: Count unique question_id
+# exercises_results <- query_tutor_exercises("
+#   SELECT COUNT(DISTINCT question_uid) as unique_question_count
+#   FROM exercises_data
+# ")
 
-upload_results("results.csv")
+
+###############################################################################
+# Researcher: Insert manipulate data and analysis code here
+
+
+write.csv(result, "results-1.csv", row.names = FALSE)
+write.csv(result, "results-2.csv", row.names = FALSE)
+
+###############################################################################
+# Researcher: Upload results
+toa_results_upload("results-1.csv")
+toa_results_upload("results-2.csv")

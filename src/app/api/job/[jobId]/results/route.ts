@@ -45,7 +45,7 @@ export const POST = wrapApiOrgAction(async (req: Request, { params }: { params: 
     }
 
     if (logs instanceof File) {
-        await storeStudyEncryptedLogFile(info, logs)
+        await storeStudyEncryptedLogFile(info, logs, 'ENCRYPTED-CODE-RUN-LOG')
     }
 
     if (results instanceof File) {

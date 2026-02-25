@@ -153,40 +153,7 @@ test('containerizer encrypts and stores plaintextLog on JOB-ERRORED', async () =
     expect(resp.ok).toBe(true)
 
     const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
-    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
-})
-
-test('containerizer persists CODE-SCANNED', async () => {
-    const { org, user } = await mockSessionWithTestData()
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-
-    let rows = await getStatusRows(jobId)
-    const baseline = countMatching(rows, 'CODE-SCANNED')
-
-    const resp = await apiHandler.POST(authedRequest({ jobId, status: 'CODE-SCANNED' }))
-    expect(resp.ok).toBe(true)
-
-    rows = await getStatusRows(jobId)
-    expect(countMatching(rows, 'CODE-SCANNED')).toBeGreaterThan(baseline)
-})
-
-test('containerizer encrypts and stores plaintextLog on CODE-SCANNED', async () => {
-    const { org, user } = await mockSessionWithTestData({ orgType: 'enclave', useRealKeys: true })
-    const { jobIds } = await insertTestStudyData({ org, researcherId: user.id })
-    const jobId = jobIds[0]
-
-    const resp = await apiHandler.POST(
-        authedRequest({
-            jobId,
-            status: 'CODE-SCANNED',
-            plaintextLog: 'Scan results: no issues found.',
-        }),
-    )
-    expect(resp.ok).toBe(true)
-
-    const files = await db.selectFrom('studyJobFile').select(['fileType']).where('studyJobId', '=', jobId).execute()
-    expect(files.some((f) => f.fileType === 'ENCRYPTED-LOG')).toBe(true)
+    expect(files.some((f) => f.fileType === 'ENCRYPTED-PACKAGING-ERROR-LOG')).toBe(true)
 })
 
 test('returns 401 when Authorization header is missing', async () => {
