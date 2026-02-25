@@ -45,6 +45,7 @@ export function CodeUploadPage({
         codeUploadViewMode,
         canProceedToReview,
         setStudyId,
+        setIDECodeFiles,
         setCodeUploadViewMode,
         submitStudy,
         isSubmitting,
@@ -66,6 +67,10 @@ export function CodeUploadPage({
     // Initialize context from server data on mount
     useEffect(() => {
         setStudyId(studyId)
+
+        if (existingMainFile && !codeFiles.mainFile) {
+            setIDECodeFiles(existingMainFile, [existingMainFile, ...(existingAdditionalFiles ?? [])])
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
