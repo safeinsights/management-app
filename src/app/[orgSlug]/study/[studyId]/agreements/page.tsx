@@ -46,7 +46,7 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />

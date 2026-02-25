@@ -240,8 +240,8 @@ export const onSubmitDraftStudyAction = new Action('onSubmitDraftStudyAction', {
             throw new Error('Study not found or access denied')
         }
 
-        if (study.status !== 'DRAFT') {
-            throw new Error(`Cannot submit study: expected status DRAFT but got ${study.status}`)
+        if (study.status !== 'DRAFT' && study.status !== 'APPROVED') {
+            throw new Error(`Cannot submit study: expected status DRAFT or APPROVED but got ${study.status}`)
         }
 
         // Create the study job for the code files
@@ -291,7 +291,7 @@ export const finalizeStudySubmissionAction = new Action('finalizeStudySubmission
         return { studyId }
     })
 
-// Fetch draft study data for editing
+// Fetch draft/proposal approved study data for editing
 export const getDraftStudyAction = new Action('getDraftStudyAction')
     .params(z.object({ studyId: z.string() }))
     .middleware(async ({ db, params: { studyId } }) => {
@@ -321,7 +321,7 @@ export const getDraftStudyAction = new Action('getDraftStudyAction')
                 'user.fullName as researcherName',
             ])
             .where('study.id', '=', studyId)
-            .where('study.status', '=', 'DRAFT')
+            .where('study.status', 'in', ['DRAFT', 'APPROVED'])
             .executeTakeFirstOrThrow(throwNotFound('Draft study'))
         return { study, orgId: study.orgId, submittedByOrgId: study.submittedByOrgId }
     })

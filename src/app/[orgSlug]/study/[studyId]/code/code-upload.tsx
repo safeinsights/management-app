@@ -21,6 +21,7 @@ interface CodeUploadPageProps {
     language: Language
     existingMainFile?: string | null
     existingAdditionalFiles?: string[]
+    previousHref: string
 }
 
 export function CodeUploadPage({
@@ -30,6 +31,7 @@ export function CodeUploadPage({
     language,
     existingMainFile,
     existingAdditionalFiles,
+    previousHref,
 }: CodeUploadPageProps) {
     const router = useRouter()
     const theme = useMantineTheme()
@@ -69,8 +71,8 @@ export function CodeUploadPage({
         router.push(Routes.studyReview({ orgSlug: submittingOrgSlug, studyId }))
     }
 
-    const handleBackToEdit = () => {
-        router.push(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+    const handleBackToPrevious = () => {
+        router.push(previousHref)
     }
 
     const handleBackToUpload = () => {
@@ -181,7 +183,7 @@ export function CodeUploadPage({
                         type="button"
                         size="md"
                         variant="subtle"
-                        onClick={handleBackToEdit}
+                        onClick={handleBackToPrevious}
                         leftSection={<CaretLeftIcon />}
                     >
                         Previous
