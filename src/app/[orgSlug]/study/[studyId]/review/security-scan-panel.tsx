@@ -116,7 +116,7 @@ export const SecurityScanPanel: FC<Props> = ({ job }) => {
         <Paper bg="white" p="xxl">
             <Stack>
                 <Title order={4} size="xl">
-                    View Security Scan
+                    Security Scan
                 </Title>
                 {decryptedContent ? (
                     <ScanLogViewButton onClick={() => setModalOpen(true)} />
