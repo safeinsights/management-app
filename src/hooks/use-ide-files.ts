@@ -87,7 +87,7 @@ export function useIDEFiles({ studyId, orgSlug }: UseIDEFilesOptions) {
     useEffect(() => {
         if (pendingDirectSubmitRef.current && mainFileName) {
             pendingDirectSubmitRef.current = false
-            submitStudy()
+            submitStudy({ onSettled: () => setIsDirectSubmitting(false) })
         }
     }, [mainFileName, submitStudy])
 
