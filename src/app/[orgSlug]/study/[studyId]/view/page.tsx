@@ -11,6 +11,8 @@ import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { NotFoundError } from '@/lib/errors'
+import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
+import { CodeOnlyView } from './code-only-view'
 
 // TEMP FIX: Prevents error on viewing studies created with the new flow (no code = no job)
 // Targeted catch for NotFoundError (the specific error executeTakeFirstOrThrow produces when no job row exists)
@@ -43,7 +45,8 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const isStatusFocused = (isApproved && isErrored) || isRejected || isApproved
     const opacity = isStatusFocused ? 0.6 : 1
 
-    return (
+    // Default content: shows both proposal and code sections
+    const defaultContent = (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
@@ -98,4 +101,9 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             </Paper>
         </Stack>
     )
+
+    // Opt-in content (feature flag): code-only view when job exists
+    const optInContent = job ? <CodeOnlyView orgSlug={orgSlug} study={study} job={job} /> : defaultContent
+
+    return <OpenStaxFeatureFlag defaultContent={defaultContent} optInContent={optInContent} />
 }
