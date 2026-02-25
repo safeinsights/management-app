@@ -41,9 +41,10 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
-    const proceedHref = isFeatureFlagOrg(study.submittedByOrgSlug)
+    const defaultProceedHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+    const featureFlagProceedHref = isFeatureFlagOrg(study.submittedByOrgSlug)
         ? Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
-        : Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+        : undefined
 
     return (
         <Stack p="xl" gap="xl">
@@ -51,7 +52,8 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={proceedHref}
+                proceedHref={defaultProceedHref}
+                featureFlagProceedHref={featureFlagProceedHref}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />

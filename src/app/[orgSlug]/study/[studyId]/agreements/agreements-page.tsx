@@ -4,10 +4,12 @@ import { useRouter } from 'next/navigation'
 import { Alert, Button, Divider, Group, Paper, Stack, Text, Title, useMantineTheme } from '@mantine/core'
 import { CaretLeftIcon, InfoIcon } from '@phosphor-icons/react'
 import type { Route } from 'next'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 
 interface AgreementsPageProps {
     isReviewer: boolean
     proceedHref: string
+    featureFlagProceedHref?: string
     previousHref: string
 }
 
@@ -87,13 +89,15 @@ function AgreementSection({ stepLabel, title, description }: SectionProps) {
     )
 }
 
-export function AgreementsPage({ isReviewer, proceedHref, previousHref }: AgreementsPageProps) {
+export function AgreementsPage({ isReviewer, proceedHref, featureFlagProceedHref, previousHref }: AgreementsPageProps) {
     const router = useRouter()
+    const isFeatureFlag = useOpenStaxFeatureFlag()
 
     const sections = isReviewer ? REVIEWER_SECTIONS : RESEARCHER_SECTIONS
     const proceedLabel = isReviewer ? 'Proceed to Step 3' : 'Proceed to Step 4'
 
-    const handleProceed = () => router.push(proceedHref as Route)
+    const resolvedProceedHref = isFeatureFlag && featureFlagProceedHref ? featureFlagProceedHref : proceedHref
+    const handleProceed = () => router.push(resolvedProceedHref as Route)
     const handlePrevious = () => router.push(previousHref as Route)
 
     return (
