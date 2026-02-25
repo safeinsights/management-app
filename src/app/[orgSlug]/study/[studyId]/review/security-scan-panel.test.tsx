@@ -34,7 +34,7 @@ describe('SecurityScanPanel', () => {
         })
 
         renderWithProviders(<SecurityScanPanel job={job} />)
-        expect(screen.queryByText('Security Scan')).toBeNull()
+        expect(screen.queryByText('View Security Scan')).toBeNull()
     })
 
     it('returns null when CODE-SCANNED but no ENCRYPTED-SECURITY-SCAN-LOG files', async () => {
@@ -44,7 +44,7 @@ describe('SecurityScanPanel', () => {
         })
 
         renderWithProviders(<SecurityScanPanel job={job} />)
-        expect(screen.queryByText('Security Scan')).toBeNull()
+        expect(screen.queryByText('View Security Scan')).toBeNull()
     })
 
     it('renders decrypt form when CODE-SCANNED with scan log files present', async () => {
@@ -66,7 +66,7 @@ describe('SecurityScanPanel', () => {
         const latestJob = await latestJobForStudy(study.id)
         renderWithProviders(<SecurityScanPanel job={latestJob} />)
 
-        expect(screen.getByText('Security Scan')).toBeDefined()
+        expect(screen.getByText('View Security Scan')).toBeDefined()
         expect(screen.getByPlaceholderText('Enter your Reviewer key to decrypt the security scan log.')).toBeDefined()
         expect(screen.getByRole('button', { name: 'Decrypt Scan Log' })).toBeDefined()
     })
