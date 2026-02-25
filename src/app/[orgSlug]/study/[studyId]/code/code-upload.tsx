@@ -101,7 +101,7 @@ export function CodeUploadPage({
         closeModal()
     }
 
-    const stepLabel = isNewFlow ? 'STEP 4 OF 4' : 'STEP 4 OF 5'
+    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
     const proceedLabel = isNewFlow ? 'Submit code' : 'Proceed to review'
 
     // Show review mode if files are selected
