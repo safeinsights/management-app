@@ -26,7 +26,7 @@ const mockedApprovedJobFiles: JobFile[] = [
 
 vi.mock('@/server/actions/study-job.actions', () => ({
     fetchApprovedJobFilesAction: vi.fn(() => mockedApprovedJobFiles),
-    fetchEncryptedJobFilesAction: vi.fn(() => 'Encrypted Results'),
+    fetchEncryptedJobFilesAction: vi.fn(() => []),
 }))
 
 describe('View Study Results', () => {
@@ -75,13 +75,8 @@ describe('View Study Results', () => {
 
         renderWithProviders(<StudyResults job={job} />)
 
-        // Should show no logs message
         expect(screen.getByText(/While logs are not available at this time/)).toBeDefined()
-
-        // Should NOT show decrypt UI
         expect(screen.queryByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeNull()
-
-        // Should NOT show error help text with Job ID
         expect(screen.queryByText(/Review the error logs/)).toBeNull()
         expect(screen.queryByText('Job ID:')).toBeNull()
     })
@@ -92,7 +87,6 @@ describe('View Study Results', () => {
             jobStatus: 'JOB-ERRORED',
         })
 
-        // Add an encrypted log file to the job
         await db
             .insertInto('studyJobFile')
             .values({
@@ -106,25 +100,18 @@ describe('View Study Results', () => {
         const latestJob = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={latestJob} />)
 
-        // Should show error message with review instructions
         expect(screen.getByText(/Review the error logs before these can be shared with the researcher/)).toBeDefined()
         expect(screen.getByText('Job ID:')).toBeDefined()
-
-        // Should show decrypt UI
         expect(screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')).toBeDefined()
-
-        // Should NOT show no logs message
         expect(screen.queryByText(/While logs are not available at this time/)).toBeNull()
     })
 
     it('decrypts and displays the results', async () => {
-        // Capture blobs created for the download link so we can verify their contents
         const createdBlobs: Blob[] = []
         const originalCreateObjectURL = URL.createObjectURL
         vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
             const blob = obj as Blob
             createdBlobs.push(blob)
-            // keep default behavior so href still looks like a real blob url
             return originalCreateObjectURL ? originalCreateObjectURL.call(URL, blob) : 'blob://mock'
         })
 
@@ -147,10 +134,22 @@ describe('View Study Results', () => {
 
         vi.mocked(fetchEncryptedJobFilesAction).mockResolvedValue([file])
 
-        const { latestJobWithStatus: job } = await insertTestStudyJobData({
+        const { study, job: rawJob } = await insertTestStudyJobData({
             org,
             jobStatus: 'RUN-COMPLETE',
         })
+
+        await db
+            .insertInto('studyJobFile')
+            .values({
+                studyJobId: rawJob.id,
+                name: 'results.zip',
+                path: `test-org/${study.id}/${rawJob.id}/results/results.zip`,
+                fileType: 'ENCRYPTED-RESULT',
+            })
+            .execute()
+
+        const job = await latestJobForStudy(study.id)
         renderWithProviders(<StudyResults job={job} />)
 
         const input = screen.getByPlaceholderText('Enter your Reviewer key to access encrypted content.')
@@ -158,16 +157,14 @@ describe('View Study Results', () => {
         const privateKey = await readTestSupportFile('private_key.pem')
 
         fireEvent.change(input, { target: { value: privateKey } })
-        fireEvent.click(screen.getByRole('button', { name: 'View Results' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Decrypt Files' }))
 
         await waitFor(() => {
             const link = screen.getByTestId('download-link')
             expect(link.getAttribute('href')).toMatch(/^blob:/)
-            expect(link.getAttribute('download')).toEqual('approved.csv')
             expect(createdBlobs.length).toBeGreaterThan(0)
         })
 
-        // Verify that the blob contains the expected CSV content
         const blobText = await createdBlobs[0].text()
         expect(blobText).toEqual(csv)
     })

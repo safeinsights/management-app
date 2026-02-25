@@ -184,6 +184,28 @@ export type ActionResult<T extends (...args: any) => any> = Awaited<ReturnType<T
 export type ActionSuccessType<T extends (...args: any) => any> =
     ActionResult<T> extends ActionResponse<infer U> ? U : never
 
+const FILE_TYPES = [
+    'APPROVED-CODE-RUN-LOG',
+    'APPROVED-PACKAGING-ERROR-LOG',
+    'APPROVED-RESULT',
+    'APPROVED-SECURITY-SCAN-LOG',
+    'ENCRYPTED-CODE-RUN-LOG',
+    'ENCRYPTED-PACKAGING-ERROR-LOG',
+    'ENCRYPTED-RESULT',
+    'ENCRYPTED-SECURITY-SCAN-LOG',
+    'MAIN-CODE',
+    'SUPPLEMENTAL-CODE',
+] as const satisfies readonly FileType[]
+
+export const fileTypeSchema = z.enum(FILE_TYPES)
+
+export const jobFileSchema = z.object({
+    path: z.string(),
+    contents: z.instanceof(ArrayBuffer),
+    sourceId: z.string(),
+    fileType: fileTypeSchema,
+})
+
 export type JobFileInfo = FileEntry & {
     sourceId: string
     fileType: FileType

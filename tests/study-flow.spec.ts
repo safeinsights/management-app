@@ -295,18 +295,21 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     await viewStudyDetails(page, studyTitle, 'review')
 
-    // Enter the private key to decrypt results
+    // Enter the private key to decrypt files
     const privateKey = await readTestSupportFile('private_key.pem')
-    const privateKeyTextarea = page.getByLabel(/Enter Reviewer Key/i)
+    const privateKeyTextarea = page.getByPlaceholder('Enter your Reviewer key to access encrypted content.')
     await expect(privateKeyTextarea).toBeVisible({ timeout: 10000 })
     await privateKeyTextarea.fill(privateKey)
 
-    // Click "View Results" to decrypt
-    const viewResultsButton = page.getByRole('button', { name: /View Results/i })
-    await expect(viewResultsButton).toBeEnabled({ timeout: 5000 })
-    await viewResultsButton.click()
+    // Click "Decrypt Files" to decrypt
+    const decryptButton = page.getByRole('button', { name: /Decrypt Files/i })
+    await expect(decryptButton).toBeEnabled({ timeout: 5000 })
+    await decryptButton.click()
 
-    // Wait for decryption to complete and approve button to be enabled
+    // Wait for decryption to complete — View buttons appear in the file table
+    await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible({ timeout: 15000 })
+
+    // Wait for approve button to be enabled and click it
     const approveButton = page.getByRole('button', { name: /approve/i }).last()
     await expect(approveButton).toBeEnabled({ timeout: 15000 })
     await approveButton.click()

@@ -26,7 +26,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
-    await sleep({ 30: 'seconds' })
+    await sleep({ 10: 'seconds' })
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
