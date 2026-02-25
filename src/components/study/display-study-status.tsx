@@ -2,77 +2,65 @@
 
 import { StatusLabel } from '@/lib/status-labels'
 import { Flex, Text } from '@mantine/core'
+import { TrophyIcon } from '@phosphor-icons/react/dist/ssr'
 import { FC } from 'react'
 import { InfoTooltip } from '../tooltip'
 
-export const DisplayStudyStatus: FC<{ status: StatusLabel; isResearchLabDashboard?: boolean }> = ({
-    status,
-    isResearchLabDashboard,
-}) => {
-    const { label, tooltip } = status
-    const color = label === 'Errored' || label === 'Awaiting Review' ? 'red.9' : 'dark.8'
+type PillStyle = {
+    bg: string
+    c: string
+}
 
-    const statusStyle: Record<'Approved' | 'Errored' | 'Rejected' | 'Under Review', { color?: string }> = {
-        Approved: { color: 'green.9' },
-        Errored: { color: 'red.9' },
-        Rejected: { color: 'charcoal.9' },
-        'Under Review': { color: 'grey.6' },
-    }
+const STAGE_DISPLAY_NAME: Record<StatusLabel['stage'], string> = {
+    Proposal: 'Proposal',
+    Code: 'Code',
+    Results: 'Result',
+}
 
-    if (label === 'Needs Review') {
-        return (
-            <Flex align="center">
-                <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-                    <Text
-                        size="sm"
-                        bd="1px solid purple.7"
-                        bdrs={2}
-                        p="2px 6px"
-                        ta={'center'}
-                        fw={600}
-                        c={'purple.7'}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        {label.toLocaleUpperCase()}
-                    </Text>
-                </InfoTooltip>
-            </Flex>
-        )
-    }
+function getPillStyle(stage: StatusLabel['stage'], label: string): PillStyle {
+    if (label === 'Draft') return { bg: 'gray.0', c: 'gray.9' }
 
-    if (label === 'Approved' && status.stage === 'Results' && isResearchLabDashboard) {
-        return (
-            <Flex align="center">
-                <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-                    <Text
-                        size="sm"
-                        bd="1px solid green.10"
-                        bdrs={2}
-                        p="2px 6px"
-                        ta={'center'}
-                        fw={600}
-                        c={'green.10'}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        {label.toLocaleUpperCase()}
-                    </Text>
-                </InfoTooltip>
-            </Flex>
-        )
-    }
+    if (label === 'Needs Review' && stage !== 'Results') return { bg: 'purple.1', c: 'purple.7' }
+
+    if (label === 'Needs Review' || label === 'Under Review') return { bg: 'yellow.0', c: 'dark.9' }
+
+    if (label === 'Rejected' || label === 'Errored') return { bg: 'red.1', c: 'red.8' }
+
+    if (label === 'Approved' || label === 'Ready') return { bg: 'green.1', c: 'green.8' }
+
+    return { bg: 'gray.1', c: 'dark.5' }
+}
+
+export const DisplayStudyStatus: FC<{ status: StatusLabel }> = ({ status }) => {
+    const { label, tooltip, stage } = status
+    const { bg, c } = getPillStyle(stage, label)
+    const stageDisplay = STAGE_DISPLAY_NAME[stage]
+    const badgeText = `${stageDisplay} ${label.toLowerCase()}`
+    const showResultsIcon = stage === 'Results' && label === 'Ready'
+
+    const pill = (
+        <Flex
+            align="center"
+            gap={4}
+            bg={bg}
+            c={c}
+            bdrs={100}
+            px={16}
+            py={4}
+            style={{ display: 'inline-flex', cursor: tooltip ? 'pointer' : 'default' }}
+        >
+            {showResultsIcon && <TrophyIcon size={12} weight="fill" />}
+            <Text size="xs" fw={500}>
+                {badgeText}
+            </Text>
+        </Flex>
+    )
+
+    if (!tooltip) return pill
 
     return (
-        <Flex align="center" gap="xs">
-            <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
-                <Text
-                    size="sm"
-                    c={statusStyle[label as keyof typeof statusStyle]?.color || color}
-                    fw={600}
-                    style={{ cursor: 'pointer', ...(statusStyle[label as keyof typeof statusStyle] || {}) }}
-                >
-                    {label.toLocaleUpperCase()}
-                </Text>
-            </InfoTooltip>
-        </Flex>
+        <InfoTooltip label={tooltip} multiline styles={{ tooltip: { maxWidth: 250 } }}>
+            {pill}
+        </InfoTooltip>
     )
 }

@@ -32,18 +32,10 @@ const LABELS: Record<'reviewer' | 'researcher', Partial<Record<AllStatus, Status
 
 export const useStudyStatus = ({ studyStatus, audience, jobStatusChanges }: UseStudyStatusParams): StatusLabel => {
     // add studyStatus as the last entry as a fallback in case a job hasn't started yet
-    let statuses: AllStatus[] = [...jobStatusChanges.map((change) => change.status), studyStatus]
+    const statuses: AllStatus[] = [...jobStatusChanges.map((change) => change.status), studyStatus]
 
     const statusKeys = STATUS_KEYS[audience]
     const labels = LABELS[audience]
-
-    // do not show job errored status for researchers until the reviewer approves or rejects error log sharing
-    if (audience === 'researcher') {
-        if (!statuses.some((status) => status === 'FILES-APPROVED' || status === 'FILES-REJECTED')) {
-            // remove any errored status
-            statuses = statuses.filter((status) => status !== 'JOB-ERRORED')
-        }
-    }
 
     // JOB-ERRORED always takes precedence if present
     if (statuses.includes('JOB-ERRORED')) {
