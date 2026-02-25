@@ -1,20 +1,15 @@
 'use client'
 
-import { reportMutationError } from '@/components/errors'
 import { AppModal } from '@/components/modal'
-import { approvedTypeForFile } from '@/lib/file-type-helpers'
-import type { JobFileInfo } from '@/lib/types'
+import { useDecryptFiles } from '@/hooks/use-decrypt-files'
 import { fetchEncryptedScanLogsAction } from '@/server/actions/study-job.actions'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import { Button, Code, Group, Paper, ScrollArea, Stack, Textarea, Title } from '@mantine/core'
-import { isNotEmpty, useForm } from '@mantine/form'
 import { notifications } from '@mantine/notifications'
 import * as Sentry from '@sentry/nextjs'
-import { useMutation, useQuery } from '@/common'
+import { useQuery } from '@/common'
 import { useParams } from 'next/navigation'
 import { FC, useState } from 'react'
-import { ResultsReader } from 'si-encryption/job-results/reader'
-import { fingerprintPublicKeyFromPrivateKey, pemToArrayBuffer, privateKeyFromBuffer } from 'si-encryption/util'
 
 type Props = {
     job: NonNullable<LatestJobForStudy>
@@ -31,17 +26,9 @@ export const SecurityScanPanel: FC<Props> = ({ job }) => {
     const [decryptedContent, setDecryptedContent] = useState<string | null>(null)
     const [modalOpen, setModalOpen] = useState(false)
 
-    const hasCodeScanned = job.statusChanges.some((sc) => sc.status === 'CODE-SCANNED')
+    const latestStatus = job.statusChanges.at(-1)?.status
+    const hasCodeScanned = latestStatus === 'CODE-SCANNED'
     const hasScanLogFiles = job.files?.some((f) => f.fileType === 'ENCRYPTED-SECURITY-SCAN-LOG') ?? false
-
-    const form = useForm({
-        mode: 'uncontrolled',
-        initialValues: { privateKey: '' },
-        validate: {
-            privateKey: isNotEmpty('Required'),
-        },
-        validateInputOnChange: true,
-    })
 
     const { isLoading: isLoadingBlob, data: encryptedScanLogs } = useQuery({
         queryKey: ['security-scan-logs', job.id],
@@ -57,54 +44,24 @@ export const SecurityScanPanel: FC<Props> = ({ job }) => {
         enabled: hasCodeScanned && hasScanLogFiles,
     })
 
-    const { mutate: decryptScanLog, isPending: isDecrypting } = useMutation({
-        mutationFn: async ({ privateKey }: { privateKey: string }) => {
-            if (!encryptedScanLogs) return []
-            let fingerprint = ''
-            let privateKeyBuffer: ArrayBuffer = new ArrayBuffer(0)
-            try {
-                privateKeyBuffer = pemToArrayBuffer(privateKey)
-                const key = await privateKeyFromBuffer(privateKeyBuffer)
-                fingerprint = await fingerprintPublicKeyFromPrivateKey(key)
-            } catch (err) {
-                form.setFieldError('privateKey', 'Invalid key data, check that key was copied successfully')
-                throw err
-            }
-            try {
-                const decryptedFiles: JobFileInfo[] = []
-                for (const encryptedBlob of encryptedScanLogs) {
-                    const reader = new ResultsReader(encryptedBlob.blob, privateKeyBuffer, fingerprint)
-                    const extractedFiles = await reader.extractFiles()
-                    for (const extractedFile of extractedFiles) {
-                        decryptedFiles.push({
-                            ...extractedFile,
-                            sourceId: encryptedBlob.sourceId,
-                            fileType: approvedTypeForFile(encryptedBlob.fileType),
-                        })
-                    }
-                }
-                return decryptedFiles
-            } catch (err) {
-                form.setFieldError(
-                    'privateKey',
-                    'Private key is not valid for these results, check with your administrator',
-                )
-                throw err
-            }
-        },
-        onSuccess: (files: JobFileInfo[]) => {
+    const {
+        decrypt: decryptScanLog,
+        isPending: isDecrypting,
+        form,
+    } = useDecryptFiles({
+        encryptedFiles: encryptedScanLogs,
+        onSuccess: (files) => {
             const decoder = new TextDecoder('utf-8')
             const text = files.map((f) => decoder.decode(f.contents)).join('\n')
             setDecryptedContent(text)
             setModalOpen(true)
         },
-        onError: reportMutationError('scan log decryption failed'),
     })
 
     if (!hasCodeScanned || !hasScanLogFiles) return null
 
     const onSubmit = form.onSubmit(
-        (values) => decryptScanLog({ privateKey: values.privateKey }),
+        (values) => decryptScanLog(values.privateKey),
         (errors) => {
             if (errors.privateKey) {
                 notifications.show({ message: 'Invalid private key', color: 'red' })
