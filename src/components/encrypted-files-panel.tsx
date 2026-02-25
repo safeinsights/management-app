@@ -1,12 +1,13 @@
+import { FileViewer } from '@/components/file-viewers'
 import { AppModal } from '@/components/modal'
+import { InfoTooltip } from '@/components/tooltip'
 import { useEncryptedFilesPanel, type UnifiedFileRow } from '@/hooks/use-encrypted-files-panel'
-import { decodeFileContents, detectContentType, parseCsv } from '@/lib/file-content-helpers'
+import { decodeFileContents } from '@/lib/file-content-helpers'
 import { logLabel } from '@/lib/file-type-helpers'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import type { LatestJobForStudy } from '@/server/db/queries'
-import { Anchor, Button, Checkbox, Code, Group, ScrollArea, Stack, Table, Text, Textarea } from '@mantine/core'
+import { Anchor, Button, Checkbox, Group, Stack, Table, Text, Textarea } from '@mantine/core'
 import { CheckCircleIcon, DownloadSimpleIcon, InfoIcon, LockIcon } from '@phosphor-icons/react/dist/ssr'
-import { InfoTooltip } from '@/components/tooltip'
 import { FC, useEffect, useState } from 'react'
 
 type EncryptedFilesPanelProps = {
@@ -164,48 +165,16 @@ const FileViewerModal: FC<{ file: JobFile | null; onClose: () => void }> = ({ fi
     if (!file) return null
 
     const text = decodeFileContents(file.contents)
-    const contentType = detectContentType(file.path)
 
     return (
-        <AppModal isOpen onClose={onClose} title={`${logLabel(file.fileType)} - ${file.path}`} size="xl">
-            {contentType === 'csv' ? <CsvViewer text={text} /> : <TextViewer text={text} />}
+        <AppModal
+            isOpen
+            onClose={onClose}
+            title={`${logLabel(file.fileType)} - ${file.path}`}
+            size="xl"
+            styles={{ body: { padding: 0 } }}
+        >
+            <FileViewer path={file.path} text={text} />
         </AppModal>
     )
 }
-
-const CsvViewer: FC<{ text: string }> = ({ text }) => {
-    const { headers, rows } = parseCsv(text)
-
-    if (headers.length === 0) {
-        return <Text>Empty file</Text>
-    }
-
-    return (
-        <ScrollArea h={500}>
-            <Table>
-                <Table.Thead>
-                    <Table.Tr>
-                        {headers.map((header, i) => (
-                            <Table.Th key={i}>{header}</Table.Th>
-                        ))}
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                    {rows.map((row, i) => (
-                        <Table.Tr key={i}>
-                            {row.map((cell, j) => (
-                                <Table.Td key={j}>{cell}</Table.Td>
-                            ))}
-                        </Table.Tr>
-                    ))}
-                </Table.Tbody>
-            </Table>
-        </ScrollArea>
-    )
-}
-
-const TextViewer: FC<{ text: string }> = ({ text }) => (
-    <ScrollArea h={500}>
-        <Code block>{text}</Code>
-    </ScrollArea>
-)

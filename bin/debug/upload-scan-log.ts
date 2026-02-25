@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import fs from 'fs'
 import { Command } from 'commander'
+import { extractJobId } from './request'
 
 // Upload a code security scan log for a job via the job-scan-results webhook
 // npx tsx bin/debug/upload-scan-log.ts -j <jobId> -l tests/assets/error-log.txt
@@ -9,7 +10,7 @@ import { Command } from 'commander'
 
 const program = new Command()
 program
-    .option('-j, --jobId <jobId>', 'jobId to upload scan log for')
+    .option('-j, --jobId <jobId>', 'jobId or URL containing a jobId')
     .option('-l, --logFile <path/to/file>', 'plaintext log file to upload')
     .option('-s, --status <status>', 'job status to set (CODE-SCANNED or JOB-ERRORED)', 'CODE-SCANNED')
     .option('-u, --url <url>', 'base URL', 'http://localhost:4000')
@@ -23,6 +24,8 @@ if (!opts.jobId || !opts.logFile) {
     process.exit(1)
 }
 
+const jobId = extractJobId(opts.jobId)
+
 const token = opts.token || process.env.CODEBUILD_WEBHOOK_SECRET
 if (!token) {
     console.error('must supply --token or set CODEBUILD_WEBHOOK_SECRET env var')
@@ -32,7 +35,7 @@ if (!token) {
 const plaintextLog = fs.readFileSync(opts.logFile, 'utf8')
 
 const body = {
-    jobId: opts.jobId,
+    jobId,
     status: opts.status,
     plaintextLog,
 }
@@ -51,6 +54,6 @@ fetch(`${opts.url}/api/services/job-scan-results`, {
     }
     // eslint-disable-next-line no-console
     console.info(
-        `Scan log uploaded for job ${opts.jobId} with status ${opts.status}\nResults must be decrypted using ONLY tests/support/private_key.pem.  normal reviewer keys will not work.  use:\ncat tests/support/private_key.pem | pbcopy`,
+        `Scan log uploaded for job ${jobId} with status ${opts.status}\nResults must be decrypted using ONLY tests/support/private_key.pem.  normal reviewer keys will not work.  use:\ncat tests/support/private_key.pem | pbcopy`,
     )
 })

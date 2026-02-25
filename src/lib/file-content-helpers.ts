@@ -1,20 +1,18 @@
-type ContentType = 'csv' | 'text'
-
-export function detectContentType(path: string): ContentType {
-    if (path.toLowerCase().endsWith('.csv')) return 'csv'
-    return 'text'
-}
+import Papa from 'papaparse'
 
 export function decodeFileContents(contents: ArrayBuffer): string {
     return new TextDecoder('utf-8').decode(contents)
 }
 
 export function parseCsv(text: string): { headers: string[]; rows: string[][] } {
-    const lines = text.split('\n').filter((line) => line.trim().length > 0)
-    if (lines.length === 0) return { headers: [], rows: [] }
+    const result = Papa.parse<string[]>(text, {
+        header: false,
+        skipEmptyLines: true,
+        transform: (value) => value.trim(),
+    })
 
-    const headers = lines[0].split(',').map((h) => h.trim())
-    const rows = lines.slice(1).map((line) => line.split(',').map((cell) => cell.trim()))
+    if (result.data.length === 0) return { headers: [], rows: [] }
 
+    const [headers, ...rows] = result.data
     return { headers, rows }
 }

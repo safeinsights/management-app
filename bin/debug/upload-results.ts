@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { DebugRequest } from './request'
+import { DebugRequest, extractJobId } from './request'
 import { ResultsWriter } from 'si-encryption/job-results/writer'
 import { pemToArrayBuffer, fingerprintKeyData } from 'si-encryption/util/keypair'
 
@@ -18,7 +18,7 @@ class FileSender extends DebugRequest {
             .option('-p, --publicKey <path>', 'Path to the public key file')
             .option('-r, --resultFile <path/to/file>', 'file to send as results')
             .option('-l, --logFile <path/to/file>', 'file to send as logs')
-            .option('-j, --jobId <jobId>', 'jobId to set status for')
+            .option('-j, --jobId <jobId>', 'jobId or URL containing a jobId')
         this.parse()
     }
 
@@ -39,7 +39,8 @@ class FileSender extends DebugRequest {
     }
 
     async perform() {
-        const { resultFile, logFile, jobId } = this.program.opts()
+        const { resultFile, logFile } = this.program.opts()
+        const jobId = extractJobId(this.program.opts().jobId)
 
         if (!resultFile && !logFile) {
             // eslint-disable-next-line no-console
@@ -51,10 +52,10 @@ class FileSender extends DebugRequest {
         const form = new FormData()
 
         if (resultFile) {
-            form.append('result', await this.zipForFile(resultFile))
+            form.append('result', await this.zipForFile(resultFile), path.basename(resultFile))
         }
         if (logFile) {
-            form.append('log', await this.zipForFile(logFile))
+            form.append('log', await this.zipForFile(logFile), path.basename(logFile))
         }
 
         const response = await fetch(`${this.baseURL}/api/job/${jobId}/results`, {

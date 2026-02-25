@@ -1,20 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { decodeFileContents, detectContentType, parseCsv } from './file-content-helpers'
+import { decodeFileContents, parseCsv } from './file-content-helpers'
 
 describe('file-content-helpers', () => {
-    describe('detectContentType', () => {
-        it('returns csv for .csv files', () => {
-            expect(detectContentType('data.csv')).toBe('csv')
-            expect(detectContentType('RESULTS.CSV')).toBe('csv')
-        })
-
-        it('returns text for non-csv files', () => {
-            expect(detectContentType('log.txt')).toBe('text')
-            expect(detectContentType('scan-log.zip')).toBe('text')
-            expect(detectContentType('output.json')).toBe('text')
-        })
-    })
-
     describe('decodeFileContents', () => {
         it('decodes ArrayBuffer to UTF-8 string', () => {
             const text = 'hello world'
