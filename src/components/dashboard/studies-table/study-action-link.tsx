@@ -59,7 +59,7 @@ function ReviewerLink({
 }) {
     const slug = study.orgSlug || orgSlug
 
-    if (!isNewFlow) {
+    if (isNewFlow) {
         return (
             <Link
                 href={Routes.studyAgreements({ orgSlug: slug, studyId: study.id })}
