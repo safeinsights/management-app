@@ -118,11 +118,15 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
         ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
         .toLowerCase()
 
+    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
+    const isLoading = isSaving || (isNewFlow && isSubmitting)
+    const proceedLabel = isNewFlow ? 'Submit code' : 'Save and proceed to review'
+
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    {isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'}
+                    {stepLabel}
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -191,10 +195,10 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                         variant="primary"
                         size="md"
                         disabled={!selectedMainFile || allFiles.length === 0 || isSaving}
-                        loading={isSaving || (isNewFlow && isSubmitting)}
+                        loading={isLoading}
                         onClick={handleProceed}
                     >
-                        {isNewFlow ? 'Submit code' : 'Save and proceed to review'}
+                        {proceedLabel}
                     </Button>
                 </Group>
             </Group>

@@ -32,7 +32,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const isStatusFocused = (isApproved && isErrored) || isRejected || isApproved
     const opacity = isStatusFocused ? 0.6 : 1
 
-    // Default content: shows both proposal and code sections
     const defaultContent = (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
@@ -89,7 +88,6 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
         </Stack>
     )
 
-    // Opt-in content (feature flag): code-only view when job exists
     const optInContent = job ? <CodeOnlyView orgSlug={orgSlug} study={study} job={job} /> : defaultContent
 
     return <OpenStaxFeatureFlag defaultContent={defaultContent} optInContent={optInContent} />
