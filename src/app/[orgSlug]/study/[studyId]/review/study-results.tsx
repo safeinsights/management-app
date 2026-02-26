@@ -46,8 +46,6 @@ export const StudyResults: FC<{
         )
     }
 
-    //const isApproved = job.statusChanges.some((sc) => sc.status === 'FILES-APPROVED')
-
     return (
         <Paper bg="white" p="xxl">
             <Stack>
