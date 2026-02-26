@@ -93,7 +93,6 @@ export function StudiesTable({
         isLoading,
     } = useQuery({
         queryKey,
-        placeholderData: [],
         queryFn: fetchStudies,
         enabled: scope === 'org' || (scope === 'user' && !!userId),
         refetchOnWindowFocus: false,
