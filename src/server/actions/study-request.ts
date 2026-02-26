@@ -15,7 +15,7 @@ import {
     storeS3File,
     triggerScanForStudyJob,
 } from '@/server/aws'
-import { CI_ENV, CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyCreated } from '@/server/events'

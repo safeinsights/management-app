@@ -64,7 +64,6 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
                 throw error
             }
         },
-        // enabled: (isComplete || isErrored) && hasEncryptedFiles,
     })
 
     const {
@@ -152,9 +151,9 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
 
             rows.push({
                 key: `${f.fileType}-${f.name}`,
-                label: logLabel(isEncrypted ? f.fileType : f.fileType),
+                label: logLabel(f.fileType),
                 name: decryptedFile?.path ?? approvedFile?.path ?? f.name,
-                fileType: isEncrypted ? f.fileType : f.fileType,
+                fileType: f.fileType,
                 state,
                 file,
             })
