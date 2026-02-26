@@ -2,6 +2,17 @@ import { Command } from 'commander'
 import fs from 'fs'
 import jwt from 'jsonwebtoken'
 
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+export function extractJobId(input: string): string {
+    const match = input.match(UUID_RE)
+    if (!match) {
+        console.error(`Could not extract a UUID from: ${input}`)
+        process.exit(1)
+    }
+    return match[0]
+}
+
 export class DebugRequest {
     program = new Command()
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET'

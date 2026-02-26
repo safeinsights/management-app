@@ -118,7 +118,7 @@ const eslintConfig = [
             'no-console': ['error', { allow: ['warn', 'error'] }],
             '@typescript-eslint/no-unused-vars': [
                 'error',
-                { ignoreRestSiblings: true, varsIgnorePattern: '_+', argsIgnorePattern: '^_' },
+                { ignoreRestSiblings: true, varsIgnorePattern: '^_+$', argsIgnorePattern: '^_' },
             ],
             semi: ['error', 'never'],
             'import/no-duplicates': 'error',

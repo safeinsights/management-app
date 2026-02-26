@@ -3,9 +3,10 @@
 import { type DBExecutor, jsonArrayFrom } from '@/database'
 import { StudyJobStatus } from '@/database/types'
 import { throwNotFound } from '@/lib/errors'
-import { ActionSuccessType } from '@/lib/types'
+import { ActionSuccessType, jobFileSchema } from '@/lib/types'
 import { getStudyJobFileOfType, latestJobForStudy } from '@/server/db/queries'
 import { onStudyApproved, onStudyRejected } from '@/server/events'
+import { storeApprovedJobFile } from '@/server/storage'
 import { triggerBuildImageForJob } from '../aws'
 import { SIMULATE_CODE_BUILD } from '../config'
 import { Action, z } from './action'
@@ -158,6 +159,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             studyId: z.string(),
             orgSlug: z.string(),
             useTestImage: z.boolean().optional(),
+            jobFiles: z.array(jobFileSchema).optional(),
         }),
     )
     .middleware(async ({ params: { studyId }, db }) => {
@@ -169,7 +171,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
         return { study, orgId: study.orgId }
     })
     .requireAbilityTo('approve', 'Study')
-    .handler(async ({ params: { studyId, orgSlug, useTestImage }, study, session, db }) => {
+    .handler(async ({ params: { studyId, orgSlug, useTestImage, jobFiles }, study, session, db }) => {
         const userId = session.user.id
 
         // nothing to do if already approved
@@ -225,6 +227,14 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                     studyJobId: job.id,
                 })
                 .executeTakeFirstOrThrow()
+
+            if (jobFiles?.length) {
+                const info = { studyId, studyJobId: job.id, orgSlug }
+                for (const jobFile of jobFiles) {
+                    const file = new File([jobFile.contents], jobFile.path)
+                    await storeApprovedJobFile(info, file, jobFile.fileType, jobFile.sourceId)
+                }
+            }
         }
 
         await db
