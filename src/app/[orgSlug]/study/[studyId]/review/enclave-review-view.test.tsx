@@ -1,5 +1,6 @@
 import { NotFoundError } from '@/lib/errors'
-import { renderWithProviders, screen, setupStudyAction } from '@/tests/unit.helpers'
+import { renderWithProviders, screen } from '@/tests/unit.helpers'
+import { setupStudyAction } from '@/tests/db-action.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { EnclaveReviewView } from './enclave-review-view'
 
