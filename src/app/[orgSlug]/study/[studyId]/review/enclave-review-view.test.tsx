@@ -48,7 +48,7 @@ describe('EnclaveReviewView', () => {
         const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'enclave' })
         const { study: dbStudy } = createJob
             ? await insertTestStudyJobData({ org, researcherId: user.id })
-            : await insertTestStudyOnly({ orgSlug })
+            : await insertTestStudyOnly({ org, researcherId: user.id })
         study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
         return { org, orgSlug }
     }

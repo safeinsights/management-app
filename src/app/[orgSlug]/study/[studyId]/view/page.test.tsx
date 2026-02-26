@@ -59,8 +59,8 @@ describe('StudyViewPage', () => {
     })
 
     it('renders default content as opt-in when no job exists', async () => {
-        const { org } = await mockSessionWithTestData({ orgType: 'lab' })
-        const { study } = await insertTestStudyOnly({ orgSlug: org.slug })
+        const { org, user } = await mockSessionWithTestData({ orgType: 'lab' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)

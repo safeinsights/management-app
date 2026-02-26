@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { TestingProviders } from '@/tests/providers'
+import { renderWithProviders, screen } from '@/tests/unit.helpers'
 import { CodeFilesReview } from './code-files-review'
 import { type CodeFileState, type ServerFile } from '@/contexts/shared/file-types'
 
@@ -32,52 +31,32 @@ describe('CodeFilesReview', () => {
     })
 
     it('renders "STEP 4 of 4" when isNewFlow is true', () => {
-        render(
-            <TestingProviders>
-                <CodeFilesReview {...defaultProps} isNewFlow />
-            </TestingProviders>,
-        )
+        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow />)
 
         expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
     })
 
     it('renders "Submit code" button when isNewFlow is true', () => {
-        render(
-            <TestingProviders>
-                <CodeFilesReview {...defaultProps} isNewFlow />
-            </TestingProviders>,
-        )
+        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow />)
 
         expect(screen.getByRole('button', { name: /submit code/i })).toBeInTheDocument()
     })
 
     it('shows loading state on proceed button when isNewFlow and isSubmitting', () => {
-        render(
-            <TestingProviders>
-                <CodeFilesReview {...defaultProps} isNewFlow isSubmitting />
-            </TestingProviders>,
-        )
+        renderWithProviders(<CodeFilesReview {...defaultProps} isNewFlow isSubmitting />)
 
         const button = screen.getByRole('button', { name: /submit code/i })
         expect(button).toHaveAttribute('data-loading', 'true')
     })
 
     it('renders "STEP 4 of 5" when isNewFlow is false', () => {
-        render(
-            <TestingProviders>
-                <CodeFilesReview {...defaultProps} />
-            </TestingProviders>,
-        )
+        renderWithProviders(<CodeFilesReview {...defaultProps} />)
 
         expect(screen.getByText('STEP 4 of 5')).toBeInTheDocument()
     })
 
     it('renders "Save and proceed to review" button when isNewFlow is false', () => {
-        render(
-            <TestingProviders>
-                <CodeFilesReview {...defaultProps} />
-            </TestingProviders>,
-        )
+        renderWithProviders(<CodeFilesReview {...defaultProps} />)
 
         expect(screen.getByRole('button', { name: /save and proceed to review/i })).toBeInTheDocument()
     })

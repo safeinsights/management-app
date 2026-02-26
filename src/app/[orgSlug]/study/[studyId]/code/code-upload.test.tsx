@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { renderWithProviders, screen, waitFor, userEvent, faker, mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
-import { TestingProviders } from '@/tests/providers'
-import { mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
 import { CodeUploadPage } from './code-upload'
 import type { CodeFileState } from '@/contexts/shared/file-types'
 
@@ -54,7 +51,7 @@ vi.mock('@/hooks/use-workspace-launcher', () => ({
     }),
 }))
 
-const TEST_STUDY_ID = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d'
+const TEST_STUDY_ID = faker.string.uuid()
 
 const defaultProps = {
     studyId: TEST_STUDY_ID,
@@ -77,32 +74,20 @@ describe('CodeUploadPage', () => {
         })
 
         it('renders "STEP 4 of 4" step label', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             expect(screen.getByText('STEP 4 of 4')).toBeInTheDocument()
         })
 
         it('renders "Submit code" button', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             expect(screen.getByRole('button', { name: /submit code/i })).toBeInTheDocument()
         })
 
         it('Previous button navigates to Agreements page', async () => {
             const user = userEvent.setup()
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             await user.click(screen.getByRole('button', { name: /previous/i }))
 
@@ -113,11 +98,7 @@ describe('CodeUploadPage', () => {
 
         it('calls submitStudy when "Submit code" is clicked', async () => {
             const user = userEvent.setup()
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} existingMainFile="main.R" />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} existingMainFile="main.R" />)
 
             await user.click(screen.getByRole('button', { name: /submit code/i }))
 
@@ -125,11 +106,7 @@ describe('CodeUploadPage', () => {
         })
 
         it('initializes context from existing files on mount', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} existingMainFile="main.R" existingAdditionalFiles={['helper.R']} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} existingMainFile="main.R" existingAdditionalFiles={['helper.R']} />)
 
             expect(mockSetIDECodeFiles).toHaveBeenCalledWith('main.R', ['main.R', 'helper.R'])
         })
@@ -140,11 +117,7 @@ describe('CodeUploadPage', () => {
                 additionalFiles: [],
             }
 
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} existingMainFile="main.R" />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} existingMainFile="main.R" />)
 
             expect(mockSetIDECodeFiles).not.toHaveBeenCalled()
         })
@@ -152,32 +125,20 @@ describe('CodeUploadPage', () => {
 
     describe('old flow (feature flag OFF)', () => {
         it('renders "STEP 4 of 5" step label', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             expect(screen.getByText('STEP 4 of 5')).toBeInTheDocument()
         })
 
         it('renders "Proceed to review" button', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             expect(screen.getByRole('button', { name: /proceed to review/i })).toBeInTheDocument()
         })
 
         it('Previous button navigates to Edit page', async () => {
             const user = userEvent.setup()
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} />)
 
             await user.click(screen.getByRole('button', { name: /previous/i }))
 
@@ -187,11 +148,7 @@ describe('CodeUploadPage', () => {
         })
 
         it('"Proceed to review" is enabled when existingMainFile is present', () => {
-            render(
-                <TestingProviders>
-                    <CodeUploadPage {...defaultProps} existingMainFile="main.R" />
-                </TestingProviders>,
-            )
+            renderWithProviders(<CodeUploadPage {...defaultProps} existingMainFile="main.R" />)
 
             const button = screen.getByRole('button', { name: /proceed to review/i })
             expect(button).not.toBeDisabled()

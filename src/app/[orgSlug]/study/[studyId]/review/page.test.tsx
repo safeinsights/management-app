@@ -66,8 +66,8 @@ describe('StudyReviewPage', () => {
     })
 
     it('renders ProposalReviewView as opt-in for feature-flag enclave org without job', async () => {
-        const { org } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
-        const { study } = await insertTestStudyOnly({ orgSlug: org.slug })
+        const { org, user } = await mockSessionWithTestData({ orgSlug: 'openstax', orgType: 'enclave' })
+        const { study } = await insertTestStudyOnly({ org, researcherId: user.id })
 
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
