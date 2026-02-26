@@ -20,7 +20,7 @@ import { EditOrgForm } from './edit-org-form'
 type Org = ActionSuccessType<typeof fetchAdminOrgsWithStatsAction>[number]
 
 export function OrgsAdminTable() {
-    const { data = [] } = useQuery({
+    const { data = [], isLoading } = useQuery({
         queryKey: ['orgs'],
         queryFn: fetchAdminOrgsWithStatsAction,
     })
@@ -41,6 +41,7 @@ export function OrgsAdminTable() {
         <Flex direction={'column'}>
             <AddMember />
             <DataTable
+                fetching={isLoading}
                 withTableBorder
                 withColumnBorders
                 idAccessor="slug"

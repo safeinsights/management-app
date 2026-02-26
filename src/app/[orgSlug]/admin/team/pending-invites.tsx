@@ -76,7 +76,7 @@ export const PendingUsers: FC<PendingUsersProps> = ({ orgSlug }) => {
                     Pending invitations
                 </Text>
                 {isLoadingPending && <LoadingMessage message="Loading pending invitations…" />}
-                {!pendingUsers.length && (
+                {!isLoadingPending && !pendingUsers.length && (
                     <Text size="sm" c="dimmed">
                         No pending invitations for this organization.
                     </Text>
