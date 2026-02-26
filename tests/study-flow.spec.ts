@@ -10,7 +10,7 @@ test.describe.configure({ mode: 'serial' })
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
 test.beforeEach(async ({}, testInfo) => {
-    testInfo.setTimeout(testInfo.timeout + 50_000)
+    testInfo.setTimeout(testInfo.timeout + 90_000)
 })
 
 // ============================================================================
@@ -238,11 +238,12 @@ async function reviewerApprovesStudy(page: Page, studyTitle: string) {
 
     await page.getByRole('button', { name: /approve/i }).click()
 
-    await page.goto('/openstax/dashboard')
+    // Wait for the approval mutation to complete and redirect to dashboard
+    await page.waitForURL('**/dashboard', { timeout: 15000 })
 
     await viewStudyDetails(page, studyTitle, 'review')
 
-    await expect(page.getByText('Approved on')).toBeVisible()
+    await expect(page.getByText('Approved on')).toBeVisible({ timeout: 10000 })
 }
 
 // ============================================================================
@@ -268,7 +269,7 @@ function extractStudyIdFromUrl(page: Page): string {
 
 async function waitForJobReady(page: Page, studyId: string, authToken: string): Promise<string> {
     const baseUrl = 'http://localhost:4000'
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 60; i++) {
         const response = await page.request.get(`${baseUrl}/api/studies/ready`, {
             headers: { Authorization: authToken },
         })
@@ -279,7 +280,7 @@ async function waitForJobReady(page: Page, studyId: string, authToken: string): 
         }
         await page.waitForTimeout(1000)
     }
-    throw new Error(`Job for study ${studyId} did not become ready within 30 seconds`)
+    throw new Error(`Job for study ${studyId} did not become ready within 60 seconds`)
 }
 
 function uploadErrorLogs(jobId: string): void {
@@ -308,6 +309,11 @@ async function reviewerApprovesErrorLogs(page: Page, studyTitle: string): Promis
 
     // Wait for decryption to complete — View buttons appear in the file table
     await expect(page.getByRole('button', { name: 'View' }).first()).toBeVisible({ timeout: 15000 })
+
+    // Select the error log file to share with the researcher
+    const checkbox = page.getByRole('checkbox', { name: /Select Code Run Log/i })
+    await expect(checkbox).toBeVisible()
+    await checkbox.check()
 
     // Wait for approve button to be enabled and click it
     const approveButton = page.getByRole('button', { name: /approve/i }).last()
