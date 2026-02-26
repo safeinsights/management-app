@@ -1,9 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import {
-    insertTestStudyJobData,
-    mockSessionWithTestData,
-    renderWithProviders,
-} from '@/tests/unit.helpers'
+import { insertTestStudyJobData, mockSessionWithTestData, renderWithProviders } from '@/tests/unit.helpers'
 import StudyAgreementsRoute from './page'
 
 let capturedProps: Record<string, unknown> = {}

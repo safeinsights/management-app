@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderWithProviders, screen, waitFor, userEvent, faker, mockOpenStaxFeatureFlagState } from '@/tests/unit.helpers'
+import {
+    renderWithProviders,
+    screen,
+    waitFor,
+    userEvent,
+    faker,
+    mockOpenStaxFeatureFlagState,
+} from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
 import { CodeUploadPage } from './code-upload'
 import type { CodeFileState } from '@/contexts/shared/file-types'
@@ -106,7 +113,9 @@ describe('CodeUploadPage', () => {
         })
 
         it('initializes context from existing files on mount', () => {
-            renderWithProviders(<CodeUploadPage {...defaultProps} existingMainFile="main.R" existingAdditionalFiles={['helper.R']} />)
+            renderWithProviders(
+                <CodeUploadPage {...defaultProps} existingMainFile="main.R" existingAdditionalFiles={['helper.R']} />,
+            )
 
             expect(mockSetIDECodeFiles).toHaveBeenCalledWith('main.R', ['main.R', 'helper.R'])
         })

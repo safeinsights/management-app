@@ -39,7 +39,13 @@ vi.mock('@/components/page-breadcrumbs', () => ({
 }))
 
 vi.mock('@/components/openstax-feature-flag', () => ({
-    OpenStaxFeatureFlag: ({ defaultContent, optInContent }: { defaultContent: React.ReactNode; optInContent: React.ReactNode }) => (
+    OpenStaxFeatureFlag: ({
+        defaultContent,
+        optInContent,
+    }: {
+        defaultContent: React.ReactNode
+        optInContent: React.ReactNode
+    }) => (
         <>
             <div data-testid="flag-default">{defaultContent}</div>
             <div data-testid="flag-optin">{optInContent}</div>

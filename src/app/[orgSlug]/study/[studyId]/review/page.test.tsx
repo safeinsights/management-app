@@ -25,7 +25,13 @@ vi.mock('./code-review-view', () => ({
 }))
 
 vi.mock('@/components/openstax-feature-flag', () => ({
-    OpenStaxFeatureFlag: ({ defaultContent, optInContent }: { defaultContent: React.ReactNode; optInContent: React.ReactNode }) => (
+    OpenStaxFeatureFlag: ({
+        defaultContent,
+        optInContent,
+    }: {
+        defaultContent: React.ReactNode
+        optInContent: React.ReactNode
+    }) => (
         <>
             <div data-testid="flag-default">{defaultContent}</div>
             <div data-testid="flag-optin">{optInContent}</div>
@@ -51,8 +57,12 @@ describe('StudyReviewPage', () => {
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('flag-default').querySelector('[data-testid="enclave-review-view"]')).toBeInTheDocument()
-        expect(screen.getByTestId('flag-optin').querySelector('[data-testid="proposal-review-view"]')).toBeInTheDocument()
+        expect(
+            screen.getByTestId('flag-default').querySelector('[data-testid="enclave-review-view"]'),
+        ).toBeInTheDocument()
+        expect(
+            screen.getByTestId('flag-optin').querySelector('[data-testid="proposal-review-view"]'),
+        ).toBeInTheDocument()
     })
 
     it('renders CodeReviewView as opt-in for feature-flag enclave org with job', async () => {
@@ -72,6 +82,8 @@ describe('StudyReviewPage', () => {
         const page = await StudyReviewPage({ params: Promise.resolve({ orgSlug: org.slug, studyId: study.id }) })
         renderWithProviders(page!)
 
-        expect(screen.getByTestId('flag-optin').querySelector('[data-testid="proposal-review-view"]')).toBeInTheDocument()
+        expect(
+            screen.getByTestId('flag-optin').querySelector('[data-testid="proposal-review-view"]'),
+        ).toBeInTheDocument()
     })
 })
