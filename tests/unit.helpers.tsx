@@ -1,6 +1,8 @@
 import { db } from '@/database'
 
 import type { Json, Language, StudyJobStatus, StudyStatus } from '@/database/types'
+import { actionResult } from '@/lib/utils'
+import { getStudyAction } from '@/server/actions/study.actions'
 import { CLERK_ADMIN_ORG_SLUG, UserOrgRoles } from '@/lib/types'
 import { Org } from '@/schema/org'
 import { latestJobForStudy } from '@/server/db/queries'
@@ -333,6 +335,28 @@ export const insertTestStudyOnly = async ({
         .returningAll()
         .executeTakeFirstOrThrow()
     return { org, study }
+}
+
+export type { SelectedStudy } from '@/server/actions/study.actions'
+
+export async function setupStudyAction({
+    orgSlug,
+    orgType,
+    createJob = true,
+}: {
+    orgSlug?: string
+    orgType?: 'enclave' | 'lab'
+    createJob?: boolean
+} = {}) {
+    const { org, user } = await mockSessionWithTestData({ orgSlug, orgType })
+    if (createJob) {
+        const { study: dbStudy, latestJobWithStatus } = await insertTestStudyJobData({ org, researcherId: user.id })
+        const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+        return { org, user, study, latestJob: latestJobWithStatus }
+    }
+    const { study: dbStudy } = await insertTestStudyOnly({ org, researcherId: user.id })
+    const study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
+    return { org, user, study, latestJob: null }
 }
 
 export const insertTestStudyJobUsers = async ({

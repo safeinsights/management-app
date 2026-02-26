@@ -1,11 +1,4 @@
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
-import {
-    actionResult,
-    insertTestStudyJobData,
-    mockSessionWithTestData,
-    renderWithProviders,
-    screen,
-} from '@/tests/unit.helpers'
+import { renderWithProviders, screen, setupStudyAction } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { CodeReviewView } from './code-review-view'
 
@@ -34,52 +27,43 @@ vi.mock('./study-review-buttons', () => ({
 }))
 
 describe('CodeReviewView', () => {
-    let study: SelectedStudy
-
-    const setupStudy = async (orgSlug: string) => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'enclave' })
-        const { study: dbStudy } = await insertTestStudyJobData({ org, researcherId: user.id })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-        return { org, orgSlug }
-    }
-
     it('renders Study Code section', async () => {
-        const { orgSlug } = await setupStudy('openstax')
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await CodeReviewView({ orgSlug, study }))
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
     })
 
     it('does NOT render Study Proposal section', async () => {
-        const { orgSlug } = await setupStudy('openstax')
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await CodeReviewView({ orgSlug, study }))
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.queryByTestId('study-details')).not.toBeInTheDocument()
     })
 
     it('renders SecurityScanPanel and StudyResults', async () => {
-        const { orgSlug } = await setupStudy('openstax')
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await CodeReviewView({ orgSlug, study }))
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByTestId('security-scan-panel')).toBeInTheDocument()
         expect(screen.getByTestId('study-results')).toBeInTheDocument()
     })
 
     it('renders StudyReviewButtons', async () => {
-        const { orgSlug } = await setupStudy('openstax')
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await CodeReviewView({ orgSlug, study }))
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByTestId('study-review-buttons')).toBeInTheDocument()
     })
 
     it('renders Previous button linking to Agreements', async () => {
-        const { orgSlug } = await setupStudy('openstax')
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await CodeReviewView({ orgSlug, study }))
+        renderWithProviders(await CodeReviewView({ orgSlug: org.slug, study }))
 
         const previousButton = screen.getByRole('link', { name: /previous/i })
         expect(previousButton).toBeInTheDocument()

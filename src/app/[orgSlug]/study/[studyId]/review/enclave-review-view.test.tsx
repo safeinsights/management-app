@@ -1,13 +1,5 @@
-import { getStudyAction, type SelectedStudy } from '@/server/actions/study.actions'
 import { NotFoundError } from '@/lib/errors'
-import {
-    actionResult,
-    insertTestStudyJobData,
-    insertTestStudyOnly,
-    mockSessionWithTestData,
-    renderWithProviders,
-    screen,
-} from '@/tests/unit.helpers'
+import { renderWithProviders, screen, setupStudyAction } from '@/tests/unit.helpers'
 import { describe, expect, it, vi } from 'vitest'
 import { EnclaveReviewView } from './enclave-review-view'
 
@@ -42,21 +34,10 @@ vi.mock('./study-review-buttons', () => ({
 }))
 
 describe('EnclaveReviewView', () => {
-    let study: SelectedStudy
-
-    const setupStudy = async (orgSlug: string, createJob: boolean) => {
-        const { org, user } = await mockSessionWithTestData({ orgSlug, orgType: 'enclave' })
-        const { study: dbStudy } = createJob
-            ? await insertTestStudyJobData({ org, researcherId: user.id })
-            : await insertTestStudyOnly({ org, researcherId: user.id })
-        study = actionResult(await getStudyAction({ studyId: dbStudy.id }))
-        return { org, orgSlug }
-    }
-
     it('shows feature-flag alert for feature-flag org with no job', async () => {
-        const { orgSlug } = await setupStudy('openstax', false)
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave', createJob: false })
 
-        renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
+        renderWithProviders(await EnclaveReviewView({ orgSlug: org.slug, study }))
 
         const alert = screen.getByTestId('feature-flag-alert')
         expect(alert).toBeInTheDocument()
@@ -66,9 +47,9 @@ describe('EnclaveReviewView', () => {
     })
 
     it('shows full view for feature-flag org with job', async () => {
-        const { orgSlug } = await setupStudy('openstax', true)
+        const { org, study } = await setupStudyAction({ orgSlug: 'openstax', orgType: 'enclave' })
 
-        renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
+        renderWithProviders(await EnclaveReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
         expect(screen.getByTestId('study-results')).toBeInTheDocument()
@@ -77,9 +58,9 @@ describe('EnclaveReviewView', () => {
     })
 
     it('shows full view for non-feature-flag org with job', async () => {
-        const { orgSlug } = await setupStudy('regular-org', true)
+        const { org, study } = await setupStudyAction({ orgSlug: 'regular-org', orgType: 'enclave' })
 
-        renderWithProviders(await EnclaveReviewView({ orgSlug, study }))
+        renderWithProviders(await EnclaveReviewView({ orgSlug: org.slug, study }))
 
         expect(screen.getByTestId('study-code-details')).toBeInTheDocument()
         expect(screen.getByTestId('study-results')).toBeInTheDocument()
@@ -88,8 +69,8 @@ describe('EnclaveReviewView', () => {
     })
 
     it('throws NotFoundError for non-feature-flag org with no job', async () => {
-        const { orgSlug } = await setupStudy('regular-org', false)
+        const { org, study } = await setupStudyAction({ orgSlug: 'regular-org', orgType: 'enclave', createJob: false })
 
-        await expect(EnclaveReviewView({ orgSlug, study })).rejects.toThrow(NotFoundError)
+        await expect(EnclaveReviewView({ orgSlug: org.slug, study })).rejects.toThrow(NotFoundError)
     })
 })
