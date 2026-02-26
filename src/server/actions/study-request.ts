@@ -15,7 +15,7 @@ import {
     storeS3File,
     triggerScanForStudyJob,
 } from '@/server/aws'
-import { CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
+import { CI_ENV, CODER_DISABLED, getConfigValue, SIMULATE_CODE_BUILD } from '@/server/config'
 import { getInfoForStudyId, getInfoForStudyJobId, getOrgIdFromSlug } from '@/server/db/queries'
 import { db as database } from '@/database'
 import { deferred, onStudyCreated } from '@/server/events'
@@ -26,18 +26,18 @@ import { v7 as uuidv7 } from 'uuid'
 import { draftStudyApiSchema } from '@/app/[orgSlug]/study/request/form-schemas'
 
 const simulateJobScan = deferred(async (studyJobId: string) => {
-    await sleep({ 10: 'seconds' })
+    await sleep({ 1: 'seconds' })
     await database.insertInto('jobStatusChange').values({ studyJobId, status: 'CODE-SCANNED' }).execute()
 })
 
 function triggerCodeScan(studyJobId: string, orgSlug: string, studyId: string) {
     if (SIMULATE_CODE_BUILD) {
         simulateJobScan(studyJobId)
-        return
+    } else {
+        triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
+            logger.error('Failed to trigger code scan', err, { studyJobId }),
+        )
     }
-    triggerScanForStudyJob({ studyJobId, orgSlug, studyId }).catch((err) =>
-        logger.error('Failed to trigger code scan', err, { studyJobId }),
-    )
 }
 
 async function addStudyJob(

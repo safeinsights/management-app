@@ -3,10 +3,6 @@ import type { Page } from '@playwright/test'
 import jwt from 'jsonwebtoken'
 import { execSync } from 'child_process'
 
-// re-use the same worker between the tests inside the describe block
-// this ensures they run in order and will share the study title
-test.describe.configure({ mode: 'serial' })
-
 // must use object, see https://playwright.dev/docs/test-fixtures and https://playwright.dev/docs/test-parameterize
 // eslint-disable-next-line no-empty-pattern
 test.beforeEach(async ({}, testInfo) => {
@@ -397,6 +393,7 @@ async function resubmitCodeViaFileUpload(page: Page, mainCodeFile: string): Prom
 
 test('Study creation via file upload', async ({ page, studyFeatures }) => {
     const studyTitle = studyFeatures.studyTitle
+    let studyId: string
 
     await test.step('researcher fills proposal and selects language', async () => {
         await fillProposalAndSelectLanguage(page, studyTitle)
@@ -415,6 +412,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
         await page.goto('/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
         await verifyStudyFileDownloads(page, 'tests/assets/empty.pdf')
+        studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('reviewer approves study', async () => {
@@ -424,15 +422,8 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
     await test.step('simulate job failure with error logs', async () => {
         const authToken = await createOrgAuthToken('openstax')
 
-        // Navigate to study to get study ID
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await viewStudyDetails(page, studyTitle)
-        const studyId = extractStudyIdFromUrl(page)
-
-        // Wait for job to be ready and get job ID
         const jobId = await waitForJobReady(page, studyId, authToken)
 
-        // Upload error logs (sets status to JOB-ERRORED)
         uploadErrorLogs(jobId)
     })
 
@@ -452,6 +443,7 @@ test('Study creation via file upload', async ({ page, studyFeatures }) => {
 
 test('Study creation via IDE', async ({ page, studyFeatures }) => {
     const studyTitle = `${studyFeatures.studyTitle} - IDE`
+    let studyId: string
 
     await test.step('researcher fills proposal and selects language', async () => {
         await fillProposalAndSelectLanguage(page, studyTitle)
@@ -469,6 +461,7 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('researcher verifies study in dashboard', async () => {
         await page.goto('/openstax-lab/dashboard')
         await viewStudyDetails(page, studyTitle)
+        studyId = extractStudyIdFromUrl(page)
     })
 
     await test.step('reviewer approves study', async () => {
@@ -478,15 +471,8 @@ test('Study creation via IDE', async ({ page, studyFeatures }) => {
     await test.step('simulate job failure with error logs', async () => {
         const authToken = await createOrgAuthToken('openstax')
 
-        // Navigate to study to get study ID
-        await visitClerkProtectedPage({ page, role: 'researcher', url: '/openstax-lab/dashboard' })
-        await viewStudyDetails(page, studyTitle)
-        const studyId = extractStudyIdFromUrl(page)
-
-        // Wait for job to be ready and get job ID
         const jobId = await waitForJobReady(page, studyId, authToken)
 
-        // Upload error logs (sets status to JOB-ERRORED)
         uploadErrorLogs(jobId)
     })
 
