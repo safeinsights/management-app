@@ -7,6 +7,7 @@ import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
+import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
 
 export default async function StudyAgreementsRoute(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
@@ -26,6 +27,11 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+            redirect(Routes.studyReview({ orgSlug, studyId }))
+        }
+
         return (
             <Stack p="xl" gap="xl">
                 <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
@@ -38,6 +44,10 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
                 />
             </Stack>
         )
+    }
+
+    if (study.status !== 'APPROVED') {
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
     return (
