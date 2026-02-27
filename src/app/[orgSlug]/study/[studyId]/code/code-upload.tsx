@@ -8,6 +8,7 @@ import { CaretLeftIcon, LightbulbIcon } from '@phosphor-icons/react'
 import { Language } from '@/database/types'
 import { Routes } from '@/lib/routes'
 import { OpenStaxOnly, isOpenStaxOrg } from '@/components/openstax-only'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { useStudyRequest } from '@/contexts/study-request'
 import { useWorkspaceLauncher } from '@/hooks/use-workspace-launcher'
 import { LaunchIDEButton, OrDivider, UploadFilesButton } from '@/components/study/study-upload-buttons'
@@ -36,8 +37,19 @@ export function CodeUploadPage({
     const [isModalOpen, { open: openModal, close: closeModal }] = useDisclosure(false)
     const [isAlertVisible, setIsAlertVisible] = useDisclosure(true)
 
+    const isNewFlow = useOpenStaxFeatureFlag()
+
     // Context
-    const { codeFiles, codeUploadViewMode, canProceedToReview, setStudyId, setCodeUploadViewMode } = useStudyRequest()
+    const {
+        codeFiles,
+        codeUploadViewMode,
+        canProceedToReview,
+        setStudyId,
+        setIDECodeFiles,
+        setCodeUploadViewMode,
+        submitStudy,
+        isSubmitting,
+    } = useStudyRequest()
 
     // IDE launcher
     const {
@@ -55,6 +67,10 @@ export function CodeUploadPage({
     // Initialize context from server data on mount
     useEffect(() => {
         setStudyId(studyId)
+
+        if (existingMainFile && !codeFiles.mainFile) {
+            setIDECodeFiles(existingMainFile, [existingMainFile, ...(existingAdditionalFiles ?? [])])
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [studyId])
 
@@ -65,12 +81,20 @@ export function CodeUploadPage({
         launchWorkspace()
     }
 
-    const handleProceedToReview = () => {
-        router.push(Routes.studyReview({ orgSlug: submittingOrgSlug, studyId }))
+    const handleProceed = () => {
+        if (isNewFlow) {
+            submitStudy()
+        } else {
+            router.push(Routes.studyReview({ orgSlug: submittingOrgSlug, studyId }))
+        }
     }
 
-    const handleBackToEdit = () => {
-        router.push(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+    const handleGoBack = () => {
+        if (isNewFlow) {
+            router.push(Routes.studyAgreements({ orgSlug: submittingOrgSlug, studyId }))
+        } else {
+            router.push(Routes.studyEdit({ orgSlug: submittingOrgSlug, studyId }))
+        }
     }
 
     const handleBackToUpload = () => {
@@ -82,14 +106,19 @@ export function CodeUploadPage({
         closeModal()
     }
 
+    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
+    const proceedLabel = isNewFlow ? 'Submit code' : 'Proceed to review'
+
     // Show review mode if files are selected
     if (codeUploadViewMode === 'review' && codeFiles.mainFile) {
         return (
             <>
                 <CodeFilesReview
                     onBack={handleBackToUpload}
-                    onProceed={handleProceedToReview}
+                    onProceed={handleProceed}
                     onOpenUploadModal={openModal}
+                    isNewFlow={isNewFlow}
+                    isSubmitting={isSubmitting}
                 />
                 <CodeUploadModal
                     isOpen={isModalOpen}
@@ -107,7 +136,7 @@ export function CodeUploadPage({
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 4 OF 5
+                    {stepLabel}
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -175,27 +204,20 @@ export function CodeUploadPage({
                 )}
             </Paper>
 
-            <Group mt="xxl" style={{ width: '100%' }}>
-                <Group style={{ marginLeft: 'auto' }}>
-                    <Button
-                        type="button"
-                        size="md"
-                        variant="subtle"
-                        onClick={handleBackToEdit}
-                        leftSection={<CaretLeftIcon />}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="primary"
-                        size="md"
-                        disabled={!canProceedToReview && !existingMainFile}
-                        onClick={handleProceedToReview}
-                    >
-                        Proceed to review
-                    </Button>
-                </Group>
+            <Group mt="xxl" justify={isNewFlow ? 'space-between' : 'flex-end'} style={{ width: '100%' }}>
+                <Button type="button" size="md" variant="subtle" onClick={handleGoBack} leftSection={<CaretLeftIcon />}>
+                    Previous
+                </Button>
+                <Button
+                    type="button"
+                    variant="primary"
+                    size="md"
+                    disabled={!canProceedToReview && !existingMainFile}
+                    loading={isNewFlow && isSubmitting}
+                    onClick={handleProceed}
+                >
+                    {proceedLabel}
+                </Button>
             </Group>
 
             <CodeUploadModal

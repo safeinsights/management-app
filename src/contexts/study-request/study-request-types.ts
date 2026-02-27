@@ -64,7 +64,7 @@ export interface StudyRequestContextValue {
     saveDraft: (options?: MutationOptions) => void
     isSaving: boolean
 
-    submitStudy: () => void
+    submitStudy: (options?: { onSettled?: () => void }) => void
     isSubmitting: boolean
 }
 

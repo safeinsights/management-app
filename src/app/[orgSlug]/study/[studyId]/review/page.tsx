@@ -3,8 +3,11 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { isActionError } from '@/lib/errors'
+import { isFeatureFlagOrg } from '@/lib/org'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
+import { latestJobForStudyOrNull } from '@/server/db/queries'
+import { CodeReviewView } from './code-review-view'
 import { EnclaveReviewView } from './enclave-review-view'
 import { LabReviewView } from './lab-review-view'
 import { ProposalReviewView } from './proposal-review-view'
@@ -34,10 +37,17 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
+        let optInContent = <ProposalReviewView orgSlug={orgSlug} study={study} />
+        if (isFeatureFlagOrg(orgSlug)) {
+            const job = await latestJobForStudyOrNull(study.id)
+            if (job) {
+                optInContent = <CodeReviewView orgSlug={orgSlug} study={study} />
+            }
+        }
         return (
             <OpenStaxFeatureFlag
                 defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={optInContent}
             />
         )
     }

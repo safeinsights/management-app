@@ -2,6 +2,7 @@
 
 import { useIDEFiles } from '@/hooks/use-ide-files'
 import { useLoadingMessages } from '@/hooks/use-loading-messages'
+import { useOpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
 import { Box, Button, Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
 import { ArrowSquareOutIcon, CaretLeftIcon, WarningCircleIcon } from '@phosphor-icons/react/dist/ssr'
 import { CompactStatusButton } from './compact-status-button'
@@ -17,6 +18,7 @@ interface StudyCodeFromIDEProps {
 export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFromIDEProps) => {
     const ide = useIDEFiles({ studyId, orgSlug })
     const { messageWithEllipsis } = useLoadingMessages(ide.isLaunching)
+    const isNewFlow = useOpenStaxFeatureFlag()
 
     let launchButton = (
         <Button variant="outline" rightSection={<ArrowSquareOutIcon size={16} />} onClick={ide.launchWorkspace}>
@@ -56,13 +58,17 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
         )
     }
 
+    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 5 of 5'
+    const proceedLabel = isNewFlow ? 'Submit code' : 'Save and proceed to review'
+    const handleProceed = isNewFlow ? ide.submitDirectly : ide.proceedToReview
+
     return (
         <>
             <Title order={1}>Select files to submit</Title>
 
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 5 of 5
+                    {stepLabel}
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -82,8 +88,13 @@ export const StudyCodeFromIDE = ({ studyId, orgSlug, studyOrgSlug }: StudyCodeFr
                     Back to upload
                 </Button>
 
-                <Button variant="primary" disabled={!ide.canSubmit} onClick={ide.proceedToReview}>
-                    Save and proceed to review
+                <Button
+                    variant="primary"
+                    disabled={!ide.canSubmit}
+                    loading={ide.isDirectSubmitting}
+                    onClick={handleProceed}
+                >
+                    {proceedLabel}
                 </Button>
             </Group>
         </>

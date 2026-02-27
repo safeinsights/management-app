@@ -25,7 +25,7 @@ export interface UseSubmitStudyOptions {
 }
 
 export interface UseSubmitStudyReturn {
-    submitStudy: () => void
+    submitStudy: (options?: { onSettled?: () => void }) => void
     isSubmitting: boolean
 }
 
@@ -137,9 +137,12 @@ export function useSubmitStudy({
         },
     })
 
-    const submitStudy = useCallback(() => {
-        mutation.mutate()
-    }, [mutation])
+    const submitStudy = useCallback(
+        (options?: { onSettled?: () => void }) => {
+            mutation.mutate(undefined, { onSettled: options?.onSettled })
+        },
+        [mutation],
+    )
 
     return {
         submitStudy,

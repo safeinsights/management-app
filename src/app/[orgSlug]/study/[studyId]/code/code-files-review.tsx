@@ -23,6 +23,8 @@ interface CodeFilesReviewProps {
     onProceed: () => void
     onOpenUploadModal: () => void
     isSaving?: boolean
+    isNewFlow?: boolean
+    isSubmitting?: boolean
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -78,6 +80,8 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
     onProceed,
     onOpenUploadModal,
     isSaving = false,
+    isNewFlow = false,
+    isSubmitting = false,
 }) => {
     const { codeFiles, codeFilesLastUpdated, removeCodeFile, setMainCodeFile } = useStudyRequest()
 
@@ -114,11 +118,15 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
         ?.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })
         .toLowerCase()
 
+    const stepLabel = isNewFlow ? 'STEP 4 of 4' : 'STEP 4 of 5'
+    const isLoading = isSaving || (isNewFlow && isSubmitting)
+    const proceedLabel = isNewFlow ? 'Submit code' : 'Save and proceed to review'
+
     return (
         <>
             <Paper p="xl">
                 <Text fz="sm" fw={700} c="gray.6" pb="sm">
-                    STEP 4 OF 5
+                    {stepLabel}
                 </Text>
                 <Title order={4}>Study code</Title>
                 <Divider my="sm" mt="sm" mb="md" />
@@ -187,10 +195,10 @@ export const CodeFilesReview: FC<CodeFilesReviewProps> = ({
                         variant="primary"
                         size="md"
                         disabled={!selectedMainFile || allFiles.length === 0 || isSaving}
-                        loading={isSaving}
+                        loading={isLoading}
                         onClick={handleProceed}
                     >
-                        Save and proceed to review
+                        {proceedLabel}
                     </Button>
                 </Group>
             </Group>

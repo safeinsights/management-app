@@ -3,6 +3,7 @@
 import { AccessDeniedAlert, AlertNotFound } from '@/components/errors'
 import { OrgBreadcrumbs, ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { isActionError } from '@/lib/errors'
+import { isFeatureFlagOrg } from '@/lib/org'
 import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
@@ -40,13 +41,19 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
+    const defaultProceedHref = Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })
+    const featureFlagProceedHref = isFeatureFlagOrg(study.submittedByOrgSlug)
+        ? Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })
+        : undefined
+
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={defaultProceedHref}
+                featureFlagProceedHref={featureFlagProceedHref}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />

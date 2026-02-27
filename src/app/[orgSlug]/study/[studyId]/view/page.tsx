@@ -1,6 +1,6 @@
 import { AlertNotFound } from '@/components/errors'
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
-import { latestJobForStudy, type LatestJobForStudy } from '@/server/db/queries'
+import { latestJobForStudyOrNull } from '@/server/db/queries'
 import { StudyDetails } from '@/components/study/study-details'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { Divider, Group, Paper, Stack, Text, Title } from '@mantine/core'
@@ -10,19 +10,8 @@ import { JobResultsStatusMessage } from './job-results-status-message'
 import { actionResult } from '@/lib/utils'
 import { extractJobStatus } from '@/hooks/use-job-results-status'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
-import { NotFoundError } from '@/lib/errors'
-
-// TEMP FIX: Prevents error on viewing studies created with the new flow (no code = no job)
-// Targeted catch for NotFoundError (the specific error executeTakeFirstOrThrow produces when no job row exists)
-// Any other error should be rethrown
-async function getLatestJob(studyId: string): Promise<LatestJobForStudy | null> {
-    try {
-        return await latestJobForStudy(studyId)
-    } catch (error) {
-        if (error instanceof NotFoundError) return null
-        throw error
-    }
-}
+import { OpenStaxFeatureFlag } from '@/components/openstax-feature-flag'
+import { CodeOnlyView } from './code-only-view'
 
 export default async function StudyReviewPage(props: { params: Promise<{ studyId: string; orgSlug: string }> }) {
     const { studyId, orgSlug } = await props.params
@@ -34,7 +23,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    const job = await getLatestJob(studyId)
+    const job = await latestJobForStudyOrNull(studyId)
 
     const { isApproved, isErrored, isRejected } = job
         ? extractJobStatus(job.statusChanges)
@@ -43,7 +32,7 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
     const isStatusFocused = (isApproved && isErrored) || isRejected || isApproved
     const opacity = isStatusFocused ? 0.6 : 1
 
-    return (
+    const defaultContent = (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs
                 crumbs={{
@@ -98,4 +87,8 @@ export default async function StudyReviewPage(props: { params: Promise<{ studyId
             </Paper>
         </Stack>
     )
+
+    const optInContent = job ? <CodeOnlyView orgSlug={orgSlug} study={study} job={job} /> : defaultContent
+
+    return <OpenStaxFeatureFlag defaultContent={defaultContent} optInContent={optInContent} />
 }
