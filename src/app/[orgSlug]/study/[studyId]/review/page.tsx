@@ -34,10 +34,17 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+
         return (
             <OpenStaxFeatureFlag
                 defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={
+                    codeSubmitted
+                        ? <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                        : <ProposalReviewView orgSlug={orgSlug} study={study} />
+                }
             />
         )
     }
