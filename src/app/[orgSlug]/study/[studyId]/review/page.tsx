@@ -41,9 +41,11 @@ export default async function StudyReviewPage(props: {
             <OpenStaxFeatureFlag
                 defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
                 optInContent={
-                    codeSubmitted
-                        ? <EnclaveReviewView orgSlug={orgSlug} study={study} />
-                        : <ProposalReviewView orgSlug={orgSlug} study={study} />
+                    codeSubmitted ? (
+                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                    ) : (
+                        <ProposalReviewView orgSlug={orgSlug} study={study} />
+                    )
                 }
             />
         )
