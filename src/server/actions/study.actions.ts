@@ -171,9 +171,7 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
     .requireAbilityTo('approve', 'Study')
     .handler(async ({ params: { studyId, orgSlug, useTestImage }, study, session, db }) => {
         const userId = session.user.id
-
-        // nothing to do if already approved
-        if (study.status == 'APPROVED') return
+        const alreadyApproved = study.status === 'APPROVED'
 
         const latestJob = await db
             .selectFrom('studyJob')
@@ -182,8 +180,15 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
             .orderBy('createdAt', 'desc')
             .executeTakeFirst()
 
+        if (alreadyApproved && !latestJob) return
+
         if (latestJob) {
             const job = await latestJobForStudy(studyId)
+
+            if (alreadyApproved) {
+                const latestJobStatus = job.statusChanges.at(0)?.status
+                if (latestJobStatus !== 'CODE-SCANNED') return
+            }
 
             let status: StudyJobStatus = 'CODE-APPROVED'
 
@@ -227,13 +232,15 @@ export const approveStudyProposalAction = new Action('approveStudyProposalAction
                 .executeTakeFirstOrThrow()
         }
 
-        await db
-            .updateTable('study')
-            .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
-            .where('id', '=', studyId)
-            .execute()
+        if (!alreadyApproved) {
+            await db
+                .updateTable('study')
+                .set({ status: 'APPROVED', approvedAt: new Date(), rejectedAt: null, reviewerId: userId })
+                .where('id', '=', studyId)
+                .execute()
 
-        onStudyApproved({ studyId, userId })
+            onStudyApproved({ studyId, userId })
+        }
     })
 
 export const rejectStudyProposalAction = new Action('rejectStudyProposalAction', { performsMutations: true })

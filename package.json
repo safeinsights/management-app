@@ -135,6 +135,7 @@
     },
     "overrides": {
         "@types/react": "19.2.10",
-        "minimatch": "^10.2.1"
+        "minimatch": "^10.2.1",
+        "serialize-javascript": "^7.0.3"
     }
 }

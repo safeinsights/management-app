@@ -41,9 +41,12 @@ export const StudyReviewButtons: FC<{ study: SelectedStudy }> = ({ study }) => {
         },
     })
 
-    if (study.status === 'APPROVED' || study.status === 'REJECTED') {
-        return null // do not show buttons if the study is already approved or rejected
-    }
+    if (study.status === 'REJECTED') return null
+
+    const latestJobStatus = study.jobStatusChanges?.at(0)?.status
+    const codeNeedsReview = latestJobStatus === 'CODE-SCANNED'
+
+    if (study.status === 'APPROVED' && !codeNeedsReview) return null
 
     return (
         <Stack>

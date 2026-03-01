@@ -7,6 +7,7 @@ import { Routes } from '@/lib/routes'
 import { getStudyAction } from '@/server/actions/study.actions'
 import { sessionFromClerk } from '@/server/clerk'
 import { Stack, Title } from '@mantine/core'
+import { redirect } from 'next/navigation'
 import { AgreementsPage } from './agreements-page'
 
 export default async function StudyAgreementsRoute(props: { params: Promise<{ orgSlug: string; studyId: string }> }) {
@@ -26,6 +27,11 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+            redirect(Routes.studyReview({ orgSlug, studyId }))
+        }
+
         return (
             <Stack p="xl" gap="xl">
                 <OrgBreadcrumbs crumbs={{ orgSlug, current: 'Agreements' }} />
@@ -40,13 +46,18 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
+    const hasJobActivity = study.jobStatusChanges.length > 0
+    if (study.status !== 'APPROVED' || hasJobActivity) {
+        redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
+    }
+
     return (
         <Stack p="xl" gap="xl">
             <ResearcherBreadcrumbs crumbs={{ orgSlug, studyId, current: 'Agreements' }} />
             <Title order={1}>Study request</Title>
             <AgreementsPage
                 isReviewer={false}
-                proceedHref={Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId })}
+                proceedHref={Routes.studyCode({ orgSlug: study.submittedByOrgSlug, studyId })}
                 // TODO: update previousHref when card 392 is implemented
                 previousHref={Routes.studyEdit({ orgSlug: study.submittedByOrgSlug, studyId })}
             />
