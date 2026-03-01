@@ -34,8 +34,9 @@ function ResearcherLink({
         )
     }
 
+    const hasJobActivity = study.jobStatusChanges.length > 0
     const href =
-        isNewFlow && study.status === 'APPROVED'
+        isNewFlow && study.status === 'APPROVED' && !hasJobActivity
             ? Routes.studyAgreements({ orgSlug: labSlug, studyId: study.id })
             : Routes.studyView({ orgSlug: labSlug, studyId: study.id })
 

@@ -22,7 +22,7 @@ interface CodeUploadPageProps {
     language: Language
     existingMainFile?: string | null
     existingAdditionalFiles?: string[]
-    previousHref: string
+    previousHref: Route
 }
 
 export function CodeUploadPage({
@@ -73,7 +73,7 @@ export function CodeUploadPage({
     }
 
     const handleBackToPrevious = () => {
-        router.push(previousHref as Route)
+        router.push(previousHref)
     }
 
     const handleBackToUpload = () => {

@@ -46,7 +46,8 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
         )
     }
 
-    if (study.status !== 'APPROVED') {
+    const hasJobActivity = study.jobStatusChanges.length > 0
+    if (study.status !== 'APPROVED' || hasJobActivity) {
         redirect(Routes.studyView({ orgSlug: study.submittedByOrgSlug, studyId }))
     }
 
