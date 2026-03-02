@@ -1,6 +1,12 @@
 import { useQuery } from '@/common'
 import { useDecryptFiles, type EncryptedJobFile } from '@/hooks/use-decrypt-files'
-import { ENCRYPTED_TO_APPROVED, isApprovedLogType, isEncryptedLogType, logLabel } from '@/lib/file-type-helpers'
+import {
+    ENCRYPTED_TO_APPROVED,
+    isApprovedLogType,
+    isEncryptedLogType,
+    isResultFile,
+    logLabel,
+} from '@/lib/file-type-helpers'
 import { toSentence } from '@/lib/string'
 import type { JobFile, JobFileInfo } from '@/lib/types'
 import { fetchApprovedJobFilesAction, fetchEncryptedJobFilesAction } from '@/server/actions/study-job.actions'
@@ -74,7 +80,7 @@ export function useEncryptedFilesPanel({ job, onFilesApproved }: Options) {
         encryptedFiles: encryptedFiles as EncryptedJobFile[] | undefined,
         onSuccess: (files) => {
             setDecryptedFiles(files)
-            setSelectedPaths(new Set(files.filter((f) => f.fileType === 'ENCRYPTED-RESULT').map((f) => f.path)))
+            setSelectedPaths(new Set(files.filter(isResultFile).map((f) => f.path)))
         },
     })
 

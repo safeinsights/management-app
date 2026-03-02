@@ -42,6 +42,10 @@ export function isApprovedLogType(fileType: FileType): boolean {
     return APPROVED_LOG_TYPES.includes(fileType)
 }
 
+export function isResultFile(f: { fileType: FileType }): boolean {
+    return ['ENCRYPTED-RESULT', 'APPROVED-RESULT'].includes(f.fileType)
+}
+
 export function isLogType(fileType: FileType): boolean {
     return isEncryptedLogType(fileType) || isApprovedLogType(fileType)
 }

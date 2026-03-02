@@ -120,7 +120,13 @@ describe('EncryptedFilesPanel', () => {
             expect(screen.getByText('Results')).toBeDefined()
             expect(screen.getByRole('button', { name: 'View' })).toBeDefined()
             expect(screen.getByTestId('download-link')).toBeDefined()
-            expect(onFilesApproved).toHaveBeenCalled()
+            expect(onFilesApproved).toHaveBeenLastCalledWith([
+                expect.objectContaining({
+                    path: 'results.csv',
+                    fileType: 'APPROVED-RESULT',
+                    sourceId: '123',
+                }),
+            ])
         })
     })
 
