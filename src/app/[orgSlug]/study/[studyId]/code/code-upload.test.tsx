@@ -8,6 +8,7 @@ import {
     mockOpenStaxFeatureFlagState,
 } from '@/tests/unit.helpers'
 import { memoryRouter } from 'next-router-mock'
+import type { Route } from 'next'
 import { CodeUploadPage } from './code-upload'
 import type { CodeFileState } from '@/contexts/shared/file-types'
 
@@ -65,7 +66,7 @@ const defaultProps = {
     orgSlug: 'test-org',
     submittingOrgSlug: 'test-org',
     language: 'R' as const,
-    previousHref: '/test-org/study/123/agreements' as const,
+    previousHref: '/test-org/study/123/agreements' as Route,
 }
 
 describe('CodeUploadPage', () => {
@@ -148,7 +149,7 @@ describe('CodeUploadPage', () => {
 
         it('Previous button navigates to previousHref', async () => {
             const user = userEvent.setup()
-            const editHref = '/test-org/study/123/edit' as const
+            const editHref = '/test-org/study/123/edit' as Route
             renderWithProviders(<CodeUploadPage {...defaultProps} previousHref={editHref} />)
 
             await user.click(screen.getByRole('button', { name: /previous/i }))

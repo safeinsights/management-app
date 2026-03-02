@@ -1,9 +1,9 @@
 import { ResearcherBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
+import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Button, Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import Link from 'next/link'
 import { JobResultsStatusMessage } from './job-results-status-message'
 import type { LatestJobForStudy } from '@/server/db/queries'
 import type { SelectedStudy } from '@/server/actions/study.actions'
@@ -51,14 +51,13 @@ export function CodeOnlyView({ orgSlug, study, job }: CodeOnlyViewProps) {
                 </Stack>
             </Paper>
             <Group>
-                <Button
-                    component={Link}
+                <ButtonLink
                     href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
                     variant="subtle"
                     leftSection={<CaretLeftIcon />}
                 >
                     Previous
-                </Button>
+                </ButtonLink>
             </Group>
         </Stack>
     )

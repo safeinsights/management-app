@@ -36,8 +36,9 @@ export default async function StudyReviewPage(props: {
     }
 
     if (currentOrg.type === 'enclave') {
-        const latestJobStatus = study.jobStatusChanges.at(0)?.status
-        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
+        )
 
         let optInContent = <ProposalReviewView orgSlug={orgSlug} study={study} />
         if (isFeatureFlagOrg(orgSlug) && codeSubmitted) {

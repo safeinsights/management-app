@@ -1,10 +1,10 @@
 import { OrgBreadcrumbs } from '@/components/page-breadcrumbs'
 import { StudyCodeDetails } from '@/components/study/study-code-details'
 import { latestJobForStudy } from '@/server/db/queries'
+import { ButtonLink } from '@/components/links'
 import { Routes } from '@/lib/routes'
-import { Button, Divider, Group, Paper, Stack, Title } from '@mantine/core'
+import { Divider, Group, Paper, Stack, Title } from '@mantine/core'
 import { CaretLeftIcon } from '@phosphor-icons/react/dist/ssr'
-import Link from 'next/link'
 import { SecurityScanPanel } from './security-scan-panel'
 import { StudyResults } from './study-results'
 import { StudyReviewButtons } from './study-review-buttons'
@@ -45,14 +45,13 @@ export async function CodeReviewView({ orgSlug, study }: CodeReviewViewProps) {
             <StudyResults job={job} />
             <StudyReviewButtons study={study} />
             <Group>
-                <Button
-                    component={Link}
+                <ButtonLink
                     href={Routes.studyAgreements({ orgSlug, studyId: study.id })}
                     variant="subtle"
                     leftSection={<CaretLeftIcon />}
                 >
                     Previous
-                </Button>
+                </ButtonLink>
             </Group>
         </Stack>
     )

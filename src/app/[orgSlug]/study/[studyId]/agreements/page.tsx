@@ -27,8 +27,10 @@ export default async function StudyAgreementsRoute(props: { params: Promise<{ or
     const isReviewer = currentOrg.type === 'enclave'
 
     if (isReviewer) {
-        const latestJobStatus = study.jobStatusChanges.at(0)?.status
-        if (latestJobStatus !== 'CODE-SCANNED' && latestJobStatus !== 'CODE-SUBMITTED') {
+        const codeSubmitted = study.jobStatusChanges.some(
+            (s) => s.status === 'CODE-SUBMITTED' || s.status === 'CODE-SCANNED',
+        )
+        if (!codeSubmitted) {
             redirect(Routes.studyReview({ orgSlug, studyId }))
         }
 
