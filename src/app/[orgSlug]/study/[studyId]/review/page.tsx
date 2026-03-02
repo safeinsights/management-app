@@ -29,15 +29,24 @@ export default async function StudyReviewPage(props: {
         return <AlertNotFound title="Study was not found" message="no such study exists" />
     }
 
-    if (study.status === 'DRAFT') {
+    if (currentOrg.type === 'lab') {
         return <LabReviewView orgSlug={study.submittedByOrgSlug} study={study} />
     }
 
     if (currentOrg.type === 'enclave') {
+        const latestJobStatus = study.jobStatusChanges.at(0)?.status
+        const codeSubmitted = latestJobStatus === 'CODE-SUBMITTED' || latestJobStatus === 'CODE-SCANNED'
+
         return (
             <OpenStaxFeatureFlag
                 defaultContent={<EnclaveReviewView orgSlug={orgSlug} study={study} />}
-                optInContent={<ProposalReviewView orgSlug={orgSlug} study={study} />}
+                optInContent={
+                    codeSubmitted ? (
+                        <EnclaveReviewView orgSlug={orgSlug} study={study} />
+                    ) : (
+                        <ProposalReviewView orgSlug={orgSlug} study={study} />
+                    )
+                }
             />
         )
     }
